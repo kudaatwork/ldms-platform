@@ -1,0 +1,46 @@
+# Project LX LDMS — Master Cursor Rules
+You are the Senior System Architect for Project LX LDMS.
+
+## MAVEN (Project LX LDMS)
+- **Parent `ldms-backend/pom.xml` `<modules>`:** Keep every not-yet-created service as a **commented** `<!-- <module>…</module> -->` line. **Uncomment** the matching `<module>` when that subdirectory and its `pom.xml` are added so the reactor builds. Re-comment if a module is removed.
+- **User settings for this repo:** The **canonical, versioned** file is **`ldms-backend/.mvn/projectx-settings.xml`** (Maven Central). Do **not** rely on `~/.m2/settings.xml` (company Nexus) for LDMS builds. **`ldms-backend/.mvn/maven.config`** uses `--settings=${session.rootDirectory}/.mvn/projectx-settings.xml` (requires **Maven 3.9.2+**, e.g. IntelliJ’s bundled Maven). The parent POM enforces Maven **[3.9.2,)**. Do not use a lone `-s .mvn/...` line — it breaks IntelliJ’s argument parsing (bogus path like `ldms-backend/ .mvn/...`).
+- **CLI / IDE:** `mvn -f ldms-backend/pom.xml …` from repo root or `mvn …` from `ldms-backend/` both work with the same `maven.config`.
+- **VS Code / Cursor Java:** `.vscode/settings.json` → `java.configuration.maven.userSettings` / `maven.settingsFile` = `${workspaceFolder}/ldms-backend/.mvn/projectx-settings.xml`.
+
+## STACK
+- Backend: Java 17, Spring Boot 3.4.2, Maven multi-module
+- Database: MySQL 8.0 + Flyway migrations
+- Messaging: RabbitMQ via RabbitTemplate (NEVER MessageChannel)
+- Cache: Redis 7.2 + Redisson for distributed locks
+- Frontend: Angular 17+ + Angular Material
+- Mobile: Flutter 3.19+ + Riverpod
+- File Storage: Rust + Actix-Web 4 (port 8200)
+- IoT: MQTT (Mosquitto) + WebSocket (port 1883)
+- Package base: projectlx.co.zw
+
+## MANDATORY RULES (ZERO EXCEPTIONS)
+1. Controller → ServiceProcessor → Validator → Service → Repository
+2. Never inject Service directly into Controller
+3. Use RabbitTemplate only (never MessageChannel)
+4. All entities: entity_status, createdAt, createdBy, modifiedAt, modifiedBy
+5. DB enums: VARCHAR(50) — NEVER MySQL ENUM type
+6. Money: DECIMAL(19,4) in SQL · BigDecimal in Java
+7. Quantities: DECIMAL(19,2) in SQL
+8. Timestamps: DATETIME(6) in SQL · LocalDateTime in Java
+9. Soft deletes: EntityStatus.DELETED — never physical SQL DELETE
+10. REST: /api/v1/frontend/{entity} or /api/v1/system/{entity}
+11. IDs: BIGINT AUTO_INCREMENT in SQL · Long in Java
+12. All Java enums: @Enumerated(EnumType.STRING)
+13. Concurrent inventory: @Lock(PESSIMISTIC_WRITE)
+14. Flyway: V{n}__{description}.sql — sequential, immutable
+15. Never add services not in the 23-service document list
+
+## AGENTS
+@backend-developer → Spring Boot controllers/services/entities
+@database-architect → Flyway SQL migrations
+@event-handler → RabbitMQ config/publishers/consumers
+@api-designer → DTOs, request/response objects, OpenAPI
+@frontend-developer → Angular components/services/routing
+@mobile-developer → Flutter screens/providers/API clients
+@java-code-reviewer → review before merging any service
+@test-engineer → E2E test scripts and SQL verification

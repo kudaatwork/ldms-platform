@@ -1,0 +1,24 @@
+server:
+  port: 8888
+
+spring:
+  security:
+    user:
+      name: admin
+      # Override in env for non-local (e.g. export CONFIG_SERVER_PASSWORD=...). Default allows IDE/local run without env.
+      password: ${CONFIG_SERVER_PASSWORD:changeme}
+  cloud:
+    config:
+      enabled: false
+      server:
+        git:
+          uri: file://${user.home}/ldms-config-repo
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when_authorized

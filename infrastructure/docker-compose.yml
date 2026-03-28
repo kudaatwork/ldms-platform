@@ -1,0 +1,76 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: ldms-mysql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ldms_platform
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - ldms-network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: ldms-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    networks:
+      - ldms-network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: ldms-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ldms-network
+
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: ldms-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    networks:
+      - ldms-network
+
+  zipkin:
+    image: openzipkin/zipkin:latest
+    container_name: ldms-zipkin
+    restart: unless-stopped
+    ports:
+      - "9411:9411"
+    networks:
+      - ldms-network
+
+networks:
+  ldms-network:
+    name: ldms-network
+    driver: bridge
+
+volumes:
+  mysql_data:
+    name: ldms-mysql-data
+  redis_data:
+    name: ldms-redis-data

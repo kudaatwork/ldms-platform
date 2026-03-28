@@ -1,0 +1,6 @@
+{
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.configuration.maven.userSettings": "${workspaceFolder}/ldms-backend/.mvn/projectx-settings.xml",
+    "maven.settingsFile": "${workspaceFolder}/ldms-backend/.mvn/projectx-settings.xml",
+    "maven.terminal.useJavaHome": true
+}
