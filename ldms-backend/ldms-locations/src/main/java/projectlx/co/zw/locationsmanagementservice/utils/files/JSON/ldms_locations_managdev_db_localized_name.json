@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "created_at": "2025-08-11 08:49:18.402365",
+    "entity_status": "ACTIVE",
+    "updated_at": null,
+    "value": "Zimbabwe",
+    "country_id": 195,
+    "district_id": null,
+    "language_id": 1,
+    "province_id": null,
+    "suburb_id": null
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "created_at": "2025-08-11 07:58:49.284251",
+    "entity_status": "ACTIVE",
+    "is_default": true,
+    "iso_code": "en",
+    "name": "English",
+    "native_name": "English",
+    "updated_at": null
+  },
+  {
+    "id": 2,
+    "created_at": "2025-08-11 07:59:10.155934",
+    "entity_status": "ACTIVE",
+    "is_default": false,
+    "iso_code": "sn",
+    "name": "Shona",
+    "native_name": "ChiShona",
+    "updated_at": null
+  },
+  {
+    "id": 3,
+    "created_at": "2025-08-11 07:59:40.937039",
+    "entity_status": "ACTIVE",
+    "is_default": false,
+    "iso_code": "nd",
+    "name": "Ndebele",
+    "native_name": "isiNdebele",
+    "updated_at": null
+  }
+]

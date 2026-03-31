@@ -1,0 +1,3 @@
+INSERT INTO ldms_locations_management_dev_db.language (id, created_at, entity_status, is_default, iso_code, name, native_name, updated_at) VALUES (1, '2025-08-11 07:58:49.284251', 'ACTIVE', true, 'en', 'English', 'English', null);
+INSERT INTO ldms_locations_management_dev_db.language (id, created_at, entity_status, is_default, iso_code, name, native_name, updated_at) VALUES (2, '2025-08-11 07:59:10.155934', 'ACTIVE', false, 'sn', 'Shona', 'ChiShona', null);
+INSERT INTO ldms_locations_management_dev_db.language (id, created_at, entity_status, is_default, iso_code, name, native_name, updated_at) VALUES (3, '2025-08-11 07:59:40.937039', 'ACTIVE', false, 'nd', 'Ndebele', 'isiNdebele', null);

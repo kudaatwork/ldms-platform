@@ -1,0 +1,1 @@
+INSERT INTO ldms_locations_management_dev_db.localized_name (id, created_at, entity_status, updated_at, value, country_id, district_id, language_id, province_id, suburb_id) VALUES (1, '2025-08-11 08:49:18.402365', 'ACTIVE', null, 'Zimbabwe', 195, null, 1, null, null);

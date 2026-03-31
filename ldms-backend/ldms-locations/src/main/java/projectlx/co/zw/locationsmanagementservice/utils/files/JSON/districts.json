@@ -1,0 +1,422 @@
+[
+  {
+    "name": "Bulawayo",
+    "code": "BUL",
+    "provinceId": 1,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 206
+  },
+  {
+    "name": "Harare",
+    "code": "HAR",
+    "provinceId": 2,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 207
+  },
+  {
+    "name": "Buhera",
+    "code": "BUH",
+    "provinceId": 3,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 208
+  },
+  {
+    "name": "Chimanimani",
+    "code": "CHI",
+    "provinceId": 3,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 209
+  },
+  {
+    "name": "Chipinge",
+    "code": "CHP",
+    "provinceId": 3,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 210
+  },
+  {
+    "name": "Makoni",
+    "code": "MAK",
+    "provinceId": 3,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 211
+  },
+  {
+    "name": "Mutare",
+    "code": "MUT",
+    "provinceId": 3,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 212
+  },
+  {
+    "name": "Mutasa",
+    "code": "MTA",
+    "provinceId": 3,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 213
+  },
+  {
+    "name": "Nyanga",
+    "code": "NYA",
+    "provinceId": 3,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 214
+  },
+  {
+    "name": "Bindura",
+    "code": "BIN",
+    "provinceId": 4,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 215
+  },
+  {
+    "name": "Guruve",
+    "code": "GUR",
+    "provinceId": 4,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 216
+  },
+  {
+    "name": "Mazowe",
+    "code": "MAZ",
+    "provinceId": 4,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 217
+  },
+  {
+    "name": "Mbire",
+    "code": "MBI",
+    "provinceId": 4,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 218
+  },
+  {
+    "name": "Muzarabani",
+    "code": "MUZ",
+    "provinceId": 4,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 219
+  },
+  {
+    "name": "Rushinga",
+    "code": "RUS",
+    "provinceId": 4,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 220
+  },
+  {
+    "name": "Shamva",
+    "code": "SHA",
+    "provinceId": 4,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 221
+  },
+  {
+    "name": "Chikomba",
+    "code": "CHK",
+    "provinceId": 5,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 222
+  },
+  {
+    "name": "Goromonzi",
+    "code": "GOR",
+    "provinceId": 5,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 223
+  },
+  {
+    "name": "Marondera",
+    "code": "MAR",
+    "provinceId": 5,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 224
+  },
+  {
+    "name": "Mudzi",
+    "code": "MUD",
+    "provinceId": 5,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 225
+  },
+  {
+    "name": "Murehwa",
+    "code": "MUR",
+    "provinceId": 5,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 226
+  },
+  {
+    "name": "Mutoko",
+    "code": "MTK",
+    "provinceId": 5,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 227
+  },
+  {
+    "name": "Seke",
+    "code": "SEK",
+    "provinceId": 5,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 228
+  },
+  {
+    "name": "UMP (Uzumba-Maramba-Pfungwe)",
+    "code": "UMP",
+    "provinceId": 5,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 229
+  },
+  {
+    "name": "Wedza",
+    "code": "WED",
+    "provinceId": 5,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 230
+  },
+  {
+    "name": "Chegutu",
+    "code": "CHE",
+    "provinceId": 6,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 231
+  },
+  {
+    "name": "Hurungwe",
+    "code": "HUR",
+    "provinceId": 6,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 232
+  },
+  {
+    "name": "Kariba",
+    "code": "KAR",
+    "provinceId": 6,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 233
+  },
+  {
+    "name": "Makonde",
+    "code": "MKD",
+    "provinceId": 6,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 234
+  },
+  {
+    "name": "Sanyati",
+    "code": "SAN",
+    "provinceId": 6,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 235
+  },
+  {
+    "name": "Zvimba",
+    "code": "ZVI",
+    "provinceId": 6,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 236
+  },
+  {
+    "name": "Bikita",
+    "code": "BIK",
+    "provinceId": 7,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 237
+  },
+  {
+    "name": "Chiredzi",
+    "code": "CRD",
+    "provinceId": 7,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 238
+  },
+  {
+    "name": "Chivi",
+    "code": "CVI",
+    "provinceId": 7,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 239
+  },
+  {
+    "name": "Gutu",
+    "code": "GTU",
+    "provinceId": 7,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 240
+  },
+  {
+    "name": "Masvingo",
+    "code": "MAS",
+    "provinceId": 7,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 241
+  },
+  {
+    "name": "Mwenezi",
+    "code": "MWE",
+    "provinceId": 7,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 242
+  },
+  {
+    "name": "Zaka",
+    "code": "ZAK",
+    "provinceId": 7,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 243
+  },
+  {
+    "name": "Binga",
+    "code": "BIG",
+    "provinceId": 8,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 244
+  },
+  {
+    "name": "Bubi",
+    "code": "BUB",
+    "provinceId": 8,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 245
+  },
+  {
+    "name": "Hwange",
+    "code": "HWA",
+    "provinceId": 8,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 246
+  },
+  {
+    "name": "Lupane",
+    "code": "LUP",
+    "provinceId": 8,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 247
+  },
+  {
+    "name": "Nkayi",
+    "code": "NKA",
+    "provinceId": 8,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 248
+  },
+  {
+    "name": "Tsholotsho",
+    "code": "TSH",
+    "provinceId": 8,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 249
+  },
+  {
+    "name": "Umguza",
+    "code": "UMG",
+    "provinceId": 8,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 250
+  },
+  {
+    "name": "Beitbridge",
+    "code": "BEI",
+    "provinceId": 9,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 251
+  },
+  {
+    "name": "Bulilima",
+    "code": "BLL",
+    "provinceId": 9,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 252
+  },
+  {
+    "name": "Gwanda",
+    "code": "GWA",
+    "provinceId": 9,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 253
+  },
+  {
+    "name": "Insiza",
+    "code": "INS",
+    "provinceId": 9,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 254
+  },
+  {
+    "name": "Mangwe",
+    "code": "MAN",
+    "provinceId": 9,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 255
+  },
+  {
+    "name": "Matobo",
+    "code": "MAT",
+    "provinceId": 9,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 256
+  },
+  {
+    "name": "Umzingwane",
+    "code": "UMZ",
+    "provinceId": 9,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 257
+  },
+  {
+    "name": "Chirumhanzu",
+    "code": "CRM",
+    "provinceId": 10,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 258
+  },
+  {
+    "name": "Gokwe North",
+    "code": "GKN",
+    "provinceId": 10,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 259
+  },
+  {
+    "name": "Gokwe South",
+    "code": "GKS",
+    "provinceId": 10,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 260
+  },
+  {
+    "name": "Gweru",
+    "code": "GWE",
+    "provinceId": 10,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 261
+  },
+  {
+    "name": "Kwekwe",
+    "code": "KWE",
+    "provinceId": 10,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 262
+  },
+  {
+    "name": "Mberengwa",
+    "code": "MBE",
+    "provinceId": 10,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 263
+  },
+  {
+    "name": "Shurugwi",
+    "code": "SHU",
+    "provinceId": 10,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 264
+  },
+  {
+    "name": "Zvishavane",
+    "code": "ZVS",
+    "provinceId": 10,
+    "administrativeLevelId": 2,
+    "geoCoordinatesId": 265
+  }
+]

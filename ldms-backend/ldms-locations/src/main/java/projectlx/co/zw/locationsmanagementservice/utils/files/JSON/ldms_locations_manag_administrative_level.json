@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "code": "ADM1",
+    "created_at": "2025-08-11 07:53:34.254072",
+    "description": "First-level administrative division in Zimbabwe, such as Harare or Bulawayo.",
+    "entity_status": "ACTIVE",
+    "level": 1,
+    "name": "Province",
+    "updated_at": null,
+    "country_id": 195
+  },
+  {
+    "id": 2,
+    "code": "ADM2",
+    "created_at": "2025-08-11 07:53:55.399373",
+    "description": "Second-level administrative division within a Province.",
+    "entity_status": "ACTIVE",
+    "level": 2,
+    "name": "District",
+    "updated_at": null,
+    "country_id": 195
+  },
+  {
+    "id": 3,
+    "code": "ADM3",
+    "created_at": "2025-08-11 07:57:00.421533",
+    "description": "Third-level administrative division within a District, often used for local governance.",
+    "entity_status": "ACTIVE",
+    "level": 3,
+    "name": "Suburb",
+    "updated_at": null,
+    "country_id": 195
+  }
+]

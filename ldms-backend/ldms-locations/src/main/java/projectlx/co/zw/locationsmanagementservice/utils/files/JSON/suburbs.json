@@ -1,0 +1,538 @@
+[
+  {
+    "name": "Avondale",
+    "code": "AVN",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 266
+  },
+  {
+    "name": "Belgravia",
+    "code": "BLG",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 267
+  },
+  {
+    "name": "Borrowdale",
+    "code": "BOR",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 268
+  },
+  {
+    "name": "Eastlea",
+    "code": "EST",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 269
+  },
+  {
+    "name": "Glen Lorne",
+    "code": "GLN",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 270
+  },
+  {
+    "name": "Gun Hill",
+    "code": "GNH",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 271
+  },
+  {
+    "name": "Highlands",
+    "code": "HGH",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 272
+  },
+  {
+    "name": "Milton Park",
+    "code": "MLP",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 273
+  },
+  {
+    "name": "Mount Pleasant",
+    "code": "MNP",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 274
+  },
+  {
+    "name": "Newlands",
+    "code": "NWL",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 275
+  },
+  {
+    "name": "The Avenues",
+    "code": "AVS",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 276
+  },
+  {
+    "name": "Vainona",
+    "code": "VNN",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 277
+  },
+  {
+    "name": "Alexandra Park",
+    "code": "AP",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 278
+  },
+  {
+    "name": "Belvedere",
+    "code": "BLV",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 279
+  },
+  {
+    "name": "Braeside",
+    "code": "BRS",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 280
+  },
+  {
+    "name": "Hillside",
+    "code": "HSD",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 281
+  },
+  {
+    "name": "Arcadia",
+    "code": "ARC",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 282
+  },
+  {
+    "name": "Highfield",
+    "code": "HFD",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 283
+  },
+  {
+    "name": "Glen Norah",
+    "code": "GNR",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 284
+  },
+  {
+    "name": "Mbare",
+    "code": "MBR",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 285
+  },
+  {
+    "name": "Budiriro",
+    "code": "BUD",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 286
+  },
+  {
+    "name": "Chisipite",
+    "code": "CSP",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 287
+  },
+  {
+    "name": "Epworth",
+    "code": "EPW",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 288
+  },
+  {
+    "name": "Glen View",
+    "code": "GVW",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 289
+  },
+  {
+    "name": "Hatfield",
+    "code": "HTF",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 290
+  },
+  {
+    "name": "Kambuzuma",
+    "code": "KBZ",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 291
+  },
+  {
+    "name": "Mabelreign",
+    "code": "MBL",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 292
+  },
+  {
+    "name": "Mufakose",
+    "code": "MFK",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 293
+  },
+  {
+    "name": "Southerton",
+    "code": "STN",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 294
+  },
+  {
+    "name": "Sunningdale",
+    "code": "SND",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 295
+  },
+  {
+    "name": "Tafara",
+    "code": "TFR",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 296
+  },
+  {
+    "name": "Warren Park",
+    "code": "WPK",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 297
+  },
+  {
+    "name": "Waterfalls",
+    "code": "WFL",
+    "postalCode": "00000",
+    "districtId": 2,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 298
+  },
+  {
+    "name": "Ascot",
+    "code": "ASC",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 299
+  },
+  {
+    "name": "Barham Green",
+    "code": "BHG",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 300
+  },
+  {
+    "name": "Burnside",
+    "code": "BRN",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 301
+  },
+  {
+    "name": "Famona",
+    "code": "FAM",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 302
+  },
+  {
+    "name": "Four Winds",
+    "code": "FWD",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 303
+  },
+  {
+    "name": "Hillcrest",
+    "code": "HCR",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 304
+  },
+  {
+    "name": "Kumalo",
+    "code": "KML",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 305
+  },
+  {
+    "name": "Malindela",
+    "code": "MLD",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 306
+  },
+  {
+    "name": "Matsheumhlope",
+    "code": "MSH",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 307
+  },
+  {
+    "name": "Paddonhurst",
+    "code": "PDH",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 308
+  },
+  {
+    "name": "Parklands",
+    "code": "PKL",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 309
+  },
+  {
+    "name": "Queens Park",
+    "code": "QPK",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 310
+  },
+  {
+    "name": "Riverside",
+    "code": "RVS",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 311
+  },
+  {
+    "name": "Suburbs",
+    "code": "SUB",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 312
+  },
+  {
+    "name": "Woodlands",
+    "code": "WDL",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 313
+  },
+  {
+    "name": "Barbourfields",
+    "code": "BRB",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 314
+  },
+  {
+    "name": "Bellevue",
+    "code": "BLV",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 315
+  },
+  {
+    "name": "Donnington",
+    "code": "DNN",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 316
+  },
+  {
+    "name": "Kelvin",
+    "code": "KLV",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 317
+  },
+  {
+    "name": "Mpopoma",
+    "code": "MPP",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 318
+  },
+  {
+    "name": "Nguboyenja",
+    "code": "NGY",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 319
+  },
+  {
+    "name": "North End",
+    "code": "NTE",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 320
+  },
+  {
+    "name": "Pumula",
+    "code": "PML",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 321
+  },
+  {
+    "name": "Sunninghill",
+    "code": "SNH",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 322
+  },
+  {
+    "name": "Emakhandeni",
+    "code": "EMK",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 323
+  },
+  {
+    "name": "Entumbane",
+    "code": "ENT",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 324
+  },
+  {
+    "name": "Luveve",
+    "code": "LVV",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 325
+  },
+  {
+    "name": "Magwegwe",
+    "code": "MGW",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 326
+  },
+  {
+    "name": "Mzilikazi",
+    "code": "MZL",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 327
+  },
+  {
+    "name": "Tshabalala",
+    "code": "TSH",
+    "postalCode": "00000",
+    "districtId": 1,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 328
+  },
+  {
+    "name": "Kwekwe",
+    "code": "KWE",
+    "postalCode": "00000",
+    "districtId": 57,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 329
+  },
+  {
+    "name": "Redcliff",
+    "code": "RDC",
+    "postalCode": "00000",
+    "districtId": 57,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 330
+  },
+  {
+    "name": "Mbizo",
+    "code": "MBZ",
+    "postalCode": "00000",
+    "districtId": 57,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 331
+  },
+  {
+    "name": "Amaveni",
+    "code": "AMV",
+    "postalCode": "00000",
+    "districtId": 57,
+    "administrativeLevelId": 3,
+    "geoCoordinatesId": 332
+  }
+]
