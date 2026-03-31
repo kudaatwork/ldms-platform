@@ -1,0 +1,116 @@
+<div class="shell" [class.collapsed]="collapsed" *ngIf="showShell; else noShell">
+
+  <!-- ═══ SIDEBAR ═══════════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+
+    <!-- Logo -->
+    <div class="sb-logo">
+      <div class="sb-logo-icon">
+        <mat-icon style="color:#fff;font-size:22px">hub</mat-icon>
+      </div>
+      <span class="sb-logo-text">LX Admin</span>
+      <button type="button" class="sb-collapse-btn" (click)="toggle()" [matTooltip]="collapsed ? 'Expand' : 'Collapse'">
+        <mat-icon>{{ collapsed ? 'chevron_right' : 'chevron_left' }}</mat-icon>
+      </button>
+    </div>
+
+    <!-- Nav -->
+    <div class="sb-section-label">Menu</div>
+    <nav class="sb-nav">
+      <a *ngFor="let item of navItems; trackBy: trackByRoute"
+         class="sb-item" [routerLink]="item.route" routerLinkActive="active"
+         [matTooltip]="collapsed ? item.label : ''" matTooltipPosition="right">
+        <div class="sb-icon">
+          <mat-icon>{{ item.icon }}</mat-icon>
+          <span class="sb-badge" *ngIf="item.badge">{{ item.badge }}</span>
+        </div>
+        <span class="sb-label">{{ item.label }}</span>
+      </a>
+    </nav>
+
+    <!-- Footer -->
+    <div class="sb-footer">
+      <div class="sb-user">
+        <div class="sb-avatar">{{ currentUser.initials }}</div>
+        <div class="sb-user-info">
+          <div class="sb-user-name">{{ currentUser.firstName }}</div>
+          <div class="sb-user-role">{{ currentUser.role }}</div>
+        </div>
+        <button type="button" class="sb-logout" (click)="logout()" matTooltip="Sign out">
+          <mat-icon>logout</mat-icon>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ MAIN ══════════════════════════════════════════════════════════ -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="tb-left">
+        <button
+          type="button"
+          class="tb-shell-toggle"
+          (click)="toggle()"
+          [matTooltip]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          aria-label="Toggle sidebar"
+        >
+          <mat-icon>menu</mat-icon>
+        </button>
+        <h1 class="tb-title">{{ pageTitle }}</h1>
+      </div>
+      <div class="tb-right">
+        <div class="tb-search">
+          <mat-icon class="tb-search-icon">search</mat-icon>
+          <input placeholder="Search orgs, POs, trips..." class="tb-search-input" />
+          <kbd class="tb-kbd">⌘K</kbd>
+        </div>
+        <button
+          type="button"
+          class="tb-icon-btn tb-theme"
+          (click)="theme.toggle()"
+          [matTooltip]="theme.dark() ? 'Light mode' : 'Dark mode'"
+          [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+        >
+          <mat-icon>{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+        </button>
+        <button type="button" class="tb-icon-btn" matBadge="4" matBadgeSize="small" matBadgeColor="warn">
+          <mat-icon>notifications_none</mat-icon>
+        </button>
+        <button
+          type="button"
+          class="tb-icon-btn tb-logout"
+          (click)="logout()"
+          matTooltip="Sign out"
+          aria-label="Sign out"
+        >
+          <mat-icon>logout</mat-icon>
+        </button>
+        <div class="tb-profile">
+          <div class="tb-avatar">{{ currentUser.initials }}</div>
+          <mat-icon style="font-size:18px;color:var(--gray-400)">expand_more</mat-icon>
+        </div>
+      </div>
+    </header>
+
+    <nav class="lx-breadcrumbs" aria-label="Breadcrumb" *ngIf="breadcrumbs.length">
+      <ol class="lx-breadcrumbs__list">
+        <li *ngFor="let c of breadcrumbs; let last = last" class="lx-breadcrumbs__item">
+          <a *ngIf="!last" [routerLink]="c.url" class="lx-breadcrumbs__link">{{ c.label }}</a>
+          <span *ngIf="last" class="lx-breadcrumbs__current" aria-current="page">{{ c.label }}</span>
+          <mat-icon *ngIf="!last" class="lx-breadcrumbs__sep" aria-hidden="true">chevron_right</mat-icon>
+        </li>
+      </ol>
+    </nav>
+
+    <!-- Content -->
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>
+
+<ng-template #noShell>
+  <router-outlet></router-outlet>
+</ng-template>

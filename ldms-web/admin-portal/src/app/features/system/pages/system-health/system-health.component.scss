@@ -1,0 +1,53 @@
+.lc-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--gray-900);
+}
+
+.lc-lead {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin: 0 0 16px;
+}
+
+.page-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.status-line {
+  margin: 0 0 20px;
+}
+
+.sh-table-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin: 0 0 10px;
+}
+
+.skel-card {
+  padding: 20px;
+}
+
+.skel-line {
+  border-radius: 6px;
+  margin-bottom: 10px;
+
+  &--lg {
+    width: 40%;
+    height: 18px;
+  }
+
+  &--md {
+    width: 65%;
+    height: 12px;
+  }
+}
+
+.skel-block {
+  border-radius: 10px;
+}

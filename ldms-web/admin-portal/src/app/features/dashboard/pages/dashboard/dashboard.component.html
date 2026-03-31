@@ -1,0 +1,202 @@
+<div class="lx-page dashboard-page">
+  <div class="dashboard-topbar mb-lg">
+    <div>
+      <h2 class="dashboard-title">Operations Dashboard</h2>
+      <p class="dashboard-subtitle">Real-time logistics visibility across route planning, KYC, fulfillment and compliance.</p>
+    </div>
+    <div class="dashboard-top-actions">
+      <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="dashboardExportMenu">
+        Export Snapshot
+      </button>
+      <button type="button" class="lx-btn lx-btn-primary">Create Dispatch Plan</button>
+    </div>
+  </div>
+  <mat-menu #dashboardExportMenu="matMenu" panelClass="lx-export-menu">
+    <button mat-menu-item class="lx-export-option--pdf">
+      <mat-icon>picture_as_pdf</mat-icon>
+      <span>Export PDF</span>
+    </button>
+    <button mat-menu-item class="lx-export-option--csv">
+      <mat-icon>table_view</mat-icon>
+      <span>Export CSV</span>
+    </button>
+    <button mat-menu-item class="lx-export-option--xlsx">
+      <mat-icon>grid_on</mat-icon>
+      <span>Export XLSX</span>
+    </button>
+  </mat-menu>
+
+  <div class="lx-card ops-filters mb-lg">
+    <div class="ops-filters-grid">
+      <label class="ops-field">
+        <span class="ops-label">Search shipment / PO</span>
+        <input class="lx-input" [(ngModel)]="searchTerm" placeholder="e.g. ZW-1234-A, PO-22410" />
+      </label>
+      <label class="ops-field">
+        <span class="ops-label">Hub / region</span>
+        <select class="lx-select" [(ngModel)]="selectedRegion">
+          <option *ngFor="let region of regions" [value]="region">{{ region }}</option>
+        </select>
+      </label>
+      <label class="ops-field">
+        <span class="ops-label">Date window</span>
+        <select class="lx-select" [(ngModel)]="selectedWindow">
+          <option *ngFor="let window of timeWindows" [value]="window">{{ window }}</option>
+        </select>
+      </label>
+      <div class="ops-field ops-buttons">
+        <span class="ops-label">Actions</span>
+        <div class="ops-button-row">
+          <button type="button" class="lx-btn lx-btn-primary">Apply</button>
+          <button type="button" class="lx-btn lx-btn-ghost">Reset</button>
+          <button type="button" class="lx-btn lx-btn-primary is-disabled">Syncing</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lx-grid lx-grid-4 mb-lg">
+    <ng-container *ngIf="!loading; else kpiSkeleton">
+      <div class="lx-card kpi-card" *ngFor="let k of kpiCards">
+        <div class="kpi-top">
+          <div>
+            <div class="lx-kpi-label">{{ k.label }}</div>
+            <div class="lx-kpi-value mt-xs">{{ k.value }}</div>
+            <span class="lx-badge mt-xs" [ngClass]="k.up ? 'up' : 'down'">
+              {{ k.up ? '↑' : '↓' }} {{ k.trend }}
+            </span>
+          </div>
+          <div class="kpi-icon" [style.background]="k.iconBg">
+            <mat-icon [style.color]="k.iconColor">{{ k.icon }}</mat-icon>
+          </div>
+        </div>
+        <div class="spark-bars">
+          <div *ngFor="let b of k.spark; let i = index" class="spark-bar"
+               [style.height.%]="b"
+               [style.background]="i === k.spark.length - 1 ? k.iconColor : 'var(--gray-100)'">
+          </div>
+        </div>
+      </div>
+    </ng-container>
+    <ng-template #kpiSkeleton>
+      <div class="lx-card" *ngFor="let i of [1,2,3,4]" style="height:140px">
+        <div class="skeleton" style="width:60%;height:12px;margin-bottom:12px"></div>
+        <div class="skeleton" style="width:40%;height:28px;margin-bottom:8px"></div>
+        <div class="skeleton" style="width:80px;height:20px;margin-bottom:16px"></div>
+      </div>
+    </ng-template>
+  </div>
+
+  <div class="row2 mb-lg">
+    <div class="lx-card">
+      <div class="card-hd">
+        <div>
+          <div class="card-hdtitle">Active Shipments</div>
+          <div class="card-hdsub">{{ shipments.length }} vehicles on route</div>
+        </div>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" routerLink="/organizations">View All</button>
+      </div>
+      <ng-container *ngIf="!loading; else listSkeleton">
+        <div class="ship-row" *ngFor="let s of shipments; trackBy: trackByReg">
+          <div class="ship-icon">
+            <mat-icon style="color:var(--primary);font-size:20px">local_shipping</mat-icon>
+          </div>
+          <div class="ship-info">
+            <div class="ship-reg">{{ s.reg }}</div>
+            <div class="ship-route">{{ s.from }} → {{ s.to }}</div>
+          </div>
+          <div class="ship-right">
+            <span [ngClass]="['lx-status', 'lx-status-' + s.status]">{{ s.statusLabel }}</span>
+            <div class="ship-eta">ETA {{ s.eta }}</div>
+          </div>
+        </div>
+      </ng-container>
+      <ng-template #listSkeleton>
+        <div class="ship-row" *ngFor="let i of [1,2,3,4,5]">
+          <div class="skeleton" style="width:44px;height:44px;border-radius:12px;flex-shrink:0"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+            <div class="skeleton" style="width:55%;height:12px"></div>
+            <div class="skeleton" style="width:75%;height:10px"></div>
+          </div>
+          <div class="skeleton" style="width:70px;height:24px;border-radius:12px"></div>
+        </div>
+      </ng-template>
+    </div>
+
+    <div class="lx-card map-card">
+      <div class="map-hd">
+        <div>
+          <div class="card-hdtitle">Live Tracking Grid</div>
+          <div class="card-hdsub">{{ shipments.length }} active trips</div>
+        </div>
+        <span class="lx-badge info">Live</span>
+      </div>
+      <div class="map-body">
+        <div class="map-grid-bg"></div>
+        <div class="map-pin" *ngFor="let p of mapPins" [style.left.%]="p.x" [style.top.%]="p.y">
+          <div class="pin-dot" [ngClass]="'pin-' + p.type"></div>
+          <div class="pin-label">{{ p.label }}</div>
+        </div>
+        <div class="map-stat-chip">
+          <div class="stat-label">On-time performance</div>
+          <div class="stat-value">96.2%</div>
+          <div class="stat-trend">+1.9% from last week</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row3">
+    <div class="lx-card">
+      <div class="card-hd mb-md">
+        <div>
+          <div class="card-hdtitle">KYC & Onboarding Throughput</div>
+          <div class="lx-kpi-value chart-value">{{ totalPipelineApplications }}</div>
+          <span class="lx-badge analytics">Analytics driven</span>
+        </div>
+        <div class="period-wrap">
+          <button type="button" *ngFor="let p of periods" class="period-btn"
+                  [class.active]="activePeriod === p" (click)="setPeriod(p)">{{ p }}</button>
+        </div>
+      </div>
+      <div class="chart-host">
+        <canvas baseChart [data]="kycChartData" [options]="kycChartOptions" type="bar"></canvas>
+      </div>
+    </div>
+
+    <div class="lx-card">
+      <div class="card-hd mb-md">
+        <div class="card-hdtitle">Review Pipeline</div>
+        <a class="card-hdaction" routerLink="/kyc/applications">View all →</a>
+      </div>
+      <div class="pipeline">
+        <div class="pipe-row" *ngFor="let p of pipeline; trackBy: trackByLabel">
+          <div class="pipe-label">
+            <span class="pipe-dot" [style.background]="p.color"></span>{{ p.label }}
+          </div>
+          <div class="pipe-track">
+            <div class="pipe-fill" [style.width.%]="p.pct" [style.background]="p.color"></div>
+          </div>
+          <div class="pipe-count">{{ p.count }}</div>
+        </div>
+      </div>
+      <div class="status-widget">
+        <span class="lx-status lx-status-approved">Success</span>
+        <span class="lx-status lx-status-submitted">Warning</span>
+        <span class="lx-status lx-status-rejected">Error</span>
+        <span class="lx-status lx-status-stage1">Info</span>
+      </div>
+    </div>
+
+    <div class="lx-card qa-card">
+      <div class="card-hdtitle qa-title">Quick Actions</div>
+      <div class="qa-grid">
+        <button type="button" *ngFor="let a of quickActions" class="qa-btn" [routerLink]="a.route">
+          <div class="qa-count">{{ a.count }}</div>
+          <mat-icon class="qa-icon">{{ a.icon }}</mat-icon>
+          <div class="qa-label">{{ a.label }}</div>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

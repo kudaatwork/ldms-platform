@@ -5,9 +5,12 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Target({ElementType.TYPE, ElementType.METHOD})
+/**
+ * Custom annotation to mark methods that should be audited.
+ * The AOP aspect will intercept methods with this annotation.
+ */
+@Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Auditable {
-
-    String action();
+    String action(); // e.g., "CREATE_PRODUCT", "DELETE_USER"
 }

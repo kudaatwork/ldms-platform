@@ -1,0 +1,16 @@
+feat(ldms-platform): update shared library, config server, and project structure
+
+- ldms-shared-library:
+    - Updated `BaseEntity` with increased character limits for audit fields.
+    - Enhanced `Auditable` annotation with descriptive Javadoc and restricted target to methods.
+    - Expanded `Constants` with comprehensive regex patterns for validation (phone, email, ID, etc.).
+    - Refactored `ValidatorDto` from a record to a Lombok-annotated class for better compatibility.
+    - Updated `EntityStatus` enum with string values and an additional `ARCHIVED` status.
+- ldms-config-server:
+    - Updated POM with `dependencyManagement` for Spring Cloud Moorgate (Boot 3.4) compatibility.
+    - Updated `application.yml` to use environment-variable-driven Git URI and search paths.
+- Project Infrastructure:
+    - Added several new microservice modules and shared library components (API Gateway, Audit Trail, Authentication, Eureka Server, Notifications, etc.).
+    - Initialized `admin-portal` Angular application structure under `ldms-web`.
+    - Updated `.vscode/settings.json` with Maven and Java configuration improvements.
+- Removed obsolete `.gitkeep` file in `admin-portal`.

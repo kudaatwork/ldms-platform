@@ -1,0 +1,154 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ldms-api-gateway
+  config:
+    import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  cloud:
+    config:
+      username: ${CONFIG_SERVER_USERNAME:admin}
+      password: ${CONFIG_SERVER_PASSWORD:changeme}
+    gateway:
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "http://localhost:4200"
+              - "http://localhost:4201"
+              - "http://localhost:4202"
+            allowedMethods:
+              - GET
+              - HEAD
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+            allowedHeaders: "*"
+            exposedHeaders:
+              - "X-User-Id"
+              - "X-User-Roles"
+            allowCredentials: true
+            maxAge: 3600
+      # Token bucket: ~100 req/min target (replenishRate = tokens/sec; burstCapacity = bucket size). Tune as needed.
+      default-filters:
+        - name: RequestRateLimiter
+          args:
+            redis-rate-limiter.replenishRate: 2
+            redis-rate-limiter.burstCapacity: 100
+            key-resolver: "#{@ipKeyResolver}"
+      routes:
+        - id: frontend-user
+          uri: lb://user-management
+          predicates:
+            - Path=/api/v1/frontend/user/**
+        - id: frontend-auth
+          uri: lb://auth-management
+          predicates:
+            - Path=/api/v1/frontend/auth/**
+        - id: frontend-organization
+          uri: lb://organization-management
+          predicates:
+            - Path=/api/v1/frontend/organization/**
+        - id: frontend-inventory
+          uri: lb://inventory-management
+          predicates:
+            - Path=/api/v1/frontend/inventory/**
+        - id: frontend-shipment
+          uri: lb://shipment-management
+          predicates:
+            - Path=/api/v1/frontend/shipment/**
+        - id: frontend-document
+          uri: lb://documents-management
+          predicates:
+            - Path=/api/v1/frontend/document/**
+        - id: frontend-fleet
+          uri: lb://fleet-management
+          predicates:
+            - Path=/api/v1/frontend/fleet/**
+        - id: frontend-trip
+          uri: lb://trip-tracking
+          predicates:
+            - Path=/api/v1/frontend/trip/**
+        - id: frontend-billing
+          uri: lb://billing-payments
+          predicates:
+            - Path=/api/v1/frontend/billing/**
+        - id: frontend-notification
+          uri: lb://notifications
+          predicates:
+            - Path=/api/v1/frontend/notification/**
+        - id: system-user
+          uri: lb://user-management
+          predicates:
+            - Path=/api/v1/system/user/**
+        - id: system-auth
+          uri: lb://auth-management
+          predicates:
+            - Path=/api/v1/system/auth/**
+        - id: system-organization
+          uri: lb://organization-management
+          predicates:
+            - Path=/api/v1/system/organization/**
+        - id: system-inventory
+          uri: lb://inventory-management
+          predicates:
+            - Path=/api/v1/system/inventory/**
+        - id: system-shipment
+          uri: lb://shipment-management
+          predicates:
+            - Path=/api/v1/system/shipment/**
+        - id: system-document
+          uri: lb://documents-management
+          predicates:
+            - Path=/api/v1/system/document/**
+        - id: system-fleet
+          uri: lb://fleet-management
+          predicates:
+            - Path=/api/v1/system/fleet/**
+        - id: system-trip
+          uri: lb://trip-tracking
+          predicates:
+            - Path=/api/v1/system/trip/**
+        - id: system-billing
+          uri: lb://billing-payments
+          predicates:
+            - Path=/api/v1/system/billing/**
+        - id: system-notification
+          uri: lb://notifications
+          predicates:
+            - Path=/api/v1/system/notification/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_CLIENT_SERVICE_URL:http://localhost:8761/eureka}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10
+
+gateway:
+  jwt:
+    secret: ${JWT_SECRET:ldms-dev-gateway-jwt-secret-change-me-in-production-min-32-chars}
+    roles-claim: roles
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    projectlx.co.zw.apigateway: INFO

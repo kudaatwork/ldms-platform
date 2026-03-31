@@ -1,0 +1,30 @@
+.kx-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+  padding: 20px 24px 0;
+  color: var(--gray-900);
+}
+
+.kx-content {
+  padding: 8px 24px 8px !important;
+}
+
+.kx-body {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--gray-800);
+}
+
+.kx-warning {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--gray-500);
+}
+
+.kx-actions {
+  padding: 12px 24px 20px !important;
+  gap: 8px;
+}

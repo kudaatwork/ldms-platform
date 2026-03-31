@@ -1,0 +1,33 @@
+.ke-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin: 0;
+  padding: 20px 24px 0;
+  color: var(--gray-900);
+}
+
+.ke-content {
+  padding: 8px 24px 16px !important;
+}
+
+.ke-lead {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--gray-600);
+}
+
+.ke-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ke-field {
+  width: 100%;
+}
+
+.ke-actions {
+  padding: 8px 24px 20px !important;
+  gap: 8px;
+}

@@ -1,0 +1,102 @@
+<div class="login-shell">
+  <button
+    type="button"
+    class="login-theme-toggle"
+    (click)="toggleTheme()"
+    [matTooltip]="theme.dark() ? 'Light mode' : 'Dark mode'"
+    [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+  >
+    <mat-icon>{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+  </button>
+
+  <!-- LEFT PANEL -->
+  <div class="login-left">
+    <div class="ll-brand">
+      <div class="ll-logo">
+        <mat-icon style="font-size:28px;color:#fff">hub</mat-icon>
+      </div>
+      <span class="ll-name">Project LX</span>
+    </div>
+    <div class="ll-headline">
+      Logistics &amp; Distribution<br>Management System
+    </div>
+    <div class="ll-sub">
+      Platform Administration Console — manage KYC approvals,
+      organizations, documents and system monitoring.
+    </div>
+    <ul class="ll-advantages">
+      <li>
+        <mat-icon class="ll-adv-icon">hub</mat-icon>
+        <span><strong>All in one place</strong> — approvals, orgs, users, and audit trails from a single console.</span>
+      </li>
+      <li>
+        <mat-icon class="ll-adv-icon">verified_user</mat-icon>
+        <span><strong>Faster decisions</strong> — clear queues and status so teams can review without guesswork.</span>
+      </li>
+      <li>
+        <mat-icon class="ll-adv-icon">security</mat-icon>
+        <span><strong>Built for operators</strong> — role-aware access and a focused workflow for platform admins.</span>
+      </li>
+    </ul>
+    <div class="ll-version">Admin Console · projectlx.co.zw</div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="login-right">
+    <div class="login-card">
+
+      <div class="lc-header">
+        <h1 class="lc-title">Sign in</h1>
+        <p class="lc-sub">Admin Console · Restricted access</p>
+      </div>
+
+      <!-- Error alert -->
+      <div class="lc-error" *ngIf="error">
+        <mat-icon>error_outline</mat-icon> {{ error }}
+      </div>
+
+      <!-- Form -->
+      <form [formGroup]="form" (ngSubmit)="submit()">
+
+        <div class="lc-field-label">Email address</div>
+        <mat-form-field appearance="outline" class="lc-field">
+          <input matInput formControlName="email" type="email" placeholder="admin@projectlx.co.zw" autocomplete="email"/>
+          <mat-icon matPrefix>mail_outline</mat-icon>
+          <mat-error *ngIf="emailCtrl?.hasError('required')">Email is required</mat-error>
+          <mat-error *ngIf="emailCtrl?.hasError('email')">Enter a valid email</mat-error>
+        </mat-form-field>
+
+        <div class="lc-field-label">Password</div>
+        <mat-form-field appearance="outline" class="lc-field">
+          <input matInput formControlName="password" [type]="showPass ? 'text' : 'password'" placeholder="Your password" autocomplete="current-password"/>
+          <mat-icon matPrefix>lock_outline</mat-icon>
+          <button type="button" matSuffix mat-icon-button (click)="togglePasswordVisibility()">
+            <mat-icon>{{ showPass ? 'visibility_off' : 'visibility' }}</mat-icon>
+          </button>
+          <mat-error *ngIf="passCtrl?.hasError('required')">Password is required</mat-error>
+        </mat-form-field>
+
+        <button type="submit" class="lc-submit" [disabled]="loading">
+          <mat-spinner *ngIf="loading" diameter="18" style="margin-right:8px"></mat-spinner>
+          {{ loading ? 'Signing in...' : 'Sign in to Admin Console' }}
+          <mat-icon *ngIf="!loading" style="margin-left:4px">arrow_forward</mat-icon>
+        </button>
+      </form>
+
+      <!-- Mock credentials panel -->
+      <div class="lc-mock">
+        <div class="lc-mock-title">
+          <mat-icon style="font-size:14px">person_search</mat-icon>
+          Sample sign-in (demo)
+        </div>
+        <div class="lc-mock-grid">
+          <button *ngFor="let c of mockCreds" class="lc-mock-btn" type="button" (click)="fillMock(c)">
+            <span class="lc-mock-role">{{ c.label }}</span>
+            <span class="lc-mock-email">{{ c.email }}</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

@@ -1,0 +1,121 @@
+<div class="lx-page ui-kit-page">
+  <div class="ui-hero">
+    <div>
+      <h2>Logistics UI Component System</h2>
+      <p>Reusable, enterprise-grade components with responsive layout, accessibility, and theme support.</p>
+    </div>
+    <span class="lx-badge info">Light + Dark ready</span>
+  </div>
+
+  <div class="ui-grid">
+    <section class="lx-card">
+      <h3>Buttons</h3>
+      <div class="ui-row">
+        <button class="lx-btn lx-btn-primary">Primary</button>
+        <button class="lx-btn lx-btn-secondary">Secondary</button>
+        <button class="lx-btn lx-btn-ghost">Ghost</button>
+        <button class="lx-btn lx-btn-ghost ui-outline">Outline</button>
+        <button class="lx-btn lx-btn-icon lx-btn-ghost" aria-label="Refresh">
+          <mat-icon>refresh</mat-icon>
+        </button>
+        <button class="lx-btn lx-btn-primary is-disabled">Disabled</button>
+      </div>
+    </section>
+
+    <section class="lx-card">
+      <h3>Inputs</h3>
+      <div class="ui-form-grid">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Text input</mat-label>
+          <input matInput placeholder="Shipment reference" />
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Select</mat-label>
+          <mat-select>
+            <mat-option value="north">North Corridor</mat-option>
+            <mat-option value="south">South Corridor</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Date picker</mat-label>
+          <input matInput [matDatepicker]="picker" />
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+      </div>
+    </section>
+  </div>
+
+  <section class="lx-card ui-table-card">
+    <div class="ui-table-head">
+      <h3>Tables (Striped, Hoverable, Sortable)</h3>
+      <span class="ui-muted">Click headers to sort</span>
+    </div>
+    <div class="lx-table-wrap">
+      <table mat-table [dataSource]="tableData" matSort>
+        <ng-container matColumnDef="shipmentId">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Shipment</th>
+          <td mat-cell *matCellDef="let row">{{ row.shipmentId }}</td>
+        </ng-container>
+        <ng-container matColumnDef="route">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Route</th>
+          <td mat-cell *matCellDef="let row">{{ row.route }}</td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>Status</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="lx-status" [ngClass]="'lx-status-' + row.status">{{ row.status }}</span>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="eta">
+          <th mat-header-cell *matHeaderCellDef mat-sort-header>ETA</th>
+          <td mat-cell *matCellDef="let row">{{ row.eta }}</td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    </div>
+  </section>
+
+  <div class="ui-grid">
+    <section class="lx-card">
+      <h3>Cards & Widgets</h3>
+      <div class="widget-grid">
+        <article class="widget">
+          <span class="widget-label">On-time Delivery</span>
+          <strong class="widget-value">96.2%</strong>
+          <span class="lx-badge up">+1.9%</span>
+        </article>
+        <article class="widget">
+          <span class="widget-label">Warehouse Utilization</span>
+          <strong class="widget-value">71%</strong>
+          <span class="lx-badge warn">Watchlist</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="lx-card">
+      <h3>Modals & Alerts</h3>
+      <div class="ui-row">
+        <button class="lx-btn lx-btn-primary" (click)="openModal()">Open Modal</button>
+        <div class="ui-alert ui-alert-success">
+          <mat-icon>check_circle</mat-icon>
+          Dispatch plan approved successfully.
+        </div>
+        <div class="ui-alert ui-alert-warning">
+          <mat-icon>warning</mat-icon>
+          Route SLA breach risk detected.
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="lx-card">
+    <h3>Sidebar & Navigation Pattern</h3>
+    <p class="ui-muted">
+      The global shell already includes a responsive sidebar, top navigation, and breadcrumbs with active-state hierarchy.
+      This page validates those navigation components in both themes.
+    </p>
+  </section>
+</div>
+

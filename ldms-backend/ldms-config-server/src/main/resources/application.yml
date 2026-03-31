@@ -12,7 +12,10 @@ spring:
       enabled: false
       server:
         git:
-          uri: file://${user.home}/ldms-config-repo
+          # Central repo lives in the platform tree; override with LDMS_CONFIG_REPO if needed.
+          uri: file://${LDMS_CONFIG_REPO:${user.home}/IdeaProjects/ldms-platform/ldms-config-repo}
+          # Resolve e.g. dev/ldms-user-management.yml when profile is dev.
+          search-paths: '{profile}'
 
 management:
   endpoints:

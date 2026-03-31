@@ -1,0 +1,355 @@
+<div class="lx-page lx-page--audit">
+  <ng-container *ngIf="!loading; else skel">
+    <section class="audit-section" aria-labelledby="activity-log-heading">
+      <div class="lx-card lx-card--subsection">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">Manage activity actions, search terms, and column filters.</p>
+        <div class="lx-data-toolbar">
+          <div class="lx-data-toolbar__actions">
+            <button type="button" class="lx-btn lx-btn-ghost">Refresh</button>
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
+            <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="activityExportMenu">
+              Export
+            </button>
+          </div>
+          <div class="lx-data-toolbar__search">
+            <mat-form-field appearance="outline" class="lx-search-field" subscriptSizing="dynamic">
+              <mat-icon matPrefix>search</mat-icon>
+              <input
+                matInput
+                [(ngModel)]="searchQuery"
+                (ngModelChange)="resetActivityPaging()"
+                placeholder="Search…"
+              />
+            </mat-form-field>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+              (click)="filterFieldsOpen = !filterFieldsOpen"
+              [class.lx-btn-filter--on]="filterFieldsOpen"
+            >
+              <mat-icon>tune</mat-icon>
+              Filters
+            </button>
+          </div>
+        </div>
+        <mat-menu #activityExportMenu="matMenu" panelClass="lx-export-menu">
+          <button mat-menu-item class="lx-export-option--pdf" (click)="stubExport()">
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>Export PDF</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--csv" (click)="stubExport()">
+            <mat-icon>table_view</mat-icon>
+            <span>Export CSV</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--xlsx" (click)="stubExport()">
+            <mat-icon>grid_on</mat-icon>
+            <span>Export XLSX</span>
+          </button>
+        </mat-menu>
+
+        <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+          <span class="lx-filter-panel__label">Column filters</span>
+          <div class="lx-filter-fields">
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Time</div>
+              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
+                <mat-icon matPrefix>schedule</mat-icon>
+                <input matInput [(ngModel)]="activityColumnFilters.time" (ngModelChange)="resetActivityPaging()" />
+              </mat-form-field>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Actor</div>
+              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
+                <mat-icon matPrefix>person</mat-icon>
+                <input matInput [(ngModel)]="activityColumnFilters.actor" (ngModelChange)="resetActivityPaging()" />
+              </mat-form-field>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Action</div>
+              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
+                <mat-icon matPrefix>bolt</mat-icon>
+                <input matInput [(ngModel)]="activityColumnFilters.action" (ngModelChange)="resetActivityPaging()" />
+              </mat-form-field>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Resource</div>
+              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
+                <mat-icon matPrefix>folder_open</mat-icon>
+                <input matInput [(ngModel)]="activityColumnFilters.resource" (ngModelChange)="resetActivityPaging()" />
+              </mat-form-field>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lx-card">
+        <h2 class="lc-title" id="activity-log-heading">Activity log</h2>
+        <p class="lc-lead">Recent actions across the platform (who did what, and on which resource).</p>
+        <ng-container *ngIf="dataSource.length > 0; else empty">
+          <ng-container *ngIf="filteredRows.length > 0; else noSearchHits">
+            <div class="lx-table-wrap">
+              <table mat-table [dataSource]="pagedActivityRows">
+                <ng-container matColumnDef="time">
+                  <th mat-header-cell *matHeaderCellDef>Time</th>
+                  <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.time }}</td>
+                </ng-container>
+                <ng-container matColumnDef="actor">
+                  <th mat-header-cell *matHeaderCellDef>Actor</th>
+                  <td mat-cell *matCellDef="let row">{{ row.actor }}</td>
+                </ng-container>
+                <ng-container matColumnDef="action">
+                  <th mat-header-cell *matHeaderCellDef>Action</th>
+                  <td mat-cell *matCellDef="let row">{{ row.action }}</td>
+                </ng-container>
+                <ng-container matColumnDef="resource">
+                  <th mat-header-cell *matHeaderCellDef>Resource</th>
+                  <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.resource }}</td>
+                </ng-container>
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef>Actions</th>
+                  <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+                    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">View</button>
+                    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">Edit</button>
+                    <button type="button" class="lx-btn lx-btn-danger lx-btn-sm">Delete</button>
+                  </td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+                <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+              </table>
+            </div>
+            <mat-paginator
+              class="lx-table-paginator"
+              [length]="filteredRows.length"
+              [pageIndex]="activityClampedPageIndex"
+              [pageSize]="activityPageSize"
+              [pageSizeOptions]="[5, 10, 25, 50]"
+              [showFirstLastButtons]="true"
+              (page)="onActivityPage($event)"
+            ></mat-paginator>
+          </ng-container>
+          <ng-template #noSearchHits>
+            <div class="lx-empty lx-empty--compact">
+              <mat-icon class="lx-empty-icon">search_off</mat-icon>
+              <div class="lx-empty-title">No matching rows</div>
+              <div class="lx-empty-sub">Adjust search or column filters.</div>
+            </div>
+          </ng-template>
+        </ng-container>
+        <ng-template #empty>
+          <div class="lx-empty">
+            <mat-icon class="lx-empty-icon">inbox</mat-icon>
+            <div class="lx-empty-title">No items found</div>
+            <div class="lx-empty-sub">Adjust filters or check back later</div>
+          </div>
+        </ng-template>
+      </div>
+    </section>
+
+    <section class="audit-section" aria-labelledby="requests-log-heading">
+      <div class="lx-card lx-card--subsection">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">Manage request log actions, search terms, and column filters.</p>
+        <div class="lx-data-toolbar">
+          <div class="lx-data-toolbar__actions">
+            <button type="button" class="lx-btn lx-btn-ghost">Refresh</button>
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="stubRequestImport()">Import</button>
+            <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="requestExportMenu">
+              Export
+            </button>
+          </div>
+          <div class="lx-data-toolbar__search">
+            <mat-form-field appearance="outline" class="lx-search-field" subscriptSizing="dynamic">
+              <mat-icon matPrefix>search</mat-icon>
+              <input
+                matInput
+                [(ngModel)]="requestSearchQuery"
+                (ngModelChange)="resetRequestPaging()"
+                placeholder="Search…"
+              />
+            </mat-form-field>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+              (click)="requestFilterFieldsOpen = !requestFilterFieldsOpen"
+              [class.lx-btn-filter--on]="requestFilterFieldsOpen"
+            >
+              <mat-icon>tune</mat-icon>
+              Filters
+            </button>
+          </div>
+        </div>
+        <mat-menu #requestExportMenu="matMenu" panelClass="lx-export-menu">
+          <button mat-menu-item class="lx-export-option--pdf" (click)="stubRequestExport()">
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>Export PDF</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--csv" (click)="stubRequestExport()">
+            <mat-icon>table_view</mat-icon>
+            <span>Export CSV</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--xlsx" (click)="stubRequestExport()">
+            <mat-icon>grid_on</mat-icon>
+            <span>Export XLSX</span>
+          </button>
+        </mat-menu>
+
+        <div class="lx-filter-panel" *ngIf="requestFilterFieldsOpen">
+          <span class="lx-filter-panel__label">Column filters</span>
+          <div class="lx-filter-fields">
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Time</div>
+              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
+                <mat-icon matPrefix>schedule</mat-icon>
+                <input matInput [(ngModel)]="requestColumnFilters.time" (ngModelChange)="resetRequestPaging()" />
+              </mat-form-field>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Method</div>
+              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
+                <mat-icon matPrefix>http</mat-icon>
+                <input matInput [(ngModel)]="requestColumnFilters.method" (ngModelChange)="resetRequestPaging()" />
+              </mat-form-field>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Path</div>
+              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
+                <mat-icon matPrefix>alt_route</mat-icon>
+                <input matInput [(ngModel)]="requestColumnFilters.path" (ngModelChange)="resetRequestPaging()" />
+              </mat-form-field>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Source</div>
+              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
+                <mat-icon matPrefix>cloud</mat-icon>
+                <input
+                  matInput
+                  [(ngModel)]="requestColumnFilters.integration"
+                  (ngModelChange)="resetRequestPaging()"
+                />
+              </mat-form-field>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Status code</div>
+              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
+                <mat-icon matPrefix>numbers</mat-icon>
+                <input
+                  matInput
+                  [(ngModel)]="requestColumnFilters.statusCode"
+                  (ngModelChange)="resetRequestPaging()"
+                />
+              </mat-form-field>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Duration (ms)</div>
+              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
+                <mat-icon matPrefix>timer</mat-icon>
+                <input
+                  matInput
+                  [(ngModel)]="requestColumnFilters.durationMs"
+                  (ngModelChange)="resetRequestPaging()"
+                />
+              </mat-form-field>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lx-card">
+        <h2 class="lc-title" id="requests-log-heading">Requests log</h2>
+        <p class="lc-lead">
+          HTTP traffic from partner integrations, webhooks, mobile and admin clients, and internal jobs — all methods
+          (GET, POST, PUT, PATCH, DELETE, HEAD, …).
+        </p>
+        <ng-container *ngIf="requestDataSource.length > 0; else requestEmpty">
+          <ng-container *ngIf="filteredRequestRows.length > 0; else requestNoSearchHits">
+            <div class="lx-table-wrap">
+              <table mat-table [dataSource]="pagedRequestRows">
+                <ng-container matColumnDef="time">
+                  <th mat-header-cell *matHeaderCellDef>Time</th>
+                  <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.time }}</td>
+                </ng-container>
+                <ng-container matColumnDef="method">
+                  <th mat-header-cell *matHeaderCellDef>Method</th>
+                  <td mat-cell *matCellDef="let row">
+                    <span class="lx-http-method" [ngClass]="'lx-http-method--' + row.method.toLowerCase()">{{
+                      row.method
+                    }}</span>
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="path">
+                  <th mat-header-cell *matHeaderCellDef>Path</th>
+                  <td mat-cell *matCellDef="let row" class="lx-mono lx-cell-path">{{ row.path }}</td>
+                </ng-container>
+                <ng-container matColumnDef="integration">
+                  <th mat-header-cell *matHeaderCellDef>Source / integration</th>
+                  <td mat-cell *matCellDef="let row">{{ row.integration }}</td>
+                </ng-container>
+                <ng-container matColumnDef="statusCode">
+                  <th mat-header-cell *matHeaderCellDef>Status</th>
+                  <td mat-cell *matCellDef="let row">
+                    <span class="lx-status" [ngClass]="'lx-status-' + requestStatusClass(row.statusCode)">{{
+                      row.statusCode
+                    }}</span>
+                  </td>
+                </ng-container>
+                <ng-container matColumnDef="durationMs">
+                  <th mat-header-cell *matHeaderCellDef>Duration</th>
+                  <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.durationMs | number }} ms</td>
+                </ng-container>
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef>Actions</th>
+                  <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+                    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">View</button>
+                    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">Edit</button>
+                    <button type="button" class="lx-btn lx-btn-danger lx-btn-sm">Delete</button>
+                  </td>
+                </ng-container>
+                <tr mat-header-row *matHeaderRowDef="requestDisplayedColumns; sticky: true"></tr>
+                <tr mat-row *matRowDef="let row; columns: requestDisplayedColumns"></tr>
+              </table>
+            </div>
+            <mat-paginator
+              class="lx-table-paginator"
+              [length]="filteredRequestRows.length"
+              [pageIndex]="requestClampedPageIndex"
+              [pageSize]="requestPageSize"
+              [pageSizeOptions]="[5, 10, 25, 50]"
+              [showFirstLastButtons]="true"
+              (page)="onRequestPage($event)"
+            ></mat-paginator>
+          </ng-container>
+          <ng-template #requestNoSearchHits>
+            <div class="lx-empty lx-empty--compact">
+              <mat-icon class="lx-empty-icon">search_off</mat-icon>
+              <div class="lx-empty-title">No matching requests</div>
+              <div class="lx-empty-sub">Adjust search or column filters.</div>
+            </div>
+          </ng-template>
+        </ng-container>
+        <ng-template #requestEmpty>
+          <div class="lx-empty">
+            <mat-icon class="lx-empty-icon">api</mat-icon>
+            <div class="lx-empty-title">No request samples</div>
+            <div class="lx-empty-sub">Request traces will appear here when gateway logging is enabled.</div>
+          </div>
+        </ng-template>
+      </div>
+    </section>
+  </ng-container>
+</div>
+
+<ng-template #skel>
+  <div class="lx-page lx-page--audit">
+    <div class="lx-card skel-card audit-section">
+      <div class="skeleton skel-line skel-line--lg"></div>
+      <div class="skeleton skel-line skel-line--md"></div>
+      <div class="skeleton skel-block" style="margin-top: 20px; height: 120px"></div>
+    </div>
+    <div class="lx-card skel-card audit-section">
+      <div class="skeleton skel-line skel-line--lg"></div>
+      <div class="skeleton skel-line skel-line--md"></div>
+      <div class="skeleton skel-block" style="margin-top: 20px; height: 120px"></div>
+    </div>
+  </div>
+</ng-template>

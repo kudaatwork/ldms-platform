@@ -1,0 +1,25 @@
+<h2 mat-dialog-title class="ke-title">Edit KYC application</h2>
+
+<mat-dialog-content class="ke-content">
+  <p class="ke-lead">Update the application record. Changes apply to this queue only until the API is wired.</p>
+
+  <form [formGroup]="form" class="ke-form">
+    <mat-form-field appearance="outline" class="ke-field" subscriptSizing="dynamic">
+      <mat-label>Applicant name</mat-label>
+      <input matInput formControlName="applicant" autocomplete="organization" />
+      <mat-error *ngIf="form.get('applicant')?.hasError('required')">Required</mat-error>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline" class="ke-field" subscriptSizing="dynamic">
+      <mat-label>Status</mat-label>
+      <mat-select formControlName="status">
+        <mat-option *ngFor="let opt of statusOptions" [value]="opt.value">{{ opt.label }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="ke-actions">
+  <button type="button" mat-button (click)="cancel()">Cancel</button>
+  <button type="button" mat-flat-button color="primary" (click)="save()">Save</button>
+</mat-dialog-actions>

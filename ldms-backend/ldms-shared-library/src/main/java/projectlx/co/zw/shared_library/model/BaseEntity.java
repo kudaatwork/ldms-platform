@@ -24,12 +24,12 @@ public abstract class BaseEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "created_by", nullable = false, length = 100)
+    @Column(name = "created_by", nullable = false, length = 150)
     private String createdBy;
 
     @Column(name = "modified_at")
     private LocalDateTime modifiedAt;
 
-    @Column(name = "modified_by", length = 100)
+    @Column(name = "modified_by", length = 150)
     private String modifiedBy;
 }

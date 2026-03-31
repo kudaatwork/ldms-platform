@@ -1,0 +1,100 @@
+.lc-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--gray-900);
+}
+
+.lc-lead {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin: 0 0 16px;
+}
+
+.lx-mono-hint {
+  font-family: var(--font);
+  letter-spacing: 0.02em;
+}
+
+.page-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.skel-card {
+  padding: 20px;
+}
+
+.skel-line {
+  border-radius: 6px;
+  margin-bottom: 10px;
+
+  &--lg {
+    width: 40%;
+    height: 18px;
+  }
+
+  &--md {
+    width: 65%;
+    height: 12px;
+  }
+}
+
+.skel-block {
+  border-radius: 10px;
+}
+
+.lx-page--audit {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.audit-section {
+  margin: 0;
+}
+
+.lx-cell-path {
+  max-width: 320px;
+  word-break: break-all;
+  white-space: normal;
+  font-size: 12px;
+}
+
+.lx-http-method {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, Menlo, monospace;
+  letter-spacing: 0.04em;
+}
+
+.lx-http-method--get {
+  background: var(--info-light);
+  color: #2563eb;
+}
+.lx-http-method--post {
+  background: var(--success-light);
+  color: #059669;
+}
+.lx-http-method--put {
+  background: var(--warning-light);
+  color: #d97706;
+}
+.lx-http-method--patch {
+  background: var(--accent-light);
+  color: #6d28d9;
+}
+.lx-http-method--delete {
+  background: var(--danger-light);
+  color: #dc2626;
+}
+.lx-http-method--head {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
