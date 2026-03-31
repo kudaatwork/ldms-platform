@@ -1,0 +1,86 @@
+<h2 mat-dialog-title class="kd-title">KYC application</h2>
+
+<mat-dialog-content class="kd-content">
+  <div class="kd-banner kd-banner--meta">
+    <span class="lx-status" [ngClass]="'lx-status-' + detail.status.toLowerCase()">{{ detail.statusLabel }}</span>
+    <span class="kd-meta">Submitted {{ detail.submitted }} · ID {{ detail.id }}</span>
+  </div>
+
+  <section class="kd-section">
+    <h3 class="kd-heading">Legal entity</h3>
+    <dl class="kd-grid">
+      <dt>Applicant</dt><dd>{{ detail.applicant }}</dd>
+      <dt>Trading name</dt><dd>{{ detail.tradingName }}</dd>
+      <dt>Legal form</dt><dd>{{ detail.legalForm }}</dd>
+      <dt>Registration no.</dt><dd>{{ detail.registrationNumber }}</dd>
+      <dt>Tax / VAT</dt><dd>{{ detail.taxVatNumber }}</dd>
+      <dt>Industry</dt><dd>{{ detail.industrySector }}</dd>
+    </dl>
+  </section>
+
+  <section class="kd-section">
+    <h3 class="kd-heading">Contact</h3>
+    <dl class="kd-grid">
+      <dt>Primary contact</dt><dd>{{ detail.primaryContactName }}</dd>
+      <dt>Email</dt><dd>{{ detail.primaryContactEmail }}</dd>
+      <dt>Phone</dt><dd>{{ detail.primaryContactPhone }}</dd>
+      <dt>Registered address</dt><dd>{{ detail.registeredAddress }}</dd>
+      <dt>Principal place of business</dt><dd>{{ detail.principalPlaceOfBusiness }}</dd>
+    </dl>
+  </section>
+
+  <section class="kd-section">
+    <h3 class="kd-heading">Banking (submitted)</h3>
+    <dl class="kd-grid kd-grid--2">
+      <dt>Bank</dt><dd>{{ detail.bankName }}</dd>
+      <dt>Account</dt><dd>{{ detail.bankAccountMasked }}</dd>
+    </dl>
+  </section>
+
+  <section class="kd-section" *ngIf="detail.applicantNotes">
+    <h3 class="kd-heading">Applicant notes</h3>
+    <p class="kd-notes">{{ detail.applicantNotes }}</p>
+  </section>
+
+  <section class="kd-section">
+    <h3 class="kd-heading">Documents attached</h3>
+    <div class="kd-docs" *ngIf="detail.documents.length; else noDocs">
+      <div class="kd-doc" *ngFor="let doc of detail.documents">
+        <mat-icon class="kd-doc-icon" [class.kd-doc-icon--pdf]="doc.fileType === 'PDF'">
+          {{ doc.fileType === 'PDF' ? 'picture_as_pdf' : 'description' }}
+        </mat-icon>
+        <div class="kd-doc-body">
+          <div class="kd-doc-name">{{ doc.fileName }}</div>
+          <div class="kd-doc-meta">{{ doc.category }} · {{ doc.fileType }} · {{ doc.uploadedAt }}</div>
+        </div>
+        <button type="button" mat-stroked-button color="primary" (click)="viewDocument(doc.fileName)">View</button>
+      </div>
+    </div>
+    <ng-template #noDocs>
+      <p class="kd-empty-docs">No documents on file.</p>
+    </ng-template>
+  </section>
+
+  <section class="kd-section kd-section--decision" *ngIf="canDecide" [formGroup]="form">
+    <h3 class="kd-heading">Decision</h3>
+    <p class="kd-hint">Provide a reason or internal notes for approval or rejection (required for both).</p>
+    <mat-form-field appearance="outline" class="kd-reason-field" subscriptSizing="dynamic">
+      <mat-label>Reason / notes</mat-label>
+      <textarea matInput rows="4" formControlName="reason" placeholder="e.g. Verified CR14 against registry; all IDs clear."></textarea>
+      <mat-hint align="end">Minimum 8 characters</mat-hint>
+    </mat-form-field>
+    <div class="kd-reason-err" *ngIf="reasonError">{{ reasonError }}</div>
+  </section>
+
+  <div class="kd-readonly-banner" *ngIf="!canDecide">
+    This application is already <strong>{{ detail.statusLabel }}</strong>. No further action is available from this queue.
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="kd-actions">
+  <button type="button" mat-button (click)="cancel()">Close</button>
+  <ng-container *ngIf="canDecide">
+    <button type="button" mat-stroked-button color="warn" (click)="reject()">Reject</button>
+    <button type="button" mat-flat-button color="primary" (click)="approve()">Accept</button>
+  </ng-container>
+</mat-dialog-actions>

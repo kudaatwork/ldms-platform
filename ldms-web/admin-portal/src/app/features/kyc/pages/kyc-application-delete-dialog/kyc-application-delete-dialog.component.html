@@ -1,0 +1,13 @@
+<h2 mat-dialog-title class="kx-title">Delete KYC application?</h2>
+
+<mat-dialog-content class="kx-content">
+  <p class="kx-body">
+    Remove <strong>{{ data.applicant }}</strong> from the review queue?
+  </p>
+  <p class="kx-warning">This action cannot be undone. In production this may archive or soft-delete the record instead.</p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end" class="kx-actions">
+  <button type="button" mat-button (click)="cancel()">Cancel</button>
+  <button type="button" mat-flat-button color="warn" (click)="confirmDelete()">Delete</button>
+</mat-dialog-actions>

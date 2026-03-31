@@ -1,0 +1,12 @@
+target/
+*.class
+.env
+node_modules/
+.angular/
+build/
+*.log
+.DS_Store
+*.iml
+.idea/
+ldms-config-repo/
+ldms-backend/ldms-notifications/src/main/resources/*firebase-adminsdk*.json

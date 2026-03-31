@@ -1,0 +1,145 @@
+.ui-kit-page {
+  display: grid;
+  gap: 18px;
+}
+
+.ui-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--gray-900);
+  }
+
+  p {
+    margin: 4px 0 0;
+    color: var(--gray-500);
+    font-size: 13px;
+  }
+}
+
+.ui-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.ui-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.ui-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+}
+
+.ui-outline {
+  border: 1px solid var(--gray-300) !important;
+}
+
+.ui-table-card h3,
+.lx-card h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.ui-table-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.widget-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.widget {
+  border: 1px solid var(--gray-200);
+  border-radius: 14px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--primary-light) 12%);
+  transition: transform var(--ease-fast), box-shadow var(--ease-fast);
+
+  &:hover {
+    transform: translateY(-2px) scale(1.01);
+    box-shadow: var(--card-shadow);
+  }
+}
+
+.widget-label {
+  display: block;
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-bottom: 6px;
+}
+
+.widget-value {
+  display: block;
+  font-size: 22px;
+  color: var(--gray-900);
+  margin-bottom: 6px;
+}
+
+.ui-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.ui-alert-success {
+  background: var(--success-light);
+  color: color-mix(in srgb, var(--success) 82%, black);
+}
+
+.ui-alert-warning {
+  background: var(--warning-light);
+  color: color-mix(in srgb, var(--warning) 76%, black);
+}
+
+.ui-muted {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+@media (max-width: 1024px) {
+  .ui-grid {
+    grid-template-columns: 1fr;
+  }
+  .ui-form-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .ui-form-grid,
+  .widget-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
