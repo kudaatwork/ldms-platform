@@ -1,0 +1,33 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: ldms-organization-management
+  datasource:
+    url: jdbc:mysql://localhost:3306/ldms_organization_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+  jpa:
+    show-sql: true
+
+management:
+  server:
+    port: 9083
+
+app:
+  verification:
+    base-url: http://localhost:4200/verify
+  kyc:
+    stage1-sla-hours: 48
+    stage2-sla-hours: 24
+
+clients:
+  base-url:
+    user-management: http://ldms-user-management
+    location-management: http://ldms-location-management
+    documents-management: http://ldms-documents-management

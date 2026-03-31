@@ -1,0 +1,29 @@
+server:
+  port: 8100
+
+spring:
+  application:
+    name: ldms-scheduler
+  # No datasource — scheduler is stateless
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: false
+
+management:
+  server:
+    port: 9100
+
+ldms:
+  scheduler:
+    overdue-invoices-cron: "0 0 1 * * *"
+    compliance-check-cron: "0 0 6 * * *"
+    kyc-sla-cron: "0 */30 * * * *"
+    monthly-report-cron: "0 0 2 1 * *"
+
+clients:
+  base-url:
+    billing-payments: http://ldms-billing-payments
+    fleet-management: http://ldms-fleet-management
+    organization-management: http://ldms-organization-management

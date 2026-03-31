@@ -1,0 +1,33 @@
+server:
+  port: 8096
+
+spring:
+  application:
+    name: ldms-platform-admin
+  datasource:
+    url: jdbc:mysql://${DB_HOST:staging-db}:3306/ldms_platform_admin?useSSL=true&serverTimezone=UTC
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    show-sql: false
+clients:
+  base-url:
+    organization-management: http://ldms-organization-management
+    user-management: http://ldms-user-management
+
+management:
+  server:
+    port: 9096
+  tracing:
+    sampling:
+      probability: 0.1
+
+logging:
+  level:
+    projectlx: INFO
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://staging-eureka:8761/eureka/}
