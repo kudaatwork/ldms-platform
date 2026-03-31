@@ -1,0 +1,29 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: ldms-location-management
+  datasource:
+    url: jdbc:mysql://${DB_HOST:staging-db}:3306/ldms_location_management?useSSL=true&serverTimezone=UTC
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    show-sql: false
+
+management:
+  server:
+    port: 9084
+  tracing:
+    sampling:
+      probability: 0.1
+
+logging:
+  level:
+    projectlx: INFO
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://staging-eureka:8761/eureka/}

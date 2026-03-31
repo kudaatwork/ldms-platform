@@ -1,0 +1,36 @@
+server:
+  port: 8095
+
+spring:
+  application:
+    name: ldms-messaging-bot
+  datasource:
+    url: jdbc:mysql://${DB_HOST:staging-db}:3306/ldms_messaging_bot?useSSL=true&serverTimezone=UTC
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    show-sql: false
+twilio:
+  account-sid: ${TWILIO_ACCOUNT_SID}
+  auth-token: ${TWILIO_AUTH_TOKEN}
+  phone-number: ${TWILIO_PHONE_NUMBER}
+  whatsapp:
+    from-number: ${TWILIO_WHATSAPP_FROM}
+    sandbox-mode: true
+
+management:
+  server:
+    port: 9095
+  tracing:
+    sampling:
+      probability: 0.1
+
+logging:
+  level:
+    projectlx: INFO
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://staging-eureka:8761/eureka/}

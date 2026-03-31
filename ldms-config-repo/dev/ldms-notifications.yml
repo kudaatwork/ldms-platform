@@ -1,0 +1,24 @@
+server:
+  port: 8094
+
+spring:
+  application:
+    name: ldms-notifications
+  datasource:
+    url: jdbc:mysql://localhost:3306/ldms_notifications?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    show-sql: true
+
+management:
+  server:
+    port: 9094
+
+ldms:
+  notifications:
+    rabbitmq:
+      exchange: ldms.notifications.exchange
+      queue: ldms.notifications.queue
+      routing-key: notification.send

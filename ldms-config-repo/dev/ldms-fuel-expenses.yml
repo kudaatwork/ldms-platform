@@ -1,0 +1,22 @@
+server:
+  port: 8092
+
+spring:
+  application:
+    name: ldms-fuel-expenses
+  datasource:
+    url: jdbc:mysql://localhost:3306/ldms_fuel_expenses?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    show-sql: true
+
+management:
+  server:
+    port: 9092
+
+clients:
+  base-url:
+    billing-payments: http://ldms-billing-payments
+    trip-tracking: http://ldms-trip-tracking

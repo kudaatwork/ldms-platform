@@ -1,0 +1,112 @@
+[
+  {
+    "id": 1,
+    "code": "BU",
+    "created_at": "2025-08-12 07:10:59.908839",
+    "entity_status": "ACTIVE",
+    "name": "Bulawayo",
+    "updated_at": null,
+    "administrative_level_id": 1,
+    "country_id": 195,
+    "geo_coordinates_id": 196
+  },
+  {
+    "id": 2,
+    "code": "HA",
+    "created_at": "2025-08-12 07:11:23.503013",
+    "entity_status": "ACTIVE",
+    "name": "Harare",
+    "updated_at": null,
+    "administrative_level_id": 1,
+    "country_id": 195,
+    "geo_coordinates_id": 197
+  },
+  {
+    "id": 3,
+    "code": "MN",
+    "created_at": "2025-08-12 07:11:36.047772",
+    "entity_status": "ACTIVE",
+    "name": "Manicaland",
+    "updated_at": null,
+    "administrative_level_id": 1,
+    "country_id": 195,
+    "geo_coordinates_id": 198
+  },
+  {
+    "id": 4,
+    "code": "MC",
+    "created_at": "2025-08-12 07:11:49.491338",
+    "entity_status": "ACTIVE",
+    "name": "Mashonaland Central",
+    "updated_at": null,
+    "administrative_level_id": 1,
+    "country_id": 195,
+    "geo_coordinates_id": 199
+  },
+  {
+    "id": 5,
+    "code": "ME",
+    "created_at": "2025-08-12 07:12:02.197482",
+    "entity_status": "ACTIVE",
+    "name": "Mashonaland East",
+    "updated_at": null,
+    "administrative_level_id": 1,
+    "country_id": 195,
+    "geo_coordinates_id": 200
+  },
+  {
+    "id": 6,
+    "code": "MW",
+    "created_at": "2025-08-12 07:12:13.862466",
+    "entity_status": "ACTIVE",
+    "name": "Mashonaland West",
+    "updated_at": null,
+    "administrative_level_id": 1,
+    "country_id": 195,
+    "geo_coordinates_id": 201
+  },
+  {
+    "id": 7,
+    "code": "MV",
+    "created_at": "2025-08-12 07:12:25.208952",
+    "entity_status": "ACTIVE",
+    "name": "Masvingo",
+    "updated_at": null,
+    "administrative_level_id": 1,
+    "country_id": 195,
+    "geo_coordinates_id": 202
+  },
+  {
+    "id": 8,
+    "code": "FN",
+    "created_at": "2025-08-12 07:12:36.064384",
+    "entity_status": "ACTIVE",
+    "name": "Matabeleland North",
+    "updated_at": null,
+    "administrative_level_id": 1,
+    "country_id": 195,
+    "geo_coordinates_id": 203
+  },
+  {
+    "id": 9,
+    "code": "FS",
+    "created_at": "2025-08-12 07:12:48.154872",
+    "entity_status": "ACTIVE",
+    "name": "Matabeleland South",
+    "updated_at": null,
+    "administrative_level_id": 1,
+    "country_id": 195,
+    "geo_coordinates_id": 204
+  },
+  {
+    "id": 10,
+    "code": "MI",
+    "created_at": "2025-08-12 07:14:02.022085",
+    "entity_status": "ACTIVE",
+    "name": "Midlands",
+    "updated_at": null,
+    "administrative_level_id": 1,
+    "country_id": 195,
+    "geo_coordinates_id": 205
+  }
+]

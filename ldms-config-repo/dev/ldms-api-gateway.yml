@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ldms-api-gateway
+
+  # No datasource — gateway has no DB
+  # No JPA — override shared setting
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: false
+
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins:
+              - "http://localhost:4200"   # platform-portal
+              - "http://localhost:4201"   # admin-portal
+            allowed-methods: ["*"]
+            allowed-headers: ["*"]
+            allow-credentials: true
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+
+management:
+  server:
+    port: 9080

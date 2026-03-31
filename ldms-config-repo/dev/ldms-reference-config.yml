@@ -1,0 +1,21 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: ldms-reference-config
+  datasource:
+    url: jdbc:mysql://localhost:3306/ldms_reference_config?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    show-sql: true
+  cache:
+    type: redis
+    redis:
+      time-to-live: 21600000   # 6 hours — reference data rarely changes
+
+management:
+  server:
+    port: 9085

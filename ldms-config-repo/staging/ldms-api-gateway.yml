@@ -1,0 +1,40 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: ldms-api-gateway
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: false
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowed-origins:
+              - "http://localhost:4200"
+              - "http://localhost:4201"
+            allowed-methods: ["*"]
+            allowed-headers: ["*"]
+            allow-credentials: true
+
+eureka:
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: ${EUREKA_URL:http://staging-eureka:8761/eureka/}
+
+management:
+  server:
+    port: 9080
+  tracing:
+    sampling:
+      probability: 0.1
+
+logging:
+  level:
+    projectlx: INFO

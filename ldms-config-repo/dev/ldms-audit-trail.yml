@@ -1,0 +1,35 @@
+server:
+  port: 8099
+
+spring:
+  application:
+    name: ldms-audit-trail
+  datasource:
+    url: jdbc:mysql://localhost:3306/ldms_audit_trail?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20   # consumer writes can be bursty
+      minimum-idle: 5
+  jpa:
+    show-sql: false
+    properties:
+      hibernate.jdbc.batch_size: 50   # batch inserts for burst audit traffic
+      hibernate.order_inserts: true
+  rabbitmq:
+    listener:
+      simple:
+        concurrency: 3
+        max-concurrency: 10
+        prefetch: 20
+        acknowledge-mode: manual
+        default-requeue-rejected: false
+
+management:
+  server:
+    port: 9099
+
+ldms:
+  audit:
+    enabled: false    # CRITICAL: prevents audit-trail from auditing its own inserts

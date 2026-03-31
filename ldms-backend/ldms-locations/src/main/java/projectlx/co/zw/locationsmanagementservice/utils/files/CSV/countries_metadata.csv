@@ -1,0 +1,196 @@
+NAME,ISO ALPHA-2 CODE,ISO ALPHA-3 CODE,DIAL CODE,TIMEZONE,CURRENCY CODE,GEOCOORDINATES ID
+Afghanistan,AF,AFG,+93,Asia/Kabul,AFN,1
+Albania,AL,ALB,+355,Europe/Tirane,ALL,2
+Algeria,DZ,DZA,+213,Africa/Algiers,DZD,3
+Andorra,AD,AND,+376,Europe/Andorra,EUR,4
+Angola,AO,AGO,+244,Africa/Luanda,AOA,5
+Antigua and Barbuda,AG,ATG,+1-268,America/Antigua,XCD,6
+Argentina,AR,ARG,+54,America/Argentina/Buenos_Aires,ARS,7
+Armenia,AM,ARM,+374,Asia/Yerevan,AMD,8
+Australia,AU,AUS,+61,Australia/Sydney,AUD,9
+Austria,AT,AUT,+43,Europe/Vienna,EUR,10
+Azerbaijan,AZ,AZE,+994,Asia/Baku,AZN,11
+Bahamas,BS,BHS,+1-242,America/Nassau,BSD,12
+Bahrain,BH,BHR,+973,Asia/Bahrain,BHD,13
+Bangladesh,BD,BGD,+880,Asia/Dhaka,BDT,14
+Barbados,BB,BRB,+1-246,America/Barbados,BBD,15
+Belarus,BY,BLR,+375,Europe/Minsk,BYN,16
+Belgium,BE,BEL,+32,Europe/Brussels,EUR,17
+Belize,BZ,BLZ,+501,America/Belize,BZD,18
+Benin,BJ,BEN,+229,Africa/Porto-Novo,XOF,19
+Bhutan,BT,BTN,+975,Asia/Thimphu,BTN,20
+Bolivia,BO,BOL,+591,America/La_Paz,BOB,21
+Bosnia and Herzegovina,BA,BIH,+387,Europe/Sarajevo,BAM,22
+Botswana,BW,BWA,+267,Africa/Gaborone,BWP,23
+Brazil,BR,BRA,+55,America/Sao_Paulo,BRL,24
+Brunei,BN,BRN,+673,Asia/Brunei,BND,25
+Bulgaria,BG,BGR,+359,Europe/Sofia,BGN,26
+Burkina Faso,BF,BFA,+226,Africa/Ouagadougou,XOF,27
+Burundi,BI,BDI,+257,Africa/Bujumbura,BIF,28
+Cabo Verde,CV,CPV,+238,Atlantic/Cape_Verde,CVE,29
+Cambodia,KH,KHM,+855,Asia/Phnom_Penh,KHR,30
+Cameroon,CM,CMR,+237,Africa/Douala,XAF,31
+Canada,CA,CAN,+1,America/Toronto,CAD,32
+Central African Republic,CF,CAF,+236,Africa/Bangui,XAF,33
+Chad,TD,TCD,+235,Africa/Ndjamena,XAF,34
+Cote d'Ivoire,CI,CIV,+225,Africa/Abidjan,XOF,35
+Chile,CL,CHL,+56,America/Santiago,CLP,36
+China,CN,CHN,+86,Asia/Shanghai,CNY,37
+Colombia,CO,COL,+57,America/Bogota,COP,38
+Comoros,KM,COM,+269,Indian/Comoro,KMF,39
+Congo (Brazzaville),CG,COG,+242,Africa/Brazzaville,XAF,40
+Congo (Kinshasa),CD,COD,+243,Africa/Kinshasa,CDF,41
+Costa Rica,CR,CRI,+506,America/Costa_Rica,CRC,42
+Croatia,HR,HRV,+385,Europe/Zagreb,EUR,43
+Cuba,CU,CUB,+53,America/Havana,CUP,44
+Cyprus,CY,CYP,+357,Asia/Nicosia,EUR,45
+Czech Republic,CZ,CZE,+420,Europe/Prague,CZK,46
+Denmark,DK,DNK,+45,Europe/Copenhagen,DKK,47
+Djibouti,DJ,DJI,+253,Africa/Djibouti,DJF,48
+Dominica,DM,DMA,+1-767,America/Dominica,XCD,49
+Dominican Republic,DO,DOM,+1-809,America/Santo_Domingo,DOP,50
+Ecuador,EC,ECU,+593,America/Guayaquil,USD,51
+Egypt,EG,EGY,+20,Africa/Cairo,EGP,52
+El Salvador,SV,SLV,+503,America/El_Salvador,USD,53
+Equatorial Guinea,GQ,GNQ,+240,Africa/Malabo,XAF,54
+Eritrea,ER,ERI,+291,Africa/Asmara,ERN,55
+Estonia,EE,EST,+372,Europe/Tallinn,EUR,56
+Eswatini,SZ,SWZ,+268,Africa/Mbabane,SZL,57
+Ethiopia,ET,ETH,+251,Africa/Addis_Ababa,ETB,58
+Fiji,FJ,FJI,+679,Pacific/Fiji,FJD,59
+Finland,FI,FIN,+358,Europe/Helsinki,EUR,60
+France,FR,FRA,+33,Europe/Paris,EUR,61
+Gabon,GA,GAB,+241,Africa/Libreville,XAF,62
+Gambia,GM,GMB,+220,Africa/Banjul,GMD,63
+Georgia,GE,GEO,+995,Asia/Tbilisi,GEL,64
+Germany,DE,DEU,+49,Europe/Berlin,EUR,65
+Ghana,GH,GHA,+233,Africa/Accra,GHS,66
+Greece,GR,GRC,+30,Europe/Athens,EUR,67
+Grenada,GD,GRD,+1-473,America/Grenada,XCD,68
+Guatemala,GT,GTM,+502,America/Guatemala,GTQ,69
+Guinea,GN,GIN,+224,Africa/Conakry,GNF,70
+Guinea-Bissau,GW,GNB,+245,Africa/Bissau,XOF,71
+Guyana,GY,GUY,+592,America/Guyana,GYD,72
+Haiti,HT,HTI,+509,America/Port-au-Prince,HTG,73
+Honduras,HN,HND,+504,America/Tegucigalpa,HNL,74
+Hungary,HU,HUN,+36,Europe/Budapest,HUF,75
+Iceland,IS,ISL,+354,Atlantic/Reykjavik,ISK,76
+India,IN,IND,+91,Asia/Kolkata,INR,77
+Indonesia,ID,IDN,+62,Asia/Jakarta,IDR,78
+Iran,IR,IRN,+98,Asia/Tehran,IRR,79
+Iraq,IQ,IRQ,+964,Asia/Baghdad,IQD,80
+Ireland,IE,IRL,+353,Europe/Dublin,EUR,81
+Israel,IL,ISR,+972,Asia/Jerusalem,ILS,82
+Italy,IT,ITA,+39,Europe/Rome,EUR,83
+Jamaica,JM,JAM,+1-876,America/Jamaica,JMD,84
+Japan,JP,JPN,+81,Asia/Tokyo,JPY,85
+Jordan,JO,JOR,+962,Asia/Amman,JOD,86
+Kazakhstan,KZ,KAZ,+7,Asia/Almaty,KZT,87
+Kenya,KE,KEN,+254,Africa/Nairobi,KES,88
+Kiribati,KI,KIR,+686,Pacific/Tarawa,AUD,89
+Kuwait,KW,KWT,+965,Asia/Kuwait,KWD,90
+Kyrgyzstan,KG,KGZ,+996,Asia/Bishkek,KGS,91
+Laos,LA,LAO,+856,Asia/Vientiane,LAK,92
+Latvia,LV,LVA,+371,Europe/Riga,EUR,93
+Lebanon,LB,LBN,+961,Asia/Beirut,LBP,94
+Lesotho,LS,LSO,+266,Africa/Maseru,LSL,95
+Liberia,LR,LBR,+231,Africa/Monrovia,LRD,96
+Libya,LY,LBY,+218,Africa/Tripoli,LYD,97
+Liechtenstein,LI,LIE,+423,Europe/Vaduz,CHF,98
+Lithuania,LT,LTU,+370,Europe/Vilnius,EUR,99
+Luxembourg,LU,LUX,+352,Europe/Luxembourg,EUR,100
+Madagascar,MG,MDG,+261,Indian/Antananarivo,MGA,101
+Malawi,MW,MWI,+265,Africa/Blantyre,MWK,102
+Malaysia,MY,MYS,+60,Asia/Kuala_Lumpur,MYR,103
+Maldives,MV,MDV,+960,Indian/Maldives,MVR,104
+Mali,ML,MLI,+223,Africa/Bamako,XOF,105
+Malta,MT,MLT,+356,Europe/Malta,EUR,106
+Marshall Islands,MH,MHL,+692,Pacific/Majuro,USD,107
+Mauritania,MR,MRT,+222,Africa/Nouakchott,MRU,108
+Mauritius,MU,MUS,+230,Indian/Mauritius,MUR,109
+Mexico,MX,MEX,+52,America/Mexico_City,MXN,110
+Micronesia,FM,FSM,+691,Pacific/Pohnpei,USD,111
+Moldova,MD,MDA,+373,Europe/Chisinau,MDL,112
+Monaco,MC,MCO,+377,Europe/Monaco,EUR,113
+Mongolia,MN,MNG,+976,Asia/Ulaanbaatar,MNT,114
+Montenegro,ME,MNE,+382,Europe/Podgorica,EUR,115
+Morocco,MA,MAR,+212,Africa/Casablanca,MAD,116
+Mozambique,MZ,MOZ,+258,Africa/Maputo,MZN,117
+Myanmar (Burma),MM,MMR,+95,Asia/Yangon,MMK,118
+Namibia,NA,NAM,+264,Africa/Windhoek,NAD,119
+Nauru,NR,NRU,+674,Pacific/Nauru,AUD,120
+Nepal,NP,NPL,+977,Asia/Kathmandu,NPR,121
+Netherlands,NL,NLD,+31,Europe/Amsterdam,EUR,122
+New Zealand,NZ,NZL,+64,Pacific/Auckland,NZD,123
+Nicaragua,NI,NIC,+505,America/Managua,NIO,124
+Niger,NE,NER,+227,Africa/Niamey,XOF,125
+Nigeria,NG,NGA,+234,Africa/Lagos,NGN,126
+North Korea,KP,PRK,+850,Asia/Pyongyang,KPW,127
+North Macedonia,MK,MKD,+389,Europe/Skopje,MKD,128
+Norway,NO,NOR,+47,Europe/Oslo,NOK,129
+Oman,OM,OMN,+968,Asia/Muscat,OMR,130
+Pakistan,PK,PAK,+92,Asia/Karachi,PKR,131
+Palau,PW,PLW,+680,Pacific/Palau,USD,132
+Panama,PA,PAN,+507,America/Panama,PAB,133
+Papua New Guinea,PG,PNG,+675,Pacific/Port_Moresby,PGK,134
+Paraguay,PY,PRY,+595,America/Asuncion,PYG,135
+Peru,PE,PER,+51,America/Lima,PEN,136
+Philippines,PH,PHL,+63,Asia/Manila,PHP,137
+Poland,PL,POL,+48,Europe/Warsaw,PLN,138
+Portugal,PT,PRT,+351,Europe/Lisbon,EUR,139
+Qatar,QA,QAT,+974,Asia/Qatar,QAR,140
+Romania,RO,ROU,+40,Europe/Bucharest,RON,141
+Russia,RU,RUS,+7,Europe/Moscow,RUB,142
+Rwanda,RW,RWA,+250,Africa/Kigali,RWF,143
+Saint Kitts and Nevis,KN,KNA,+1-869,America/St_Kitts,XCD,144
+Saint Lucia,LC,LCA,+1-758,America/St_Lucia,XCD,145
+Saint Vincent and the Grenadines,VC,VCT,+1-784,America/St_Vincent,XCD,146
+Samoa,WS,WSM,+685,Pacific/Apia,WST,147
+San Marino,SM,SMR,+378,Europe/San_Marino,EUR,148
+Sao Tome and Principe,ST,STP,+239,Africa/Sao_Tome,STN,149
+Saudi Arabia,SA,SAU,+966,Asia/Riyadh,SAR,150
+Senegal,SN,SEN,+221,Africa/Dakar,XOF,151
+Serbia,RS,SRB,+381,Europe/Belgrade,RSD,152
+Seychelles,SC,SYC,+248,Indian/Mahe,SCR,153
+Sierra Leone,SL,SLE,+232,Africa/Freetown,SLL,154
+Singapore,SG,SGP,+65,Asia/Singapore,SGD,155
+Slovakia,SK,SVK,+421,Europe/Bratislava,EUR,156
+Slovenia,SI,SVN,+386,Europe/Ljubljana,EUR,157
+Solomon Islands,SB,SLB,+677,Pacific/Guadalcanal,SBD,158
+Somalia,SO,SOM,+252,Africa/Mogadishu,SOS,159
+South Africa,ZA,ZAF,+27,Africa/Johannesburg,ZAR,160
+South Korea,KR,KOR,+82,Asia/Seoul,KRW,161
+South Sudan,SS,SSD,+211,Africa/Juba,SSP,162
+Spain,ES,ESP,+34,Europe/Madrid,EUR,163
+Sri Lanka,LK,LKA,+94,Asia/Colombo,LKR,164
+Sudan,SD,SDN,+249,Africa/Khartoum,SDG,165
+Suriname,SR,SUR,+597,America/Paramaribo,SRD,166
+Sweden,SE,SWE,+46,Europe/Stockholm,SEK,167
+Switzerland,CH,CHE,+41,Europe/Zurich,CHF,168
+Syria,SY,SYR,+963,Asia/Damascus,SYP,169
+Taiwan,TW,TWN,+886,Asia/Taipei,TWD,170
+Tajikistan,TJ,TJK,+992,Asia/Dushanbe,TJS,171
+Tanzania,TZ,TZA,+255,Africa/Dar_es_Salaam,TZS,172
+Thailand,TH,THA,+66,Asia/Bangkok,THB,173
+Timor-Leste,TL,TLS,+670,Asia/Dili,USD,174
+Togo,TG,TGO,+228,Africa/Lome,XOF,175
+Tonga,TO,TON,+676,Pacific/Tongatapu,TOP,176
+Trinidad and Tobago,TT,TTO,+1-868,America/Port_of_Spain,TTD,177
+Tunisia,TN,TUN,+216,Africa/Tunis,TND,178
+Turkey,TR,TUR,+90,Europe/Istanbul,TRY,179
+Turkmenistan,TM,TKM,+993,Asia/Ashgabat,TMT,180
+Tuvalu,TV,TUV,+688,Pacific/Funafuti,AUD,181
+Uganda,UG,UGA,+256,Africa/Kampala,UGX,182
+Ukraine,UA,UKR,+380,Europe/Kiev,UAH,183
+United Arab Emirates,AE,ARE,+971,Asia/Dubai,AED,184
+United Kingdom,GB,GBR,+44,Europe/London,GBP,185
+United States,US,USA,+1,America/New_York,USD,186
+Uruguay,UY,URY,+598,America/Montevideo,UYU,187
+Uzbekistan,UZ,UZB,+998,Asia/Tashkent,UZS,188
+Vanuatu,VU,VUT,+678,Pacific/Efate,VUV,189
+Vatican City,VA,VAT,+379,Europe/Vatican,EUR,190
+Venezuela,VE,VEN,+58,America/Caracas,VES,191
+Vietnam,VN,VNM,+84,Asia/Ho_Chi_Minh,VND,192
+Yemen,YE,YEM,+967,Asia/Aden,YER,193
+Zambia,ZM,ZMB,+260,Africa/Lusaka,ZMW,194
+Zimbabwe,ZW,ZWE,+263,Africa/Harare,ZWL,195

@@ -1,0 +1,29 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: ldms-auth-management
+  datasource:
+    url: jdbc:mysql://localhost:3306/ldms_auth_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 3
+  jpa:
+    show-sql: true
+
+management:
+  server:
+    port: 9082
+
+clients:
+  base-url:
+    user-management: http://ldms-user-management
+
+ldms:
+  auth:
+    otp-expiry-minutes: 5
+    max-otp-attempts: 3

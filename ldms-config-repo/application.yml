@@ -1,0 +1,139 @@
+# ═══════════════════════════════════════════════════════════════════
+# PROJECT LX — SHARED CONFIGURATION
+# Loaded by all 22 microservices on all profiles (dev/staging/prod).
+# Service-specific and environment-specific values are in dev/ staging/ prod/ folders.
+# Secrets use ${ENV_VAR:default} syntax — NEVER commit plaintext secrets.
+# ═══════════════════════════════════════════════════════════════════
+
+spring:
+  # ── JPA / Hibernate ──────────────────────────────────────────────
+  jpa:
+    # Flyway owns schema — never let Hibernate create/modify tables
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+    properties:
+      hibernate.jdbc.batch_size: 25
+      hibernate.order_inserts: true
+      hibernate.format_sql: false
+      # Do NOT set dialect — auto-detected from MySQL driver in Hibernate 6
+
+  # ── RabbitMQ ─────────────────────────────────────────────────────
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:admin}
+    password: ${RABBITMQ_PASSWORD:admin}
+    virtual-host: /
+    connection-timeout: 5000
+    listener:
+      simple:
+        acknowledge-mode: auto
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000
+          multiplier: 2.0
+          max-interval: 10000
+
+  # ── Redis ────────────────────────────────────────────────────────
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 5
+          min-idle: 2
+
+  # ── Flyway ───────────────────────────────────────────────────────
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    out-of-order: false
+
+  # ── Servlet multipart ────────────────────────────────────────────
+  servlet:
+    multipart:
+      max-file-size: 128MB
+      max-request-size: 128MB
+
+# ── Eureka ───────────────────────────────────────────────────────────
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+    registry-fetch-interval-seconds: 30
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+
+# ── Actuator & Monitoring ─────────────────────────────────────────────
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,env,loggers,flyway
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}
+
+# ── OpenAPI / Swagger ─────────────────────────────────────────────────
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs
+
+# ── Feign clients ─────────────────────────────────────────────────────
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 10000
+        logger-level: FULL
+  circuitbreaker:
+    enabled: true
+
+# ── JWT (shared secret — all services validate the same token) ─────────
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration-ms: 900000      # 15 minutes
+  refresh-token-expiration-ms: 604800000  # 7 days
+
+# ── Audit ─────────────────────────────────────────────────────────────
+ldms:
+  audit:
+    enabled: true
+  audit-rabbitmq:
+    exchange: ldms.audit.exchange
+    routing-key: audit.log
+
+# ── Logging ───────────────────────────────────────────────────────────
+logging:
+  pattern:
+    console: '{"timestamp":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","service":"${spring.application.name}","traceId":"%X{traceId}","spanId":"%X{spanId}","thread":"%thread","logger":"%logger{36}","message":"%msg"}%n'
+  level:
+    root: INFO
+    projectlx: DEBUG
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN

@@ -1,0 +1,43 @@
+server:
+  port: 8097
+
+spring:
+  application:
+    name: ldms-integration
+  jpa:
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: false
+
+management:
+  server:
+    port: 9097
+
+twilio:
+  account-sid: ${TWILIO_ACCOUNT_SID}
+  auth-token: ${TWILIO_AUTH_TOKEN}
+  sms-from: ${TWILIO_PHONE_NUMBER}
+  whatsapp-from: ${TWILIO_WHATSAPP_FROM}
+
+sendgrid:
+  api-key: ${SENDGRID_API_KEY}
+  from-email: ${SENDGRID_FROM_EMAIL:noreply@projectlx.co.zw}
+
+firebase:
+  server-key: ${FIREBASE_SERVER_KEY}
+  service-account-file: classpath:firebase-adminsdk.json
+
+aws:
+  region: ${AWS_REGION:eu-north-1}
+  ses:
+    from-email: ${AWS_SES_FROM_EMAIL}
+  credentials:
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
+
+mqtt:
+  broker-url: tcp://localhost:1883
+  client-id: ldms-integration-${random.int}
+  username: ${MQTT_USERNAME:admin}
+  password: ${MQTT_PASSWORD:admin}
