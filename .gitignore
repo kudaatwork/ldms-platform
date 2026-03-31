@@ -9,3 +9,4 @@ build/
 *.iml
 .idea/
 ldms-backend/ldms-notifications/src/main/resources/*firebase-adminsdk*.json
+ldms-config-repo/
