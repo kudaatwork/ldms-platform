@@ -10,10 +10,10 @@
 		<relativePath>../pom.xml</relativePath>
 	</parent>
 
-	<artifactId>ldms-notifications-management-service</artifactId>
+	<artifactId>ldms-notifications</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>ldms-notifications-management-service</name>
-	<description>ldms-notifications-management-service</description>
+	<name>ldms-notifications</name>
+	<description>ldms-notifications</description>
 	<url/>
 	<licenses>
 		<license/>

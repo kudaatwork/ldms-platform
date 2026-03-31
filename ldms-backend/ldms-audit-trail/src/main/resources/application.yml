@@ -1,58 +1,11 @@
-server:
-  port: 8099
-
 spring:
   application:
     name: ldms-audit-trail
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
   config:
     import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
   cloud:
     config:
-      username: ${CONFIG_SERVER_USERNAME:admin}
+      username: ${CONFIG_SERVER_USERNAME:kudaatwork}
       password: ${CONFIG_SERVER_PASSWORD:changeme}
-  datasource:
-    url: jdbc:mysql://localhost:3306/ldms_audit_trail?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:root}
-    hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-  jpa:
-    open-in-view: false
-    hibernate:
-      ddl-auto: validate
-    show-sql: false
-    properties:
-      hibernate:
-        format_sql: true
-        jdbc:
-          time_zone: UTC
-          batch_size: 50
-        order_inserts: true
-  flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-  rabbitmq:
-    host: localhost
-    port: 5672
-    username: admin
-    password: ${RABBITMQ_PASSWORD}
-    listener:
-      simple:
-        concurrency: 3
-        max-concurrency: 10
-        prefetch: 20
-        acknowledge-mode: manual
-        default-requeue-rejected: false
-
-ldms:
-  audit:
-    enabled: false
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info

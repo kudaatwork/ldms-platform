@@ -4,18 +4,22 @@ server:
 spring:
   security:
     user:
-      name: admin
-      # Override in env for non-local (e.g. export CONFIG_SERVER_PASSWORD=...). Default allows IDE/local run without env.
-      password: ${CONFIG_SERVER_PASSWORD:changeme}
+      name: ${CONFIG_SERVER_USERNAME:kudaatwork}
+      password: ${CONFIG_SERVER_PASSWORD:changeme
   cloud:
     config:
       enabled: false
       server:
         git:
-          # Central repo lives in the platform tree; override with LDMS_CONFIG_REPO if needed.
-          uri: file://${LDMS_CONFIG_REPO:${user.home}/IdeaProjects/ldms-platform/ldms-config-repo}
-          # Resolve e.g. dev/ldms-user-management.yml when profile is dev.
+          uri: ${LDMS_CONFIG_GIT_URI}
+          clone-on-start: true
+          default-label: ${LDMS_CONFIG_GIT_BRANCH:main}
           search-paths: '{profile}'
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
 
 management:
   endpoints:

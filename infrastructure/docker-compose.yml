@@ -8,12 +8,14 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ldms_platform
+      MYSQL_USER: developer
+      MYSQL_PASSWORD: ${MYSQL_DEVELOPER_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - ldms-network
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" || exit 1"]
+      test: [ "CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -48,7 +50,7 @@ services:
     container_name: ldms-mosquitto
     restart: unless-stopped
     ports:
-      - "1883:1883"
+      - "1884:1883"
       - "9001:9001"
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro

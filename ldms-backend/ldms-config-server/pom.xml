@@ -16,6 +16,10 @@
     <name>LDMS Config Server</name>
     <description>Spring Cloud Config Server for Project LX LDMS</description>
 
+    <properties>
+        <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
+    </properties>
+
     <!-- Ensures Moorgate (Boot 3.4) Cloud versions even if the IDE caches an older parent POM. -->
     <dependencyManagement>
         <dependencies>
@@ -55,6 +59,11 @@
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-bootstrap</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>${logstash-logback-encoder.version}</version>
         </dependency>
     </dependencies>
 

@@ -1,0 +1,32 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: ldms-eureka-server
+  security:
+    user:
+      name: ${EUREKA_DASHBOARD_USER}
+      password: ${EUREKA_DASHBOARD_PASSWORD}
+
+eureka:
+  instance:
+    hostname: ${EUREKA_HOSTNAME}
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${spring.security.user.name}:${spring.security.user.password}@${eureka.instance.hostname}:${server.port}/eureka/
+    filter-only-up-instances: true
+    registry-fetch-interval-seconds: 30
+  server:
+    enable-self-preservation: true
+    renewal-percent-threshold: 0.85
+
+logging:
+  level:
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO

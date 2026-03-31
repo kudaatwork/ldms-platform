@@ -1,0 +1,65 @@
+.shell {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: #0b2545;
+  color: #c9d7ec;
+  padding: 20px 16px;
+}
+
+.logo {
+  color: #fff;
+  font: 700 20px var(--font-heading);
+}
+
+.org {
+  margin-top: 8px;
+  margin-bottom: 20px;
+  font-size: 12px;
+  color: #9fb2cf;
+}
+
+nav {
+  display: grid;
+  gap: 8px;
+}
+
+a {
+  color: #c9d7ec;
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+a.active,
+a:hover {
+  background: rgba(21, 101, 192, 0.35);
+  color: #fff;
+}
+
+.content {
+  padding: 20px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+h2 {
+  margin: 0;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}

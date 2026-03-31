@@ -1,16 +1,14 @@
-feat(ldms-platform): update shared library, config server, and project structure
+Refactor notification service and update configuration infrastructure
 
-- ldms-shared-library:
-    - Updated `BaseEntity` with increased character limits for audit fields.
-    - Enhanced `Auditable` annotation with descriptive Javadoc and restricted target to methods.
-    - Expanded `Constants` with comprehensive regex patterns for validation (phone, email, ID, etc.).
-    - Refactored `ValidatorDto` from a record to a Lombok-annotated class for better compatibility.
-    - Updated `EntityStatus` enum with string values and an additional `ARCHIVED` status.
-- ldms-config-server:
-    - Updated POM with `dependencyManagement` for Spring Cloud Moorgate (Boot 3.4) compatibility.
-    - Updated `application.yml` to use environment-variable-driven Git URI and search paths.
-- Project Infrastructure:
-    - Added several new microservice modules and shared library components (API Gateway, Audit Trail, Authentication, Eureka Server, Notifications, etc.).
-    - Initialized `admin-portal` Angular application structure under `ldms-web`.
-    - Updated `.vscode/settings.json` with Maven and Java configuration improvements.
-- Removed obsolete `.gitkeep` file in `admin-portal`.
+- Refactor `ldms-notifications` module:
+    - Rename artifact and project name from `ldms-notifications-management-service` to `ldms-notifications`.
+    - Simplify package structure from `projectlx.co.zw.notificationsmanagementservice` to `projectlx.co.zw.notifications`.
+    - Rename main application class to `Notifications`.
+- Update infrastructure and database configurations:
+    - Update `docker-compose.yml` with MySQL credentials and adjust Mosquitto port from 1883 to 1884.
+    - Rename audit trail database schema to `ldms_audit_trail_dev_db` in SQL migrations and YAML configs.
+    - Synchronize application names and database connection strings across dev, staging, and prod configurations in `ldms-config-repo`.
+- Backend adjustments:
+    - Update POM files for `ldms-api-gateway`, `ldms-audit-trail`, `ldms-config-server`, `ldms-eureka-server`, and `ldms-shared-library`.
+    - Adjust logging configurations (`logback-spring.xml`) for multiple services.
+- Initialize `platform-portal` Angular project in `ldms-web/`.

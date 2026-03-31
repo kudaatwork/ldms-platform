@@ -1,0 +1,28 @@
+.dashboard h1 {
+  margin-top: 0;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.kpi-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.kpi-label {
+  color: var(--muted);
+  text-transform: capitalize;
+}
+
+.kpi-value {
+  margin-top: 8px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary);
+}

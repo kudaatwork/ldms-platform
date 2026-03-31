@@ -1,0 +1,22 @@
+<section class="login">
+  <form [formGroup]="form" (ngSubmit)="submit()">
+    <h1>Platform Portal</h1>
+    <p>Sign in to continue</p>
+
+    <label>Email</label>
+    <input type="email" formControlName="email" />
+
+    <label>Password</label>
+    <input type="password" formControlName="password" />
+
+    <button type="submit" [disabled]="loading">{{ loading ? 'Signing in...' : 'Sign in' }}</button>
+    <small class="error" *ngIf="error">{{ error }}</small>
+  </form>
+
+  <aside>
+    <h3>Mock Accounts</h3>
+    <button type="button" *ngFor="let row of demoUsers" (click)="fill(row.email, row.password)">
+      {{ row.user.orgClassification }}
+    </button>
+  </aside>
+</section>

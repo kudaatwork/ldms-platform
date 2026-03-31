@@ -44,7 +44,7 @@ public class AuditLogServiceProcessor {
         AuditLogFilter filter =
                 new AuditLogFilter(serviceName, username, eventType, httpStatusCode, from, to, page, size, sortBy, sortDir);
         ValidatorDto vd = validator.validateSearch(filter);
-        if (!vd.success()) {
+        if (!vd.success) {
             return ResponseEntity.badRequest().body(ApiResponse.fail(joinErrors(vd)));
         }
 
@@ -58,7 +58,7 @@ public class AuditLogServiceProcessor {
 
     public ResponseEntity<ApiResponse<AuditLogDto>> getById(Long id) {
         ValidatorDto vd = validator.validateId(id);
-        if (!vd.success()) {
+        if (!vd.success) {
             return ResponseEntity.badRequest().body(ApiResponse.fail(joinErrors(vd)));
         }
         return service
@@ -70,7 +70,7 @@ public class AuditLogServiceProcessor {
 
     public ResponseEntity<ApiResponse<List<AuditLogDto>>> getByTrace(String traceId) {
         ValidatorDto vd = validator.validateTraceId(traceId);
-        if (!vd.success()) {
+        if (!vd.success) {
             return ResponseEntity.badRequest().body(ApiResponse.fail(joinErrors(vd)));
         }
         List<AuditLogDto> dtos = service.findByTraceIdOrdered(traceId).stream()
@@ -81,7 +81,7 @@ public class AuditLogServiceProcessor {
 
     public ResponseEntity<ApiResponse<AuditLogServiceStats>> getServiceStats(String serviceName, int hours) {
         ValidatorDto vd = validator.validateServiceStats(serviceName, hours);
-        if (!vd.success()) {
+        if (!vd.success) {
             return ResponseEntity.badRequest().body(ApiResponse.fail(joinErrors(vd)));
         }
         AuditLogServiceStats stats = service.buildServiceStats(serviceName.trim(), hours);
@@ -89,6 +89,6 @@ public class AuditLogServiceProcessor {
     }
 
     private static String joinErrors(ValidatorDto vd) {
-        return vd.errorMessages().stream().map(Object::toString).collect(Collectors.joining("; "));
+        return vd.errorMessages.stream().map(Object::toString).collect(Collectors.joining("; "));
     }
 }

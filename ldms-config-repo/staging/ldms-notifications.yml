@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: ldms-notifications
+    name: notifications
   datasource:
     url: jdbc:mysql://${DB_HOST:staging-db}:3306/ldms_notifications?useSSL=true&serverTimezone=UTC
     username: ${DB_USERNAME}

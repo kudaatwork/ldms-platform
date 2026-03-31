@@ -11,7 +11,7 @@ import java.util.List;
 @AllArgsConstructor
 public class ValidatorDto {
 
-    private Boolean success;
-    private String data;
-    private List<String> errorMessages;
+    public Boolean success;
+    public Object data;
+    public List<String> errorMessages;
 }

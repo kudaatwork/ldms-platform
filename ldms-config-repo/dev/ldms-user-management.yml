@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: ldms-user-management
+    name: user-management
   datasource:
     url: jdbc:mysql://localhost:3306/ldms_user_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: ${DB_USERNAME:root}
@@ -42,6 +42,5 @@ ldms:
 
 clients:
   base-url:
-    location-management: http://ldms-location-management
-    documents-management: http://ldms-documents-management
-    organization-management: http://ldms-organization-management
+    locationService: http://ldms-location-management:${LOCATION_MANAGEMENT_SERVER_PORT:8084}
+    fileUploadService: http://ldms-documents-management:${DOCUMENTS_MANAGEMENT_SERVER_PORT:8080}

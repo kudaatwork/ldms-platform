@@ -1,6 +1,6 @@
 <configuration>
     <appender name="LOGSTASH" class="net.logstash.logback.appender.LogstashTcpSocketAppender">
-        <destination>10.146.43.22:5050</destination>
+        <destination>172.27.137.22:5050</destination>
         <reconnectionDelay>1000</reconnectionDelay>
         <includeCallerData>false</includeCallerData>
         <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
@@ -43,7 +43,7 @@
     <logger name="org.springframework" level="INFO"/>
     <logger name="org.hibernate" level="INFO"/>
     <logger name="projectx" level="INFO"/>
-    <logger name="projectlx.co.zw.notificationsmanagementservice.clients" level="DEBUG"/>
+    <logger name="projectlx.co.zw.notifications.clients" level="DEBUG"/>
 
     <root level="INFO">
         <appender-ref ref="LOGSTASH"/>

@@ -1,0 +1,28 @@
+<div class="shell">
+  <aside class="sidebar">
+    <div class="logo">LX Platform</div>
+    <div class="org">{{ currentUser?.orgName }}</div>
+    <nav>
+      <a
+        *ngFor="let item of navItems"
+        [routerLink]="item.route"
+        routerLinkActive="active"
+      >
+        {{ item.label }}
+      </a>
+    </nav>
+  </aside>
+
+  <section class="content">
+    <header>
+      <div>
+        <h2>{{ currentUser?.orgClassification }}</h2>
+        <small>{{ currentUser?.roles?.join(', ') }}</small>
+      </div>
+      <button type="button" (click)="logout()">Logout</button>
+    </header>
+    <main>
+      <router-outlet></router-outlet>
+    </main>
+  </section>
+</div>

@@ -3,7 +3,7 @@ server:
 
 spring:
   application:
-    name: ldms-auth-management
+    name: auth-management
   datasource:
     url: jdbc:mysql://localhost:3306/ldms_auth_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
     username: ${DB_USERNAME:root}
@@ -21,7 +21,7 @@ management:
 
 clients:
   base-url:
-    user-management: http://ldms-user-management
+    userManagementService: http://user-management:${USER_MANAGEMENT_SERVER_PORT:8081}
 
 ldms:
   auth:
