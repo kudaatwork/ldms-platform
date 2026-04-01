@@ -7,5 +7,15 @@ spring:
     import: optional:configserver:http://${CONFIG_SERVER_HOST:localhost}:8888
   cloud:
     config:
-      username: ${CONFIG_SERVER_USERNAME:kudaatwork}
-      password: ${CONFIG_SERVER_PASSWORD:changeme}
+      username: ${CONFIG_SERVER_USERNAME:developer}
+      password: ${CONFIG_SERVER_PASSWORD:Config098()!}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka:Eureka098()!@localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    lease-renewal-interval-in-seconds: 10

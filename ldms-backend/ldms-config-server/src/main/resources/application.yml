@@ -4,14 +4,14 @@ server:
 spring:
   security:
     user:
-      name: ${CONFIG_SERVER_USERNAME:kudaatwork}
-      password: ${CONFIG_SERVER_PASSWORD:changeme
+      name: ${CONFIG_SERVER_USERNAME:developer}
+      password: ${CONFIG_SERVER_PASSWORD:Config098()!}
   cloud:
     config:
       enabled: false
       server:
         git:
-          uri: ${LDMS_CONFIG_GIT_URI}
+          uri: ${LDMS_CONFIG_GIT_URI:https://github.com/kudaatwork/ldms-config-repo.git}
           clone-on-start: true
           default-label: ${LDMS_CONFIG_GIT_BRANCH:main}
           search-paths: '{profile}'
@@ -19,7 +19,7 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+      defaultZone: http://eureka:Eureka098()!@localhost:8761/eureka/
 
 management:
   endpoints:
