@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 public enum StorageProvider {
     LOCAL("LOCAL"),
     AZURE("AZURE"),
-    AWS("AWS");
+    AWS("AWS"),
+    /** Files stored via the Rust file service (ldms-file-service, port 8200). */
+    RUST_FS("RUST_FS");
     private final String storageProvider;
 }

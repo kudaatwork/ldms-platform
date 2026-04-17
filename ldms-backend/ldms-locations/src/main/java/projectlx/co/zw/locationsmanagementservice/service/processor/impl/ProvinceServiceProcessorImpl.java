@@ -4,7 +4,6 @@ import com.lowagie.text.DocumentException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.ProvinceService;
 import projectlx.co.zw.locationsmanagementservice.service.processor.api.ProvinceServiceProcessor;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
@@ -20,7 +19,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-@Service
 @RequiredArgsConstructor
 public class ProvinceServiceProcessorImpl implements ProvinceServiceProcessor {
 

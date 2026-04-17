@@ -7,8 +7,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import projectlx.co.zw.audittrail.entity.AuditEventType;
-import projectlx.co.zw.audittrail.entity.AuditLog;
+import projectlx.co.zw.audittrail.model.AuditEventType;
+import projectlx.co.zw.audittrail.model.AuditLog;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 

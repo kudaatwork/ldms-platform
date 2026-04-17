@@ -8,7 +8,6 @@ import projectlx.co.zw.locationsmanagementservice.business.logic.api.CountryServ
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.DistrictService;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.GeoCoordinatesService;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.LanguageService;
-import projectlx.co.zw.locationsmanagementservice.business.logic.api.LocationIngestionService;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.LocalizedNameService;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.LocationNodeService;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.ProvinceService;
@@ -19,7 +18,6 @@ import projectlx.co.zw.locationsmanagementservice.service.processor.api.CountryS
 import projectlx.co.zw.locationsmanagementservice.service.processor.api.DistrictServiceProcessor;
 import projectlx.co.zw.locationsmanagementservice.service.processor.api.GeoCoordinatesServiceProcessor;
 import projectlx.co.zw.locationsmanagementservice.service.processor.api.LanguageServiceProcessor;
-import projectlx.co.zw.locationsmanagementservice.service.processor.api.LocationIngestionProcessor;
 import projectlx.co.zw.locationsmanagementservice.service.processor.api.LocalizedNameServiceProcessor;
 import projectlx.co.zw.locationsmanagementservice.service.processor.api.LocationNodeServiceProcessor;
 import projectlx.co.zw.locationsmanagementservice.service.processor.api.ProvinceServiceProcessor;
@@ -30,7 +28,6 @@ import projectlx.co.zw.locationsmanagementservice.service.processor.impl.Country
 import projectlx.co.zw.locationsmanagementservice.service.processor.impl.DistrictServiceProcessorImpl;
 import projectlx.co.zw.locationsmanagementservice.service.processor.impl.GeoCoordinatesServiceProcessorImpl;
 import projectlx.co.zw.locationsmanagementservice.service.processor.impl.LanguageServiceProcessorImpl;
-import projectlx.co.zw.locationsmanagementservice.service.processor.impl.LocationIngestionProcessorImpl;
 import projectlx.co.zw.locationsmanagementservice.service.processor.impl.LocalizedNameServiceProcessorImpl;
 import projectlx.co.zw.locationsmanagementservice.service.processor.impl.LocationNodeServiceProcessorImpl;
 import projectlx.co.zw.locationsmanagementservice.service.processor.impl.ProvinceServiceProcessorImpl;
@@ -83,11 +80,6 @@ public class ServiceConfig
     @Bean
     public SuburbServiceProcessor suburbServiceProcessor(SuburbService suburbService) {
         return new SuburbServiceProcessorImpl(suburbService);
-    }
-
-    @Bean
-    public LocationIngestionProcessor locationIngestionProcessor(LocationIngestionService locationIngestionService) {
-        return new LocationIngestionProcessorImpl(locationIngestionService);
     }
 
     @Bean

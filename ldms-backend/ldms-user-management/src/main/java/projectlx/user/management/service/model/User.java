@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 import java.util.Date;
 
 @Entity
-@Table
+@Table(name = "app_user")
 @Getter
 @Setter
 @ToString(onlyExplicitlyIncluded = true)
@@ -37,7 +37,6 @@ public class User {
 
     private Long organizationId;          // Organization ID for the user
     private Long branchId;                // Branch ID for the user
-    private Long agentId;                 // Agent ID for the user
 
     private String username;              // Unique username for login
     private String email;                 // User's email address

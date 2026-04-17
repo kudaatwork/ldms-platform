@@ -4,7 +4,6 @@ import com.lowagie.text.DocumentException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.AdministrativeLevelService;
 import projectlx.co.zw.locationsmanagementservice.service.processor.api.AdministrativeLevelServiceProcessor;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.AdministrativeLevelDto;
@@ -19,7 +18,6 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
 
-@Service
 @RequiredArgsConstructor
 public class AdministrativeLevelServiceProcessorImpl implements AdministrativeLevelServiceProcessor {
 

@@ -32,7 +32,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Service;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.SuburbServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.SuburbService;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.SuburbServiceValidator;
@@ -71,7 +70,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@Service
 @RequiredArgsConstructor
 public class SuburbServiceImpl implements SuburbService {
 

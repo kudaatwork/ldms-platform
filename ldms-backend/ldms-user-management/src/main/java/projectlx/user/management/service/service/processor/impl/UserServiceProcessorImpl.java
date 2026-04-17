@@ -149,19 +149,6 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
     }
 
     @Override
-    public UserResponse findByAgentId(Long agentId, Locale locale, String username) {
-
-        logger.info("Incoming request to find users by agent id: {}", agentId);
-
-        UserResponse userResponse = userService.findByAgentId(agentId, locale, username);
-
-        logger.info("Outgoing response after finding users by agent id: {}. Status Code: {}. Message: {}", userResponse,
-                userResponse.getStatusCode(), userResponse.getMessage());
-
-        return userResponse;
-    }
-
-    @Override
     public byte[] exportToCsv(UsersMultipleFiltersRequest filters, String username, Locale locale) {
 
         logger.info("Incoming request to export users to CSV using filters: {}", filters);

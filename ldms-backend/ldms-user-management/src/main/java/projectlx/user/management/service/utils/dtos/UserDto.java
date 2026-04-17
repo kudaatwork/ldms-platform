@@ -21,7 +21,6 @@ public class UserDto {
     private Long id;
     private Long organizationId;
     private Long branchId;
-    private Long agentId;
 
     private String username;
     private String email;

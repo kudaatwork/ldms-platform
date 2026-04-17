@@ -11,7 +11,6 @@ public enum UserRoles {
     VIEW_USER_BY_PHONE_NUMBER_OR_EMAIL("VIEW_USER_BY_PHONE_NUMBER_OR_EMAIL","Views user by phone number or email"),
     VIEW_USERS_BY_ORGANIZATION("VIEW_USERS_BY_ORGANIZATION","Views users by organization"),
     VIEW_USERS_BY_BRANCH("VIEW_USERS_BY_BRANCH","Views users by branch"),
-    VIEW_USERS_BY_AGENT("VIEW_USERS_BY_AGENT","Views users by agent"),
     EXPORT_USERS("EXPORT_USERS","Exports users data"),
     IMPORT_USERS("IMPORT_USERS","Imports users data"),
     VERIFY_USER_EMAIL("VERIFY_USER_EMAIL", "Verifies user's email"),

@@ -23,6 +23,7 @@ import projectlx.user.authentication.service.utils.requests.RefreshTokenRequest;
 import projectlx.user.authentication.service.utils.responses.AuthResponse;
 
 import java.util.Locale;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -74,7 +75,8 @@ class AuthenticationServiceImplTest {
                 userManagementServiceClient,
                 userDetailsService,
                 jwtService,
-                authManager
+                authManager,
+                Optional.empty()
         );
 
         // Initialize test data

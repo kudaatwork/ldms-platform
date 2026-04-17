@@ -15,11 +15,9 @@ import java.util.List;
 import java.util.Locale;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 import static projectlx.user.management.service.business.validator.impl.UserServiceValidatorImpl.doesStringHaveDigit;
 
-@Service
 @RequiredArgsConstructor
 public class UserRoleServiceValidatorImpl implements UserRoleServiceValidator {
     private static Logger logger = LoggerFactory.getLogger(UserRoleServiceValidatorImpl.class);

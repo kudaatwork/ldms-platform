@@ -42,7 +42,6 @@ import projectlx.user.management.service.business.logic.impl.UserSecurityService
 import projectlx.user.management.service.business.logic.impl.UserServiceImpl;
 import projectlx.user.management.service.business.logic.impl.UserTypeServiceImpl;
 import projectlx.co.zw.shared_library.business.logic.impl.TokenService;
-import projectlx.co.zw.shared_library.utils.generators.SecureTokenGenerator;
 import projectlx.user.management.service.business.validator.api.UserAccountServiceValidator;
 import projectlx.user.management.service.business.validator.api.UserAddressServiceValidator;
 import projectlx.user.management.service.business.validator.api.UserGroupServiceValidator;
@@ -72,18 +71,18 @@ import projectlx.user.management.service.repository.UserRepository;
 import projectlx.user.management.service.repository.UserRoleRepository;
 import projectlx.user.management.service.repository.UserSecurityRepository;
 import projectlx.user.management.service.repository.UserTypeRepository;
-import projectlx.co.zw.shared_library.repository.config.SharedDataConfig;
-
 import org.modelmapper.ModelMapper;
 import org.springframework.cloud.openfeign.FeignClientBuilder;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @Configuration
-@Import({SharedDataConfig.class, UtilsConfig.class})
+// Skip SharedDataConfig: stale JARs used @EntityScan(shared model) and can collide with local persistence mappings.
+@Import({UtilsConfig.class})
 public class BusinessConfig {
 
     @Bean
@@ -165,7 +164,7 @@ public class BusinessConfig {
     @Bean
     public UserAccountService userAccountService(ModelMapper modelMapper, MessageService messageService, UserAccountRepository
                                                  userAccountRepository, UserRepository userRepository, UserAccountServiceAuditable
-                                                 userAccountServiceAuditable, UserAccountServiceValidator
+                                                 userAccountServiceAuditable, @Qualifier("userAccountServiceValidator") UserAccountServiceValidator
                                                  userAccountServiceValidator) {
         return new UserAccountServiceImpl(modelMapper, messageService, userAccountRepository, userRepository,
                 userAccountServiceAuditable, userAccountServiceValidator);
@@ -182,7 +181,7 @@ public class BusinessConfig {
         // Create a Feign client for LocationsServiceClient
         return new FeignClientBuilder(context)
                 .forType(LocationsServiceClient.class, "locations-management-service")
-                .url("${clients.baseUrl.locationService}")
+                .url("${clients.base-url.locationService}")
                 .build();
     }
 

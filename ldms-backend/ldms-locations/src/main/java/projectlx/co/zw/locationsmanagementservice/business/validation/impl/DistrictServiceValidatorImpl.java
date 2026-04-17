@@ -3,7 +3,6 @@ package projectlx.co.zw.locationsmanagementservice.business.validation.impl;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.DistrictServiceValidator;
 import projectlx.co.zw.locationsmanagementservice.utils.enums.I18Code;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.CreateDistrictRequest;
@@ -18,7 +17,6 @@ import java.util.Locale;
 
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isNullOrLessThanOne;
 
-@Service
 @RequiredArgsConstructor
 public class DistrictServiceValidatorImpl implements DistrictServiceValidator {
 

@@ -15,5 +15,4 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     Optional<User> findByEmailAndEntityStatusNot(String email, EntityStatus entityStatus);
     List<User> findByOrganizationIdAndEntityStatusNot(Long organizationId, EntityStatus entityStatus);
     List<User> findByBranchIdAndEntityStatusNot(Long branchId, EntityStatus entityStatus);
-    List<User> findByAgentIdAndEntityStatusNot(Long agentId, EntityStatus entityStatus);
 }

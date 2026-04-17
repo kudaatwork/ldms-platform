@@ -8,8 +8,8 @@ spring:
   cloud:
     config:
       name: ldms-auth-management
-      username: ${CONFIG_SERVER_USERNAME:config-user}
-      password: ${CONFIG_SERVER_PASSWORD:changeme}
+      username: ${CONFIG_SERVER_USERNAME:developer}
+      password: ${CONFIG_SERVER_PASSWORD:Config098()!}
       fail-fast: true
       retry:
         max-attempts: 5
@@ -25,3 +25,18 @@ spring:
 security:
   oauth2:
     enabled: false
+
+# Google Sign-In (POST /api/v1/auth/google-id-token). Set enabled=true and client-id from Google Cloud Console (OAuth 2.0 Web client).
+ldms:
+  auth:
+    google:
+      enabled: ${GOOGLE_OAUTH_ENABLED:false}
+      client-id: ${GOOGLE_CLIENT_ID:}
+
+eureka:
+  username: ${EUREKA_USERNAME:eureka}
+  password: "${EUREKA_PASSWORD:Eureka098()!}"
+
+logging:
+  level:
+    org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer: ERROR

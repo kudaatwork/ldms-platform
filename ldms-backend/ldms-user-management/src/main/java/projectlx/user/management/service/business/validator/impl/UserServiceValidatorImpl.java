@@ -6,7 +6,6 @@ import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.globalvalidators.Validators;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.management.service.business.validator.api.UserServiceValidator;
-import projectlx.user.management.service.model.Gender;
 import projectlx.user.management.service.utils.enums.I18Code;
 import projectlx.user.management.service.utils.requests.CreateUserRequest;
 import projectlx.user.management.service.utils.requests.EditUserRequest;
@@ -14,6 +13,7 @@ import projectlx.user.management.service.utils.requests.UsersMultipleFiltersRequ
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.unit.DataSize;
 import org.springframework.web.multipart.MultipartFile;
 import net.sf.jmimemagic.Magic;
 import net.sf.jmimemagic.MagicException;
@@ -22,7 +22,6 @@ import net.sf.jmimemagic.MagicMatchNotFoundException;
 import net.sf.jmimemagic.MagicParseException;
 import java.io.IOException;
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -31,7 +30,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isValidEmail;
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isValidGender;
@@ -39,12 +37,11 @@ import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.i
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isValidNationalIdNumber;
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isValidPhoneLocalPhoneNumber;
 
-@Service
 @RequiredArgsConstructor
 public class UserServiceValidatorImpl implements UserServiceValidator {
-    @Value("${constants.max-image-size}")
+    @Value("${constants.max-image-size:2048KB}")
     private String maxImageSize;
-    private static Logger logger = LoggerFactory.getLogger(UserServiceValidatorImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(UserServiceValidatorImpl.class);
     private final List<String> executableExtensions =
             Arrays.asList("application/x-executable", "application/x-msdos-program");
 
@@ -387,16 +384,11 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
 
         byte[] file = multipartFile.getBytes();
 
-        if (checkImageSizeLimit(file) || checkIfFileTypeAndExtensionAreValid(file)) {
-            return false;
-        }
-
-        return true;
+        return !(checkImageSizeLimit(file) || checkIfFileTypeAndExtensionAreValid(file));
     }
 
     private Boolean checkImageSizeLimit(byte[] fileData) {
-
-        return convertKbToBytes(maxImageSize) <= fileData.length;
+        return resolveMaxImageSizeBytes() <= fileData.length;
     }
 
     private Boolean checkIfFileTypeAndExtensionAreValid(byte[] fileData) {
@@ -414,11 +406,13 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
         return false;
     }
 
-    private long convertKbToBytes(String maxFileSize) {
-
-        String size = maxFileSize.substring(0, maxFileSize.length() - 2);
-
-        return Long.valueOf(size) * 1000;
+    private long resolveMaxImageSizeBytes() {
+        try {
+            return DataSize.parse(maxImageSize).toBytes();
+        } catch (Exception ignored) {
+            // Keep a safe fallback if external config is missing or malformed.
+            return DataSize.ofKilobytes(2048).toBytes();
+        }
     }
 
     public boolean isIdentificationProvided(CreateUserRequest request) {

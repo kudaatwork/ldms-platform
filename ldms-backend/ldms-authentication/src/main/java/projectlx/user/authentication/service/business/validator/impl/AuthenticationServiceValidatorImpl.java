@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import projectlx.user.authentication.service.business.validator.api.AuthenticationServiceValidator;
 import projectlx.user.authentication.service.utils.requests.AuthRequest;
+import projectlx.user.authentication.service.utils.requests.GoogleLoginRequest;
 import projectlx.user.authentication.service.utils.requests.RefreshTokenRequest;
 
 public class AuthenticationServiceValidatorImpl implements AuthenticationServiceValidator {
@@ -49,6 +50,19 @@ public class AuthenticationServiceValidatorImpl implements AuthenticationService
             return false;
         }
 
+        return true;
+    }
+
+    @Override
+    public boolean isGoogleLoginRequestValid(GoogleLoginRequest googleLoginRequest) {
+        if (googleLoginRequest == null) {
+            logger.info("Validation failed: GoogleLoginRequest is null");
+            return false;
+        }
+        if (googleLoginRequest.getIdToken() == null || googleLoginRequest.getIdToken().isBlank()) {
+            logger.info("Validation failed: Google id token is null or blank");
+            return false;
+        }
         return true;
     }
 }

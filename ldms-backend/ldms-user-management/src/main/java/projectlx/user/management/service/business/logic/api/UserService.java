@@ -26,7 +26,6 @@ public interface UserService {
                                        Locale locale);
     UserResponse findByOrganizationId(Long organizationId, Locale locale, String username);
     UserResponse findByBranchId(Long branchId, Locale locale, String username);
-    UserResponse findByAgentId(Long agentId, Locale locale, String username);
     byte[] exportToCsv(List<UserDto> users);
     byte[] exportToExcel(List<UserDto> users) throws IOException;
     byte[] exportToPdf(List<UserDto> users) throws DocumentException;

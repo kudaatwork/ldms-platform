@@ -23,7 +23,6 @@ public interface UserServiceProcessor {
                                        Locale locale);
     UserResponse findByOrganizationId(Long organizationId, Locale locale, String username);
     UserResponse findByBranchId(Long branchId, Locale locale, String username);
-    UserResponse findByAgentId(Long agentId, Locale locale, String username);
     byte[] exportToCsv(UsersMultipleFiltersRequest filters, String username, Locale locale);
     byte[] exportToExcel(UsersMultipleFiltersRequest filters, String username, Locale locale) throws IOException;
     byte[] exportToPdf(UsersMultipleFiltersRequest filters, String username, Locale locale) throws DocumentException;

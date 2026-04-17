@@ -20,7 +20,6 @@ public class CreateUserRequest {
 
     private Long organizationId; // Optional link to an organization (if applicable)
     private Long branchId;       // Optional link to a branch (if applicable)
-    private Long agentId;        // Optional link to an agent (if applicable)
 
     private Long locationId;
 

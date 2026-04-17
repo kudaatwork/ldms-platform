@@ -4,7 +4,6 @@ import com.lowagie.text.DocumentException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Service;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.LocalizedNameService;
 import projectlx.co.zw.locationsmanagementservice.service.processor.api.LocalizedNameServiceProcessor;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.LocalizedNameDto;
@@ -19,7 +18,6 @@ import java.io.InputStream;
 import java.util.List;
 import java.util.Locale;
 
-@Service
 @RequiredArgsConstructor
 public class LocalizedNameServiceProcessorImpl implements LocalizedNameServiceProcessor {
 

@@ -14,10 +14,10 @@ public class AuditTrailServiceImpl implements AuditTrailService {
 
     private final RabbitTemplate rabbitTemplate;
 
-    @Value("${audit.rabbitmq.exchange}")
+    @Value("${audit.rabbitmq.exchange:${ldms.audit-rabbitmq.exchange:ldms.audit.exchange}}")
     private String exchange;
 
-    @Value("${audit.rabbitmq.routingkey}")
+    @Value("${audit.rabbitmq.routingkey:${ldms.audit-rabbitmq.routing-key:audit.log}}")
     private String routingKey;
 
     @Async // Fire-and-forget: send an audit log without blocking the main thread

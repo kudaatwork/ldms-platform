@@ -1,4 +1,6 @@
 services:
+
+  # ── LDMS Platform ──────────────────────────────────────────
   mysql:
     image: mysql:8.0
     container_name: ldms-mysql
@@ -15,7 +17,7 @@ services:
     networks:
       - ldms-network
     healthcheck:
-      test: [ "CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" || exit 1" ]
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -45,6 +47,89 @@ services:
     networks:
       - ldms-network
 
+  # RustFS object storage (S3 API + RustFS Console UI).
+  # Host ports are shifted to avoid clashes with SonarQube (9000) and Mosquitto (9001).
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: ldms-rustfs
+    restart: unless-stopped
+    command: ["--console-enable", "--console-address", ":9001", "/data"]
+    environment:
+      RUSTFS_CONSOLE_ENABLE: "true"
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin-change-me}
+    volumes:
+      - rustfs_data:/data
+    ports:
+      - "9004:9000"
+      - "9005:9001"
+    networks:
+      - ldms-network
+
+  # One-shot: wait for RustFS, create bucket for file-service (see S3_BUCKET in .env).
+  rustfs-setup:
+    image: minio/mc:latest
+    container_name: ldms-rustfs-setup
+    networks:
+      - ldms-network
+    depends_on:
+      - rustfs
+    environment:
+      RUSTFS_ACCESS_KEY: ${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      RUSTFS_SECRET_KEY: ${RUSTFS_SECRET_KEY:-rustfsadmin-change-me}
+      S3_BUCKET: ${S3_BUCKET:-ldms-files}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        for i in $$(seq 1 60); do
+          if mc alias set local http://rustfs:9000 "$$RUSTFS_ACCESS_KEY" "$$RUSTFS_SECRET_KEY" 2>/dev/null; then
+            mc mb --ignore-existing "local/$$S3_BUCKET"
+            exit 0
+          fi
+          sleep 1
+        done
+        exit 1
+
+  # Rust File Storage Service (port 8200) — internal; not exposed via API Gateway.
+  # Storage: S3 via RustFS (STORAGE_BACKEND=s3). Set FILE_SERVICE_INTERNAL_TOKEN in .env.
+  # Requires X-Internal-Token on /health and /files/* (healthcheck sends the header).
+  # When Eureka runs elsewhere on ldms-network, set EUREKA_ENABLED=true and EUREKA_URL accordingly.
+  file-service:
+    build:
+      context: ../ldms-file-service
+      dockerfile: Dockerfile
+    container_name: ldms-file-service
+    depends_on:
+      rustfs-setup:
+        condition: service_completed_successfully
+    ports:
+      - "8200:8200"
+    environment:
+      - STORAGE_BACKEND=s3
+      - S3_BUCKET=${S3_BUCKET:-ldms-files}
+      - S3_ENDPOINT=http://rustfs:9000
+      - S3_REGION=${S3_REGION:-us-east-1}
+      - AWS_REGION=${S3_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${RUSTFS_ACCESS_KEY:-rustfsadmin}
+      - AWS_SECRET_ACCESS_KEY=${RUSTFS_SECRET_KEY:-rustfsadmin-change-me}
+      - AWS_EC2_METADATA_DISABLED=true
+      - MAX_FILE_SIZE_MB=50
+      - INTERNAL_TOKEN=${FILE_SERVICE_INTERNAL_TOKEN:-dev-token-change-me}
+      - EUREKA_ENABLED=false
+      - EUREKA_URL=http://eureka-server:8761/eureka
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8200
+      - RUST_LOG=info
+    networks:
+      - ldms-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf -H \"X-Internal-Token: $$INTERNAL_TOKEN\" http://127.0.0.1:8200/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
   mosquitto:
     image: eclipse-mosquitto:2.0
     container_name: ldms-mosquitto
@@ -66,13 +151,141 @@ services:
     networks:
       - ldms-network
 
+  # ── Observability ───────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    container_name: ldms-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - ldms-network
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.1
+    container_name: ldms-logstash
+    restart: unless-stopped
+    ports:
+      - "5050:5000"
+      - "9600:9600"
+    volumes:
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      - elasticsearch
+    networks:
+      - ldms-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.1
+    container_name: ldms-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://ldms-elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - ldms-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: ldms-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - ldms-network
+
+  # ── DevOps ──────────────────────────────────────────────────
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: ldms-jenkins
+    restart: unless-stopped
+    ports:
+      - "8090:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_data:/var/jenkins_home
+    networks:
+      - ldms-network
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: ldms-sonarqube
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: ${SONAR_DB_PASSWORD:-sonar}
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+    depends_on:
+      - sonarqube-db
+    networks:
+      - ldms-network
+
+  sonarqube-db:
+    image: postgres:15-alpine
+    container_name: ldms-sonarqube-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: ${SONAR_DB_PASSWORD:-sonar}
+      POSTGRES_DB: sonar
+    volumes:
+      - sonarqube_db_data:/var/lib/postgresql/data
+    networks:
+      - ldms-network
+
+  nexus:
+    image: sonatype/nexus3:latest
+    container_name: ldms-nexus
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - nexus_data:/nexus-data
+    networks:
+      - ldms-network
+
 networks:
   ldms-network:
     name: ldms-network
     driver: bridge
 
 volumes:
+  rustfs_data:
+    name: ldms-rustfs-data
   mysql_data:
     name: ldms-mysql-data
   redis_data:
     name: ldms-redis-data
+  elasticsearch_data:
+    name: ldms-elasticsearch-data
+  grafana_data:
+    name: ldms-grafana-data
+  jenkins_data:
+    name: ldms-jenkins-data
+  sonarqube_data:
+    name: ldms-sonarqube-data
+  sonarqube_logs:
+    name: ldms-sonarqube-logs
+  sonarqube_db_data:
+    name: ldms-sonarqube-db-data
+  nexus_data:
+    name: ldms-nexus-data

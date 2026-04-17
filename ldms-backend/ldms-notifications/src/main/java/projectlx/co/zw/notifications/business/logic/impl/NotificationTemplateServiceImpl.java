@@ -23,6 +23,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import projectlx.co.zw.notifications.business.auditable.api.NotificationTemplateServiceAuditable;
 import projectlx.co.zw.notifications.business.logic.api.NotificationTemplateService;
 import projectlx.co.zw.notifications.business.validation.api.NotificationTemplateServiceValidator;
 import projectlx.co.zw.notifications.model.NotificationTemplate;
@@ -60,10 +61,13 @@ import projectlx.co.zw.notifications.utils.dtos.NotificationTemplateCsvDto;
 @RequiredArgsConstructor
 public class NotificationTemplateServiceImpl implements NotificationTemplateService {
 
+    private static final String CSV_IMPORT_ACTOR = "IMPORT_SCRIPT";
+
     private final NotificationTemplateServiceValidator notificationTemplateServiceValidator;
     private final NotificationTemplateRepository notificationTemplateRepository;
     private final MessageService messageService;
     private final ModelMapper modelMapper;
+    private final NotificationTemplateServiceAuditable notificationTemplateServiceAuditable;
 
     private static final String[] HEADERS = {
             "ID", "TEMPLATE KEY", "DESCRIPTION", "CHANNELS", "EMAIL SUBJECT", "SMS BODY", "IN-APP TITLE", "WHATSAPP TEMPLATE NAME", 
@@ -96,7 +100,8 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         NotificationTemplate templateToBeSaved = modelMapper.map(createTemplateRequest, NotificationTemplate.class);
 
-        NotificationTemplate templateSaved = notificationTemplateRepository.save(templateToBeSaved);
+        NotificationTemplate templateSaved =
+                notificationTemplateServiceAuditable.create(templateToBeSaved, locale, username);
 
         NotificationTemplateDto templateDtoReturned = modelMapper.map(templateSaved, NotificationTemplateDto.class);
 
@@ -189,7 +194,8 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
         NotificationTemplate templateToBeUpdated = templateRetrieved.get();
         templateToBeUpdated.setActive(updateTemplateRequest.isActive());
 
-        NotificationTemplate templateUpdated = notificationTemplateRepository.save(templateToBeUpdated);
+        NotificationTemplate templateUpdated =
+                notificationTemplateServiceAuditable.update(templateToBeUpdated, locale, username);
 
         NotificationTemplateDto templateDtoReturned = modelMapper.map(templateUpdated, NotificationTemplateDto.class);
 
@@ -226,7 +232,8 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
         NotificationTemplate templateToBeDeleted = templateRetrieved.get();
         templateToBeDeleted.setEntityStatus(EntityStatus.DELETED);
 
-        NotificationTemplate templateDeleted = notificationTemplateRepository.save(templateToBeDeleted);
+        NotificationTemplate templateDeleted =
+                notificationTemplateServiceAuditable.delete(templateToBeDeleted, locale, username);
 
         NotificationTemplateDto templateDtoReturned = modelMapper.map(templateDeleted, NotificationTemplateDto.class);
 
@@ -557,8 +564,7 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                         continue;
                     }
 
-                    // Save the template
-                    notificationTemplateRepository.save(template);
+                    notificationTemplateServiceAuditable.create(template, Locale.ENGLISH, CSV_IMPORT_ACTOR);
                     success++;
 
                 } catch (Exception e) {

@@ -10,7 +10,7 @@ import projectlx.co.zw.shared_library.utils.responses.FileUploadResponse;
 import projectlx.user.management.service.utils.config.FeignConfig;
 import java.util.List;
 
-@FeignClient(name = "file-upload-service", url = "${clients.baseUrl.fileUploadService}", configuration = FeignConfig.class)
+@FeignClient(name = "file-upload-service", url = "${clients.base-url.fileUploadService}", configuration = FeignConfig.class)
 public interface FileUploadServiceClient {
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

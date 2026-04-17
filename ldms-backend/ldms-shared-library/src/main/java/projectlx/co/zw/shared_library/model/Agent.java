@@ -1,18 +1,22 @@
 package projectlx.co.zw.shared_library.model;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-
+/**
+ * Cross-module agent model (APIs, Feign DTOs, mapping). Not a JPA entity — persistence belongs in the
+ * service that owns the {@code agent} table (e.g. user-management).
+ */
 @Getter
 @Setter
 @ToString
 public class Agent {
+
     private Long id;
     private AgentKind agentKind;
 
@@ -29,16 +33,13 @@ public class Agent {
     private Organization organizationEntity;
     private Organization representedOrganization;
 
-    // geolocation & other shared metadata
     private Long locationId;
 
     private String assignedRegion;
-    private String role;              // e.g. "Field Sales", "Account Manager"
+    private String role;
 
-    // represent/work‐for links
     private List<AgentOrganization> organizations = new ArrayList<>();
 
-    // Branch relationship
     private Branch branch;
 
     private LocalDateTime createdAt;

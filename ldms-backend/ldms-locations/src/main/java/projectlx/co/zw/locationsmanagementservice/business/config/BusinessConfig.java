@@ -61,6 +61,11 @@ public class BusinessConfig {
     }
 
     @Bean
+    public LocationNodeServiceAuditable locationNodeServiceAuditable(LocationNodeRepository locationNodeRepository) {
+        return new LocationNodeServiceAuditableImpl(locationNodeRepository);
+    }
+
+    @Bean
     public CountryServiceValidator countryServiceValidator(MessageService messageService) {
         return new CountryServiceValidatorImpl(messageService);
     }
@@ -268,7 +273,12 @@ public class BusinessConfig {
     @Bean
     public LocationNodeService locationNodeService(LocationNodeServiceValidator locationNodeServiceValidator,
                                                    LocationNodeRepository locationNodeRepository,
+                                                   LocationNodeServiceAuditable locationNodeServiceAuditable,
                                                    org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate) {
-        return new LocationNodeServiceImpl(locationNodeServiceValidator, locationNodeRepository, rabbitTemplate);
+        return new LocationNodeServiceImpl(
+                locationNodeServiceValidator,
+                locationNodeRepository,
+                locationNodeServiceAuditable,
+                rabbitTemplate);
     }
 }

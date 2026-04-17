@@ -12,7 +12,7 @@ import projectlx.user.management.service.utils.responses.AddressResponse;
 import projectlx.user.management.service.utils.config.FeignConfig;
 import java.util.Locale;
 
-@FeignClient(name = "locations-management-service", url = "${clients.baseUrl.locationService}", configuration = FeignConfig.class)
+@FeignClient(name = "locations-management-service", url = "${clients.base-url.locationService}", configuration = FeignConfig.class)
 public interface LocationsServiceClient {
 
     @PostMapping("/create")
@@ -40,7 +40,7 @@ public interface LocationsServiceClient {
 
     @PostMapping("/export")
     ResponseEntity<byte[]> exportAddresses(@RequestBody AddressMultipleFiltersRequest filters,
-                                         @RequestParam String format,
+                                         @RequestParam("format") String format,
                                          @RequestHeader(value = "Accept-Language", defaultValue = "en") Locale locale);
 
     @PostMapping(value = "/import-csv", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

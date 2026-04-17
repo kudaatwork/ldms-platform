@@ -18,7 +18,7 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import java.time.LocalDateTime;
 
 @Entity
-@Table (uniqueConstraints = @UniqueConstraint(columnNames = {"userId", "templateKey", "channel"}))
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "template_key", "channel"}))
 @Getter
 @Setter
 @ToString

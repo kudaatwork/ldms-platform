@@ -7,6 +7,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import projectlx.co.zw.locationsmanagementservice.business.auditable.api.LocationNodeServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.LocationNodeService;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.LocationNodeServiceValidator;
 import projectlx.co.zw.locationsmanagementservice.model.LocationAlias;
@@ -35,6 +36,7 @@ public class LocationNodeServiceImpl implements LocationNodeService {
 
     private final LocationNodeServiceValidator validator;
     private final LocationNodeRepository locationNodeRepository;
+    private final LocationNodeServiceAuditable locationNodeServiceAuditable;
     private final RabbitTemplate rabbitTemplate;
 
     @Override
@@ -65,7 +67,7 @@ public class LocationNodeServiceImpl implements LocationNodeService {
         }
         node.setAliases(toAliases(request.getAliases(), node, username));
 
-        LocationNode saved = locationNodeRepository.save(node);
+        LocationNode saved = locationNodeServiceAuditable.create(node, locale, username);
         publishEvent(CREATED_ROUTING_KEY, saved.getId());
         return response(201, true, "Location node created successfully", toDto(saved), null, null, null);
     }
@@ -104,7 +106,7 @@ public class LocationNodeServiceImpl implements LocationNodeService {
 
         node.getAliases().clear();
         node.getAliases().addAll(toAliases(request.getAliases(), node, username));
-        LocationNode saved = locationNodeRepository.save(node);
+        LocationNode saved = locationNodeServiceAuditable.update(node, locale, username);
         publishEvent(UPDATED_ROUTING_KEY, saved.getId());
         return response(200, true, "Location node updated successfully", toDto(saved), null, null, null);
     }
@@ -165,7 +167,7 @@ public class LocationNodeServiceImpl implements LocationNodeService {
         node.setEntityStatus(EntityStatus.DELETED);
         node.setModifiedAt(LocalDateTime.now());
         node.setModifiedBy(username);
-        locationNodeRepository.save(node);
+        locationNodeServiceAuditable.delete(node, locale, username);
         return response(200, true, "Location node deleted successfully", toDto(node), null, null, null);
     }
 

@@ -18,14 +18,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isNullOrEmpty;
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isNullOrLessThanOne;
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isValidInternationalPhoneNumber;
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isValidNationalIdNumber;
 
-@Service
 @RequiredArgsConstructor
 public class UserAccountServiceValidatorImpl implements UserAccountServiceValidator {
     private static Logger logger = LoggerFactory.getLogger(UserAccountServiceValidatorImpl.class);

@@ -269,7 +269,10 @@ public enum I18Code {
     MESSAGE_RESET_TOKEN_MISSING("message.reset.token.missing"),
     MESSAGE_EMAIL_MISSING("message.email.missing"),
     MESSAGE_PASSWORD_MISSING("message.password.missing"),
-    MESSAGE_CONFIRM_PASSWORD_MISSING("message.confirm.password.missing");
+    MESSAGE_CONFIRM_PASSWORD_MISSING("message.confirm.password.missing"),
+
+    MESSAGE_EXPIRING_PASSWORDS_RETRIEVED_SUCCESSFULLY("message.user.password.expiring.retrieved.successfully"),
+    MESSAGE_EXPIRING_PASSWORDS_RETRIEVE_FAILED("message.user.password.expiring.retrieve.failed");
 
     private final String code;
 }

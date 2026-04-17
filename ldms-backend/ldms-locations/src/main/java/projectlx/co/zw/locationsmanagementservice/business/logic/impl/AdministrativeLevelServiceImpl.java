@@ -23,7 +23,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.stereotype.Service;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.AdministrativeLevelServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.AdministrativeLevelService;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.AdministrativeLevelServiceValidator;
@@ -69,7 +68,6 @@ import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
 
-@Service
 @RequiredArgsConstructor
 public class AdministrativeLevelServiceImpl implements AdministrativeLevelService {
 

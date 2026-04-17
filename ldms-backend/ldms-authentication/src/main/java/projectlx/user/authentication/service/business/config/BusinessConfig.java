@@ -11,9 +11,11 @@ import projectlx.co.zw.shared_library.utils.config.UtilsConfig;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.authentication.service.business.auditable.api.AuthenticationServiceAuditable;
 import projectlx.user.authentication.service.business.auditable.impl.AuthenticationServiceAuditableImpl;
+import java.util.Optional;
 import projectlx.user.authentication.service.business.logic.impl.CustomUserDetailsServiceImpl;
 import projectlx.user.authentication.service.business.logic.api.AuthenticationService;
 import projectlx.user.authentication.service.business.logic.impl.AuthenticationServiceImpl;
+import projectlx.user.authentication.service.utils.oauth.GoogleOAuthSupport;
 import projectlx.user.authentication.service.business.validator.api.AuthenticationServiceValidator;
 import projectlx.user.authentication.service.business.validator.impl.AuthenticationServiceValidatorImpl;
 import projectlx.user.authentication.service.clients.UserManagementServiceClient;
@@ -26,8 +28,9 @@ public class BusinessConfig {
 
     @Bean
     public CustomUserDetailsServiceImpl customUserDetailsService(UserManagementServiceClient userManagementServiceClient,
-                                                                 ModelMapper modelMapper) {
-        return new CustomUserDetailsServiceImpl(userManagementServiceClient, modelMapper);
+                                                                 ModelMapper modelMapper,
+                                                                 MessageService messageService) {
+        return new CustomUserDetailsServiceImpl(userManagementServiceClient, modelMapper, messageService);
     }
 
     @Bean
@@ -45,11 +48,12 @@ public class BusinessConfig {
             UserManagementServiceClient userManagementServiceClient,
             CustomUserDetailsServiceImpl userDetailsService,
             JwtService jwtService,
-            AuthenticationManager authManager
+            AuthenticationManager authManager,
+            Optional<GoogleOAuthSupport> googleOAuthSupport
     ) {
         return new AuthenticationServiceImpl(authenticationServiceValidator, messageService, modelMapper,
                 tokenRepository, authenticationServiceAuditable, userManagementServiceClient, userDetailsService,
-                jwtService, authManager
+                jwtService, authManager, googleOAuthSupport
         );
     }
 }

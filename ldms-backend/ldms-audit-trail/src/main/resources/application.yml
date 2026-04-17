@@ -9,3 +9,7 @@ spring:
     config:
       username: ${CONFIG_SERVER_USERNAME:developer}
       password: ${CONFIG_SERVER_PASSWORD:Config098()!}
+
+logging:
+  level:
+    org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration: ERROR

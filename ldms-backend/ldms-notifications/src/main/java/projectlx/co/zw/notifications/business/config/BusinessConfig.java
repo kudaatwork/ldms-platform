@@ -1,11 +1,15 @@
 package projectlx.co.zw.notifications.business.config;
 
 import org.modelmapper.ModelMapper;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import com.google.firebase.messaging.FirebaseMessaging;
 import projectlx.co.zw.notifications.business.auditable.api.NotificationLogServiceAuditable;
+import projectlx.co.zw.notifications.business.auditable.api.NotificationTemplateServiceAuditable;
 import projectlx.co.zw.notifications.business.auditable.impl.NotificationLogServiceAuditableImpl;
+import projectlx.co.zw.notifications.business.auditable.impl.NotificationTemplateServiceAuditableImpl;
 import projectlx.co.zw.notifications.business.logic.api.NotificationService;
 import projectlx.co.zw.notifications.business.logic.api.NotificationTemplateService;
 import projectlx.co.zw.notifications.business.logic.api.TemplateProcessorService;
@@ -46,6 +50,12 @@ public class BusinessConfig {
     @Bean
     public NotificationLogServiceAuditable notificationLogServiceAuditable(NotificationLogRepository notificationLogRepository) {
         return new NotificationLogServiceAuditableImpl(notificationLogRepository);
+    }
+
+    @Bean
+    public NotificationTemplateServiceAuditable notificationTemplateServiceAuditable(
+            NotificationTemplateRepository notificationTemplateRepository) {
+        return new NotificationTemplateServiceAuditableImpl(notificationTemplateRepository);
     }
 
     @Bean
@@ -105,12 +115,14 @@ public class BusinessConfig {
             NotificationTemplateServiceValidator notificationTemplateServiceValidator,
             NotificationTemplateRepository notificationTemplateRepository,
             MessageService messageService,
-            ModelMapper modelMapper) {
+            ModelMapper modelMapper,
+            NotificationTemplateServiceAuditable notificationTemplateServiceAuditable) {
         return new NotificationTemplateServiceImpl(
                 notificationTemplateServiceValidator,
                 notificationTemplateRepository,
                 messageService,
-                modelMapper);
+                modelMapper,
+                notificationTemplateServiceAuditable);
     }
 
     @Bean
@@ -120,6 +132,7 @@ public class BusinessConfig {
     }
 
     @Bean
+    @ConditionalOnBean(SesClient.class)
     public NotificationProviderService emailNotificationProviderService(
             TemplateProcessorService templateProcessorService,
             NotificationLogServiceAuditable notificationLogServiceAuditable,
@@ -168,7 +181,7 @@ public class BusinessConfig {
     public NotificationProviderService slackNotificationProviderService(
             TemplateProcessorService templateProcessorService,
             NotificationLogServiceAuditable notificationLogServiceAuditable,
-            RestTemplate notificationsRestTemplate) {
+            @Qualifier("notificationsRestTemplate") RestTemplate notificationsRestTemplate) {
         return new SlackNotificationProviderServiceImpl(
                 templateProcessorService,
                 notificationLogServiceAuditable,
@@ -179,7 +192,7 @@ public class BusinessConfig {
     public NotificationProviderService teamsNotificationProviderService(
             TemplateProcessorService templateProcessorService,
             NotificationLogServiceAuditable notificationLogServiceAuditable,
-            RestTemplate notificationsRestTemplate) {
+            @Qualifier("notificationsRestTemplate") RestTemplate notificationsRestTemplate) {
         return new TeamsNotificationProviderServiceImpl(
                 templateProcessorService,
                 notificationLogServiceAuditable,

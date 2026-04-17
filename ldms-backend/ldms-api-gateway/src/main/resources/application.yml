@@ -13,9 +13,21 @@ spring:
 eureka:
   client:
     service-url:
-      defaultZone: http://eureka:Eureka098()!@localhost:8761/eureka/
+      defaultZone: http://eureka:Eureka098%28%29%21@localhost:8761/eureka/
     register-with-eureka: true
     fetch-registry: true
+    eureka-server-connect-timeout-seconds: 5
+    eureka-server-read-timeout-seconds: 8
+    registry-fetch-interval-seconds: 30
+    instance-info-replication-interval-seconds: 30
   instance:
     prefer-ip-address: true
-    lease-renewal-interval-in-seconds: 10
+    lease-renewal-interval-in-seconds: 30
+
+logging:
+  level:
+    io.netty.resolver.dns.DnsServerAddressStreamProviders: WARN
+    com.netflix.discovery.TimedSupervisorTask: ERROR
+    com.netflix.discovery.shared.resolver.aws.ConfigClusterResolver: WARN
+    com.netflix.discovery.shared.transport.decorator.RetryableEurekaHttpClient: WARN
+    com.netflix.discovery.shared.transport.decorator.RedirectingEurekaHttpClient: WARN

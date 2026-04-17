@@ -2,6 +2,7 @@ package projectlx.co.zw.shared_library.utils.security.config;
 
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.annotation.Order;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -25,9 +26,10 @@ public class SharedJwtSecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    @Order(1)
+    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/api/**", "/other/secured/paths/**", "/actuator/**")
+            .securityMatcher("/api/**", "/other/secured/paths/**", "/actuator/**", "/upload", "/update")
 
             .csrf(csrf -> csrf.disable())
 
@@ -41,9 +43,6 @@ public class SharedJwtSecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                        "/swagger-ui/**",
-                        "/swagger-ui.html",
-                        "/v3/api-docs/**",
                         "/api/v1/system/**",
                         "/api/v1/auth/**",
                         "/actuator/**"
@@ -56,6 +55,24 @@ public class SharedJwtSecurityConfig {
             )
 
             .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(2)
+    public SecurityFilterChain swaggerSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(
+                    "/swagger-ui/**",
+                    "/swagger-ui.html",
+                    "/v3/api-docs/**",
+                    "/v3/api-docs.yaml"
+                ).permitAll()
+                .anyRequest().denyAll()
+            );
 
         return http.build();
     }

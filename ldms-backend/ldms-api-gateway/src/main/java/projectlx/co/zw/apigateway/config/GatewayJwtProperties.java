@@ -12,7 +12,13 @@ public class GatewayJwtProperties {
      */
     private String secret = "";
 
-    private List<String> publicPaths = new ArrayList<>(List.of("/actuator/health", "/actuator/info"));
+    private List<String> publicPaths = new ArrayList<>(List.of(
+            "/actuator/health",
+            "/actuator/info",
+            "/**/swagger-ui/**",
+            "/**/v3/api-docs/**",
+            "**/api/**"
+    ));
 
     private String rolesClaim = "roles";
 

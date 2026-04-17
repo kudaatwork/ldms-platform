@@ -536,7 +536,9 @@ public class UserPasswordServiceImpl implements UserPasswordService {
     public ExpiringPasswordsResponse findPasswordsAboutToExpire(LocalDateTime startDate, LocalDateTime endDate) {
 
         logger.info("Finding passwords that will expire between {} and {}", startDate, endDate);
-        
+
+        Locale locale = Locale.getDefault();
+
         try {
             List<UserPassword> expiringPasswords = userPasswordRepository.findPasswordsAboutToExpire(
                     startDate, endDate, EntityStatus.DELETED);
@@ -566,7 +568,9 @@ public class UserPasswordServiceImpl implements UserPasswordService {
             ExpiringPasswordsResponse response = new ExpiringPasswordsResponse();
             response.setStatusCode(200);
             response.setSuccess(true);
-            response.setMessage("Success");
+            response.setMessage(
+                    messageService.getMessage(I18Code.MESSAGE_EXPIRING_PASSWORDS_RETRIEVED_SUCCESSFULLY.getCode(),
+                            new String[]{}, locale));
             response.setExpiringPasswords(expiringPasswordDtos);
             return response;
         } catch (Exception e) {
@@ -574,7 +578,9 @@ public class UserPasswordServiceImpl implements UserPasswordService {
             ExpiringPasswordsResponse errorResponse = new ExpiringPasswordsResponse();
             errorResponse.setStatusCode(500);
             errorResponse.setSuccess(false);
-            errorResponse.setMessage("Error finding expiring passwords: " + e.getMessage());
+            errorResponse.setMessage(
+                    messageService.getMessage(I18Code.MESSAGE_EXPIRING_PASSWORDS_RETRIEVE_FAILED.getCode(),
+                            new String[]{}, locale));
             return errorResponse;
         }
     }

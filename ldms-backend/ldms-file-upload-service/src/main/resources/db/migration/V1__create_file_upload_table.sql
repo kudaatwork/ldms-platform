@@ -1,0 +1,27 @@
+CREATE TABLE file_upload
+(
+    id                   BIGINT AUTO_INCREMENT PRIMARY KEY,
+    original_file_name   VARCHAR(500)   NOT NULL,
+    stored_file_name     VARCHAR(500)   NOT NULL,
+    file_url             VARCHAR(1000)  NOT NULL,
+    content_type         VARCHAR(255),
+    file_size_in_bytes   BIGINT         NOT NULL,
+    storage_provider     VARCHAR(50)    NOT NULL,
+    owner_type           VARCHAR(50)    NOT NULL,
+    owner_id             BIGINT         NOT NULL,
+    file_type            VARCHAR(50)    NOT NULL,
+    auto_verified        TINYINT(1)     NOT NULL DEFAULT 0,
+    auto_verification_notes VARCHAR(500),
+    auto_verified_at     DATETIME(6),
+    auto_verification_method VARCHAR(50),
+    auto_verification_source VARCHAR(50),
+    expires_at           DATETIME(6),
+    entity_status        VARCHAR(50)    NOT NULL DEFAULT 'ACTIVE',
+    created_at           DATETIME(6)    NOT NULL,
+    created_by           VARCHAR(150)   NOT NULL,
+    modified_at          DATETIME(6),
+    modified_by          VARCHAR(150),
+    INDEX idx_file_upload_owner (owner_type, owner_id, entity_status),
+    INDEX idx_file_upload_stored (stored_file_name),
+    INDEX idx_file_upload_original (original_file_name, entity_status)
+);

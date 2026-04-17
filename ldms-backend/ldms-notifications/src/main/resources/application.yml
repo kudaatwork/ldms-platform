@@ -8,8 +8,8 @@ spring:
   cloud:
     config:
       name: ldms-notifications
-      username: ${CONFIG_SERVER_USERNAME:config-user}
-      password: ${CONFIG_SERVER_PASSWORD:changeme}
+      username: ${CONFIG_SERVER_USERNAME:developer}
+      password: ${CONFIG_SERVER_PASSWORD:Config098()!}
       fail-fast: true
       retry:
         max-attempts: 5
@@ -17,9 +17,11 @@ spring:
         max-interval: 10000
         multiplier: 1.5
 
-notifications:
-  providers:
-    slack:
-      webhook-url: ${SLACK_WEBHOOK_URL:}
-    teams:
-      webhook-url: ${TEAMS_WEBHOOK_URL:}
+eureka:
+  username: ${EUREKA_USERNAME:eureka}
+  password: "${EUREKA_PASSWORD:Eureka098()!}"
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+    register-with-eureka: true
+    fetch-registry: true

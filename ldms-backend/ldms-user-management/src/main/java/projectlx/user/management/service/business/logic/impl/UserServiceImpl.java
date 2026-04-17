@@ -1568,42 +1568,6 @@ public class UserServiceImpl implements UserService {
                 null);
     }
 
-    @Override
-    public UserResponse findByAgentId(Long agentId, Locale locale, String username) {
-
-        String message = "";
-
-        boolean isIdValid = userServiceValidator.isIdValid(agentId);
-
-        if(!isIdValid) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_USER_ID_SUPPLIED_INVALID.getCode(), new String[]
-                    {}, locale);
-
-            return buildUserResponse(400, false, message, null, null,
-                    null);
-        }
-
-        List<User> userList = userRepository.findByAgentIdAndEntityStatusNot(agentId, EntityStatus.DELETED);
-
-        if(userList.isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]
-                    {}, locale);
-
-            return buildUserResponse(404, false, message, null,
-                    null, null);
-        }
-
-        List<UserDto> userDtoList = modelMapper.map(userList, new TypeToken<List<UserDto>>(){}.getType());
-
-        message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(),
-                new String[]{}, locale);
-
-        return buildUserResponse(200, true, message, null, userDtoList,
-                null);
-    }
-
     private Specification<User> addToSpec(Specification<User> spec,
                                           Function<EntityStatus, Specification<User>> predicateMethod) {
         Specification<User> localSpec = Specification.where(predicateMethod.apply(EntityStatus.DELETED));

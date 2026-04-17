@@ -1,0 +1,17 @@
+[server]
+host = "0.0.0.0"
+port = 8200
+
+[storage]
+backend = "local"
+base_path = "/data/uploads"
+max_file_size_mb = 50
+
+[security]
+internal_token = "changeme"
+
+[eureka]
+enabled = true
+url = "http://localhost:8761/eureka"
+service_name = "FILE-SERVICE"
+heartbeat_interval_secs = 30

@@ -216,26 +216,6 @@ public class UserSystemResource {
         return response;
     }
 
-    @Auditable(action = "FIND_USERS_BY_AGENT")
-    @GetMapping(value = "/find-by-agent-id/{agentId}")
-    @Operation(summary = "Find users by agent ID",
-            description = "Retrieves a list of users that belong to the specified agent.")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Users found successfully"),
-            @ApiResponse(responseCode = "404", description = "Users not found"),
-            @ApiResponse(responseCode = "400", description = "Invalid agent ID")
-    })
-    public UserResponse findByAgentId(@PathVariable("agentId") final Long agentId,
-                                      @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
-                                      @RequestHeader(value = Constants.LOCALE_LANGUAGE,
-                                              defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
-        logger.info("Incoming request to find users by agent ID: {}", agentId);
-        UserResponse response = userServiceProcessor.findByAgentId(agentId, locale, "SYSTEM");
-        logger.info("Outgoing response after finding users by agent ID: {}. Status Code: {}. Message: {}", 
-                response, response.getStatusCode(), response.getMessage());
-        return response;
-    }
-
     @Auditable(action = "EXPORT_USER_USERS")
     @PostMapping("/export")
     public ResponseEntity<byte[]> exportUsers(@RequestBody UsersMultipleFiltersRequest filters,
