@@ -3,9 +3,7 @@ import { Component, Inject } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
+import { MatIconModule } from '@angular/material/icon';
 import type { KycApplicationRow } from '../../models/kyc-application.model';
 
 export interface KycApplicationEditDialogData {
@@ -37,9 +35,7 @@ const STATUS_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
     ReactiveFormsModule,
     MatDialogModule,
     MatButtonModule,
-    MatFormFieldModule,
-    MatInputModule,
-    MatSelectModule,
+    MatIconModule,
   ],
 })
 export class KycApplicationEditDialogComponent {

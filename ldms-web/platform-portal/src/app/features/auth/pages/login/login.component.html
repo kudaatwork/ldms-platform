@@ -1,22 +1,107 @@
-<section class="login">
-  <form [formGroup]="form" (ngSubmit)="submit()">
-    <h1>Platform Portal</h1>
-    <p>Sign in to continue</p>
+<div class="login-shell">
+  <button
+    type="button"
+    class="login-theme-toggle"
+    (click)="toggleTheme()"
+    [attr.title]="theme.dark() ? 'Light mode' : 'Dark mode'"
+    [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+  >
+    <span class="material-icons" aria-hidden="true">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+  </button>
 
-    <label>Email</label>
-    <input type="email" formControlName="email" />
+  <div class="login-left">
+    <div class="ll-brand">
+      <div class="ll-logo">
+        <span class="material-icons" style="font-size: 28px; color: #fff" aria-hidden="true">apartment</span>
+      </div>
+      <span class="ll-name">Project LX</span>
+    </div>
+    <div class="ll-headline">
+      Your organisation&apos;s<br />operations hub
+    </div>
+    <div class="ll-sub">
+      Platform Portal — tailored navigation for suppliers, customers, transporters,
+      clearing agents, and partner networks.
+    </div>
+    <ul class="ll-advantages">
+      <li>
+        <span class="material-icons ll-adv-icon" aria-hidden="true">hub</span>
+        <span
+          ><strong>Role-aware workspace</strong> — see the tools that matter for your organisation type.</span
+        >
+      </li>
+      <li>
+        <span class="material-icons ll-adv-icon" aria-hidden="true">shield</span>
+        <span><strong>Secure access</strong> — sign in with your organisation credentials.</span>
+      </li>
+      <li>
+        <span class="material-icons ll-adv-icon" aria-hidden="true">insights</span>
+        <span><strong>Operational clarity</strong> — dashboards and workflows aligned to how you work.</span>
+      </li>
+    </ul>
+    <div class="ll-version">Platform Portal · projectlx.co.zw</div>
+  </div>
 
-    <label>Password</label>
-    <input type="password" formControlName="password" />
+  <div class="login-right">
+    <div class="login-card">
+      <div class="lc-header">
+        <h1 class="lc-title">Sign in</h1>
+        <p class="lc-sub">Platform Portal · Organisation access</p>
+      </div>
 
-    <button type="submit" [disabled]="loading">{{ loading ? 'Signing in...' : 'Sign in' }}</button>
-    <small class="error" *ngIf="error">{{ error }}</small>
-  </form>
+      <div class="lc-error" *ngIf="error">
+        <span class="material-icons" aria-hidden="true">error_outline</span> {{ error }}
+      </div>
 
-  <aside>
-    <h3>Mock Accounts</h3>
-    <button type="button" *ngFor="let row of demoUsers" (click)="fill(row.email, row.password)">
-      {{ row.user.orgClassification }}
-    </button>
-  </aside>
-</section>
+      <form [formGroup]="form" (ngSubmit)="submit()">
+        <div class="lc-field-label">Email address</div>
+        <div class="lc-field">
+          <span class="material-icons" aria-hidden="true">mail_outline</span>
+          <input
+            type="email"
+            formControlName="email"
+            placeholder="you@organisation.com"
+            autocomplete="email"
+            [attr.aria-invalid]="emailCtrl?.invalid && emailCtrl?.touched"
+          />
+        </div>
+        <p class="lc-field-hint" *ngIf="emailCtrl?.hasError('required') && emailCtrl?.touched">Email is required</p>
+        <p class="lc-field-hint" *ngIf="emailCtrl?.hasError('email') && emailCtrl?.touched">Enter a valid email</p>
+
+        <div class="lc-field-label">Password</div>
+        <div class="lc-field">
+          <span class="material-icons" aria-hidden="true">lock_outline</span>
+          <input
+            [type]="showPass ? 'text' : 'password'"
+            formControlName="password"
+            placeholder="Your password"
+            autocomplete="current-password"
+          />
+          <button type="button" class="lc-pass-toggle" (click)="togglePasswordVisibility()" aria-label="Toggle password">
+            <span class="material-icons" aria-hidden="true">{{ showPass ? 'visibility_off' : 'visibility' }}</span>
+          </button>
+        </div>
+        <p class="lc-field-hint" *ngIf="passCtrl?.hasError('required') && passCtrl?.touched">Password is required</p>
+
+        <button type="submit" class="lc-submit" [disabled]="loading">
+          <span class="lc-spinner" *ngIf="loading"></span>
+          {{ loading ? 'Signing in...' : 'Sign in to Platform Portal' }}
+          <span class="material-icons" *ngIf="!loading" aria-hidden="true">arrow_forward</span>
+        </button>
+      </form>
+
+      <div class="lc-mock">
+        <div class="lc-mock-title">
+          <span class="material-icons" aria-hidden="true">person_search</span>
+          Sample sign-in (demo)
+        </div>
+        <div class="lc-mock-grid">
+          <button *ngFor="let c of mockCreds" class="lc-mock-btn" type="button" (click)="fillMock(c)">
+            <span class="lc-mock-role">{{ c.label }}</span>
+            <span class="lc-mock-email">{{ c.email }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

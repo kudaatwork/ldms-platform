@@ -1,9 +1,15 @@
-<section class="dashboard">
-  <h1>{{ classification }} Dashboard</h1>
-  <div class="kpi-grid">
-    <article class="kpi-card" *ngFor="let card of cards">
-      <div class="kpi-label">{{ card.label }}</div>
-      <div class="kpi-value">{{ card.value }}</div>
+<section class="lx-page dashboard">
+  <header class="dashboard-header">
+    <h1 class="dashboard-title">{{ classificationLabel }} workspace</h1>
+    <p class="dashboard-sub">
+      Snapshot metrics for your organisation — figures below are demo data until backend wiring is complete.
+    </p>
+  </header>
+
+  <div class="lx-grid lx-grid-4">
+    <article class="lx-card kpi-card" *ngFor="let card of cards">
+      <div class="lx-kpi-label">{{ card.label }}</div>
+      <div class="lx-kpi-value">{{ card.value }}</div>
     </article>
   </div>
 </section>

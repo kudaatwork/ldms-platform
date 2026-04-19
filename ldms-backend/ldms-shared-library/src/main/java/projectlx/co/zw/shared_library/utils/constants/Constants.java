@@ -1,6 +1,9 @@
 package projectlx.co.zw.shared_library.utils.constants;
 
 public class Constants {
+    /** RabbitMQ topic exchange for organization-management domain events. */
+    public static final String EXCHANGE_ORG = "org.exchange";
+
     public static final String USER = "Authorisation";
     public static final String PHONE_NUMBER_REGEX = "^\\s?((\\+[1-9]{1,4}[ \\-]*)|(\\([0-9]{2,3}\\)[ \\-]*)|([0-9]{2,4})[ \\-]*)*?[0-9]{3,4}?[ \\-]*[0-9]{3,4}?\\s?";
     public static final String EMAIL_REGEX = "^(.+)@(\\S+)$";

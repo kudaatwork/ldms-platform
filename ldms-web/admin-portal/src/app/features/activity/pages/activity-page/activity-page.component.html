@@ -13,15 +13,10 @@
             </button>
           </div>
           <div class="lx-data-toolbar__search">
-            <mat-form-field appearance="outline" class="lx-search-field" subscriptSizing="dynamic">
-              <mat-icon matPrefix>search</mat-icon>
-              <input
-                matInput
-                [(ngModel)]="searchQuery"
-                (ngModelChange)="resetActivityPaging()"
-                placeholder="Search…"
-              />
-            </mat-form-field>
+            <div class="lx-input-shell lx-search-field">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input [(ngModel)]="searchQuery" (ngModelChange)="resetActivityPaging()" placeholder="Search…" />
+            </div>
             <button
               type="button"
               class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
@@ -53,31 +48,31 @@
           <div class="lx-filter-fields">
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Time</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>schedule</mat-icon>
-                <input matInput [(ngModel)]="activityColumnFilters.time" (ngModelChange)="resetActivityPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+              <input [(ngModel)]="activityColumnFilters.time" (ngModelChange)="resetActivityPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Actor</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>person</mat-icon>
-                <input matInput [(ngModel)]="activityColumnFilters.actor" (ngModelChange)="resetActivityPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">person</mat-icon>
+              <input [(ngModel)]="activityColumnFilters.actor" (ngModelChange)="resetActivityPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Action</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>bolt</mat-icon>
-                <input matInput [(ngModel)]="activityColumnFilters.action" (ngModelChange)="resetActivityPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">bolt</mat-icon>
+              <input [(ngModel)]="activityColumnFilters.action" (ngModelChange)="resetActivityPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Resource</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>folder_open</mat-icon>
-                <input matInput [(ngModel)]="activityColumnFilters.resource" (ngModelChange)="resetActivityPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">folder_open</mat-icon>
+              <input [(ngModel)]="activityColumnFilters.resource" (ngModelChange)="resetActivityPaging()" />
+            </div>
             </div>
           </div>
         </div>
@@ -159,15 +154,10 @@
             </button>
           </div>
           <div class="lx-data-toolbar__search">
-            <mat-form-field appearance="outline" class="lx-search-field" subscriptSizing="dynamic">
-              <mat-icon matPrefix>search</mat-icon>
-              <input
-                matInput
-                [(ngModel)]="requestSearchQuery"
-                (ngModelChange)="resetRequestPaging()"
-                placeholder="Search…"
-              />
-            </mat-form-field>
+            <div class="lx-input-shell lx-search-field">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input [(ngModel)]="requestSearchQuery" (ngModelChange)="resetRequestPaging()" placeholder="Search…" />
+            </div>
             <button
               type="button"
               class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
@@ -199,57 +189,45 @@
           <div class="lx-filter-fields">
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Time</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>schedule</mat-icon>
-                <input matInput [(ngModel)]="requestColumnFilters.time" (ngModelChange)="resetRequestPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+              <input [(ngModel)]="requestColumnFilters.time" (ngModelChange)="resetRequestPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Method</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>http</mat-icon>
-                <input matInput [(ngModel)]="requestColumnFilters.method" (ngModelChange)="resetRequestPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">http</mat-icon>
+              <input [(ngModel)]="requestColumnFilters.method" (ngModelChange)="resetRequestPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Path</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>alt_route</mat-icon>
-                <input matInput [(ngModel)]="requestColumnFilters.path" (ngModelChange)="resetRequestPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">alt_route</mat-icon>
+              <input [(ngModel)]="requestColumnFilters.path" (ngModelChange)="resetRequestPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Source</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>cloud</mat-icon>
-                <input
-                  matInput
-                  [(ngModel)]="requestColumnFilters.integration"
-                  (ngModelChange)="resetRequestPaging()"
-                />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">cloud</mat-icon>
+              <input [(ngModel)]="requestColumnFilters.integration" (ngModelChange)="resetRequestPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Status code</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>numbers</mat-icon>
-                <input
-                  matInput
-                  [(ngModel)]="requestColumnFilters.statusCode"
-                  (ngModelChange)="resetRequestPaging()"
-                />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">numbers</mat-icon>
+              <input [(ngModel)]="requestColumnFilters.statusCode" (ngModelChange)="resetRequestPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Duration (ms)</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>timer</mat-icon>
-                <input
-                  matInput
-                  [(ngModel)]="requestColumnFilters.durationMs"
-                  (ngModelChange)="resetRequestPaging()"
-                />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">timer</mat-icon>
+              <input [(ngModel)]="requestColumnFilters.durationMs" (ngModelChange)="resetRequestPaging()" />
+            </div>
             </div>
           </div>
         </div>

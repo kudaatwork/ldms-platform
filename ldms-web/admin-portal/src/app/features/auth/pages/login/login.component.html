@@ -58,23 +58,55 @@
       <!-- Form -->
       <form [formGroup]="form" (ngSubmit)="submit()">
 
-        <div class="lc-field-label">Email address</div>
-        <mat-form-field appearance="outline" class="lc-field">
-          <input matInput formControlName="email" type="email" placeholder="admin@projectlx.co.zw" autocomplete="email"/>
-          <mat-icon matPrefix>mail_outline</mat-icon>
-          <mat-error *ngIf="emailCtrl?.hasError('required')">Email is required</mat-error>
-          <mat-error *ngIf="emailCtrl?.hasError('email')">Enter a valid email</mat-error>
-        </mat-form-field>
+        <div class="lc-field">
+          <div class="lc-field-label">Email address</div>
+          <div
+            class="lx-input-shell"
+            [class.lx-input-shell--invalid]="emailCtrl?.invalid && emailCtrl?.touched"
+          >
+            <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
+            <input
+              formControlName="email"
+              type="email"
+              placeholder="admin@projectlx.co.zw"
+              autocomplete="email"
+            />
+          </div>
+          <div class="lc-field-error" *ngIf="emailCtrl?.hasError('required') && emailCtrl?.touched">
+            Email is required
+          </div>
+          <div class="lc-field-error" *ngIf="emailCtrl?.hasError('email') && emailCtrl?.touched && !emailCtrl?.hasError('required')">
+            Enter a valid email
+          </div>
+        </div>
 
-        <div class="lc-field-label">Password</div>
-        <mat-form-field appearance="outline" class="lc-field">
-          <input matInput formControlName="password" [type]="showPass ? 'text' : 'password'" placeholder="Your password" autocomplete="current-password"/>
-          <mat-icon matPrefix>lock_outline</mat-icon>
-          <button type="button" matSuffix mat-icon-button (click)="togglePasswordVisibility()">
-            <mat-icon>{{ showPass ? 'visibility_off' : 'visibility' }}</mat-icon>
-          </button>
-          <mat-error *ngIf="passCtrl?.hasError('required')">Password is required</mat-error>
-        </mat-form-field>
+        <div class="lc-field">
+          <div class="lc-field-label">Password</div>
+          <div
+            class="lx-input-shell"
+            [class.lx-input-shell--invalid]="passCtrl?.invalid && passCtrl?.touched"
+          >
+            <mat-icon class="lx-input-shell__icon">lock_outline</mat-icon>
+            <input
+              formControlName="password"
+              [type]="showPass ? 'text' : 'password'"
+              placeholder="Your password"
+              autocomplete="current-password"
+            />
+            <button
+              type="button"
+              mat-icon-button
+              class="lx-input-shell__suffix"
+              (click)="togglePasswordVisibility()"
+              [attr.aria-label]="showPass ? 'Hide password' : 'Show password'"
+            >
+              <mat-icon>{{ showPass ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+          </div>
+          <div class="lc-field-error" *ngIf="passCtrl?.hasError('required') && passCtrl?.touched">
+            Password is required
+          </div>
+        </div>
 
         <button type="submit" class="lc-submit" [disabled]="loading">
           <mat-spinner *ngIf="loading" diameter="18" style="margin-right:8px"></mat-spinner>

@@ -1,0 +1,14 @@
+<h2 mat-dialog-title>Template detail</h2>
+<mat-dialog-content class="nt-detail">
+  <div class="nt-detail__row"><span class="nt-detail__k">Template code</span>{{ data.template.templateKey }}</div>
+  <div class="nt-detail__row"><span class="nt-detail__k">Subject</span>{{ data.template.emailSubject ?? '—' }}</div>
+  <div class="nt-detail__row"><span class="nt-detail__k">Channels</span>{{ channelsText(data.template) }}</div>
+  <div class="nt-detail__row nt-detail__row--block">
+    <span class="nt-detail__k">Description</span>
+    <p class="nt-detail__p">{{ data.template.description ?? '—' }}</p>
+  </div>
+  <div class="nt-detail__row"><span class="nt-detail__k">Active</span>{{ data.template.isActive ? 'Yes' : 'No' }}</div>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button mat-flat-button mat-dialog-close color="primary">Close</button>
+</mat-dialog-actions>

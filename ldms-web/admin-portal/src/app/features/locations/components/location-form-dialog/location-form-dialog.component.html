@@ -1,0 +1,341 @@
+<h2 mat-dialog-title>{{ title }}</h2>
+<mat-dialog-content class="lx-dialog-body">
+  <form [formGroup]="form" class="lx-dialog-form">
+    <ng-container [ngSwitch]="data.mode">
+      <ng-container *ngSwitchCase="'country'">
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Name</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+            <input formControlName="name" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">ISO α2</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">edit_note</mat-icon>
+            <input formControlName="isoAlpha2Code" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">ISO α3</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">edit_note</mat-icon>
+            <input formControlName="isoAlpha3Code" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Dial code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="dialCode" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Timezone</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+            <input formControlName="timezone" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Currency code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="currencyCode" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Geo coordinates ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">place</mat-icon>
+            <input type="number" formControlName="geoCoordinatesId" />
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'province'">
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Name</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+            <input formControlName="name" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="code" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Country ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input type="number" formControlName="countryId" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Administrative level ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input type="number" formControlName="administrativeLevelId" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Geo coordinates ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">place</mat-icon>
+            <input type="number" formControlName="geoCoordinatesId" />
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'district'">
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Name</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+            <input formControlName="name" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="code" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Province ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input type="number" formControlName="provinceId" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Administrative level ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input type="number" formControlName="administrativeLevelId" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Geo coordinates ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">place</mat-icon>
+            <input type="number" formControlName="geoCoordinatesId" />
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'suburb'">
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Name</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+            <input formControlName="name" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="code" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Postal code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="postalCode" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">District ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input type="number" formControlName="districtId" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Geo coordinates ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">place</mat-icon>
+            <input type="number" formControlName="geoCoordinatesId" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Administrative level ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input type="number" formControlName="administrativeLevelId" />
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'admin-level'">
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Name</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+            <input formControlName="name" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="code" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Level</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input type="number" formControlName="level" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Country ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input type="number" formControlName="countryId" />
+          </div>
+        </div>
+                <div class="lx-dialog-field lx-dialog-field--full">
+          <span class="lx-dialog-field-label">Description</span>
+          <div class="lx-input-shell lx-input-shell--textarea">
+            <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+            <textarea rows="3" formControlName="description"></textarea>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'city'">
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Name</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+            <input formControlName="name" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="code" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Parent ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input type="number" formControlName="parentId" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Latitude</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">place</mat-icon>
+            <input type="number" formControlName="latitude" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Longitude</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">place</mat-icon>
+            <input type="number" formControlName="longitude" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Timezone</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+            <input formControlName="timezone" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Postal code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="postalCode" />
+          </div>
+        </div>
+                <div class="lx-dialog-field lx-dialog-field--full">
+          <span class="lx-dialog-field-label">Aliases (comma-separated)</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+            <input formControlName="aliases" />
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngSwitchCase="'village'">
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Name</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+            <input formControlName="name" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="code" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Parent ID</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input type="number" formControlName="parentId" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Latitude</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">place</mat-icon>
+            <input type="number" formControlName="latitude" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Longitude</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">place</mat-icon>
+            <input type="number" formControlName="longitude" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Timezone</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+            <input formControlName="timezone" />
+          </div>
+        </div>
+                <div class="lx-dialog-field">
+          <span class="lx-dialog-field-label">Postal code</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input formControlName="postalCode" />
+          </div>
+        </div>
+                <div class="lx-dialog-field lx-dialog-field--full">
+          <span class="lx-dialog-field-label">Aliases (comma-separated)</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+            <input formControlName="aliases" />
+          </div>
+        </div>
+      </ng-container>
+    </ng-container>
+  </form>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button type="button" mat-button (click)="cancel()">Cancel</button>
+  <button type="button" mat-flat-button color="primary" (click)="save()" [disabled]="submitting">
+    Save
+  </button>
+</mat-dialog-actions>

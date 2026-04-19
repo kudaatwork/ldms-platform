@@ -10,7 +10,7 @@ This document is the operational companion to the Rust file service (`ldms-file-
 
 ## 1. Config repository (`ldms-config-repo`)
 
-Tracked templates live in this monorepo under **`docs/ldms-config-repo/`**. Copy the YAML files into your real Git config repo (the URI configured in the Config Server).
+Templates for services (including organization-management) live under **`docs/ldms-config-repo/`** — see **`docs/ldms-config-repo/README.md`**. Copy the YAML files into your real Git config repo (the URI configured in the Config Server, e.g. `LDMS_CONFIG_GIT_URI`).
 
 | File | When it is loaded |
 |------|-------------------|

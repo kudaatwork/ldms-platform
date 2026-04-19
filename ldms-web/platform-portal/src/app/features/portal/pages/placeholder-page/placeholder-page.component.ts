@@ -10,3 +10,4 @@ import { ActivatedRoute } from '@angular/router';
 export class PlaceholderPageComponent {
   constructor(readonly route: ActivatedRoute) {}
 }
+

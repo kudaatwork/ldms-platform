@@ -64,11 +64,18 @@
   <section class="kd-section kd-section--decision" *ngIf="canDecide" [formGroup]="form">
     <h3 class="kd-heading">Decision</h3>
     <p class="kd-hint">Provide a reason or internal notes for approval or rejection (required for both).</p>
-    <mat-form-field appearance="outline" class="kd-reason-field" subscriptSizing="dynamic">
-      <mat-label>Reason / notes</mat-label>
-      <textarea matInput rows="4" formControlName="reason" placeholder="e.g. Verified CR14 against registry; all IDs clear."></textarea>
-      <mat-hint align="end">Minimum 8 characters</mat-hint>
-    </mat-form-field>
+    <div class="kd-reason-field">
+      <span class="lx-dialog-field-label">Reason / notes</span>
+      <div class="lx-input-shell lx-input-shell--textarea">
+        <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+        <textarea
+          rows="4"
+          formControlName="reason"
+          placeholder="e.g. Verified CR14 against registry; all IDs clear."
+        ></textarea>
+      </div>
+      <span class="lx-field-hint lx-field-hint--end">Minimum 8 characters</span>
+    </div>
     <div class="kd-reason-err" *ngIf="reasonError">{{ reasonError }}</div>
   </section>
 

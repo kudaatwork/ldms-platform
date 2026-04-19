@@ -1,28 +1,131 @@
-<div class="shell">
+<div
+  class="shell"
+  [class.collapsed]="collapsed"
+  [class.sidebar-mobile-open]="mobileSidebarOpen"
+>
+  <div
+    class="sidebar-backdrop"
+    (click)="closeMobileSidebar()"
+    tabindex="-1"
+    aria-hidden="true"
+  ></div>
+
   <aside class="sidebar">
-    <div class="logo">LX Platform</div>
-    <div class="org">{{ currentUser?.orgName }}</div>
-    <nav>
+    <div class="sb-logo">
+      <div class="sb-logo-icon">
+        <span class="material-icons sb-mi" aria-hidden="true">apartment</span>
+      </div>
+      <span class="sb-logo-text">LX Platform</span>
+      <button
+        type="button"
+        class="sb-collapse-btn"
+        (click)="toggle()"
+        [attr.title]="collapsed ? 'Expand' : 'Collapse'"
+      >
+        <span class="material-icons sb-mi" aria-hidden="true">{{
+          collapsed ? 'chevron_right' : 'chevron_left'
+        }}</span>
+      </button>
+    </div>
+
+    <div class="sb-section-label">Workspace</div>
+    <nav class="sb-nav">
       <a
-        *ngFor="let item of navItems"
+        *ngFor="let item of navItems; trackBy: trackByRoute"
+        class="sb-item"
         [routerLink]="item.route"
         routerLinkActive="active"
+        [attr.title]="collapsed ? item.label : null"
       >
-        {{ item.label }}
+        <div class="sb-icon">
+          <span class="material-icons sb-mi" aria-hidden="true">{{ item.icon }}</span>
+        </div>
+        <span class="sb-label">{{ item.label }}</span>
       </a>
     </nav>
+
+    <div class="sb-footer">
+      <div class="sb-user">
+        <div class="sb-avatar">{{ userInitials }}</div>
+        <div class="sb-user-info">
+          <div class="sb-user-name">{{ currentUser?.orgName }}</div>
+          <div class="sb-user-role">{{ roleSummary }}</div>
+        </div>
+        <button type="button" class="sb-logout" (click)="logout()" title="Sign out">
+          <span class="material-icons sb-mi" aria-hidden="true">logout</span>
+        </button>
+      </div>
+    </div>
   </aside>
 
-  <section class="content">
-    <header>
-      <div>
-        <h2>{{ currentUser?.orgClassification }}</h2>
-        <small>{{ currentUser?.roles?.join(', ') }}</small>
+  <div class="main">
+    <header class="topbar">
+      <div class="tb-left">
+        <button
+          type="button"
+          class="tb-shell-toggle"
+          (click)="toggle()"
+          [attr.title]="collapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          aria-label="Toggle sidebar"
+        >
+          <span class="material-icons tb-mi" aria-hidden="true">menu</span>
+        </button>
+        <h1 class="tb-title">{{ pageTitle }}</h1>
       </div>
-      <button type="button" (click)="logout()">Logout</button>
+      <div class="tb-right">
+        <div class="tb-search">
+          <span class="material-icons tb-search-icon" aria-hidden="true">search</span>
+          <input
+            class="tb-search-input"
+            type="search"
+            placeholder="Search orders, shipments, documents..."
+            autocomplete="off"
+          />
+          <kbd class="tb-kbd">⌘K</kbd>
+        </div>
+        <button
+          type="button"
+          class="tb-icon-btn tb-theme"
+          (click)="onThemeToggle()"
+          [attr.title]="theme.dark() ? 'Light mode' : 'Dark mode'"
+          [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+        >
+          <span class="material-icons tb-mi" aria-hidden="true">{{
+            theme.dark() ? 'light_mode' : 'dark_mode'
+          }}</span>
+        </button>
+        <button type="button" class="tb-icon-btn tb-notify" title="Notifications">
+          <span class="material-icons tb-mi" aria-hidden="true">notifications_none</span>
+          <span class="tb-badge" aria-hidden="true">3</span>
+        </button>
+        <button
+          type="button"
+          class="tb-icon-btn tb-logout"
+          (click)="logout()"
+          title="Sign out"
+          aria-label="Sign out"
+        >
+          <span class="material-icons tb-mi" aria-hidden="true">logout</span>
+        </button>
+        <div class="tb-profile">
+          <div class="tb-avatar">{{ userInitials }}</div>
+          <span class="material-icons tb-mi tb-chevron" aria-hidden="true">expand_more</span>
+        </div>
+      </div>
     </header>
-    <main>
+
+    <nav class="lx-breadcrumbs" aria-label="Breadcrumb" *ngIf="breadcrumbs.length">
+      <ol class="lx-breadcrumbs__list">
+        <li *ngFor="let c of breadcrumbs; let last = last" class="lx-breadcrumbs__item">
+          <a *ngIf="!last" [routerLink]="c.url" class="lx-breadcrumbs__link">{{ c.label }}</a>
+          <span *ngIf="last" class="lx-breadcrumbs__current" aria-current="page">{{ c.label }}</span>
+          <span *ngIf="!last" class="material-icons lx-breadcrumbs__sep" aria-hidden="true">chevron_right</span>
+        </li>
+      </ol>
+    </nav>
+
+    <main class="content">
       <router-outlet></router-outlet>
     </main>
-  </section>
+  </div>
 </div>

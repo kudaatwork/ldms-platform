@@ -25,6 +25,9 @@
 
 .ke-field {
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .ke-actions {

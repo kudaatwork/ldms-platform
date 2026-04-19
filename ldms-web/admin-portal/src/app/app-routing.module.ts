@@ -39,6 +39,18 @@ const routes: Routes = [
         data: { breadcrumb: 'Users' },
       },
       {
+        path: 'locations',
+        loadChildren: () =>
+          import('./features/locations/locations.module').then((m) => m.LocationsModule),
+        data: { breadcrumb: 'Locations' },
+      },
+      {
+        path: 'notifications',
+        loadChildren: () =>
+          import('./features/notifications/notifications.module').then((m) => m.NotificationsModule),
+        data: { breadcrumb: 'Notifications' },
+      },
+      {
         path: 'system',
         loadChildren: () => import('./features/system/system.module').then((m) => m.SystemModule),
         data: { breadcrumb: 'System' },

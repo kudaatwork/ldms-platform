@@ -1,0 +1,74 @@
+.nt-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nt-header {
+  margin-bottom: 0;
+}
+
+.lc-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--gray-900);
+}
+
+.lc-lead {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin: 0;
+}
+
+.nt-tabs {
+  width: 100%;
+}
+
+.nt-panel {
+  margin-top: 16px;
+}
+
+.nt-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nt-log-toolbar {
+  margin-top: 16px;
+}
+
+.nt-log-toolbar__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.nt-log-search {
+  flex: 1;
+  min-width: 220px;
+}
+
+.nt-apply {
+  align-self: center;
+}
+
+.skel-card {
+  padding: 20px;
+}
+
+.skel-line {
+  border-radius: 6px;
+  margin-bottom: 10px;
+
+  &--lg {
+    width: 40%;
+    height: 18px;
+  }
+}
+
+.skel-block {
+  border-radius: 10px;
+}

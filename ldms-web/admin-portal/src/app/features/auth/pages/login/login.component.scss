@@ -223,10 +223,13 @@
 .lc-field {
   width: 100%;
   margin-bottom: 14px;
+}
 
-  .mat-mdc-form-field-infix {
-    padding: 10px 0 !important;
-  }
+.lc-field-error {
+  font-size: 12px;
+  font-weight: 500;
+  color: #dc2626;
+  margin-top: 6px;
 }
 
 .lc-submit {

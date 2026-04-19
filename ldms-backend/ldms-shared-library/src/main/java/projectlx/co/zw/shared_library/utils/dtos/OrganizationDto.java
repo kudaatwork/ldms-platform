@@ -102,8 +102,22 @@ public class OrganizationDto {
     private String instagramUrl;
     private String youtubeUrl;
 
+    /** Logo file upload reference (Rust FS / file-upload service). */
+    private Long logoUploadId;
+
+    // KYC summary (organization-management service; persisted on organization row)
+    private String kycStatus;
+    private LocalDateTime submittedAt;
+    private Integer currentResubmissionCycle;
+    private String stage1ReviewedBy;
+    private LocalDateTime stage1ReviewedAt;
+    private String stage2ReviewedBy;
+    private LocalDateTime stage2ReviewedAt;
+    private String lastRejectionReason;
+    private Integer resubmissionCount;
+
     // Verification Info
-    /** True when EntityVerification for this org has verifiedAt set. */
+    /** True when KYC Stage 2 is approved (or legacy manual verification). */
     private Boolean isVerified;
     /** For CUSTOMER only: true when created via signup page (pending approval flow). */
     private Boolean createdViaSignup;

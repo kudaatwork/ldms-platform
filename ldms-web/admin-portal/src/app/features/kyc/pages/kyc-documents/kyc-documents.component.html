@@ -14,10 +14,10 @@
             <button type="button" class="lx-btn lx-btn-primary">Upload</button>
           </div>
           <div class="lx-data-toolbar__search">
-            <mat-form-field appearance="outline" class="lx-search-field" subscriptSizing="dynamic">
-              <mat-icon matPrefix>search</mat-icon>
-              <input matInput [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
-            </mat-form-field>
+            <div class="lx-input-shell lx-search-field">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
+            </div>
             <button
               type="button"
               class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
@@ -49,24 +49,24 @@
           <div class="lx-filter-fields">
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">File</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>insert_drive_file</mat-icon>
-                <input matInput [(ngModel)]="columnFilters.fileName" (ngModelChange)="resetPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">insert_drive_file</mat-icon>
+              <input [(ngModel)]="columnFilters.fileName" (ngModelChange)="resetPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Type</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>category</mat-icon>
-                <input matInput [(ngModel)]="columnFilters.type" (ngModelChange)="resetPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">category</mat-icon>
+              <input [(ngModel)]="columnFilters.type" (ngModelChange)="resetPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Status</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>label</mat-icon>
-                <input matInput [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">label</mat-icon>
+              <input [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
+            </div>
             </div>
           </div>
         </div>

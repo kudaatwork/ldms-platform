@@ -213,7 +213,7 @@ html.theme-dark .mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
 html.theme-dark .mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
 html.theme-dark .mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
   border-color: #60a5fa !important;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.32);
 }
 
 html.theme-dark .lx-input,
@@ -227,9 +227,43 @@ html.theme-dark .lx-input::placeholder {
   color: var(--gray-500);
 }
 
+html.theme-dark .mat-mdc-form-field input.mat-mdc-input-element::placeholder,
+html.theme-dark .mat-mdc-form-field textarea.mat-mdc-input-element::placeholder {
+  color: var(--gray-500);
+}
+
 html.theme-dark .lx-input:focus,
 html.theme-dark .lx-select:focus {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.32);
+}
+
+/* Match .lx-input dark fill on outlined Material fields */
+html.theme-dark .mat-mdc-form-field .mat-mdc-text-field-wrapper {
+  background-color: #1b2a40;
+}
+
+/* Icon + bare input — same chrome as .lx-input (Search shipment / PO) */
+html.theme-dark .lx-input-shell {
+  background: #1b2a40;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+html.theme-dark .lx-input-shell:focus-within {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.32);
+}
+
+html.theme-dark .lx-input-shell select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%2389a1c2' d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
+}
+
+html.theme-dark .lx-input-shell select option {
+  color: var(--gray-800);
+  background: #1b2a40;
+}
+
+html.theme-dark .tb-search .tb-kbd {
+  background: rgba(148, 163, 184, 0.22);
+  color: var(--gray-500);
 }
 
 html.theme-dark .skeleton {
@@ -546,56 +580,13 @@ button,
   min-width: 0;
 }
 
-.lx-search-field {
+/* Toolbar search width — chrome from `.lx-input-shell` (login form) */
+.lx-search-field.lx-input-shell {
   flex: 0 0 auto;
   width: 168px;
   max-width: min(168px, 42vw);
   min-width: 120px;
-  margin-bottom: 0 !important;
-
-  .mat-mdc-text-field-wrapper {
-    align-items: center;
-  }
-
-  .mat-mdc-form-field-infix {
-    display: flex;
-    align-items: center;
-    min-height: 40px;
-    padding-top: 8px !important;
-    padding-bottom: 8px !important;
-    box-sizing: border-box;
-  }
-
-  .mat-mdc-form-field-icon-prefix {
-    align-self: center;
-    padding: 0 6px 0 4px;
-
-    mat-icon.mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      line-height: 18px;
-      color: var(--gray-400);
-    }
-  }
-
-  input.mat-mdc-input-element {
-    flex: 1 1 auto;
-    min-width: 0;
-    margin: 0;
-    padding: 0;
-    font-size: 13px;
-    line-height: 22px;
-    min-height: 22px;
-    vertical-align: middle;
-    box-sizing: border-box;
-  }
-
-  input.mat-mdc-input-element::placeholder {
-    color: var(--gray-400);
-    opacity: 1;
-    line-height: 22px;
-  }
+  margin-bottom: 0;
 }
 
 .lx-filter-panel {
@@ -639,65 +630,23 @@ button,
   margin-bottom: 6px;
 }
 
-.lx-filter-field {
+/* Column filter width — text inputs use `.lx-input-shell` (login form) */
+.lx-filter-field.lx-input-shell {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+/* Material-only filters (datepicker, select) keep `mat-form-field` + shared outline styles */
+.lx-filter-field.mat-mdc-form-field {
   width: 100%;
   margin-bottom: 0 !important;
 
-  .mat-mdc-text-field-wrapper {
-    align-items: center;
-  }
-
-  .mat-mdc-form-field-infix {
-    display: flex;
-    align-items: center;
-    min-height: 40px;
-    padding-top: 10px !important;
-    padding-bottom: 10px !important;
-    box-sizing: border-box;
-  }
-
-  .mat-mdc-form-field-icon-prefix {
-    align-self: center;
-    padding: 0 6px 0 4px;
-
-    mat-icon.mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      line-height: 18px;
-      color: var(--gray-400);
-    }
-  }
-
-  input,
-  textarea,
-  .mdc-text-field__input,
-  .mat-mdc-input-element,
-  .mat-mdc-select-value,
-  .mat-mdc-select-min-line,
-  .mat-datepicker-input {
-    font-size: 12px !important;
-    line-height: 20px !important;
-    min-height: 20px;
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    vertical-align: middle;
-  }
-
-  input.mat-mdc-input-element::placeholder,
-  textarea::placeholder {
-    color: var(--gray-400);
-    opacity: 1;
-    line-height: 20px;
+  .mat-mdc-select-arrow-wrapper {
+    transform: scale(0.85);
   }
 
   .mat-mdc-form-field-subscript-wrapper {
     font-size: 10px;
-  }
-
-  .mat-mdc-select-arrow-wrapper {
-    transform: scale(0.85);
   }
 }
 
@@ -707,7 +656,7 @@ button,
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 40px;
+  min-height: 42px;
   padding: 8px 14px;
   line-height: 1.2;
 
@@ -761,15 +710,119 @@ button,
 ::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--gray-300); }
 
-/* ── Form overrides ────────────────── */
+/* ── Form overrides (match admin login `.lx-input-shell`) ─── */
 .mat-mdc-form-field {
   .mdc-notched-outline__leading,
   .mdc-notched-outline__notch,
-  .mdc-notched-outline__trailing { border-color: var(--gray-200) !important; border-radius: 10px; }
+  .mdc-notched-outline__trailing {
+    border-color: var(--gray-200) !important;
+    border-radius: 12px;
+    transition:
+      border-color var(--ease-fast),
+      box-shadow var(--ease-fast);
+  }
+
   &.mat-focused {
     .mdc-notched-outline__leading,
     .mdc-notched-outline__notch,
-    .mdc-notched-outline__trailing { border-color: var(--primary) !important; box-shadow: 0 0 0 3px rgba(59,130,246,.16); }
+    .mdc-notched-outline__trailing {
+      border-color: var(--primary) !important;
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+    }
+  }
+
+  &.mat-form-field-invalid.ng-touched:not(.mat-focused) {
+    .mdc-notched-outline__leading,
+    .mdc-notched-outline__notch,
+    .mdc-notched-outline__trailing {
+      border-color: rgba(239, 68, 68, 0.55) !important;
+      box-shadow: none;
+    }
+  }
+
+  .mat-mdc-text-field-wrapper {
+    align-items: center;
+    background-color: var(--surface);
+    border-radius: 12px;
+  }
+
+  .mat-mdc-form-field-infix {
+    display: flex;
+    align-items: center;
+    min-height: 42px;
+    padding-top: 10px !important;
+    padding-bottom: 10px !important;
+    box-sizing: border-box;
+  }
+
+  .mat-mdc-form-field-icon-prefix {
+    align-self: center;
+    padding: 0 6px 0 4px;
+
+    mat-icon.mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      line-height: 18px;
+      color: var(--gray-400);
+    }
+  }
+
+  input.mat-mdc-input-element,
+  textarea.mat-mdc-input-element {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    font-size: 13px;
+    line-height: 22px;
+    min-height: 22px;
+    vertical-align: middle;
+    box-sizing: border-box;
+    font-family: var(--font);
+    color: var(--gray-800);
+  }
+
+  input.mat-mdc-input-element::placeholder,
+  textarea.mat-mdc-input-element::placeholder {
+    color: var(--gray-400);
+    opacity: 1;
+    line-height: 22px;
+  }
+
+  .mat-mdc-form-field-error {
+    font-size: 12px;
+    font-weight: 500;
+    color: #dc2626;
+  }
+}
+
+html.theme-dark .mat-mdc-form-field .mat-mdc-form-field-error {
+  color: #f87171;
+}
+
+html.theme-dark .mat-mdc-form-field.mat-form-field-invalid.ng-touched:not(.mat-focused) {
+  .mdc-notched-outline__leading,
+  .mdc-notched-outline__notch,
+  .mdc-notched-outline__trailing {
+    border-color: rgba(248, 113, 113, 0.55) !important;
+  }
+}
+
+/* Multiline: align like login shell vertical padding, allow textarea to grow */
+.mat-mdc-form-field:has(textarea.mat-mdc-input-element) {
+  .mat-mdc-text-field-wrapper {
+    align-items: stretch;
+  }
+
+  .mat-mdc-form-field-infix {
+    align-items: flex-start;
+    min-height: 0;
+  }
+
+  textarea.mat-mdc-input-element {
+    min-height: 5rem;
+    resize: vertical;
   }
 }
 
@@ -792,6 +845,202 @@ button,
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+/* Composite field: prefix icon / suffix control + input — matches .lx-input metrics */
+.lx-input-shell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--gray-800);
+  font-family: var(--font);
+  font-size: 13px;
+  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
+
+  &:focus-within {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  &.lx-input-shell--invalid {
+    border-color: rgba(239, 68, 68, 0.55);
+  }
+
+  &.lx-input-shell--invalid:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  .lx-input-shell__icon {
+    flex-shrink: 0;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    color: var(--gray-400);
+  }
+
+  input:not([type='checkbox']):not([type='radio']) {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 22px;
+    color: var(--gray-800);
+    padding: 0;
+    margin: 0;
+
+    &::placeholder {
+      color: var(--gray-400);
+      opacity: 1;
+    }
+  }
+
+  /* Native dropdown — same shell as text inputs (login form) */
+  select {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 22px;
+    color: var(--gray-800);
+    padding: 0 22px 0 0;
+    margin: 0;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%2364748b' d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+    background-color: transparent;
+
+    &:focus {
+      outline: none;
+    }
+
+    option {
+      color: var(--gray-900);
+      background: var(--surface);
+    }
+  }
+
+  .lx-input-shell__suffix.mat-mdc-icon-button {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    margin: -6px -8px -6px 0;
+    padding: 0;
+    color: var(--gray-500);
+
+    .mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      line-height: 20px;
+    }
+  }
+}
+
+/* Multiline shell (dialogs, notes) — same chrome as login */
+.lx-input-shell--textarea {
+  align-items: flex-start;
+  min-height: auto;
+
+  .lx-input-shell__icon {
+    margin-top: 2px;
+  }
+
+  textarea {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    min-height: 4.5rem;
+    border: none;
+    background: transparent;
+    outline: none;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 22px;
+    color: var(--gray-800);
+    padding: 0;
+    margin: 0;
+
+    &::placeholder {
+      color: var(--gray-400);
+      opacity: 1;
+    }
+  }
+}
+
+html.theme-dark .lx-input-shell--textarea textarea::placeholder {
+  color: var(--gray-500);
+}
+
+/* Label + hint pattern (login-style fields outside Material outline) */
+.lx-dialog-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 6px;
+  display: block;
+}
+
+.lx-field-hint {
+  font-size: 11px;
+  color: var(--gray-500);
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.lx-field-hint--end {
+  text-align: right;
+}
+
+.lx-shell-error {
+  font-size: 12px;
+  font-weight: 500;
+  color: #dc2626;
+  margin-top: 4px;
+}
+
+html.theme-dark .lx-shell-error {
+  color: #f87171;
+}
+
+/* Main scroll area: dot texture over existing gradients + page background (colour unchanged) */
+.shell .main .content {
+  background-image:
+    radial-gradient(circle, rgba(0, 0, 0, 0.07) 1px, transparent 1px),
+    radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--primary) 12%, transparent) 0%, transparent 30%),
+    radial-gradient(circle at 90% -10%, color-mix(in srgb, var(--analytics) 10%, transparent) 0%, transparent 34%),
+    linear-gradient(var(--page-bg), var(--page-bg));
+  background-size: 24px 24px, auto, auto, auto, 100% 100%;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
+}
+
+html.theme-dark .shell .main .content {
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--primary) 12%, transparent) 0%, transparent 30%),
+    radial-gradient(circle at 90% -10%, color-mix(in srgb, var(--analytics) 10%, transparent) 0%, transparent 34%),
+    linear-gradient(var(--page-bg), var(--page-bg));
+  background-size: 24px 24px, auto, auto, auto, 100% 100%;
+  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -14,10 +14,10 @@
             <button type="button" class="lx-btn lx-btn-primary">Invite user</button>
           </div>
           <div class="lx-data-toolbar__search">
-            <mat-form-field appearance="outline" class="lx-search-field" subscriptSizing="dynamic">
-              <mat-icon matPrefix>search</mat-icon>
-              <input matInput [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
-            </mat-form-field>
+            <div class="lx-input-shell lx-search-field">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
+            </div>
             <button
               type="button"
               class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
@@ -49,31 +49,31 @@
           <div class="lx-filter-fields">
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Email</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>mail_outline</mat-icon>
-                <input matInput [(ngModel)]="columnFilters.email" (ngModelChange)="resetPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
+              <input [(ngModel)]="columnFilters.email" (ngModelChange)="resetPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Name</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>person</mat-icon>
-                <input matInput [(ngModel)]="columnFilters.name" (ngModelChange)="resetPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">person</mat-icon>
+              <input [(ngModel)]="columnFilters.name" (ngModelChange)="resetPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Role</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>badge</mat-icon>
-                <input matInput [(ngModel)]="columnFilters.role" (ngModelChange)="resetPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+              <input [(ngModel)]="columnFilters.role" (ngModelChange)="resetPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Status</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>label</mat-icon>
-                <input matInput [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">label</mat-icon>
+              <input [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
+            </div>
             </div>
           </div>
         </div>

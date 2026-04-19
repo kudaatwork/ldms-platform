@@ -48,7 +48,7 @@
         <module>ldms-user-management</module>
         <module>ldms-file-upload-service</module>
         <module>ldms-authentication</module>
-        <!-- <module>ldms-organization-management</module> -->
+        <module>ldms-organization-management</module>
         <module>ldms-locations</module>
         <!-- <module>ldms-reference-config</module> -->
         <!-- <module>ldms-inventory-management</module> -->

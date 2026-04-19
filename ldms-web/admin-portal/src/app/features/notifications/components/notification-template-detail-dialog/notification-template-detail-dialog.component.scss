@@ -1,0 +1,28 @@
+.nt-detail {
+  min-width: 360px;
+  padding-top: 8px;
+}
+
+.nt-detail__row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 10px;
+  font-size: 13px;
+  margin-bottom: 10px;
+  align-items: start;
+
+  &--block {
+    grid-template-columns: 1fr;
+  }
+}
+
+.nt-detail__k {
+  color: var(--gray-500);
+  font-weight: 600;
+}
+
+.nt-detail__p {
+  margin: 0;
+  line-height: 1.45;
+  color: var(--gray-800);
+}

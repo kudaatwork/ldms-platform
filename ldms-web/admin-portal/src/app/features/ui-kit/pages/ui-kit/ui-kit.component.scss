@@ -43,6 +43,19 @@
   gap: 12px;
 }
 
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ui-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
 .ui-outline {
   border: 1px solid var(--gray-300) !important;
 }

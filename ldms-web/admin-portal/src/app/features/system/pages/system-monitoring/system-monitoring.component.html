@@ -14,10 +14,10 @@
             <button type="button" class="lx-btn lx-btn-primary">Open Grafana</button>
           </div>
           <div class="lx-data-toolbar__search">
-            <mat-form-field appearance="outline" class="lx-search-field" subscriptSizing="dynamic">
-              <mat-icon matPrefix>search</mat-icon>
-              <input matInput [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
-            </mat-form-field>
+            <div class="lx-input-shell lx-search-field">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
+            </div>
             <button
               type="button"
               class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
@@ -49,24 +49,24 @@
           <div class="lx-filter-fields">
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Metric</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>analytics</mat-icon>
-                <input matInput [(ngModel)]="columnFilters.metric" (ngModelChange)="resetPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">analytics</mat-icon>
+              <input [(ngModel)]="columnFilters.metric" (ngModelChange)="resetPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Value</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>tag</mat-icon>
-                <input matInput [(ngModel)]="columnFilters.value" (ngModelChange)="resetPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+              <input [(ngModel)]="columnFilters.value" (ngModelChange)="resetPaging()" />
+            </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Status</div>
-              <mat-form-field appearance="outline" class="lx-filter-field" subscriptSizing="dynamic">
-                <mat-icon matPrefix>label</mat-icon>
-                <input matInput [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
-              </mat-form-field>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">label</mat-icon>
+              <input [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
+            </div>
             </div>
           </div>
           </div>

@@ -17,15 +17,67 @@
     <!-- Nav -->
     <div class="sb-section-label">Menu</div>
     <nav class="sb-nav">
-      <a *ngFor="let item of navItems; trackBy: trackByRoute"
-         class="sb-item" [routerLink]="item.route" routerLinkActive="active"
-         [matTooltip]="collapsed ? item.label : ''" matTooltipPosition="right">
-        <div class="sb-icon">
-          <mat-icon>{{ item.icon }}</mat-icon>
-          <span class="sb-badge" *ngIf="item.badge">{{ item.badge }}</span>
+      <ng-container *ngFor="let item of navItems; trackBy: trackByRoute">
+        <ng-container *ngIf="!item.children">
+          <a
+            class="sb-item"
+            [routerLink]="item.route"
+            routerLinkActive="active"
+            [matTooltip]="collapsed ? item.label : ''"
+            matTooltipPosition="right"
+          >
+            <div class="sb-icon">
+              <mat-icon>{{ item.icon }}</mat-icon>
+              <span class="sb-badge" *ngIf="item.badge">{{ item.badge }}</span>
+            </div>
+            <span class="sb-label">{{ item.label }}</span>
+          </a>
+        </ng-container>
+
+        <div class="sb-group" *ngIf="item.children">
+          <a
+            *ngIf="collapsed"
+            class="sb-item"
+            routerLink="/locations/countries"
+            [class.active]="currentUrl.startsWith('/locations')"
+            matTooltip="Locations"
+            matTooltipPosition="right"
+          >
+            <div class="sb-icon">
+              <mat-icon>{{ item.icon }}</mat-icon>
+            </div>
+            <span class="sb-label">{{ item.label }}</span>
+          </a>
+          <ng-container *ngIf="!collapsed">
+            <button
+              type="button"
+              class="sb-item sb-item--parent"
+              [class.active]="isLocationsSectionActive(currentUrl)"
+              (click)="toggleLocations()"
+            >
+              <div class="sb-icon">
+                <mat-icon>{{ item.icon }}</mat-icon>
+              </div>
+              <span class="sb-label">{{ item.label }}</span>
+              <mat-icon class="sb-chevron">{{ locationsExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+            </button>
+            <div class="sb-children" *ngIf="locationsExpanded">
+              <a
+                *ngFor="let c of item.children; trackBy: trackByChildRoute"
+                class="sb-subitem"
+                [routerLink]="c.route"
+                routerLinkActive="active"
+                [routerLinkActiveOptions]="{ exact: false }"
+              >
+                <div class="sb-subicon">
+                  <mat-icon>{{ c.icon }}</mat-icon>
+                </div>
+                <span class="sb-sublabel">{{ c.label }}</span>
+              </a>
+            </div>
+          </ng-container>
         </div>
-        <span class="sb-label">{{ item.label }}</span>
-      </a>
+      </ng-container>
     </nav>
 
     <!-- Footer -->
@@ -61,9 +113,9 @@
         <h1 class="tb-title">{{ pageTitle }}</h1>
       </div>
       <div class="tb-right">
-        <div class="tb-search">
-          <mat-icon class="tb-search-icon">search</mat-icon>
-          <input placeholder="Search orgs, POs, trips..." class="tb-search-input" />
+        <div class="lx-input-shell tb-search">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input placeholder="Search orgs, POs, trips..." class="tb-search-input" type="search" />
           <kbd class="tb-kbd">⌘K</kbd>
         </div>
         <button

@@ -30,7 +30,9 @@
     <div class="ops-filters-grid">
       <label class="ops-field">
         <span class="ops-label">Search shipment / PO</span>
-        <input class="lx-input" [(ngModel)]="searchTerm" placeholder="e.g. ZW-1234-A, PO-22410" />
+        <div class="lx-input-shell">
+          <input [(ngModel)]="searchTerm" placeholder="e.g. ZW-1234-A, PO-22410" />
+        </div>
       </label>
       <label class="ops-field">
         <span class="ops-label">Hub / region</span>

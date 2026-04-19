@@ -25,10 +25,13 @@
     <section class="lx-card">
       <h3>Inputs</h3>
       <div class="ui-form-grid">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic">
-          <mat-label>Text input</mat-label>
-          <input matInput placeholder="Shipment reference" />
-        </mat-form-field>
+        <div class="ui-field">
+          <span class="ui-field-label">Text input</span>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input placeholder="Shipment reference" />
+          </div>
+        </div>
         <mat-form-field appearance="outline" subscriptSizing="dynamic">
           <mat-label>Select</mat-label>
           <mat-select>

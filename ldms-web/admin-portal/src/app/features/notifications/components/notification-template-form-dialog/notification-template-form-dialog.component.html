@@ -1,0 +1,139 @@
+<h2 mat-dialog-title>Add notification template</h2>
+<mat-dialog-content class="ntf-dialog">
+  <div *ngIf="loadingMeta" class="ntf-loading">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading form metadata…</span>
+  </div>
+
+  <form [formGroup]="form" class="ntf-form" *ngIf="!loadingMeta">
+    <section class="ntf-section">
+      <h3 class="ntf-section__title">Template identity</h3>
+      <p class="ntf-section__hint">Unique key and description (matches backend stepped form).</p>
+      <div class="ntf-field ntf-field--full">
+        <span class="lx-dialog-field-label">Template code</span>
+        <div
+          class="lx-input-shell"
+          [class.lx-input-shell--invalid]="form.get('templateKey')?.invalid && form.get('templateKey')?.touched"
+        >
+          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+          <input formControlName="templateKey" placeholder="e.g. ORDER_CONFIRMATION" />
+        </div>
+        <p class="lx-field-hint">UPPER_SNAKE_CASE recommended</p>
+        <p class="lx-shell-error" *ngIf="form.get('templateKey')?.hasError('required') && form.get('templateKey')?.touched">
+          Required
+        </p>
+      </div>
+      <div class="ntf-field ntf-field--full">
+        <span class="lx-dialog-field-label">Description</span>
+        <div
+          class="lx-input-shell lx-input-shell--textarea"
+          [class.lx-input-shell--invalid]="form.get('description')?.invalid && form.get('description')?.touched"
+        >
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea rows="2" formControlName="description" placeholder="When this template is used"></textarea>
+        </div>
+        <p class="lx-shell-error" *ngIf="form.get('description')?.hasError('required') && form.get('description')?.touched">
+          Required
+        </p>
+      </div>
+    </section>
+
+    <section class="ntf-section">
+      <h3 class="ntf-section__title">Delivery channels</h3>
+      <p class="ntf-section__hint">Select one or more — content fields appear based on selection.</p>
+      <div class="ntf-field ntf-field--full">
+        <span class="lx-dialog-field-label">Channels</span>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="ntf-field-select">
+          <mat-select formControlName="channels" multiple placeholder="Select channels">
+            <mat-option *ngFor="let c of channelOptions" [value]="c.value">
+              {{ c.label }}
+              <span *ngIf="c.description" class="ntf-opt-desc"> — {{ c.description }}</span>
+            </mat-option>
+          </mat-select>
+          <mat-error>Select at least one channel</mat-error>
+        </mat-form-field>
+      </div>
+    </section>
+
+    <section class="ntf-section" *ngIf="hasChannel('EMAIL')">
+      <h3 class="ntf-section__title">Email content</h3>
+      <div class="ntf-field ntf-field--full">
+        <span class="lx-dialog-field-label">Email subject</span>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
+          <input formControlName="emailSubject" />
+        </div>
+      </div>
+      <div class="ntf-field ntf-field--full">
+        <span class="lx-dialog-field-label">Email HTML body</span>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea
+            rows="5"
+            formControlName="emailBodyHtml"
+            placeholder="HTML body; Handlebars placeholders supported"
+          ></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="ntf-section" *ngIf="hasChannel('SMS')">
+      <h3 class="ntf-section__title">SMS content</h3>
+      <div class="ntf-field ntf-field--full">
+        <span class="lx-dialog-field-label">SMS body</span>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">sms</mat-icon>
+          <textarea rows="3" formControlName="smsBody" maxlength="320"></textarea>
+        </div>
+        <p class="lx-field-hint lx-field-hint--end">{{ form.get('smsBody')?.value?.length || 0 }} / 320</p>
+      </div>
+    </section>
+
+    <section class="ntf-section" *ngIf="hasChannel('IN_APP') || hasChannel('SLACK') || hasChannel('TEAMS')">
+      <h3 class="ntf-section__title">In-app &amp; integrations</h3>
+      <p class="ntf-section__hint" *ngIf="hasChannel('IN_APP')">Title and body for in-app notifications.</p>
+      <p class="ntf-section__hint" *ngIf="hasChannel('SLACK') || hasChannel('TEAMS')">
+        Slack/Teams may use this body, SMS body, or the template description (backend validation).
+      </p>
+      <div class="ntf-field ntf-field--full" *ngIf="hasChannel('IN_APP')">
+        <span class="lx-dialog-field-label">In-app title</span>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">notifications</mat-icon>
+          <input formControlName="inAppTitle" />
+        </div>
+      </div>
+      <div class="ntf-field ntf-field--full">
+        <span class="lx-dialog-field-label">
+          <ng-container *ngIf="hasChannel('IN_APP')">In-app body</ng-container>
+          <ng-container *ngIf="!hasChannel('IN_APP') && (hasChannel('SLACK') || hasChannel('TEAMS'))">
+            Payload / message body
+          </ng-container>
+        </span>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea rows="4" formControlName="inAppBody"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="ntf-section" *ngIf="hasChannel('WHATSAPP')">
+      <h3 class="ntf-section__title">WhatsApp</h3>
+      <div class="ntf-field ntf-field--full">
+        <span class="lx-dialog-field-label">WhatsApp template name (Content SID)</span>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">chat</mat-icon>
+          <input formControlName="whatsappTemplateName" />
+        </div>
+      </div>
+    </section>
+  </form>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+  <button type="button" mat-button (click)="cancel()">Cancel</button>
+  <button type="button" mat-flat-button color="primary" (click)="submit()" [disabled]="submitting || loadingMeta">
+    <span class="ntf-btn-inner">
+      <mat-spinner *ngIf="submitting" diameter="18"></mat-spinner>
+      Create
+    </span>
+  </button>
+</mat-dialog-actions>

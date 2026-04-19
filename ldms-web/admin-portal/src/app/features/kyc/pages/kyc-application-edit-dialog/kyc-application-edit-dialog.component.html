@@ -4,18 +4,32 @@
   <p class="ke-lead">Update the application record. Changes apply to this queue only until the API is wired.</p>
 
   <form [formGroup]="form" class="ke-form">
-    <mat-form-field appearance="outline" class="ke-field" subscriptSizing="dynamic">
-      <mat-label>Applicant name</mat-label>
-      <input matInput formControlName="applicant" autocomplete="organization" />
-      <mat-error *ngIf="form.get('applicant')?.hasError('required')">Required</mat-error>
-    </mat-form-field>
+    <div class="ke-field">
+      <span class="lx-dialog-field-label">Applicant name</span>
+      <div
+        class="lx-input-shell"
+        [class.lx-input-shell--invalid]="form.get('applicant')?.invalid && form.get('applicant')?.touched"
+      >
+        <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+        <input formControlName="applicant" autocomplete="organization" />
+      </div>
+      <p class="lx-shell-error" *ngIf="form.get('applicant')?.hasError('required') && form.get('applicant')?.touched">
+        Required
+      </p>
+    </div>
 
-    <mat-form-field appearance="outline" class="ke-field" subscriptSizing="dynamic">
-      <mat-label>Status</mat-label>
-      <mat-select formControlName="status">
-        <mat-option *ngFor="let opt of statusOptions" [value]="opt.value">{{ opt.label }}</mat-option>
-      </mat-select>
-    </mat-form-field>
+    <div class="ke-field">
+      <span class="lx-dialog-field-label">Status</span>
+      <div
+        class="lx-input-shell"
+        [class.lx-input-shell--invalid]="form.get('status')?.invalid && form.get('status')?.touched"
+      >
+        <mat-icon class="lx-input-shell__icon">flag_outlined</mat-icon>
+        <select formControlName="status" aria-label="Status">
+          <option *ngFor="let opt of statusOptions" [value]="opt.value">{{ opt.label }}</option>
+        </select>
+      </div>
+    </div>
   </form>
 </mat-dialog-content>
 

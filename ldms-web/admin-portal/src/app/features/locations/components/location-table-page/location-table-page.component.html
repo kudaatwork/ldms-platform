@@ -1,0 +1,136 @@
+<div class="lx-page">
+  <ng-container *ngIf="!loading; else skel">
+    <ng-container *ngIf="rawRows.length > 0; else tableCardEmpty">
+      <div class="lx-card lx-card--subsection">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">Search, filter, and add new {{ pageTitle | lowercase }} records.</p>
+        <div class="lx-data-toolbar">
+          <div class="lx-data-toolbar__actions">
+            <button type="button" class="lx-btn lx-btn-ghost">Refresh</button>
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
+            <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
+              Export
+            </button>
+            <button type="button" class="lx-btn lx-btn-primary" (click)="openAdd()">Add New</button>
+          </div>
+          <div class="lx-data-toolbar__search">
+            <div class="lx-input-shell lx-search-field">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input [(ngModel)]="searchQuery" (ngModelChange)="applyFilters()" placeholder="Search…" />
+            </div>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+              (click)="filterFieldsOpen = !filterFieldsOpen"
+              [class.lx-btn-filter--on]="filterFieldsOpen"
+            >
+              <mat-icon>tune</mat-icon>
+              Filters
+            </button>
+          </div>
+        </div>
+        <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
+          <button mat-menu-item class="lx-export-option--pdf" (click)="stubExport()">
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>Export PDF</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--csv" (click)="stubExport()">
+            <mat-icon>table_view</mat-icon>
+            <span>Export CSV</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--xlsx" (click)="stubExport()">
+            <mat-icon>grid_on</mat-icon>
+            <span>Export XLSX</span>
+          </button>
+        </mat-menu>
+
+        <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+          <span class="lx-filter-panel__label">Column filters</span>
+          <div class="lx-filter-fields">
+            <div class="lx-filter-field-wrap" *ngFor="let key of filterableKeys">
+              <div class="lx-field-label">{{ columnLabels[key] }}</div>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
+              <input [(ngModel)]="columnFilters[key]" (ngModelChange)="applyFilters()" />
+            </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lx-card">
+        <h2 class="lc-title">{{ pageTitle }}</h2>
+        <p class="lc-lead">{{ pageLead }}</p>
+        <ng-container *ngIf="dataSource.data.length > 0; else noSearchHits">
+          <div class="lx-table-wrap">
+            <table mat-table [dataSource]="dataSource" matSort class="lx-mat-table">
+              <ng-container *ngFor="let col of displayedColumns" [matColumnDef]="col">
+                <th
+                  mat-header-cell
+                  *matHeaderCellDef
+                  mat-sort-header
+                  [disabled]="col === 'actions'"
+                >
+                  {{ columnLabels[col] }}
+                </th>
+                <td mat-cell *matCellDef="let row" [class.lx-actions-cell]="col === 'actions'">
+                  <ng-container [ngSwitch]="col">
+                    <span *ngSwitchCase="'entityStatus'" class="lx-status" [ngClass]="'lx-status-' + statusClass(row)">
+                      {{ statusLabel(row) }}
+                    </span>
+                    <ng-container *ngSwitchCase="'actions'">
+                      <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
+                        <mat-icon>more_vert</mat-icon>
+                      </button>
+                      <mat-menu #rowMenu="matMenu">
+                        <button mat-menu-item type="button"><mat-icon>visibility</mat-icon> View</button>
+                        <button mat-menu-item type="button"><mat-icon>edit</mat-icon> Edit</button>
+                        <button mat-menu-item type="button"><mat-icon>delete</mat-icon> Delete</button>
+                      </mat-menu>
+                    </ng-container>
+                    <span *ngSwitchDefault>{{ displayCell(row, col) }}</span>
+                  </ng-container>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+            </table>
+          </div>
+          <mat-paginator
+            class="lx-table-paginator"
+            [pageSizeOptions]="[5, 10, 25, 50]"
+            [showFirstLastButtons]="true"
+          ></mat-paginator>
+        </ng-container>
+        <ng-template #noSearchHits>
+          <div class="lx-empty lx-empty--compact">
+            <mat-icon class="lx-empty-icon">search_off</mat-icon>
+            <div class="lx-empty-title">No matching rows</div>
+            <div class="lx-empty-sub">Adjust search or column filters.</div>
+          </div>
+        </ng-template>
+      </div>
+    </ng-container>
+    <ng-template #tableCardEmpty>
+      <div class="lx-card">
+        <h2 class="lc-title">{{ pageTitle }}</h2>
+        <p class="lc-lead">{{ pageLead }}</p>
+        <div class="lx-empty">
+          <mat-icon class="lx-empty-icon">inbox</mat-icon>
+          <div class="lx-empty-title">No items found</div>
+          <div class="lx-empty-sub">Adjust filters or check back later</div>
+        </div>
+      </div>
+    </ng-template>
+  </ng-container>
+</div>
+
+<ng-template #skel>
+  <div class="lx-page">
+    <div class="lx-card skel-card">
+      <div class="skeleton skel-line skel-line--lg"></div>
+      <div class="skeleton skel-line skel-line--md"></div>
+      <div class="skeleton skel-block" style="margin-top: 20px; height: 120px"></div>
+    </div>
+  </div>
+</ng-template>

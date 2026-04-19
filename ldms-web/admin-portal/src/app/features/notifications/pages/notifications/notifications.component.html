@@ -1,0 +1,180 @@
+<div class="lx-page nt-page">
+  <div class="lx-card lx-card--subsection nt-header">
+    <h2 class="lc-title">Notification Management</h2>
+    <p class="lc-lead">
+      Manage templates (add, export, enable/disable). Log entries are read-only.
+    </p>
+  </div>
+
+  <mat-tab-group class="nt-tabs" animationDuration="200ms">
+    <mat-tab label="Templates">
+      <ng-template matTabContent>
+        <ng-container *ngIf="!loadingTpl; else tplSkel">
+          <div class="lx-card lx-card--subsection nt-tpl-toolbar">
+            <h3 class="lx-controls-title">Table controls</h3>
+            <p class="lx-controls-subtitle">Add templates, export the catalog, or toggle availability.</p>
+            <div class="lx-data-toolbar">
+              <div class="lx-data-toolbar__actions">
+                <button type="button" class="lx-btn lx-btn-ghost" (click)="loadTemplates()">Refresh</button>
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-success lx-export-trigger"
+                  [matMenuTriggerFor]="tplExportMenu"
+                >
+                  Export
+                </button>
+                <button type="button" class="lx-btn lx-btn-primary" (click)="openAddTemplate()">Add template</button>
+              </div>
+            </div>
+            <mat-menu #tplExportMenu="matMenu" panelClass="lx-export-menu">
+              <button mat-menu-item type="button" (click)="exportTemplates('csv')">
+                <mat-icon>table_view</mat-icon>
+                <span>Export CSV</span>
+              </button>
+              <button mat-menu-item type="button" (click)="exportTemplates('excel')">
+                <mat-icon>grid_on</mat-icon>
+                <span>Export XLSX</span>
+              </button>
+              <button mat-menu-item type="button" (click)="exportTemplates('pdf')">
+                <mat-icon>picture_as_pdf</mat-icon>
+                <span>Export PDF</span>
+              </button>
+            </mat-menu>
+          </div>
+
+          <div class="lx-card nt-panel">
+          <div class="lx-table-wrap">
+            <table mat-table [dataSource]="tplData" matSort matSortDisableClear class="lx-mat-table" #tplSort="matSort">
+              <ng-container matColumnDef="templateKey">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ tplLabels['templateKey'] }}</th>
+                <td mat-cell *matCellDef="let row">{{ row.templateKey }}</td>
+              </ng-container>
+              <ng-container matColumnDef="emailSubject">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ tplLabels['emailSubject'] }}</th>
+                <td mat-cell *matCellDef="let row">{{ row.emailSubject ?? '—' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="channels">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ tplLabels['channels'] }}</th>
+                <td mat-cell *matCellDef="let row">{{ channelsText(row) }}</td>
+              </ng-container>
+              <ng-container matColumnDef="isActive">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ tplLabels['isActive'] }}</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="lx-status" [ngClass]="'lx-status-' + tplStatusClass(row)">
+                    {{ tplStatusLabel(row) }}
+                  </span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef>{{ tplLabels['actions'] }}</th>
+                <td mat-cell *matCellDef="let row" class="lx-actions-cell nt-actions">
+                  <button type="button" mat-icon-button (click)="viewTemplate(row)" matTooltip="View">
+                    <mat-icon>visibility</mat-icon>
+                  </button>
+                  <mat-slide-toggle
+                    [checked]="row.isActive"
+                    (change)="onToggleActive(row, $event.checked)"
+                    (click)="$event.stopPropagation()"
+                    color="primary"
+                  ></mat-slide-toggle>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="tplColumns; sticky: true"></tr>
+              <tr mat-row *matRowDef="let row; columns: tplColumns"></tr>
+            </table>
+          </div>
+          <mat-paginator
+            #tplPaginator
+            class="lx-table-paginator"
+            [pageSizeOptions]="[5, 10, 25]"
+            [showFirstLastButtons]="true"
+          ></mat-paginator>
+          </div>
+        </ng-container>
+      </ng-template>
+    </mat-tab>
+
+    <mat-tab label="Log">
+      <ng-template matTabContent>
+        <div class="lx-card lx-card--subsection nt-log-toolbar">
+          <div class="nt-log-toolbar__row">
+            <div class="lx-input-shell lx-search-field nt-log-search">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input [(ngModel)]="logSearch" (keyup.enter)="applyLogFilters()" placeholder="Search recipient email or template code…" />
+            </div>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>From</mat-label>
+              <input matInput [matDatepicker]="dpFrom" [(ngModel)]="logFrom" />
+              <mat-datepicker-toggle matIconSuffix [for]="dpFrom"></mat-datepicker-toggle>
+              <mat-datepicker #dpFrom></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>To</mat-label>
+              <input matInput [matDatepicker]="dpTo" [(ngModel)]="logTo" />
+              <mat-datepicker-toggle matIconSuffix [for]="dpTo"></mat-datepicker-toggle>
+              <mat-datepicker #dpTo></mat-datepicker>
+            </mat-form-field>
+            <button type="button" class="lx-btn lx-btn-primary nt-apply" (click)="applyLogFilters()">Apply</button>
+          </div>
+        </div>
+
+        <div class="lx-card nt-panel" *ngIf="!loadingLog; else logSkel">
+          <div class="lx-table-wrap">
+            <table mat-table [dataSource]="logData" matSort matSortDisableClear class="lx-mat-table" #logSort="matSort">
+              <ng-container matColumnDef="recipientDisplay">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['recipientDisplay'] }}</th>
+                <td mat-cell *matCellDef="let row">{{ row.recipientDisplay }}</td>
+              </ng-container>
+              <ng-container matColumnDef="channel">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['channel'] }}</th>
+                <td mat-cell *matCellDef="let row">{{ row.channel }}</td>
+              </ng-container>
+              <ng-container matColumnDef="templateKey">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['templateKey'] }}</th>
+                <td mat-cell *matCellDef="let row">{{ row.templateKey }}</td>
+              </ng-container>
+              <ng-container matColumnDef="status">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['status'] }}</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="lx-status" [ngClass]="'lx-status-' + logStatusClass(row.status)">
+                    {{ row.status }}
+                  </span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="sentAt">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['sentAt'] }}</th>
+                <td mat-cell *matCellDef="let row">{{ row.sentAt | date : 'medium' }}</td>
+              </ng-container>
+              <ng-container matColumnDef="retryCount">
+                <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['retryCount'] }}</th>
+                <td mat-cell *matCellDef="let row">{{ row.retryCount }}</td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="logColumns; sticky: true"></tr>
+              <tr mat-row *matRowDef="let row; columns: logColumns"></tr>
+            </table>
+          </div>
+          <mat-paginator
+            #logPaginator
+            class="lx-table-paginator"
+            [pageSizeOptions]="[5, 10, 25]"
+            [showFirstLastButtons]="true"
+          ></mat-paginator>
+        </div>
+      </ng-template>
+    </mat-tab>
+  </mat-tab-group>
+</div>
+
+<ng-template #tplSkel>
+  <div class="lx-card skel-card nt-panel">
+    <div class="skeleton skel-line skel-line--lg"></div>
+    <div class="skeleton skel-block" style="margin-top: 16px; height: 100px"></div>
+  </div>
+</ng-template>
+
+<ng-template #logSkel>
+  <div class="lx-card skel-card nt-panel">
+    <div class="skeleton skel-line skel-line--lg"></div>
+    <div class="skeleton skel-block" style="margin-top: 16px; height: 100px"></div>
+  </div>
+</ng-template>
