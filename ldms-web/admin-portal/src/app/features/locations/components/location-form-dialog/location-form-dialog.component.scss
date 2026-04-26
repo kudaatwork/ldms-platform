@@ -20,6 +20,18 @@
   grid-column: 1 / -1;
 }
 
+.lx-form-error {
+  margin: 8px 0 0;
+  color: #b3261e;
+  font-size: 12px;
+}
+
+.lx-form-info {
+  margin: 8px 0 0;
+  color: #5f6368;
+  font-size: 12px;
+}
+
 @media (max-width: 520px) {
   .lx-dialog-form {
     grid-template-columns: 1fr;

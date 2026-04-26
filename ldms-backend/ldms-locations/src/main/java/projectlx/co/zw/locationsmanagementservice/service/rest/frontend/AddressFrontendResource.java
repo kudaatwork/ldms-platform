@@ -47,7 +47,7 @@ import projectlx.co.zw.locationsmanagementservice.utils.responses.AddressRespons
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/frontend/address")
+@RequestMapping("/ldms-locations/v1/frontend/address")
 @Tag(name = "Address Frontend Resource", description = "Operations related to managing addresses")
 @RequiredArgsConstructor
 public class AddressFrontendResource {

@@ -44,7 +44,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/system/language")
+@RequestMapping("/ldms-locations/v1/system/language")
 @Tag(name = "Language System Resource", description = "Operations related to managing languages (system)")
 @RequiredArgsConstructor
 public class LanguageSystemResource {

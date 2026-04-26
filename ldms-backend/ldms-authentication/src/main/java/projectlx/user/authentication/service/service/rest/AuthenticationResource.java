@@ -23,7 +23,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/auth")
+@RequestMapping("/ldms-authentication/v1/auth")
 @Tag(name = "Auth Resource", description = "Operations related to managing authentication")
 @RequiredArgsConstructor
 public class AuthenticationResource {

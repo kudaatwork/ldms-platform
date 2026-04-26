@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Locale;
 
 @RestController
-@RequestMapping("/api/v1/system/file-upload")
+@RequestMapping("/ldms-file-upload-service/v1/system/file-upload")
 @RequiredArgsConstructor
 public class FileUploadSystemResource {
 

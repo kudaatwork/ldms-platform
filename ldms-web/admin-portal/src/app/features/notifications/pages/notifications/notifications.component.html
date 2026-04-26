@@ -102,18 +102,34 @@
               <mat-icon class="lx-input-shell__icon">search</mat-icon>
               <input [(ngModel)]="logSearch" (keyup.enter)="applyLogFilters()" placeholder="Search recipient email or template code…" />
             </div>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>From</mat-label>
-              <input matInput [matDatepicker]="dpFrom" [(ngModel)]="logFrom" />
-              <mat-datepicker-toggle matIconSuffix [for]="dpFrom"></mat-datepicker-toggle>
+            <div class="lx-input-shell nt-log-date">
+              <mat-icon class="lx-input-shell__icon">event</mat-icon>
+              <input [matDatepicker]="dpFrom" [(ngModel)]="logFrom" placeholder="From date" />
+              <button
+                type="button"
+                class="lx-input-shell__suffix"
+                mat-icon-button
+                (click)="dpFrom.open()"
+                aria-label="Open from date picker"
+              >
+                <mat-icon>calendar_today</mat-icon>
+              </button>
               <mat-datepicker #dpFrom></mat-datepicker>
-            </mat-form-field>
-            <mat-form-field appearance="outline" subscriptSizing="dynamic">
-              <mat-label>To</mat-label>
-              <input matInput [matDatepicker]="dpTo" [(ngModel)]="logTo" />
-              <mat-datepicker-toggle matIconSuffix [for]="dpTo"></mat-datepicker-toggle>
+            </div>
+            <div class="lx-input-shell nt-log-date">
+              <mat-icon class="lx-input-shell__icon">event</mat-icon>
+              <input [matDatepicker]="dpTo" [(ngModel)]="logTo" placeholder="To date" />
+              <button
+                type="button"
+                class="lx-input-shell__suffix"
+                mat-icon-button
+                (click)="dpTo.open()"
+                aria-label="Open to date picker"
+              >
+                <mat-icon>calendar_today</mat-icon>
+              </button>
               <mat-datepicker #dpTo></mat-datepicker>
-            </mat-form-field>
+            </div>
             <button type="button" class="lx-btn lx-btn-primary nt-apply" (click)="applyLogFilters()">Apply</button>
           </div>
         </div>

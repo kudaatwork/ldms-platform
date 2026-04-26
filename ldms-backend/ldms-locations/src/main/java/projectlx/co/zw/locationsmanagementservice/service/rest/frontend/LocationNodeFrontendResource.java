@@ -28,7 +28,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/frontend/location-node")
+@RequestMapping("/ldms-locations/v1/frontend/location-node")
 @RequiredArgsConstructor
 public class LocationNodeFrontendResource {
     private final LocationNodeServiceProcessor locationNodeServiceProcessor;

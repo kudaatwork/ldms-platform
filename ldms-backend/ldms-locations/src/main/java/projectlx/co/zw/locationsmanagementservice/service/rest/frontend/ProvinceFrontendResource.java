@@ -45,7 +45,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/frontend/province")
+@RequestMapping("/ldms-locations/v1/frontend/province")
 @Tag(name = "Province Frontend Resource", description = "Operations related to managing provinces")
 @RequiredArgsConstructor
 public class ProvinceFrontendResource {

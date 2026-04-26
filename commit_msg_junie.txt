@@ -1,0 +1,17 @@
+refactor: update API request mappings and enhance frontend location services
+
+Backend:
+- Prefix all REST controller request mappings with service names (e.g., /ldms-user-management) for better gateway routing.
+- Update Eureka client configuration to use authenticated service URLs and prefer IP addresses.
+- Remove redundant organization public endpoint security configuration.
+- Update application.yml documentation regarding Spring Cloud Config repository.
+
+Frontend (Admin Portal):
+- Enhance LocationsService with robust error handling, timeouts, and payload filtering.
+- Update location form and table components with improved styling and structure.
+- Improve notification component layout and shared module imports.
+
+General:
+- Remove obsolete documentation files.
+
+Co-authored-by: Junie <junie@jetbrains.com>

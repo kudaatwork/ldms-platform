@@ -47,7 +47,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/frontend/district")
+@RequestMapping("/ldms-locations/v1/frontend/district")
 @Tag(name = "District Frontend Resource", description = "Operations related to managing districts")
 @RequiredArgsConstructor
 public class DistrictFrontendResource {

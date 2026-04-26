@@ -8,9 +8,9 @@ import projectlx.co.zw.shared_library.utils.responses.UserResponse;
 @FeignClient(name = "user-management-service", url = "${clients.base-url.userManagementService}")
 public interface UserManagementServiceClient {
 
-	@GetMapping("/api/v1/system/user/find-by-username/{username}")
+	@GetMapping("/ldms-user-management/v1/system/user/find-by-username/{username}")
 	UserResponse findByUsername(@PathVariable("username") String username);
 
-	@GetMapping("/api/v1/system/user/find-by-phone-number-or-email/{phoneNumberOrEmail}")
+	@GetMapping("/ldms-user-management/v1/system/user/find-by-phone-number-or-email/{phoneNumberOrEmail}")
 	UserResponse findByPhoneNumberOrEmail(@PathVariable("phoneNumberOrEmail") String phoneNumberOrEmail);
 }

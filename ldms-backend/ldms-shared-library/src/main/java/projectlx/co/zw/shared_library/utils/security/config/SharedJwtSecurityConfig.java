@@ -10,6 +10,8 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import projectlx.co.zw.shared_library.business.logic.api.JwtService;
 import projectlx.co.zw.shared_library.utils.security.filter.JwtAuthenticationFilter;
 
@@ -29,7 +31,7 @@ public class SharedJwtSecurityConfig {
     @Order(1)
     public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
         http
-            .securityMatcher("/api/**", "/other/secured/paths/**", "/actuator/**", "/upload", "/update")
+            .securityMatcher("/api/**", "/ldms-*/**", "/other/secured/paths/**", "/actuator/**", "/upload", "/update")
 
             .csrf(csrf -> csrf.disable())
 
@@ -43,8 +45,8 @@ public class SharedJwtSecurityConfig {
 
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                        "/api/v1/system/**",
-                        "/api/v1/auth/**",
+                        "/ldms-*/v1/system/**",
+                        "/ldms-authentication/v1/auth/**",
                         "/actuator/**"
                 ).permitAll()
                 .anyRequest().authenticated()
@@ -63,16 +65,19 @@ public class SharedJwtSecurityConfig {
     @Order(2)
     public SecurityFilterChain swaggerSecurityFilterChain(HttpSecurity http) throws Exception {
         http
+            .securityMatcher(new OrRequestMatcher(
+                new AntPathRequestMatcher("/swagger-ui"),
+                new AntPathRequestMatcher("/swagger-ui/**"),
+                new AntPathRequestMatcher("/swagger-ui.html"),
+                new AntPathRequestMatcher("/v3/api-docs"),
+                new AntPathRequestMatcher("/v3/api-docs/**"),
+                new AntPathRequestMatcher("/v3/api-docs.yaml"),
+                new AntPathRequestMatcher("/swagger-resources"),
+                new AntPathRequestMatcher("/swagger-resources/**"),
+                new AntPathRequestMatcher("/webjars/**")
+            ))
             .csrf(csrf -> csrf.disable())
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/swagger-ui/**",
-                    "/swagger-ui.html",
-                    "/v3/api-docs/**",
-                    "/v3/api-docs.yaml"
-                ).permitAll()
-                .anyRequest().denyAll()
-            );
+            .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
 
         return http.build();
     }

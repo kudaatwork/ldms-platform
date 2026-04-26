@@ -47,7 +47,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/frontend/localized-name")
+@RequestMapping("/ldms-locations/v1/frontend/localized-name")
 @Tag(name = "Localized Name Frontend Resource", description = "Operations related to managing localized names")
 @RequiredArgsConstructor
 public class LocalizedNameFrontendResource {

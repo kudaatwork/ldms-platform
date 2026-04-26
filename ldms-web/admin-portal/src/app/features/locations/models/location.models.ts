@@ -96,26 +96,6 @@ export interface LocationNode {
   modifiedBy?: string | null;
 }
 
-export interface CountryListResponse extends CommonApiFields {
-  countryDtoList?: Country[];
-}
-
-export interface ProvinceListResponse extends CommonApiFields {
-  provinceDtoList?: Province[];
-}
-
-export interface DistrictListResponse extends CommonApiFields {
-  districtDtoList?: District[];
-}
-
-export interface SuburbListResponse extends CommonApiFields {
-  suburbDtoList?: Suburb[];
-}
-
-export interface AdministrativeLevelListResponse extends CommonApiFields {
-  administrativeLevelDtoList?: AdministrativeLevel[];
-}
-
 export interface SpringPage<T> {
   content: T[];
   totalElements: number;
@@ -124,7 +104,38 @@ export interface SpringPage<T> {
   number: number;
 }
 
+export interface CountryListResponse extends CommonApiFields {
+  countryDto?: Country;
+  countryDtoList?: Country[];
+  countryDtoPage?: SpringPage<Country>;
+}
+
+export interface ProvinceListResponse extends CommonApiFields {
+  provinceDto?: Province;
+  provinceDtoList?: Province[];
+  provinceDtoPage?: SpringPage<Province>;
+}
+
+export interface DistrictListResponse extends CommonApiFields {
+  districtDto?: District;
+  districtDtoList?: District[];
+  districtDtoPage?: SpringPage<District>;
+}
+
+export interface SuburbListResponse extends CommonApiFields {
+  suburbDto?: Suburb;
+  suburbDtoList?: Suburb[];
+  suburbDtoPage?: SpringPage<Suburb>;
+}
+
+export interface AdministrativeLevelListResponse extends CommonApiFields {
+  administrativeLevelDto?: AdministrativeLevel;
+  administrativeLevelDtoList?: AdministrativeLevel[];
+  administrativeLevelDtoPage?: SpringPage<AdministrativeLevel>;
+}
+
 export interface LocationNodeListResponse extends CommonApiFields {
+  locationNodeDto?: LocationNode;
   locationNodeDtoList?: LocationNode[];
   locationNodeDtoPage?: SpringPage<LocationNode>;
 }

@@ -29,7 +29,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/frontend/organization")
+@RequestMapping("/ldms-organization-management/v1/frontend/organization")
 @Tag(name = "Organization (frontend)", description = "Organization self-service and relationships")
 @RequiredArgsConstructor
 public class OrganizationFrontendResource {

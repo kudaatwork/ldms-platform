@@ -42,7 +42,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/system/notification-template")
+@RequestMapping("/ldms-notifications/v1/system/notification-template")
 @Tag(name = "Notification Template System Resource", description = "System operations related to managing notification templates")
 @RequiredArgsConstructor
 public class NotificationTemplateSystemResource {

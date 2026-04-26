@@ -332,10 +332,19 @@
       </ng-container>
     </ng-container>
   </form>
+  <p class="lx-form-info" *ngIf="loading">Loading record details…</p>
+  <p class="lx-form-error" *ngIf="saveError">{{ saveError }}</p>
 </mat-dialog-content>
 <mat-dialog-actions align="end">
-  <button type="button" mat-button (click)="cancel()">Cancel</button>
-  <button type="button" mat-flat-button color="primary" (click)="save()" [disabled]="submitting">
-    Save
+  <button type="button" mat-button (click)="cancel()">{{ isReadonly ? 'Close' : 'Cancel' }}</button>
+  <button
+    *ngIf="!isReadonly"
+    type="button"
+    mat-flat-button
+    color="primary"
+    (click)="save()"
+    [disabled]="submitting || loading"
+  >
+    {{ data.action === 'edit' ? 'Update' : 'Save' }}
   </button>
 </mat-dialog-actions>

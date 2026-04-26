@@ -44,7 +44,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/system/administrative-level")
+@RequestMapping("/ldms-locations/v1/system/administrative-level")
 @Tag(name = "Administrative Level System Resource", description = "Operations related to managing administrative levels (system)")
 @RequiredArgsConstructor
 public class AdministrativeLevelSystemResource {

@@ -44,7 +44,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/system/geo-coordinates")
+@RequestMapping("/ldms-locations/v1/system/geo-coordinates")
 @Tag(name = "Geo Coordinates System Resource", description = "Operations related to managing geo coordinates (system)")
 @RequiredArgsConstructor
 public class GeoCoordinatesSystemResource {

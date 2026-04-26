@@ -39,6 +39,8 @@ import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTreeModule } from '@angular/material/tree';
 
+import { LxTablePaginatorDirective } from './directives/lx-table-paginator.directive';
+
 const MATERIAL_MODULES = [
   MatAutocompleteModule,
   MatBadgeModule,
@@ -84,6 +86,7 @@ const MATERIAL_MODULES = [
     RouterModule,
     FormsModule,
     ReactiveFormsModule,
+    LxTablePaginatorDirective,
     ...MATERIAL_MODULES,
   ],
   exports: [
@@ -91,6 +94,7 @@ const MATERIAL_MODULES = [
     RouterModule,
     FormsModule,
     ReactiveFormsModule,
+    LxTablePaginatorDirective,
     ...MATERIAL_MODULES,
   ],
 })

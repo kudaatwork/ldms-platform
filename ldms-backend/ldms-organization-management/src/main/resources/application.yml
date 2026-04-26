@@ -1,6 +1,7 @@
 # Bootstrap only — runtime settings (port, datasource, JWT, RabbitMQ, app.*) are loaded from
-# Spring Cloud Config: ldms-organization-management-{profile}.yml in the config Git repo.
-# Copy templates from docs/ldms-config-repo/ into https://github.com/kudaatwork/ldms-config-repo (see README there).
+# Spring Cloud Config. The authoritative files live in the Git config repo at
+# https://github.com/kudaatwork/ldms-config-repo under {profile}/ldms-organization-management.yml
+# (locally: ../ldms-config-repo/dev/ldms-organization-management.yml).
 
 spring:
   application:
@@ -24,10 +25,10 @@ spring:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
 
 eureka:
-  username: ${EUREKA_USERNAME:eureka}
-  password: "${EUREKA_PASSWORD:Eureka098()!}"
   client:
     service-url:
-      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
+      defaultZone: ${EUREKA_SERVER_URL:http://eureka:Eureka098%28%29%21@localhost:8761/eureka/}
     register-with-eureka: true
     fetch-registry: true
+  instance:
+    prefer-ip-address: true

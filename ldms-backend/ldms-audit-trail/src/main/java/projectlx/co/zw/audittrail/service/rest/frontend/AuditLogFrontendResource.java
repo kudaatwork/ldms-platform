@@ -25,7 +25,7 @@ import projectlx.co.zw.shared_library.utils.constants.Constants;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/frontend/audit-log")
+@RequestMapping("/ldms-audit-trail/v1/frontend/audit-log")
 @Tag(name = "Audit Log Frontend Resource", description = "Frontend operations for querying audit logs")
 @RequiredArgsConstructor
 public class AuditLogFrontendResource {

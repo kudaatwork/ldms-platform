@@ -44,7 +44,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/system/country")
+@RequestMapping("/ldms-locations/v1/system/country")
 @Tag(name = "Country System Resource", description = "Operations related to managing countries (system)")
 @RequiredArgsConstructor
 public class CountrySystemResource {

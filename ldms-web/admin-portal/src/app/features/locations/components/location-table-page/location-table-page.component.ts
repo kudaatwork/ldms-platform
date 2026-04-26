@@ -1,6 +1,7 @@
 import { Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatPaginator } from '@angular/material/paginator';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSort } from '@angular/material/sort';
 import { MatTableDataSource } from '@angular/material/table';
 import { Title } from '@angular/platform-browser';
@@ -11,6 +12,8 @@ import { LocationsService } from '../../services/locations.service';
 import type { LocationEntityKind } from '../../models/location.models';
 import {
   LocationFormDialogComponent,
+  type LocationFormDialogAction,
+  type LocationFormDialogData,
   type LocationFormDialogMode,
 } from '../location-form-dialog/location-form-dialog.component';
 
@@ -186,7 +189,9 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
     }
   }
 
-  loading = true;
+  fetching = false;
+  hasLoadedOnce = false;
+  actionInProgress = false;
   searchQuery = '';
   filterFieldsOpen = false;
   columnFilters: Record<string, string> = {};
@@ -205,6 +210,7 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
     private readonly locationsService: LocationsService,
     private readonly title: Title,
     private readonly dialog: MatDialog,
+    private readonly snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
@@ -263,12 +269,28 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
   }
 
   openAdd(): void {
+    this.openFormDialog('create');
+  }
+
+  refresh(): void {
+    this.load();
+  }
+
+  private openFormDialog(action: LocationFormDialogAction, row?: Row): void {
     const cfg = CONFIG[this.entity];
+    const id = row ? Number(row['id']) : undefined;
+    if ((action === 'edit' || action === 'view') && (!id || !Number.isFinite(id))) {
+      this.snackBar.open('This row has no valid id.', 'Close', { duration: 3500 });
+      return;
+    }
+    const data: LocationFormDialogData = {
+      mode: cfg.formMode,
+      action,
+      id: id ?? null,
+      initialValue: row ?? null,
+    };
     this.dialog
-      .open(LocationFormDialogComponent, {
-        width: '520px',
-        data: { mode: cfg.formMode },
-      })
+      .open(LocationFormDialogComponent, { width: '560px', data })
       .afterClosed()
       .subscribe((saved) => {
         if (saved) {
@@ -277,24 +299,102 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
       });
   }
 
-  stubImport(): void {}
+  importCsv(input: HTMLInputElement): void {
+    input.click();
+  }
 
-  stubExport(): void {}
+  onImportFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+    this.actionInProgress = true;
+    this.locationsService
+      .importLocationCsv(this.entity, file)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.snackBar.open('Import completed successfully.', 'Close', { duration: 3500 });
+          this.load();
+          input.value = '';
+          this.actionInProgress = false;
+        },
+        error: (err) => {
+          this.snackBar.open(this.errorMessage(err, 'Import failed.'), 'Close', { duration: 5000 });
+          input.value = '';
+          this.actionInProgress = false;
+        },
+      });
+  }
+
+  exportAs(format: 'csv' | 'xlsx' | 'pdf'): void {
+    this.actionInProgress = true;
+    this.locationsService
+      .exportLocation(this.entity, format)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (blob) => {
+          this.download(blob, `${this.entity}-${new Date().toISOString().slice(0, 10)}.${format}`);
+          this.snackBar.open(`Exported ${this.pageTitle.toLowerCase()} as ${format.toUpperCase()}.`, 'Close', {
+            duration: 3000,
+          });
+          this.actionInProgress = false;
+        },
+        error: (err) => {
+          this.snackBar.open(this.errorMessage(err, 'Export failed.'), 'Close', { duration: 5000 });
+          this.actionInProgress = false;
+        },
+      });
+  }
+
+  viewRow(row: Row): void {
+    this.openFormDialog('view', row);
+  }
+
+  editRow(row: Row): void {
+    this.openFormDialog('edit', row);
+  }
+
+  deleteRow(row: Row): void {
+    const id = Number(row['id']);
+    if (!Number.isFinite(id)) {
+      this.snackBar.open('This row has no valid id to delete.', 'Close', { duration: 3500 });
+      return;
+    }
+    this.actionInProgress = true;
+    this.locationsService
+      .deleteLocation(this.entity, id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.snackBar.open('Record deleted successfully.', 'Close', { duration: 3500 });
+          this.load();
+          this.actionInProgress = false;
+        },
+        error: (err) => {
+          this.snackBar.open(this.errorMessage(err, 'Delete failed.'), 'Close', { duration: 5000 });
+          this.actionInProgress = false;
+        },
+      });
+  }
 
   private load(): void {
-    this.loading = true;
+    this.fetching = true;
     this.pickLoader()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (rows) => {
           this.rawRows = rows as Row[];
           this.applyFilters();
-          this.loading = false;
+          this.hasLoadedOnce = true;
+          this.fetching = false;
         },
         error: () => {
           this.rawRows = [];
           this.applyFilters();
-          this.loading = false;
+          this.hasLoadedOnce = true;
+          this.fetching = false;
         },
       });
   }
@@ -316,5 +416,19 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
       case 'admin-level':
         return this.locationsService.getAdminLevels().pipe(map((r) => r as unknown as Row[]));
     }
+  }
+
+  private download(blob: Blob, filename: string): void {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private errorMessage(error: unknown, fallback: string): string {
+    const err = error as { error?: { message?: string; error?: string }; message?: string };
+    return err?.error?.message || err?.error?.error || err?.message || fallback;
   }
 }

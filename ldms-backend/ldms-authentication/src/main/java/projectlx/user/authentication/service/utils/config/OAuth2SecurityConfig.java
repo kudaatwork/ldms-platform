@@ -27,15 +27,15 @@ public class OAuth2SecurityConfig {
     @Bean
     @Order(0)
     public SecurityFilterChain oauth2SecurityFilterChain(HttpSecurity http) throws Exception {
-        http.securityMatcher("/api/**", "/actuator/**")
+        http.securityMatcher("/api/**", "/ldms-*/**", "/actuator/**")
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth.requestMatchers(
                                         "/swagger-ui/**",
                                         "/swagger-ui.html",
                                         "/v3/api-docs/**",
-                                        "/api/v1/system/**",
-                                        "/api/v1/auth/**",
+                                        "/ldms-*/v1/system/**",
+                                        "/ldms-authentication/v1/auth/**",
                                         "/actuator/**")
                                 .permitAll()
                                 .anyRequest()

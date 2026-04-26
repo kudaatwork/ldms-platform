@@ -5,7 +5,6 @@ import projectlx.co.zw.organizationmanagement.utils.enums.I18Code;
 import projectlx.co.zw.organizationmanagement.utils.exceptions.BusinessRuleException;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
-import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -14,7 +13,7 @@ import java.util.Set;
  */
 public class KycStateMachine {
 
-    private static final Set<Transition> ALLOWED = EnumSet.of(
+    private static final Set<Transition> ALLOWED = Set.of(
             new Transition(KycStatus.DRAFT, KycStatus.SUBMITTED),
             new Transition(KycStatus.RESUBMITTED, KycStatus.SUBMITTED),
             new Transition(KycStatus.SUBMITTED, KycStatus.STAGE_1_REVIEW),
@@ -54,6 +53,13 @@ public class KycStateMachine {
                 I18Code.KYC_INVALID_TRANSITION);
     }
 
-    private record Transition(KycStatus from, KycStatus to) {
+    private static final class Transition {
+        private final KycStatus from;
+        private final KycStatus to;
+
+        private Transition(KycStatus from, KycStatus to) {
+            this.from = from;
+            this.to = to;
+        }
     }
 }

@@ -44,7 +44,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/system/suburb")
+@RequestMapping("/ldms-locations/v1/system/suburb")
 @Tag(name = "Suburb System Resource", description = "Operations related to managing suburbs (system)")
 @RequiredArgsConstructor
 public class SuburbSystemResource {

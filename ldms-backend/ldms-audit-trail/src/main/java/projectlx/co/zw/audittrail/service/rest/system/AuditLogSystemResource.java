@@ -23,7 +23,7 @@ import projectlx.co.zw.shared_library.utils.constants.Constants;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/system/audit-log")
+@RequestMapping("/ldms-audit-trail/v1/system/audit-log")
 @Tag(name = "Audit Log System Resource", description = "System operations for querying persisted audit logs")
 @RequiredArgsConstructor
 public class AuditLogSystemResource {

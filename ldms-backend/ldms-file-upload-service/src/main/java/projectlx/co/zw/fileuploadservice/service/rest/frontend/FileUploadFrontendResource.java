@@ -28,7 +28,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/frontend/file-upload")
+@RequestMapping("/ldms-file-upload-service/v1/frontend/file-upload")
 @Tag(name = "File Upload Frontend Resource", description = "Frontend operations for file upload and update")
 @RequiredArgsConstructor
 public class FileUploadFrontendResource {

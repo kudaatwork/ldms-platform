@@ -256,11 +256,6 @@ html.theme-dark .lx-input-shell select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%2389a1c2' d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
 }
 
-html.theme-dark .lx-input-shell select option {
-  color: var(--gray-800);
-  background: #1b2a40;
-}
-
 html.theme-dark .tb-search .tb-kbd {
   background: rgba(148, 163, 184, 0.22);
   color: var(--gray-500);
@@ -669,10 +664,72 @@ button,
   }
 }
 
-.lx-table-paginator {
+/* Table footer paginator — page-size field matches `.lx-input-shell` / `.mat-mdc-form-field` */
+.lx-table-paginator.mat-mdc-paginator {
   margin-top: 12px;
   border-top: 1px solid var(--gray-100);
   background: transparent;
+
+  /* Material defaults: 40px / 8px — align with app fields (42px / 10px) */
+  --mat-paginator-form-field-container-height: 42px;
+  --mat-paginator-form-field-container-vertical-padding: 10px;
+  --mat-paginator-select-trigger-text-size: 13px;
+
+  .mat-mdc-paginator-page-size {
+    align-items: center;
+  }
+
+  .mat-mdc-paginator-page-size-label {
+    margin: 0 6px 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--gray-700);
+    align-self: center;
+  }
+
+  .mat-mdc-paginator-range-label {
+    font-size: 13px;
+    line-height: 1.35;
+    color: var(--gray-600);
+  }
+
+  .mat-mdc-paginator-page-size-select.mat-mdc-form-field {
+    width: auto;
+    min-width: 88px;
+  }
+
+  .mat-mdc-select-value,
+  .mat-mdc-select-value-text {
+    color: var(--gray-800);
+  }
+
+  .mat-mdc-select-arrow svg {
+    fill: var(--gray-400);
+  }
+
+  .mat-mdc-paginator-touch-target {
+    width: 100%;
+    min-width: 88px;
+    height: 44px;
+  }
+}
+
+html.theme-dark .lx-table-paginator.mat-mdc-paginator {
+  border-top-color: rgba(148, 163, 184, 0.22);
+
+  .mat-mdc-paginator-page-size-label {
+    color: var(--gray-600);
+  }
+
+  .mat-mdc-paginator-range-label {
+    color: var(--gray-500);
+  }
+}
+
+/* Page-size dropdown (panel class merged by `LxTablePaginatorDirective`) */
+.mat-mdc-select-panel.lx-table-paginator-select-panel {
+  min-width: 88px !important;
 }
 
 .lx-actions-cell {
@@ -931,11 +988,6 @@ html.theme-dark .mat-mdc-form-field.mat-form-field-invalid.ng-touched:not(.mat-f
     &:focus {
       outline: none;
     }
-
-    option {
-      color: var(--gray-900);
-      background: var(--surface);
-    }
   }
 
   .lx-input-shell__suffix.mat-mdc-icon-button {
@@ -1057,4 +1109,93 @@ html.theme-dark .shell .main .content {
 .mat-mdc-dialog-container .mdc-dialog__surface {
   border-radius: 16px !important;
   padding: 28px !important;
+}
+
+/* ── Dropdown contents: native <option> + Material mat-select panel ─── */
+/* Native OS menus: color-scheme (:root / html.theme-dark) + option colors where supported */
+select option,
+.lx-select option {
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.35;
+  background-color: var(--surface);
+  color: var(--gray-800);
+}
+
+html.theme-dark select option,
+html.theme-dark .lx-select option {
+  background-color: #1b2a40;
+  color: var(--gray-700);
+}
+
+/* Angular Material — mat-select overlay (also styles mat-option in autocomplete where applicable) */
+.mat-mdc-select-panel {
+  border-radius: 12px !important;
+  border: 1px solid var(--gray-200);
+  box-shadow: var(--card-shadow) !important;
+  background: var(--surface) !important;
+  font-family: var(--font) !important;
+  padding: 6px 0 !important;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.mat-mdc-select-panel .mat-mdc-option {
+  min-height: 40px !important;
+  font-size: 13px !important;
+  line-height: 22px !important;
+  color: var(--gray-800) !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+.mat-mdc-select-panel .mat-mdc-option .mdc-list-item__primary-text {
+  font-family: var(--font) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: normal !important;
+}
+
+.mat-mdc-select-panel .mat-mdc-option:hover:not(.mdc-list-item--disabled),
+.mat-mdc-select-panel .mat-mdc-option.mat-mdc-option-active {
+  background-color: var(--gray-50) !important;
+}
+
+.mat-mdc-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+  background-color: var(--primary-light) !important;
+}
+
+.mat-mdc-select-panel .mat-mdc-option:focus:not(.mdc-list-item--disabled),
+.mat-mdc-select-panel .mat-mdc-option.mat-mdc-option-active.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+  background-color: color-mix(in srgb, var(--primary-light) 85%, var(--gray-50)) !important;
+}
+
+html.theme-dark .mat-mdc-select-panel {
+  border-color: rgba(148, 163, 184, 0.35) !important;
+  background: #1b2a40 !important;
+  box-shadow: var(--card-shadow) !important;
+}
+
+html.theme-dark .mat-mdc-select-panel .mat-mdc-option {
+  color: var(--gray-700) !important;
+}
+
+html.theme-dark .mat-mdc-select-panel .mat-mdc-option:hover:not(.mdc-list-item--disabled),
+html.theme-dark .mat-mdc-select-panel .mat-mdc-option.mat-mdc-option-active {
+  background-color: rgba(59, 130, 246, 0.14) !important;
+}
+
+html.theme-dark .mat-mdc-select-panel .mat-mdc-option.mdc-list-item--selected:not(.mdc-list-item--disabled) {
+  background-color: rgba(59, 130, 246, 0.24) !important;
+}
+
+/* Checkbox row in multi-select */
+html.theme-dark .mat-mdc-select-panel .mat-pseudo-checkbox {
+  border-color: rgba(148, 163, 184, 0.55) !important;
+}
+
+html.theme-dark .mat-mdc-select-panel .mat-pseudo-checkbox-checked,
+html.theme-dark .mat-mdc-select-panel .mat-pseudo-checkbox-indeterminate {
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
 }

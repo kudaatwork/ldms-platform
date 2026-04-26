@@ -26,7 +26,7 @@ import java.util.Locale;
 
 @CrossOrigin
 @RestController
-@RequestMapping("/api/v1/system/organization")
+@RequestMapping("/ldms-organization-management/v1/system/organization")
 @Tag(name = "Organization (system)", description = "Internal KYC queue and actions (no JWT)")
 @RequiredArgsConstructor
 public class OrganizationSystemResource {
