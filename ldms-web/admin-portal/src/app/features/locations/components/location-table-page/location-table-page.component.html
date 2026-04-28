@@ -1,7 +1,34 @@
 <div class="lx-page">
   <div class="lx-card lx-card--subsection">
-    <h3 class="lx-controls-title">Table controls</h3>
-    <p class="lx-controls-subtitle">Search, filter, and add new {{ pageTitle | lowercase }} records.</p>
+    <div class="lx-controls-head">
+      <div class="lx-controls-head__text">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">Search, filter, and add new {{ pageTitle | lowercase }} records.</p>
+      </div>
+      <button
+        *ngIf="sampleCsvDescription"
+        type="button"
+        mat-icon-button
+        class="lx-controls-head__info-btn"
+        [class.is-on]="showSampleCsvInfo"
+        (click)="showSampleCsvInfo = !showSampleCsvInfo"
+        [attr.aria-pressed]="showSampleCsvInfo"
+        aria-label="Toggle sample CSV information"
+        [matTooltip]="showSampleCsvInfo ? 'Hide sample CSV info' : 'About the sample CSV'"
+        matTooltipPosition="left"
+      >
+        <mat-icon>info_outline</mat-icon>
+      </button>
+    </div>
+    <p class="lx-controls-hint" *ngIf="showSampleCsvInfo && sampleCsvDescription">
+      <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+      <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }} The download includes the
+      header row and 2 example rows you can copy or replace.</span>
+    </p>
+    <p class="lx-controls-hint lx-import-disclaimer" *ngIf="supportsImportExport">
+      <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+      <span>{{ importCsvDisclaimer }}</span>
+    </p>
     <div class="lx-data-toolbar">
       <div class="lx-data-toolbar__actions">
         <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()" [disabled]="actionInProgress">
@@ -12,16 +39,29 @@
           class="lx-btn lx-btn-ghost"
           (click)="importCsv(csvInput)"
           [disabled]="actionInProgress"
+          [matTooltip]="supportsImportExport ? importCsvTooltip : 'CSV import is not available for this location type.'"
+          matTooltipClass="lx-import-tooltip"
+          matTooltipPosition="above"
         >
           Import
         </button>
         <button
           type="button"
+          class="lx-btn lx-btn-ghost"
+          (click)="downloadSampleCsv()"
+          [disabled]="actionInProgress"
+          [matTooltip]="sampleCsvDescription || 'Download a sample CSV with column headers and example rows.'"
+          matTooltipPosition="above"
+        >
+          Sample CSV
+        </button>
+        <button
+          type="button"
           class="lx-btn lx-btn-success lx-export-trigger"
           [matMenuTriggerFor]="exportMenu"
-          [disabled]="actionInProgress"
+          [disabled]="actionInProgress || exporting"
         >
-          Export
+          Export{{ exporting ? '…' : '' }}
         </button>
         <button type="button" class="lx-btn lx-btn-primary" (click)="openAdd()" [disabled]="actionInProgress">
           Add New
@@ -64,7 +104,18 @@
       <div class="lx-filter-fields">
         <div class="lx-filter-field-wrap" *ngFor="let key of filterableKeys">
           <div class="lx-field-label">{{ columnLabels[key] }}</div>
-          <div class="lx-input-shell lx-filter-field">
+          <mat-form-field
+            *ngIf="isFkFilterColumn(key)"
+            appearance="outline"
+            class="lx-filter-field"
+            subscriptSizing="dynamic"
+          >
+            <mat-select [(ngModel)]="columnFilters[key]" (ngModelChange)="applyFilters()">
+              <mat-option value="">Any</mat-option>
+              <mat-option *ngFor="let o of fkFilterOptionsFor(key)" [value]="'' + o.id">{{ o.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <div *ngIf="!isFkFilterColumn(key)" class="lx-input-shell lx-filter-field">
             <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
             <input [(ngModel)]="columnFilters[key]" (ngModelChange)="applyFilters()" />
           </div>
@@ -79,66 +130,72 @@
         <h2 class="lc-title">{{ pageTitle }}</h2>
         <p class="lc-lead">{{ pageLead }}</p>
       </div>
-      <span class="lx-fetch-hint" *ngIf="fetching && hasLoadedOnce">Refreshing…</span>
+      <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
     </div>
 
-    <ng-container *ngIf="hasLoadedOnce; else firstLoad">
-      <ng-container *ngIf="rawRows.length > 0; else emptyState">
-        <ng-container *ngIf="dataSource.data.length > 0; else noSearchHits">
-          <div class="lx-table-wrap">
-            <table mat-table [dataSource]="dataSource" matSort class="lx-mat-table">
-              <ng-container *ngFor="let col of displayedColumns" [matColumnDef]="col">
-                <th mat-header-cell *matHeaderCellDef mat-sort-header [disabled]="col === 'actions'">
-                  {{ columnLabels[col] }}
-                </th>
-                <td mat-cell *matCellDef="let row" [class.lx-actions-cell]="col === 'actions'">
-                  <ng-container [ngSwitch]="col">
-                    <span
-                      *ngSwitchCase="'entityStatus'"
-                      class="lx-status"
-                      [ngClass]="'lx-status-' + statusClass(row)"
-                    >
-                      {{ statusLabel(row) }}
-                    </span>
-                    <ng-container *ngSwitchCase="'actions'">
-                      <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
-                        <mat-icon>more_vert</mat-icon>
+    <div class="lx-table-loading" *ngIf="fetching && rawRows.length === 0">
+      <mat-progress-bar mode="indeterminate" aria-label="Loading records"></mat-progress-bar>
+      <p class="lx-table-loading__text">Loading {{ pageTitle | lowercase }}…</p>
+    </div>
+
+    <ng-container *ngIf="rawRows.length > 0 || totalRecords > 0">
+      <ng-container *ngIf="dataSource.data.length > 0; else noSearchHits">
+        <div class="lx-table-wrap">
+          <table mat-table [dataSource]="dataSource" matSort class="lx-mat-table">
+            <ng-container *ngFor="let col of displayedColumns" [matColumnDef]="col">
+              <th mat-header-cell *matHeaderCellDef mat-sort-header [disabled]="col === 'actions'">
+                {{ columnLabels[col] }}
+              </th>
+              <td mat-cell *matCellDef="let row" [class.lx-actions-cell]="col === 'actions'">
+                <ng-container [ngSwitch]="col">
+                  <span
+                    *ngSwitchCase="'entityStatus'"
+                    class="lx-status"
+                    [ngClass]="'lx-status-' + statusClass(row)"
+                  >
+                    {{ statusLabel(row) }}
+                  </span>
+                  <ng-container *ngSwitchCase="'actions'">
+                    <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #rowMenu="matMenu" panelClass="lx-row-actions-menu">
+                      <button mat-menu-item type="button" class="lx-action-view" (click)="viewRow(row)">
+                        <mat-icon>visibility</mat-icon> View
                       </button>
-                      <mat-menu #rowMenu="matMenu">
-                        <button mat-menu-item type="button" (click)="viewRow(row)">
-                          <mat-icon>visibility</mat-icon> View
-                        </button>
-                        <button mat-menu-item type="button" (click)="editRow(row)">
-                          <mat-icon>edit</mat-icon> Edit
-                        </button>
-                        <button mat-menu-item type="button" (click)="deleteRow(row)">
-                          <mat-icon>delete</mat-icon> Delete
-                        </button>
-                      </mat-menu>
-                    </ng-container>
-                    <span *ngSwitchDefault>{{ displayCell(row, col) }}</span>
+                      <button mat-menu-item type="button" class="lx-action-edit" (click)="editRow(row)">
+                        <mat-icon>edit</mat-icon> Edit
+                      </button>
+                      <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteRow(row)">
+                        <mat-icon>delete</mat-icon> Delete
+                      </button>
+                    </mat-menu>
                   </ng-container>
-                </td>
-              </ng-container>
-              <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-            </table>
-          </div>
-          <mat-paginator
-            class="lx-table-paginator"
-            [pageSizeOptions]="[5, 10, 25, 50]"
-            [showFirstLastButtons]="true"
-          ></mat-paginator>
-        </ng-container>
+                  <span *ngSwitchDefault>{{ displayCell(row, col) }}</span>
+                </ng-container>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        </div>
+        <mat-paginator
+          class="lx-table-paginator"
+          [length]="totalRecords"
+          [pageIndex]="pageIndex"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="[10, 20, 25, 50]"
+          [showFirstLastButtons]="true"
+          (page)="onPage($event)"
+        ></mat-paginator>
       </ng-container>
     </ng-container>
 
-    <ng-template #firstLoad>
-      <div class="lx-empty lx-empty--compact">
-        <mat-progress-spinner mode="indeterminate" diameter="28"></mat-progress-spinner>
-        <div class="lx-empty-title">Loading {{ pageTitle | lowercase }}…</div>
-      </div>
-    </ng-template>
+    <ng-container *ngIf="!fetching && dataSource.data.length === 0">
+      <ng-container *ngIf="hasActiveFilters(); else emptyState">
+        <ng-container *ngTemplateOutlet="noSearchHits"></ng-container>
+      </ng-container>
+    </ng-container>
 
     <ng-template #noSearchHits>
       <div class="lx-empty lx-empty--compact">

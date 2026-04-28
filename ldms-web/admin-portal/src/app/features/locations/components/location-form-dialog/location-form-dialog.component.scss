@@ -1,39 +1,265 @@
-.lx-dialog-body {
-  padding-top: 8px;
+/* Location form dialog (Add / Edit / View)
+ * Keep modal spacing close to KYC dialogs while inputs
+ * follow the admin-login clean field treatment.
+ */
+
+:host {
+  display: block;
+}
+
+.lx-dialog-shell {
+  position: relative;
+  width: 640px;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow:
+    0 4px 6px rgba(0, 0, 0, 0.04),
+    0 20px 50px rgba(0, 0, 0, 0.08);
+  background: var(--surface, #ffffff);
+}
+
+/* ── Header ───────────────────────────────────────────── */
+.lx-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 26px 24px 16px;
+  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+}
+
+.lx-header-text {
+  flex: 1;
   min-width: 0;
 }
 
-.lx-dialog-form {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px 12px;
+.lx-dialog-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--gray-900, #0f172a);
+  margin: 0 0 6px;
 }
 
-.lx-dialog-field {
-  width: 100%;
+.lx-dialog-subtitle {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--gray-500, #64748b);
+  margin: 0;
+}
+
+.lx-close-button {
+  color: var(--gray-500, #64748b);
+
+  &:hover {
+    color: var(--gray-800, #1e293b);
+    background: var(--gray-100, #f1f5f9);
+  }
+}
+
+/* ── Loading shell ────────────────────────────────────── */
+.lx-loading-shell {
   display: flex;
   flex-direction: column;
-  gap: 0;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 24px;
+  color: var(--gray-500, #64748b);
+  font-size: 13px;
 }
 
-.lx-dialog-field--full {
-  grid-column: 1 / -1;
+/* ── Form ─────────────────────────────────────────────── */
+.lx-step-content {
+  padding: 12px 24px 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
 }
 
+.lx-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px 16px;
+  margin-bottom: 8px;
+}
+
+.span-2 {
+  grid-column: span 2;
+}
+
+.lx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.lx-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-700, #334155);
+  letter-spacing: 0.01em;
+}
+
+.req {
+  color: #ef4444;
+}
+
+.lx-input-shell {
+  width: 100%;
+}
+
+.lx-input-shell__icon {
+  color: var(--gray-400, #94a3b8);
+}
+
+.lx-input-shell--textarea {
+  align-items: flex-start;
+}
+
+.lx-input-shell--textarea .lx-input-shell__icon {
+  margin-top: 2px;
+}
+
+.lx-input-shell--invalid {
+  border-color: rgba(239, 68, 68, 0.5);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1);
+}
+
+.lx-field-hint {
+  font-size: 11.5px;
+  color: var(--gray-500, #64748b);
+}
+
+.lx-mat-field-full {
+  width: 100%;
+}
+
+.lx-list-error {
+  margin: 0 24px 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #b91c1c;
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+
+.lx-option-sublabel {
+  font-size: 0.92em;
+  font-weight: 400;
+  color: var(--gray-500, #64748b);
+}
+
+.lx-field-error {
+  font-size: 12px;
+  color: #b91c1c;
+}
+
+/* Inline error banner above actions */
 .lx-form-error {
-  margin: 8px 0 0;
-  color: #b3261e;
-  font-size: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #b91c1c;
+  font-size: 12.5px;
+  line-height: 1.4;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    color: #ef4444;
+  }
 }
 
-.lx-form-info {
-  margin: 8px 0 0;
-  color: #5f6368;
-  font-size: 12px;
+/* ── Actions ──────────────────────────────────────────── */
+.lx-step-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--gray-200, #e2e8f0);
 }
 
-@media (max-width: 520px) {
-  .lx-dialog-form {
+.lx-step-actions button[mat-raised-button] {
+  --mdc-filled-button-container-color: #2563eb;
+  --mdc-filled-button-label-text-color: #ffffff;
+  font-weight: 500;
+}
+
+.lx-step-actions button[mat-raised-button]:hover:not([disabled]) {
+  --mdc-filled-button-container-color: #1d4ed8;
+}
+
+.is-edit .lx-step-actions button[mat-raised-button] {
+  --mdc-filled-button-container-color: #ef4444;
+}
+
+.is-edit .lx-step-actions button[mat-raised-button]:hover:not([disabled]) {
+  --mdc-filled-button-container-color: #dc2626;
+}
+
+.lx-cta-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lx-cta-content mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
+.lx-cta-loading .lx-btn-loader {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: lx-spin 0.7s linear infinite;
+}
+
+@keyframes lx-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Responsive ───────────────────────────────────────── */
+@media (max-width: 600px) {
+  .lx-dialog-shell {
+    width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .lx-dialog-header {
+    padding: 20px 16px 14px;
+  }
+
+  .lx-step-content {
+    padding: 10px 16px 16px;
+  }
+
+  .lx-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .span-2 {
+    grid-column: span 1;
   }
 }

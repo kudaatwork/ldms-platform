@@ -12,6 +12,7 @@ import java.util.Optional;
 public interface DistrictRepository extends JpaRepository<District, Long>, JpaSpecificationExecutor<District> {
     Optional<District> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
     Optional<District> findByNameAndEntityStatusNot(String name, EntityStatus entityStatus);
+    Optional<District> findByName(String name);
     List<District> findAllByEntityStatusNot(EntityStatus entityStatus);
     Optional<District> findByNameAndProvinceAndEntityStatusNot(String longName, Province province, EntityStatus entityStatus);
 }

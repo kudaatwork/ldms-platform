@@ -11,15 +11,9 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import lombok.RequiredArgsConstructor;
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.Map;
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
+import com.opencsv.bean.HeaderColumnNameMappingStrategy;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -44,6 +38,7 @@ import projectlx.co.zw.locationsmanagementservice.repository.DistrictRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.GeoCoordinatesRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.SuburbRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.SuburbSpecification;
+import projectlx.co.zw.locationsmanagementservice.utils.dtos.SuburbCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.SuburbDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
 import projectlx.co.zw.locationsmanagementservice.utils.enums.I18Code;
@@ -62,6 +57,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,10 +102,9 @@ public class SuburbServiceImpl implements SuburbService {
                     null, validatorDto.getErrorMessages());
         }
 
-        Optional<Suburb> suburbRetrieved =
-                suburbRepository.findAll().stream()
-                        .filter(s -> s.getName().equalsIgnoreCase(request.getName()) && s.getEntityStatus() != EntityStatus.DELETED)
-                        .findFirst();
+        String normalizedName = Validators.capitalizeWords(request.getName());
+        Optional<Suburb> suburbRetrieved = suburbRepository.findByName(normalizedName)
+                .filter(suburb -> suburb.getEntityStatus() != EntityStatus.DELETED);
 
         if (suburbRetrieved.isPresent()) {
 
@@ -133,28 +128,36 @@ public class SuburbServiceImpl implements SuburbService {
                     null, null);
         }
 
-        request.setName(Validators.capitalizeWords(request.getName()));
+        Optional<Suburb> deletedSuburb = suburbRepository.findByName(normalizedName)
+                .filter(suburb -> suburb.getEntityStatus() == EntityStatus.DELETED);
+
+        request.setName(normalizedName);
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        Suburb suburbToBeSaved = modelMapper.map(request, Suburb.class);
+        Suburb suburbToBeSaved = deletedSuburb.orElseGet(Suburb::new);
+        if (deletedSuburb.isPresent()) {
+            modelMapper.map(request, suburbToBeSaved);
+        } else {
+            suburbToBeSaved = modelMapper.map(request, Suburb.class);
+        }
 
         // Set the district
         suburbToBeSaved.setDistrict(districtRetrieved.get());
+        if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            return buildSuburbResponse(400, false, message, null, null, null);
+        }
 
-        // Set geo coordinates if provided
-        if (request.getGeoCoordinatesId() != null) {
-
-            Optional<GeoCoordinates> geoCoordinatesOptional = geoCoordinatesRepository
-                    .findByIdAndEntityStatusNot(request.getGeoCoordinatesId(), EntityStatus.DELETED);
-
-            if (geoCoordinatesOptional.isEmpty()) {
-
-                message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{},
-                        locale);
-
-                return buildSuburbResponse(400, false, message, null,
-                        null, null);
-            }
-
+        if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            return buildSuburbResponse(400, false, message, null, null, null);
+        }
+        Optional<GeoCoordinates> geoCoordinatesOptional = resolveGeoCoordinates(
+                request.getGeoCoordinatesId(), request.getLatitude(), request.getLongitude());
+        if (request.getGeoCoordinatesId() != null && geoCoordinatesOptional.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildSuburbResponse(400, false, message, null, null, null);
+        }
+        if (geoCoordinatesOptional.isPresent()) {
             suburbToBeSaved.setGeoCoordinates(geoCoordinatesOptional.get());
         }
 
@@ -175,7 +178,12 @@ public class SuburbServiceImpl implements SuburbService {
             suburbToBeSaved.setAdministrativeLevel(administrativeLevelOptional.get());
         }
 
-        Suburb suburbSaved = suburbServiceAuditable.create(suburbToBeSaved, locale, username);
+        if (deletedSuburb.isPresent()) {
+            suburbToBeSaved.setEntityStatus(EntityStatus.ACTIVE);
+        }
+        Suburb suburbSaved = deletedSuburb.isPresent()
+                ? suburbServiceAuditable.update(suburbToBeSaved, locale, username)
+                : suburbServiceAuditable.create(suburbToBeSaved, locale, username);
 
         SuburbDto suburbDtoReturned = modelMapper.map(suburbSaved, SuburbDto.class);
 
@@ -292,12 +300,14 @@ public class SuburbServiceImpl implements SuburbService {
             }
         }
 
-        // Handle geo coordinates if provided
-        if (request.getGeoCoordinatesId() != null) {
-            Optional<GeoCoordinates> geoCoordinatesOptional = geoCoordinatesRepository.findById(request.getGeoCoordinatesId());
-            if (geoCoordinatesOptional.isPresent()) {
-                suburbToBeEdited.setGeoCoordinates(geoCoordinatesOptional.get());
-            }
+        Optional<GeoCoordinates> geoCoordinatesOptional = resolveGeoCoordinates(
+                request.getGeoCoordinatesId(), request.getLatitude(), request.getLongitude());
+        if (request.getGeoCoordinatesId() != null && geoCoordinatesOptional.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildSuburbResponse(400, false, message, null, null, null);
+        }
+        if (geoCoordinatesOptional.isPresent()) {
+            suburbToBeEdited.setGeoCoordinates(geoCoordinatesOptional.get());
         }
 
         // Handle administrative level if provided
@@ -398,6 +408,16 @@ public class SuburbServiceImpl implements SuburbService {
 
         if (request.getEntityStatus() != null) {
             spec = addToSpec(request.getEntityStatus(), spec, SuburbSpecification::hasEntityStatus);
+        }
+
+        if (request.getDistrictId() != null) {
+            Specification<Suburb> byDistrict = SuburbSpecification.byDistrict(request.getDistrictId());
+            spec = (spec == null) ? byDistrict : spec.and(byDistrict);
+        }
+
+        if (request.getAdministrativeLevelId() != null) {
+            Specification<Suburb> byLevel = SuburbSpecification.byAdministrativeLevel(request.getAdministrativeLevelId());
+            spec = (spec == null) ? byLevel : spec.and(byLevel);
         }
 
         Page<Suburb> result = suburbRepository.findAll(spec, pageable);
@@ -517,87 +537,42 @@ public class SuburbServiceImpl implements SuburbService {
 
     @Override
     public ImportSummary importSuburbFromCsv(InputStream csvInputStream) throws IOException {
-
         List<String> errors = new ArrayList<>();
         int success = 0, failed = 0, total = 0;
 
-        // Load OpenCV native library
-        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+        try (Reader reader = new InputStreamReader(csvInputStream, StandardCharsets.UTF_8)) {
+            HeaderColumnNameMappingStrategy<SuburbCsvDto> strategy = new HeaderColumnNameMappingStrategy<>();
+            strategy.setType(SuburbCsvDto.class);
 
-        // Create a temporary file from the input stream
-        File tempFile = File.createTempFile("suburb_import", ".csv");
-        try (FileOutputStream out = new FileOutputStream(tempFile)) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = csvInputStream.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
-            }
-        }
+            CsvToBean<SuburbCsvDto> csvToBean = new CsvToBeanBuilder<SuburbCsvDto>(reader)
+                    .withMappingStrategy(strategy)
+                    .withIgnoreLeadingWhiteSpace(true)
+                    .build();
 
-        // Read CSV file using OpenCV
-        Mat csvData = new Mat();
+            List<SuburbCsvDto> rows = csvToBean.parse();
+            total = rows.size();
 
-        // Convert the CSV file to a string for processing
-        String csvContent = new String(Files.readAllBytes(tempFile.toPath()), StandardCharsets.UTF_8);
-        String[] lines = csvContent.split("\\r?\\n");
-
-        // Extract headers
-        if (lines.length > 0) {
-            String[] headers = lines[0].split(",");
-            Map<String, Integer> headerMap = new HashMap<>();
-
-            for (int i = 0; i < headers.length; i++) {
-                headerMap.put(headers[i].trim(), i);
-            }
-
-            // Process data rows
-            total = lines.length - 1; // Exclude header row
-
-            for (int rowIndex = 1; rowIndex < lines.length; rowIndex++) {
+            int rowNum = 1;
+            for (SuburbCsvDto row : rows) {
+                rowNum++;
                 try {
-                    String[] values = lines[rowIndex].split(",");
+                    if (row.getName() == null || row.getName().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing suburb name");
+                        continue;
+                    }
+                    if (row.getDistrictId() == null) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing district ID");
+                        continue;
+                    }
 
                     CreateSuburbRequest request = new CreateSuburbRequest();
-
-                    // Get values by header name
-                    Integer nameIndex = headerMap.get("NAME");
-                    if (nameIndex != null && nameIndex < values.length) {
-                        request.setName(values[nameIndex].trim());
-                    }
-
-                    Integer codeIndex = headerMap.get("CODE");
-                    if (codeIndex != null && codeIndex < values.length) {
-                        request.setCode(values[codeIndex].trim());
-                    }
-
-                    Integer postalCodeIndex = headerMap.get("POSTAL CODE");
-                    if (postalCodeIndex != null && postalCodeIndex < values.length) {
-                        request.setPostalCode(values[postalCodeIndex].trim());
-                    }
-
-                    Integer districtIdIndex = headerMap.get("DISTRICT ID");
-                    if (districtIdIndex != null && districtIdIndex < values.length) {
-                        String districtIdStr = values[districtIdIndex].trim();
-                        if (districtIdStr != null && !districtIdStr.isEmpty()) {
-                            request.setDistrictId(Long.parseLong(districtIdStr));
-                        }
-                    }
-
-                    Integer adminLevelIdIndex = headerMap.get("ADMINISTRATIVE LEVEL ID");
-                    if (adminLevelIdIndex != null && adminLevelIdIndex < values.length) {
-                        String adminLevelIdStr = values[adminLevelIdIndex].trim();
-                        if (adminLevelIdStr != null && !adminLevelIdStr.isEmpty()) {
-                            request.setAdministrativeLevelId(Long.parseLong(adminLevelIdStr));
-                        }
-                    }
-
-                    Integer geoCoordinatesIdIndex = headerMap.get("GEO COORDINATES ID");
-                    if (geoCoordinatesIdIndex != null && geoCoordinatesIdIndex < values.length) {
-                        String geoCoordinatesIdStr = values[geoCoordinatesIdIndex].trim();
-                        if (geoCoordinatesIdStr != null && !geoCoordinatesIdStr.isEmpty()) {
-                            request.setGeoCoordinatesId(Long.parseLong(geoCoordinatesIdStr));
-                        }
-                    }
+                    request.setName(row.getName());
+                    request.setCode(row.getCode());
+                    request.setPostalCode(row.getPostalCode());
+                    request.setDistrictId(row.getDistrictId());
+                    request.setAdministrativeLevelId(row.getAdministrativeLevelId());
 
                     SuburbResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
 
@@ -605,20 +580,15 @@ public class SuburbServiceImpl implements SuburbService {
                         success++;
                     } else {
                         failed++;
-                        errors.add("Row " + rowIndex + ": " + response.getMessage());
+                        errors.add("Row " + rowNum + ": " + response.getMessage());
                     }
-
                 } catch (Exception e) {
                     failed++;
-                    errors.add("Row " + rowIndex + ": Unexpected error - " + e.getMessage());
+                    errors.add("Row " + rowNum + ": Unexpected error - " + e.getMessage());
                 }
             }
         }
 
-        // Delete the temporary file
-        tempFile.delete();
-
-        // Determine status code and success flag based on import results
         int statusCode = success > 0 ? 200 : 400;
         boolean isSuccess = success > 0;
         String message = success > 0
@@ -657,6 +627,23 @@ public class SuburbServiceImpl implements SuburbService {
             return spec;
         }
         return spec;
+    }
+
+    private Optional<GeoCoordinates> resolveGeoCoordinates(Long geoCoordinatesId, BigDecimal latitude, BigDecimal longitude) {
+        if (latitude != null || longitude != null) {
+            if (latitude == null || longitude == null) {
+                return Optional.empty();
+            }
+            GeoCoordinates geoCoordinates = new GeoCoordinates();
+            geoCoordinates.setLatitude(latitude);
+            geoCoordinates.setLongitude(longitude);
+            GeoCoordinates saved = geoCoordinatesRepository.save(geoCoordinates);
+            return Optional.of(saved);
+        }
+        if (geoCoordinatesId == null) {
+            return Optional.empty();
+        }
+        return geoCoordinatesRepository.findByIdAndEntityStatusNot(geoCoordinatesId, EntityStatus.DELETED);
     }
 
     private Page<SuburbDto> convertSuburbEntityToSuburbDto(Page<Suburb> suburbPage) {

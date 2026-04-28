@@ -18,8 +18,6 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import org.hibernate.annotations.SQLRestriction;
-import org.hibernate.annotations.Where;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -64,7 +62,6 @@ public class Country {
 
     // Optional: Localized names from LocalizedName table
     @OneToMany(mappedBy = "country", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @SQLRestriction("reference_type = 'Country'")
     private List<LocalizedName> localizedNames;
 
     // Optional: Country-level administrative levels (e.g., ADM1 = Province, ADM2 = District)

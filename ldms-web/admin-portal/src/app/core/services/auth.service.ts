@@ -37,7 +37,7 @@ export class AuthService {
 
   login(email: string, password: string): Observable<void> {
     const normalized = email.trim().toLowerCase();
-    if (environment.useMocks) {
+    if (environment.useMocks || environment.authUseMocks) {
       return this.loginMock(normalized, password);
     }
     return this.http

@@ -49,6 +49,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Optional;
 
 @Transactional
 @RequiredArgsConstructor
@@ -72,13 +73,16 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (Boolean.FALSE.equals(v.getSuccess())) {
             return buildOrganizationResponseWithErrors(v.getErrorMessages());
         }
-        if (organizationRepository.findByEmailAndEntityStatusNot(request.getEmail().trim(), EntityStatus.DELETED).isPresent()) {
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        if (organizationRepository.findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED).isPresent()) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
         }
-        Organization org = new Organization();
+        Optional<Organization> deletedOrganization = organizationRepository.findByEmail(normalizedEmail)
+                .filter(organization -> organization.getEntityStatus() == EntityStatus.DELETED);
+        Organization org = deletedOrganization.orElseGet(Organization::new);
         org.setName(request.getName().trim());
-        org.setEmail(request.getEmail().trim().toLowerCase());
+        org.setEmail(normalizedEmail);
         org.setPhoneNumber(request.getPhoneNumber());
         org.setOrganizationClassification(request.getOrganizationClassification());
         if (request.getIndustryId() != null) {
@@ -90,8 +94,10 @@ public class OrganizationServiceImpl implements OrganizationService {
         org.setContactPersonPhoneNumber(request.getContactPersonPhoneNumber());
         org.setKycStatus(KycStatus.DRAFT);
         org.setEntityStatus(EntityStatus.ACTIVE);
-        org.setCreatedAt(LocalDateTime.now());
-        org.setCreatedBy(createdBy);
+        if (deletedOrganization.isEmpty()) {
+            org.setCreatedAt(LocalDateTime.now());
+            org.setCreatedBy(createdBy);
+        }
         org.setVerified(false);
         org.setCurrentResubmissionCycle(0);
         org.setResubmissionCount(0);
@@ -244,20 +250,25 @@ public class OrganizationServiceImpl implements OrganizationService {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_CUSTOMERS.getCode(), new String[]{}, locale)));
         }
-        if (organizationRepository.findByEmailAndEntityStatusNot(request.getEmail().trim(), EntityStatus.DELETED).isPresent()) {
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        if (organizationRepository.findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED).isPresent()) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
         }
-        Organization customer = new Organization();
+        Optional<Organization> deletedCustomer = organizationRepository.findByEmail(normalizedEmail)
+                .filter(organization -> organization.getEntityStatus() == EntityStatus.DELETED);
+        Organization customer = deletedCustomer.orElseGet(Organization::new);
         customer.setName(request.getName().trim());
-        customer.setEmail(request.getEmail().trim().toLowerCase());
+        customer.setEmail(normalizedEmail);
         customer.setPhoneNumber(request.getPhoneNumber());
         customer.setOrganizationClassification(OrganizationClassification.CUSTOMER);
         customer.setCreatedViaSignup(false);
         customer.setKycStatus(KycStatus.DRAFT);
         customer.setEntityStatus(EntityStatus.ACTIVE);
-        customer.setCreatedAt(LocalDateTime.now());
-        customer.setCreatedBy(username);
+        if (deletedCustomer.isEmpty()) {
+            customer.setCreatedAt(LocalDateTime.now());
+            customer.setCreatedBy(username);
+        }
         customer.setVerified(false);
         customer.setCurrentResubmissionCycle(0);
         customer.setResubmissionCount(0);

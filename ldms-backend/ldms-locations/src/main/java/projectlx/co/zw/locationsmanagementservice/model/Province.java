@@ -18,7 +18,6 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-import org.hibernate.annotations.SQLRestriction;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -54,7 +53,6 @@ public class Province {
 
     // Optional multi-language support
     @OneToMany(mappedBy = "province", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    @SQLRestriction("reference_type = 'Province")
     private List<LocalizedName> localizedNames;
 
     // Optional geolocation metadata

@@ -10,5 +10,6 @@ import java.util.Optional;
 
 public interface SuburbRepository extends JpaRepository<Suburb, Long>, JpaSpecificationExecutor<Suburb> {
     Optional<Suburb> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
+    Optional<Suburb> findByName(String name);
     <T> Optional<T> findByNameAndDistrictAndEntityStatusNot(String longName, District district, EntityStatus entityStatus);
 }

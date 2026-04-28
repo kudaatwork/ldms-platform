@@ -29,6 +29,7 @@ import projectlx.co.zw.locationsmanagementservice.business.validation.api.Langua
 import projectlx.co.zw.locationsmanagementservice.model.Language;
 import projectlx.co.zw.locationsmanagementservice.repository.LanguageRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.LanguageSpecification;
+import projectlx.co.zw.locationsmanagementservice.utils.dtos.LanguageCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.LanguageDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
 import projectlx.co.zw.locationsmanagementservice.utils.enums.I18Code;
@@ -53,15 +54,9 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.Map;
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
+import com.opencsv.bean.HeaderColumnNameMappingStrategy;
 
 @RequiredArgsConstructor
 public class LanguageServiceImpl implements LanguageService {
@@ -96,8 +91,9 @@ public class LanguageServiceImpl implements LanguageService {
                     null, validatorDto.getErrorMessages());
         }
 
+        String normalizedName = Validators.capitalizeWords(createLanguageRequest.getName());
         Optional<Language> languageRetrieved =
-                languageRepository.findByNameAndEntityStatusNot(createLanguageRequest.getName(), EntityStatus.DELETED);
+                languageRepository.findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
 
         if (languageRetrieved.isPresent()) {
 
@@ -108,11 +104,24 @@ public class LanguageServiceImpl implements LanguageService {
                     null, null);
         }
 
-        createLanguageRequest.setName(Validators.capitalizeWords(createLanguageRequest.getName()));
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        Language languageToBeSaved = modelMapper.map(createLanguageRequest, Language.class);
+        Optional<Language> deletedLanguage = languageRepository.findByName(normalizedName)
+                .filter(language -> language.getEntityStatus() == EntityStatus.DELETED);
 
-        Language languageSaved = languageServiceAuditable.create(languageToBeSaved, locale, username);
+        createLanguageRequest.setName(normalizedName);
+        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        Language languageSaved;
+        if (deletedLanguage.isPresent()) {
+            Language languageToBeReactivated = deletedLanguage.get();
+            languageToBeReactivated.setName(normalizedName);
+            languageToBeReactivated.setIsoCode(createLanguageRequest.getIsoCode());
+            languageToBeReactivated.setNativeName(createLanguageRequest.getNativeName());
+            languageToBeReactivated.setIsDefault(createLanguageRequest.getIsDefault());
+            languageToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
+            languageSaved = languageServiceAuditable.update(languageToBeReactivated, locale, username);
+        } else {
+            Language languageToBeSaved = modelMapper.map(createLanguageRequest, Language.class);
+            languageSaved = languageServiceAuditable.create(languageToBeSaved, locale, username);
+        }
 
         LanguageDto languageDtoReturned = modelMapper.map(languageSaved, LanguageDto.class);
 
@@ -431,67 +440,37 @@ public class LanguageServiceImpl implements LanguageService {
 
     @Override
     public ImportSummary importLanguageFromCsv(InputStream csvInputStream) throws IOException {
-
         List<String> errors = new ArrayList<>();
         int success = 0, failed = 0, total = 0;
 
-        // Load OpenCV native library
-        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+        try (Reader reader = new InputStreamReader(csvInputStream, StandardCharsets.UTF_8)) {
+            HeaderColumnNameMappingStrategy<LanguageCsvDto> strategy = new HeaderColumnNameMappingStrategy<>();
+            strategy.setType(LanguageCsvDto.class);
 
-        // Create a temporary file from the input stream
-        File tempFile = File.createTempFile("language_import", ".csv");
-        try (FileOutputStream out = new FileOutputStream(tempFile)) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = csvInputStream.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
-            }
-        }
+            CsvToBean<LanguageCsvDto> csvToBean = new CsvToBeanBuilder<LanguageCsvDto>(reader)
+                    .withMappingStrategy(strategy)
+                    .withIgnoreLeadingWhiteSpace(true)
+                    .build();
 
-        // Read CSV file using OpenCV
-        Mat csvData = new Mat();
+            List<LanguageCsvDto> rows = csvToBean.parse();
+            total = rows.size();
 
-        // Convert the CSV file to a string for processing
-        String csvContent = new String(Files.readAllBytes(tempFile.toPath()), StandardCharsets.UTF_8);
-        String[] lines = csvContent.split("\\r?\\n");
-
-        // Extract headers
-        if (lines.length > 0) {
-            String[] headers = lines[0].split(",");
-            Map<String, Integer> headerMap = new HashMap<>();
-
-            for (int i = 0; i < headers.length; i++) {
-                headerMap.put(headers[i].trim(), i);
-            }
-
-            // Process data rows
-            total = lines.length - 1; // Exclude header row
-
-            for (int rowIndex = 1; rowIndex < lines.length; rowIndex++) {
+            int rowNum = 1;
+            for (LanguageCsvDto row : rows) {
+                rowNum++;
                 try {
-                    String[] values = lines[rowIndex].split(",");
+                    if (row.getName() == null || row.getName().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing language name");
+                        continue;
+                    }
 
                     CreateLanguageRequest request = new CreateLanguageRequest();
-
-                    // Get values by header name
-                    Integer nameIndex = headerMap.get("NAME");
-                    if (nameIndex != null && nameIndex < values.length) {
-                        request.setName(values[nameIndex].trim());
-                    }
-
-                    Integer isoCodeIndex = headerMap.get("ISO CODE");
-                    if (isoCodeIndex != null && isoCodeIndex < values.length) {
-                        request.setIsoCode(values[isoCodeIndex].trim());
-                    }
-
-                    Integer nativeNameIndex = headerMap.get("NATIVE NAME");
-                    if (nativeNameIndex != null && nativeNameIndex < values.length) {
-                        request.setNativeName(values[nativeNameIndex].trim());
-                    }
-
-                    Integer isDefaultIndex = headerMap.get("IS DEFAULT");
-                    if (isDefaultIndex != null && isDefaultIndex < values.length) {
-                        request.setIsDefault(Boolean.parseBoolean(values[isDefaultIndex].trim()));
+                    request.setName(row.getName());
+                    request.setIsoCode(row.getIsoCode());
+                    request.setNativeName(row.getNativeName());
+                    if (row.getIsDefault() != null) {
+                        request.setIsDefault(Boolean.parseBoolean(row.getIsDefault()));
                     }
 
                     LanguageResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
@@ -500,20 +479,15 @@ public class LanguageServiceImpl implements LanguageService {
                         success++;
                     } else {
                         failed++;
-                        errors.add("Row " + rowIndex + ": " + response.getMessage());
+                        errors.add("Row " + rowNum + ": " + response.getMessage());
                     }
-
                 } catch (Exception e) {
                     failed++;
-                    errors.add("Row " + rowIndex + ": Unexpected error - " + e.getMessage());
+                    errors.add("Row " + rowNum + ": Unexpected error - " + e.getMessage());
                 }
             }
         }
 
-        // Delete the temporary file
-        tempFile.delete();
-
-        // Determine status code and success flag based on import results
         int statusCode = success > 0 ? 200 : 400;
         boolean isSuccess = success > 0;
         String message = success > 0

@@ -9,6 +9,10 @@ import java.util.Optional;
 
 public interface CountryRepository extends JpaRepository<Country, Long>, JpaSpecificationExecutor<Country> {
     Optional<Country> findByNameAndEntityStatusNot(String countryName, EntityStatus entityStatus);
+    Optional<Country> findByName(String countryName);
     Optional<Country> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
     Optional<Country> findByIsoAlpha2CodeAndEntityStatusNot(String shortName, EntityStatus entityStatus);
+    Optional<Country> findByIsoAlpha2Code(String shortName);
+    Optional<Country> findByIsoAlpha3CodeAndEntityStatusNot(String shortName, EntityStatus entityStatus);
+    Optional<Country> findByIsoAlpha3Code(String shortName);
 }

@@ -8,4 +8,5 @@ import java.util.Optional;
 
 public interface NotificationTemplateRepository extends JpaRepository<NotificationTemplate, Long>, JpaSpecificationExecutor<NotificationTemplate> {
     Optional<NotificationTemplate> findByTemplateKeyAndEntityStatusNot(String templateKey, EntityStatus entityStatus);
+    Optional<NotificationTemplate> findByTemplateKey(String templateKey);
 }

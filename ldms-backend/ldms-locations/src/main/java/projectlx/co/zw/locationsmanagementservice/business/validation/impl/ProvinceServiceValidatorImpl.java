@@ -52,11 +52,6 @@ public class ProvinceServiceValidatorImpl implements ProvinceServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_PROVINCE_ADMINISTRATIVE_LEVEL_ID_MISSING.getCode(), new String[]{}, locale));
         }
 
-        if (request.getGeoCoordinatesId() == null) {
-            logger.info("Validation failed: Geo coordinates ID is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_PROVINCE_GEO_COORDINATES_ID_MISSING.getCode(), new String[]{}, locale));
-        }
-
         if (errors.isEmpty()) {
             return new ValidatorDto(true, null, null);
         } else {
@@ -110,11 +105,6 @@ public class ProvinceServiceValidatorImpl implements ProvinceServiceValidator {
         if (request.getAdministrativeLevelId() == null) {
             logger.info("Validation failed: Administrative level ID is missing");
             errors.add(messageService.getMessage(I18Code.MESSAGE_UPDATE_PROVINCE_ADMINISTRATIVE_LEVEL_ID_MISSING.getCode(), new String[]{}, locale));
-        }
-
-        if (request.getGeoCoordinatesId() == null) {
-            logger.info("Validation failed: Geo coordinates ID is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_UPDATE_PROVINCE_GEO_COORDINATES_ID_MISSING.getCode(), new String[]{}, locale));
         }
 
         if (errors.isEmpty()) {

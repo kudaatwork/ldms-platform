@@ -1,21 +1,38 @@
-import { Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
-import { MatPaginator } from '@angular/material/paginator';
+import { PageEvent } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSort } from '@angular/material/sort';
 import { MatTableDataSource } from '@angular/material/table';
 import { Title } from '@angular/platform-browser';
-import { Observable, Subject, takeUntil } from 'rxjs';
+import {
+  EMPTY,
+  Observable,
+  Subject,
+  catchError,
+  debounceTime,
+  finalize,
+  merge,
+  of,
+  switchMap,
+  takeUntil,
+  tap,
+} from 'rxjs';
 import { map } from 'rxjs/operators';
-import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
-import { LocationsService } from '../../services/locations.service';
+import {
+  LocationsService,
+  LOCATIONS_TABLE_PAGE_SIZE,
+  type LocationSelectOption,
+} from '../../services/locations.service';
 import type { LocationEntityKind } from '../../models/location.models';
 import {
   LocationFormDialogComponent,
   type LocationFormDialogAction,
   type LocationFormDialogData,
+  type LocationFormDialogResult,
   type LocationFormDialogMode,
 } from '../location-form-dialog/location-form-dialog.component';
+import { DeleteConfirmDialogComponent } from '../delete-confirm-dialog/delete-confirm-dialog.component';
 
 type Row = Record<string, unknown>;
 
@@ -64,8 +81,8 @@ const CONFIG: Record<
     labels: {
       name: 'Name',
       code: 'Code',
-      countryId: 'Country ID',
-      administrativeLevelId: 'Admin level ID',
+      countryId: 'Country',
+      administrativeLevelId: 'Admin level',
       entityStatus: 'Status',
       actions: 'Actions',
     },
@@ -79,8 +96,8 @@ const CONFIG: Record<
     labels: {
       name: 'Name',
       code: 'Code',
-      provinceId: 'Province ID',
-      administrativeLevelId: 'Admin level ID',
+      provinceId: 'Province',
+      administrativeLevelId: 'Admin level',
       entityStatus: 'Status',
       actions: 'Actions',
     },
@@ -118,7 +135,7 @@ const CONFIG: Record<
     labels: {
       name: 'Name',
       code: 'Code',
-      districtId: 'District ID',
+      districtId: 'District',
       postalCode: 'Postal code',
       entityStatus: 'Status',
       actions: 'Actions',
@@ -175,13 +192,6 @@ const CONFIG: Record<
 export class LocationTablePageComponent implements OnInit, OnDestroy {
   @Input({ required: true }) entity!: LocationEntityKind;
 
-  @ViewChild(MatPaginator)
-  set paginator(p: MatPaginator) {
-    if (p) {
-      this.dataSource.paginator = p;
-    }
-  }
-
   @ViewChild(MatSort)
   set sort(s: MatSort) {
     if (s) {
@@ -190,11 +200,27 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
   }
 
   fetching = false;
-  hasLoadedOnce = false;
+  /** Import / delete / dependency checks — blocks mutating actions only. */
   actionInProgress = false;
+  /** Export runs separately so the table and Refresh stay usable during long downloads. */
+  exporting = false;
+  sampleCsvDescription: string | null = null;
+  /** When true, the sample CSV explanatory paragraph is rendered below the controls header.
+   *  Toggled by the small "i" button so the page stays uncluttered until users ask for help. */
+  showSampleCsvInfo = false;
+  /** Tooltip and copy for CSV import (format + leave GEOCOORDINATES ID blank). */
+  readonly importCsvTooltip =
+    'Import accepts CSV files only (UTF-8). Do not populate GEOCOORDINATES ID — the server creates or links coordinates automatically.';
+  readonly importCsvDisclaimer =
+    'CSV import only. Leave GEOCOORDINATES ID empty in your file; the service assigns coordinates.';
   searchQuery = '';
   filterFieldsOpen = false;
   columnFilters: Record<string, string> = {};
+
+  /** Server-driven pagination */
+  pageIndex = 0;
+  pageSize = LOCATIONS_TABLE_PAGE_SIZE;
+  totalRecords = 0;
 
   displayedColumns: string[] = [];
   columnLabels: Record<string, string> = {};
@@ -204,13 +230,22 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
   dataSource = new MatTableDataSource<Row>([]);
   rawRows: Row[] = [];
 
+  /** Options for FK column filters (province / district / suburb grids). */
+  filterFkOptions: Record<string, LocationSelectOption[]> = {};
+
   private destroy$ = new Subject<void>();
+  private readonly filterReload$ = new Subject<void>();
+  /** Monotonic token to ignore stale in-flight table responses. */
+  private latestLoadToken = 0;
+  /** Prevent duplicate reloads when form controls emit initial default values. */
+  private lastFilterSignature = '';
 
   constructor(
     private readonly locationsService: LocationsService,
     private readonly title: Title,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -220,8 +255,22 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
     this.displayedColumns = cfg.columns;
     this.columnLabels = cfg.labels;
     this.columnFilters = Object.fromEntries(cfg.columns.filter((c) => c !== 'actions').map((c) => [c, '']));
+    this.lastFilterSignature = this.currentFilterSignature();
     this.title.setTitle(cfg.browserTitle);
-    this.load();
+    this.sampleCsvDescription = this.locationsService.getSampleCsvDescription(this.entity);
+    this.loadFilterFkOptions();
+    merge(
+      of(undefined as void),
+      this.filterReload$.pipe(debounceTime(150)),
+    )
+      .pipe(
+        switchMap(() => {
+          this.pageIndex = 0;
+          return this.runTableQuery({ background: false });
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe();
   }
 
   ngOnDestroy(): void {
@@ -233,16 +282,95 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
     return this.displayedColumns.filter((c) => c !== 'actions');
   }
 
-  applyFilters(): void {
-    const filtered = filterByGlobalAndColumns(
-      this.rawRows,
-      this.searchQuery,
-      this.columnFilters as Record<string, string>,
-    );
-    this.dataSource.data = filtered;
-    if (this.paginator) {
-      this.paginator.firstPage();
+  isFkFilterColumn(key: string): boolean {
+    const keys: Partial<Record<LocationEntityKind, string[]>> = {
+      province: ['countryId', 'administrativeLevelId'],
+      district: ['provinceId', 'administrativeLevelId'],
+      suburb: ['districtId'],
+    };
+    return keys[this.entity]?.includes(key) ?? false;
+  }
+
+  fkFilterOptionsFor(key: string): LocationSelectOption[] {
+    return this.filterFkOptions[key] ?? [];
+  }
+
+  private loadFilterFkOptions(): void {
+    switch (this.entity) {
+      case 'province':
+        this.locationsService
+          .fetchCountriesForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['countryId'] = o;
+            this.cdr.markForCheck();
+          });
+        this.locationsService
+          .fetchAdministrativeLevelsForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['administrativeLevelId'] = o;
+            this.cdr.markForCheck();
+          });
+        break;
+      case 'district':
+        this.locationsService
+          .fetchProvincesForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['provinceId'] = o;
+            this.cdr.markForCheck();
+          });
+        this.locationsService
+          .fetchAdministrativeLevelsForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['administrativeLevelId'] = o;
+            this.cdr.markForCheck();
+          });
+        break;
+      case 'suburb':
+        this.locationsService
+          .fetchDistrictsForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['districtId'] = o;
+            this.cdr.markForCheck();
+          });
+        break;
+      default:
+        break;
     }
+  }
+
+  get supportsImportExport(): boolean {
+    return this.entity !== 'city' && this.entity !== 'village';
+  }
+
+  hasActiveFilters(): boolean {
+    if (this.searchQuery.trim().length > 0) {
+      return true;
+    }
+    return Object.values(this.columnFilters).some((v) => (v ?? '').trim().length > 0);
+  }
+
+  applyFilters(): void {
+    const nextSignature = this.currentFilterSignature();
+    if (nextSignature === this.lastFilterSignature) {
+      return;
+    }
+    this.lastFilterSignature = nextSignature;
+    this.filterReload$.next();
+  }
+
+  onPage(ev: PageEvent): void {
+    // MatPaginator may emit an initial page event during view init; ignore no-op events.
+    if (ev.pageIndex === this.pageIndex && ev.pageSize === this.pageSize) {
+      return;
+    }
+    this.pageIndex = ev.pageIndex;
+    this.pageSize = ev.pageSize;
+    this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
   }
 
   displayCell(row: Row, key: string): string {
@@ -273,34 +401,78 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
   }
 
   refresh(): void {
-    this.load();
+    this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
   }
 
   private openFormDialog(action: LocationFormDialogAction, row?: Row): void {
     const cfg = CONFIG[this.entity];
     const id = row ? Number(row['id']) : undefined;
     if ((action === 'edit' || action === 'view') && (!id || !Number.isFinite(id))) {
-      this.snackBar.open('This row has no valid id.', 'Close', { duration: 3500 });
+      this.showErrorAlert('This row has no valid id.');
       return;
     }
-    const data: LocationFormDialogData = {
-      mode: cfg.formMode,
-      action,
-      id: id ?? null,
-      initialValue: row ?? null,
-    };
-    this.dialog
-      .open(LocationFormDialogComponent, { width: '560px', data })
-      .afterClosed()
-      .subscribe((saved) => {
-        if (saved) {
-          this.load();
-        }
+    this.resolveGeoCoordinatesForDialog(row)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((resolvedRow) => {
+        const data: LocationFormDialogData = {
+          mode: cfg.formMode,
+          action,
+          id: id ?? null,
+          initialValue: resolvedRow ?? null,
+        };
+        this.dialog
+          .open(LocationFormDialogComponent, {
+            width: '640px',
+            maxWidth: '95vw',
+            panelClass: 'lx-location-dialog-panel',
+            autoFocus: 'first-tabbable',
+            data,
+          })
+          .afterClosed()
+          .subscribe((result: LocationFormDialogResult | undefined) => {
+            if (result?.saved) {
+              this.showSuccessAlert(result.message || 'Operation completed successfully.');
+              this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
+            }
+          });
       });
+  }
+
+  private resolveGeoCoordinatesForDialog(row?: Row): Observable<Row | undefined> {
+    if (!row) {
+      return of(undefined);
+    }
+    const geoCoordinatesId = Number(row['geoCoordinatesId']);
+    if (!Number.isFinite(geoCoordinatesId)) {
+      return of(row);
+    }
+    return this.locationsService.findGeoCoordinatesById(geoCoordinatesId).pipe(
+      map((geo) => {
+        if (!geo) {
+          return row;
+        }
+        return {
+          ...row,
+          latitude: row['latitude'] ?? geo.latitude ?? null,
+          longitude: row['longitude'] ?? geo.longitude ?? null,
+        } as Row;
+      }),
+      catchError(() => of(row)),
+    );
   }
 
   importCsv(input: HTMLInputElement): void {
     input.click();
+  }
+
+  downloadSampleCsv(): void {
+    const template = this.locationsService.getSampleCsvTemplate(this.entity);
+    if (!template) {
+      this.showErrorAlert('Sample CSV is not available for this location type yet.');
+      return;
+    }
+    this.download(template.blob, template.filename);
+    this.showSuccessAlert('Sample CSV downloaded.');
   }
 
   onImportFileSelected(event: Event): void {
@@ -314,36 +486,44 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
       .importLocationCsv(this.entity, file)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: () => {
-          this.snackBar.open('Import completed successfully.', 'Close', { duration: 3500 });
-          this.load();
+        next: (response) => {
+          this.showSuccessAlert(response.message || 'Import completed successfully.');
           input.value = '';
           this.actionInProgress = false;
+          // Refresh shortly after import so newly created rows appear without waiting for manual refresh.
+          setTimeout(() => this.runTableQuery({ background: true }).pipe(takeUntil(this.destroy$)).subscribe(), 250);
         },
         error: (err) => {
-          this.snackBar.open(this.errorMessage(err, 'Import failed.'), 'Close', { duration: 5000 });
+          this.showErrorAlert(this.errorMessage(err, 'Import failed.'));
           input.value = '';
           this.actionInProgress = false;
+          // Also refresh after failed import in case partial rows were accepted before validation errors.
+          setTimeout(() => this.runTableQuery({ background: true }).pipe(takeUntil(this.destroy$)).subscribe(), 250);
         },
       });
   }
 
   exportAs(format: 'csv' | 'xlsx' | 'pdf'): void {
-    this.actionInProgress = true;
+    this.exporting = true;
     this.locationsService
       .exportLocation(this.entity, format)
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.exporting = false;
+        }),
+      )
       .subscribe({
         next: (blob) => {
           this.download(blob, `${this.entity}-${new Date().toISOString().slice(0, 10)}.${format}`);
-          this.snackBar.open(`Exported ${this.pageTitle.toLowerCase()} as ${format.toUpperCase()}.`, 'Close', {
-            duration: 3000,
-          });
-          this.actionInProgress = false;
+          this.showSuccessAlert(`Exported ${this.pageTitle.toLowerCase()} as ${format.toUpperCase()}.`);
+          // Defer refresh: unblock UI first; skip the header spinner when the grid already has rows.
+          queueMicrotask(() =>
+            this.runTableQuery({ background: true }).pipe(takeUntil(this.destroy$)).subscribe(),
+          );
         },
         error: (err) => {
-          this.snackBar.open(this.errorMessage(err, 'Export failed.'), 'Close', { duration: 5000 });
-          this.actionInProgress = false;
+          this.showErrorAlert(this.errorMessage(err, 'Export failed.'));
         },
       });
   }
@@ -359,63 +539,121 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
   deleteRow(row: Row): void {
     const id = Number(row['id']);
     if (!Number.isFinite(id)) {
-      this.snackBar.open('This row has no valid id to delete.', 'Close', { duration: 3500 });
+      this.showErrorAlert('This row has no valid id to delete.');
       return;
     }
-    this.actionInProgress = true;
-    this.locationsService
-      .deleteLocation(this.entity, id)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.snackBar.open('Record deleted successfully.', 'Close', { duration: 3500 });
-          this.load();
-          this.actionInProgress = false;
-        },
-        error: (err) => {
-          this.snackBar.open(this.errorMessage(err, 'Delete failed.'), 'Close', { duration: 5000 });
-          this.actionInProgress = false;
-        },
-      });
-  }
-
-  private load(): void {
-    this.fetching = true;
-    this.pickLoader()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (rows) => {
-          this.rawRows = rows as Row[];
-          this.applyFilters();
-          this.hasLoadedOnce = true;
-          this.fetching = false;
-        },
-        error: () => {
-          this.rawRows = [];
-          this.applyFilters();
-          this.hasLoadedOnce = true;
-          this.fetching = false;
-        },
-      });
-  }
-
-  private pickLoader(): Observable<Row[]> {
-    switch (this.entity) {
-      case 'country':
-        return this.locationsService.getCountries().pipe(map((r) => r as unknown as Row[]));
-      case 'province':
-        return this.locationsService.getProvinces().pipe(map((r) => r as unknown as Row[]));
-      case 'district':
-        return this.locationsService.getDistricts().pipe(map((r) => r as unknown as Row[]));
-      case 'city':
-        return this.locationsService.getCities().pipe(map((r) => r as unknown as Row[]));
-      case 'suburb':
-        return this.locationsService.getSuburbs().pipe(map((r) => r as unknown as Row[]));
-      case 'village':
-        return this.locationsService.getVillages().pipe(map((r) => r as unknown as Row[]));
-      case 'admin-level':
-        return this.locationsService.getAdminLevels().pipe(map((r) => r as unknown as Row[]));
+    if (this.entity === 'country') {
+      this.actionInProgress = true;
+      this.locationsService
+        .hasLinkedProvincesForCountry(id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (hasLinkedProvinces) => {
+            if (hasLinkedProvinces) {
+              this.showErrorAlert('Cannot delete this country while it still has linked provinces.');
+              this.actionInProgress = false;
+              return;
+            }
+            this.actionInProgress = false;
+            this.confirmAndDelete(id);
+          },
+          error: (err) => {
+            this.actionInProgress = false;
+            this.showErrorAlert(this.errorMessage(err, 'Could not validate country dependencies.'));
+          },
+        });
+      return;
     }
+    this.confirmAndDelete(id);
+  }
+
+  private confirmAndDelete(id: number): void {
+    this.dialog
+      .open(DeleteConfirmDialogComponent, {
+        width: '420px',
+        maxWidth: '92vw',
+        data: { entityLabel: this.pageTitle.slice(0, -1) || 'record' },
+      })
+      .afterClosed()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((confirmed: boolean) => {
+        if (!confirmed) {
+          return;
+        }
+        this.actionInProgress = true;
+        this.locationsService
+          .deleteLocation(this.entity, id)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (response) => {
+              this.showSuccessAlert(response.message || 'Record deleted successfully.');
+              this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
+              this.actionInProgress = false;
+            },
+            error: (err) => {
+              this.showErrorAlert(this.errorMessage(err, 'Delete failed.'));
+              this.actionInProgress = false;
+            },
+          });
+      });
+  }
+
+  /**
+   * Single observable for table data; `switchMap` upstream cancels superseded HTTP calls.
+   * Rows bind immediately when the response arrives (no artificial delay).
+   */
+  private runTableQuery(opts?: { background?: boolean }): Observable<{ rows: unknown[]; totalElements: number }> {
+    const loadToken = ++this.latestLoadToken;
+    const background = opts?.background === true;
+    if (!background || this.totalRecords === 0) {
+      this.fetching = true;
+    }
+    return this.locationsService
+      .queryTablePage(this.entity, {
+        page: this.pageIndex,
+        size: this.pageSize,
+        searchQuery: this.searchQuery,
+        columnFilters: this.columnFilters,
+      })
+      .pipe(
+        tap(({ rows, totalElements }) => {
+          if (loadToken !== this.latestLoadToken) {
+            return;
+          }
+          const normalizedRows = rows as Row[];
+          if (normalizedRows.length === 0 && this.pageIndex > 0) {
+            this.pageIndex = 0;
+            this.runTableQuery({ background: true }).pipe(takeUntil(this.destroy$)).subscribe();
+            return;
+          }
+          this.totalRecords = totalElements > 0 ? totalElements : normalizedRows.length;
+          this.rawRows = normalizedRows;
+          this.dataSource.data = this.rawRows;
+        }),
+        catchError((err) => {
+          if (loadToken !== this.latestLoadToken) {
+            return EMPTY;
+          }
+          this.showErrorAlert(this.errorMessage(err, `Failed to load ${this.pageTitle.toLowerCase()}.`));
+          return EMPTY;
+        }),
+        finalize(() => {
+          // Always clear loading when this HTTP cycle ends, but only if this request is still the
+          // latest one. Otherwise a newer in-flight load owns the spinner (avoids stuck "Refreshing…"
+          // when switchMap cancels a request or a stale response is dropped).
+          if (loadToken === this.latestLoadToken) {
+            this.fetching = false;
+            this.cdr.markForCheck();
+          }
+        }),
+      );
+  }
+
+  private currentFilterSignature(): string {
+    return JSON.stringify({
+      q: this.searchQuery.trim(),
+      filters: this.columnFilters,
+    });
   }
 
   private download(blob: Blob, filename: string): void {
@@ -424,11 +662,34 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
     a.href = url;
     a.download = filename;
     a.click();
-    URL.revokeObjectURL(url);
+    // Large exports: revoking immediately can interrupt the save on some browsers; defer cleanup.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   private errorMessage(error: unknown, fallback: string): string {
-    const err = error as { error?: { message?: string; error?: string }; message?: string };
-    return err?.error?.message || err?.error?.error || err?.message || fallback;
+    const err = error as {
+      status?: number;
+      error?: { messageResponse?: string; message?: string; error?: string };
+      message?: string;
+    };
+    if (err?.status === 0) {
+      return 'Request failed before the server response reached the browser. Please retry.';
+    }
+    return err?.error?.messageResponse || err?.error?.message || err?.error?.error || err?.message || fallback;
   }
+
+  private showSuccessAlert(message: string): void {
+    this.snackBar.open(message, 'Close', {
+      duration: 5000,
+      panelClass: ['app-snackbar-success'],
+    });
+  }
+
+  private showErrorAlert(message: string): void {
+    this.snackBar.open(message, 'Close', {
+      duration: 5000,
+      panelClass: ['app-snackbar-error'],
+    });
+  }
+
 }

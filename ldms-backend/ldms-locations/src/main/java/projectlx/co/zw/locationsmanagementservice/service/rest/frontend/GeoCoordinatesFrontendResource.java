@@ -16,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,10 +41,10 @@ import projectlx.co.zw.shared_library.utils.constants.Constants;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-@CrossOrigin
 @RestController
 @RequestMapping("/ldms-locations/v1/frontend/geo-coordinates")
 @Tag(name = "Geo Coordinates Frontend Resource", description = "Operations related to managing geo coordinates")
@@ -176,9 +175,12 @@ public class GeoCoordinatesFrontendResource {
         try {
             logger.info("Incoming request to export geo coordinates in {} format with filters: {}", format, filters);
 
-            // Get the data based on filters
+            filters.setPage(0);
+            filters.setSize(Integer.MAX_VALUE);
             GeoCoordinatesResponse response = geoCoordinatesServiceProcessor.findByMultipleFilters(filters, username, locale);
-            List<GeoCoordinatesDto> dtoList = response.getGeoCoordinatesDtoList();
+            List<GeoCoordinatesDto> dtoList = response.getGeoCoordinatesDtoPage() != null
+                    ? response.getGeoCoordinatesDtoPage().getContent()
+                    : new ArrayList<>();
 
             switch (format.toLowerCase()) {
                 case "csv":
@@ -245,7 +247,7 @@ public class GeoCoordinatesFrontendResource {
 
             try (InputStream inputStream = file.getInputStream()) {
                 ImportSummary summary = geoCoordinatesServiceProcessor.importFromCsv(inputStream);
-                return ResponseEntity.ok(summary);
+                return ResponseEntity.status(summary.getStatusCode()).body(summary);
             }
 
         } catch (IOException e) {

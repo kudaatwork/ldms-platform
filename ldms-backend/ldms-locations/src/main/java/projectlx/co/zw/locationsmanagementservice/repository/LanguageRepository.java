@@ -9,5 +9,6 @@ import java.util.Optional;
 
 public interface LanguageRepository extends JpaRepository<Language, Long>, JpaSpecificationExecutor<Language> {
     Optional<Language> findByNameAndEntityStatusNot(String name, EntityStatus entityStatus);
+    Optional<Language> findByName(String name);
     Optional<Language> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
 }

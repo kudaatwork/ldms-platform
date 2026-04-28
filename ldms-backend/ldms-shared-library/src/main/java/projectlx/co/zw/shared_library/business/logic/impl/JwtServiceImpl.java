@@ -12,6 +12,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import projectlx.co.zw.shared_library.business.logic.api.JwtService;
 import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
@@ -100,7 +103,31 @@ public class JwtServiceImpl implements JwtService {
     }
 
     private SecretKey getSignKey() {
-        byte[] keyBytes = Base64.getDecoder().decode(jwtSecret);
+        byte[] keyBytes = decodeSecret(jwtSecret);
         return Keys.hmacShaKeyFor(keyBytes);
+    }
+
+    private byte[] decodeSecret(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException("JWT secret is blank.");
+        }
+        try {
+            return Base64.getDecoder().decode(secret);
+        } catch (IllegalArgumentException ignored) {
+            try {
+                return Base64.getUrlDecoder().decode(secret);
+            } catch (IllegalArgumentException ignoredAgain) {
+                // Fallback for plain-text secrets used in some environments.
+                byte[] raw = secret.getBytes(StandardCharsets.UTF_8);
+                if (raw.length >= 32) {
+                    return raw;
+                }
+                try {
+                    return MessageDigest.getInstance("SHA-256").digest(raw);
+                } catch (NoSuchAlgorithmException e) {
+                    throw new IllegalStateException("SHA-256 algorithm unavailable for JWT key derivation.", e);
+                }
+            }
+        }
     }
 }

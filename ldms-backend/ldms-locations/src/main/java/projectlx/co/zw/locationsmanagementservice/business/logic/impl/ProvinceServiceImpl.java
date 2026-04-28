@@ -36,7 +36,11 @@ import projectlx.co.zw.locationsmanagementservice.repository.CountryRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.GeoCoordinatesRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.ProvinceRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.ProvinceSpecification;
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
+import com.opencsv.bean.HeaderColumnNameMappingStrategy;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
+import projectlx.co.zw.locationsmanagementservice.utils.dtos.ProvinceCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ProvinceDto;
 import projectlx.co.zw.locationsmanagementservice.utils.enums.I18Code;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.CreateProvinceRequest;
@@ -52,6 +56,9 @@ import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -103,8 +110,9 @@ public class ProvinceServiceImpl implements ProvinceService {
                     null, null);
         }
 
+        String normalizedName = Validators.capitalizeWords(request.getName());
         Optional<Province> provinceRetrieved =
-                provinceRepository.findByNameAndEntityStatusNot(request.getName(), EntityStatus.DELETED);
+                provinceRepository.findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
 
         if (provinceRetrieved.isPresent()) {
             message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_ALREADY_EXISTS.getCode(), new String[]{},
@@ -113,9 +121,17 @@ public class ProvinceServiceImpl implements ProvinceService {
                     null, null);
         }
 
-        request.setName(Validators.capitalizeWords(request.getName()));
+        Optional<Province> deletedProvince = provinceRepository.findByName(normalizedName)
+                .filter(province -> province.getEntityStatus() == EntityStatus.DELETED);
+
+        request.setName(normalizedName);
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        Province provinceToBeSaved = modelMapper.map(request, Province.class);
+        Province provinceToBeSaved = deletedProvince.orElseGet(Province::new);
+        if (deletedProvince.isPresent()) {
+            modelMapper.map(request, provinceToBeSaved);
+        } else {
+            provinceToBeSaved = modelMapper.map(request, Province.class);
+        }
         provinceToBeSaved.setCountry(countryRetrieved.get());
 
         if (request.getAdministrativeLevelId() != null) {
@@ -129,20 +145,31 @@ public class ProvinceServiceImpl implements ProvinceService {
             }
             provinceToBeSaved.setAdministrativeLevel(administrativeLevelOptional.get());
         }
+        if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            return buildProvinceResponse(400, false, message, null, null, null);
+        }
 
-        if (request.getGeoCoordinatesId() != null) {
-            Optional<GeoCoordinates> geoCoordinatesOptional = geoCoordinatesRepository
-                    .findByIdAndEntityStatusNot(request.getGeoCoordinatesId(), EntityStatus.DELETED);
-            if (geoCoordinatesOptional.isEmpty()) {
-                message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{},
-                        locale);
-                return buildProvinceResponse(404, false, message, null,
-                        null, null);
-            }
+        if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            return buildProvinceResponse(400, false, message, null, null, null);
+        }
+        Optional<GeoCoordinates> geoCoordinatesOptional = resolveGeoCoordinates(
+                request.getGeoCoordinatesId(), request.getLatitude(), request.getLongitude());
+        if (request.getGeoCoordinatesId() != null && geoCoordinatesOptional.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildProvinceResponse(404, false, message, null, null, null);
+        }
+        if (geoCoordinatesOptional.isPresent()) {
             provinceToBeSaved.setGeoCoordinates(geoCoordinatesOptional.get());
         }
 
-        Province provinceSaved = provinceServiceAuditable.create(provinceToBeSaved, locale, username);
+        if (deletedProvince.isPresent()) {
+            provinceToBeSaved.setEntityStatus(EntityStatus.ACTIVE);
+        }
+        Province provinceSaved = deletedProvince.isPresent()
+                ? provinceServiceAuditable.update(provinceToBeSaved, locale, username)
+                : provinceServiceAuditable.create(provinceToBeSaved, locale, username);
         ProvinceDto provinceDtoReturned = modelMapper.map(provinceSaved, ProvinceDto.class);
         message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_CREATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -209,9 +236,14 @@ public class ProvinceServiceImpl implements ProvinceService {
             administrativeLevelRepository.findByIdAndEntityStatusNot(request.getAdministrativeLevelId(), EntityStatus.DELETED)
                     .ifPresent(provinceToBeEdited::setAdministrativeLevel);
         }
-        if (request.getGeoCoordinatesId() != null) {
-            geoCoordinatesRepository.findByIdAndEntityStatusNot(request.getGeoCoordinatesId(), EntityStatus.DELETED)
-                    .ifPresent(provinceToBeEdited::setGeoCoordinates);
+        Optional<GeoCoordinates> geoCoordinatesOptional = resolveGeoCoordinates(
+                request.getGeoCoordinatesId(), request.getLatitude(), request.getLongitude());
+        if (request.getGeoCoordinatesId() != null && geoCoordinatesOptional.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildProvinceResponse(404, false, message, null, null, null);
+        }
+        if (geoCoordinatesOptional.isPresent()) {
+            provinceToBeEdited.setGeoCoordinates(geoCoordinatesOptional.get());
         }
 
         Province provinceEdited = provinceServiceAuditable.update(provinceToBeEdited, locale, username);
@@ -258,6 +290,14 @@ public class ProvinceServiceImpl implements ProvinceService {
         }
         if (request.getEntityStatus() != null) {
             spec = spec.and(ProvinceSpecification.hasEntityStatus(request.getEntityStatus()));
+        }
+
+        if (request.getCountryId() != null) {
+            spec = spec.and(ProvinceSpecification.byCountry(request.getCountryId()));
+        }
+
+        if (request.getAdministrativeLevelId() != null) {
+            spec = spec.and(ProvinceSpecification.byAdministrativeLevel(request.getAdministrativeLevelId()));
         }
 
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
@@ -366,13 +406,85 @@ public class ProvinceServiceImpl implements ProvinceService {
 
     @Override
     public ImportSummary importProvinceFromCsv(InputStream csvInputStream) throws IOException {
-        // This method has an unusual OpenCV dependency and should be refactored.
-        // For now, returning a not implemented response.
-        return new ImportSummary(501, false, "Import not implemented.", 0, 0, 0, new ArrayList<>());
+        List<String> errors = new ArrayList<>();
+        int success = 0, failed = 0, total = 0;
+
+        try (Reader reader = new InputStreamReader(csvInputStream, StandardCharsets.UTF_8)) {
+            HeaderColumnNameMappingStrategy<ProvinceCsvDto> strategy = new HeaderColumnNameMappingStrategy<>();
+            strategy.setType(ProvinceCsvDto.class);
+
+            CsvToBean<ProvinceCsvDto> csvToBean = new CsvToBeanBuilder<ProvinceCsvDto>(reader)
+                    .withMappingStrategy(strategy)
+                    .withIgnoreLeadingWhiteSpace(true)
+                    .build();
+
+            List<ProvinceCsvDto> rows = csvToBean.parse();
+            total = rows.size();
+
+            int rowNum = 1;
+            for (ProvinceCsvDto row : rows) {
+                rowNum++;
+                try {
+                    if (row.getName() == null || row.getName().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing province name");
+                        continue;
+                    }
+                    if (row.getCountryId() == null) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing country ID");
+                        continue;
+                    }
+
+                    CreateProvinceRequest request = new CreateProvinceRequest();
+                    request.setName(row.getName());
+                    request.setCode(row.getCode());
+                    request.setCountryId(row.getCountryId());
+                    request.setAdministrativeLevelId(row.getAdministrativeLevelId());
+
+                    ProvinceResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
+
+                    if (response.isSuccess()) {
+                        success++;
+                    } else {
+                        failed++;
+                        errors.add("Row " + rowNum + ": " + response.getMessage());
+                    }
+                } catch (Exception e) {
+                    failed++;
+                    errors.add("Row " + rowNum + ": Unexpected error - " + e.getMessage());
+                }
+            }
+        }
+
+        int statusCode = success > 0 ? 200 : 400;
+        boolean isSuccess = success > 0;
+        String message = success > 0
+                ? "Import completed successfully. " + success + " out of " + total + " provinces imported."
+                : "Import failed. No provinces were imported.";
+
+        return new ImportSummary(statusCode, isSuccess, message, total, success, failed, errors);
     }
 
     private boolean isNotEmpty(String str) {
         return str != null && !str.trim().isEmpty();
+    }
+
+    private Optional<GeoCoordinates> resolveGeoCoordinates(Long geoCoordinatesId, BigDecimal latitude, BigDecimal longitude) {
+        if (latitude != null || longitude != null) {
+            if (latitude == null || longitude == null) {
+                return Optional.empty();
+            }
+            GeoCoordinates geoCoordinates = new GeoCoordinates();
+            geoCoordinates.setLatitude(latitude);
+            geoCoordinates.setLongitude(longitude);
+            GeoCoordinates saved = geoCoordinatesRepository.save(geoCoordinates);
+            return Optional.of(saved);
+        }
+        if (geoCoordinatesId == null) {
+            return Optional.empty();
+        }
+        return geoCoordinatesRepository.findByIdAndEntityStatusNot(geoCoordinatesId, EntityStatus.DELETED);
     }
 
     private Page<ProvinceDto> convertProvinceEntityToProvinceDto(Page<Province> provincePage) {

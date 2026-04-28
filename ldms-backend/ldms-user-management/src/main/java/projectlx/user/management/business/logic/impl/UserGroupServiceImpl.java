@@ -102,8 +102,9 @@ public class UserGroupServiceImpl implements UserGroupService {
                     null, validatorDto.getErrorMessages());
         }
 
+        String normalizedName = createUserGroupRequest.getName().toUpperCase();
         Optional<UserGroup> userGroupRetrieved =
-                    userGroupRepository.findByNameAndEntityStatusNot(createUserGroupRequest.getName(), EntityStatus.DELETED);
+                    userGroupRepository.findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
 
         if (userGroupRetrieved.isPresent()) {
 
@@ -114,11 +115,22 @@ public class UserGroupServiceImpl implements UserGroupService {
                         null, null);
         }
 
-        createUserGroupRequest.setName(createUserGroupRequest.getName().toUpperCase());
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserGroup userGroupToBeSaved = modelMapper.map(createUserGroupRequest, UserGroup.class);
+        Optional<UserGroup> deletedUserGroup = userGroupRepository.findByName(normalizedName)
+                .filter(group -> group.getEntityStatus() == EntityStatus.DELETED);
 
-        UserGroup userGroupSaved = userGroupServiceAuditable.create(userGroupToBeSaved, locale, username);
+        createUserGroupRequest.setName(normalizedName);
+        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserGroup userGroupSaved;
+        if (deletedUserGroup.isPresent()) {
+            UserGroup userGroupToBeReactivated = deletedUserGroup.get();
+            userGroupToBeReactivated.setName(normalizedName);
+            userGroupToBeReactivated.setDescription(createUserGroupRequest.getDescription());
+            userGroupToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
+            userGroupSaved = userGroupServiceAuditable.update(userGroupToBeReactivated, locale, username);
+        } else {
+            UserGroup userGroupToBeSaved = modelMapper.map(createUserGroupRequest, UserGroup.class);
+            userGroupSaved = userGroupServiceAuditable.create(userGroupToBeSaved, locale, username);
+        }
 
         UserGroupDto useGroupDtoReturned = modelMapper.map(userGroupSaved, UserGroupDto.class);
 

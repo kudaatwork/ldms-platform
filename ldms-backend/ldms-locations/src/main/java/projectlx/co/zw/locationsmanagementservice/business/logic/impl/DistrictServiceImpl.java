@@ -11,15 +11,9 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import lombok.RequiredArgsConstructor;
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.Map;
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
+import com.opencsv.bean.HeaderColumnNameMappingStrategy;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -45,6 +39,7 @@ import projectlx.co.zw.locationsmanagementservice.repository.DistrictRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.GeoCoordinatesRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.ProvinceRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.DistrictSpecification;
+import projectlx.co.zw.locationsmanagementservice.utils.dtos.DistrictCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.DistrictDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
 import projectlx.co.zw.locationsmanagementservice.utils.enums.I18Code;
@@ -63,6 +58,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -118,8 +114,9 @@ public class DistrictServiceImpl implements DistrictService {
                     null, null);
         }
 
+        String normalizedName = Validators.capitalizeWords(request.getName());
         Optional<District> districtRetrieved =
-                districtRepository.findByNameAndEntityStatusNot(request.getName(), EntityStatus.DELETED);
+                districtRepository.findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
 
         if (districtRetrieved.isPresent()) {
 
@@ -130,28 +127,36 @@ public class DistrictServiceImpl implements DistrictService {
                     null, null);
         }
 
-        request.setName(Validators.capitalizeWords(request.getName()));
+        Optional<District> deletedDistrict = districtRepository.findByName(normalizedName)
+                .filter(district -> district.getEntityStatus() == EntityStatus.DELETED);
+
+        request.setName(normalizedName);
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        District districtToBeSaved = modelMapper.map(request, District.class);
+        District districtToBeSaved = deletedDistrict.orElseGet(District::new);
+        if (deletedDistrict.isPresent()) {
+            modelMapper.map(request, districtToBeSaved);
+        } else {
+            districtToBeSaved = modelMapper.map(request, District.class);
+        }
 
         // Set the province
         districtToBeSaved.setProvince(provinceRetrieved.get());
+        if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            return buildDistrictResponse(400, false, message, null, null, null);
+        }
 
-        // Set geo coordinates if provided
-        if (request.getGeoCoordinatesId() != null) {
-
-            Optional<GeoCoordinates> geoCoordinatesOptional = geoCoordinatesRepository
-                    .findByIdAndEntityStatusNot(request.getGeoCoordinatesId(), EntityStatus.DELETED);
-
-            if (geoCoordinatesOptional.isEmpty()) {
-
-                message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{},
-                        locale);
-
-                return buildDistrictResponse(400, false, message, null,
-                        null, null);
-            }
-
+        if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            return buildDistrictResponse(400, false, message, null, null, null);
+        }
+        Optional<GeoCoordinates> geoCoordinatesOptional = resolveGeoCoordinates(
+                request.getGeoCoordinatesId(), request.getLatitude(), request.getLongitude());
+        if (request.getGeoCoordinatesId() != null && geoCoordinatesOptional.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildDistrictResponse(400, false, message, null, null, null);
+        }
+        if (geoCoordinatesOptional.isPresent()) {
             districtToBeSaved.setGeoCoordinates(geoCoordinatesOptional.get());
         }
 
@@ -172,7 +177,12 @@ public class DistrictServiceImpl implements DistrictService {
             districtToBeSaved.setAdministrativeLevel(administrativeLevelOptional.get());
         }
 
-        District districtSaved = districtServiceAuditable.create(districtToBeSaved, locale, username);
+        if (deletedDistrict.isPresent()) {
+            districtToBeSaved.setEntityStatus(EntityStatus.ACTIVE);
+        }
+        District districtSaved = deletedDistrict.isPresent()
+                ? districtServiceAuditable.update(districtToBeSaved, locale, username)
+                : districtServiceAuditable.create(districtToBeSaved, locale, username);
 
         DistrictDto districtDtoReturned = modelMapper.map(districtSaved, DistrictDto.class);
 
@@ -288,21 +298,13 @@ public class DistrictServiceImpl implements DistrictService {
             }
         }
 
-        // Handle geo coordinates if provided
-        if (request.getGeoCoordinatesId() != null) {
-
-            Optional<GeoCoordinates> geoCoordinatesOptional = geoCoordinatesRepository
-                    .findByIdAndEntityStatusNot(request.getGeoCoordinatesId(), EntityStatus.DELETED);
-
-            if (geoCoordinatesOptional.isEmpty()) {
-
-                message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{},
-                        locale);
-
-                return buildDistrictResponse(400, false, message, null,
-                        null, null);
-            }
-
+        Optional<GeoCoordinates> geoCoordinatesOptional = resolveGeoCoordinates(
+                request.getGeoCoordinatesId(), request.getLatitude(), request.getLongitude());
+        if (request.getGeoCoordinatesId() != null && geoCoordinatesOptional.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildDistrictResponse(400, false, message, null, null, null);
+        }
+        if (geoCoordinatesOptional.isPresent()) {
             districtToBeEdited.setGeoCoordinates(geoCoordinatesOptional.get());
         }
 
@@ -414,6 +416,16 @@ public class DistrictServiceImpl implements DistrictService {
             spec = addToSpec(request.getEntityStatus(), spec, DistrictSpecification::hasEntityStatus);
         }
 
+        if (request.getProvinceId() != null) {
+            Specification<District> byProvince = DistrictSpecification.byProvince(request.getProvinceId());
+            spec = (spec == null) ? byProvince : spec.and(byProvince);
+        }
+
+        if (request.getAdministrativeLevelId() != null) {
+            Specification<District> byLevel = DistrictSpecification.byAdministrativeLevel(request.getAdministrativeLevelId());
+            spec = (spec == null) ? byLevel : spec.and(byLevel);
+        }
+
         Page<District> result = districtRepository.findAll(spec, pageable);
 
         if (result.getContent().isEmpty()) {
@@ -460,6 +472,23 @@ public class DistrictServiceImpl implements DistrictService {
             return spec;
         }
         return spec;
+    }
+
+    private Optional<GeoCoordinates> resolveGeoCoordinates(Long geoCoordinatesId, BigDecimal latitude, BigDecimal longitude) {
+        if (latitude != null || longitude != null) {
+            if (latitude == null || longitude == null) {
+                return Optional.empty();
+            }
+            GeoCoordinates geoCoordinates = new GeoCoordinates();
+            geoCoordinates.setLatitude(latitude);
+            geoCoordinates.setLongitude(longitude);
+            GeoCoordinates saved = geoCoordinatesRepository.save(geoCoordinates);
+            return Optional.of(saved);
+        }
+        if (geoCoordinatesId == null) {
+            return Optional.empty();
+        }
+        return geoCoordinatesRepository.findByIdAndEntityStatusNot(geoCoordinatesId, EntityStatus.DELETED);
     }
 
     private Page<DistrictDto> convertDistrictEntityToDistrictDto(Page<District> districtPage) {
@@ -578,103 +607,41 @@ public class DistrictServiceImpl implements DistrictService {
 
     @Override
     public ImportSummary importDistrictFromCsv(InputStream csvInputStream) throws IOException {
-
         List<String> errors = new ArrayList<>();
         int success = 0, failed = 0, total = 0;
 
-        // Load OpenCV native library
-        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+        try (Reader reader = new InputStreamReader(csvInputStream, StandardCharsets.UTF_8)) {
+            HeaderColumnNameMappingStrategy<DistrictCsvDto> strategy = new HeaderColumnNameMappingStrategy<>();
+            strategy.setType(DistrictCsvDto.class);
 
-        // Create a temporary file from the input stream
-        File tempFile = File.createTempFile("district_import", ".csv");
-        try (FileOutputStream out = new FileOutputStream(tempFile)) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = csvInputStream.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
-            }
-        }
+            CsvToBean<DistrictCsvDto> csvToBean = new CsvToBeanBuilder<DistrictCsvDto>(reader)
+                    .withMappingStrategy(strategy)
+                    .withIgnoreLeadingWhiteSpace(true)
+                    .build();
 
-        // Read CSV file using OpenCV
-        Mat csvData = new Mat();
+            List<DistrictCsvDto> rows = csvToBean.parse();
+            total = rows.size();
 
-        // Convert the CSV file to a string for processing
-        String csvContent = new String(Files.readAllBytes(tempFile.toPath()), StandardCharsets.UTF_8);
-        String[] lines = csvContent.split("\\r?\\n");
-
-        // Extract headers
-        if (lines.length > 0) {
-            String[] headers = lines[0].split(",");
-            Map<String, Integer> headerMap = new HashMap<>();
-
-            for (int i = 0; i < headers.length; i++) {
-                headerMap.put(headers[i].trim(), i);
-            }
-
-            // Process data rows
-            total = lines.length - 1; // Exclude header row
-
-            for (int rowIndex = 1; rowIndex < lines.length; rowIndex++) {
+            int rowNum = 1;
+            for (DistrictCsvDto row : rows) {
+                rowNum++;
                 try {
-                    String[] values = lines[rowIndex].split(",");
+                    if (row.getName() == null || row.getName().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing district name");
+                        continue;
+                    }
+                    if (row.getProvinceId() == null) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing province ID");
+                        continue;
+                    }
 
                     CreateDistrictRequest request = new CreateDistrictRequest();
-
-                    // Get values by header name
-                    Integer nameIndex = headerMap.get("NAME");
-                    if (nameIndex != null && nameIndex < values.length) {
-                        request.setName(values[nameIndex].trim());
-                    }
-
-                    Integer codeIndex = headerMap.get("CODE");
-                    if (codeIndex != null && codeIndex < values.length) {
-                        request.setCode(values[codeIndex].trim());
-                    }
-
-                    // Parse province ID
-                    Integer provinceIdIndex = headerMap.get("PROVINCE ID");
-                    if (provinceIdIndex != null && provinceIdIndex < values.length) {
-                        String provinceIdStr = values[provinceIdIndex].trim();
-                        if (provinceIdStr != null && !provinceIdStr.isEmpty()) {
-                            try {
-                                request.setProvinceId(Long.parseLong(provinceIdStr));
-                            } catch (NumberFormatException e) {
-                                errors.add("Row " + rowIndex + ": Invalid Province ID format - " + e.getMessage());
-                                failed++;
-                                continue;
-                            }
-                        }
-                    }
-
-                    // Parse administrative level ID if present
-                    Integer adminLevelIdIndex = headerMap.get("ADMINISTRATIVE LEVEL ID");
-                    if (adminLevelIdIndex != null && adminLevelIdIndex < values.length) {
-                        String adminLevelIdStr = values[adminLevelIdIndex].trim();
-                        if (adminLevelIdStr != null && !adminLevelIdStr.isEmpty()) {
-                            try {
-                                request.setAdministrativeLevelId(Long.parseLong(adminLevelIdStr));
-                            } catch (NumberFormatException e) {
-                                errors.add("Row " + rowIndex + ": Invalid Administrative Level ID format - " + e.getMessage());
-                                failed++;
-                                continue;
-                            }
-                        }
-                    }
-
-                    // Parse geo coordinates ID if present
-                    Integer geoCoordinatesIdIndex = headerMap.get("GEO COORDINATES ID");
-                    if (geoCoordinatesIdIndex != null && geoCoordinatesIdIndex < values.length) {
-                        String geoCoordinatesIdStr = values[geoCoordinatesIdIndex].trim();
-                        if (geoCoordinatesIdStr != null && !geoCoordinatesIdStr.isEmpty()) {
-                            try {
-                                request.setGeoCoordinatesId(Long.parseLong(geoCoordinatesIdStr));
-                            } catch (NumberFormatException e) {
-                                errors.add("Row " + rowIndex + ": Invalid Geo Coordinates ID format - " + e.getMessage());
-                                failed++;
-                                continue;
-                            }
-                        }
-                    }
+                    request.setName(row.getName());
+                    request.setCode(row.getCode());
+                    request.setProvinceId(row.getProvinceId());
+                    request.setAdministrativeLevelId(row.getAdministrativeLevelId());
 
                     DistrictResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
 
@@ -682,20 +649,15 @@ public class DistrictServiceImpl implements DistrictService {
                         success++;
                     } else {
                         failed++;
-                        errors.add("Row " + rowIndex + ": " + response.getMessage());
+                        errors.add("Row " + rowNum + ": " + response.getMessage());
                     }
-
                 } catch (Exception e) {
                     failed++;
-                    errors.add("Row " + rowIndex + ": Unexpected error - " + e.getMessage());
+                    errors.add("Row " + rowNum + ": Unexpected error - " + e.getMessage());
                 }
             }
         }
 
-        // Delete the temporary file
-        tempFile.delete();
-
-        // Determine status code and success flag based on import results
         int statusCode = success > 0 ? 200 : 400;
         boolean isSuccess = success > 0;
         String message = success > 0

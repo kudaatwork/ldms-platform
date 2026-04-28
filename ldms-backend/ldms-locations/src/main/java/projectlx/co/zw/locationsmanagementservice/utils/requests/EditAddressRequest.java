@@ -4,6 +4,8 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @RequiredArgsConstructor
@@ -19,4 +21,6 @@ public class EditAddressRequest {
     // Relationships
     private Long suburbId;
     private Long geoCoordinatesId;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
 }

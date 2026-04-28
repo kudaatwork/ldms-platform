@@ -43,6 +43,10 @@ public class SuburbSpecification {
         };
     }
 
+    public static Specification<Suburb> byAdministrativeLevel(final Long administrativeLevelId) {
+        return (root, query, cb) -> cb.equal(root.get(Suburb_.administrativeLevel).get("id"), administrativeLevelId);
+    }
+
     public static Specification<Suburb> any(final String search) {
         return (root, query, cb) -> {
             Predicate p = cb.or(

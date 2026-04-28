@@ -87,8 +87,12 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                     null, validatorDto.getErrorMessages());
         }
 
-        Optional<NotificationTemplate> templateRetrieved = 
-                notificationTemplateRepository.findByTemplateKeyAndEntityStatusNot(createTemplateRequest.getTemplateKey(),
+        String normalizedTemplateKey = createTemplateRequest.getTemplateKey() != null
+                ? createTemplateRequest.getTemplateKey().trim()
+                : null;
+        createTemplateRequest.setTemplateKey(normalizedTemplateKey);
+        Optional<NotificationTemplate> templateRetrieved =
+                notificationTemplateRepository.findByTemplateKeyAndEntityStatusNot(normalizedTemplateKey,
                         EntityStatus.DELETED);
 
         if (templateRetrieved.isPresent()) {
@@ -97,11 +101,28 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                     null);
         }
 
+        Optional<NotificationTemplate> deletedTemplate = notificationTemplateRepository.findByTemplateKey(normalizedTemplateKey)
+                .filter(template -> template.getEntityStatus() == EntityStatus.DELETED);
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        NotificationTemplate templateToBeSaved = modelMapper.map(createTemplateRequest, NotificationTemplate.class);
-
-        NotificationTemplate templateSaved =
-                notificationTemplateServiceAuditable.create(templateToBeSaved, locale, username);
+        NotificationTemplate templateSaved;
+        if (deletedTemplate.isPresent()) {
+            NotificationTemplate templateToBeReactivated = deletedTemplate.get();
+            templateToBeReactivated.setTemplateKey(normalizedTemplateKey);
+            templateToBeReactivated.setDescription(createTemplateRequest.getDescription());
+            templateToBeReactivated.setChannels(createTemplateRequest.getChannels());
+            templateToBeReactivated.setEmailSubject(createTemplateRequest.getEmailSubject());
+            templateToBeReactivated.setEmailBodyHtml(createTemplateRequest.getEmailBodyHtml());
+            templateToBeReactivated.setSmsBody(createTemplateRequest.getSmsBody());
+            templateToBeReactivated.setInAppTitle(createTemplateRequest.getInAppTitle());
+            templateToBeReactivated.setInAppBody(createTemplateRequest.getInAppBody());
+            templateToBeReactivated.setWhatsappTemplateName(createTemplateRequest.getWhatsappTemplateName());
+            templateToBeReactivated.setActive(true);
+            templateToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
+            templateSaved = notificationTemplateServiceAuditable.update(templateToBeReactivated, locale, username);
+        } else {
+            NotificationTemplate templateToBeSaved = modelMapper.map(createTemplateRequest, NotificationTemplate.class);
+            templateSaved = notificationTemplateServiceAuditable.create(templateToBeSaved, locale, username);
+        }
 
         NotificationTemplateDto templateDtoReturned = modelMapper.map(templateSaved, NotificationTemplateDto.class);
 
@@ -553,18 +574,39 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                         template.setActive(true); // Default to active
                     }
 
+                    String normalizedTemplateKey = template.getTemplateKey() != null
+                            ? template.getTemplateKey().trim()
+                            : null;
+                    template.setTemplateKey(normalizedTemplateKey);
+
                     // Check if template with same key already exists
-                    Optional<NotificationTemplate> existingTemplate = 
+                    Optional<NotificationTemplate> existingTemplate =
                             notificationTemplateRepository.findByTemplateKeyAndEntityStatusNot(
-                                    template.getTemplateKey(), EntityStatus.DELETED);
+                                    normalizedTemplateKey, EntityStatus.DELETED);
 
                     if (existingTemplate.isPresent()) {
                         failed++;
                         errors.add("Row " + rowNum + ": Template with key '" + template.getTemplateKey() + "' already exists");
                         continue;
                     }
-
-                    notificationTemplateServiceAuditable.create(template, Locale.ENGLISH, CSV_IMPORT_ACTOR);
+                    Optional<NotificationTemplate> deletedTemplate = notificationTemplateRepository.findByTemplateKey(normalizedTemplateKey)
+                            .filter(existing -> existing.getEntityStatus() == EntityStatus.DELETED);
+                    if (deletedTemplate.isPresent()) {
+                        NotificationTemplate templateToBeReactivated = deletedTemplate.get();
+                        templateToBeReactivated.setDescription(template.getDescription());
+                        templateToBeReactivated.setChannels(template.getChannels());
+                        templateToBeReactivated.setEmailSubject(template.getEmailSubject());
+                        templateToBeReactivated.setEmailBodyHtml(template.getEmailBodyHtml());
+                        templateToBeReactivated.setSmsBody(template.getSmsBody());
+                        templateToBeReactivated.setInAppTitle(template.getInAppTitle());
+                        templateToBeReactivated.setInAppBody(template.getInAppBody());
+                        templateToBeReactivated.setWhatsappTemplateName(template.getWhatsappTemplateName());
+                        templateToBeReactivated.setActive(template.isActive());
+                        templateToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
+                        notificationTemplateServiceAuditable.update(templateToBeReactivated, Locale.ENGLISH, CSV_IMPORT_ACTOR);
+                    } else {
+                        notificationTemplateServiceAuditable.create(template, Locale.ENGLISH, CSV_IMPORT_ACTOR);
+                    }
                     success++;
 
                 } catch (Exception e) {

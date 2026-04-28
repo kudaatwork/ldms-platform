@@ -13,6 +13,10 @@ export class AuthInterceptor implements HttpInterceptor {
     if (!req.url.startsWith(base) && !req.url.startsWith('/api')) {
       return next.handle(req);
     }
+    // System endpoints are intentionally unauthenticated.
+    if (req.url.includes('/v1/system/')) {
+      return next.handle(req);
+    }
     const token = this.storage.getToken();
     if (!token) {
       return next.handle(req);

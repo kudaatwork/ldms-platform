@@ -1,3 +1,10 @@
+# The API Gateway always listens on 8091. Profile-specific config from the
+# Config Server may override this (and other settings), but this baseline
+# guarantees the port is correct even if the Config Server is unreachable
+# (the import below is `optional:`, so missing config does not fail startup).
+server:
+  port: ${GATEWAY_SERVER_PORT:8091}
+
 spring:
   application:
     name: ldms-api-gateway
@@ -9,6 +16,18 @@ spring:
     config:
       username: ${CONFIG_SERVER_USERNAME:developer}
       password: ${CONFIG_SERVER_PASSWORD:Config098()!}
+    gateway:
+      # Local fallback routes so the gateway still works when Config Server
+      # is unavailable (import above is optional).
+      routes:
+        - id: local-system-locations
+          uri: lb://ldms-location-management
+          predicates:
+            - Path=/ldms-locations/v1/system/**
+        - id: local-frontend-locations
+          uri: lb://ldms-location-management
+          predicates:
+            - Path=/ldms-locations/v1/frontend/**
 
 eureka:
   client:

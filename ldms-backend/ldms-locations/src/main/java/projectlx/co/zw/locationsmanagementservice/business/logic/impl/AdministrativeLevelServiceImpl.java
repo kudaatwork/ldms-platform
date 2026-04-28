@@ -1,5 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
+import com.opencsv.bean.HeaderColumnNameMappingStrategy;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
 import com.lowagie.text.Font;
@@ -33,6 +36,7 @@ import projectlx.co.zw.locationsmanagementservice.repository.AdministrativeLevel
 import projectlx.co.zw.locationsmanagementservice.repository.CountryRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.GeoCoordinatesRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.AdministrativeLevelSpecification;
+import projectlx.co.zw.locationsmanagementservice.utils.dtos.AdministrativeLevelCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.AdministrativeLevelDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
 import projectlx.co.zw.locationsmanagementservice.utils.enums.I18Code;
@@ -58,16 +62,6 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.Map;
-
 @RequiredArgsConstructor
 public class AdministrativeLevelServiceImpl implements AdministrativeLevelService {
 
@@ -103,13 +97,11 @@ public class AdministrativeLevelServiceImpl implements AdministrativeLevelServic
                     null, validatorDto.getErrorMessages());
         }
 
-        // Check if a similar administrative level already exists
-        List<AdministrativeLevel> existingAdministrativeLevels = administrativeLevelRepository.findAll().stream()
-                .filter(administrativeLevel -> administrativeLevel.getEntityStatus() != EntityStatus.DELETED &&
-                        administrativeLevel.getName().equalsIgnoreCase(request.getName()))
-                .collect(Collectors.toList());
+        String normalizedName = Validators.capitalizeWords(request.getName());
+        Optional<AdministrativeLevel> existingAdministrativeLevel = administrativeLevelRepository
+                .findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
 
-        if (!existingAdministrativeLevels.isEmpty()) {
+        if (existingAdministrativeLevel.isPresent()) {
 
             message = messageService.getMessage(I18Code.MESSAGE_ADMINISTRATIVE_LEVEL_ALREADY_EXISTS.getCode(), new String[]{},
                     locale);
@@ -117,6 +109,9 @@ public class AdministrativeLevelServiceImpl implements AdministrativeLevelServic
             return buildAdministrativeLevelResponse(400, false, message, null,
                     null, null);
         }
+
+        Optional<AdministrativeLevel> deletedAdministrativeLevel = administrativeLevelRepository.findByName(normalizedName)
+                .filter(level -> level.getEntityStatus() == EntityStatus.DELETED);
 
         // Find the country by ID
         Optional<Country> countryOptional = countryRepository.findByIdAndEntityStatusNot(request.getCountryId(), EntityStatus.DELETED);
@@ -130,16 +125,20 @@ public class AdministrativeLevelServiceImpl implements AdministrativeLevelServic
                     null, null);
         }
 
-        // Create new administrative level
-        AdministrativeLevel administrativeLevelToBeSaved = new AdministrativeLevel();
-        administrativeLevelToBeSaved.setName(request.getName());
+        // Create or reactivate administrative level
+        AdministrativeLevel administrativeLevelToBeSaved = deletedAdministrativeLevel.orElseGet(AdministrativeLevel::new);
+        administrativeLevelToBeSaved.setName(normalizedName);
         administrativeLevelToBeSaved.setCode(request.getCode());
         administrativeLevelToBeSaved.setLevel(request.getLevel());
         administrativeLevelToBeSaved.setDescription(request.getDescription());
         administrativeLevelToBeSaved.setCountry(countryOptional.get());
+        if (deletedAdministrativeLevel.isPresent()) {
+            administrativeLevelToBeSaved.setEntityStatus(EntityStatus.ACTIVE);
+        }
 
-        AdministrativeLevel administrativeLevelSaved = administrativeLevelServiceAuditable.create(administrativeLevelToBeSaved,
-                locale, username);
+        AdministrativeLevel administrativeLevelSaved = deletedAdministrativeLevel.isPresent()
+                ? administrativeLevelServiceAuditable.update(administrativeLevelToBeSaved, locale, username)
+                : administrativeLevelServiceAuditable.create(administrativeLevelToBeSaved, locale, username);
 
         AdministrativeLevelDto administrativeLevelDtoReturned = modelMapper.map(administrativeLevelSaved, AdministrativeLevelDto.class);
 
@@ -524,78 +523,41 @@ public class AdministrativeLevelServiceImpl implements AdministrativeLevelServic
 
     @Override
     public ImportSummary importAdministrativeLevelFromCsv(InputStream csvInputStream) throws IOException {
-
         List<String> errors = new ArrayList<>();
         int success = 0, failed = 0, total = 0;
 
-        // Load OpenCV native library
-        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+        try (Reader reader = new InputStreamReader(csvInputStream, StandardCharsets.UTF_8)) {
+            HeaderColumnNameMappingStrategy<AdministrativeLevelCsvDto> strategy = new HeaderColumnNameMappingStrategy<>();
+            strategy.setType(AdministrativeLevelCsvDto.class);
 
-        // Create a temporary file from the input stream
-        File tempFile = File.createTempFile("administrative_level_import", ".csv");
-        try (FileOutputStream out = new FileOutputStream(tempFile)) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = csvInputStream.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
-            }
-        }
+            CsvToBean<AdministrativeLevelCsvDto> csvToBean = new CsvToBeanBuilder<AdministrativeLevelCsvDto>(reader)
+                    .withMappingStrategy(strategy)
+                    .withIgnoreLeadingWhiteSpace(true)
+                    .build();
 
-        // Read CSV file using OpenCV
-        Mat csvData = new Mat();
+            List<AdministrativeLevelCsvDto> rows = csvToBean.parse();
+            total = rows.size();
 
-        // Convert the CSV file to a string for processing
-        String csvContent = new String(Files.readAllBytes(tempFile.toPath()), StandardCharsets.UTF_8);
-        String[] lines = csvContent.split("\\r?\\n");
-
-        // Extract headers
-        if (lines.length > 0) {
-            String[] headers = lines[0].split(",");
-            Map<String, Integer> headerMap = new HashMap<>();
-
-            for (int i = 0; i < headers.length; i++) {
-                headerMap.put(headers[i].trim(), i);
-            }
-
-            // Process data rows
-            total = lines.length - 1; // Exclude header row
-
-            for (int rowIndex = 1; rowIndex < lines.length; rowIndex++) {
+            int rowNum = 1;
+            for (AdministrativeLevelCsvDto row : rows) {
+                rowNum++;
                 try {
-                    String[] values = lines[rowIndex].split(",");
+                    if (row.getName() == null || row.getName().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing administrative level name");
+                        continue;
+                    }
+                    if (row.getLevel() == null) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing level number");
+                        continue;
+                    }
 
                     CreateAdministrativeLevelRequest request = new CreateAdministrativeLevelRequest();
-
-                    // Get values by header name
-                    Integer nameIndex = headerMap.get("NAME");
-                    if (nameIndex != null && nameIndex < values.length) {
-                        request.setName(values[nameIndex].trim());
-                    }
-
-                    Integer descriptionIndex = headerMap.get("DESCRIPTION");
-                    if (descriptionIndex != null && descriptionIndex < values.length) {
-                        request.setDescription(values[descriptionIndex].trim());
-                    }
-
-                    // Optional fields - check if they exist in the CSV
-                    Integer codeIndex = headerMap.get("CODE");
-                    if (codeIndex != null) { // Equivalent to record.isMapped("CODE")
-                        if (codeIndex < values.length) {
-                            request.setCode(values[codeIndex].trim());
-                        }
-                    }
-
-                    Integer levelIndex = headerMap.get("LEVEL");
-                    if (levelIndex != null) { // Equivalent to record.isMapped("LEVEL")
-                        if (levelIndex < values.length) {
-                            try {
-                                request.setLevel(Integer.parseInt(values[levelIndex].trim()));
-                            } catch (NumberFormatException e) {
-                                // Handle invalid level format
-                                request.setLevel(null);
-                            }
-                        }
-                    }
+                    request.setName(row.getName());
+                    request.setCode(row.getCode());
+                    request.setLevel(row.getLevel());
+                    request.setDescription(row.getDescription());
 
                     AdministrativeLevelResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
 
@@ -603,20 +565,15 @@ public class AdministrativeLevelServiceImpl implements AdministrativeLevelServic
                         success++;
                     } else {
                         failed++;
-                        errors.add("Row " + rowIndex + ": " + response.getMessage());
+                        errors.add("Row " + rowNum + ": " + response.getMessage());
                     }
-
                 } catch (Exception e) {
                     failed++;
-                    errors.add("Row " + rowIndex + ": Unexpected error - " + e.getMessage());
+                    errors.add("Row " + rowNum + ": Unexpected error - " + e.getMessage());
                 }
             }
         }
 
-        // Delete the temporary file
-        tempFile.delete();
-
-        // Determine status code and success flag based on import results
         int statusCode = success > 0 ? 200 : 400;
         boolean isSuccess = success > 0;
         String message = success > 0

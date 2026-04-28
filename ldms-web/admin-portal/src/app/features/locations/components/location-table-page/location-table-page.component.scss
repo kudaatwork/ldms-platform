@@ -50,3 +50,115 @@
   white-space: nowrap;
   padding-top: 4px;
 }
+
+.lx-table-loading {
+  margin: 8px 0 20px;
+}
+
+.lx-table-loading__text {
+  font-size: 13px;
+  color: var(--gray-500);
+  margin: 12px 0 0;
+}
+
+.lx-controls-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lx-controls-head__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.lx-controls-head__info-btn {
+  flex: 0 0 auto;
+  margin-top: -2px;
+  color: var(--gray-500, #64748b);
+  transition: color var(--ease-fast, 120ms ease), background var(--ease-fast, 120ms ease);
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+
+  &:hover {
+    color: var(--primary, #1976d2);
+    background: var(--gray-100, #f1f5f9);
+  }
+
+  &.is-on {
+    color: var(--primary, #1976d2);
+    background: var(--primary-light, #DBEAFE);
+  }
+}
+
+.lx-controls-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0 14px;
+  padding: 10px 12px;
+  border-left: 3px solid var(--primary, #1976d2);
+  background: var(--gray-50, #f5f7fb);
+  border-radius: 4px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--gray-700, #444);
+  animation: lx-controls-hint-in 180ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  strong {
+    color: var(--gray-900, #1f2330);
+    font-weight: 600;
+  }
+}
+
+.lx-controls-hint__icon {
+  flex: 0 0 auto;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  color: var(--primary, #1976d2);
+  margin-top: 1px;
+}
+
+@keyframes lx-controls-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Row action menu colors */
+:host ::ng-deep .lx-row-actions-menu .mat-mdc-menu-item.lx-action-view,
+:host ::ng-deep .lx-row-actions-menu .mat-mdc-menu-item.lx-action-view .mat-icon {
+  color: #2563eb !important;
+}
+
+:host ::ng-deep .lx-row-actions-menu .mat-mdc-menu-item.lx-action-edit,
+:host ::ng-deep .lx-row-actions-menu .mat-mdc-menu-item.lx-action-edit .mat-icon {
+  color: #d97706 !important;
+}
+
+:host ::ng-deep .lx-row-actions-menu .mat-mdc-menu-item.lx-action-delete,
+:host ::ng-deep .lx-row-actions-menu .mat-mdc-menu-item.lx-action-delete .mat-icon {
+  color: #dc2626 !important;
+}
+
+.lx-import-disclaimer {
+  margin-top: 4px;
+}
+
+:host ::ng-deep .lx-import-tooltip {
+  max-width: 320px;
+  white-space: normal;
+  font-size: 13px;
+  line-height: 1.45;
+}

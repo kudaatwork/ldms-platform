@@ -12,6 +12,7 @@ import java.util.Set;
 public interface UserRoleRepository extends JpaRepository<UserRole, Long>, JpaSpecificationExecutor<UserRole> {
     Optional<UserRole> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
     Optional<UserRole> findByRoleAndEntityStatusNot(String role, EntityStatus entityStatus);
+    Optional<UserRole> findByRole(String role);
     List<UserRole> findByEntityStatusNot(EntityStatus entityStatus);
     Set<UserRole> findByIdInAndEntityStatusNot(List<Long> userRoleIds, EntityStatus entityStatus);
 }

@@ -7,6 +7,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.AuditTrailService;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
@@ -43,10 +44,11 @@ public class AuditAspect {
             MethodSignature signature = (MethodSignature) joinPoint.getSignature();
             Auditable auditable = signature.getMethod().getAnnotation(Auditable.class);
 
-            String username = SecurityContextHolder.getContext().getAuthentication().getName();
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String username = (auth != null) ? auth.getName() : null;
 
             if (username == null || username.isEmpty() || username.equals("anonymousUser")) {
-                username = "SYSTEM"; // Fallback for unauthenticated or anonymous users
+                username = "SYSTEM";
             }
 
             assert auditable != null;

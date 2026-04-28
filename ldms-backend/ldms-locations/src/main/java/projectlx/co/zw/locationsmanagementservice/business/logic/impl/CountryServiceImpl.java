@@ -53,6 +53,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -96,32 +97,71 @@ public class CountryServiceImpl implements CountryService {
                     null, validatorDto.getErrorMessages());
         }
 
-        Optional<Country> countryRetrieved =
-                countryRepository.findByNameAndEntityStatusNot(createCountryRequest.getName(), EntityStatus.DELETED);
+        String normalizedName = Validators.capitalizeWords(createCountryRequest.getName().trim());
+        String normalizedIsoAlpha2Code = createCountryRequest.getIsoAlpha2Code().trim().toUpperCase();
+        String normalizedIsoAlpha3Code = createCountryRequest.getIsoAlpha3Code().trim().toUpperCase();
 
-        if (countryRetrieved.isPresent()) {
+        createCountryRequest.setName(normalizedName);
+        createCountryRequest.setIsoAlpha2Code(normalizedIsoAlpha2Code);
+        createCountryRequest.setIsoAlpha3Code(normalizedIsoAlpha3Code);
 
+        Optional<Country> activeByName = countryRepository.findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
+        Optional<Country> activeByIso2 = countryRepository.findByIsoAlpha2CodeAndEntityStatusNot(normalizedIsoAlpha2Code, EntityStatus.DELETED);
+        Optional<Country> activeByIso3 = countryRepository.findByIsoAlpha3CodeAndEntityStatusNot(normalizedIsoAlpha3Code, EntityStatus.DELETED);
+
+        if (activeByName.isPresent() || activeByIso2.isPresent() || activeByIso3.isPresent()) {
             message = messageService.getMessage(I18Code.MESSAGE_COUNTRY_ALREADY_EXISTS.getCode(), new String[]{},
                     locale);
-
             return buildCountryResponse(400, false, message, null,
                     null, null);
         }
 
-        createCountryRequest.setName(Validators.capitalizeWords(createCountryRequest.getName()));
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        Country countryToBeSaved = modelMapper.map(createCountryRequest, Country.class);
-
-        if (createCountryRequest.getGeoCoordinatesId() != null) {
-            // Fetch the GeoCoordinates entity from the database
-            Optional<GeoCoordinates> geoCoordinatesOptional =
-                    geoCoordinatesRepository.findById(createCountryRequest.getGeoCoordinatesId());
-
-            // If it exists, set the full entity object on the country to be saved
-            geoCoordinatesOptional.ifPresent(countryToBeSaved::setGeoCoordinates);
+        if ((createCountryRequest.getLatitude() == null) != (createCountryRequest.getLongitude() == null)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            return buildCountryResponse(400, false, message, null, null, null);
         }
 
-        Country countrySaved = countryServiceAuditable.create(countryToBeSaved, locale, username);
+        Optional<GeoCoordinates> geoCoordinatesOptional = resolveGeoCoordinates(
+                createCountryRequest.getGeoCoordinatesId(),
+                createCountryRequest.getLatitude(),
+                createCountryRequest.getLongitude());
+        if (createCountryRequest.getGeoCoordinatesId() != null && geoCoordinatesOptional.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildCountryResponse(400, false, message, null, null, null);
+        }
+        Optional<Country> deletedByName = countryRepository.findByName(normalizedName)
+                .filter(country -> country.getEntityStatus() == EntityStatus.DELETED);
+        Optional<Country> deletedByIso2 = countryRepository.findByIsoAlpha2Code(normalizedIsoAlpha2Code)
+                .filter(country -> country.getEntityStatus() == EntityStatus.DELETED);
+        Optional<Country> deletedByIso3 = countryRepository.findByIsoAlpha3Code(normalizedIsoAlpha3Code)
+                .filter(country -> country.getEntityStatus() == EntityStatus.DELETED);
+
+        Country countrySaved;
+        Optional<Country> deletedCountryOptional = deletedByName.isPresent() ? deletedByName
+                : deletedByIso2.isPresent() ? deletedByIso2
+                : deletedByIso3;
+
+        if (deletedCountryOptional.isPresent()) {
+            Country countryToBeReactivated = deletedCountryOptional.get();
+            countryToBeReactivated.setName(normalizedName);
+            countryToBeReactivated.setIsoAlpha2Code(normalizedIsoAlpha2Code);
+            countryToBeReactivated.setIsoAlpha3Code(normalizedIsoAlpha3Code);
+            countryToBeReactivated.setDialCode(createCountryRequest.getDialCode());
+            countryToBeReactivated.setTimezone(createCountryRequest.getTimezone());
+            countryToBeReactivated.setCurrencyCode(createCountryRequest.getCurrencyCode());
+            countryToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
+            if (geoCoordinatesOptional.isPresent()) {
+                countryToBeReactivated.setGeoCoordinates(geoCoordinatesOptional.get());
+            }
+            countrySaved = countryServiceAuditable.update(countryToBeReactivated, locale, username);
+        } else {
+            Country countryToBeSaved = modelMapper.map(createCountryRequest, Country.class);
+            if (geoCoordinatesOptional.isPresent()) {
+                countryToBeSaved.setGeoCoordinates(geoCoordinatesOptional.get());
+            }
+            countrySaved = countryServiceAuditable.create(countryToBeSaved, locale, username);
+        }
 
         CountryDto countryDtoReturned = modelMapper.map(countrySaved, CountryDto.class);
 
@@ -139,13 +179,13 @@ public class CountryServiceImpl implements CountryService {
 
         ValidatorDto validatorDto = countryServiceValidator.isIdValid(id, locale);
 
-        if(!validatorDto.getSuccess()) {
+        if (validatorDto == null || !validatorDto.getSuccess()) {
 
             message = messageService.getMessage(I18Code.MESSAGE_ID_SUPPLIED_INVALID.getCode(), new String[]
                     {}, locale);
 
             return buildCountryResponseWithErrors(400, false, message, null, null,
-                    null, validatorDto.getErrorMessages());
+                    null, validatorDto != null ? validatorDto.getErrorMessages() : new ArrayList<>());
         }
 
         Optional<Country> countryRetrieved = countryRepository.findByIdAndEntityStatusNot(id,
@@ -235,12 +275,20 @@ public class CountryServiceImpl implements CountryService {
         countryToBeEdited.setTimezone(editCountryRequest.getTimezone());
         countryToBeEdited.setCurrencyCode(editCountryRequest.getCurrencyCode());
 
-        // Handle geo coordinates if provided
-        if (editCountryRequest.getGeoCoordinatesId() != null) {
-            Optional<GeoCoordinates> geoCoordinatesOptional = geoCoordinatesRepository.findById(editCountryRequest.getGeoCoordinatesId());
-            if (geoCoordinatesOptional.isPresent()) {
-                countryToBeEdited.setGeoCoordinates(geoCoordinatesOptional.get());
-            }
+        if ((editCountryRequest.getLatitude() == null) != (editCountryRequest.getLongitude() == null)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            return buildCountryResponse(400, false, message, null, null, null);
+        }
+        Optional<GeoCoordinates> geoCoordinatesOptional = resolveGeoCoordinates(
+                editCountryRequest.getGeoCoordinatesId(),
+                editCountryRequest.getLatitude(),
+                editCountryRequest.getLongitude());
+        if (editCountryRequest.getGeoCoordinatesId() != null && geoCoordinatesOptional.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildCountryResponse(400, false, message, null, null, null);
+        }
+        if (geoCoordinatesOptional.isPresent()) {
+            countryToBeEdited.setGeoCoordinates(geoCoordinatesOptional.get());
         }
 
         Country countryEdited = countryServiceAuditable.update(countryToBeEdited, locale, username);
@@ -262,13 +310,13 @@ public class CountryServiceImpl implements CountryService {
 
         ValidatorDto validatorDto = countryServiceValidator.isIdValid(id, locale);
 
-        if (!validatorDto.getSuccess()) {
+        if (validatorDto == null || !validatorDto.getSuccess()) {
 
             message = messageService.getMessage(I18Code.MESSAGE_ID_SUPPLIED_INVALID.getCode(), new String[]{},
                     locale);
 
             return buildCountryResponseWithErrors(400, false, message, null, null,
-                    null, validatorDto.getErrorMessages());
+                    null, validatorDto != null ? validatorDto.getErrorMessages() : new ArrayList<>());
         }
 
         Optional<Country> countryRetrieved = countryRepository.findByIdAndEntityStatusNot(id,
@@ -373,6 +421,23 @@ public class CountryServiceImpl implements CountryService {
         return value == null ? "" : value.replace(",", " ");
     }
 
+    private Optional<GeoCoordinates> resolveGeoCoordinates(Long geoCoordinatesId, BigDecimal latitude, BigDecimal longitude) {
+        if (latitude != null || longitude != null) {
+            if (latitude == null || longitude == null) {
+                return Optional.empty();
+            }
+            GeoCoordinates geoCoordinates = new GeoCoordinates();
+            geoCoordinates.setLatitude(latitude);
+            geoCoordinates.setLongitude(longitude);
+            GeoCoordinates saved = geoCoordinatesRepository.save(geoCoordinates);
+            return Optional.of(saved);
+        }
+        if (geoCoordinatesId == null) {
+            return Optional.empty();
+        }
+        return geoCoordinatesRepository.findByIdAndEntityStatusNot(geoCoordinatesId, EntityStatus.DELETED);
+    }
+
     @Override
     public byte[] exportToCsv(List<CountryDto> items) {
 
@@ -389,7 +454,8 @@ public class CountryServiceImpl implements CountryService {
                     .append(safe(country.getCurrencyCode())).append(",")
                     .append(country.getCreatedAt()).append(",")
                     .append(country.getUpdatedAt()).append(",")
-                    .append(country.getEntityStatus()).append("\n");
+                    .append(country.getEntityStatus()).append(",")
+                    .append(country.getGeoCoordinatesId() != null ? country.getGeoCoordinatesId() : "").append("\n");
         }
 
         return sb.toString().getBytes(StandardCharsets.UTF_8);
@@ -421,6 +487,7 @@ public class CountryServiceImpl implements CountryService {
             row.createCell(7).setCellValue(country.getCreatedAt() != null ? country.getCreatedAt().toString() : "");
             row.createCell(8).setCellValue(country.getUpdatedAt() != null ? country.getUpdatedAt().toString() : "");
             row.createCell(9).setCellValue(country.getEntityStatus() != null ? country.getEntityStatus().toString() : "");
+            row.createCell(10).setCellValue(country.getGeoCoordinatesId() != null ? country.getGeoCoordinatesId() : 0L);
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -459,6 +526,7 @@ public class CountryServiceImpl implements CountryService {
             table.addCell(country.getCreatedAt() != null ? country.getCreatedAt().toString() : "");
             table.addCell(country.getUpdatedAt() != null ? country.getUpdatedAt().toString() : "");
             table.addCell(country.getEntityStatus() != null ? country.getEntityStatus().toString() : "");
+            table.addCell(country.getGeoCoordinatesId() != null ? country.getGeoCoordinatesId().toString() : "");
         }
 
         document.add(table);

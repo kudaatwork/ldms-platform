@@ -16,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,10 +41,10 @@ import projectlx.co.zw.shared_library.utils.constants.Constants;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-@CrossOrigin
 @RestController
 @RequestMapping("/ldms-locations/v1/frontend/suburb")
 @Tag(name = "Suburb Frontend Resource", description = "Operations related to managing suburbs")
@@ -177,9 +176,12 @@ public class SuburbFrontendResource {
         try {
             logger.info("Incoming request to export suburbs in {} format with filters: {}", format, filters);
 
-            // First get the suburbs based on filters
+            filters.setPage(0);
+            filters.setSize(Integer.MAX_VALUE);
             SuburbResponse response = suburbServiceProcessor.findByMultipleFilters(filters, username, locale);
-            List<SuburbDto> suburbList = response.getSuburbDtoList();
+            List<SuburbDto> suburbList = response.getSuburbDtoPage() != null
+                    ? response.getSuburbDtoPage().getContent()
+                    : new ArrayList<>();
 
             switch (format.toLowerCase()) {
                 case "csv":
@@ -246,7 +248,7 @@ public class SuburbFrontendResource {
 
             try (InputStream inputStream = file.getInputStream()) {
                 ImportSummary summary = suburbServiceProcessor.importFromCsv(inputStream);
-                return ResponseEntity.ok(summary);
+                return ResponseEntity.status(summary.getStatusCode()).body(summary);
             }
 
         } catch (IOException e) {

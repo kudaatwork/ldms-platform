@@ -14,7 +14,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -39,10 +38,10 @@ import projectlx.co.zw.shared_library.utils.constants.Constants;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-@CrossOrigin
 @RestController
 @RequestMapping("/ldms-locations/v1/system/address")
 @Tag(name = "Address System Resource", description = "Operations related to managing addresses (system)")
@@ -153,9 +152,12 @@ public class AddressSystemResource {
         try {
             logger.info("Incoming request to export addresses in {} format with filters: {}", format, filters);
 
-            // First get the addresses based on filters
+            filters.setPage(0);
+            filters.setSize(Integer.MAX_VALUE);
             AddressResponse response = addressServiceProcessor.findByMultipleFilters(filters, "SYSTEM", locale);
-            List<AddressDto> addressList = response.getAddressDtoList();
+            List<AddressDto> addressList = response.getAddressDtoPage() != null
+                    ? response.getAddressDtoPage().getContent()
+                    : new ArrayList<>();
 
             switch (format.toLowerCase()) {
                 case "csv":

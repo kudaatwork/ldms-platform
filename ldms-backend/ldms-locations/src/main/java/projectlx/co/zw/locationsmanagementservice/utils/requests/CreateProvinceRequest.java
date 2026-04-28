@@ -4,6 +4,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @ToString
@@ -17,4 +19,6 @@ public class CreateProvinceRequest {
     private Long countryId;
     private Long administrativeLevelId;
     private Long geoCoordinatesId;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
 }

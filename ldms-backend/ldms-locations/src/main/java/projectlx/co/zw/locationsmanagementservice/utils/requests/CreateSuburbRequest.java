@@ -4,6 +4,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @ToString
@@ -17,5 +19,7 @@ public class CreateSuburbRequest {
     // Relationships
     private Long districtId;
     private Long geoCoordinatesId;
+    private BigDecimal latitude;
+    private BigDecimal longitude;
     private Long administrativeLevelId;
 }

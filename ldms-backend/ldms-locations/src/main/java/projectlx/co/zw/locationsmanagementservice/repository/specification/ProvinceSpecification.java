@@ -36,6 +36,10 @@ public class ProvinceSpecification {
         };
     }
 
+    public static Specification<Province> byAdministrativeLevel(final Long administrativeLevelId) {
+        return (root, query, cb) -> cb.equal(root.get(Province_.administrativeLevel).get("id"), administrativeLevelId);
+    }
+
     public static Specification<Province> any(final String search) {
         return (root, query, cb) -> {
             Predicate p = cb.or(

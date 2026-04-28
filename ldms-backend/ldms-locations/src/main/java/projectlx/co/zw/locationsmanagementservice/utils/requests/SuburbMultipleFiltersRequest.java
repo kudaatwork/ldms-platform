@@ -13,5 +13,7 @@ public class SuburbMultipleFiltersRequest extends MultipleFiltersRequest {
     private String name;
     private String code;
     private String postalCode;
+    private Long districtId;
+    private Long administrativeLevelId;
     private EntityStatus entityStatus;
 }

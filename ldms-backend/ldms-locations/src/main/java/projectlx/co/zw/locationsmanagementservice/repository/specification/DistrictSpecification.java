@@ -36,6 +36,10 @@ public class DistrictSpecification {
         };
     }
 
+    public static Specification<District> byAdministrativeLevel(final Long administrativeLevelId) {
+        return (root, query, cb) -> cb.equal(root.get(District_.administrativeLevel).get("id"), administrativeLevelId);
+    }
+
     public static Specification<District> any(final String search) {
         return (root, query, cb) -> {
             Predicate p = cb.or(

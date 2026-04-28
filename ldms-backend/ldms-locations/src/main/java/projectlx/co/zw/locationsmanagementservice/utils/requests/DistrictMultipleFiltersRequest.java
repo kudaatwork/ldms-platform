@@ -12,5 +12,7 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 public class DistrictMultipleFiltersRequest extends MultipleFiltersRequest {
     private String name;
     private String code;
+    private Long provinceId;
+    private Long administrativeLevelId;
     private EntityStatus entityStatus;
 }

@@ -10,6 +10,7 @@ import java.util.Optional;
 public interface OrganizationRepository extends JpaRepository<Organization, Long>, JpaSpecificationExecutor<Organization> {
 
     Optional<Organization> findByEmailAndEntityStatusNot(String email, EntityStatus deleted);
+    Optional<Organization> findByEmail(String email);
 
     Optional<Organization> findByIdAndEntityStatusNot(Long id, EntityStatus deleted);
 }

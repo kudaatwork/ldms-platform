@@ -11,15 +11,9 @@ import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
 import lombok.RequiredArgsConstructor;
-import org.opencv.core.Core;
-import org.opencv.core.CvType;
-import org.opencv.core.Mat;
-
-import java.io.File;
-import java.io.FileOutputStream;
-import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.Map;
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
+import com.opencsv.bean.HeaderColumnNameMappingStrategy;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -42,6 +36,7 @@ import projectlx.co.zw.locationsmanagementservice.repository.AddressRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.GeoCoordinatesRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.SuburbRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.AddressSpecification;
+import projectlx.co.zw.locationsmanagementservice.utils.dtos.AddressCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.AddressDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
 import projectlx.co.zw.locationsmanagementservice.utils.enums.I18Code;
@@ -58,6 +53,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -149,16 +145,21 @@ public class AddressServiceImpl implements AddressService {
         
         // Set suburb (we already verified it exists)
         addressToBeSaved.setSuburb(suburbOptional.get());
+        if ((createAddressRequest.getLatitude() == null) != (createAddressRequest.getLongitude() == null)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            return buildAddressResponse(400, false, message, null, null, null);
+        }
 
-        // Set geo coordinates if provided
-        if (createAddressRequest.getGeoCoordinatesId() != null) {
-
-            Optional<GeoCoordinates> geoCoordinatesOptional = geoCoordinatesRepository.findByIdAndEntityStatusNot(createAddressRequest.getGeoCoordinatesId(),
-                    EntityStatus.DELETED);
-
-            if (geoCoordinatesOptional.isPresent()) {
-                addressToBeSaved.setGeoCoordinates(geoCoordinatesOptional.get());
-            }
+        Optional<GeoCoordinates> geoCoordinatesOptional = resolveGeoCoordinates(
+                createAddressRequest.getGeoCoordinatesId(),
+                createAddressRequest.getLatitude(),
+                createAddressRequest.getLongitude());
+        if (createAddressRequest.getGeoCoordinatesId() != null && geoCoordinatesOptional.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildAddressResponse(400, false, message, null, null, null);
+        }
+        if (geoCoordinatesOptional.isPresent()) {
+            addressToBeSaved.setGeoCoordinates(geoCoordinatesOptional.get());
         }
 
         Address addressSaved = addressServiceAuditable.create(addressToBeSaved, locale, username);
@@ -281,13 +282,18 @@ public class AddressServiceImpl implements AddressService {
             }
         }
 
-        // Handle geo coordinates if provided
-        if (request.getGeoCoordinatesId() != null) {
-            Optional<GeoCoordinates> geoCoordinatesOptional = geoCoordinatesRepository.findByIdAndEntityStatusNot(
-                    request.getGeoCoordinatesId(), EntityStatus.DELETED);
-            if (geoCoordinatesOptional.isPresent()) {
-                addressToBeEdited.setGeoCoordinates(geoCoordinatesOptional.get());
-            }
+        if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            return buildAddressResponse(400, false, message, null, null, null);
+        }
+        Optional<GeoCoordinates> geoCoordinatesOptional = resolveGeoCoordinates(
+                request.getGeoCoordinatesId(), request.getLatitude(), request.getLongitude());
+        if (request.getGeoCoordinatesId() != null && geoCoordinatesOptional.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_GEO_COORDINATES_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildAddressResponse(400, false, message, null, null, null);
+        }
+        if (geoCoordinatesOptional.isPresent()) {
+            addressToBeEdited.setGeoCoordinates(geoCoordinatesOptional.get());
         }
 
         Address addressEdited = addressServiceAuditable.update(addressToBeEdited, locale, username);
@@ -406,6 +412,23 @@ public class AddressServiceImpl implements AddressService {
 
     private boolean isNotEmpty(String str) {
         return str != null && !str.isEmpty();
+    }
+
+    private Optional<GeoCoordinates> resolveGeoCoordinates(Long geoCoordinatesId, BigDecimal latitude, BigDecimal longitude) {
+        if (latitude != null || longitude != null) {
+            if (latitude == null || longitude == null) {
+                return Optional.empty();
+            }
+            GeoCoordinates geoCoordinates = new GeoCoordinates();
+            geoCoordinates.setLatitude(latitude);
+            geoCoordinates.setLongitude(longitude);
+            GeoCoordinates saved = geoCoordinatesRepository.save(geoCoordinates);
+            return Optional.of(saved);
+        }
+        if (geoCoordinatesId == null) {
+            return Optional.empty();
+        }
+        return geoCoordinatesRepository.findByIdAndEntityStatusNot(geoCoordinatesId, EntityStatus.DELETED);
     }
 
     private Specification<Address> addToSpec(Specification<Address> spec,
@@ -585,79 +608,36 @@ public class AddressServiceImpl implements AddressService {
 
     @Override
     public ImportSummary importAddressFromCsv(InputStream csvInputStream) throws IOException {
-
         List<String> errors = new ArrayList<>();
         int success = 0, failed = 0, total = 0;
 
-        // Load OpenCV native library
-        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+        try (Reader reader = new InputStreamReader(csvInputStream, StandardCharsets.UTF_8)) {
+            HeaderColumnNameMappingStrategy<AddressCsvDto> strategy = new HeaderColumnNameMappingStrategy<>();
+            strategy.setType(AddressCsvDto.class);
 
-        // Create a temporary file from the input stream
-        File tempFile = File.createTempFile("address_import", ".csv");
-        try (FileOutputStream out = new FileOutputStream(tempFile)) {
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = csvInputStream.read(buffer)) != -1) {
-                out.write(buffer, 0, bytesRead);
-            }
-        }
+            CsvToBean<AddressCsvDto> csvToBean = new CsvToBeanBuilder<AddressCsvDto>(reader)
+                    .withMappingStrategy(strategy)
+                    .withIgnoreLeadingWhiteSpace(true)
+                    .build();
 
-        // Read CSV file using OpenCV
-        Mat csvData = new Mat();
+            List<AddressCsvDto> rows = csvToBean.parse();
+            total = rows.size();
 
-        // Convert the CSV file to a string for processing
-        String csvContent = new String(Files.readAllBytes(tempFile.toPath()), StandardCharsets.UTF_8);
-        String[] lines = csvContent.split("\\r?\\n");
-
-        // Extract headers
-        if (lines.length > 0) {
-            String[] headers = lines[0].split(",");
-            Map<String, Integer> headerMap = new HashMap<>();
-
-            for (int i = 0; i < headers.length; i++) {
-                headerMap.put(headers[i].trim(), i);
-            }
-
-            // Process data rows
-            total = lines.length - 1; // Exclude header row
-
-            for (int rowIndex = 1; rowIndex < lines.length; rowIndex++) {
+            int rowNum = 1;
+            for (AddressCsvDto row : rows) {
+                rowNum++;
                 try {
-                    String[] values = lines[rowIndex].split(",");
+                    if (row.getLine1() == null || row.getLine1().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing address line 1");
+                        continue;
+                    }
 
                     CreateAddressRequest request = new CreateAddressRequest();
-
-                    // Get values by header name
-                    Integer line1Index = headerMap.get("LINE 1");
-                    if (line1Index != null && line1Index < values.length) {
-                        request.setLine1(values[line1Index].trim());
-                    }
-
-                    Integer line2Index = headerMap.get("LINE 2");
-                    if (line2Index != null && line2Index < values.length) {
-                        request.setLine2(values[line2Index].trim());
-                    }
-
-                    Integer postalCodeIndex = headerMap.get("POSTAL CODE");
-                    if (postalCodeIndex != null && postalCodeIndex < values.length) {
-                        request.setPostalCode(values[postalCodeIndex].trim());
-                    }
-
-                    // Handle suburb ID if provided
-                    Integer suburbIdIndex = headerMap.get("SUBURB ID");
-                    if (suburbIdIndex != null && suburbIdIndex < values.length) {
-                        String suburbIdStr = values[suburbIdIndex].trim();
-                        if (suburbIdStr != null && !suburbIdStr.isEmpty()) {
-                            try {
-                                Long suburbId = Long.parseLong(suburbIdStr);
-                                request.setSuburbId(suburbId);
-                            } catch (NumberFormatException e) {
-                                errors.add("Row " + rowIndex + ": Invalid suburb ID format - " + e.getMessage());
-                                failed++;
-                                continue;
-                            }
-                        }
-                    }
+                    request.setLine1(row.getLine1());
+                    request.setLine2(row.getLine2());
+                    request.setPostalCode(row.getPostalCode());
+                    request.setSuburbId(row.getSuburbId());
 
                     AddressResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
 
@@ -665,20 +645,15 @@ public class AddressServiceImpl implements AddressService {
                         success++;
                     } else {
                         failed++;
-                        errors.add("Row " + rowIndex + ": " + response.getMessage());
+                        errors.add("Row " + rowNum + ": " + response.getMessage());
                     }
-
                 } catch (Exception e) {
                     failed++;
-                    errors.add("Row " + rowIndex + ": Unexpected error - " + e.getMessage());
+                    errors.add("Row " + rowNum + ": Unexpected error - " + e.getMessage());
                 }
             }
         }
 
-        // Delete the temporary file
-        tempFile.delete();
-
-        // Determine status code and success flag based on import results
         int statusCode = success > 0 ? 200 : 400;
         boolean isSuccess = success > 0;
         String message = success > 0

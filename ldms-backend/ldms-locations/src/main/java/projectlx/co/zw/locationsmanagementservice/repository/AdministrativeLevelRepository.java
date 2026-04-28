@@ -12,4 +12,5 @@ public interface AdministrativeLevelRepository extends JpaRepository<Administrat
 
     Optional<AdministrativeLevel> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
     Optional<AdministrativeLevel> findByNameAndEntityStatusNot(String name, EntityStatus entityStatus);
+    Optional<AdministrativeLevel> findByName(String name);
 }

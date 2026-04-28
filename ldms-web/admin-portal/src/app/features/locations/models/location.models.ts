@@ -140,6 +140,16 @@ export interface LocationNodeListResponse extends CommonApiFields {
   locationNodeDtoPage?: SpringPage<LocationNode>;
 }
 
+export interface ImportSummaryResponse {
+  statusCode?: number;
+  isSuccess?: boolean;
+  message?: string;
+  total?: number;
+  success?: number;
+  failed?: number;
+  errorMessages?: string[];
+}
+
 export type LocationEntityKind =
   | 'country'
   | 'province'

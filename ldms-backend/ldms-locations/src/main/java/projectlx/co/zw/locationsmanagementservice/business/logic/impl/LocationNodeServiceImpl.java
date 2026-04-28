@@ -4,15 +4,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.LocationNodeServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.LocationNodeService;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.LocationNodeServiceValidator;
 import projectlx.co.zw.locationsmanagementservice.model.LocationAlias;
 import projectlx.co.zw.locationsmanagementservice.model.LocationNode;
 import projectlx.co.zw.locationsmanagementservice.repository.LocationNodeRepository;
+import projectlx.co.zw.locationsmanagementservice.repository.specification.LocationNodeSpecification;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.LocationNodeDto;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.CreateLocationNodeRequest;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.EditLocationNodeRequest;
@@ -25,7 +26,6 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Slf4j
@@ -125,7 +125,7 @@ public class LocationNodeServiceImpl implements LocationNodeService {
     @Override
     public LocationNodeResponse findByParentId(Long parentId, java.util.Locale locale, String username) {
         List<LocationNodeDto> dtoList = locationNodeRepository.findByParentIdAndEntityStatusNot(parentId, EntityStatus.DELETED)
-                .stream().map(this::toDto).collect(Collectors.toList());
+                .stream().map(this::toDto).toList();
         return response(200, true, "Location nodes retrieved successfully", null, dtoList, null, null);
     }
 
@@ -136,21 +136,32 @@ public class LocationNodeServiceImpl implements LocationNodeService {
             return response(400, false, "Invalid filter request", null, null, null, validation.getErrorMessages());
         }
 
+        Specification<LocationNode> spec = Specification.where(LocationNodeSpecification.notDeleted());
+        spec = combineLocationNodeSpec(spec, LocationNodeSpecification.hasLocationType(request.getLocationType()));
+        spec = combineLocationNodeSpec(spec, LocationNodeSpecification.parentIdEquals(request.getParentId()));
+        spec = combineLocationNodeSpec(spec, LocationNodeSpecification.nameContains(request.getName()));
+        spec = combineLocationNodeSpec(spec, LocationNodeSpecification.codeContains(request.getCode()));
+        spec = combineLocationNodeSpec(spec, LocationNodeSpecification.timezoneContains(request.getTimezone()));
+        spec = combineLocationNodeSpec(spec, LocationNodeSpecification.parentNameContains(request.getParentName()));
+        spec = combineLocationNodeSpec(spec, LocationNodeSpecification.searchValueMatches(request.getSearchValue()));
+        spec = combineLocationNodeSpec(spec, LocationNodeSpecification.hasEntityStatus(request.getEntityStatus()));
+
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
-        Page<LocationNode> page;
-        if (request.getSearchValue() != null && !request.getSearchValue().isBlank()) {
-            page = locationNodeRepository.findByNameContainingIgnoreCaseAndEntityStatusNot(request.getSearchValue().trim(), EntityStatus.DELETED, pageable);
-        } else {
-            page = locationNodeRepository.findAll(pageable);
+        Page<LocationNode> page = locationNodeRepository.findAll(spec, pageable);
+
+        if (page.getContent().isEmpty()) {
+            return response(404, false, "Location nodes not found", null, null, null, null);
         }
 
-        List<LocationNode> filtered = page.getContent().stream()
-                .filter(node -> node.getEntityStatus() != EntityStatus.DELETED)
-                .filter(node -> request.getLocationType() == null || request.getLocationType() == node.getLocationType())
-                .filter(node -> request.getParentId() == null || (node.getParent() != null && request.getParentId().equals(node.getParent().getId())))
-                .collect(Collectors.toList());
-        List<LocationNodeDto> dtoList = filtered.stream().map(this::toDto).collect(Collectors.toList());
-        return response(200, true, "Location nodes retrieved successfully", null, null, new PageImpl<>(dtoList, pageable, page.getTotalElements()), null);
+        Page<LocationNodeDto> dtoPage = page.map(this::toDto);
+        return response(200, true, "Location nodes retrieved successfully", null, null, dtoPage, null);
+    }
+
+    private Specification<LocationNode> combineLocationNodeSpec(Specification<LocationNode> base, Specification<LocationNode> addition) {
+        if (addition == null) {
+            return base;
+        }
+        return base.and(addition);
     }
 
     @Override
@@ -205,7 +216,7 @@ public class LocationNodeServiceImpl implements LocationNodeService {
         dto.setLongitude(node.getLongitude());
         dto.setTimezone(node.getTimezone());
         dto.setPostalCode(node.getPostalCode());
-        dto.setAliases(node.getAliases().stream().map(LocationAlias::getAlias).collect(Collectors.toList()));
+        dto.setAliases(node.getAliases().stream().map(LocationAlias::getAlias).toList());
         dto.setEntityStatus(node.getEntityStatus());
         dto.setCreatedAt(node.getCreatedAt());
         dto.setCreatedBy(node.getCreatedBy());

@@ -17,7 +17,9 @@ public class GatewayJwtProperties {
             "/actuator/info",
             "/**/swagger-ui/**",
             "/**/v3/api-docs/**",
-            "**/api/**"
+            "/**/api/**",
+            "/**/v1/system/**",
+            "/**/v1/auth/**"
     ));
 
     private String rolesClaim = "roles";

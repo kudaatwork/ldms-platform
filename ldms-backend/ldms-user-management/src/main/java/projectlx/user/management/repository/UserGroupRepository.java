@@ -11,5 +11,6 @@ import java.util.Optional;
 public interface UserGroupRepository extends JpaRepository<UserGroup, Long>, JpaSpecificationExecutor<UserGroup> {
     Optional<UserGroup> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
     Optional<UserGroup> findByNameAndEntityStatusNot(String name, EntityStatus entityStatus);
+    Optional<UserGroup> findByName(String name);
     List<UserGroup> findByEntityStatusNot(EntityStatus entityStatus);
 }

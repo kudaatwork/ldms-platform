@@ -88,8 +88,9 @@ public class UserRoleServiceImpl implements UserRoleService {
                     validatorDto.getErrorMessages());
         }
 
+        String normalizedRole = createUserRoleRequest.getRole().toUpperCase();
         Optional<UserRole> userRoleRetrieved =
-                userRoleRepository.findByRoleAndEntityStatusNot(createUserRoleRequest.getRole(), EntityStatus.DELETED);
+                userRoleRepository.findByRoleAndEntityStatusNot(normalizedRole, EntityStatus.DELETED);
 
         if (userRoleRetrieved.isPresent()) {
 
@@ -100,11 +101,22 @@ public class UserRoleServiceImpl implements UserRoleService {
                     null, null);
         }
 
-        createUserRoleRequest.setRole(createUserRoleRequest.getRole().toUpperCase());
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserRole UserRoleToBeSaved = modelMapper.map(createUserRoleRequest, UserRole.class);
+        Optional<UserRole> deletedUserRole = userRoleRepository.findByRole(normalizedRole)
+                .filter(role -> role.getEntityStatus() == EntityStatus.DELETED);
 
-        UserRole userRoleSaved = userRoleServiceAuditable.create(UserRoleToBeSaved, locale, username);
+        createUserRoleRequest.setRole(normalizedRole);
+        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserRole userRoleSaved;
+        if (deletedUserRole.isPresent()) {
+            UserRole userRoleToBeReactivated = deletedUserRole.get();
+            userRoleToBeReactivated.setRole(normalizedRole);
+            userRoleToBeReactivated.setDescription(createUserRoleRequest.getDescription());
+            userRoleToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
+            userRoleSaved = userRoleServiceAuditable.update(userRoleToBeReactivated, locale, username);
+        } else {
+            UserRole userRoleToBeSaved = modelMapper.map(createUserRoleRequest, UserRole.class);
+            userRoleSaved = userRoleServiceAuditable.create(userRoleToBeSaved, locale, username);
+        }
 
         UserRoleDto useRoleDtoReturned = modelMapper.map(userRoleSaved, UserRoleDto.class);
 

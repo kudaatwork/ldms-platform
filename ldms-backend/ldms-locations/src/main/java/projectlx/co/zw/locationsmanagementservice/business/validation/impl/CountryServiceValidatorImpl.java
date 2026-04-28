@@ -66,11 +66,6 @@ public class CountryServiceValidatorImpl implements CountryServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_COUNTRY_CURRENCY_CODE_MISSING.getCode(), new String[]{}, locale));
         }
 
-        if (createCountryRequest.getGeoCoordinatesId() == null) {
-            logger.info("Validation failed: Country geo coordinates ID is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_COUNTRY_GEO_COORDINATES_ID_MISSING.getCode(), new String[]{}, locale));
-        }
-
         if (doesStringHaveDigit(createCountryRequest.getName())) {
             logger.info("Validation failed: Country name contains digits");
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_COUNTRY_NAME_INVALID.getCode(), new String[]{}, locale));
@@ -93,7 +88,8 @@ public class CountryServiceValidatorImpl implements CountryServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_ID_SUPPLIED_INVALID.getCode(), new String[]{}, locale));
             return new ValidatorDto(false, null, errors);
         }
-        return null;
+
+        return new ValidatorDto(true, null, null);
     }
 
     @Override
@@ -140,11 +136,6 @@ public class CountryServiceValidatorImpl implements CountryServiceValidator {
         if (request.getCurrencyCode() == null || request.getCurrencyCode().isEmpty()) {
             logger.info("Validation failed: Currency code is missing");
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_COUNTRY_CURRENCY_CODE_MISSING.getCode(), new String[]{}, locale));
-        }
-
-        if (request.getGeoCoordinatesId() == null) {
-            logger.info("Validation failed: Country geo coordinates ID is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_COUNTRY_GEO_COORDINATES_ID_MISSING.getCode(), new String[]{}, locale));
         }
 
         if (doesStringHaveDigit(request.getName())) {

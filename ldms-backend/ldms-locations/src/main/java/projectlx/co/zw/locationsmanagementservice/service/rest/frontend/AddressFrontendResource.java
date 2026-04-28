@@ -16,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,6 +35,7 @@ import projectlx.co.zw.shared_library.utils.constants.Constants;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.AddressDto;
@@ -45,7 +45,6 @@ import projectlx.co.zw.locationsmanagementservice.utils.requests.EditAddressRequ
 import projectlx.co.zw.locationsmanagementservice.utils.requests.AddressMultipleFiltersRequest;
 import projectlx.co.zw.locationsmanagementservice.utils.responses.AddressResponse;
 
-@CrossOrigin
 @RestController
 @RequestMapping("/ldms-locations/v1/frontend/address")
 @Tag(name = "Address Frontend Resource", description = "Operations related to managing addresses")
@@ -177,9 +176,12 @@ public class AddressFrontendResource {
         try {
             logger.info("Incoming request to export addresses in {} format with filters: {}", format, filters);
 
-            // First get the addresses based on filters
+            filters.setPage(0);
+            filters.setSize(Integer.MAX_VALUE);
             AddressResponse response = addressServiceProcessor.findByMultipleFilters(filters, username, locale);
-            List<AddressDto> addressList = response.getAddressDtoList();
+            List<AddressDto> addressList = response.getAddressDtoPage() != null
+                    ? response.getAddressDtoPage().getContent()
+                    : new ArrayList<>();
 
             switch (format.toLowerCase()) {
                 case "csv":
@@ -246,7 +248,7 @@ public class AddressFrontendResource {
 
             try (InputStream inputStream = file.getInputStream()) {
                 ImportSummary summary = addressServiceProcessor.importFromCsv(inputStream);
-                return ResponseEntity.ok(summary);
+                return ResponseEntity.status(summary.getStatusCode()).body(summary);
             }
 
         } catch (IOException e) {

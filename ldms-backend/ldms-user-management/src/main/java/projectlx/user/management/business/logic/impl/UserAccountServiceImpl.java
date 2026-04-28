@@ -91,8 +91,13 @@ public class UserAccountServiceImpl implements UserAccountService {
                     null, validatorDto.getErrorMessages());
         }
 
+        String normalizedPhoneNumber = createUserAccountRequest.getPhoneNumber() != null
+                ? createUserAccountRequest.getPhoneNumber().trim()
+                : null;
+        createUserAccountRequest.setPhoneNumber(normalizedPhoneNumber);
+
         Optional<UserAccount> userAccountRetrieved = userAccountRepository.findByPhoneNumberAndEntityStatusNot(
-                createUserAccountRequest.getPhoneNumber(), EntityStatus.DELETED);
+                normalizedPhoneNumber, EntityStatus.DELETED);
 
         if (userAccountRetrieved.isPresent()) {
 
@@ -115,13 +120,23 @@ public class UserAccountServiceImpl implements UserAccountService {
                     null);
         }
 
-        createUserAccountRequest.setAccountNumber(AccountNumberAndReferencesGenerator.getAccountNumber());
-
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserAccount userAccountToBeSaved = modelMapper.map(createUserAccountRequest, UserAccount.class);
-        userAccountToBeSaved.setUser(userRetrieved.get());
+        Optional<UserAccount> deletedUserAccount = userAccountRepository.findByPhoneNumber(normalizedPhoneNumber)
+                .filter(account -> account.getEntityStatus() == EntityStatus.DELETED);
 
-        UserAccount userAccountSaved = userAccountServiceAuditable.create(userAccountToBeSaved, locale, username);
+        UserAccount userAccountSaved;
+        if (deletedUserAccount.isPresent()) {
+            UserAccount userAccountToBeReactivated = deletedUserAccount.get();
+            userAccountToBeReactivated.setUser(userRetrieved.get());
+            userAccountToBeReactivated.setPhoneNumber(normalizedPhoneNumber);
+            userAccountToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
+            userAccountSaved = userAccountServiceAuditable.update(userAccountToBeReactivated, locale, username);
+        } else {
+            createUserAccountRequest.setAccountNumber(AccountNumberAndReferencesGenerator.getAccountNumber());
+            UserAccount userAccountToBeSaved = modelMapper.map(createUserAccountRequest, UserAccount.class);
+            userAccountToBeSaved.setUser(userRetrieved.get());
+            userAccountSaved = userAccountServiceAuditable.create(userAccountToBeSaved, locale, username);
+        }
 
         UserAccountDto userAccountDtoReturned = modelMapper.map(userAccountSaved, UserAccountDto.class);
 

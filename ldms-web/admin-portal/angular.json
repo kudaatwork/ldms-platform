@@ -80,7 +80,8 @@
               "buildTarget": "admin-portal:build:production"
             },
             "development": {
-              "buildTarget": "admin-portal:build:development"
+              "buildTarget": "admin-portal:build:development",
+              "proxyConfig": "proxy.conf.json"
             }
           },
           "defaultConfiguration": "development"

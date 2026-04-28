@@ -10,6 +10,7 @@ import java.util.Optional;
 
 public interface ProvinceRepository extends JpaRepository<Province, Long>, JpaSpecificationExecutor<Province> {
     Optional<Province> findByNameAndEntityStatusNot(String name, EntityStatus entityStatus);
+    Optional<Province> findByName(String name);
     Optional<Province> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
     Optional<Province> findByNameAndCountryAndEntityStatusNot(String longName, Country country, EntityStatus entityStatus);
 }
