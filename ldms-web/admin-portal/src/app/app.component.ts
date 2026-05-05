@@ -49,8 +49,8 @@ export class AppComponent implements OnInit {
   showShell = true;
   breadcrumbs: Breadcrumb[] = [];
 
-  /** Expanded when URL is under /locations (accordion + auto-expand on navigation). */
-  locationsExpanded = false;
+  /** Expanded state per sidebar group route (e.g. /locations, /activity). */
+  expandedGroups: Record<string, boolean> = {};
 
   /** Snapshot for templates (e.g. sidebar active states). */
   currentUrl = '';
@@ -84,7 +84,16 @@ export class AppComponent implements OnInit {
       ],
     },
     { label: 'Notifications', icon: 'notifications', route: '/notifications' },
-    { label: 'Audit Log', icon: 'receipt_long', route: '/activity' },
+    {
+      label: 'Audit Log',
+      icon: 'receipt_long',
+      route: '/activity',
+      children: [
+        { label: 'Request logs', icon: 'receipt', route: '/activity/request-logs' },
+        { label: 'Activity logs', icon: 'history', route: '/activity/activity-logs' },
+        { label: 'Churnout history', icon: 'restore', route: '/activity/churnout-history' },
+      ],
+    },
     { label: 'System Health', icon: 'monitor_heart', route: '/system/health' },
   ];
 
@@ -155,20 +164,28 @@ export class AppComponent implements OnInit {
     return n.id;
   }
 
-  toggleLocations(): void {
-    this.locationsExpanded = !this.locationsExpanded;
+  toggleGroup(route: string): void {
+    this.expandedGroups[route] = !this.expandedGroups[route];
     this.cdr.markForCheck();
   }
 
-  isLocationsSectionActive(url: string): boolean {
-    return url.startsWith('/locations');
+  isSectionActive(route: string, url: string): boolean {
+    return url.startsWith(route);
+  }
+
+  isGroupExpanded(route: string): boolean {
+    return Boolean(this.expandedGroups[route]);
   }
 
   private syncChromeFromUrl(): void {
     const url = this.router.url;
     this.currentUrl = url;
     this.showShell = !url.startsWith('/auth');
-    this.locationsExpanded = url.startsWith('/locations');
+    for (const item of this.navItems) {
+      if (item.children?.length) {
+        this.expandedGroups[item.route] = url.startsWith(item.route);
+      }
+    }
     this.pageTitle = this.resolvePageTitle(url);
     this.cdr.markForCheck();
   }
