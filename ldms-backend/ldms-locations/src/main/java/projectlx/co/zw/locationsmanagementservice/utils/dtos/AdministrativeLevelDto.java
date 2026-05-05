@@ -19,6 +19,11 @@ public class AdministrativeLevelDto {
     private String code;
     private Integer level;
     private String description;
+
+    /** Resolved from {@code country.id} for API consumers (not persisted on this DTO). */
+    private Long countryId;
+    /** Resolved from {@code country.name} for display. */
+    private String countryName;
     
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

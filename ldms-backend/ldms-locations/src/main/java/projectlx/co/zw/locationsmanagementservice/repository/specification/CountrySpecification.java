@@ -1,17 +1,26 @@
 package projectlx.co.zw.locationsmanagementservice.repository.specification;
 
+import jakarta.persistence.criteria.Expression;
+import jakarta.persistence.criteria.Predicate;
+import org.springframework.data.jpa.domain.Specification;
 import projectlx.co.zw.locationsmanagementservice.model.Country;
 import projectlx.co.zw.locationsmanagementservice.model.Country_;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
-import jakarta.persistence.criteria.Predicate;
-import org.springframework.data.jpa.domain.Specification;
 
 public class CountrySpecification {
 
-    public static Specification<Country> deleted(EntityStatus entityStatus) {
+    /**
+     * Exclude rows whose status is {@code excludedStatus}, matching case-insensitively on the DB string
+     * (imports / legacy data may use {@code deleted} vs {@code DELETED}). NULL/blank is treated as not deleted.
+     */
+    public static Specification<Country> deleted(EntityStatus excludedStatus) {
+        final String excluded = excludedStatus.name();
         return (root, query, cb) -> {
-            Predicate p = cb.notLike(root.get(Country_.entityStatus).as(String.class), "%" + entityStatus + "%");
-            return p;
+            var path = root.get(Country_.entityStatus);
+            Expression<String> raw = path.as(String.class);
+            Expression<String> norm = cb.upper(cb.trim(cb.coalesce(raw, cb.literal(""))));
+            // Explicit IS NULL: some SQL paths treat UPPER(TRIM(NULL)) as unknown and would drop rows otherwise.
+            return cb.or(cb.isNull(path), cb.notEqual(norm, excluded));
         };
     }
 
@@ -72,9 +81,17 @@ public class CountrySpecification {
     }
 
     public static Specification<Country> hasEntityStatus(final EntityStatus entityStatus) {
+        final String target = entityStatus.name();
         return (root, query, cb) -> {
-            Predicate p = cb.equal(root.get(Country_.entityStatus), entityStatus);
-            return p;
+            Expression<String> raw = root.get(Country_.entityStatus).as(String.class);
+            Expression<String> norm = cb.upper(cb.trim(cb.coalesce(raw, cb.literal(""))));
+            // Legacy NULL = treat as ACTIVE when filtering ACTIVE. Non-canonical casing on the column still matches.
+            if (entityStatus == EntityStatus.ACTIVE) {
+                return cb.or(
+                        cb.isNull(root.get(Country_.entityStatus)),
+                        cb.equal(norm, target));
+            }
+            return cb.equal(norm, target);
         };
     }
 }

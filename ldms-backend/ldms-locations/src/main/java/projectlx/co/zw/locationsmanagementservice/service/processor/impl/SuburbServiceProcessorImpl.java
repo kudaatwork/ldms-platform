@@ -136,7 +136,7 @@ public class SuburbServiceProcessorImpl implements SuburbServiceProcessor {
         ImportSummary importSummary = suburbService.importSuburbFromCsv(csvInputStream);
 
         logger.info("Outgoing response after importing suburbs from CSV: Total: {}, Success: {}, Failed: {}",
-                importSummary.total, importSummary.success, importSummary.failed);
+                importSummary.total, importSummary.importedCount, importSummary.failed);
 
         return importSummary;
     }

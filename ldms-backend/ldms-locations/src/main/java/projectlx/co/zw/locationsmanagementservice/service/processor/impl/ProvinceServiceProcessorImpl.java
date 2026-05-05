@@ -126,7 +126,7 @@ public class ProvinceServiceProcessorImpl implements ProvinceServiceProcessor {
         logger.info("Incoming request to import provinces from CSV");
         ImportSummary importSummary = provinceService.importProvinceFromCsv(csvInputStream);
         logger.info("Outgoing response after importing provinces from CSV: Total: {}, Success: {}, Failed: {}",
-                importSummary.total, importSummary.success, importSummary.failed);
+                importSummary.total, importSummary.importedCount, importSummary.failed);
         return importSummary;
     }
 }

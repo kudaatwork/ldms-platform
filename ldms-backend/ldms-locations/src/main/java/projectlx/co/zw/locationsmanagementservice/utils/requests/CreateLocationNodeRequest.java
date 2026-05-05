@@ -16,6 +16,8 @@ public class CreateLocationNodeRequest {
     private String code;
     private LocationType locationType;
     private Long parentId;
+    private Long districtId;
+    private Long suburbId;
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String timezone;

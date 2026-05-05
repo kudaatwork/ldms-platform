@@ -135,7 +135,7 @@ public class CountryServiceProcessorImpl implements CountryServiceProcessor {
         ImportSummary importSummary = countryService.importCountryFromCsv(csvInputStream);
 
         logger.info("Outgoing response after importing countries from CSV: Total: {}, Success: {}, Failed: {}",
-                importSummary.total, importSummary.success, importSummary.failed);
+                importSummary.total, importSummary.importedCount, importSummary.failed);
 
         return importSummary;
     }

@@ -41,13 +41,11 @@ public class District {
     @Column(length = 10)
     private String code;
 
-    // Parent Province
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "province_id", nullable = false)
     private Province province;
 
-    // Optional: Administrative level
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "administrative_level_id")
     private AdministrativeLevel administrativeLevel;
 

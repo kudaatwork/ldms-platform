@@ -9,5 +9,5 @@ build/
 *.iml
 .idea/
 ldms-backend/ldms-notifications/src/main/resources/*firebase-adminsdk*.json
-ldms-config-repo/
+# Optional: nested clone inside ldms-platform (sibling clone in IdeaProjects/ is preferred).
 ldms-config-repo/

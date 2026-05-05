@@ -24,7 +24,7 @@ interface NotificationLogApiEnvelope {
   data?: NotificationLogRow[];
 }
 
-const FRONTEND_TEMPLATE_BASE = '/api/v1/frontend/notification-template';
+const FRONTEND_TEMPLATE_BASE = '/v1/frontend/notification-template';
 
 /** Static fallback when metadata API is unavailable (matches ldms-notifications Channel enum + processor copy). */
 const FALLBACK_CHANNEL_OPTIONS: ChannelOptionDto[] = [
@@ -52,7 +52,7 @@ export class NotificationAdminService {
       return of([...this.mockTemplates]);
     }
     return this.http
-      .get<TemplateListResponse>(`${this.base}/api/v1/system/notification-template/find-all-as-a-list`)
+      .get<TemplateListResponse>(`${this.base}/v1/system/notification-template/find-all-as-a-list`)
       .pipe(map((r) => r.templateList ?? []));
   }
 
@@ -121,7 +121,7 @@ export class NotificationAdminService {
       params = params.set('to', filters.to.toISOString());
     }
     return this.http
-      .get<NotificationLogApiEnvelope>(`${this.base}/api/v1/system/notifications/log`, { params })
+      .get<NotificationLogApiEnvelope>(`${this.base}/v1/system/notifications/log`, { params })
       .pipe(
         map((body) => {
           const raw = body.logDtoList ?? body.notificationLogDtoList ?? body.data ?? [];
@@ -138,7 +138,7 @@ export class NotificationAdminService {
       }
       return of(void 0);
     }
-    return this.http.put<void>(`${this.base}/api/v1/system/notification-template/update`, {
+    return this.http.put<void>(`${this.base}/v1/system/notification-template/update`, {
       id,
       isActive,
     });

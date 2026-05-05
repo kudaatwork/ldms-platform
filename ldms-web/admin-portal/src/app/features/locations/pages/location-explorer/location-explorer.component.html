@@ -1,0 +1,211 @@
+<div class="lx-page lx-loc-explorer">
+  <div class="lx-card lx-card--subsection lx-loc-explorer__hero">
+    <div class="lx-loc-explorer__hero-main">
+      <div class="lx-loc-explorer__eyebrow">
+        <mat-icon class="lx-loc-explorer__eyebrow-icon">account_tree</mat-icon>
+        <span>Locations</span>
+      </div>
+      <h1 class="lx-loc-explorer__title">Hierarchy explorer</h1>
+      <p class="lx-loc-explorer__lead">
+        Drill down from country to province, district, then suburbs and villages — same data as the location tables,
+        without leaving this flow.
+      </p>
+
+      <nav class="lx-loc-explorer__crumbs" aria-label="Hierarchy trail">
+        <button type="button" class="lx-loc-explorer__crumb" [class.is-current]="phase === 'countries'" (click)="resetAll()">
+          <mat-icon>public</mat-icon>
+          <span>Countries</span>
+        </button>
+
+        <ng-container *ngIf="selectedCountry as c">
+          <mat-icon class="lx-loc-explorer__crumb-sep" aria-hidden="true">chevron_right</mat-icon>
+          <button
+            type="button"
+            class="lx-loc-explorer__crumb"
+            [class.is-current]="phase === 'provinces'"
+            (click)="goToProvinces()"
+          >
+            <mat-icon>map</mat-icon>
+            <span class="lx-loc-explorer__crumb-text">{{ c.label }}</span>
+          </button>
+        </ng-container>
+
+        <ng-container *ngIf="selectedProvince as p">
+          <mat-icon class="lx-loc-explorer__crumb-sep" aria-hidden="true">chevron_right</mat-icon>
+          <button
+            type="button"
+            class="lx-loc-explorer__crumb"
+            [class.is-current]="phase === 'districts'"
+            (click)="goToDistricts()"
+          >
+            <mat-icon>signpost</mat-icon>
+            <span class="lx-loc-explorer__crumb-text">{{ p.label }}</span>
+          </button>
+        </ng-container>
+
+        <ng-container *ngIf="selectedDistrict as d">
+          <mat-icon class="lx-loc-explorer__crumb-sep" aria-hidden="true">chevron_right</mat-icon>
+          <button
+            type="button"
+            class="lx-loc-explorer__crumb"
+            [class.is-current]="phase === 'settlements'"
+            (click)="goToSettlements()"
+          >
+            <mat-icon>holiday_village</mat-icon>
+            <span class="lx-loc-explorer__crumb-text">{{ d.label }}</span>
+          </button>
+        </ng-container>
+      </nav>
+    </div>
+  </div>
+
+  <div class="lx-card lx-card--subsection lx-loc-explorer__panel">
+    <div class="lx-loc-explorer__panel-head">
+      <div>
+        <h2 class="lx-loc-explorer__panel-title">{{ phaseTitle }}</h2>
+        <p class="lx-loc-explorer__panel-hint">{{ phaseHint }}</p>
+      </div>
+      <div class="lx-loc-explorer__panel-actions" *ngIf="phase !== 'countries'">
+        <button type="button" mat-stroked-button color="primary" (click)="resetAll()">
+          <mat-icon>restart_alt</mat-icon>
+          Start over
+        </button>
+      </div>
+    </div>
+
+    <div class="lx-loc-explorer__search lx-input-shell" *ngIf="phase !== 'settlements'">
+      <mat-icon class="lx-input-shell__icon">search</mat-icon>
+      <input
+        type="search"
+        [(ngModel)]="filterText"
+        (ngModelChange)="onFilterChange()"
+        [placeholder]="'Filter ' + phaseTitle.toLowerCase() + '…'"
+        [attr.aria-label]="'Filter ' + phaseTitle"
+      />
+    </div>
+
+    <div class="lx-loc-explorer__search lx-input-shell" *ngIf="phase === 'settlements'">
+      <mat-icon class="lx-input-shell__icon">search</mat-icon>
+      <input
+        type="search"
+        [(ngModel)]="settlementFilter"
+        (ngModelChange)="onFilterChange()"
+        placeholder="Filter suburbs and villages…"
+        aria-label="Filter suburbs and villages"
+      />
+    </div>
+
+    <mat-progress-bar *ngIf="loading" mode="indeterminate" class="lx-loc-explorer__bar" aria-label="Loading" />
+
+    <p class="lx-loc-explorer__error" *ngIf="loadError && !loading">
+      <mat-icon>error_outline</mat-icon>
+      {{ loadError }}
+    </p>
+
+    <!-- Countries -->
+    <div class="lx-loc-explorer__grid" *ngIf="!loading && phase === 'countries'">
+      <button
+        type="button"
+        class="lx-loc-explorer__tile"
+        *ngFor="let o of filteredCountries()"
+        (click)="selectCountry(o)"
+      >
+        <span class="lx-loc-explorer__tile-icon" aria-hidden="true">
+          <mat-icon>public</mat-icon>
+        </span>
+        <span class="lx-loc-explorer__tile-body">
+          <span class="lx-loc-explorer__tile-label">{{ o.label }}</span>
+          <span class="lx-loc-explorer__tile-sub" *ngIf="o.sublabel">{{ o.sublabel }}</span>
+        </span>
+        <mat-icon class="lx-loc-explorer__tile-chevron">chevron_right</mat-icon>
+      </button>
+      <div class="lx-loc-explorer__empty" *ngIf="filteredCountries().length === 0">
+        <mat-icon>travel_explore</mat-icon>
+        <span>No countries match your filter.</span>
+      </div>
+    </div>
+
+    <!-- Provinces -->
+    <div class="lx-loc-explorer__grid" *ngIf="!loading && phase === 'provinces'">
+      <button
+        type="button"
+        class="lx-loc-explorer__tile"
+        *ngFor="let o of filteredProvinces()"
+        (click)="selectProvince(o)"
+      >
+        <span class="lx-loc-explorer__tile-icon" aria-hidden="true">
+          <mat-icon>map</mat-icon>
+        </span>
+        <span class="lx-loc-explorer__tile-body">
+          <span class="lx-loc-explorer__tile-label">{{ o.label }}</span>
+          <span class="lx-loc-explorer__tile-sub" *ngIf="o.sublabel">{{ o.sublabel }}</span>
+        </span>
+        <mat-icon class="lx-loc-explorer__tile-chevron">chevron_right</mat-icon>
+      </button>
+      <div class="lx-loc-explorer__empty" *ngIf="filteredProvinces().length === 0">
+        <mat-icon>map</mat-icon>
+        <span>No provinces for this country, or none match your filter.</span>
+      </div>
+    </div>
+
+    <!-- Districts -->
+    <div class="lx-loc-explorer__grid" *ngIf="!loading && phase === 'districts'">
+      <button
+        type="button"
+        class="lx-loc-explorer__tile"
+        *ngFor="let o of filteredDistricts()"
+        (click)="selectDistrict(o)"
+      >
+        <span class="lx-loc-explorer__tile-icon" aria-hidden="true">
+          <mat-icon>holiday_village</mat-icon>
+        </span>
+        <span class="lx-loc-explorer__tile-body">
+          <span class="lx-loc-explorer__tile-label">{{ o.label }}</span>
+          <span class="lx-loc-explorer__tile-sub" *ngIf="o.sublabel">{{ o.sublabel }}</span>
+        </span>
+        <mat-icon class="lx-loc-explorer__tile-chevron">chevron_right</mat-icon>
+      </button>
+      <div class="lx-loc-explorer__empty" *ngIf="filteredDistricts().length === 0">
+        <mat-icon>holiday_village</mat-icon>
+        <span>No districts for this province, or none match your filter.</span>
+      </div>
+    </div>
+
+    <!-- Suburbs + villages -->
+    <div class="lx-loc-explorer__split" *ngIf="!loading && phase === 'settlements'">
+      <div class="lx-loc-explorer__column">
+        <div class="lx-loc-explorer__column-head">
+          <mat-icon>domain</mat-icon>
+          <h3>Suburbs</h3>
+          <span class="lx-loc-explorer__count">{{ suburbs.length }}</span>
+        </div>
+        <ul class="lx-loc-explorer__list">
+          <li *ngFor="let o of filteredSuburbs()">
+            <span class="lx-loc-explorer__list-main">{{ o.label }}</span>
+            <span class="lx-loc-explorer__list-sub" *ngIf="o.sublabel">{{ o.sublabel }}</span>
+          </li>
+        </ul>
+        <div class="lx-loc-explorer__empty lx-loc-explorer__empty--inline" *ngIf="filteredSuburbs().length === 0">
+          <span>No suburbs in this district.</span>
+        </div>
+      </div>
+
+      <div class="lx-loc-explorer__column">
+        <div class="lx-loc-explorer__column-head">
+          <mat-icon>cabin</mat-icon>
+          <h3>Villages</h3>
+          <span class="lx-loc-explorer__count">{{ villages.length }}</span>
+        </div>
+        <ul class="lx-loc-explorer__list">
+          <li *ngFor="let o of filteredVillages()">
+            <span class="lx-loc-explorer__list-main">{{ o.label }}</span>
+            <span class="lx-loc-explorer__list-sub" *ngIf="o.sublabel">{{ o.sublabel }}</span>
+          </li>
+        </ul>
+        <div class="lx-loc-explorer__empty lx-loc-explorer__empty--inline" *ngIf="filteredVillages().length === 0">
+          <span>No villages in this district.</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

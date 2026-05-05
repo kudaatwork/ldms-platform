@@ -12,6 +12,6 @@ import java.util.List;
 public class ValidatorDto {
 
     public Boolean success;
-    public Object data;
+    public String data;
     public List<String> errorMessages;
 }

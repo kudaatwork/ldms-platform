@@ -23,6 +23,11 @@ public interface AuditLogServiceAuditable {
             Integer httpStatusCode,
             LocalDateTime from,
             LocalDateTime to,
+            String searchValue,
+            String action,
+            String requestUrl,
+            String httpMethod,
+            String traceId,
             Pageable pageable);
 
     Optional<AuditLog> findById(Long id);

@@ -12,9 +12,10 @@
   <div class="login-left">
     <div class="ll-brand">
       <div class="ll-logo">
-        <span class="material-icons" style="font-size: 28px; color: #fff" aria-hidden="true">apartment</span>
+        <img class="ll-logo-img ll-logo-img--light" src="images/lx-logo.png" alt="LX logo" />
+        <img class="ll-logo-img ll-logo-img--dark" src="images/lx-logo-transparent.png" alt="LX logo" />
       </div>
-      <span class="ll-name">Project LX</span>
+      <span class="ll-name">Project <span class="brand-lx">LX</span></span>
     </div>
     <div class="ll-headline">
       Your organisation&apos;s<br />operations hub
@@ -83,12 +84,30 @@
         </div>
         <p class="lc-field-hint" *ngIf="passCtrl?.hasError('required') && passCtrl?.touched">Password is required</p>
 
+        <div class="lc-auth-links">
+          <a routerLink="/auth/forgot-password">Forgot password?</a>
+          <span class="lc-auth-links__sep">·</span>
+          <a routerLink="/auth/reset-password">Reset password</a>
+        </div>
+
         <button type="submit" class="lc-submit" [disabled]="loading">
           <span class="lc-spinner" *ngIf="loading"></span>
           {{ loading ? 'Signing in...' : 'Sign in to Platform Portal' }}
           <span class="material-icons" *ngIf="!loading" aria-hidden="true">arrow_forward</span>
         </button>
       </form>
+
+      <div class="lc-google-wrap">
+        <div class="lc-divider"><span>or</span></div>
+        <div class="lc-google-host" *ngIf="googleClientId" #googleSignInHost></div>
+        <div class="lc-google-unconfigured" *ngIf="!googleClientId">
+          <button type="button" class="lc-google-placeholder" disabled title="Set googleOAuthClientId in src/environments/environment.ts and rebuild. Backend needs ldms.auth.google.enabled=true.">
+            <span class="lc-google-placeholder__g" aria-hidden="true">G</span>
+            Continue with Google
+          </button>
+          <p class="lc-google-hint">Add <code>googleOAuthClientId</code> in environment to enable the real Google button.</p>
+        </div>
+      </div>
 
       <div class="lc-mock">
         <div class="lc-mock-title">
@@ -102,6 +121,12 @@
           </button>
         </div>
       </div>
+
+      <p class="lc-footer-links">
+        <a routerLink="/welcome">Back to home</a>
+        <span class="lc-footer-links__sep">·</span>
+        <a routerLink="/signup">Create organisation account</a>
+      </p>
     </div>
   </div>
 </div>

@@ -1,0 +1,101 @@
+<div class="ldms-landing">
+  <header class="ldms-landing__nav">
+    <div class="ldms-landing__brand">
+      <span class="ldms-landing__logo" aria-hidden="true">
+        <img class="ldms-landing__logo-img ldms-landing__logo-img--light" src="images/lx-logo.png" alt="LX logo" />
+        <img class="ldms-landing__logo-img ldms-landing__logo-img--dark" src="images/lx-logo-transparent.png" alt="LX logo" />
+      </span>
+      <span class="ldms-landing__name">Project <span class="brand-lx">LX</span></span>
+    </div>
+    <nav class="ldms-landing__nav-actions" aria-label="Primary">
+      <a class="ldms-landing__link" [href]="adminUrl + '/auth/login'" rel="noopener">Administrator sign in</a>
+      <button type="button" class="lx-btn lx-btn-secondary ldms-landing__btn-ghost" (click)="goPlatformLogin()">
+        Organisation sign in
+      </button>
+      <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup()">Create organisation account</button>
+    </nav>
+  </header>
+
+  <section class="ldms-landing__hero">
+    <div class="ldms-landing__hero-inner">
+      <p class="ldms-landing__eyebrow">Logistics &amp; distribution</p>
+      <h1 class="ldms-landing__title">One platform for suppliers, transporters, and partners</h1>
+      <p class="ldms-landing__lead">
+        Coordinate orders, shipments, and compliance in a single workspace — tailored to how your organisation
+        operates.
+      </p>
+      <div class="ldms-landing__hero-cta">
+        <button type="button" class="lx-btn lx-btn-primary ldms-landing__cta-primary" (click)="goSignup()">
+          Get started
+        </button>
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="goPlatformLogin()">Sign in to portal</button>
+      </div>
+      <p class="ldms-landing__meta">
+        Organisation portal runs on <strong>{{ platformOrigin }}</strong> · Admin console on
+        <strong>{{ adminUrl }}</strong>
+      </p>
+    </div>
+    <figure class="ldms-landing__hero-art">
+      <img
+        class="ldms-landing__hero-img"
+        src="images/landing-logistics.jpg"
+        width="1600"
+        height="1067"
+        alt="Warehouse aisles and logistics operations"
+        loading="lazy"
+        decoding="async"
+      />
+      <div class="ldms-landing__hero-scrim" aria-hidden="true"></div>
+      <div class="ldms-landing__orb ldms-landing__orb--1" aria-hidden="true"></div>
+      <div class="ldms-landing__orb ldms-landing__orb--2" aria-hidden="true"></div>
+      <figcaption class="ldms-landing__photo-credit">
+        Photo:
+        <a href="https://unsplash.com/?utm_source=projectlx&utm_medium=referral" rel="noopener noreferrer" target="_blank"
+          >Unsplash</a
+        >
+      </figcaption>
+    </figure>
+  </section>
+
+  <section class="ldms-landing__cards" aria-labelledby="ldms-landing-cards-title">
+    <h2 id="ldms-landing-cards-title" class="visually-hidden">Choose how you access LX</h2>
+    <article class="ldms-landing__card">
+      <div class="ldms-landing__card-icon" aria-hidden="true">
+        <span class="material-icons">apartment</span>
+      </div>
+      <h3>Organisation portal</h3>
+      <p>For suppliers, customers, transporters, clearing agents, service stations, and government partners.</p>
+      <ul class="ldms-landing__list">
+        <li>Role-aware navigation and dashboards</li>
+        <li>Secure sign-in and password recovery</li>
+        <li>New: guided organisation signup</li>
+      </ul>
+      <div class="ldms-landing__card-actions">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup()">Create account</button>
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="goPlatformLogin()">Sign in</button>
+      </div>
+    </article>
+
+    <article class="ldms-landing__card ldms-landing__card--accent">
+      <div class="ldms-landing__card-icon ldms-landing__card-icon--accent" aria-hidden="true">
+        <span class="material-icons">admin_panel_settings</span>
+      </div>
+      <h3>Administrator console</h3>
+      <p>Platform operations, KYC, organisations, and monitoring — restricted to LX administrators.</p>
+      <ul class="ldms-landing__list">
+        <li>Sign in only (no self-service signup)</li>
+        <li>Runs on a separate app for isolation</li>
+      </ul>
+      <a class="lx-btn lx-btn-primary ldms-landing__full-link" [href]="adminUrl + '/auth/login'" rel="noopener"
+        >Open admin console</a
+      >
+    </article>
+  </section>
+
+  <footer class="ldms-landing__footer">
+    <span>© Project <span class="brand-lx">LX</span> · projectlx.co.zw</span>
+    <a routerLink="/auth/login">Organisation sign in</a>
+    <span class="ldms-landing__dot">·</span>
+    <a [href]="adminUrl + '/auth/login'" rel="noopener">Admin sign in</a>
+  </footer>
+</div>

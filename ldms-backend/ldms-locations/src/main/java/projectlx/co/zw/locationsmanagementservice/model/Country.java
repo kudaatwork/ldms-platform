@@ -23,7 +23,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table
+@Table(name = "country")
 @Getter
 @Setter
 @ToString

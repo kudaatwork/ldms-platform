@@ -15,30 +15,34 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.hibernate.Hibernate;
 import org.modelmapper.ModelMapper;
-import org.modelmapper.TypeToken;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
+import projectlx.co.zw.locationsmanagementservice.business.auditable.api.AdministrativeLevelServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.ProvinceServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.ProvinceService;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.ProvinceServiceValidator;
 import projectlx.co.zw.locationsmanagementservice.model.AdministrativeLevel;
 import projectlx.co.zw.locationsmanagementservice.model.Country;
 import projectlx.co.zw.locationsmanagementservice.model.GeoCoordinates;
+import projectlx.co.zw.locationsmanagementservice.model.LocalizedName;
 import projectlx.co.zw.locationsmanagementservice.model.Province;
 import projectlx.co.zw.locationsmanagementservice.repository.AdministrativeLevelRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.CountryRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.GeoCoordinatesRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.ProvinceRepository;
+import projectlx.co.zw.locationsmanagementservice.repository.specification.AdministrativeLevelSpecification;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.ProvinceSpecification;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 import com.opencsv.bean.HeaderColumnNameMappingStrategy;
+import projectlx.co.zw.locationsmanagementservice.utils.GeoCoordinateCsvImportHelper;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ProvinceCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ProvinceDto;
@@ -62,6 +66,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -76,12 +81,15 @@ public class ProvinceServiceImpl implements ProvinceService {
     private final CountryRepository countryRepository;
     private final GeoCoordinatesRepository geoCoordinatesRepository;
     private final AdministrativeLevelRepository administrativeLevelRepository;
+    private final AdministrativeLevelServiceAuditable administrativeLevelServiceAuditable;
+    private final LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService;
     private final ProvinceServiceAuditable provinceServiceAuditable;
     private final MessageService messageService;
     private final ModelMapper modelMapper;
 
     private static final String[] HEADERS = {
-            "ID", "NAME", "CODE", "COUNTRY ID", "ADMINISTRATIVE LEVEL ID", "GEO COORDINATES ID", "CREATED AT", "UPDATED AT", "ENTITY STATUS"
+            "ID", "NAME", "CODE", "COUNTRY", "ADMIN LEVEL", "COUNTRY ID", "ADMINISTRATIVE LEVEL ID",
+            "GEO COORDINATES ID", "CREATED AT", "UPDATED AT", "ENTITY STATUS"
     };
 
     @Override
@@ -110,18 +118,19 @@ public class ProvinceServiceImpl implements ProvinceService {
                     null, null);
         }
 
+        Country country = countryRetrieved.get();
         String normalizedName = Validators.capitalizeWords(request.getName());
-        Optional<Province> provinceRetrieved =
-                provinceRepository.findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
+        Optional<Province> provinceActiveInCountry =
+                provinceRepository.findByNameAndCountryAndEntityStatusNot(normalizedName, country, EntityStatus.DELETED);
 
-        if (provinceRetrieved.isPresent()) {
+        if (provinceActiveInCountry.isPresent()) {
             message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_ALREADY_EXISTS.getCode(), new String[]{},
                     locale);
             return buildProvinceResponse(409, false, message, null,
                     null, null);
         }
 
-        Optional<Province> deletedProvince = provinceRepository.findByName(normalizedName)
+        Optional<Province> deletedProvince = provinceRepository.findByNameAndCountry(normalizedName, country)
                 .filter(province -> province.getEntityStatus() == EntityStatus.DELETED);
 
         request.setName(normalizedName);
@@ -132,11 +141,16 @@ public class ProvinceServiceImpl implements ProvinceService {
         } else {
             provinceToBeSaved = modelMapper.map(request, Province.class);
         }
-        provinceToBeSaved.setCountry(countryRetrieved.get());
+        provinceToBeSaved.setCountry(country);
 
-        if (request.getAdministrativeLevelId() != null) {
+        Long administrativeLevelId = request.getAdministrativeLevelId();
+        if (administrativeLevelId != null && administrativeLevelId <= 0) {
+            administrativeLevelId = null;
+            request.setAdministrativeLevelId(null);
+        }
+        if (administrativeLevelId != null) {
             Optional<AdministrativeLevel> administrativeLevelOptional = administrativeLevelRepository
-                    .findByIdAndEntityStatusNot(request.getAdministrativeLevelId(), EntityStatus.DELETED);
+                    .findByIdAndEntityStatusNot(administrativeLevelId, EntityStatus.DELETED);
             if (administrativeLevelOptional.isEmpty()) {
                 message = messageService.getMessage(I18Code.MESSAGE_ADMINISTRATIVE_LEVEL_NOT_FOUND.getCode(), new String[]{},
                         locale);
@@ -170,7 +184,7 @@ public class ProvinceServiceImpl implements ProvinceService {
         Province provinceSaved = deletedProvince.isPresent()
                 ? provinceServiceAuditable.update(provinceToBeSaved, locale, username)
                 : provinceServiceAuditable.create(provinceToBeSaved, locale, username);
-        ProvinceDto provinceDtoReturned = modelMapper.map(provinceSaved, ProvinceDto.class);
+        ProvinceDto provinceDtoReturned = toProvinceDto(provinceSaved);
         message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_CREATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
         return buildProvinceResponse(201, true, message, provinceDtoReturned, null,
@@ -190,7 +204,7 @@ public class ProvinceServiceImpl implements ProvinceService {
             message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_NOT_FOUND.getCode(), new String[]{}, locale);
             return buildProvinceResponse(404, false, message, null, null, null);
         }
-        ProvinceDto provinceDto = modelMapper.map(provinceRetrieved.get(), ProvinceDto.class);
+        ProvinceDto provinceDto = toProvinceDto(provinceRetrieved.get());
         message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildProvinceResponse(200, true, message, provinceDto, null, null);
     }
@@ -205,7 +219,7 @@ public class ProvinceServiceImpl implements ProvinceService {
             message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_NOT_FOUND.getCode(), new String[]{}, locale);
             return buildProvinceResponse(404, false, message, null, null, null);
         }
-        List<ProvinceDto> provinceDtoList = modelMapper.map(provinceList, new TypeToken<List<ProvinceDto>>() {}.getType());
+        List<ProvinceDto> provinceDtoList = provinceList.stream().map(this::toProvinceDto).collect(Collectors.toList());
         message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildProvinceResponse(200, true, message, null, provinceDtoList, null);
     }
@@ -247,7 +261,7 @@ public class ProvinceServiceImpl implements ProvinceService {
         }
 
         Province provinceEdited = provinceServiceAuditable.update(provinceToBeEdited, locale, username);
-        ProvinceDto provinceDtoReturned = modelMapper.map(provinceEdited, ProvinceDto.class);
+        ProvinceDto provinceDtoReturned = toProvinceDto(provinceEdited);
         message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_UPDATED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildProvinceResponse(200, true, message, provinceDtoReturned, null, null);
     }
@@ -267,9 +281,12 @@ public class ProvinceServiceImpl implements ProvinceService {
             return buildProvinceResponse(404, false, message, null, null, null);
         }
         Province provinceToBeDeleted = provinceRetrieved.get();
+
+        locationHierarchyCascadeSoftDeleteService.cascadeBeforeDeletingProvince(provinceToBeDeleted.getId(), locale, username);
+
         provinceToBeDeleted.setEntityStatus(EntityStatus.DELETED);
         Province provinceDeleted = provinceServiceAuditable.delete(provinceToBeDeleted, locale);
-        ProvinceDto provinceDtoReturned = modelMapper.map(provinceDeleted, ProvinceDto.class);
+        ProvinceDto provinceDtoReturned = toProvinceDto(provinceDeleted);
         message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_DELETED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildProvinceResponse(200, true, message, provinceDtoReturned, null, null);
     }
@@ -300,7 +317,7 @@ public class ProvinceServiceImpl implements ProvinceService {
             spec = spec.and(ProvinceSpecification.byAdministrativeLevel(request.getAdministrativeLevelId()));
         }
 
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by(Sort.Direction.ASC, "id"));
         Page<Province> result = provinceRepository.findAll(spec, pageable);
 
         if (result.getContent().isEmpty()) {
@@ -308,7 +325,7 @@ public class ProvinceServiceImpl implements ProvinceService {
             return buildProvinceResponse(404, false, message, null, null, null);
         }
 
-        Page<ProvinceDto> provinceDtoPage = result.map(province -> modelMapper.map(province, ProvinceDto.class));
+        Page<ProvinceDto> provinceDtoPage = result.map(this::toProvinceDto);
         message = messageService.getMessage(I18Code.MESSAGE_PROVINCE_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildProvinceResponse(200, true, message, null, null, provinceDtoPage);
     }
@@ -328,9 +345,11 @@ public class ProvinceServiceImpl implements ProvinceService {
             sb.append(province.getId()).append(",")
                     .append(safe(province.getName())).append(",")
                     .append(safe(province.getCode())).append(",")
-                    .append(province.getCountryId()).append(",")
-                    .append(province.getAdministrativeLevelId()).append(",")
-                    .append(province.getGeoCoordinatesId()).append(",")
+                    .append(safe(province.getCountryName())).append(",")
+                    .append(safe(province.getAdministrativeLevelName())).append(",")
+                    .append(province.getCountryId() != null ? province.getCountryId() : "").append(",")
+                    .append(province.getAdministrativeLevelId() != null ? province.getAdministrativeLevelId() : "").append(",")
+                    .append(province.getGeoCoordinatesId() != null ? province.getGeoCoordinatesId() : "").append(",")
                     .append(province.getCreatedAt()).append(",")
                     .append(province.getUpdatedAt()).append(",")
                     .append(province.getEntityStatus()).append("\n");
@@ -355,12 +374,14 @@ public class ProvinceServiceImpl implements ProvinceService {
                 row.createCell(0).setCellValue(province.getId());
                 row.createCell(1).setCellValue(safe(province.getName()));
                 row.createCell(2).setCellValue(safe(province.getCode()));
-                row.createCell(3).setCellValue(province.getCountryId() != null ? province.getCountryId() : 0);
-                row.createCell(4).setCellValue(province.getAdministrativeLevelId() != null ? province.getAdministrativeLevelId() : 0);
-                row.createCell(5).setCellValue(province.getGeoCoordinatesId() != null ? province.getGeoCoordinatesId() : 0);
-                row.createCell(6).setCellValue(province.getCreatedAt() != null ? province.getCreatedAt().toString() : "");
-                row.createCell(7).setCellValue(province.getUpdatedAt() != null ? province.getUpdatedAt().toString() : "");
-                row.createCell(8).setCellValue(province.getEntityStatus() != null ? province.getEntityStatus().toString() : "");
+                row.createCell(3).setCellValue(safe(province.getCountryName()));
+                row.createCell(4).setCellValue(safe(province.getAdministrativeLevelName()));
+                row.createCell(5).setCellValue(province.getCountryId() != null ? province.getCountryId() : 0);
+                row.createCell(6).setCellValue(province.getAdministrativeLevelId() != null ? province.getAdministrativeLevelId() : 0);
+                row.createCell(7).setCellValue(province.getGeoCoordinatesId() != null ? province.getGeoCoordinatesId() : 0);
+                row.createCell(8).setCellValue(province.getCreatedAt() != null ? province.getCreatedAt().toString() : "");
+                row.createCell(9).setCellValue(province.getUpdatedAt() != null ? province.getUpdatedAt().toString() : "");
+                row.createCell(10).setCellValue(province.getEntityStatus() != null ? province.getEntityStatus().toString() : "");
             }
             workbook.write(out);
             return out.toByteArray();
@@ -389,6 +410,8 @@ public class ProvinceServiceImpl implements ProvinceService {
                 table.addCell(String.valueOf(province.getId()));
                 table.addCell(safe(province.getName()));
                 table.addCell(safe(province.getCode()));
+                table.addCell(safe(province.getCountryName()));
+                table.addCell(safe(province.getAdministrativeLevelName()));
                 table.addCell(province.getCountryId() != null ? province.getCountryId().toString() : "");
                 table.addCell(province.getAdministrativeLevelId() != null ? province.getAdministrativeLevelId().toString() : "");
                 table.addCell(province.getGeoCoordinatesId() != null ? province.getGeoCoordinatesId().toString() : "");
@@ -436,11 +459,26 @@ public class ProvinceServiceImpl implements ProvinceService {
                         continue;
                     }
 
+                    Optional<Country> countryOpt =
+                            countryRepository.findByIdFetchingGeoCoordinates(row.getCountryId(), EntityStatus.DELETED);
+                    if (countryOpt.isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Country not found for ID " + row.getCountryId());
+                        continue;
+                    }
+                    Country country = countryOpt.get();
+
                     CreateProvinceRequest request = new CreateProvinceRequest();
                     request.setName(row.getName());
                     request.setCode(row.getCode());
                     request.setCountryId(row.getCountryId());
-                    request.setAdministrativeLevelId(row.getAdministrativeLevelId());
+                    Long adminLevelId =
+                            resolveAdministrativeLevelIdForProvinceImport(row.getAdministrativeLevelId(), row.getCountryId());
+                    if (adminLevelId == null) {
+                        adminLevelId = ensureDefaultProvinceAdministrativeLevelForCountry(country, Locale.ENGLISH, "IMPORT_SCRIPT");
+                    }
+                    request.setAdministrativeLevelId(adminLevelId);
+                    applyProvinceImportGeoRequest(request, row, country);
 
                     ProvinceResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
 
@@ -470,6 +508,102 @@ public class ProvinceServiceImpl implements ProvinceService {
         return str != null && !str.trim().isEmpty();
     }
 
+    /**
+     * CSV templates often use placeholder administrative level IDs (e.g. {@code 1}) that do not exist in the
+     * target database. OpenCSV may also bind blank cells to {@code 0}. For import, when the supplied id is
+     * missing, non-positive, or not tied to the row's country, use that country's default province tier
+     * administrative level: prefer {@code level == 1} (lowest id), else the active level with the smallest
+     * {@code level} value {@code >= 1}. Import may create a tier-1 level when none exist (see
+     * {@link #ensureDefaultProvinceAdministrativeLevelForCountry}).
+     */
+    private Long resolveAdministrativeLevelIdForProvinceImport(Long requestedId, Long countryId) {
+        Long normalized = requestedId == null || requestedId <= 0 ? null : requestedId;
+        Optional<Long> defaultForCountry = resolveDefaultProvinceAdministrativeLevelId(countryId);
+        if (normalized == null) {
+            return defaultForCountry.orElse(null);
+        }
+        Optional<AdministrativeLevel> byId =
+                administrativeLevelRepository.findByIdAndEntityStatusNot(normalized, EntityStatus.DELETED);
+        if (byId.isEmpty()) {
+            return defaultForCountry.orElse(null);
+        }
+        Country levelCountry = byId.get().getCountry();
+        if (levelCountry == null || !countryId.equals(levelCountry.getId())) {
+            return defaultForCountry.orElse(null);
+        }
+        return normalized;
+    }
+
+    private Optional<Long> resolveDefaultProvinceAdministrativeLevelId(Long countryId) {
+        if (countryId == null || countryId <= 0) {
+            return Optional.empty();
+        }
+        Specification<AdministrativeLevel> base = Specification.where(AdministrativeLevelSpecification.byCountry(countryId))
+                .and(AdministrativeLevelSpecification.deleted(EntityStatus.DELETED));
+        Specification<AdministrativeLevel> tier1Spec = base.and(AdministrativeLevelSpecification.byLevel(1));
+        List<AdministrativeLevel> tier1 = administrativeLevelRepository.findAll(tier1Spec);
+        if (!tier1.isEmpty()) {
+            return tier1.stream()
+                    .min(Comparator.comparing(AdministrativeLevel::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .map(AdministrativeLevel::getId);
+        }
+        Specification<AdministrativeLevel> positiveSpec = base.and((root, query, cb) -> cb.ge(root.get("level"), 1));
+        List<AdministrativeLevel> withPositiveLevel = administrativeLevelRepository.findAll(positiveSpec);
+        if (withPositiveLevel.isEmpty()) {
+            return Optional.empty();
+        }
+        return withPositiveLevel.stream()
+                .min(Comparator.comparing(AdministrativeLevel::getLevel)
+                        .thenComparing(AdministrativeLevel::getId, Comparator.nullsLast(Comparator.naturalOrder())))
+                .map(AdministrativeLevel::getId);
+    }
+
+    /**
+     * When a country has no suitable administrative level row for provinces, create a tier-1 definition
+     * with a name derived from the country's ISO α2 code (unique within that country).
+     */
+    private Long ensureDefaultProvinceAdministrativeLevelForCountry(Country country, Locale locale, String username) {
+        if (country == null || country.getId() == null) {
+            return null;
+        }
+        String iso = country.getIsoAlpha2Code() != null ? country.getIsoAlpha2Code().trim().toUpperCase(Locale.ROOT) : "XX";
+        String proposedName = "Province (" + iso + ")";
+        Optional<AdministrativeLevel> activeInCountry = administrativeLevelRepository
+                .findByCountry_IdAndNameAndEntityStatusNot(country.getId(), proposedName, EntityStatus.DELETED);
+        if (activeInCountry.isPresent()) {
+            return activeInCountry.get().getId();
+        }
+        Optional<AdministrativeLevel> byName = administrativeLevelRepository
+                .findFirstByCountry_IdAndNameAndEntityStatus(country.getId(), proposedName, EntityStatus.DELETED);
+        if (byName.isPresent()) {
+            AdministrativeLevel revive = byName.get();
+            revive.setEntityStatus(EntityStatus.ACTIVE);
+            revive.setCode("ADM1");
+            revive.setLevel(1);
+            revive.setDescription("Reactivated for province CSV import");
+            revive.setCountry(country);
+            return administrativeLevelServiceAuditable.update(revive, locale, username).getId();
+        }
+        AdministrativeLevel level = new AdministrativeLevel();
+        level.setName(proposedName);
+        level.setCode("ADM1");
+        level.setLevel(1);
+        level.setDescription("Auto-created when importing provinces (CSV)");
+        level.setCountry(country);
+        return administrativeLevelServiceAuditable.create(level, locale, username).getId();
+    }
+
+    private void applyProvinceImportGeoRequest(CreateProvinceRequest request, ProvinceCsvDto row, Country country) {
+        GeoCoordinateCsvImportHelper.ResolvedGeo r = GeoCoordinateCsvImportHelper.resolve(
+                row.getGeoCoordinatesId(),
+                row.getLatitude(),
+                row.getLongitude(),
+                country.getGeoCoordinates());
+        request.setGeoCoordinatesId(r.geoCoordinatesId());
+        request.setLatitude(r.latitude());
+        request.setLongitude(r.longitude());
+    }
+
     private Optional<GeoCoordinates> resolveGeoCoordinates(Long geoCoordinatesId, BigDecimal latitude, BigDecimal longitude) {
         if (latitude != null || longitude != null) {
             if (latitude == null || longitude == null) {
@@ -487,11 +621,27 @@ public class ProvinceServiceImpl implements ProvinceService {
         return geoCoordinatesRepository.findByIdAndEntityStatusNot(geoCoordinatesId, EntityStatus.DELETED);
     }
 
-    private Page<ProvinceDto> convertProvinceEntityToProvinceDto(Page<Province> provincePage) {
-        List<ProvinceDto> provinceDtoList = provincePage.getContent().stream()
-                .map(province -> modelMapper.map(province, ProvinceDto.class))
-                .collect(Collectors.toList());
-        return new PageImpl<>(provinceDtoList, provincePage.getPageable(), provincePage.getTotalElements());
+    private ProvinceDto toProvinceDto(Province entity) {
+        ProvinceDto dto = new ProvinceDto();
+        dto.setId(entity.getId());
+        dto.setName(entity.getName());
+        dto.setCode(entity.getCode());
+        if (entity.getCountry() != null) {
+            dto.setCountryId(entity.getCountry().getId());
+            dto.setCountryName(entity.getCountry().getName());
+        }
+        if (entity.getAdministrativeLevel() != null) {
+            dto.setAdministrativeLevelId(entity.getAdministrativeLevel().getId());
+            dto.setAdministrativeLevelName(entity.getAdministrativeLevel().getName());
+        }
+        dto.setGeoCoordinatesId(entity.getGeoCoordinates() != null ? entity.getGeoCoordinates().getId() : null);
+        dto.setCreatedAt(entity.getCreatedAt());
+        dto.setUpdatedAt(entity.getUpdatedAt());
+        dto.setEntityStatus(entity.getEntityStatus());
+        if (entity.getLocalizedNames() != null && Hibernate.isInitialized(entity.getLocalizedNames())) {
+            dto.setLocalizedNameIds(entity.getLocalizedNames().stream().map(LocalizedName::getId).collect(Collectors.toList()));
+        }
+        return dto;
     }
 
     private ProvinceResponse buildProvinceResponse(int statusCode, boolean isSuccess, String message,

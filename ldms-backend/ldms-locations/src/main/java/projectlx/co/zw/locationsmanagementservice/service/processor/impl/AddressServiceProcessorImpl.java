@@ -137,7 +137,7 @@ public class AddressServiceProcessorImpl implements AddressServiceProcessor {
         ImportSummary importSummary = addressService.importAddressFromCsv(csvInputStream);
 
         logger.info("Outgoing response after importing addresses from CSV: Total: {}, Success: {}, Failed: {}",
-                importSummary.total, importSummary.success, importSummary.failed);
+                importSummary.total, importSummary.importedCount, importSummary.failed);
 
         return importSummary;
     }

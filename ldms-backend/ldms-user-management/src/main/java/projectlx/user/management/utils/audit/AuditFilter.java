@@ -10,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
+import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
 import projectlx.co.zw.shared_library.utils.enums.AuditEventType;
 import projectlx.user.management.business.logic.api.AuditTrailService;
@@ -19,7 +20,6 @@ import java.time.Instant;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @RequiredArgsConstructor
 public class AuditFilter extends OncePerRequestFilter {
@@ -37,15 +37,32 @@ public class AuditFilter extends OncePerRequestFilter {
         ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
         ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
 
+        Instant requestStart = Instant.now();
+        String traceId = AuditHttpTraceSupport.traceIdFromServletRequest(request);
+        AuditHttpTraceSupport.putMdcTraceId(traceId);
+
         long startTime = System.currentTimeMillis();
 
         try {
             filterChain.doFilter(requestWrapper, responseWrapper);
         } finally {
             long duration = System.currentTimeMillis() - startTime;
+            Instant responseEnd = Instant.now();
+
+            try {
+                responseWrapper.setHeader("X-Trace-Id", traceId);
+            } catch (Exception ignored) {
+                // ignore
+            }
 
             String requestBody = getBody(requestWrapper.getContentAsByteArray(), request.getCharacterEncoding());
             String responseBody = getBody(responseWrapper.getContentAsByteArray(), response.getCharacterEncoding());
+
+            try {
+                responseWrapper.copyBodyToResponse();
+            } catch (IOException ignored) {
+                // ignore
+            }
 
             // Don't log for the audit service's own endpoints if it had any
             if (!request.getRequestURI().contains("actuator")) {
@@ -63,11 +80,12 @@ public class AuditFilter extends OncePerRequestFilter {
                     }
                 }
 
-                String traceId = resolveTraceId(request);
                 AuditLogDto logDto = AuditLogDto.builder()
                         .serviceName(serviceName)
-                        .timestamp(Instant.now())
                         .traceId(traceId)
+                        .timestamp(responseEnd)
+                        .requestTimestamp(requestStart)
+                        .responseTimestamp(responseEnd)
                         .username(username)
                         .clientIpAddress(request.getRemoteAddr())
                         .action("HTTP_REQUEST")
@@ -84,8 +102,7 @@ public class AuditFilter extends OncePerRequestFilter {
 
                 auditTrailService.sendAuditLog(logDto);
             }
-            // IMPORTANT: Copy the cached response back to the original response
-            responseWrapper.copyBodyToResponse();
+            AuditHttpTraceSupport.clearMdcTraceId();
         }
     }
 
@@ -143,13 +160,5 @@ public class AuditFilter extends OncePerRequestFilter {
         }
 
         return curl.toString();
-    }
-
-    private String resolveTraceId(HttpServletRequest request) {
-        String traceIdHeader = request.getHeader("X-Trace-Id");
-        if (traceIdHeader != null && !traceIdHeader.isBlank()) {
-            return traceIdHeader;
-        }
-        return UUID.randomUUID().toString();
     }
 }

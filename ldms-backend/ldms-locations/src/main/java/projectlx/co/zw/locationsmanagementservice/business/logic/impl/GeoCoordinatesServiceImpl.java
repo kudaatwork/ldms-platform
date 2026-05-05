@@ -46,6 +46,7 @@ import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
@@ -296,7 +297,7 @@ public class GeoCoordinatesServiceImpl implements GeoCoordinatesService {
                     null, null, validatorDto.getErrorMessages());
         }
 
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by(Sort.Direction.ASC, "id"));
 
         if (request.getLatitude() != null) {
             spec = addToSpec(request.getLatitude(), spec, GeoCoordinatesSpecification::latitudeEquals);

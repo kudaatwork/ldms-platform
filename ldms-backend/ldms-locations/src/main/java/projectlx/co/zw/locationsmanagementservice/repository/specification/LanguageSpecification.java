@@ -8,11 +8,10 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class LanguageSpecification {
 
-    public static Specification<Language> deleted(EntityStatus entityStatus) {
-        return (root, query, cb) -> {
-            Predicate p = cb.notLike(root.get(Language_.entityStatus).as(String.class), "%" + entityStatus + "%");
-            return p;
-        };
+    public static Specification<Language> deleted(EntityStatus excludedStatus) {
+        return (root, query, cb) -> cb.or(
+                cb.isNull(root.get(Language_.entityStatus)),
+                cb.notEqual(root.get(Language_.entityStatus), excludedStatus));
     }
 
     public static Specification<Language> nameLike(final String name) {

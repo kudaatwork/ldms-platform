@@ -1,3 +1,110 @@
+.lc-auth-links {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin: -4px 0 14px;
+  font-size: 13px;
+
+  a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  &__sep {
+    color: var(--gray-400);
+    user-select: none;
+  }
+}
+
+.lc-google-wrap {
+  margin-top: 8px;
+}
+
+.lc-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0 14px;
+  color: var(--gray-500);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--gray-200);
+  }
+
+  span {
+    white-space: nowrap;
+  }
+}
+
+.lc-google-host {
+  display: flex;
+  justify-content: center;
+}
+
+.lc-google-unconfigured {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.lc-google-placeholder {
+  min-width: 280px;
+  height: 40px;
+  border-radius: 4px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  opacity: 0.75;
+  cursor: not-allowed;
+
+  &__g {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #4285f4 0%, #34a853 40%, #fbbc04 65%, #ea4335 100%);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: system-ui, sans-serif;
+  }
+}
+
+.lc-google-hint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--gray-500);
+  text-align: center;
+  max-width: 320px;
+  line-height: 1.4;
+
+  code {
+    font-size: 11px;
+    background: var(--gray-100);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+}
+
 .login-shell {
   display: flex;
   height: 100vh;
@@ -78,12 +185,12 @@
     .ll-logo {
       width: 48px;
       height: 48px;
-      background: var(--primary);
       border-radius: 12px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+      overflow: hidden;
     }
 
     .ll-name {
@@ -155,6 +262,24 @@
     position: relative;
     z-index: 1;
   }
+}
+
+.ll-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.ll-logo-img--dark {
+  display: none;
+}
+
+:host-context(html.theme-dark) .ll-logo-img--light {
+  display: none;
+}
+
+:host-context(html.theme-dark) .ll-logo-img--dark {
+  display: block;
 }
 
 /* Right panel */

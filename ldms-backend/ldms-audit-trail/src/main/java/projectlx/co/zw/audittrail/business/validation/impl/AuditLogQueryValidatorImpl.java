@@ -10,6 +10,7 @@ import projectlx.co.zw.audittrail.business.validation.api.AuditLogQueryValidator
 import projectlx.co.zw.audittrail.model.AuditEventType;
 import projectlx.co.zw.audittrail.utils.dtos.AuditLogFilter;
 import projectlx.co.zw.audittrail.utils.enums.I18Code;
+import projectlx.co.zw.audittrail.utils.requests.AuditLogMultipleFiltersRequest;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
@@ -28,6 +29,18 @@ public class AuditLogQueryValidatorImpl implements AuditLogQueryValidator {
             "action");
 
     private final MessageService messageService;
+
+    @Override
+    public ValidatorDto validateMultipleFiltersRequest(AuditLogMultipleFiltersRequest request, Locale locale) {
+
+        List<String> errors = new ArrayList<>();
+        if (request.getPage() < 0) {
+            errors.add(messageService.getMessage(I18Code.AUDIT_LOG_VALIDATION_PAGE_INVALID.getCode(), new String[] {}, locale));
+        }
+        return errors.isEmpty()
+                ? new ValidatorDto(true, null, List.of())
+                : new ValidatorDto(false, null, errors);
+    }
 
     @Override
     public ValidatorDto validateSearch(AuditLogFilter filter, Locale locale) {

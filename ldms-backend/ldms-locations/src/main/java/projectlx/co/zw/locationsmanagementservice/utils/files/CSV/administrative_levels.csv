@@ -1,5 +1,5 @@
-NAME,CODE,LEVEL,DESCRIPTION
-Country,ADM0,0,"The highest administrative level, representing the entire nation."
-Province,ADM1,1,"The primary subdivision of the country, such as Harare or Bulawayo."
-District,ADM2,2,"A subdivision of a province, such as Mazowe or Mutare District."
-Suburb,SUB,4,"A residential or commercial area within a city or town."
+NAME,CODE,LEVEL,COUNTRY_ID,ISO_ALPHA_2,ISO_ALPHA_3,COUNTRY_NAME,DESCRIPTION
+Country,ADM0,0,,ZW,,,"The highest administrative level, representing the entire nation."
+Province,ADM1,1,,ZW,,,"The primary subdivision of the country, such as Harare or Bulawayo."
+District,ADM2,2,,ZW,,,"A subdivision of a province, such as Mazowe or Mutare District."
+Suburb,SUB,4,,ZW,,,"A residential or commercial area within a city or town."

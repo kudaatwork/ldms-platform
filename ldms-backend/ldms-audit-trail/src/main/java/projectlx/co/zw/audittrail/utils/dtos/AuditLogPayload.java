@@ -1,7 +1,7 @@
 package projectlx.co.zw.audittrail.utils.dtos;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -28,6 +28,8 @@ public class AuditLogPayload {
     private Long responseTimeMs;
     private String curlCommand;
     private String exceptionMessage;
-    private LocalDateTime requestTimestamp;
-    private LocalDateTime responseTimestamp;
+    /** Legacy single instant from older producers; mapped to DB when request/response timestamps are absent. */
+    private Instant timestamp;
+    private Instant requestTimestamp;
+    private Instant responseTimestamp;
 }

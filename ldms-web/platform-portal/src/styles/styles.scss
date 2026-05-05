@@ -851,3 +851,21 @@ html.theme-dark .shell .main .content {
   -moz-osx-font-smoothing: grayscale;
   font-feature-settings: 'liga';
 }
+
+/* Wordmark: “LX” in soft sky / cyan so it reads as one brand lockup */
+.brand-lx {
+  font-weight: 700;
+  color: #0ea5e9;
+  letter-spacing: -0.03em;
+}
+
+html.theme-dark .brand-lx {
+  color: #38bdf8;
+}
+
+/* Navy auth / signup panels: brighter cyan “LX” on dark backgrounds */
+.ll-name .brand-lx,
+.su-left-name .brand-lx {
+  color: #a5f3fc;
+  text-shadow: 0 0 20px rgba(34, 211, 238, 0.28);
+}

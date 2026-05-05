@@ -1,12 +1,186 @@
-<section class="lx-page dashboard">
+<section class="lx-page dashboard" [class.dashboard--supplier]="isSupplier">
   <header class="dashboard-header">
     <h1 class="dashboard-title">{{ classificationLabel }} workspace</h1>
     <p class="dashboard-sub">
-      Snapshot metrics for your organisation — figures below are demo data until backend wiring is complete.
+      <ng-container *ngIf="isSupplier"
+        >Track outbound loads, drivers, and ETAs — demo data until live shipment APIs are connected.</ng-container
+      >
+      <ng-container *ngIf="!isSupplier"
+        >Snapshot metrics for your organisation — figures below are demo data until backend wiring is complete.</ng-container
+      >
     </p>
   </header>
 
-  <div class="lx-grid lx-grid-4">
+  <!-- Supplier: operations board -->
+  <ng-container *ngIf="isSupplier">
+    <div class="dash-supplier-toolbar">
+      <div class="dash-tabs" role="tablist" aria-label="Shipment status">
+        <button
+          type="button"
+          role="tab"
+          class="dash-tab"
+          [class.dash-tab--on]="shipmentFilter === 'ALL'"
+          (click)="setFilter('ALL')"
+        >
+          All <span class="dash-tab-count">({{ shipmentCounts['ALL'] }})</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="dash-tab"
+          [class.dash-tab--on]="shipmentFilter === 'PREPARED'"
+          (click)="setFilter('PREPARED')"
+        >
+          Prepared <span class="dash-tab-count">({{ shipmentCounts['PREPARED'] }})</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="dash-tab"
+          [class.dash-tab--on]="shipmentFilter === 'IN_TRANSIT'"
+          (click)="setFilter('IN_TRANSIT')"
+        >
+          In transit <span class="dash-tab-count">({{ shipmentCounts['IN_TRANSIT'] }})</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="dash-tab"
+          [class.dash-tab--on]="shipmentFilter === 'COMPLETED'"
+          (click)="setFilter('COMPLETED')"
+        >
+          Completed <span class="dash-tab-count">({{ shipmentCounts['COMPLETED'] }})</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="dash-tab"
+          [class.dash-tab--on]="shipmentFilter === 'FAILED'"
+          (click)="setFilter('FAILED')"
+        >
+          Failed <span class="dash-tab-count">({{ shipmentCounts['FAILED'] }})</span>
+        </button>
+      </div>
+      <div class="dash-search-row">
+        <label class="dash-search">
+          <span class="material-icons" aria-hidden="true">search</span>
+          <input
+            type="search"
+            name="shipmentSearch"
+            [(ngModel)]="shipmentSearch"
+            (ngModelChange)="onSearchInput()"
+            placeholder="Search shipment, category, driver…"
+            autocomplete="off"
+          />
+        </label>
+        <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm dash-sort-btn" disabled title="Coming soon">
+          Sort
+        </button>
+        <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm dash-sort-btn" disabled title="Coming soon">
+          Add filter
+        </button>
+      </div>
+    </div>
+
+    <div class="dash-supplier-layout">
+      <div class="dash-ship-grid">
+        <button type="button" class="lx-card dash-new-card" (click)="goNewShipment()">
+          <span class="material-icons dash-new-plus" aria-hidden="true">add</span>
+          <span class="dash-new-title">New shipment</span>
+          <span class="dash-new-hint">Plan a load or hand off to transport</span>
+          <span class="dash-new-art" aria-hidden="true">
+            <span class="material-icons">local_shipping</span>
+          </span>
+        </button>
+
+        <article
+          class="lx-card dash-ship-card"
+          *ngFor="let s of filteredShipments; trackBy: trackShipment"
+          [class.dash-ship-card--active]="selectedShipmentId === s.id"
+          (click)="selectShipment(s)"
+          (keyup.enter)="selectShipment(s)"
+          tabindex="0"
+          role="button"
+          [attr.aria-pressed]="selectedShipmentId === s.id"
+        >
+          <header class="dash-ship-card__head">
+            <span class="material-icons dash-ship-card__icon" aria-hidden="true">local_shipping</span>
+            <span class="dash-ship-card__no">{{ s.shipmentNo }}</span>
+            <span class="dash-ship-badge" [ngClass]="statusClass(s.status)">{{ statusLabel(s.status) }}</span>
+          </header>
+          <div class="dash-ship-card__mid">
+            <div class="dash-ship-lane">
+              <div class="dash-ship-lane__dates">
+                <div>
+                  <span class="dash-ship-k">Departure</span>
+                  <span class="dash-ship-v">{{ s.departureDate }}</span>
+                  <span class="dash-ship-place">{{ s.departureLabel }}</span>
+                </div>
+                <div class="dash-ship-lane__rule" aria-hidden="true"></div>
+                <div>
+                  <span class="dash-ship-k">Arrival</span>
+                  <span class="dash-ship-v">{{ s.arrivalDate }}</span>
+                  <span class="dash-ship-place">{{ s.arrivalLabel }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="dash-ship-cat">
+              <span class="dash-ship-k">Category</span>
+              <span class="dash-ship-cat-name">{{ s.category }}</span>
+            </div>
+          </div>
+          <footer class="dash-ship-card__foot">
+            <span class="dash-ship-driver"><span class="dash-ship-k">Driver</span> {{ s.driver }}</span>
+            <div class="dash-ship-actions">
+              <button type="button" class="dash-icon-btn" disabled title="Voice (demo)">
+                <span class="material-icons" aria-hidden="true">call</span>
+              </button>
+              <button type="button" class="dash-icon-btn" disabled title="Chat (demo)">
+                <span class="material-icons" aria-hidden="true">chat_bubble_outline</span>
+              </button>
+            </div>
+          </footer>
+        </article>
+      </div>
+
+      <aside class="lx-card dash-map-panel" *ngIf="selectedShipment as sel">
+        <div class="dash-map-visual" aria-hidden="true">
+          <div class="dash-map-grid"></div>
+          <div class="dash-map-route"></div>
+          <span class="material-icons dash-map-pin dash-map-pin--a">place</span>
+          <span class="material-icons dash-map-pin dash-map-pin--b">flag</span>
+        </div>
+        <div class="dash-map-overlay">
+          <span class="material-icons" aria-hidden="true">turn_slight_left</span>
+          <div>
+            <div class="dash-map-overlay__title">Live tracking (demo)</div>
+            <div class="dash-map-overlay__line">{{ sel.routeHint }}</div>
+            <div class="dash-map-overlay__sub">{{ sel.departureLabel }} → {{ sel.arrivalLabel }}</div>
+          </div>
+        </div>
+        <div class="dash-map-meta">
+          <div>
+            <span class="dash-ship-k">Shipment</span>
+            <span class="dash-map-meta__v">{{ sel.shipmentNo }}</span>
+          </div>
+          <div>
+            <span class="dash-ship-k">Status</span>
+            <span class="dash-map-meta__v">{{ statusLabel(sel.status) }}</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <div class="lx-grid lx-grid-4 dash-kpi-below">
+      <article class="lx-card kpi-card" *ngFor="let card of cards">
+        <div class="lx-kpi-label">{{ card.label }}</div>
+        <div class="lx-kpi-value">{{ card.value }}</div>
+      </article>
+    </div>
+  </ng-container>
+
+  <!-- Other classifications: compact KPI grid -->
+  <div class="lx-grid lx-grid-4" *ngIf="!isSupplier">
     <article class="lx-card kpi-card" *ngFor="let card of cards">
       <div class="lx-kpi-label">{{ card.label }}</div>
       <div class="lx-kpi-value">{{ card.value }}</div>

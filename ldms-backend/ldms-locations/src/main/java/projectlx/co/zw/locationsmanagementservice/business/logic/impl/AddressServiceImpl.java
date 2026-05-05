@@ -18,28 +18,35 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.modelmapper.ModelMapper;
-import org.modelmapper.TypeToken;
-import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.transaction.annotation.Transactional;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.AddressServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.AddressService;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.AddressServiceValidator;
 import projectlx.co.zw.locationsmanagementservice.model.Address;
+import projectlx.co.zw.locationsmanagementservice.model.City;
+import projectlx.co.zw.locationsmanagementservice.model.District;
 import projectlx.co.zw.locationsmanagementservice.model.GeoCoordinates;
+import projectlx.co.zw.locationsmanagementservice.model.LocationNode;
 import projectlx.co.zw.locationsmanagementservice.model.Suburb;
 import projectlx.co.zw.locationsmanagementservice.repository.AddressRepository;
+import projectlx.co.zw.locationsmanagementservice.repository.CityRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.GeoCoordinatesRepository;
+import projectlx.co.zw.locationsmanagementservice.repository.LocationNodeRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.SuburbRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.AddressSpecification;
+import projectlx.co.zw.locationsmanagementservice.utils.GeoCoordinateCsvImportHelper;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.AddressCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.AddressDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
 import projectlx.co.zw.locationsmanagementservice.utils.enums.I18Code;
+import projectlx.co.zw.locationsmanagementservice.utils.enums.LocationType;
+import projectlx.co.zw.locationsmanagementservice.utils.enums.SettlementType;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.AddressMultipleFiltersRequest;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.CreateAddressRequest;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.EditAddressRequest;
@@ -67,14 +74,16 @@ public class AddressServiceImpl implements AddressService {
 
     private final AddressServiceValidator addressServiceValidator;
     private final AddressRepository addressRepository;
+    private final CityRepository cityRepository;
     private final SuburbRepository suburbRepository;
+    private final LocationNodeRepository locationNodeRepository;
     private final GeoCoordinatesRepository geoCoordinatesRepository;
     private final AddressServiceAuditable addressServiceAuditable;
     private final MessageService messageService;
-    private final ModelMapper modelMapper;
 
     private static final String[] HEADERS = {
-            "ID", "LINE 1", "LINE 2", "POSTAL CODE", "SUBURB", "DISTRICT", "PROVINCE", "COUNTRY", "CREATED AT", "UPDATED AT", "ENTITY STATUS"
+            "ID", "LINE 1", "LINE 2", "POSTAL CODE", "SETTLEMENT TYPE", "VILLAGE", "CITY",
+            "SUBURB", "DISTRICT", "PROVINCE", "COUNTRY", "CREATED AT", "UPDATED AT", "ENTITY STATUS"
     };
 
     private static final String[] CSV_HEADERS = {
@@ -82,6 +91,7 @@ public class AddressServiceImpl implements AddressService {
     };
 
     @Override
+    @Transactional
     public AddressResponse create(CreateAddressRequest createAddressRequest, Locale locale, String username) {
 
         String message = "";
@@ -97,35 +107,23 @@ public class AddressServiceImpl implements AddressService {
                     null, validatorDto.getErrorMessages());
         }
 
-        // Ensure suburbId is provided
-        if (createAddressRequest.getSuburbId() == null) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_CREATE_ADDRESS_SUBURB_ID_MISSING.getCode(), new String[]{},
-                    locale);
-
-            return buildAddressResponse(400, false, message, null, null,
-                    null);
-        }
-
-        // Check if the suburb exists
-        Optional<Suburb> suburbOptional = suburbRepository.findByIdAndEntityStatusNot(createAddressRequest.getSuburbId(),
-                EntityStatus.DELETED);
-        
-        if (suburbOptional.isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_SUBURB_NOT_FOUND.getCode(), new String[]{},
-                    locale);
-
-            return buildAddressResponse(404, false, message, null, null,
-                    null);
+        SettlementResolution settlementResolution = resolveSettlement(createAddressRequest.getSettlementType(),
+                createAddressRequest.getSettlementId(), createAddressRequest.getSuburbId(),
+                createAddressRequest.getVillageLocationNodeId(), locale);
+        if (settlementResolution.errorMessage != null) {
+            return buildAddressResponse(400, false, settlementResolution.errorMessage, null, null, null);
         }
 
         // Check if a similar address already exists with improved check
         List<Address> existingAddresses = addressRepository.findAll().stream()
                 .filter(address -> address.getEntityStatus() != EntityStatus.DELETED &&
                         address.getLine1().equalsIgnoreCase(createAddressRequest.getLine1()) &&
-                        address.getSuburb() != null &&
-                        address.getSuburb().getId().equals(createAddressRequest.getSuburbId()))
+                        ((settlementResolution.suburb != null &&
+                                address.getSuburb() != null &&
+                                address.getSuburb().getId().equals(settlementResolution.suburb.getId())) ||
+                                (settlementResolution.village != null &&
+                                        address.getVillageLocationNode() != null &&
+                                        address.getVillageLocationNode().getId().equals(settlementResolution.village.getId()))))
                 .collect(Collectors.toList());
 
         if (!existingAddresses.isEmpty()) {
@@ -142,9 +140,20 @@ public class AddressServiceImpl implements AddressService {
         addressToBeSaved.setLine1(createAddressRequest.getLine1());
         addressToBeSaved.setLine2(createAddressRequest.getLine2());
         addressToBeSaved.setPostalCode(createAddressRequest.getPostalCode());
+        addressToBeSaved.setExternalSource(createAddressRequest.getExternalSource());
+        addressToBeSaved.setExternalPlaceId(createAddressRequest.getExternalPlaceId());
+        addressToBeSaved.setFormattedAddress(createAddressRequest.getFormattedAddress());
         
-        // Set suburb (we already verified it exists)
-        addressToBeSaved.setSuburb(suburbOptional.get());
+        addressToBeSaved.setSettlementType(settlementResolution.settlementType);
+        addressToBeSaved.setSuburb(settlementResolution.suburb);
+        addressToBeSaved.setVillageLocationNode(settlementResolution.village);
+
+        Optional<String> cityAttachError =
+                attachDenormalizedCity(addressToBeSaved, createAddressRequest.getCityId(), settlementResolution, locale);
+        if (cityAttachError.isPresent()) {
+            return buildAddressResponse(400, false, cityAttachError.get(), null, null, null);
+        }
+
         if ((createAddressRequest.getLatitude() == null) != (createAddressRequest.getLongitude() == null)) {
             message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
             return buildAddressResponse(400, false, message, null, null, null);
@@ -174,6 +183,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public AddressResponse findById(Long id, Locale locale, String username) {
 
         String message = "";
@@ -211,6 +221,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public AddressResponse findAllAsList(Locale locale, String username) {
 
         String message = "";
@@ -240,6 +251,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    @Transactional
     public AddressResponse update(EditAddressRequest request, String username, Locale locale) {
 
         String message = "";
@@ -272,14 +284,23 @@ public class AddressServiceImpl implements AddressService {
         addressToBeEdited.setLine1(request.getLine1());
         addressToBeEdited.setLine2(request.getLine2());
         addressToBeEdited.setPostalCode(request.getPostalCode());
+        addressToBeEdited.setExternalSource(request.getExternalSource());
+        addressToBeEdited.setExternalPlaceId(request.getExternalPlaceId());
+        addressToBeEdited.setFormattedAddress(request.getFormattedAddress());
 
-        // Handle suburb if provided
-        if (request.getSuburbId() != null) {
-            Optional<Suburb> suburbOptional = suburbRepository.findByIdAndEntityStatusNot(request.getSuburbId(),
-                    EntityStatus.DELETED);
-            if (suburbOptional.isPresent()) {
-                addressToBeEdited.setSuburb(suburbOptional.get());
-            }
+        SettlementResolution settlementResolution = resolveSettlement(request.getSettlementType(),
+                request.getSettlementId(), request.getSuburbId(), request.getVillageLocationNodeId(), locale);
+        if (settlementResolution.errorMessage != null) {
+            return buildAddressResponse(400, false, settlementResolution.errorMessage, null, null, null);
+        }
+        addressToBeEdited.setSettlementType(settlementResolution.settlementType);
+        addressToBeEdited.setSuburb(settlementResolution.suburb);
+        addressToBeEdited.setVillageLocationNode(settlementResolution.village);
+
+        Optional<String> cityAttachError =
+                attachDenormalizedCity(addressToBeEdited, request.getCityId(), settlementResolution, locale);
+        if (cityAttachError.isPresent()) {
+            return buildAddressResponse(400, false, cityAttachError.get(), null, null, null);
         }
 
         if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
@@ -298,7 +319,6 @@ public class AddressServiceImpl implements AddressService {
 
         Address addressEdited = addressServiceAuditable.update(addressToBeEdited, locale, username);
 
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         AddressDto addressDtoReturned = convertAddressToDto(addressEdited);
 
         message = messageService.getMessage(I18Code.MESSAGE_ADDRESS_UPDATED_SUCCESSFULLY.getCode(), new String[]{},
@@ -309,6 +329,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    @Transactional
     public AddressResponse delete(Long id, Locale locale, String username) {
 
         String message = "";
@@ -350,6 +371,7 @@ public class AddressServiceImpl implements AddressService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public AddressResponse findByMultipleFilters(AddressMultipleFiltersRequest request, String username, Locale locale) {
 
         String message = "";
@@ -368,7 +390,7 @@ public class AddressServiceImpl implements AddressService {
                     null, errorMessages);
         }
 
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by(Sort.Direction.ASC, "id"));
 
         if (isNotEmpty(request.getLine1())) {
             spec = addToSpec(request.getLine1(), spec, AddressSpecification::line1Like);
@@ -388,6 +410,30 @@ public class AddressServiceImpl implements AddressService {
 
         if (request.getEntityStatus() != null) {
             spec = addToSpec(request.getEntityStatus(), spec, AddressSpecification::hasEntityStatus);
+        }
+        if (request.getSettlementType() != null) {
+            spec = addToSpec(request.getSettlementType(), spec, AddressSpecification::hasSettlementType);
+        }
+        if (request.getSettlementId() != null) {
+            spec = addToSpec(request.getSettlementId(), spec, AddressSpecification::hasSettlementId);
+        }
+        if (request.getSuburbId() != null) {
+            spec = addToSpec(request.getSuburbId(), spec, AddressSpecification::hasSuburbId);
+        }
+        if (request.getVillageId() != null) {
+            spec = addToSpec(request.getVillageId(), spec, AddressSpecification::hasVillageId);
+        }
+        if (request.getCityId() != null) {
+            spec = addToSpec(request.getCityId(), spec, AddressSpecification::hasCityId);
+        }
+        if (request.getDistrictId() != null) {
+            spec = addToSpec(request.getDistrictId(), spec, AddressSpecification::hasDistrictId);
+        }
+        if (request.getProvinceId() != null) {
+            spec = addToSpec(request.getProvinceId(), spec, AddressSpecification::hasProvinceId);
+        }
+        if (request.getCountryId() != null) {
+            spec = addToSpec(request.getCountryId(), spec, AddressSpecification::hasCountryId);
         }
 
         Page<Address> result = addressRepository.findAll(spec, pageable);
@@ -458,6 +504,26 @@ public class AddressServiceImpl implements AddressService {
         return spec;
     }
 
+    private Specification<Address> addToSpec(final SettlementType settlementType, Specification<Address> spec,
+                                             Function<SettlementType, Specification<Address>> predicateMethod) {
+        if (settlementType != null) {
+            Specification<Address> localSpec = Specification.where(predicateMethod.apply(settlementType));
+            spec = (spec == null) ? localSpec : spec.and(localSpec);
+            return spec;
+        }
+        return spec;
+    }
+
+    private Specification<Address> addToSpec(final Long idFilter, Specification<Address> spec,
+                                             Function<Long, Specification<Address>> predicateMethod) {
+        if (idFilter != null) {
+            Specification<Address> localSpec = Specification.where(predicateMethod.apply(idFilter));
+            spec = (spec == null) ? localSpec : spec.and(localSpec);
+            return spec;
+        }
+        return spec;
+    }
+
     private Page<AddressDto> convertAddressEntityToAddressDto(Page<Address> addressPage) {
 
         List<Address> addressList = addressPage.getContent(); // Get the content first
@@ -480,29 +546,128 @@ public class AddressServiceImpl implements AddressService {
     }
 
     private AddressDto convertAddressToDto(Address address) {
-        AddressDto addressDto = modelMapper.map(address, AddressDto.class);
+        AddressDto addressDto = new AddressDto();
+        addressDto.setId(address.getId());
+        addressDto.setLine1(address.getLine1());
+        addressDto.setLine2(address.getLine2());
+        addressDto.setPostalCode(address.getPostalCode());
+        addressDto.setSettlementType(address.getSettlementType());
+        addressDto.setExternalSource(address.getExternalSource());
+        addressDto.setExternalPlaceId(address.getExternalPlaceId());
+        addressDto.setFormattedAddress(address.getFormattedAddress());
+        addressDto.setGeoCoordinatesId(address.getGeoCoordinates() != null ? address.getGeoCoordinates().getId() : null);
+        addressDto.setCreatedAt(address.getCreatedAt());
+        addressDto.setUpdatedAt(address.getUpdatedAt());
+        addressDto.setEntityStatus(address.getEntityStatus());
 
-        if (address.getSuburb() != null) {
-            addressDto.setSuburbId(address.getSuburb().getId());
-            addressDto.setSuburbName(address.getSuburb().getName());
+        if (address.getVillageLocationNode() != null) {
+            LocationNode village = address.getVillageLocationNode();
+            addressDto.setSettlementId(village.getId());
+            addressDto.setVillageId(village.getId());
+            addressDto.setVillageName(village.getName());
+            if (village.getParent() != null) {
+                addressDto.setCityId(village.getParent().getId());
+                addressDto.setCityName(village.getParent().getName());
+            } else if (village.getSuburb() != null) {
+                applyCityToAddressDtoFromSuburb(village.getSuburb(), addressDto);
+            }
+            if (village.getDistrict() != null) {
+                addressDto.setDistrictId(village.getDistrict().getId());
+                addressDto.setDistrictName(village.getDistrict().getName());
+                if (village.getDistrict().getProvince() != null) {
+                    addressDto.setProvinceId(village.getDistrict().getProvince().getId());
+                    addressDto.setProvinceName(village.getDistrict().getProvince().getName());
+                    if (village.getDistrict().getProvince().getCountry() != null) {
+                        addressDto.setCountryId(village.getDistrict().getProvince().getCountry().getId());
+                        addressDto.setCountryName(village.getDistrict().getProvince().getCountry().getName());
+                    }
+                }
+            }
+            if (village.getSuburb() != null) {
+                addressDto.setSuburbId(village.getSuburb().getId());
+                addressDto.setSuburbName(village.getSuburb().getName());
+            }
+        } else if (address.getSuburb() != null) {
+            Suburb suburb = address.getSuburb();
+            addressDto.setSettlementId(suburb.getId());
+            addressDto.setSuburbId(suburb.getId());
+            addressDto.setSuburbName(suburb.getName());
+            applyCityToAddressDtoFromSuburb(suburb, addressDto);
 
-            if (address.getSuburb().getDistrict() != null) {
-                addressDto.setDistrictId(address.getSuburb().getDistrict().getId());
-                addressDto.setDistrictName(address.getSuburb().getDistrict().getName());
+            if (suburb.getDistrict() != null) {
+                addressDto.setDistrictId(suburb.getDistrict().getId());
+                addressDto.setDistrictName(suburb.getDistrict().getName());
 
-                if (address.getSuburb().getDistrict().getProvince() != null) {
-                    addressDto.setProvinceId(address.getSuburb().getDistrict().getProvince().getId());
-                    addressDto.setProvinceName(address.getSuburb().getDistrict().getProvince().getName());
+                if (suburb.getDistrict().getProvince() != null) {
+                    addressDto.setProvinceId(suburb.getDistrict().getProvince().getId());
+                    addressDto.setProvinceName(suburb.getDistrict().getProvince().getName());
 
-                    if (address.getSuburb().getDistrict().getProvince().getCountry() != null) {
-                        addressDto.setCountryId(address.getSuburb().getDistrict().getProvince().getCountry().getId());
-                        addressDto.setCountryName(address.getSuburb().getDistrict().getProvince().getCountry().getName());
+                    if (suburb.getDistrict().getProvince().getCountry() != null) {
+                        addressDto.setCountryId(suburb.getDistrict().getProvince().getCountry().getId());
+                        addressDto.setCountryName(suburb.getDistrict().getProvince().getCountry().getName());
                     }
                 }
             }
         }
 
+        if (addressDto.getCityName() == null || addressDto.getCityName().isBlank()) {
+            if (address.getCity() != null) {
+                addressDto.setCityId(address.getCity().getId());
+                addressDto.setCityName(address.getCity().getName());
+            }
+        }
+
         return addressDto;
+    }
+
+    /**
+     * Prefer legacy {@link Suburb#getCityLocationNode()}; fall back to first-class {@link Suburb#getCity()} when the
+     * node link is not populated (common for suburb → city linkage in newer data).
+     */
+    /**
+     * Persist optional {@link Address#getCity()} for reporting and FK alignment. Validates district when {@code requestedCityId} is present;
+     * otherwise defaults to suburb's linked {@link Suburb#getCity()} when suburb settlement.
+     */
+    private Optional<String> attachDenormalizedCity(Address address, Long requestedCityId, SettlementResolution sr,
+                                                    Locale locale) {
+        address.setCity(null);
+        City resolved = null;
+        if (requestedCityId != null) {
+            Optional<City> cityOpt = cityRepository.findByIdAndEntityStatusNot(requestedCityId, EntityStatus.DELETED);
+            if (cityOpt.isEmpty()) {
+                return Optional.of(
+                        messageService.getMessage(I18Code.MESSAGE_CITY_NOT_FOUND.getCode(), new String[]{}, locale));
+            }
+            City city = cityOpt.get();
+            District settlementDistrict =
+                    sr.suburb != null && sr.suburb.getDistrict() != null
+                            ? sr.suburb.getDistrict()
+                            : sr.village != null && sr.village.getDistrict() != null ? sr.village.getDistrict() : null;
+            if (settlementDistrict == null || !city.getDistrict().getId().equals(settlementDistrict.getId())) {
+                return Optional.of(messageService.getMessage(I18Code.MESSAGE_VILLAGE_CITY_DISTRICT_MISMATCH.getCode(),
+                        new String[]{}, locale));
+            }
+            resolved = city;
+        } else if (sr.suburb != null && sr.suburb.getCity() != null) {
+            resolved = sr.suburb.getCity();
+        }
+        address.setCity(resolved);
+        return Optional.empty();
+    }
+
+    private void applyCityToAddressDtoFromSuburb(Suburb suburb, AddressDto addressDto) {
+        if (suburb == null) {
+            return;
+        }
+        if (suburb.getCityLocationNode() != null) {
+            addressDto.setCityId(suburb.getCityLocationNode().getId());
+            addressDto.setCityName(suburb.getCityLocationNode().getName());
+            return;
+        }
+        if (suburb.getCity() != null) {
+            addressDto.setCityId(suburb.getCity().getId());
+            addressDto.setCityName(suburb.getCity().getName());
+        }
     }
 
     @Override
@@ -516,6 +681,9 @@ public class AddressServiceImpl implements AddressService {
                     .append(safe(address.getLine1())).append(",")
                     .append(safe(address.getLine2())).append(",")
                     .append(safe(address.getPostalCode())).append(",")
+                    .append(safe(address.getSettlementType() != null ? address.getSettlementType().toString() : null)).append(",")
+                    .append(safe(address.getVillageName())).append(",")
+                    .append(safe(address.getCityName())).append(",")
                     .append(safe(address.getSuburbName())).append(",")
                     .append(safe(address.getDistrictName())).append(",")
                     .append(safe(address.getProvinceName())).append(",")
@@ -548,13 +716,16 @@ public class AddressServiceImpl implements AddressService {
             row.createCell(1).setCellValue(safe(address.getLine1()));
             row.createCell(2).setCellValue(safe(address.getLine2()));
             row.createCell(3).setCellValue(safe(address.getPostalCode()));
-            row.createCell(4).setCellValue(safe(address.getSuburbName()));
-            row.createCell(5).setCellValue(safe(address.getDistrictName()));
-            row.createCell(6).setCellValue(safe(address.getProvinceName()));
-            row.createCell(7).setCellValue(safe(address.getCountryName()));
-            row.createCell(8).setCellValue(address.getCreatedAt() != null ? address.getCreatedAt().toString() : "");
-            row.createCell(9).setCellValue(address.getUpdatedAt() != null ? address.getUpdatedAt().toString() : "");
-            row.createCell(10).setCellValue(address.getEntityStatus() != null ? address.getEntityStatus().toString() : "");
+            row.createCell(4).setCellValue(address.getSettlementType() != null ? address.getSettlementType().toString() : "");
+            row.createCell(5).setCellValue(safe(address.getVillageName()));
+            row.createCell(6).setCellValue(safe(address.getCityName()));
+            row.createCell(7).setCellValue(safe(address.getSuburbName()));
+            row.createCell(8).setCellValue(safe(address.getDistrictName()));
+            row.createCell(9).setCellValue(safe(address.getProvinceName()));
+            row.createCell(10).setCellValue(safe(address.getCountryName()));
+            row.createCell(11).setCellValue(address.getCreatedAt() != null ? address.getCreatedAt().toString() : "");
+            row.createCell(12).setCellValue(address.getUpdatedAt() != null ? address.getUpdatedAt().toString() : "");
+            row.createCell(13).setCellValue(address.getEntityStatus() != null ? address.getEntityStatus().toString() : "");
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -588,6 +759,9 @@ public class AddressServiceImpl implements AddressService {
             table.addCell(safe(address.getLine1()));
             table.addCell(safe(address.getLine2()));
             table.addCell(safe(address.getPostalCode()));
+            table.addCell(safe(address.getSettlementType() != null ? address.getSettlementType().toString() : null));
+            table.addCell(safe(address.getVillageName()));
+            table.addCell(safe(address.getCityName()));
             table.addCell(safe(address.getSuburbName()));
             table.addCell(safe(address.getDistrictName()));
             table.addCell(safe(address.getProvinceName()));
@@ -637,7 +811,26 @@ public class AddressServiceImpl implements AddressService {
                     request.setLine1(row.getLine1());
                     request.setLine2(row.getLine2());
                     request.setPostalCode(row.getPostalCode());
+                    request.setSettlementType(SettlementType.SUBURB);
+                    request.setSettlementId(row.getSuburbId());
                     request.setSuburbId(row.getSuburbId());
+
+                    GeoCoordinates parentGeo = null;
+                    if (row.getSuburbId() != null) {
+                        Optional<Suburb> suburbOpt =
+                                suburbRepository.findByIdFetchingGeoCoordinates(row.getSuburbId(), EntityStatus.DELETED);
+                        if (suburbOpt.isPresent()) {
+                            parentGeo = suburbOpt.get().getGeoCoordinates();
+                        }
+                    }
+                    GeoCoordinateCsvImportHelper.ResolvedGeo geo = GeoCoordinateCsvImportHelper.resolve(
+                            row.getGeoCoordinatesId(),
+                            row.getLatitude(),
+                            row.getLongitude(),
+                            parentGeo);
+                    request.setGeoCoordinatesId(geo.geoCoordinatesId());
+                    request.setLatitude(geo.latitude());
+                    request.setLongitude(geo.longitude());
 
                     AddressResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
 
@@ -661,6 +854,76 @@ public class AddressServiceImpl implements AddressService {
                 : "Import failed. No addresses were imported.";
 
         return new ImportSummary(statusCode, isSuccess, message, total, success, failed, errors);
+    }
+
+    private SettlementResolution resolveSettlement(SettlementType settlementType, Long settlementId, Long suburbId,
+                                                   Long villageLocationNodeId, Locale locale) {
+        if (settlementType == SettlementType.SUBURB && villageLocationNodeId != null) {
+            return SettlementResolution.error("VILLAGE id cannot be used when settlement type is SUBURB");
+        }
+        if (settlementType == SettlementType.VILLAGE && suburbId != null && settlementId == null) {
+            return SettlementResolution.error("Use settlementId/village id when settlement type is VILLAGE");
+        }
+        SettlementType type = settlementType;
+        Long resolvedId = settlementId;
+        if (type == null) {
+            if (villageLocationNodeId != null) {
+                type = SettlementType.VILLAGE;
+                resolvedId = villageLocationNodeId;
+            } else {
+                type = SettlementType.SUBURB;
+                resolvedId = suburbId;
+            }
+        }
+
+        if (resolvedId == null) {
+            String message = type == SettlementType.SUBURB
+                    ? messageService.getMessage(I18Code.MESSAGE_CREATE_ADDRESS_SUBURB_ID_MISSING.getCode(), new String[]{}, locale)
+                    : "Village settlement id is required";
+            return SettlementResolution.error(message);
+        }
+
+        if (type == SettlementType.SUBURB) {
+            Optional<Suburb> suburbOptional = suburbRepository.findByIdAndEntityStatusNot(resolvedId, EntityStatus.DELETED);
+            if (suburbOptional.isEmpty()) {
+                return SettlementResolution.error(
+                        messageService.getMessage(I18Code.MESSAGE_SUBURB_NOT_FOUND.getCode(), new String[]{}, locale));
+            }
+            return SettlementResolution.suburb(suburbOptional.get());
+        }
+
+        Optional<LocationNode> villageOptional = locationNodeRepository
+                .findByIdAndLocationTypeAndEntityStatusNot(resolvedId, LocationType.VILLAGE, EntityStatus.DELETED);
+        if (villageOptional.isEmpty()) {
+            return SettlementResolution.error("Village not found");
+        }
+        return SettlementResolution.village(villageOptional.get());
+    }
+
+    private static class SettlementResolution {
+        private final SettlementType settlementType;
+        private final Suburb suburb;
+        private final LocationNode village;
+        private final String errorMessage;
+
+        private SettlementResolution(SettlementType settlementType, Suburb suburb, LocationNode village, String errorMessage) {
+            this.settlementType = settlementType;
+            this.suburb = suburb;
+            this.village = village;
+            this.errorMessage = errorMessage;
+        }
+
+        private static SettlementResolution suburb(Suburb suburb) {
+            return new SettlementResolution(SettlementType.SUBURB, suburb, null, null);
+        }
+
+        private static SettlementResolution village(LocationNode village) {
+            return new SettlementResolution(SettlementType.VILLAGE, null, village, null);
+        }
+
+        private static SettlementResolution error(String message) {
+            return new SettlementResolution(null, null, null, message);
+        }
     }
 
     private AddressResponse buildAddressResponse(int statusCode, boolean isSuccess, String message,

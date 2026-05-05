@@ -1,0 +1,105 @@
+.ald-body {
+  min-width: 280px;
+  max-width: min(92vw, 880px);
+  max-height: 75vh;
+  padding-top: 4px;
+}
+
+.ald-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px 8px 32px;
+}
+
+.ald-loading__text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--gray-500);
+}
+
+.ald-banner {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--gray-700);
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  border-radius: 10px;
+}
+
+.ald-section {
+  margin: 20px 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gray-500);
+
+  &:first-of-type {
+    margin-top: 0;
+  }
+}
+
+.ald-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 20px;
+}
+
+.ald-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  &--full {
+    grid-column: 1 / -1;
+  }
+}
+
+.ald-k {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-400);
+}
+
+.ald-v {
+  font-size: 14px;
+  color: var(--gray-800);
+}
+
+.ald-break {
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.lx-mono {
+  font-family: ui-monospace, Menlo, monospace;
+  font-size: 13px;
+}
+
+.ald-pre {
+  margin: 0 0 8px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.45;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow: auto;
+  background: var(--gray-50);
+  border: 1px solid var(--gray-100);
+  border-radius: 10px;
+  color: var(--gray-800);
+
+  &--curl {
+    max-height: 280px;
+  }
+}

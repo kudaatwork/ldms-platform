@@ -13,7 +13,9 @@ public final class LocationNodeSpecification {
     }
 
     public static Specification<LocationNode> notDeleted() {
-        return (root, query, cb) -> cb.notEqual(root.get("entityStatus"), EntityStatus.DELETED);
+        return (root, query, cb) -> cb.or(
+                cb.isNull(root.get("entityStatus")),
+                cb.notEqual(root.get("entityStatus"), EntityStatus.DELETED));
     }
 
     public static Specification<LocationNode> hasLocationType(LocationType type) {
@@ -28,6 +30,13 @@ public final class LocationNodeSpecification {
             return null;
         }
         return (root, query, cb) -> cb.equal(root.get("parent").get("id"), parentId);
+    }
+
+    public static Specification<LocationNode> districtIdEquals(Long districtId) {
+        if (districtId == null) {
+            return null;
+        }
+        return (root, query, cb) -> cb.equal(root.get("district").get("id"), districtId);
     }
 
     public static Specification<LocationNode> nameContains(String name) {

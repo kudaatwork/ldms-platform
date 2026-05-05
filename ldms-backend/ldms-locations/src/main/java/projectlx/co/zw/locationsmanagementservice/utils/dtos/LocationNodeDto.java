@@ -20,6 +20,10 @@ public class LocationNodeDto {
     private LocationType locationType;
     private Long parentId;
     private String parentName;
+    private Long districtId;
+    private String districtName;
+    private Long suburbId;
+    private String suburbName;
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String timezone;

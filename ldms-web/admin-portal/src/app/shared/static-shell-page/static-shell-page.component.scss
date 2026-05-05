@@ -1,0 +1,32 @@
+.static-shell__card {
+  max-width: 640px;
+  padding: 28px;
+}
+
+.static-shell__eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gray-500);
+}
+
+.static-shell__title {
+  margin: 0 0 12px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--gray-900);
+}
+
+.static-shell__body {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--gray-600);
+}
+
+.static-shell__back {
+  display: inline-flex;
+}

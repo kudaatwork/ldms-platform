@@ -43,8 +43,12 @@ public class AddressServiceValidatorImpl implements AddressServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_ADDRESS_POSTAL_CODE_MISSING.getCode(), new String[]{}, locale));
         }
 
-        if (request.getSuburbId() == null) {
+        if (request.getSettlementType() == null && request.getSuburbId() == null && request.getVillageLocationNodeId() == null) {
             logger.info("Validation failed: Suburb ID is missing");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_ADDRESS_SUBURB_ID_MISSING.getCode(), new String[]{}, locale));
+        }
+        if (request.getSettlementType() != null && request.getSettlementId() == null) {
+            logger.info("Validation failed: Settlement ID is missing");
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_ADDRESS_SUBURB_ID_MISSING.getCode(), new String[]{}, locale));
         }
 
@@ -94,8 +98,12 @@ public class AddressServiceValidatorImpl implements AddressServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_UPDATE_ADDRESS_POSTAL_CODE_MISSING.getCode(), new String[]{}, locale));
         }
 
-        if (request.getSuburbId() == null) {
+        if (request.getSettlementType() == null && request.getSuburbId() == null && request.getVillageLocationNodeId() == null) {
             logger.info("Validation failed: Suburb ID is missing");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_UPDATE_ADDRESS_SUBURB_ID_MISSING.getCode(), new String[]{}, locale));
+        }
+        if (request.getSettlementType() != null && request.getSettlementId() == null) {
+            logger.info("Validation failed: Settlement ID is missing");
             errors.add(messageService.getMessage(I18Code.MESSAGE_UPDATE_ADDRESS_SUBURB_ID_MISSING.getCode(), new String[]{}, locale));
         }
 

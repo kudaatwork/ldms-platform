@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  HostListener,
   OnInit,
 } from '@angular/core';
 import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
@@ -26,6 +27,13 @@ interface NavItem {
 interface Breadcrumb {
   label: string;
   url: string;
+}
+
+interface TopNotification {
+  id: string;
+  title: string;
+  body: string;
+  time: string;
 }
 
 @Component({
@@ -58,6 +66,7 @@ export class AppComponent implements OnInit {
       icon: 'location_on',
       route: '/locations',
       children: [
+        { label: 'Hierarchy explorer', icon: 'schema', route: '/locations/explorer' },
         { label: 'Countries', icon: 'public', route: '/locations/countries' },
         {
           label: 'Administrative levels',
@@ -69,6 +78,9 @@ export class AppComponent implements OnInit {
         { label: 'Cities', icon: 'location_city', route: '/locations/cities' },
         { label: 'Suburbs', icon: 'villa', route: '/locations/suburbs' },
         { label: 'Villages', icon: 'cabin', route: '/locations/villages' },
+        { label: 'Addresses', icon: 'pin_drop', route: '/locations/addresses' },
+        { label: 'Languages', icon: 'translate', route: '/locations/languages' },
+        { label: 'Localized names', icon: 'g_translate', route: '/locations/localized-names' },
       ],
     },
     { label: 'Notifications', icon: 'notifications', route: '/notifications' },
@@ -83,6 +95,29 @@ export class AppComponent implements OnInit {
     role: 'Platform Admin',
     initials: 'PA',
   };
+
+  notificationsOpen = false;
+  profileOpen = false;
+  topNotifications: TopNotification[] = [
+    {
+      id: 'n1',
+      title: 'KYC application queued',
+      body: 'Org “Demo Logistics” submitted documents for review.',
+      time: '2m ago',
+    },
+    {
+      id: 'n2',
+      title: 'System health',
+      body: 'All services reported healthy in the last poll.',
+      time: '1h ago',
+    },
+    {
+      id: 'n3',
+      title: 'Locations import',
+      body: 'Bulk province update finished with 12 warnings.',
+      time: 'Yesterday',
+    },
+  ];
 
   constructor(
     readonly router: Router,
@@ -100,6 +135,9 @@ export class AppComponent implements OnInit {
         tap(() => {
           this.syncChromeFromUrl();
           this.rebuildBreadcrumbs();
+          this.profileOpen = false;
+          this.notificationsOpen = false;
+          this.cdr.markForCheck();
         }),
       )
       .subscribe();
@@ -111,6 +149,10 @@ export class AppComponent implements OnInit {
 
   trackByChildRoute(_index: number, item: NavChild): string {
     return item.route;
+  }
+
+  trackByNotifId(_index: number, n: TopNotification): string {
+    return n.id;
   }
 
   toggleLocations(): void {
@@ -132,6 +174,15 @@ export class AppComponent implements OnInit {
   }
 
   private resolvePageTitle(url: string): string {
+    if (url.startsWith('/account')) {
+      return 'My account';
+    }
+    if (url.startsWith('/settings')) {
+      return 'Settings';
+    }
+    if (url.startsWith('/help')) {
+      return 'Help & Support';
+    }
     for (const item of this.navItems) {
       if (item.children) {
         const child = item.children.find((c) => url.startsWith(c.route));
@@ -183,8 +234,62 @@ export class AppComponent implements OnInit {
     this.cdr.markForCheck();
   }
 
+  get notificationCount(): number {
+    return this.topNotifications.length;
+  }
+
+  toggleNotifications(): void {
+    this.notificationsOpen = !this.notificationsOpen;
+    if (this.notificationsOpen) {
+      this.profileOpen = false;
+    }
+    this.cdr.markForCheck();
+  }
+
+  toggleProfile(): void {
+    this.profileOpen = !this.profileOpen;
+    if (this.profileOpen) {
+      this.notificationsOpen = false;
+    }
+    this.cdr.markForCheck();
+  }
+
+  dismissNotification(id: string): void {
+    this.topNotifications = this.topNotifications.filter((n) => n.id !== id);
+    this.cdr.markForCheck();
+  }
+
+  clearAllNotifications(): void {
+    this.topNotifications = [];
+    this.cdr.markForCheck();
+  }
+
+  goMyAccount(): void {
+    void this.router.navigate(['/account']);
+    queueMicrotask(() => {
+      this.profileOpen = false;
+      this.cdr.markForCheck();
+    });
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(ev: MouseEvent): void {
+    const el = ev.target as HTMLElement;
+    if (el.closest('.tb-notify-wrap') || el.closest('.tb-profile-wrap')) {
+      return;
+    }
+    if (this.notificationsOpen || this.profileOpen) {
+      this.notificationsOpen = false;
+      this.profileOpen = false;
+      this.cdr.markForCheck();
+    }
+  }
+
   logout(): void {
+    this.profileOpen = false;
+    this.notificationsOpen = false;
     this.storage.clearSession();
     void this.router.navigate(['/auth/login']);
+    this.cdr.markForCheck();
   }
 }

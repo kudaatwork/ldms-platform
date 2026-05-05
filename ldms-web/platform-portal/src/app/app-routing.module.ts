@@ -3,12 +3,19 @@ import { RouterModule, Routes } from '@angular/router';
 import { ClassificationGuard } from './core/guards/classification.guard';
 import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.component';
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
+import { LandingComponent } from './features/landing/pages/landing/landing.component';
 
 const routes: Routes = [
+  { path: 'welcome', component: LandingComponent },
+  {
+    path: 'signup',
+    loadChildren: () => import('./features/signup/signup.module').then((m) => m.SignupModule),
+  },
   {
     path: 'auth',
     loadChildren: () => import('./features/auth/auth.module').then((m) => m.AuthModule),
   },
+  { path: '', pathMatch: 'full', redirectTo: 'welcome' },
   {
     path: '',
     canActivate: [ClassificationGuard],
@@ -61,9 +68,24 @@ const routes: Routes = [
         component: PlaceholderPageComponent,
         data: { title: 'Border Activity', breadcrumb: 'Border Activity' },
       },
+      {
+        path: 'account',
+        component: PlaceholderPageComponent,
+        data: { title: 'My account', breadcrumb: 'My account' },
+      },
+      {
+        path: 'settings',
+        component: PlaceholderPageComponent,
+        data: { title: 'Settings', breadcrumb: 'Settings' },
+      },
+      {
+        path: 'help',
+        component: PlaceholderPageComponent,
+        data: { title: 'Help & Support', breadcrumb: 'Help & Support' },
+      },
     ],
   },
-  { path: '**', redirectTo: 'dashboard' },
+  { path: '**', redirectTo: 'welcome' },
 ];
 
 @NgModule({

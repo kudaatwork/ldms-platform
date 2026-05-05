@@ -1,3 +1,34 @@
+.lx-address-i18n {
+  margin-bottom: 16px;
+}
+
+.lx-address-i18n__title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.lx-address-i18n__text {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--gray-600);
+  margin: 0 0 12px;
+}
+
+.lx-address-i18n__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+
+  a mat-icon {
+    margin-right: 4px;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    vertical-align: text-bottom;
+  }
+}
+
 .lc-title {
   font-size: 1.125rem;
   font-weight: 600;

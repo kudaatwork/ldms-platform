@@ -4,6 +4,9 @@ import com.rabbitmq.client.Channel;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
@@ -65,8 +68,11 @@ public class AuditLogConsumerImpl implements AuditLogConsumer {
 
     private AuditLog toEntity(AuditLogPayload p) {
 
+        Instant requestInstant = firstNonNullInstant(p.getRequestTimestamp(), p.getTimestamp());
+        Instant responseInstant = firstNonNullInstant(p.getResponseTimestamp(), p.getTimestamp());
+
         return AuditLog.builder()
-                .traceId(p.getTraceId())
+                .traceId(blankToNull(p.getTraceId()))
                 .serviceName(p.getServiceName())
                 .username(p.getUsername())
                 .clientIpAddress(p.getClientIpAddress())
@@ -81,9 +87,24 @@ public class AuditLogConsumerImpl implements AuditLogConsumer {
                 .responseTimeMs(p.getResponseTimeMs())
                 .curlCommand(p.getCurlCommand())
                 .exceptionMessage(p.getExceptionMessage())
-                .requestTimestamp(p.getRequestTimestamp())
-                .responseTimestamp(p.getResponseTimestamp())
+                .requestTimestamp(toUtcLocalDateTime(requestInstant))
+                .responseTimestamp(toUtcLocalDateTime(responseInstant))
                 .build();
+    }
+
+    private static Instant firstNonNullInstant(Instant primary, Instant fallback) {
+        return primary != null ? primary : fallback;
+    }
+
+    private static LocalDateTime toUtcLocalDateTime(Instant instant) {
+        return instant == null ? null : LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+    }
+
+    private static String blankToNull(String s) {
+        if (s == null || s.isBlank()) {
+            return null;
+        }
+        return s.trim();
     }
 
     private String truncate(String s, int max) {

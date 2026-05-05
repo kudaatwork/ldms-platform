@@ -76,13 +76,15 @@ public class BusinessConfig {
                                          GeoCoordinatesRepository geoCoordinatesRepository,
                                          CountryServiceAuditable countryServiceAuditable,
                                          MessageService messageService,
-                                         ModelMapper modelMapper) {
-        return new CountryServiceImpl(countryServiceValidator, 
-                                     countryRepository, 
-                                     geoCoordinatesRepository, 
-                                     countryServiceAuditable, 
-                                     messageService, 
-                                     modelMapper);
+                                         ModelMapper modelMapper,
+                                         LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService) {
+        return new CountryServiceImpl(countryServiceValidator,
+                                     countryRepository,
+                                     geoCoordinatesRepository,
+                                     countryServiceAuditable,
+                                     messageService,
+                                     modelMapper,
+                                     locationHierarchyCascadeSoftDeleteService);
     }
 
     @Bean
@@ -93,18 +95,20 @@ public class BusinessConfig {
     @Bean
     public AddressService addressService(AddressServiceValidator addressServiceValidator,
                                         AddressRepository addressRepository,
+                                        CityRepository cityRepository,
                                         SuburbRepository suburbRepository,
+                                        LocationNodeRepository locationNodeRepository,
                                         GeoCoordinatesRepository geoCoordinatesRepository,
                                         AddressServiceAuditable addressServiceAuditable,
-                                        MessageService messageService,
-                                        ModelMapper modelMapper) {
+                                        MessageService messageService) {
         return new AddressServiceImpl(addressServiceValidator,
                                      addressRepository,
+                                     cityRepository,
                                      suburbRepository,
+                                     locationNodeRepository,
                                      geoCoordinatesRepository,
                                      addressServiceAuditable,
-                                     messageService,
-                                     modelMapper);
+                                     messageService);
     }
 
     @Bean
@@ -118,15 +122,13 @@ public class BusinessConfig {
                                                                GeoCoordinatesRepository geoCoordinatesRepository,
                                                                CountryRepository countryRepository,
                                                                AdministrativeLevelServiceAuditable administrativeLevelServiceAuditable,
-                                                               MessageService messageService,
-                                                               ModelMapper modelMapper) {
+                                                               MessageService messageService) {
         return new AdministrativeLevelServiceImpl(administrativeLevelServiceValidator,
                                                 administrativeLevelRepository,
                                                 geoCoordinatesRepository,
                                                 countryRepository,
                                                 administrativeLevelServiceAuditable,
-                                                messageService,
-                                                modelMapper);
+                                                messageService);
     }
 
     @Bean
@@ -142,13 +144,15 @@ public class BusinessConfig {
                                           AdministrativeLevelRepository administrativeLevelRepository,
                                           DistrictServiceAuditable districtServiceAuditable,
                                           MessageService messageService,
-                                          ModelMapper modelMapper) {
+                                          ModelMapper modelMapper,
+                                          LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService) {
         return new DistrictServiceImpl(districtServiceValidator,
                                       districtRepository,
                                       provinceRepository,
                                       geoCoordinatesRepository,
                                       administrativeLevelRepository,
                                       districtServiceAuditable,
+                                      locationHierarchyCascadeSoftDeleteService,
                                       messageService,
                                       modelMapper);
     }
@@ -228,6 +232,8 @@ public class BusinessConfig {
                                          CountryRepository countryRepository,
                                          GeoCoordinatesRepository geoCoordinatesRepository,
                                          AdministrativeLevelRepository administrativeLevelRepository,
+                                         AdministrativeLevelServiceAuditable administrativeLevelServiceAuditable,
+                                         LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService,
                                          ProvinceServiceAuditable provinceServiceAuditable,
                                          MessageService messageService,
                                          ModelMapper modelMapper) {
@@ -236,6 +242,8 @@ public class BusinessConfig {
                                      countryRepository,
                                      geoCoordinatesRepository,
                                      administrativeLevelRepository,
+                                     administrativeLevelServiceAuditable,
+                                     locationHierarchyCascadeSoftDeleteService,
                                      provinceServiceAuditable,
                                      messageService,
                                      modelMapper);
@@ -253,6 +261,7 @@ public class BusinessConfig {
                                      GeoCoordinatesRepository geoCoordinatesRepository,
                                      AdministrativeLevelRepository administrativeLevelRepository,
                                      SuburbServiceAuditable suburbServiceAuditable,
+                                     LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService,
                                      MessageService messageService,
                                      ModelMapper modelMapper) {
         return new SuburbServiceImpl(suburbServiceValidator,
@@ -261,6 +270,7 @@ public class BusinessConfig {
                                    geoCoordinatesRepository,
                                    administrativeLevelRepository,
                                    suburbServiceAuditable,
+                                   locationHierarchyCascadeSoftDeleteService,
                                    messageService,
                                    modelMapper);
     }
@@ -273,12 +283,74 @@ public class BusinessConfig {
     @Bean
     public LocationNodeService locationNodeService(LocationNodeServiceValidator locationNodeServiceValidator,
                                                    LocationNodeRepository locationNodeRepository,
+                                                   DistrictRepository districtRepository,
+                                                   SuburbRepository suburbRepository,
                                                    LocationNodeServiceAuditable locationNodeServiceAuditable,
+                                                   LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService,
                                                    org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate) {
         return new LocationNodeServiceImpl(
                 locationNodeServiceValidator,
                 locationNodeRepository,
+                districtRepository,
+                suburbRepository,
                 locationNodeServiceAuditable,
+                locationHierarchyCascadeSoftDeleteService,
                 rabbitTemplate);
+    }
+
+    @Bean
+    public CityServiceAuditable cityServiceAuditable(CityRepository cityRepository) {
+        return new CityServiceAuditableImpl(cityRepository);
+    }
+
+    @Bean
+    public CityServiceValidator cityServiceValidator(MessageService messageService) {
+        return new CityServiceValidatorImpl(messageService);
+    }
+
+    @Bean
+    public CityService cityService(CityServiceValidator cityServiceValidator,
+                                    CityRepository cityRepository,
+                                    DistrictRepository districtRepository,
+                                    CityServiceAuditable cityServiceAuditable,
+                                    MessageService messageService,
+                                    LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService) {
+        return new CityServiceImpl(
+                cityServiceValidator,
+                cityRepository,
+                districtRepository,
+                cityServiceAuditable,
+                locationHierarchyCascadeSoftDeleteService,
+                messageService);
+    }
+
+    @Bean
+    public VillageServiceAuditable villageServiceAuditable(VillageRepository villageRepository) {
+        return new VillageServiceAuditableImpl(villageRepository);
+    }
+
+    @Bean
+    public VillageServiceValidator villageServiceValidator(MessageService messageService) {
+        return new VillageServiceValidatorImpl(messageService);
+    }
+
+    @Bean
+    public VillageService villageService(VillageServiceValidator villageServiceValidator,
+                                         VillageRepository villageRepository,
+                                         CityRepository cityRepository,
+                                         DistrictRepository districtRepository,
+                                         SuburbRepository suburbRepository,
+                                         VillageServiceAuditable villageServiceAuditable,
+                                         MessageService messageService,
+                                         LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService) {
+        return new VillageServiceImpl(
+                villageServiceValidator,
+                villageRepository,
+                cityRepository,
+                districtRepository,
+                suburbRepository,
+                villageServiceAuditable,
+                locationHierarchyCascadeSoftDeleteService,
+                messageService);
     }
 }

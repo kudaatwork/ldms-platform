@@ -8,11 +8,10 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class SuburbSpecification {
 
-    public static Specification<Suburb> deleted(EntityStatus entityStatus) {
-        return (root, query, cb) -> {
-            Predicate p = cb.notLike(root.get(Suburb_.entityStatus).as(String.class), "%" + entityStatus + "%");
-            return p;
-        };
+    public static Specification<Suburb> deleted(EntityStatus excludedStatus) {
+        return (root, query, cb) -> cb.or(
+                cb.isNull(root.get(Suburb_.entityStatus)),
+                cb.notEqual(root.get(Suburb_.entityStatus), excludedStatus));
     }
 
     public static Specification<Suburb> nameLike(final String name) {

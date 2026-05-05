@@ -6,7 +6,7 @@
         <p class="lx-controls-subtitle">Manage activity actions, search terms, and column filters.</p>
         <div class="lx-data-toolbar">
           <div class="lx-data-toolbar__actions">
-            <button type="button" class="lx-btn lx-btn-ghost">Refresh</button>
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="loadRequestLogs()">Refresh</button>
             <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
             <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="activityExportMenu">
               Export
@@ -147,16 +147,38 @@
         <p class="lx-controls-subtitle">Manage request log actions, search terms, and column filters.</p>
         <div class="lx-data-toolbar">
           <div class="lx-data-toolbar__actions">
-            <button type="button" class="lx-btn lx-btn-ghost">Refresh</button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost"
+              (click)="loadRequestLogs()"
+              [disabled]="requestLoading"
+            >
+              Refresh
+            </button>
             <button type="button" class="lx-btn lx-btn-ghost" (click)="stubRequestImport()">Import</button>
-            <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="requestExportMenu">
-              Export
+            <button
+              type="button"
+              class="lx-btn lx-btn-success lx-export-trigger"
+              [matMenuTriggerFor]="requestExportMenu"
+              [disabled]="requestLoading || requestExporting"
+            >
+              Export{{ requestExporting ? '…' : '' }}
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-churn-out"
+              (click)="onRequestLogChurnOut()"
+              [disabled]="requestLoading"
+              matTooltip="Will purge all request logs from the database once implemented."
+              matTooltipPosition="above"
+            >
+              Churn Out
             </button>
           </div>
           <div class="lx-data-toolbar__search">
             <div class="lx-input-shell lx-search-field">
               <mat-icon class="lx-input-shell__icon">search</mat-icon>
-              <input [(ngModel)]="requestSearchQuery" (ngModelChange)="resetRequestPaging()" placeholder="Search…" />
+              <input [(ngModel)]="requestSearchQuery" (ngModelChange)="onRequestFiltersChanged()" placeholder="Search…" />
             </div>
             <button
               type="button"
@@ -170,15 +192,15 @@
           </div>
         </div>
         <mat-menu #requestExportMenu="matMenu" panelClass="lx-export-menu">
-          <button mat-menu-item class="lx-export-option--pdf" (click)="stubRequestExport()">
+          <button mat-menu-item class="lx-export-option--pdf" (click)="exportRequestLogs('pdf')">
             <mat-icon>picture_as_pdf</mat-icon>
             <span>Export PDF</span>
           </button>
-          <button mat-menu-item class="lx-export-option--csv" (click)="stubRequestExport()">
+          <button mat-menu-item class="lx-export-option--csv" (click)="exportRequestLogs('csv')">
             <mat-icon>table_view</mat-icon>
             <span>Export CSV</span>
           </button>
-          <button mat-menu-item class="lx-export-option--xlsx" (click)="stubRequestExport()">
+          <button mat-menu-item class="lx-export-option--xlsx" (click)="exportRequestLogs('xlsx')">
             <mat-icon>grid_on</mat-icon>
             <span>Export XLSX</span>
           </button>
@@ -188,45 +210,59 @@
           <span class="lx-filter-panel__label">Column filters</span>
           <div class="lx-filter-fields">
             <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Time</div>
+              <div class="lx-field-label">Action</div>
               <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
-              <input [(ngModel)]="requestColumnFilters.time" (ngModelChange)="resetRequestPaging()" />
+              <mat-icon class="lx-input-shell__icon">bolt</mat-icon>
+              <input [(ngModel)]="requestColumnFilters.action" (ngModelChange)="onRequestFiltersChanged()" />
+            </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Event type</div>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">category</mat-icon>
+              <input [(ngModel)]="requestColumnFilters.eventType" (ngModelChange)="onRequestFiltersChanged()" />
+            </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Username</div>
+              <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">person</mat-icon>
+              <input [(ngModel)]="requestColumnFilters.username" (ngModelChange)="onRequestFiltersChanged()" />
             </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Method</div>
               <div class="lx-input-shell lx-filter-field">
               <mat-icon class="lx-input-shell__icon">http</mat-icon>
-              <input [(ngModel)]="requestColumnFilters.method" (ngModelChange)="resetRequestPaging()" />
+              <input [(ngModel)]="requestColumnFilters.method" (ngModelChange)="onRequestFiltersChanged()" />
             </div>
             </div>
             <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Path</div>
+              <div class="lx-field-label">Request URL</div>
               <div class="lx-input-shell lx-filter-field">
               <mat-icon class="lx-input-shell__icon">alt_route</mat-icon>
-              <input [(ngModel)]="requestColumnFilters.path" (ngModelChange)="resetRequestPaging()" />
+              <input [(ngModel)]="requestColumnFilters.requestUrl" (ngModelChange)="onRequestFiltersChanged()" />
             </div>
             </div>
             <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Source</div>
+              <div class="lx-field-label">Service name</div>
               <div class="lx-input-shell lx-filter-field">
               <mat-icon class="lx-input-shell__icon">cloud</mat-icon>
-              <input [(ngModel)]="requestColumnFilters.integration" (ngModelChange)="resetRequestPaging()" />
+              <input [(ngModel)]="requestColumnFilters.serviceName" (ngModelChange)="onRequestFiltersChanged()" />
             </div>
             </div>
             <div class="lx-filter-field-wrap">
               <div class="lx-field-label">Status code</div>
               <div class="lx-input-shell lx-filter-field">
               <mat-icon class="lx-input-shell__icon">numbers</mat-icon>
-              <input [(ngModel)]="requestColumnFilters.statusCode" (ngModelChange)="resetRequestPaging()" />
+              <input [(ngModel)]="requestColumnFilters.statusCode" (ngModelChange)="onRequestFiltersChanged()" />
             </div>
             </div>
             <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Duration (ms)</div>
+              <div class="lx-field-label">Trace ID</div>
               <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">timer</mat-icon>
-              <input [(ngModel)]="requestColumnFilters.durationMs" (ngModelChange)="resetRequestPaging()" />
+              <mat-icon class="lx-input-shell__icon">fingerprint</mat-icon>
+              <input [(ngModel)]="requestColumnFilters.traceId" (ngModelChange)="onRequestFiltersChanged()" />
             </div>
             </div>
           </div>
@@ -234,15 +270,50 @@
       </div>
 
       <div class="lx-card">
-        <h2 class="lc-title" id="requests-log-heading">Requests log</h2>
-        <p class="lc-lead">
-          HTTP traffic from partner integrations, webhooks, mobile and admin clients, and internal jobs — all methods
-          (GET, POST, PUT, PATCH, DELETE, HEAD, …).
-        </p>
-        <ng-container *ngIf="requestDataSource.length > 0; else requestEmpty">
-          <ng-container *ngIf="filteredRequestRows.length > 0; else requestNoSearchHits">
+        <div class="lx-table-header">
+          <div>
+            <h2 class="lc-title" id="requests-log-heading">Requests log</h2>
+            <p class="lc-lead">
+              HTTP traffic from partner integrations, webhooks, mobile and admin clients, and internal jobs — all methods
+              (GET, POST, PUT, PATCH, DELETE, HEAD, …).
+            </p>
+          </div>
+          <span class="lx-fetch-hint" *ngIf="requestLoading && requestRawRows.length > 0">Refreshing…</span>
+        </div>
+
+        <div class="lx-table-loading" *ngIf="requestLoading && requestRawRows.length === 0">
+          <mat-progress-bar mode="indeterminate" aria-label="Loading requests log"></mat-progress-bar>
+          <p class="lx-table-loading__text">Loading requests log…</p>
+        </div>
+
+        <ng-container *ngIf="requestRawRows.length > 0 || requestTotalElements > 0">
+          <ng-container *ngIf="requestTableDataSource.data.length > 0; else requestNoSearchHits">
             <div class="lx-table-wrap">
-              <table mat-table [dataSource]="pagedRequestRows">
+              <table mat-table [dataSource]="requestTableDataSource" class="lx-mat-table">
+                <ng-container matColumnDef="id">
+                  <th mat-header-cell *matHeaderCellDef>ID</th>
+                  <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.id }}</td>
+                </ng-container>
+                <ng-container matColumnDef="action">
+                  <th mat-header-cell *matHeaderCellDef>Action</th>
+                  <td mat-cell *matCellDef="let row">{{ row.action }}</td>
+                </ng-container>
+                <ng-container matColumnDef="eventType">
+                  <th mat-header-cell *matHeaderCellDef>Event type</th>
+                  <td mat-cell *matCellDef="let row">{{ row.eventType }}</td>
+                </ng-container>
+                <ng-container matColumnDef="username">
+                  <th mat-header-cell *matHeaderCellDef>Username</th>
+                  <td mat-cell *matCellDef="let row">{{ row.username }}</td>
+                </ng-container>
+                <ng-container matColumnDef="serviceName">
+                  <th mat-header-cell *matHeaderCellDef>Service</th>
+                  <td mat-cell *matCellDef="let row">{{ row.serviceName }}</td>
+                </ng-container>
+                <ng-container matColumnDef="requestUrl">
+                  <th mat-header-cell *matHeaderCellDef>Request URL</th>
+                  <td mat-cell *matCellDef="let row" class="lx-mono lx-cell-path">{{ row.requestUrl }}</td>
+                </ng-container>
                 <ng-container matColumnDef="time">
                   <th mat-header-cell *matHeaderCellDef>Time</th>
                   <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.time }}</td>
@@ -250,66 +321,69 @@
                 <ng-container matColumnDef="method">
                   <th mat-header-cell *matHeaderCellDef>Method</th>
                   <td mat-cell *matCellDef="let row">
-                    <span class="lx-http-method" [ngClass]="'lx-http-method--' + row.method.toLowerCase()">{{
-                      row.method
-                    }}</span>
+                    <span class="lx-http-method" [ngClass]="requestHttpMethodClass(row.method)">{{ row.method }}</span>
                   </td>
-                </ng-container>
-                <ng-container matColumnDef="path">
-                  <th mat-header-cell *matHeaderCellDef>Path</th>
-                  <td mat-cell *matCellDef="let row" class="lx-mono lx-cell-path">{{ row.path }}</td>
-                </ng-container>
-                <ng-container matColumnDef="integration">
-                  <th mat-header-cell *matHeaderCellDef>Source / integration</th>
-                  <td mat-cell *matCellDef="let row">{{ row.integration }}</td>
                 </ng-container>
                 <ng-container matColumnDef="statusCode">
                   <th mat-header-cell *matHeaderCellDef>Status</th>
                   <td mat-cell *matCellDef="let row">
-                    <span class="lx-status" [ngClass]="'lx-status-' + requestStatusClass(row.statusCode)">{{
+                    <span class="lx-status" [ngClass]="'lx-status-' + requestStatusClass(row.statusCode ?? 0)">{{
                       row.statusCode
                     }}</span>
                   </td>
                 </ng-container>
-                <ng-container matColumnDef="durationMs">
-                  <th mat-header-cell *matHeaderCellDef>Duration</th>
-                  <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.durationMs | number }} ms</td>
+                <ng-container matColumnDef="responseTimeMs">
+                  <th mat-header-cell *matHeaderCellDef>Response time</th>
+                  <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.responseTimeMs | number }} ms</td>
                 </ng-container>
                 <ng-container matColumnDef="actions">
                   <th mat-header-cell *matHeaderCellDef>Actions</th>
                   <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-                    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">View</button>
-                    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">Edit</button>
-                    <button type="button" class="lx-btn lx-btn-danger lx-btn-sm">Delete</button>
+                    <button type="button" mat-icon-button [matMenuTriggerFor]="requestRowMenu" aria-label="Row actions">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #requestRowMenu="matMenu" panelClass="lx-row-actions-menu">
+                      <button mat-menu-item type="button" class="lx-action-view" (click)="onRequestLogView(row)">
+                        <mat-icon>visibility</mat-icon> View
+                      </button>
+                    </mat-menu>
                   </td>
                 </ng-container>
                 <tr mat-header-row *matHeaderRowDef="requestDisplayedColumns; sticky: true"></tr>
-                <tr mat-row *matRowDef="let row; columns: requestDisplayedColumns"></tr>
+                <tr mat-row *matRowDef="let row; columns: requestDisplayedColumns; trackBy: trackByRequestLogId"></tr>
               </table>
             </div>
             <mat-paginator
               class="lx-table-paginator"
-              [length]="filteredRequestRows.length"
-              [pageIndex]="requestClampedPageIndex"
+              [length]="requestTotalElements"
+              [pageIndex]="requestPageIndex"
               [pageSize]="requestPageSize"
-              [pageSizeOptions]="[5, 10, 25, 50]"
+              [pageSizeOptions]="[25, 50, 100]"
               [showFirstLastButtons]="true"
               (page)="onRequestPage($event)"
             ></mat-paginator>
           </ng-container>
-          <ng-template #requestNoSearchHits>
-            <div class="lx-empty lx-empty--compact">
-              <mat-icon class="lx-empty-icon">search_off</mat-icon>
-              <div class="lx-empty-title">No matching requests</div>
-              <div class="lx-empty-sub">Adjust search or column filters.</div>
-            </div>
-          </ng-template>
         </ng-container>
-        <ng-template #requestEmpty>
+
+        <ng-container *ngIf="!requestLoading && requestTableDataSource.data.length === 0">
+          <ng-container *ngIf="requestFiltersActive(); else requestEmptyState">
+            <ng-container *ngTemplateOutlet="requestNoSearchHits"></ng-container>
+          </ng-container>
+        </ng-container>
+
+        <ng-template #requestNoSearchHits>
+          <div class="lx-empty lx-empty--compact">
+            <mat-icon class="lx-empty-icon">search_off</mat-icon>
+            <div class="lx-empty-title">No matching requests</div>
+            <div class="lx-empty-sub">Adjust search or column filters and try again.</div>
+          </div>
+        </ng-template>
+
+        <ng-template #requestEmptyState>
           <div class="lx-empty">
-            <mat-icon class="lx-empty-icon">api</mat-icon>
-            <div class="lx-empty-title">No request samples</div>
-            <div class="lx-empty-sub">Request traces will appear here when gateway logging is enabled.</div>
+            <mat-icon class="lx-empty-icon">inbox</mat-icon>
+            <div class="lx-empty-title">No requests to display</div>
+            <div class="lx-empty-sub">When HTTP audit data is available it will appear here.</div>
           </div>
         </ng-template>
       </div>

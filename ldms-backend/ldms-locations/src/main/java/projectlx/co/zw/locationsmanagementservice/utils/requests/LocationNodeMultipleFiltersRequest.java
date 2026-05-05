@@ -17,6 +17,8 @@ public class LocationNodeMultipleFiltersRequest {
     private String parentName;
     private LocationType locationType;
     private Long parentId;
+    /** When set, only nodes linked to this district (catalog FK). */
+    private Long districtId;
     private EntityStatus entityStatus;
     private int page = 0;
     private int size = 20;

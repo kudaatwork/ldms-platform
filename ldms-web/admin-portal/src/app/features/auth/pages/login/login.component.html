@@ -13,9 +13,10 @@
   <div class="login-left">
     <div class="ll-brand">
       <div class="ll-logo">
-        <mat-icon style="font-size:28px;color:#fff">hub</mat-icon>
+        <img class="ll-logo-img ll-logo-img--light" src="images/lx-logo.png" alt="LX logo" />
+        <img class="ll-logo-img ll-logo-img--dark" src="images/lx-logo-transparent.png" alt="LX logo" />
       </div>
-      <span class="ll-name">Project LX</span>
+      <span class="ll-name">Project <span class="brand-lx">LX</span></span>
     </div>
     <div class="ll-headline">
       Logistics &amp; Distribution<br>Management System
@@ -108,12 +109,36 @@
           </div>
         </div>
 
+        <div class="lc-auth-links">
+          <a routerLink="/auth/forgot-password">Forgot password?</a>
+          <span class="lc-auth-links__sep">·</span>
+          <a routerLink="/auth/reset-password">Reset password</a>
+        </div>
+
         <button type="submit" class="lc-submit" [disabled]="loading">
           <mat-spinner *ngIf="loading" diameter="18" style="margin-right:8px"></mat-spinner>
           {{ loading ? 'Signing in...' : 'Sign in to Admin Console' }}
           <mat-icon *ngIf="!loading" style="margin-left:4px">arrow_forward</mat-icon>
         </button>
       </form>
+
+      <div class="lc-google-wrap">
+        <div class="lc-divider"><span>or</span></div>
+        <div class="lc-google-host" *ngIf="googleClientId" #googleSignInHost></div>
+        <div class="lc-google-unconfigured" *ngIf="!googleClientId">
+          <button
+            mat-stroked-button
+            type="button"
+            class="lc-google-placeholder"
+            disabled
+            matTooltip="Set googleOAuthClientId in src/environments/environment.ts (or environment.prod.ts), rebuild, and ensure ldms.auth.google.enabled=true on the auth service."
+          >
+            <span class="lc-google-placeholder__g" aria-hidden="true">G</span>
+            Continue with Google
+          </button>
+          <p class="lc-google-hint">Google sign-in is hidden until a Web client ID is configured.</p>
+        </div>
+      </div>
 
       <!-- Mock credentials panel -->
       <div class="lc-mock">

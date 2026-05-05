@@ -9,17 +9,17 @@
     </button>
   </div>
 
-  <div class="lx-loading-shell" *ngIf="loading || listsLoading">
+  <div class="lx-loading-shell" *ngIf="loading">
     <mat-progress-spinner diameter="40" mode="indeterminate"></mat-progress-spinner>
-    <p>{{ listsLoading ? 'Loading lists…' : 'Loading record details…' }}</p>
+    <p>Loading record details…</p>
   </div>
 
-  <p class="lx-list-error" *ngIf="listLoadError && !loading && !listsLoading">
+  <p class="lx-list-error" *ngIf="listLoadError && !loading">
     <mat-icon>warning_amber</mat-icon>
     {{ listLoadError }}
   </p>
 
-  <ng-container *ngIf="!loading && !listsLoading">
+  <ng-container *ngIf="!loading">
     <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
       <div class="lx-form-grid">
         <ng-container [ngSwitch]="data.mode">
@@ -126,24 +126,27 @@
             </div>
             <div class="lx-field span-2">
               <label class="lx-field-label">Country <span class="req">*</span></label>
-              <mat-form-field appearance="outline" class="lx-mat-field-full" subscriptSizing="dynamic">
-                <mat-select [compareWith]="compareOptionIds" formControlName="countryId" placeholder="Select country">
-                  <mat-option *ngFor="let o of countryOptions" [value]="o.id">{{ o.label }}</mat-option>
-                </mat-select>
-              </mat-form-field>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('countryId', 'required')">
+                <mat-icon class="lx-input-shell__icon">public</mat-icon>
+                <select formControlName="countryId" aria-label="Country">
+                  <option [ngValue]="null" disabled>Select country</option>
+                  <option *ngFor="let o of countryOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
               <div class="lx-field-hint">Parent country for this province.</div>
               <div class="lx-field-error" *ngIf="hasError('countryId', 'required')">Country is required</div>
             </div>
             <div class="lx-field span-2">
               <label class="lx-field-label">Administrative level</label>
-              <mat-form-field appearance="outline" class="lx-mat-field-full" subscriptSizing="dynamic">
-                <mat-select [compareWith]="compareOptionIds" formControlName="administrativeLevelId" placeholder="Optional — hierarchy tier">
-                  <mat-option [value]="null">None</mat-option>
-                  <mat-option *ngFor="let o of adminLevelOptions" [value]="o.id">
-                    {{ o.label }}<span *ngIf="o.sublabel" class="lx-option-sublabel"> — {{ o.sublabel }}</span>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">account_tree</mat-icon>
+                <select formControlName="administrativeLevelId" aria-label="Administrative level">
+                  <option [ngValue]="null">None</option>
+                  <option *ngFor="let o of adminLevelOptions" [ngValue]="o.id">
+                    {{ o.label }}{{ o.sublabel ? ' — ' + o.sublabel : '' }}
+                  </option>
+                </select>
+              </div>
               <div class="lx-field-hint">Optional tier (e.g. province level).</div>
             </div>
             <div class="lx-field">
@@ -183,25 +186,44 @@
               <div class="lx-field-hint">Short reporting code (optional).</div>
             </div>
             <div class="lx-field span-2">
+              <label class="lx-field-label">Country <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('countryId', 'required')">
+                <mat-icon class="lx-input-shell__icon">public</mat-icon>
+                <select formControlName="countryId" aria-label="Country" (change)="onDistrictCountryChange()">
+                  <option [ngValue]="null" disabled>Select country</option>
+                  <option *ngFor="let o of countryOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">Scope provinces to this country.</div>
+              <div class="lx-field-error" *ngIf="hasError('countryId', 'required')">Country is required</div>
+            </div>
+            <div class="lx-field span-2">
               <label class="lx-field-label">Province <span class="req">*</span></label>
-              <mat-form-field appearance="outline" class="lx-mat-field-full" subscriptSizing="dynamic">
-                <mat-select [compareWith]="compareOptionIds" formControlName="provinceId" placeholder="Select province">
-                  <mat-option *ngFor="let o of provinceOptions" [value]="o.id">{{ o.label }}</mat-option>
-                </mat-select>
-              </mat-form-field>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('provinceId', 'required')">
+                <mat-icon class="lx-input-shell__icon">map</mat-icon>
+                <select
+                  formControlName="provinceId"
+                  aria-label="Province"
+                  [disabled]="isReadonly || !form.get('countryId')?.value"
+                >
+                  <option [ngValue]="null" disabled>Select province</option>
+                  <option *ngFor="let o of provinceOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
               <div class="lx-field-hint">Parent province for this district.</div>
               <div class="lx-field-error" *ngIf="hasError('provinceId', 'required')">Province is required</div>
             </div>
             <div class="lx-field span-2">
               <label class="lx-field-label">Administrative level</label>
-              <mat-form-field appearance="outline" class="lx-mat-field-full" subscriptSizing="dynamic">
-                <mat-select [compareWith]="compareOptionIds" formControlName="administrativeLevelId" placeholder="Optional — hierarchy tier">
-                  <mat-option [value]="null">None</mat-option>
-                  <mat-option *ngFor="let o of adminLevelOptions" [value]="o.id">
-                    {{ o.label }}<span *ngIf="o.sublabel" class="lx-option-sublabel"> — {{ o.sublabel }}</span>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">account_tree</mat-icon>
+                <select formControlName="administrativeLevelId" aria-label="Administrative level">
+                  <option [ngValue]="null">None</option>
+                  <option *ngFor="let o of adminLevelOptions" [ngValue]="o.id">
+                    {{ o.label }}{{ o.sublabel ? ' — ' + o.sublabel : '' }}
+                  </option>
+                </select>
+              </div>
               <div class="lx-field-hint">Optional tier (e.g. district level).</div>
             </div>
             <div class="lx-field">
@@ -249,25 +271,60 @@
               <div class="lx-field-hint">Optional.</div>
             </div>
             <div class="lx-field span-2">
+              <label class="lx-field-label">Country <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('countryId', 'required')">
+                <mat-icon class="lx-input-shell__icon">public</mat-icon>
+                <select formControlName="countryId" aria-label="Country" (change)="onSuburbCountryChange()">
+                  <option [ngValue]="null" disabled>Select country</option>
+                  <option *ngFor="let o of countryOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">Then province and district below.</div>
+              <div class="lx-field-error" *ngIf="hasError('countryId', 'required')">Country is required</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Province <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('provinceId', 'required')">
+                <mat-icon class="lx-input-shell__icon">map</mat-icon>
+                <select
+                  formControlName="provinceId"
+                  aria-label="Province"
+                  (change)="onSuburbProvinceChange()"
+                  [disabled]="isReadonly || !form.get('countryId')?.value"
+                >
+                  <option [ngValue]="null" disabled>Select province</option>
+                  <option *ngFor="let o of provinceOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('provinceId', 'required')">Province is required</div>
+            </div>
+            <div class="lx-field span-2">
               <label class="lx-field-label">District <span class="req">*</span></label>
-              <mat-form-field appearance="outline" class="lx-mat-field-full" subscriptSizing="dynamic">
-                <mat-select [compareWith]="compareOptionIds" formControlName="districtId" placeholder="Select district">
-                  <mat-option *ngFor="let o of districtOptions" [value]="o.id">{{ o.label }}</mat-option>
-                </mat-select>
-              </mat-form-field>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('districtId', 'required')">
+                <mat-icon class="lx-input-shell__icon">signpost</mat-icon>
+                <select
+                  formControlName="districtId"
+                  aria-label="District"
+                  [disabled]="isReadonly || !form.get('provinceId')?.value"
+                >
+                  <option [ngValue]="null" disabled>Select district</option>
+                  <option *ngFor="let o of districtOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
               <div class="lx-field-hint">Parent district for this suburb.</div>
               <div class="lx-field-error" *ngIf="hasError('districtId', 'required')">District is required</div>
             </div>
             <div class="lx-field span-2">
               <label class="lx-field-label">Administrative level</label>
-              <mat-form-field appearance="outline" class="lx-mat-field-full" subscriptSizing="dynamic">
-                <mat-select [compareWith]="compareOptionIds" formControlName="administrativeLevelId" placeholder="Optional — hierarchy tier">
-                  <mat-option [value]="null">None</mat-option>
-                  <mat-option *ngFor="let o of adminLevelOptions" [value]="o.id">
-                    {{ o.label }}<span *ngIf="o.sublabel" class="lx-option-sublabel"> — {{ o.sublabel }}</span>
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">account_tree</mat-icon>
+                <select formControlName="administrativeLevelId" aria-label="Administrative level">
+                  <option [ngValue]="null">None</option>
+                  <option *ngFor="let o of adminLevelOptions" [ngValue]="o.id">
+                    {{ o.label }}{{ o.sublabel ? ' — ' + o.sublabel : '' }}
+                  </option>
+                </select>
+              </div>
               <div class="lx-field-hint">Optional tier (e.g. suburb level).</div>
             </div>
             <div class="lx-field">
@@ -314,19 +371,21 @@
                 [class.lx-input-shell--invalid]="hasError('level', 'required') || hasError('level', 'min')"
               >
                 <mat-icon class="lx-input-shell__icon">format_list_numbered</mat-icon>
-                <input type="number" formControlName="level" placeholder="e.g. 1" min="1" step="1" />
+                <input type="number" formControlName="level" placeholder="e.g. 0" min="0" step="1" />
               </div>
-              <div class="lx-field-hint">1 = top tier (province), 2 = district, 3 = suburb, …</div>
+              <div class="lx-field-hint">0 = top tier (e.g. country), then 1 = province, 2 = district, …</div>
               <div class="lx-field-error" *ngIf="hasError('level', 'required')">Level is required</div>
-              <div class="lx-field-error" *ngIf="hasError('level', 'min')">Use 1 or higher (0 is not a valid tier).</div>
+              <div class="lx-field-error" *ngIf="hasError('level', 'min')">Use 0 or higher (negative values are not allowed).</div>
             </div>
             <div class="lx-field span-2">
               <label class="lx-field-label">Country <span class="req">*</span></label>
-              <mat-form-field appearance="outline" class="lx-mat-field-full" subscriptSizing="dynamic">
-                <mat-select [compareWith]="compareOptionIds" formControlName="countryId" placeholder="Select country">
-                  <mat-option *ngFor="let o of countryOptions" [value]="o.id">{{ o.label }}</mat-option>
-                </mat-select>
-              </mat-form-field>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('countryId', 'required')">
+                <mat-icon class="lx-input-shell__icon">public</mat-icon>
+                <select formControlName="countryId" aria-label="Country">
+                  <option [ngValue]="null" disabled>Select country</option>
+                  <option *ngFor="let o of countryOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
               <div class="lx-field-hint">Country this administrative tier belongs to.</div>
               <div class="lx-field-error" *ngIf="hasError('countryId', 'required')">Country is required</div>
             </div>
@@ -340,13 +399,544 @@
             </div>
           </ng-container>
 
-          <!-- CITY / VILLAGE -->
+          <!-- CITY (same field pattern as district / suburb) -->
           <ng-container *ngSwitchCase="'city'">
-            <ng-container *ngTemplateOutlet="locationNodeFields"></ng-container>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">City name <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required')">
+                <mat-icon class="lx-input-shell__icon">map</mat-icon>
+                <input formControlName="name" placeholder="e.g. Harare" />
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Code</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+                <input formControlName="code" placeholder="e.g. HRE" />
+              </div>
+              <div class="lx-field-hint">Short reporting code (optional).</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Country <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('countryId', 'required')">
+                <mat-icon class="lx-input-shell__icon">public</mat-icon>
+                <select formControlName="countryId" aria-label="Country" (change)="onCityVillageCountryChange()">
+                  <option [ngValue]="null" disabled>Select country</option>
+                  <option *ngFor="let o of countryOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">Scope provinces to this country.</div>
+              <div class="lx-field-error" *ngIf="hasError('countryId', 'required')">Country is required</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Province <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('provinceId', 'required')">
+                <mat-icon class="lx-input-shell__icon">map</mat-icon>
+                <select
+                  formControlName="provinceId"
+                  aria-label="Province"
+                  (change)="onCityVillageProvinceChange()"
+                  [disabled]="isReadonly || !form.get('countryId')?.value"
+                >
+                  <option [ngValue]="null" disabled>Select province</option>
+                  <option *ngFor="let o of provinceOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">Parent province for the district below.</div>
+              <div class="lx-field-error" *ngIf="hasError('provinceId', 'required')">Province is required</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">District <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('districtId', 'required')">
+                <mat-icon class="lx-input-shell__icon">signpost</mat-icon>
+                <select
+                  formControlName="districtId"
+                  aria-label="District"
+                  (change)="onCityVillageDistrictChange()"
+                  [disabled]="isReadonly || !form.get('provinceId')?.value"
+                >
+                  <option [ngValue]="null" disabled>Select district</option>
+                  <option *ngFor="let o of districtOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">District this city is anchored to.</div>
+              <div class="lx-field-error" *ngIf="hasError('districtId', 'required')">District is required</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Timezone</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+                <input formControlName="timezone" placeholder="e.g. Africa/Harare" />
+              </div>
+              <div class="lx-field-hint">IANA timezone identifier.</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Postal code</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon>
+                <input formControlName="postalCode" placeholder="e.g. 00263" />
+              </div>
+              <div class="lx-field-hint">Optional.</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Latitude</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">my_location</mat-icon>
+                <input type="number" formControlName="latitude" placeholder="e.g. -17.8252" step="0.0001" />
+              </div>
+              <div class="lx-field-hint">Optional decimal degrees.</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Longitude</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">my_location</mat-icon>
+                <input type="number" formControlName="longitude" placeholder="e.g. 31.0335" step="0.0001" />
+              </div>
+              <div class="lx-field-hint">Optional decimal degrees.</div>
+            </div>
           </ng-container>
 
+          <!-- VILLAGE -->
           <ng-container *ngSwitchCase="'village'">
-            <ng-container *ngTemplateOutlet="locationNodeFields"></ng-container>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Village name <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required')">
+                <mat-icon class="lx-input-shell__icon">map</mat-icon>
+                <input formControlName="name" placeholder="e.g. Domboshava" />
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Code</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+                <input formControlName="code" placeholder="e.g. DBV" />
+              </div>
+              <div class="lx-field-hint">Short reporting code (optional).</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Country <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('countryId', 'required')">
+                <mat-icon class="lx-input-shell__icon">public</mat-icon>
+                <select formControlName="countryId" aria-label="Country" (change)="onCityVillageCountryChange()">
+                  <option [ngValue]="null" disabled>Select country</option>
+                  <option *ngFor="let o of countryOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">Scope provinces to this country.</div>
+              <div class="lx-field-error" *ngIf="hasError('countryId', 'required')">Country is required</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Province <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('provinceId', 'required')">
+                <mat-icon class="lx-input-shell__icon">map</mat-icon>
+                <select
+                  formControlName="provinceId"
+                  aria-label="Province"
+                  (change)="onCityVillageProvinceChange()"
+                  [disabled]="isReadonly || !form.get('countryId')?.value"
+                >
+                  <option [ngValue]="null" disabled>Select province</option>
+                  <option *ngFor="let o of provinceOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">Parent province for the district below.</div>
+              <div class="lx-field-error" *ngIf="hasError('provinceId', 'required')">Province is required</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">District <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('districtId', 'required')">
+                <mat-icon class="lx-input-shell__icon">signpost</mat-icon>
+                <select
+                  formControlName="districtId"
+                  aria-label="District"
+                  (change)="onCityVillageDistrictChange()"
+                  [disabled]="isReadonly || !form.get('provinceId')?.value"
+                >
+                  <option [ngValue]="null" disabled>Select district</option>
+                  <option *ngFor="let o of districtOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">District this village belongs to.</div>
+              <div class="lx-field-error" *ngIf="hasError('districtId', 'required')">District is required</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">City <span class="req">*</span></label>
+              <div
+                class="lx-input-shell"
+                [class.lx-input-shell--invalid]="hasError('cityId', 'required')"
+                [class.lx-input-shell--muted]="!form.get('districtId')?.value || villageListsLoading"
+              >
+                <mat-icon class="lx-input-shell__icon">location_city</mat-icon>
+                <select
+                  formControlName="cityId"
+                  aria-label="City"
+                  [disabled]="isReadonly || !form.get('districtId')?.value || villageListsLoading"
+                >
+                  <option [ngValue]="null" disabled>Select city</option>
+                  <option *ngFor="let o of villageCityOptions" [ngValue]="o.id">
+                    {{ o.label }}{{ o.sublabel ? ' — ' + o.sublabel : '' }}
+                  </option>
+                </select>
+              </div>
+              <div class="lx-field-hint" *ngIf="!form.get('districtId')?.value">Choose a district to load cities.</div>
+              <div class="lx-field-hint lx-field-hint--loading" *ngIf="form.get('districtId')?.value && villageListsLoading">
+                <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+                Loading cities…
+              </div>
+              <div class="lx-field-hint" *ngIf="form.get('districtId')?.value && !villageListsLoading">
+                Parent city for this village (same district).
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('cityId', 'required')">City is required</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Suburb</label>
+              <div class="lx-input-shell" [class.lx-input-shell--muted]="!form.get('districtId')?.value || villageListsLoading">
+                <mat-icon class="lx-input-shell__icon">domain</mat-icon>
+                <select
+                  formControlName="suburbId"
+                  aria-label="Suburb"
+                  [disabled]="isReadonly || !form.get('districtId')?.value || villageListsLoading"
+                >
+                  <option [ngValue]="null">None</option>
+                  <option *ngFor="let o of suburbOptions" [ngValue]="o.id">
+                    {{ o.label }}{{ o.sublabel ? ' — ' + o.sublabel : '' }}
+                  </option>
+                </select>
+              </div>
+              <div class="lx-field-hint" *ngIf="!form.get('districtId')?.value">Choose a district to load suburbs.</div>
+              <div class="lx-field-hint" *ngIf="form.get('districtId')?.value && !villageListsLoading">
+                Optional when this village is linked to a suburb.
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Timezone</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+                <input formControlName="timezone" placeholder="e.g. Africa/Harare" />
+              </div>
+              <div class="lx-field-hint">IANA timezone identifier.</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Postal code</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon>
+                <input formControlName="postalCode" placeholder="e.g. 00263" />
+              </div>
+              <div class="lx-field-hint">Optional.</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Latitude</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">my_location</mat-icon>
+                <input type="number" formControlName="latitude" placeholder="e.g. -17.8252" step="0.0001" />
+              </div>
+              <div class="lx-field-hint">Optional decimal degrees.</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Longitude</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">my_location</mat-icon>
+                <input type="number" formControlName="longitude" placeholder="e.g. 31.0335" step="0.0001" />
+              </div>
+              <div class="lx-field-hint">Optional decimal degrees.</div>
+            </div>
+          </ng-container>
+
+          <!-- ADDRESS -->
+          <ng-container *ngSwitchCase="'address'">
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Address line 1 <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('line1', 'required')">
+                <mat-icon class="lx-input-shell__icon">map</mat-icon>
+                <input formControlName="line1" placeholder="e.g. 12 Main Road" />
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('line1', 'required')">Line 1 is required</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Address line 2</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+                <input formControlName="line2" placeholder="e.g. Apartment 6B" />
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Postal code</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon>
+                <input formControlName="postalCode" placeholder="e.g. 00263" />
+              </div>
+              <div class="lx-field-hint">Optional.</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Country</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">public</mat-icon>
+                <select formControlName="countryId" (change)="onAddressCountryChange()" aria-label="Country" [disabled]="isReadonly">
+                  <option [ngValue]="null">Any</option>
+                  <option *ngFor="let o of countryOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">Pick a country to narrow provinces, or leave Any.</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Province</label>
+              <div class="lx-input-shell" [class.lx-input-shell--muted]="!hasAddressCountry() || addressProvincesLoading">
+                <mat-icon class="lx-input-shell__icon">map</mat-icon>
+                <select
+                  formControlName="provinceId"
+                  (change)="onAddressProvinceChange()"
+                  aria-label="Province"
+                  [disabled]="isReadonly || !hasAddressCountry() || addressProvincesLoading"
+                >
+                  <option [ngValue]="null">Any</option>
+                  <option *ngFor="let o of provinceOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint" *ngIf="!hasAddressCountry()">Select a country (not Any) to load provinces.</div>
+              <div class="lx-field-hint lx-field-hint--loading" *ngIf="hasAddressCountry() && addressProvincesLoading">
+                <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+                Loading provinces…
+              </div>
+              <div class="lx-field-hint" *ngIf="hasAddressCountry() && !addressProvincesLoading">Then pick a province to load districts.</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">District</label>
+              <div class="lx-input-shell" [class.lx-input-shell--muted]="!hasAddressProvince() || addressDistrictsLoading">
+                <mat-icon class="lx-input-shell__icon">signpost</mat-icon>
+                <select
+                  formControlName="districtId"
+                  (change)="onAddressDistrictChange()"
+                  aria-label="District"
+                  [disabled]="isReadonly || !hasAddressProvince() || addressDistrictsLoading"
+                >
+                  <option [ngValue]="null">Any</option>
+                  <option *ngFor="let o of districtOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint" *ngIf="!hasAddressProvince()">Select a province (not Any) to load districts.</div>
+              <div class="lx-field-hint lx-field-hint--loading" *ngIf="hasAddressProvince() && addressDistrictsLoading">
+                <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+                Loading districts…
+              </div>
+              <div class="lx-field-hint" *ngIf="hasAddressProvince() && !addressDistrictsLoading">District drives city and settlement lists.</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">City</label>
+              <div class="lx-input-shell" [class.lx-input-shell--muted]="!hasAddressDistrict() || addressCitySettlementLoading">
+                <mat-icon class="lx-input-shell__icon">map</mat-icon>
+                <select
+                  formControlName="cityId"
+                  aria-label="City"
+                  [disabled]="isReadonly || !hasAddressDistrict() || addressCitySettlementLoading"
+                >
+                  <option [ngValue]="null">Any</option>
+                  <option *ngFor="let o of cityOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint" *ngIf="!hasAddressDistrict()">Select a district (not Any) to load cities.</div>
+              <div class="lx-field-hint lx-field-hint--loading" *ngIf="hasAddressDistrict() && addressCitySettlementLoading">
+                <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+                Loading cities and settlements…
+              </div>
+              <div class="lx-field-hint" *ngIf="hasAddressDistrict() && !addressCitySettlementLoading">Optional context.</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Settlement type <span class="req">*</span></label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">account_tree</mat-icon>
+                <select
+                  formControlName="settlementType"
+                  (change)="onSettlementTypeChange()"
+                  aria-label="Settlement type"
+                  [disabled]="isReadonly || !hasAddressDistrict() || addressSettlementRefreshing"
+                >
+                  <option value="SUBURB">Suburb</option>
+                  <option value="VILLAGE">Village</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">Suburb or village must exist for the selected district.</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Settlement <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('settlementId', 'required')">
+                <mat-icon class="lx-input-shell__icon">domain</mat-icon>
+                <select
+                  formControlName="settlementId"
+                  aria-label="Settlement"
+                  [disabled]="isReadonly || !hasAddressDistrict() || addressCitySettlementLoading || addressSettlementRefreshing"
+                >
+                  <option [ngValue]="null" disabled>Select settlement</option>
+                  <option *ngFor="let o of settlementOptionsForAddress()" [ngValue]="o.id">
+                    {{ o.label }}{{ o.sublabel ? ' — ' + o.sublabel : '' }}
+                  </option>
+                </select>
+              </div>
+              <div class="lx-field-hint lx-field-hint--loading" *ngIf="hasAddressDistrict() && addressSettlementRefreshing">
+                <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+                Refreshing settlement list…
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('settlementId', 'required')">Settlement is required</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Google search (optional)</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">search</mat-icon>
+                <input formControlName="googleSearchText" placeholder="Google Places search" />
+              </div>
+              <div class="lx-field-hint">Does not replace settlement — pick settlement from the list above.</div>
+            </div>
+            <div class="lx-field">
+              <button mat-stroked-button type="button" (click)="searchGoogleSuggestions()" [disabled]="googleLookupRunning">
+                {{ googleLookupRunning ? 'Searching…' : 'Search suggestions' }}
+              </button>
+            </div>
+            <div class="lx-field span-2" *ngIf="googleSuggestions.length > 0">
+              <label class="lx-field-label">Suggestions</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">label</mat-icon>
+                <select aria-label="Google suggestions" (change)="onGoogleSuggestionPicked($event)">
+                  <option [ngValue]="null" disabled selected>Pick to prefill fields</option>
+                  <option *ngFor="let s of googleSuggestions; let i = index" [value]="i">
+                    {{ s.description }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Formatted address (optional)</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+                <input formControlName="formattedAddress" placeholder="Full formatted address from external provider" />
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngSwitchCase="'language'">
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Name <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required')">
+                <mat-icon class="lx-input-shell__icon">translate</mat-icon>
+                <input formControlName="name" placeholder="e.g. English" />
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">ISO code</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">code</mat-icon>
+                <input formControlName="isoCode" placeholder="e.g. en" />
+              </div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Native name</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">language</mat-icon>
+                <input formControlName="nativeName" placeholder="e.g. English" />
+              </div>
+            </div>
+            <div class="lx-field span-2">
+              <mat-checkbox formControlName="isDefault">Default language (when applicable)</mat-checkbox>
+            </div>
+          </ng-container>
+
+          <ng-container *ngSwitchCase="'localized-name'">
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Translated value <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('value', 'required')">
+                <mat-icon class="lx-input-shell__icon">g_translate</mat-icon>
+                <input formControlName="value" placeholder="e.g. Zimbabwe" />
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('value', 'required')">Value is required</div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Language <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('languageId', 'required')">
+                <mat-icon class="lx-input-shell__icon">translate</mat-icon>
+                <select formControlName="languageId" aria-label="Language" [disabled]="isReadonly">
+                  <option [ngValue]="null" disabled>Select language</option>
+                  <option *ngFor="let o of languageOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('languageId', 'required')">Language is required</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Reference type <span class="req">*</span></label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">category</mat-icon>
+                <select formControlName="referenceType" aria-label="Reference type" [disabled]="isReadonly">
+                  <option value="COUNTRY">Country</option>
+                  <option value="PROVINCE">Province</option>
+                  <option value="DISTRICT">District</option>
+                  <option value="SUBURB">Suburb</option>
+                </select>
+              </div>
+            </div>
+            <div class="lx-field span-2">
+              <label class="lx-field-label">Country <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('countryId', 'required')">
+                <mat-icon class="lx-input-shell__icon">public</mat-icon>
+                <select
+                  formControlName="countryId"
+                  aria-label="Country"
+                  [disabled]="isReadonly"
+                  (change)="onLocalizedNameCountryChange()"
+                >
+                  <option [ngValue]="null" disabled>Select country</option>
+                  <option *ngFor="let o of countryOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-hint">Scope for this translation (same pattern as administrative level).</div>
+              <div class="lx-field-error" *ngIf="hasError('countryId', 'required')">Country is required</div>
+            </div>
+            <div class="lx-field span-2" *ngIf="localizedNameShowsProvinceField">
+              <label class="lx-field-label">Province <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('provinceId', 'required')">
+                <mat-icon class="lx-input-shell__icon">map</mat-icon>
+                <select
+                  formControlName="provinceId"
+                  aria-label="Province"
+                  [disabled]="isReadonly || !form.get('countryId')?.value"
+                  (change)="onLocalizedNameProvinceChange()"
+                >
+                  <option [ngValue]="null" disabled>Select province</option>
+                  <option *ngFor="let o of provinceOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('provinceId', 'required')">Province is required</div>
+            </div>
+            <div class="lx-field span-2" *ngIf="localizedNameShowsDistrictField">
+              <label class="lx-field-label">District <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('districtId', 'required')">
+                <mat-icon class="lx-input-shell__icon">location_city</mat-icon>
+                <select
+                  formControlName="districtId"
+                  aria-label="District"
+                  [disabled]="isReadonly || !form.get('provinceId')?.value"
+                  (change)="onLocalizedNameDistrictChange()"
+                >
+                  <option [ngValue]="null" disabled>Select district</option>
+                  <option *ngFor="let o of districtOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('districtId', 'required')">District is required</div>
+            </div>
+            <div class="lx-field span-2" *ngIf="localizedNameShowsSuburbField">
+              <label class="lx-field-label">Suburb <span class="req">*</span></label>
+              <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('suburbId', 'required')">
+                <mat-icon class="lx-input-shell__icon">home_work</mat-icon>
+                <select
+                  formControlName="suburbId"
+                  aria-label="Suburb"
+                  [disabled]="isReadonly || !form.get('districtId')?.value"
+                >
+                  <option [ngValue]="null" disabled>Select suburb</option>
+                  <option *ngFor="let o of suburbOptions" [ngValue]="o.id">{{ o.label }}</option>
+                </select>
+              </div>
+              <div class="lx-field-error" *ngIf="hasError('suburbId', 'required')">Suburb is required</div>
+            </div>
           </ng-container>
         </ng-container>
       </div>
@@ -365,7 +955,7 @@
           mat-raised-button
           color="primary"
           type="submit"
-          [disabled]="form.invalid || submitting || loading || listsLoading"
+          [disabled]="form.invalid || submitting || loading"
         >
           <span *ngIf="!submitting" class="lx-cta-content">
             {{ primaryActionLabel }}
@@ -380,80 +970,3 @@
   </ng-container>
 </div>
 
-<ng-template #locationNodeFields>
-  <div class="lx-field span-2">
-    <label class="lx-field-label">{{ data.mode === 'city' ? 'City name' : 'Village name' }} <span class="req">*</span></label>
-    <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required')">
-      <mat-icon class="lx-input-shell__icon">{{ data.mode === 'city' ? 'location_city' : 'holiday_village' }}</mat-icon>
-      <input formControlName="name" [placeholder]="data.mode === 'city' ? 'e.g. Harare' : 'e.g. Domboshava'" />
-    </div>
-    <div class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required</div>
-  </div>
-
-  <div class="lx-field">
-    <label class="lx-field-label">Code</label>
-    <div class="lx-input-shell">
-      <mat-icon class="lx-input-shell__icon">tag</mat-icon>
-      <input formControlName="code" [placeholder]="data.mode === 'city' ? 'e.g. HRE' : 'e.g. DBV'" />
-    </div>
-    <div class="lx-field-hint">Optional short code.</div>
-  </div>
-
-  <div class="lx-field span-2">
-    <label class="lx-field-label">Parent location</label>
-    <mat-form-field appearance="outline" class="lx-mat-field-full" subscriptSizing="dynamic">
-      <mat-select [compareWith]="compareOptionIds" formControlName="parentId" placeholder="Optional — parent city or village node">
-        <mat-option [value]="null">None (top-level)</mat-option>
-        <mat-option *ngFor="let o of parentLocationOptions" [value]="o.id">
-          {{ o.label }}<span *ngIf="o.sublabel" class="lx-option-sublabel"> — {{ o.sublabel }}</span>
-        </mat-option>
-      </mat-select>
-    </mat-form-field>
-    <div class="lx-field-hint">Another location node (city/village) in the catalog, if hierarchical.</div>
-  </div>
-
-  <div class="lx-field">
-    <label class="lx-field-label">Latitude</label>
-    <div class="lx-input-shell">
-      <mat-icon class="lx-input-shell__icon">my_location</mat-icon>
-      <input type="number" formControlName="latitude" placeholder="e.g. -17.8252" step="0.0001" />
-    </div>
-    <div class="lx-field-hint">Decimal degrees.</div>
-  </div>
-
-  <div class="lx-field">
-    <label class="lx-field-label">Longitude</label>
-    <div class="lx-input-shell">
-      <mat-icon class="lx-input-shell__icon">my_location</mat-icon>
-      <input type="number" formControlName="longitude" placeholder="e.g. 31.0335" step="0.0001" />
-    </div>
-    <div class="lx-field-hint">Decimal degrees.</div>
-  </div>
-
-  <div class="lx-field">
-    <label class="lx-field-label">Timezone</label>
-    <div class="lx-input-shell">
-      <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
-      <input formControlName="timezone" placeholder="e.g. Africa/Harare" />
-    </div>
-    <div class="lx-field-hint">IANA timezone identifier.</div>
-  </div>
-
-  <div class="lx-field">
-    <label class="lx-field-label">Postal code</label>
-    <div class="lx-input-shell">
-      <mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon>
-      <input formControlName="postalCode" placeholder="e.g. 00263" />
-    </div>
-    <div class="lx-field-hint">Optional.</div>
-  </div>
-
-  <div class="lx-field span-2">
-    <label class="lx-field-label">Aliases</label>
-    <div class="lx-input-shell">
-      <mat-icon class="lx-input-shell__icon">label</mat-icon>
-      <input formControlName="aliases" placeholder="e.g. Salisbury, Sunshine City" />
-    </div>
-    <div class="lx-field-hint">Comma-separated list of alternate names.</div>
-  </div>
-</ng-template>

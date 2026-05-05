@@ -17,7 +17,7 @@ export class ClassificationGuard implements CanActivate {
     }
     const user = this.authState.currentUser;
     if (!user?.orgClassification) {
-      return this.router.createUrlTree(['/auth/login']);
+      return this.router.createUrlTree(['/welcome']);
     }
     return true;
   }

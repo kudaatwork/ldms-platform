@@ -3,6 +3,8 @@ package projectlx.co.zw.locationsmanagementservice.utils.dtos;
 import com.opencsv.bean.CsvBindByName;
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 /**
  * DTO for mapping CSV data to Address.
  * Column headers must match exactly (case-insensitive) in the uploaded file.
@@ -21,4 +23,13 @@ public class AddressCsvDto {
 
     @CsvBindByName(column = "SUBURB ID")
     private Long suburbId;
+
+    @CsvBindByName(column = "LATITUDE")
+    private BigDecimal latitude;
+
+    @CsvBindByName(column = "LONGITUDE")
+    private BigDecimal longitude;
+
+    @CsvBindByName(column = "GEO COORDINATES ID")
+    private Long geoCoordinatesId;
 }

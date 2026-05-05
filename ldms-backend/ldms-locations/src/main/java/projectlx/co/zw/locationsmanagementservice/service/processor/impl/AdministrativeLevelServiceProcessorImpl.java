@@ -136,7 +136,7 @@ public class AdministrativeLevelServiceProcessorImpl implements AdministrativeLe
         ImportSummary importSummary = administrativeLevelService.importAdministrativeLevelFromCsv(csvInputStream);
 
         logger.info("Outgoing response after importing administrative levels from CSV: Total: {}, Success: {}, Failed: {}",
-                importSummary.total, importSummary.success, importSummary.failed);
+                importSummary.total, importSummary.importedCount, importSummary.failed);
 
         return importSummary;
     }

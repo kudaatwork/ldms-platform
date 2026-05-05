@@ -52,6 +52,17 @@ public class LocationNode {
     @JoinColumn(name = "parent_id")
     private LocationNode parent;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "district_id")
+    private District district;
+
+    /**
+     * Optional direct link for village nodes that belong to a suburb.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "suburb_id")
+    private Suburb suburb;
+
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
     private List<LocationNode> children = new ArrayList<>();
 

@@ -8,11 +8,10 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class LocalizedNameSpecification {
 
-    public static Specification<LocalizedName> deleted(EntityStatus entityStatus) {
-        return (root, query, cb) -> {
-            Predicate p = cb.notLike(root.get(LocalizedName_.entityStatus).as(String.class), "%" + entityStatus + "%");
-            return p;
-        };
+    public static Specification<LocalizedName> deleted(EntityStatus excludedStatus) {
+        return (root, query, cb) -> cb.or(
+                cb.isNull(root.get(LocalizedName_.entityStatus)),
+                cb.notEqual(root.get(LocalizedName_.entityStatus), excludedStatus));
     }
 
     public static Specification<LocalizedName> valueLike(final String value) {

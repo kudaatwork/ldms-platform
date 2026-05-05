@@ -39,21 +39,10 @@ public class DistrictServiceValidatorImpl implements DistrictServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_DISTRICT_NAME_MISSING.getCode(), new String[]{}, locale));
         }
 
-        if (request.getCode() == null || request.getCode().isEmpty()) {
-            logger.info("Validation failed: District code is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_DISTRICT_CODE_MISSING.getCode(), new String[]{}, locale));
-        }
-
         if (request.getProvinceId() == null) {
             logger.info("Validation failed: Province ID is missing");
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_DISTRICT_PROVINCE_ID_MISSING.getCode(), new String[]{}, locale));
         }
-
-        if (request.getAdministrativeLevelId() == null) {
-            logger.info("Validation failed: Administrative level ID is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_DISTRICT_ADMINISTRATIVE_LEVEL_ID_MISSING.getCode(), new String[]{}, locale));
-        }
-
 
         if (errors.isEmpty()) {
             return new ValidatorDto(true, null, null);

@@ -1,6 +1,18 @@
 server:
-  port: 8888
+  port: ${CONFIG_SERVER_PORT:8888}
 
+# Centralised config lives in ldms-config-repo (GitHub or a local git working copy).
+# REST (same app/profile Spring Cloud Config clients use after bootstrap):
+#   GET http://localhost:${CONFIG_SERVER_PORT:8888}/{spring.cloud.config.name}/{profile}
+# Example (ldms-location-management, dev, Basic developer / Config098()!):
+#   curl --location 'http://localhost:8888/ldms-location-management/dev' --header 'Authorization: Basic ZGV2ZWxvcGVyOkNvbmZpZzA5OCgpIQ=='
+# Clients using spring.config.import: optional:configserver:... must embed the same Basic credentials in the URL
+# (URL-encoded password), e.g. CONFIG_SERVER_PASSWORD_ENCODED=Config098%28%29%21 — not only spring.security.user.
+# Git files: ldms-config-repo {profile}/{name}.yml — search-paths: '{profile}' below.
+# Local clone: LDMS_CONFIG_GIT_URI=file:/absolute/path/to/ldms-config-repo
+#
+# accept-empty: false — GET /{application}/{profile} returns 404 if nothing resolves (e.g. typo
+# "ldms-location-managem"). Default true would return 200 with propertySources: [] and mislead clients.
 spring:
   security:
     user:
@@ -10,7 +22,11 @@ spring:
     config:
       enabled: false
       server:
+        accept-empty: false
         git:
+          # Remote default; for local Git files use an absolute file URI, e.g.
+          #   LDMS_CONFIG_GIT_URI=file:/Users/you/IdeaProjects/ldms-platform/config-repo
+          # (must be a bare repo or directory with .git — same layout as GitHub ldms-config-repo: dev/*.yml)
           uri: ${LDMS_CONFIG_GIT_URI:https://github.com/kudaatwork/ldms-config-repo.git}
           clone-on-start: true
           default-label: ${LDMS_CONFIG_GIT_BRANCH:main}

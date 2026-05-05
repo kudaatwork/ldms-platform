@@ -30,8 +30,8 @@ public class AdministrativeLevel {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // e.g., "District", "Province", "Ward", "Constituency"
-    @Column(nullable = false, unique = true)
+    // e.g., "District", "Province", "Ward", "Constituency" — unique per country in application logic (soft deletes).
+    @Column(nullable = false)
     private String name;
 
     // e.g., "ADM2", "ADM1", etc. – could be useful for standardization
@@ -44,7 +44,7 @@ public class AdministrativeLevel {
     // Optional description for clarification
     private String description;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "country_id")
     private Country country;
 

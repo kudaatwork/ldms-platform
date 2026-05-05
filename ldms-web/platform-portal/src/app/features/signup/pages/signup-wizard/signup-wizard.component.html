@@ -1,0 +1,248 @@
+<div class="su-root">
+  <button
+    type="button"
+    class="su-theme"
+    (click)="toggleTheme()"
+    [attr.title]="theme.dark() ? 'Light mode' : 'Dark mode'"
+    [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+  >
+    <span class="material-icons" aria-hidden="true">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+  </button>
+
+  <aside class="su-left">
+    <a routerLink="/welcome" class="su-back">
+      <span class="material-icons" aria-hidden="true">arrow_back</span> Home
+    </a>
+    <div class="su-left-brand">
+      <div class="su-left-logo">
+        <img class="su-left-logo-img su-left-logo-img--light" src="images/lx-logo.png" alt="LX logo" />
+        <img class="su-left-logo-img su-left-logo-img--dark" src="images/lx-logo-transparent.png" alt="LX logo" />
+      </div>
+      <span class="su-left-name">Project <span class="brand-lx">LX</span></span>
+    </div>
+    <div class="su-left-headline">Create your<br />organisation account</div>
+    <div class="su-left-sub">
+      Guided signup — pick your organisation type, confirm details, and get ready for a workspace tailored to how you
+      operate on the platform portal.
+    </div>
+    <ul class="su-left-advantages">
+      <li>
+        <span class="material-icons su-left-adv-icon" aria-hidden="true">category</span>
+        <span><strong>Classification first</strong> — we tailor navigation and dashboards to your organisation type.</span>
+      </li>
+      <li>
+        <span class="material-icons su-left-adv-icon" aria-hidden="true">shield</span>
+        <span><strong>Secure onboarding</strong> — primary contact becomes your first administrator.</span>
+      </li>
+      <li>
+        <span class="material-icons su-left-adv-icon" aria-hidden="true">login</span>
+        <span><strong>Already registered?</strong> — use organisation sign in after you finish.</span>
+      </li>
+    </ul>
+    <div class="su-left-version">Platform Portal · projectlx.co.zw</div>
+  </aside>
+
+  <div class="su-right">
+    <div class="su-card lx-card" [class.su-card--wide]="currentStep === 0" *ngIf="!complete">
+      <div class="su-progress">
+        <div class="su-progress-steps">
+          <div
+            class="su-step"
+            *ngFor="let s of steps; let i = index"
+            [class.su-step--active]="currentStep === i"
+            [class.su-step--done]="currentStep > i"
+          >
+            <span class="su-step-num">{{ i + 1 }}</span>
+            <span class="su-step-label">{{ s }}</span>
+          </div>
+        </div>
+        <div class="su-progress-bar"><div class="su-progress-fill" [style.width.%]="progress"></div></div>
+      </div>
+
+      <!-- Step 0 -->
+      <section *ngIf="currentStep === 0" class="su-panel">
+        <h2 class="su-title">Choose organisation classification</h2>
+        <p class="su-sub">Select the option that best describes how you use LX.</p>
+        <div class="su-type-grid">
+          <button
+            type="button"
+            class="su-type-card"
+            *ngFor="let c of classifications"
+            [class.su-type-card--selected]="classification === c.id"
+            (click)="selectClassification(c.id)"
+          >
+            <span class="su-type-icon" aria-hidden="true"><span class="material-icons">{{ c.icon }}</span></span>
+            <h3>{{ c.title }}</h3>
+            <p>{{ c.description }}</p>
+            <ul>
+              <li *ngFor="let f of c.features"><span class="material-icons su-check" aria-hidden="true">check</span>{{ f }}</li>
+            </ul>
+          </button>
+        </div>
+      </section>
+
+      <!-- Step 1 -->
+      <section *ngIf="currentStep === 1" class="su-panel">
+        <h2 class="su-title">Organisation details</h2>
+        <p class="su-sub">We will use this to verify and onboard your workspace.</p>
+        <form [formGroup]="orgForm" class="su-form">
+          <div class="su-field">
+            <div class="su-field-label">Organisation name</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">business</span>
+              <input type="text" formControlName="orgName" placeholder="e.g. Acme Logistics" autocomplete="organization" />
+            </div>
+            <span class="su-field-error" *ngIf="orgForm.get('orgName')?.touched && orgForm.get('orgName')?.invalid"
+              >Required (min 2 characters)</span
+            >
+          </div>
+          <div class="su-field">
+            <div class="su-field-label">Organisation email</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">mail_outline</span>
+              <input type="email" formControlName="orgEmail" placeholder="info@company.com" autocomplete="email" />
+            </div>
+            <span class="su-field-error" *ngIf="orgForm.get('orgEmail')?.touched && orgForm.get('orgEmail')?.invalid"
+              >Valid email required</span
+            >
+          </div>
+          <div class="su-field">
+            <div class="su-field-label">Phone</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">phone</span>
+              <input type="tel" formControlName="phone" placeholder="+263 …" autocomplete="tel" />
+            </div>
+            <span class="su-field-error" *ngIf="orgForm.get('phone')?.touched && orgForm.get('phone')?.invalid">Required</span>
+          </div>
+          <div class="su-field su-field--full">
+            <div class="su-field-label">Registration / tax reference</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">assignment_ind</span>
+              <input type="text" formControlName="registrationRef" placeholder="Business or tax registration number" />
+            </div>
+            <span class="su-field-error" *ngIf="orgForm.get('registrationRef')?.touched && orgForm.get('registrationRef')?.invalid"
+              >Required</span
+            >
+          </div>
+        </form>
+      </section>
+
+      <!-- Step 2 -->
+      <section *ngIf="currentStep === 2" class="su-panel">
+        <h2 class="su-title">Primary contact</h2>
+        <p class="su-sub">This person becomes the first administrator for your organisation.</p>
+        <form [formGroup]="contactForm" class="su-form">
+          <div class="su-field">
+            <div class="su-field-label">First name</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">person_outline</span>
+              <input type="text" formControlName="firstName" placeholder="First name" autocomplete="given-name" />
+            </div>
+            <span class="su-field-error" *ngIf="contactForm.get('firstName')?.touched && contactForm.get('firstName')?.invalid"
+              >Required</span
+            >
+          </div>
+          <div class="su-field">
+            <div class="su-field-label">Last name</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">person_outline</span>
+              <input type="text" formControlName="lastName" placeholder="Last name" autocomplete="family-name" />
+            </div>
+            <span class="su-field-error" *ngIf="contactForm.get('lastName')?.touched && contactForm.get('lastName')?.invalid"
+              >Required</span
+            >
+          </div>
+          <div class="su-field su-field--full">
+            <div class="su-field-label">Work email</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">alternate_email</span>
+              <input type="email" formControlName="email" placeholder="you@company.com" autocomplete="email" />
+            </div>
+            <span class="su-field-error" *ngIf="contactForm.get('email')?.touched && contactForm.get('email')?.invalid"
+              >Valid email required</span
+            >
+          </div>
+          <div class="su-field">
+            <div class="su-field-label">Password</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">lock_outline</span>
+              <input
+                [type]="showPassword ? 'text' : 'password'"
+                formControlName="password"
+                placeholder="At least 8 characters"
+                autocomplete="new-password"
+              />
+              <button
+                type="button"
+                class="su-pass-toggle"
+                (click)="togglePasswordVisibility()"
+                [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+              >
+                <span class="material-icons" aria-hidden="true">{{ showPassword ? 'visibility_off' : 'visibility' }}</span>
+              </button>
+            </div>
+            <span class="su-field-error" *ngIf="contactForm.get('password')?.touched && contactForm.get('password')?.invalid"
+              >At least 8 characters</span
+            >
+          </div>
+          <div class="su-field">
+            <div class="su-field-label">Confirm password</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">lock_outline</span>
+              <input
+                [type]="showConfirmPassword ? 'text' : 'password'"
+                formControlName="confirmPassword"
+                placeholder="Repeat password"
+                autocomplete="new-password"
+              />
+              <button
+                type="button"
+                class="su-pass-toggle"
+                (click)="toggleConfirmPasswordVisibility()"
+                [attr.aria-label]="showConfirmPassword ? 'Hide password' : 'Show password'"
+              >
+                <span class="material-icons" aria-hidden="true">{{ showConfirmPassword ? 'visibility_off' : 'visibility' }}</span>
+              </button>
+            </div>
+            <span class="su-field-error" *ngIf="contactForm.get('confirmPassword')?.touched && contactForm.hasError('mismatch')"
+              >Passwords must match</span
+            >
+          </div>
+          <label class="su-terms su-field--full">
+            <input type="checkbox" formControlName="acceptTerms" />
+            <span>I agree to the terms of use and privacy policy (demo registration).</span>
+          </label>
+        </form>
+      </section>
+
+      <footer class="su-actions">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="back()" *ngIf="currentStep > 0 && currentStep < 3">Back</button>
+        <span class="su-spacer"></span>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="next()" *ngIf="currentStep < 2" [disabled]="currentStep === 0 && !canAdvanceFromStep0()">
+          Continue
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="submit()" *ngIf="currentStep === 2" [disabled]="submitting">
+          {{ submitting ? 'Submitting…' : 'Submit registration' }}
+        </button>
+      </footer>
+
+      <p class="su-footer-note">
+        Already registered?
+        <a routerLink="/auth/login">Sign in</a>
+      </p>
+    </div>
+
+    <div class="su-card lx-card su-success" *ngIf="complete">
+      <div class="su-success-icon"><span class="material-icons" aria-hidden="true">mark_email_read</span></div>
+      <h2 class="su-title">Registration received</h2>
+      <p class="su-sub">
+        Thank you — your request is queued for review. When backend signup is connected, you will receive email
+        verification here. For now you can explore the portal with demo credentials.
+      </p>
+      <div class="su-success-actions">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="goLogin()">Go to sign in</button>
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="goWelcome()">Back to home</button>
+      </div>
+    </div>
+  </div>
+</div>

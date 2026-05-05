@@ -136,7 +136,7 @@ public class DistrictServiceProcessorImpl implements DistrictServiceProcessor {
         ImportSummary importSummary = districtService.importDistrictFromCsv(csvInputStream);
 
         logger.info("Outgoing response after importing districts from CSV: Total: {}, Success: {}, Failed: {}",
-                importSummary.total, importSummary.success, importSummary.failed);
+                importSummary.total, importSummary.importedCount, importSummary.failed);
 
         return importSummary;
     }

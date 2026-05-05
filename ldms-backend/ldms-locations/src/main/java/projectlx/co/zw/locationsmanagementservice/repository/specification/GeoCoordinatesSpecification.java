@@ -9,11 +9,10 @@ import java.math.BigDecimal;
 
 public class GeoCoordinatesSpecification {
 
-    public static Specification<GeoCoordinates> deleted(EntityStatus entityStatus) {
-        return (root, query, cb) -> {
-            Predicate p = cb.notLike(root.get(GeoCoordinates_.entityStatus).as(String.class), "%" + entityStatus + "%");
-            return p;
-        };
+    public static Specification<GeoCoordinates> deleted(EntityStatus excludedStatus) {
+        return (root, query, cb) -> cb.or(
+                cb.isNull(root.get(GeoCoordinates_.entityStatus)),
+                cb.notEqual(root.get(GeoCoordinates_.entityStatus), excludedStatus));
     }
 
     public static Specification<GeoCoordinates> latitudeEquals(final BigDecimal latitude) {

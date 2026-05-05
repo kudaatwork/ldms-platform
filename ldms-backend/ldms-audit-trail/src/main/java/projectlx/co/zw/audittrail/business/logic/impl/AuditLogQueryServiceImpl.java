@@ -53,6 +53,11 @@ public class AuditLogQueryServiceImpl implements AuditLogQueryService {
                 filter.httpStatusCode(),
                 filter.from(),
                 filter.to(),
+                blankToNull(filter.searchValue()),
+                blankToNull(filter.action()),
+                blankToNull(filter.requestUrl()),
+                blankToNull(filter.httpMethod()),
+                blankToNull(filter.traceId()),
                 pageable);
     }
 

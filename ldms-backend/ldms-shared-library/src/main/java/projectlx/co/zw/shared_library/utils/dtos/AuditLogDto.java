@@ -25,7 +25,13 @@ public class AuditLogDto implements Serializable {
 
     private String traceId; // For correlating logs across services
     private String serviceName; // The name of the microservice generating the log
+    /** @deprecated Prefer {@link #requestTimestamp} / {@link #responseTimestamp}; kept for queue compatibility. */
+    @Deprecated
     private Instant timestamp;
+    /** Wall-clock when the HTTP request entered the service (or work started). */
+    private Instant requestTimestamp;
+    /** Wall-clock when the HTTP response was committed (or work finished). */
+    private Instant responseTimestamp;
     private String username; // User who performed the action
     private String clientIpAddress;
 

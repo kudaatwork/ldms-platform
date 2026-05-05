@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { map, Observable, tap } from 'rxjs';
+import { catchError, map, Observable, tap, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { CurrentUser } from '../models/auth.model';
 import { AuthStateService } from './auth-state.service';
@@ -14,14 +14,57 @@ export class AuthService {
     private readonly authState: AuthStateService,
   ) {}
 
+  loginWithGoogleIdToken(idToken: string): Observable<void> {
+    if (environment.useMocks) {
+      return throwError(() => new Error('Google sign-in is not available in demo mode.'));
+    }
+    return this.http
+      .post<{ accessToken?: string; token?: string }>(
+        `${environment.apiUrl}/ldms-authentication/v1/auth/google-id-token`,
+        { idToken },
+      )
+      .pipe(
+        map((res) => {
+          const token = res.accessToken ?? res.token ?? '';
+          if (!token) {
+            throw new Error('No token in response');
+          }
+          return token;
+        }),
+        tap((token) => {
+          this.storage.setToken(token);
+          this.authState.setCurrentUser(this.decodeToken(token));
+        }),
+        map(() => void 0),
+        catchError((err: HttpErrorResponse) =>
+          throwError(() => new Error(this.messageFromHttp(err))),
+        ),
+      );
+  }
+
   login(email: string, password: string): Observable<void> {
     return this.http
-      .post<{ token: string }>(`${environment.apiUrl}/api/v1/frontend/auth/login`, { email, password })
+      .post<{ token: string; accessToken?: string }>(`${environment.apiUrl}/api/v1/frontend/auth/login`, {
+        email,
+        password,
+      })
       .pipe(
-        tap((res) => this.storage.setToken(res.token)),
-        tap((res) => this.authState.setCurrentUser(this.decodeToken(res.token))),
+        map((res) => {
+          const token = res.accessToken ?? res.token;
+          if (!token) {
+            throw new Error('No token in response');
+          }
+          return token;
+        }),
+        tap((token) => this.storage.setToken(token)),
+        tap((token) => this.authState.setCurrentUser(this.decodeToken(token))),
         map(() => void 0),
       );
+  }
+
+  private messageFromHttp(err: HttpErrorResponse): string {
+    const body = err.error as { message?: string } | undefined;
+    return body?.message ?? err.message ?? 'Google sign-in failed';
   }
 
   bootstrapFromStorage(): void {

@@ -1,4 +1,23 @@
 <div class="lx-page">
+  <div class="lx-card lx-card--subsection lx-address-i18n" *ngIf="entity === 'address'">
+    <h3 class="lx-address-i18n__title">Languages and localized names</h3>
+    <p class="lx-address-i18n__text">
+      Street addresses store line 1 / line 2. <strong>Languages</strong> define which tongues exist in the catalog;
+      <strong>localized names</strong> attach alternate spellings of countries, provinces, districts, and suburbs to
+      those languages so portals and reports can render place labels consistently next to addresses.
+    </p>
+    <div class="lx-address-i18n__actions">
+      <a mat-stroked-button color="primary" routerLink="/locations/languages">
+        <mat-icon>translate</mat-icon>
+        Languages
+      </a>
+      <a mat-stroked-button routerLink="/locations/localized-names">
+        <mat-icon>g_translate</mat-icon>
+        Localized names
+      </a>
+    </div>
+  </div>
+
   <div class="lx-card lx-card--subsection">
     <div class="lx-controls-head">
       <div class="lx-controls-head__text">
@@ -63,7 +82,15 @@
         >
           Export{{ exporting ? '…' : '' }}
         </button>
-        <button type="button" class="lx-btn lx-btn-primary" (click)="openAdd()" [disabled]="actionInProgress">
+        <button
+          type="button"
+          class="lx-btn lx-btn-primary"
+          (click)="openAdd()"
+          (mouseenter)="warmDialogCache()"
+          (focus)="warmDialogCache()"
+          (touchstart)="warmDialogCache()"
+          [disabled]="actionInProgress"
+        >
           Add New
         </button>
       </div>
@@ -104,17 +131,17 @@
       <div class="lx-filter-fields">
         <div class="lx-filter-field-wrap" *ngFor="let key of filterableKeys">
           <div class="lx-field-label">{{ columnLabels[key] }}</div>
-          <mat-form-field
-            *ngIf="isFkFilterColumn(key)"
-            appearance="outline"
-            class="lx-filter-field"
-            subscriptSizing="dynamic"
-          >
-            <mat-select [(ngModel)]="columnFilters[key]" (ngModelChange)="applyFilters()">
-              <mat-option value="">Any</mat-option>
-              <mat-option *ngFor="let o of fkFilterOptionsFor(key)" [value]="'' + o.id">{{ o.label }}</mat-option>
-            </mat-select>
-          </mat-form-field>
+          <div *ngIf="isFkFilterColumn(key)" class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">{{ fkFilterShellIcon(key) }}</mat-icon>
+            <select
+              [(ngModel)]="columnFilters[key]"
+              (ngModelChange)="applyFilters()"
+              [attr.aria-label]="columnLabels[key]"
+            >
+              <option value="">Any</option>
+              <option *ngFor="let o of fkFilterOptionsFor(key)" [value]="'' + o.id">{{ fkFilterOptionDisplay(o) }}</option>
+            </select>
+          </div>
           <div *ngIf="!isFkFilterColumn(key)" class="lx-input-shell lx-filter-field">
             <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
             <input [(ngModel)]="columnFilters[key]" (ngModelChange)="applyFilters()" />
@@ -141,9 +168,10 @@
     <ng-container *ngIf="rawRows.length > 0 || totalRecords > 0">
       <ng-container *ngIf="dataSource.data.length > 0; else noSearchHits">
         <div class="lx-table-wrap">
-          <table mat-table [dataSource]="dataSource" matSort class="lx-mat-table">
+          <!-- Server returns stable id ASC order; client MatSort reorders only the current page and breaks "new row at end". -->
+          <table mat-table [dataSource]="dataSource" class="lx-mat-table">
             <ng-container *ngFor="let col of displayedColumns" [matColumnDef]="col">
-              <th mat-header-cell *matHeaderCellDef mat-sort-header [disabled]="col === 'actions'">
+              <th mat-header-cell *matHeaderCellDef>
                 {{ columnLabels[col] }}
               </th>
               <td mat-cell *matCellDef="let row" [class.lx-actions-cell]="col === 'actions'">

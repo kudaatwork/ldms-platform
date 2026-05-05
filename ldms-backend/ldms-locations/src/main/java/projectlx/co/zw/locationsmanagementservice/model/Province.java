@@ -41,13 +41,11 @@ public class Province {
     @Column(length = 10)
     private String code;
 
-    // Many provinces belong to one country
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "country_id", nullable = false)
     private Country country;
 
-    // Optional: Administrative level, e.g., 1 for Province, 2 for District
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "administrative_level_id")
     private AdministrativeLevel administrativeLevel;
 

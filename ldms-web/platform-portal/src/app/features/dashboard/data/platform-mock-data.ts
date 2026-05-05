@@ -5,6 +5,97 @@ export interface KpiCard {
   value: string;
 }
 
+export type SupplierShipmentStatus = 'PREPARED' | 'IN_TRANSIT' | 'COMPLETED' | 'FAILED';
+
+export interface SupplierShipmentCard {
+  id: string;
+  shipmentNo: string;
+  status: SupplierShipmentStatus;
+  departureLabel: string;
+  arrivalLabel: string;
+  departureDate: string;
+  arrivalDate: string;
+  category: string;
+  driver: string;
+  /** Short hint shown on the map panel */
+  routeHint: string;
+}
+
+export const SUPPLIER_SHIPMENT_MOCKS: SupplierShipmentCard[] = [
+  {
+    id: 's1',
+    shipmentNo: 'LX-2017287528',
+    status: 'IN_TRANSIT',
+    departureLabel: 'Harare DC',
+    arrivalLabel: 'Bulawayo Hub',
+    departureDate: '30 Apr',
+    arrivalDate: '2 May',
+    category: 'Food & beverages',
+    driver: 'T. Moyo',
+    routeHint: 'A6 · 120 km to next waypoint',
+  },
+  {
+    id: 's2',
+    shipmentNo: 'LX-2017289102',
+    status: 'PREPARED',
+    departureLabel: 'Supplier DC',
+    arrivalLabel: 'Retail chain',
+    departureDate: '2 May',
+    arrivalDate: '3 May',
+    category: 'Packaged goods',
+    driver: 'Unassigned',
+    routeHint: 'Ready for dispatch',
+  },
+  {
+    id: 's3',
+    shipmentNo: 'LX-2017286640',
+    status: 'COMPLETED',
+    departureLabel: 'Mutare',
+    arrivalLabel: 'Chipinge',
+    departureDate: '28 Apr',
+    arrivalDate: '29 Apr',
+    category: 'Agricultural',
+    driver: 'R. Ndlovu',
+    routeHint: 'Delivered · POD signed',
+  },
+  {
+    id: 's4',
+    shipmentNo: 'LX-2017288201',
+    status: 'FAILED',
+    departureLabel: 'Harare',
+    arrivalLabel: 'Chirundu',
+    departureDate: '1 May',
+    arrivalDate: '—',
+    category: 'Cold chain',
+    driver: 'J. Sibanda',
+    routeHint: 'Border delay · contact clearing',
+  },
+  {
+    id: 's5',
+    shipmentNo: 'LX-2017289011',
+    status: 'IN_TRANSIT',
+    departureLabel: 'Beitbridge',
+    arrivalLabel: 'Johannesburg',
+    departureDate: '2 May',
+    arrivalDate: '3 May',
+    category: 'Textiles',
+    driver: 'P. van der Merwe',
+    routeHint: 'N1 · customs cleared',
+  },
+  {
+    id: 's6',
+    shipmentNo: 'LX-2017287555',
+    status: 'PREPARED',
+    departureLabel: 'Warehouse 3',
+    arrivalLabel: 'Government depot',
+    departureDate: '3 May',
+    arrivalDate: '4 May',
+    category: 'Medical supplies',
+    driver: 'Unassigned',
+    routeHint: 'Awaiting vehicle allocation',
+  },
+];
+
 export const PLATFORM_KPI_CONFIG: Record<OrganizationClassification, KpiCard[]> = {
   SUPPLIER: [
     { label: 'pending POs', value: '12' },

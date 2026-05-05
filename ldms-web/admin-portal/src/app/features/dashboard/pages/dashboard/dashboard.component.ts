@@ -2,10 +2,12 @@ import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
   Component,
+  OnDestroy,
   OnInit,
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ChartData, ChartOptions } from 'chart.js';
+import { Subject, takeUntil, timer } from 'rxjs';
 
 interface KpiCard {
   label: string;
@@ -55,7 +57,11 @@ interface QuickAction {
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: false,
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
+  private readonly kycBaseData = [12, 19, 8, 24, 16, 31, 13];
+  private liveTick = 0;
+
   loading = true;
   activePeriod = '1M';
   searchTerm = '';
@@ -160,12 +166,17 @@ export class DashboardComponent implements OnInit {
     { label: 'Rejected', color: '#EF4444', count: 3, pct: 23 },
   ];
 
-  mapPins: MapPin[] = [
+  private readonly mapPinOrigins: MapPin[] = [
     { x: 28, y: 38, type: 'primary', label: 'ZW-1234-A' },
     { x: 62, y: 25, type: 'secondary', label: 'ZW-5678-B' },
     { x: 72, y: 58, type: 'warning', label: 'ZW-9012-C' },
     { x: 18, y: 68, type: 'primary', label: 'ZW-3456-D' },
   ];
+
+  mapPins: MapPin[] = [...this.mapPinOrigins];
+
+  /** Shown on the map stat chip; nudged on each live tick. */
+  liveOnTimePct = 96.2;
 
   quickActions: QuickAction[] = [
     { icon: 'verified_user', label: 'Review KYC', count: '13', route: '/kyc/applications' },
@@ -190,6 +201,10 @@ export class DashboardComponent implements OnInit {
   kycChartOptions: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
+    animation: {
+      duration: 700,
+      easing: 'easeOutQuart',
+    },
     plugins: {
       legend: { display: false },
       tooltip: {
@@ -228,6 +243,51 @@ export class DashboardComponent implements OnInit {
   ngOnInit(): void {
     this.title.setTitle('Dashboard | LX Admin');
     this.loading = false;
+    this.cdr.markForCheck();
+
+    timer(400, 2600)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.applyLiveTick());
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private applyLiveTick(): void {
+    this.liveTick += 1;
+    const t = this.liveTick * 0.35;
+
+    const ds0 = this.kycChartData.datasets[0];
+    const nextData = this.kycBaseData.map((v, i) => {
+      const wave = Math.sin(t + i * 0.55) * 4;
+      const noise = (Math.random() - 0.5) * 2.5;
+      return Math.max(3, Math.round(v + wave + noise));
+    });
+    this.kycChartData = {
+      labels: [...(this.kycChartData.labels ?? [])],
+      datasets: [
+        {
+          ...ds0,
+          data: nextData,
+        },
+      ],
+    };
+
+    this.kpiCards = this.kpiCards.map((k) => ({
+      ...k,
+      spark: [...k.spark.slice(1), 18 + Math.round(Math.random() * 82)],
+    }));
+
+    this.mapPins = this.mapPinOrigins.map((p, i) => ({
+      ...p,
+      x: Math.min(88, Math.max(12, p.x + Math.sin(t * 0.8 + i * 1.1) * 2.8)),
+      y: Math.min(82, Math.max(18, p.y + Math.cos(t * 0.7 + i * 0.9) * 2.2)),
+    }));
+
+    this.liveOnTimePct = Math.min(99.4, Math.max(93.5, 96.2 + Math.sin(t * 0.4) * 1.8 + (Math.random() - 0.5) * 0.35));
+
     this.cdr.markForCheck();
   }
 

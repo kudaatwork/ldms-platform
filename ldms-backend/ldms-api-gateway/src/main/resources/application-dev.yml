@@ -1,0 +1,19 @@
+# Dev-only: browsers call the gateway directly from Angular (e.g. http://localhost:4200 → http://localhost:8091).
+spring:
+  cloud:
+    gateway:
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - 'http://localhost:*'
+              - 'http://127.0.0.1:*'
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+              - HEAD
+            allowedHeaders: '*'

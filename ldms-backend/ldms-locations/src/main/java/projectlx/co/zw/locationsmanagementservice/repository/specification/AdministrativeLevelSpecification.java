@@ -8,11 +8,10 @@ import org.springframework.data.jpa.domain.Specification;
 
 public class AdministrativeLevelSpecification {
 
-    public static Specification<AdministrativeLevel> deleted(EntityStatus entityStatus) {
-        return (root, query, cb) -> {
-            Predicate p = cb.notLike(root.get(AdministrativeLevel_.entityStatus).as(String.class), "%" + entityStatus + "%");
-            return p;
-        };
+    public static Specification<AdministrativeLevel> deleted(EntityStatus excludedStatus) {
+        return (root, query, cb) -> cb.or(
+                cb.isNull(root.get(AdministrativeLevel_.entityStatus)),
+                cb.notEqual(root.get(AdministrativeLevel_.entityStatus), excludedStatus));
     }
 
     public static Specification<AdministrativeLevel> nameLike(final String name) {

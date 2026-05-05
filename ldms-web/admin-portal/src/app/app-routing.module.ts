@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
+import { StaticShellPageComponent } from './shared/static-shell-page/static-shell-page.component';
 
 const routes: Routes = [
   {
@@ -59,6 +60,33 @@ const routes: Routes = [
         path: 'ui-kit',
         loadChildren: () => import('./features/ui-kit/ui-kit.module').then((m) => m.UiKitModule),
         data: { breadcrumb: 'UI Kit' },
+      },
+      {
+        path: 'account',
+        component: StaticShellPageComponent,
+        data: {
+          title: 'My account',
+          breadcrumb: 'My account',
+          lead: 'Profile, security, and session preferences will appear here when the account service is connected.',
+        },
+      },
+      {
+        path: 'settings',
+        component: StaticShellPageComponent,
+        data: {
+          title: 'Settings',
+          breadcrumb: 'Settings',
+          lead: 'Theme, notifications, and workspace defaults will be configurable here.',
+        },
+      },
+      {
+        path: 'help',
+        component: StaticShellPageComponent,
+        data: {
+          title: 'Help & Support',
+          breadcrumb: 'Help & Support',
+          lead: 'Documentation, status, and ways to reach LX operations will live here.',
+        },
       },
     ],
   },

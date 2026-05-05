@@ -94,6 +94,7 @@ public enum I18Code {
     MESSAGE_UPDATE_SUBURB_ADMINISTRATIVE_LEVEL_ID_MISSING("message.update.suburb.administrative.level.id.missing"),
     MESSAGE_SUBURB_UPDATED_SUCCESSFULLY("message.suburb.updated.successfully"),
     MESSAGE_SUBURB_DELETED_SUCCESSFULLY("message.suburb.deleted.successfully"),
+    MESSAGE_SUBURB_MULTIPLE_FILTERS_REQUEST_IS_NULL("message.suburb.multiple.filters.request.is.null"),
 
     // Address related messages
     MESSAGE_CREATE_ADDRESS_INVALID_REQUEST("message.create.address.invalid.request"),
@@ -114,6 +115,39 @@ public enum I18Code {
     MESSAGE_UPDATE_ADDRESS_GEO_COORDINATES_ID_MISSING("message.update.address.geo.coordinates.id.missing"),
     MESSAGE_ADDRESS_UPDATED_SUCCESSFULLY("message.address.updated.successfully"),
     MESSAGE_ADDRESS_DELETED_SUCCESSFULLY("message.address.deleted.successfully"),
+
+    // City (first-class settlement)
+    MESSAGE_CREATE_CITY_INVALID_REQUEST("message.create.city.invalid.request"),
+    MESSAGE_CREATE_CITY_REQUEST_IS_NULL("message.create.city.request.is.null"),
+    MESSAGE_CREATE_CITY_NAME_MISSING("message.create.city.name.missing"),
+    MESSAGE_CREATE_CITY_DISTRICT_ID_MISSING("message.create.city.district.id.missing"),
+    MESSAGE_CITY_ALREADY_EXISTS("message.city.already.exists"),
+    MESSAGE_CITY_CREATED_SUCCESSFULLY("message.city.created.successfully"),
+    MESSAGE_CITY_NOT_FOUND("message.city.not.found"),
+    MESSAGE_CITY_RETRIEVED_SUCCESSFULLY("message.city.retrieved.successfully"),
+    MESSAGE_UPDATE_CITY_INVALID_REQUEST("message.update.city.invalid.request"),
+    MESSAGE_UPDATE_CITY_REQUEST_IS_NULL("message.update.city.request.is.null"),
+    MESSAGE_UPDATE_CITY_NAME_MISSING("message.update.city.name.missing"),
+    MESSAGE_CITY_UPDATED_SUCCESSFULLY("message.city.updated.successfully"),
+    MESSAGE_CITY_DELETED_SUCCESSFULLY("message.city.deleted.successfully"),
+
+    // Village (first-class settlement)
+    MESSAGE_CREATE_VILLAGE_INVALID_REQUEST("message.create.village.invalid.request"),
+    MESSAGE_CREATE_VILLAGE_REQUEST_IS_NULL("message.create.village.request.is.null"),
+    MESSAGE_CREATE_VILLAGE_NAME_MISSING("message.create.village.name.missing"),
+    MESSAGE_CREATE_VILLAGE_CITY_ID_MISSING("message.create.village.city.id.missing"),
+    MESSAGE_CREATE_VILLAGE_DISTRICT_ID_MISSING("message.create.village.district.id.missing"),
+    MESSAGE_VILLAGE_ALREADY_EXISTS("message.village.already.exists"),
+    MESSAGE_VILLAGE_CREATED_SUCCESSFULLY("message.village.created.successfully"),
+    MESSAGE_VILLAGE_NOT_FOUND("message.village.not.found"),
+    MESSAGE_VILLAGE_RETRIEVED_SUCCESSFULLY("message.village.retrieved.successfully"),
+    MESSAGE_UPDATE_VILLAGE_INVALID_REQUEST("message.update.village.invalid.request"),
+    MESSAGE_UPDATE_VILLAGE_REQUEST_IS_NULL("message.update.village.request.is.null"),
+    MESSAGE_UPDATE_VILLAGE_NAME_MISSING("message.update.village.name.missing"),
+    MESSAGE_VILLAGE_UPDATED_SUCCESSFULLY("message.village.updated.successfully"),
+    MESSAGE_VILLAGE_DELETED_SUCCESSFULLY("message.village.deleted.successfully"),
+    MESSAGE_VILLAGE_CITY_DISTRICT_MISMATCH("message.village.city.district.mismatch"),
+    MESSAGE_VILLAGE_SUBURB_DISTRICT_MISMATCH("message.village.suburb.district.mismatch"),
 
     // Language related messages
     MESSAGE_CREATE_LANGUAGE_INVALID_REQUEST("message.create.language.invalid.request"),

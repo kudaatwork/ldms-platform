@@ -6,6 +6,7 @@ import feign.Response;
 import feign.Util;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
 import projectlx.co.zw.shared_library.utils.enums.AuditEventType;
 import projectlx.user.management.business.logic.api.AuditTrailService;
@@ -62,9 +63,15 @@ public class CustomFeignLogger extends Logger {
             responseBody = new String(bodyData, StandardCharsets.UTF_8);
         }
 
+        Instant responseEnd = Instant.now();
+        Instant requestStart = responseEnd.minusMillis(Math.max(0L, elapsedTime));
+        String traceId = AuditHttpTraceSupport.currentTraceIdFromMdcOrNew();
         AuditLogDto logDto = AuditLogDto.builder()
                 .serviceName(serviceName)
-                .timestamp(Instant.now())
+                .traceId(traceId)
+                .timestamp(responseEnd)
+                .requestTimestamp(requestStart)
+                .responseTimestamp(responseEnd)
                 .username("feign-client")
                 .action("FEIGN_CALL: " + methodTag)
                 .eventType(AuditEventType.FEIGN_CALL)

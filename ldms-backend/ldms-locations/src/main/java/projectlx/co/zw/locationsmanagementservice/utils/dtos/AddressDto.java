@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import projectlx.co.zw.locationsmanagementservice.utils.enums.SettlementType;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import java.time.LocalDateTime;
 
@@ -18,6 +19,11 @@ public class AddressDto {
     private String line1;
     private String line2;
     private String postalCode;
+    private SettlementType settlementType;
+    private Long settlementId;
+    private String externalSource;
+    private String externalPlaceId;
+    private String formattedAddress;
     
     private Long suburbId;
     private String suburbName;
@@ -30,6 +36,11 @@ public class AddressDto {
     
     private Long countryId;
     private String countryName;
+
+    private Long cityId;
+    private String cityName;
+    private Long villageId;
+    private String villageName;
     
     private Long geoCoordinatesId;
     

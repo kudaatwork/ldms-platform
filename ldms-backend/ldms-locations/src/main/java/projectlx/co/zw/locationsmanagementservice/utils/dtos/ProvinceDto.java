@@ -20,7 +20,9 @@ public class ProvinceDto {
     private String code;
     
     private Long countryId;
+    private String countryName;
     private Long administrativeLevelId;
+    private String administrativeLevelName;
     private List<Long> localizedNameIds;
     private Long geoCoordinatesId;
     

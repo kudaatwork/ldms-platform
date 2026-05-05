@@ -12,8 +12,9 @@
 
   <aside class="sidebar">
     <div class="sb-logo">
-      <div class="sb-logo-icon">
-        <span class="material-icons sb-mi" aria-hidden="true">apartment</span>
+      <div class="sb-logo-brand">
+        <img class="sb-logo-img sb-logo-img--light" src="images/lx-logo.png" alt="LX logo" />
+        <img class="sb-logo-img sb-logo-img--dark" src="images/lx-logo-transparent.png" alt="LX logo" />
       </div>
       <span class="sb-logo-text">LX Platform</span>
       <button
@@ -44,16 +45,55 @@
       </a>
     </nav>
 
-    <div class="sb-footer">
-      <div class="sb-user">
-        <div class="sb-avatar">{{ userInitials }}</div>
-        <div class="sb-user-info">
-          <div class="sb-user-name">{{ currentUser?.orgName }}</div>
-          <div class="sb-user-role">{{ roleSummary }}</div>
+    <div class="sb-rail-bottom">
+      <div class="sb-section-label">Account &amp; support</div>
+      <nav class="sb-nav sb-nav--secondary" aria-label="Account and support">
+        <a
+          class="sb-item"
+          routerLink="/settings"
+          routerLinkActive="active"
+          [attr.title]="collapsed ? 'Settings' : null"
+        >
+          <div class="sb-icon">
+            <span class="material-icons sb-mi" aria-hidden="true">settings</span>
+          </div>
+          <span class="sb-label">Settings</span>
+        </a>
+        <a
+          class="sb-item"
+          routerLink="/account"
+          routerLinkActive="active"
+          [attr.title]="collapsed ? 'My account' : null"
+        >
+          <div class="sb-icon">
+            <span class="material-icons sb-mi" aria-hidden="true">person</span>
+          </div>
+          <span class="sb-label">My account</span>
+        </a>
+        <a
+          class="sb-item"
+          routerLink="/help"
+          routerLinkActive="active"
+          [attr.title]="collapsed ? 'Help & Support' : null"
+        >
+          <div class="sb-icon">
+            <span class="material-icons sb-mi" aria-hidden="true">help_outline</span>
+          </div>
+          <span class="sb-label">Help &amp; Support</span>
+        </a>
+      </nav>
+
+      <div class="sb-footer">
+        <div class="sb-user">
+          <div class="sb-avatar">{{ userInitials }}</div>
+          <div class="sb-user-info">
+            <div class="sb-user-name">{{ currentUser?.orgName }}</div>
+            <div class="sb-user-role">{{ roleSummary }}</div>
+          </div>
+          <button type="button" class="sb-logout-footer" (click)="logout()" title="Sign out" aria-label="Sign out">
+            <span class="material-icons sb-mi" aria-hidden="true">logout</span>
+          </button>
         </div>
-        <button type="button" class="sb-logout" (click)="logout()" title="Sign out">
-          <span class="material-icons sb-mi" aria-hidden="true">logout</span>
-        </button>
       </div>
     </div>
   </aside>
@@ -94,22 +134,75 @@
             theme.dark() ? 'light_mode' : 'dark_mode'
           }}</span>
         </button>
-        <button type="button" class="tb-icon-btn tb-notify" title="Notifications">
-          <span class="material-icons tb-mi" aria-hidden="true">notifications_none</span>
-          <span class="tb-badge" aria-hidden="true">3</span>
-        </button>
-        <button
-          type="button"
-          class="tb-icon-btn tb-logout"
-          (click)="logout()"
-          title="Sign out"
-          aria-label="Sign out"
-        >
-          <span class="material-icons tb-mi" aria-hidden="true">logout</span>
-        </button>
-        <div class="tb-profile">
-          <div class="tb-avatar">{{ userInitials }}</div>
-          <span class="material-icons tb-mi tb-chevron" aria-hidden="true">expand_more</span>
+        <div class="tb-notify-wrap">
+          <button
+            type="button"
+            class="tb-icon-btn tb-notify"
+            [class.tb-notify--open]="notificationsOpen"
+            (click)="toggleNotifications(); $event.stopPropagation()"
+            title="Notifications"
+            aria-label="Notifications"
+            [attr.aria-expanded]="notificationsOpen"
+          >
+            <span class="material-icons tb-mi" aria-hidden="true">{{
+              notificationsOpen ? 'notifications' : 'notifications_none'
+            }}</span>
+            <span class="tb-badge" *ngIf="notificationCount > 0" aria-hidden="true">{{ notificationCount }}</span>
+          </button>
+          <div
+            class="tb-flyout tb-flyout--notifications"
+            *ngIf="notificationsOpen"
+            (click)="$event.stopPropagation()"
+            role="dialog"
+            aria-label="Notifications"
+          >
+            <div class="tb-flyout__head">
+              <span class="tb-flyout__title">Notifications</span>
+              <button type="button" class="tb-flyout__link" *ngIf="topNotifications.length" (click)="clearAllNotifications()">
+                Clear all
+              </button>
+            </div>
+            <div class="tb-flyout__empty" *ngIf="!topNotifications.length">You&apos;re all caught up.</div>
+            <ul class="tb-flyout__list" *ngIf="topNotifications.length">
+              <li *ngFor="let n of topNotifications; trackBy: trackByNotifId" class="tb-flyout__item">
+                <div class="tb-flyout__item-body">
+                  <div class="tb-flyout__item-title">{{ n.title }}</div>
+                  <p class="tb-flyout__item-text">{{ n.body }}</p>
+                  <span class="tb-flyout__item-time">{{ n.time }}</span>
+                </div>
+                <button type="button" class="tb-flyout__dismiss" (click)="dismissNotification(n.id)" aria-label="Dismiss notification">
+                  <span class="material-icons tb-mi" aria-hidden="true">close</span>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div class="tb-profile-wrap">
+          <button
+            type="button"
+            class="tb-profile"
+            (click)="toggleProfile(); $event.stopPropagation()"
+            [attr.aria-expanded]="profileOpen"
+            aria-haspopup="true"
+            aria-label="Account menu"
+          >
+            <div class="tb-avatar">{{ userInitials }}</div>
+            <span class="material-icons tb-mi tb-chevron" aria-hidden="true">{{ profileOpen ? 'expand_less' : 'expand_more' }}</span>
+          </button>
+          <div class="tb-flyout tb-flyout--profile" *ngIf="profileOpen" (click)="$event.stopPropagation()" role="menu" aria-label="Account">
+            <div class="tb-flyout__profile-meta">
+              <div class="tb-flyout__profile-name">{{ currentUser?.orgName }}</div>
+              <div class="tb-flyout__profile-email">{{ userEmail }}</div>
+            </div>
+            <button type="button" class="tb-flyout__menu-item" (click)="goMyAccount(); $event.stopPropagation()">
+              <span class="material-icons" aria-hidden="true">person</span>
+              My account
+            </button>
+            <button type="button" class="tb-flyout__menu-item tb-flyout__menu-item--danger" (click)="logout(); $event.stopPropagation()">
+              <span class="material-icons" aria-hidden="true">logout</span>
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
     </header>

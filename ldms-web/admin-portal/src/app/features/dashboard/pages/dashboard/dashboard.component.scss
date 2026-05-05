@@ -265,6 +265,8 @@
     background-image:
       repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(0, 0, 0, 0.04) 40px),
       repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(0, 0, 0, 0.04) 40px);
+    background-size: 40px 40px;
+    animation: mapGridDrift 18s linear infinite;
   }
 
   .map-pin {
@@ -274,7 +276,11 @@
     flex-direction: column;
     align-items: center;
 
-    transition: transform 220ms ease-in-out;
+    transition: left 1.8s ease-in-out, top 1.8s ease-in-out, transform 220ms ease-in-out;
+
+    &.map-pin--live .pin-dot {
+      animation: pinPulse 2.4s ease-in-out infinite;
+    }
 
     &:hover {
       transform: translate(-50%, -108%) scale(1.03);
@@ -411,7 +417,8 @@
     .pipe-fill {
       height: 100%;
       border-radius: 3px;
-      transition: width 0.8s ease;
+      transition: width 0.8s ease, filter 0.35s ease, opacity 0.35s ease;
+      animation: pipeFillGlow 3s ease-in-out infinite;
     }
   }
 
@@ -526,5 +533,38 @@
 @media (max-width: 760px) {
   .ops-filters-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@keyframes mapGridDrift {
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 40px;
+  }
+}
+
+@keyframes pinPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+  50% {
+    transform: scale(1.12);
+    box-shadow: 0 3px 12px rgba(30, 58, 138, 0.45);
+  }
+}
+
+@keyframes pipeFillGlow {
+  0%,
+  100% {
+    filter: brightness(1);
+    opacity: 1;
+  }
+  50% {
+    filter: brightness(1.12);
+    opacity: 0.94;
   }
 }

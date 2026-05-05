@@ -1,8 +1,7 @@
-import { ChangeDetectorRef, Component, Input, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { PageEvent } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatSort } from '@angular/material/sort';
 import { MatTableDataSource } from '@angular/material/table';
 import { Title } from '@angular/platform-browser';
 import {
@@ -12,11 +11,13 @@ import {
   catchError,
   debounceTime,
   finalize,
+  forkJoin,
   merge,
   of,
   switchMap,
   takeUntil,
   tap,
+  timer,
 } from 'rxjs';
 import { map } from 'rxjs/operators';
 import {
@@ -106,36 +107,63 @@ const CONFIG: Record<
   city: {
     pageTitle: 'Cities',
     browserTitle: 'Cities | LX Admin',
-    lead: 'City location nodes (LocationType.CITY).',
-    columns: [
-      'name',
-      'code',
-      'locationType',
-      'parentName',
-      'timezone',
-      'entityStatus',
-      'actions',
-    ],
+    lead: 'Cities anchored to a district (Country → Province → District → City).',
+    columns: ['name', 'code', 'districtId', 'provinceName', 'timezone', 'entityStatus', 'actions'],
     labels: {
       name: 'Name',
       code: 'Code',
-      locationType: 'Type',
-      parentName: 'Parent',
+      districtId: 'District',
+      provinceName: 'Province',
       timezone: 'Timezone',
       entityStatus: 'Status',
       actions: 'Actions',
     },
     formMode: 'city',
   },
+  address: {
+    pageTitle: 'Addresses',
+    browserTitle: 'Addresses | LX Admin',
+    lead: 'Address records linked to suburb or village settlements.',
+    columns: [
+      'line1',
+      'postalCode',
+      'settlementType',
+      'settlementId',
+      'villageName',
+      'suburbName',
+      'cityName',
+      'districtName',
+      'provinceName',
+      'countryName',
+      'entityStatus',
+      'actions',
+    ],
+    labels: {
+      line1: 'Address line 1',
+      postalCode: 'Postal code',
+      settlementType: 'Settlement type',
+      settlementId: 'Settlement ID',
+      villageName: 'Village',
+      suburbName: 'Suburb',
+      cityName: 'City',
+      districtName: 'District',
+      provinceName: 'Province',
+      countryName: 'Country',
+      entityStatus: 'Status',
+      actions: 'Actions',
+    },
+    formMode: 'address',
+  },
   suburb: {
     pageTitle: 'Suburbs',
     browserTitle: 'Suburbs | LX Admin',
     lead: 'Suburbs linked to districts.',
-    columns: ['name', 'code', 'districtId', 'postalCode', 'entityStatus', 'actions'],
+    columns: ['name', 'code', 'districtId', 'administrativeLevelId', 'postalCode', 'entityStatus', 'actions'],
     labels: {
       name: 'Name',
       code: 'Code',
       districtId: 'District',
+      administrativeLevelId: 'Admin level',
       postalCode: 'Postal code',
       entityStatus: 'Status',
       actions: 'Actions',
@@ -145,21 +173,14 @@ const CONFIG: Record<
   village: {
     pageTitle: 'Villages',
     browserTitle: 'Villages | LX Admin',
-    lead: 'Village location nodes (LocationType.VILLAGE).',
-    columns: [
-      'name',
-      'code',
-      'locationType',
-      'parentName',
-      'timezone',
-      'entityStatus',
-      'actions',
-    ],
+    lead: 'Villages under a city within a district (optional suburb link).',
+    columns: ['name', 'code', 'cityId', 'districtId', 'suburbName', 'timezone', 'entityStatus', 'actions'],
     labels: {
       name: 'Name',
       code: 'Code',
-      locationType: 'Type',
-      parentName: 'Parent',
+      cityId: 'City',
+      districtId: 'District',
+      suburbName: 'Suburb',
       timezone: 'Timezone',
       entityStatus: 'Status',
       actions: 'Actions',
@@ -170,16 +191,46 @@ const CONFIG: Record<
     pageTitle: 'Administrative levels',
     browserTitle: 'Administrative levels | LX Admin',
     lead: 'Administrative level definitions (ADM1, ADM2, …).',
-    columns: ['name', 'code', 'level', 'description', 'entityStatus', 'actions'],
+    columns: ['name', 'code', 'level', 'countryId', 'description', 'entityStatus', 'actions'],
     labels: {
       name: 'Name',
       code: 'Code',
       level: 'Level',
+      countryId: 'Country',
       description: 'Description',
       entityStatus: 'Status',
       actions: 'Actions',
     },
     formMode: 'admin-level',
+  },
+  language: {
+    pageTitle: 'Languages',
+    browserTitle: 'Languages | LX Admin',
+    lead: 'Languages used for localized display names and locale-aware content.',
+    columns: ['name', 'isoCode', 'nativeName', 'isDefault', 'entityStatus', 'actions'],
+    labels: {
+      name: 'Name',
+      isoCode: 'ISO code',
+      nativeName: 'Native name',
+      isDefault: 'Default',
+      entityStatus: 'Status',
+      actions: 'Actions',
+    },
+    formMode: 'language',
+  },
+  'localized-name': {
+    pageTitle: 'Localized names',
+    browserTitle: 'Localized names | LX Admin',
+    lead: 'Translated labels linked to a language and a country, province, district, or suburb.',
+    columns: ['value', 'referenceType', 'languageId', 'entityStatus', 'actions'],
+    labels: {
+      value: 'Value',
+      referenceType: 'Reference type',
+      languageId: 'Language',
+      entityStatus: 'Status',
+      actions: 'Actions',
+    },
+    formMode: 'localized-name',
   },
 };
 
@@ -191,13 +242,6 @@ const CONFIG: Record<
 })
 export class LocationTablePageComponent implements OnInit, OnDestroy {
   @Input({ required: true }) entity!: LocationEntityKind;
-
-  @ViewChild(MatSort)
-  set sort(s: MatSort) {
-    if (s) {
-      this.dataSource.sort = s;
-    }
-  }
 
   fetching = false;
   /** Import / delete / dependency checks — blocks mutating actions only. */
@@ -259,6 +303,16 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
     this.title.setTitle(cfg.browserTitle);
     this.sampleCsvDescription = this.locationsService.getSampleCsvDescription(this.entity);
     this.loadFilterFkOptions();
+    if (this.entity === 'city' || this.entity === 'village') {
+      this.locationsService
+        .fetchCountriesForSelect()
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => this.cdr.markForCheck(),
+          error: () => {},
+        });
+    }
+    // City/village dialogs start with country → province → district; warm the country list early.
     merge(
       of(undefined as void),
       this.filterReload$.pipe(debounceTime(150)),
@@ -286,13 +340,39 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
     const keys: Partial<Record<LocationEntityKind, string[]>> = {
       province: ['countryId', 'administrativeLevelId'],
       district: ['provinceId', 'administrativeLevelId'],
-      suburb: ['districtId'],
+      suburb: ['districtId', 'administrativeLevelId'],
+      city: ['districtId'],
+      village: ['districtId', 'cityId'],
+      address: ['countryId', 'provinceId', 'districtId', 'cityId', 'suburbId', 'villageId', 'settlementId'],
+      'admin-level': ['countryId'],
+      'localized-name': ['languageId'],
     };
     return keys[this.entity]?.includes(key) ?? false;
   }
 
   fkFilterOptionsFor(key: string): LocationSelectOption[] {
     return this.filterFkOptions[key] ?? [];
+  }
+
+  /** Same Material icon names as `location-form-dialog` shells (Country, Admin level, …). */
+  fkFilterShellIcon(columnKey: string): string {
+    const icons: Record<string, string> = {
+      countryId: 'public',
+      administrativeLevelId: 'account_tree',
+      provinceId: 'map',
+      districtId: 'signpost',
+      cityId: 'location_city',
+      suburbId: 'domain',
+      villageId: 'cottage',
+      settlementId: 'domain',
+      languageId: 'language',
+    };
+    return icons[columnKey] ?? 'tune';
+  }
+
+  /** Matches admin-level / province selects: label plus optional em-dash sublabel. */
+  fkFilterOptionDisplay(o: LocationSelectOption): string {
+    return o.sublabel ? `${o.label} — ${o.sublabel}` : o.label;
   }
 
   private loadFilterFkOptions(): void {
@@ -337,6 +417,101 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
             this.filterFkOptions['districtId'] = o;
             this.cdr.markForCheck();
           });
+        this.locationsService
+          .fetchAdministrativeLevelsForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['administrativeLevelId'] = o;
+            this.cdr.markForCheck();
+          });
+        break;
+      case 'city':
+        this.locationsService
+          .fetchDistrictsForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['districtId'] = o;
+            this.cdr.markForCheck();
+          });
+        break;
+      case 'village':
+        this.locationsService
+          .fetchDistrictsForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['districtId'] = o;
+            this.cdr.markForCheck();
+          });
+        this.locationsService
+          .fetchCitiesForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['cityId'] = o;
+            this.cdr.markForCheck();
+          });
+        break;
+      case 'admin-level':
+        this.locationsService
+          .fetchCountriesForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['countryId'] = o;
+            this.cdr.markForCheck();
+          });
+        break;
+      case 'address':
+        this.locationsService
+          .fetchCountriesForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['countryId'] = o;
+            this.cdr.markForCheck();
+          });
+        this.locationsService
+          .fetchProvincesForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['provinceId'] = o;
+            this.cdr.markForCheck();
+          });
+        this.locationsService
+          .fetchDistrictsForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['districtId'] = o;
+            this.cdr.markForCheck();
+          });
+        this.locationsService
+          .fetchCitiesForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['cityId'] = o;
+            this.cdr.markForCheck();
+          });
+        this.locationsService
+          .fetchVillagesForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['villageId'] = o;
+            this.cdr.markForCheck();
+          });
+        this.locationsService
+          .fetchSuburbsForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['suburbId'] = o;
+            this.filterFkOptions['settlementId'] = o;
+            this.cdr.markForCheck();
+          });
+        break;
+      case 'localized-name':
+        this.locationsService
+          .fetchLanguagesForSelect()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe((o) => {
+            this.filterFkOptions['languageId'] = o;
+            this.cdr.markForCheck();
+          });
         break;
       default:
         break;
@@ -344,7 +519,7 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
   }
 
   get supportsImportExport(): boolean {
-    return this.entity !== 'city' && this.entity !== 'village';
+    return true;
   }
 
   hasActiveFilters(): boolean {
@@ -373,7 +548,73 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
     this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
   }
 
+  /** Readable reference-type column for localized names (matches API enum tokens). */
+  localizedReferenceTypeLabel(raw: unknown): string {
+    const t = String(raw ?? '').trim().toUpperCase();
+    if (!t) {
+      return '—';
+    }
+    const labels: Record<string, string> = {
+      COUNTRY: 'Country',
+      PROVINCE: 'Province',
+      DISTRICT: 'District',
+      SUBURB: 'Suburb',
+    };
+    return labels[t] ?? String(raw).trim();
+  }
+
   displayCell(row: Row, key: string): string {
+    if (key === 'isDefault') {
+      const v = row[key];
+      if (v === true || v === 'true') return 'Yes';
+      if (v === false || v === 'false') return 'No';
+    }
+    if (key === 'languageId') {
+      const rawId = row[key];
+      const opts = this.filterFkOptions['languageId'] ?? [];
+      const n = Number(rawId);
+      if (Number.isFinite(n) && n > 0) {
+        const opt = opts.find((o) => o.id === n || String(o.id) === String(rawId));
+        if (opt) {
+          return opt.sublabel ? `${opt.label} (${opt.sublabel})` : opt.label;
+        }
+        return `#${n}`;
+      }
+    }
+    if (key === 'referenceType') {
+      return this.localizedReferenceTypeLabel(row[key]);
+    }
+    /** City label on addresses when API sends id but omitted name after mapping fixes. */
+    if (key === 'cityName' && this.entity === 'address') {
+      const name = row['cityName'];
+      if (name != null && String(name).trim().length > 0) {
+        return String(name);
+      }
+      const id = Number(row['cityId']);
+      if (Number.isFinite(id) && id > 0) {
+        return `City #${id}`;
+      }
+      return '—';
+    }
+    const fkNameKeys: Record<string, string> = {
+      countryId: 'countryName',
+      administrativeLevelId: 'administrativeLevelName',
+      provinceId: 'provinceName',
+      districtId: 'districtName',
+      cityId: 'cityName',
+    };
+    const nameKey = fkNameKeys[key];
+    if (nameKey !== undefined) {
+      const name = row[nameKey];
+      if (name != null && String(name).trim().length > 0) {
+        return String(name);
+      }
+      const id = row[key];
+      if (id !== null && id !== undefined && id !== '') {
+        return `#${id}`;
+      }
+      return '—';
+    }
     const v = row[key];
     if (v === null || v === undefined) return '—';
     if (Array.isArray(v)) return v.join(', ');
@@ -397,7 +638,50 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
   }
 
   openAdd(): void {
+    // Best-effort: re-poke the prefetch right before the dialog mounts so the
+    // request is already mid-flight against shareReplay by the time the dialog
+    // ngOnInit subscribes (no duplicate HTTP — same observable).
+    this.warmDialogCache();
     this.openFormDialog('create');
+  }
+
+  /**
+   * Fired on hover / focus of the "Add New" button. Warms only the FK lists the
+   * dialog actually loads upfront for this entity, so the modal opens against an
+   * already-warm cache without dragging in heavy parent/suburb forkJoins.
+   * Idempotent thanks to the service-level shareReplay.
+   */
+  warmDialogCache(): void {
+    const warm$ = this.dialogWarmObservableForEntity();
+    if (!warm$) {
+      return;
+    }
+    warm$.pipe(takeUntil(this.destroy$)).subscribe({ error: () => void 0 });
+  }
+
+  private dialogWarmObservableForEntity(): Observable<unknown> | null {
+    switch (this.entity) {
+      case 'country':
+        return null;
+      case 'province':
+        return this.locationsService.fetchCountriesForSelect();
+      case 'district':
+        return this.locationsService.fetchProvincesForSelect();
+      case 'suburb':
+      case 'city':
+      case 'village':
+        return this.locationsService.fetchDistrictsForSelect();
+      case 'admin-level':
+      case 'address':
+        return this.locationsService.fetchCountriesForSelect();
+      case 'localized-name':
+        return forkJoin({
+          _: this.locationsService.fetchLanguagesForSelect(),
+          __: this.locationsService.fetchCountriesForSelect(),
+        });
+      default:
+        return null;
+    }
   }
 
   refresh(): void {
@@ -432,7 +716,11 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
           .subscribe((result: LocationFormDialogResult | undefined) => {
             if (result?.saved) {
               this.showSuccessAlert(result.message || 'Operation completed successfully.');
-              this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
+              if (result.created) {
+                this.refreshAfterCreateGoToLastPage(result.createdId);
+              } else {
+                this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
+              }
             }
           });
       });
@@ -487,7 +775,11 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (response) => {
-          this.showSuccessAlert(response.message || 'Import completed successfully.');
+          if (response.ok) {
+            this.showSuccessAlert(response.message || 'Import completed successfully.');
+          } else {
+            this.showErrorAlert(response.message || 'Import failed.');
+          }
           input.value = '';
           this.actionInProgress = false;
           // Refresh shortly after import so newly created rows appear without waiting for manual refresh.
@@ -586,6 +878,11 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
           .pipe(takeUntil(this.destroy$))
           .subscribe({
             next: (response) => {
+              if (!response.ok) {
+                this.showErrorAlert(response.message || 'Delete was rejected by the server.');
+                this.actionInProgress = false;
+                return;
+              }
               this.showSuccessAlert(response.message || 'Record deleted successfully.');
               this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
               this.actionInProgress = false;
@@ -596,6 +893,86 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
             },
           });
       });
+  }
+
+  /**
+   * Applies one page of rows from the server. When the current page is past the end (empty page),
+   * resets to page 0 and reloads.
+   */
+  private applyLoadedPage(loadToken: number, rows: unknown[], totalElements: number): void {
+    if (loadToken !== this.latestLoadToken) {
+      return;
+    }
+    let normalizedRows = rows as Row[];
+    if (this.entity === 'suburb') {
+      normalizedRows = [...normalizedRows].sort((a, b) => Number(a['id']) - Number(b['id']));
+    }
+    if (normalizedRows.length === 0 && this.pageIndex > 0) {
+      this.pageIndex = 0;
+      this.runTableQuery({ background: true }).pipe(takeUntil(this.destroy$)).subscribe();
+      return;
+    }
+    this.totalRecords = totalElements > 0 ? totalElements : normalizedRows.length;
+    this.rawRows = normalizedRows;
+    this.dataSource.data = this.rawRows;
+  }
+
+  /**
+   * After creating a row, total count grows; with server sort by id ascending the new row is on the last page.
+   * Brief delay + optional retry avoids landing on the previous last page when totals lag replication/txn.
+   */
+  private refreshAfterCreateGoToLastPage(createdId?: number): void {
+    const loadToken = ++this.latestLoadToken;
+    this.fetching = true;
+    const filter = {
+      searchQuery: this.searchQuery,
+      columnFilters: this.columnFilters,
+    };
+    const probeAndLoadLastPage = () =>
+      this.locationsService.queryTablePage(this.entity, { page: 0, size: 1, ...filter }).pipe(
+        switchMap(({ totalElements }) => {
+          const lastPage = totalElements > 0 ? Math.max(0, Math.ceil(totalElements / this.pageSize) - 1) : 0;
+          this.pageIndex = lastPage;
+          return this.locationsService.queryTablePage(this.entity, {
+            page: lastPage,
+            size: this.pageSize,
+            ...filter,
+          });
+        }),
+      );
+
+    const rowHasCreatedId = (pageRows: unknown[]): boolean => {
+      if (createdId == null || !Number.isFinite(createdId)) {
+        return true;
+      }
+      return pageRows.some((r) => Number((r as Row)['id']) === createdId);
+    };
+
+    timer(150)
+      .pipe(
+        switchMap(() => probeAndLoadLastPage()),
+        switchMap((page) =>
+          rowHasCreatedId(page.rows)
+            ? of(page)
+            : timer(450).pipe(switchMap(() => probeAndLoadLastPage())),
+        ),
+        tap(({ rows, totalElements }) => this.applyLoadedPage(loadToken, rows, totalElements)),
+        catchError((err) => {
+          if (loadToken !== this.latestLoadToken) {
+            return EMPTY;
+          }
+          this.showErrorAlert(this.errorMessage(err, `Failed to load ${this.pageTitle.toLowerCase()}.`));
+          return EMPTY;
+        }),
+        finalize(() => {
+          if (loadToken === this.latestLoadToken) {
+            this.fetching = false;
+            this.cdr.markForCheck();
+          }
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe();
   }
 
   /**
@@ -616,20 +993,7 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
         columnFilters: this.columnFilters,
       })
       .pipe(
-        tap(({ rows, totalElements }) => {
-          if (loadToken !== this.latestLoadToken) {
-            return;
-          }
-          const normalizedRows = rows as Row[];
-          if (normalizedRows.length === 0 && this.pageIndex > 0) {
-            this.pageIndex = 0;
-            this.runTableQuery({ background: true }).pipe(takeUntil(this.destroy$)).subscribe();
-            return;
-          }
-          this.totalRecords = totalElements > 0 ? totalElements : normalizedRows.length;
-          this.rawRows = normalizedRows;
-          this.dataSource.data = this.rawRows;
-        }),
+        tap(({ rows, totalElements }) => this.applyLoadedPage(loadToken, rows, totalElements)),
         catchError((err) => {
           if (loadToken !== this.latestLoadToken) {
             return EMPTY;

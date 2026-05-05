@@ -37,19 +37,9 @@ public class ProvinceServiceValidatorImpl implements ProvinceServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_PROVINCE_NAME_MISSING.getCode(), new String[]{}, locale));
         }
 
-        if (request.getCode() == null || request.getCode().isEmpty()) {
-            logger.info("Validation failed: Province code is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_PROVINCE_CODE_MISSING.getCode(), new String[]{}, locale));
-        }
-
         if (request.getCountryId() == null) {
             logger.info("Validation failed: Country ID is missing");
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_PROVINCE_COUNTRY_ID_MISSING.getCode(), new String[]{}, locale));
-        }
-
-        if (request.getAdministrativeLevelId() == null) {
-            logger.info("Validation failed: Administrative level ID is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_PROVINCE_ADMINISTRATIVE_LEVEL_ID_MISSING.getCode(), new String[]{}, locale));
         }
 
         if (errors.isEmpty()) {

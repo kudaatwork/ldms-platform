@@ -134,9 +134,50 @@
   color: var(--gray-500, #64748b);
 }
 
-.lx-mat-field-full {
-  width: 100%;
+.lx-field-hint--loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray-600, #475569);
+
+  mat-progress-spinner {
+    flex: 0 0 auto;
+  }
 }
+
+.lx-form-section {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--gray-100, #f1f5f9);
+}
+
+.lx-form-section:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.lx-form-section-title {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--gray-500, #64748b);
+}
+
+.lx-form-section-lead {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--gray-600, #475569);
+}
+
+.lx-input-shell--muted {
+  opacity: 0.72;
+}
+
+/* Native <select> wrapped in .lx-input-shell already inherits the rounded
+ * text-field chrome from styles.scss; nothing extra needed here. */
 
 .lx-list-error {
   margin: 0 24px 12px;

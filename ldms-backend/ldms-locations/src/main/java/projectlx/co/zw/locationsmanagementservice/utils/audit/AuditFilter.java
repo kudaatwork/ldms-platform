@@ -5,12 +5,14 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.AuditTrailService;
+import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
 import projectlx.co.zw.shared_library.utils.enums.AuditEventType;
 import java.io.IOException;
@@ -19,7 +21,9 @@ import java.time.Instant;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 @RequiredArgsConstructor
 public class AuditFilter extends OncePerRequestFilter {
 
@@ -36,17 +40,35 @@ public class AuditFilter extends OncePerRequestFilter {
         ContentCachingRequestWrapper requestWrapper = new ContentCachingRequestWrapper(request);
         ContentCachingResponseWrapper responseWrapper = new ContentCachingResponseWrapper(response);
 
+        Instant requestStart = Instant.now();
+        String traceId = AuditHttpTraceSupport.traceIdFromServletRequest(request);
+        AuditHttpTraceSupport.putMdcTraceId(traceId);
+
         long startTime = System.currentTimeMillis();
 
         try {
             filterChain.doFilter(requestWrapper, responseWrapper);
         } finally {
             long duration = System.currentTimeMillis() - startTime;
+            Instant responseEnd = Instant.now();
+
+            try {
+                responseWrapper.setHeader("X-Trace-Id", traceId);
+            } catch (Exception ignored) {
+                // wrapper may not support headers on some paths
+            }
 
             String requestBody = getBody(requestWrapper.getContentAsByteArray(), request.getCharacterEncoding());
             String responseBody = getBody(responseWrapper.getContentAsByteArray(), response.getCharacterEncoding());
 
-            // Don't log for the audit service's own endpoints if it had any
+            // Copy the cached response to the client before any slow work (e.g. RabbitMQ audit publish).
+            // Otherwise a blocked sendAuditLog prevents copyBodyToResponse and the client sees no body / hang.
+            try {
+                responseWrapper.copyBodyToResponse();
+            } catch (IOException e) {
+                log.error("Failed to copy response body: {}", e.getMessage());
+            }
+
             if (!request.getRequestURI().contains("actuator")) {
 
                 String username = "SYSTEM"; // Default fallback
@@ -64,7 +86,10 @@ public class AuditFilter extends OncePerRequestFilter {
 
                 AuditLogDto logDto = AuditLogDto.builder()
                         .serviceName(serviceName)
-                        .timestamp(Instant.now())
+                        .traceId(traceId)
+                        .timestamp(responseEnd)
+                        .requestTimestamp(requestStart)
+                        .responseTimestamp(responseEnd)
                         .username(username)
                         .clientIpAddress(request.getRemoteAddr())
                         .action("HTTP_REQUEST")
@@ -79,11 +104,20 @@ public class AuditFilter extends OncePerRequestFilter {
                         .curlCommand(generateCurl(requestWrapper, requestBody))
                         .build();
 
-                auditTrailService.sendAuditLog(logDto);
+                scheduleAuditSend(logDto);
             }
-            // IMPORTANT: Copy the cached response back to the original response
-            responseWrapper.copyBodyToResponse();
+            AuditHttpTraceSupport.clearMdcTraceId();
         }
+    }
+
+    private void scheduleAuditSend(AuditLogDto logDto) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                auditTrailService.sendAuditLog(logDto);
+            } catch (Exception e) {
+                log.warn("Audit log failed: {}", e.getMessage());
+            }
+        });
     }
 
     private String getBody(byte[] content, String encoding) {

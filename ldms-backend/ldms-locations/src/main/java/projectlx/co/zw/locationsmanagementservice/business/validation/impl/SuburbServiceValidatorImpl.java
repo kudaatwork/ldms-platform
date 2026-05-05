@@ -7,6 +7,7 @@ import projectlx.co.zw.locationsmanagementservice.business.validation.api.Suburb
 import projectlx.co.zw.locationsmanagementservice.utils.enums.I18Code;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.CreateSuburbRequest;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.EditSuburbRequest;
+import projectlx.co.zw.locationsmanagementservice.utils.requests.SuburbMultipleFiltersRequest;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
@@ -37,25 +38,9 @@ public class SuburbServiceValidatorImpl implements SuburbServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_SUBURB_NAME_MISSING.getCode(), new String[]{}, locale));
         }
 
-        if (request.getCode() == null || request.getCode().isEmpty()) {
-            logger.info("Validation failed: Suburb code is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_SUBURB_CODE_MISSING.getCode(), new String[]{}, locale));
-        }
-
-        if (request.getPostalCode() == null || request.getPostalCode().isEmpty()) {
-            logger.info("Validation failed: Suburb postal code is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_SUBURB_POSTAL_CODE_MISSING.getCode(), new String[]{}, locale));
-        }
-
         if (request.getDistrictId() == null) {
             logger.info("Validation failed: District ID is missing");
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_SUBURB_DISTRICT_ID_MISSING.getCode(), new String[]{}, locale));
-        }
-
-
-        if (request.getAdministrativeLevelId() == null) {
-            logger.info("Validation failed: Administrative level ID is missing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_SUBURB_ADMINISTRATIVE_LEVEL_ID_MISSING.getCode(), new String[]{}, locale));
         }
 
         if (errors.isEmpty()) {
@@ -124,5 +109,19 @@ public class SuburbServiceValidatorImpl implements SuburbServiceValidator {
         } else {
             return new ValidatorDto(false, null, errors);
         }
+    }
+
+    @Override
+    public ValidatorDto isRequestValidToRetrieveSuburbsByMultipleFilters(SuburbMultipleFiltersRequest request, Locale locale) {
+        List<String> errors = new ArrayList<>();
+
+        if (request == null) {
+            logger.info("Validation failed: SuburbMultipleFiltersRequest is null");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_SUBURB_MULTIPLE_FILTERS_REQUEST_IS_NULL.getCode(),
+                    new String[]{}, locale));
+            return new ValidatorDto(false, null, errors);
+        }
+
+        return new ValidatorDto(true, null, null);
     }
 }

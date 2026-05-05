@@ -10,11 +10,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.AuditTrailService;
+import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
 import projectlx.co.zw.shared_library.utils.enums.AuditEventType;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.concurrent.CompletableFuture;
 
 @Aspect
 @Slf4j
@@ -29,7 +32,7 @@ public class AuditAspect {
     @Around("@annotation(projectlx.co.zw.shared_library.utils.audit.Auditable)")
     public Object auditMethod(ProceedingJoinPoint joinPoint) throws Throwable {
 
-        long startTime = System.currentTimeMillis();
+        Instant requestStart = Instant.now();
         Object result = null;
         String exceptionMessage = null;
 
@@ -40,7 +43,8 @@ public class AuditAspect {
             exceptionMessage = throwable.getMessage();
             throw throwable;
         } finally {
-            long endTime = System.currentTimeMillis();
+            Instant responseEnd = Instant.now();
+            long durationMs = Duration.between(requestStart, responseEnd).toMillis();
             MethodSignature signature = (MethodSignature) joinPoint.getSignature();
             Auditable auditable = signature.getMethod().getAnnotation(Auditable.class);
 
@@ -52,19 +56,29 @@ public class AuditAspect {
             }
 
             assert auditable != null;
+            String traceId = AuditHttpTraceSupport.currentTraceIdFromMdcOrNew();
             AuditLogDto logDto = AuditLogDto.builder()
                     .serviceName(serviceName)
-                    .timestamp(Instant.now())
+                    .traceId(traceId)
+                    .timestamp(responseEnd)
+                    .requestTimestamp(requestStart)
+                    .responseTimestamp(responseEnd)
                     .username(username)
                     .action(auditable.action())
                     .eventType(AuditEventType.SERVICE_METHOD)
                     .requestPayload(Arrays.toString(joinPoint.getArgs()))
                     .responsePayload(result != null ? result.toString() : null)
-                    .responseTimeMs(endTime - startTime)
+                    .responseTimeMs(durationMs)
                     .exceptionMessage(exceptionMessage)
                     .build();
 
-            auditTrailService.sendAuditLog(logDto);
+            CompletableFuture.runAsync(() -> {
+                try {
+                    auditTrailService.sendAuditLog(logDto);
+                } catch (Exception e) {
+                    log.warn("Audit log failed: {}", e.getMessage());
+                }
+            });
         }
     }
 }

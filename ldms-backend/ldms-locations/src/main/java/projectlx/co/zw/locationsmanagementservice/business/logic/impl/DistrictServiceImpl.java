@@ -18,27 +18,30 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.hibernate.Hibernate;
 import org.modelmapper.ModelMapper;
-import org.modelmapper.TypeToken;
-import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.DistrictServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.DistrictService;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.DistrictServiceValidator;
 import projectlx.co.zw.locationsmanagementservice.model.AdministrativeLevel;
 import projectlx.co.zw.locationsmanagementservice.model.District;
 import projectlx.co.zw.locationsmanagementservice.model.GeoCoordinates;
+import projectlx.co.zw.locationsmanagementservice.model.LocalizedName;
 import projectlx.co.zw.locationsmanagementservice.model.Province;
 import projectlx.co.zw.locationsmanagementservice.repository.AdministrativeLevelRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.DistrictRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.GeoCoordinatesRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.ProvinceRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.DistrictSpecification;
+import projectlx.co.zw.locationsmanagementservice.utils.GeoCoordinateCsvImportHelper;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.DistrictCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.DistrictDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
@@ -76,11 +79,13 @@ public class DistrictServiceImpl implements DistrictService {
     private final GeoCoordinatesRepository geoCoordinatesRepository;
     private final AdministrativeLevelRepository administrativeLevelRepository;
     private final DistrictServiceAuditable districtServiceAuditable;
+    private final LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService;
     private final MessageService messageService;
     private final ModelMapper modelMapper;
 
     private static final String[] HEADERS = {
-            "ID", "NAME", "CODE", "PROVINCE ID", "ADMINISTRATIVE LEVEL ID", "GEO COORDINATES ID", "CREATED AT", "UPDATED AT", "ENTITY STATUS"
+            "ID", "NAME", "CODE", "PROVINCE", "COUNTRY", "ADMIN LEVEL", "PROVINCE ID", "ADMINISTRATIVE LEVEL ID",
+            "GEO COORDINATES ID", "CREATED AT", "UPDATED AT", "ENTITY STATUS"
     };
 
     private static final String[] CSV_HEADERS = {
@@ -114,11 +119,12 @@ public class DistrictServiceImpl implements DistrictService {
                     null, null);
         }
 
+        Province province = provinceRetrieved.get();
         String normalizedName = Validators.capitalizeWords(request.getName());
-        Optional<District> districtRetrieved =
-                districtRepository.findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
+        Optional<District> districtActiveInProvince =
+                districtRepository.findByNameAndProvinceAndEntityStatusNot(normalizedName, province, EntityStatus.DELETED);
 
-        if (districtRetrieved.isPresent()) {
+        if (districtActiveInProvince.isPresent()) {
 
             message = messageService.getMessage(I18Code.MESSAGE_DISTRICT_ALREADY_EXISTS.getCode(), new String[]{},
                     locale);
@@ -127,11 +133,10 @@ public class DistrictServiceImpl implements DistrictService {
                     null, null);
         }
 
-        Optional<District> deletedDistrict = districtRepository.findByName(normalizedName)
+        Optional<District> deletedDistrict = districtRepository.findByNameAndProvince(normalizedName, province)
                 .filter(district -> district.getEntityStatus() == EntityStatus.DELETED);
 
         request.setName(normalizedName);
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         District districtToBeSaved = deletedDistrict.orElseGet(District::new);
         if (deletedDistrict.isPresent()) {
             modelMapper.map(request, districtToBeSaved);
@@ -140,7 +145,7 @@ public class DistrictServiceImpl implements DistrictService {
         }
 
         // Set the province
-        districtToBeSaved.setProvince(provinceRetrieved.get());
+        districtToBeSaved.setProvince(province);
         if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
             message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
             return buildDistrictResponse(400, false, message, null, null, null);
@@ -184,7 +189,7 @@ public class DistrictServiceImpl implements DistrictService {
                 ? districtServiceAuditable.update(districtToBeSaved, locale, username)
                 : districtServiceAuditable.create(districtToBeSaved, locale, username);
 
-        DistrictDto districtDtoReturned = modelMapper.map(districtSaved, DistrictDto.class);
+        DistrictDto districtDtoReturned = toDistrictDto(districtSaved);
 
         message = messageService.getMessage(I18Code.MESSAGE_DISTRICT_CREATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -222,7 +227,7 @@ public class DistrictServiceImpl implements DistrictService {
         }
 
         District districtReturned = districtRetrieved.get();
-        DistrictDto districtDto = modelMapper.map(districtReturned, DistrictDto.class);
+        DistrictDto districtDto = toDistrictDto(districtReturned);
 
         message = messageService.getMessage(I18Code.MESSAGE_DISTRICT_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -247,7 +252,7 @@ public class DistrictServiceImpl implements DistrictService {
                     null, null);
         }
 
-        List<DistrictDto> districtDtoList = modelMapper.map(districtList, new TypeToken<List<DistrictDto>>(){}.getType());
+        List<DistrictDto> districtDtoList = districtList.stream().map(this::toDistrictDto).collect(Collectors.toList());
 
         message = messageService.getMessage(I18Code.MESSAGE_DISTRICT_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -327,8 +332,7 @@ public class DistrictServiceImpl implements DistrictService {
 
         District districtEdited = districtServiceAuditable.update(districtToBeEdited, locale, username);
 
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        DistrictDto districtDtoReturned = modelMapper.map(districtEdited, DistrictDto.class);
+        DistrictDto districtDtoReturned = toDistrictDto(districtEdited);
 
         message = messageService.getMessage(I18Code.MESSAGE_DISTRICT_UPDATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -338,6 +342,7 @@ public class DistrictServiceImpl implements DistrictService {
     }
 
     @Override
+    @Transactional
     public DistrictResponse delete(Long id, Locale locale, String username) {
 
         String message = "";
@@ -365,11 +370,14 @@ public class DistrictServiceImpl implements DistrictService {
         }
 
         District districtToBeDeleted = districtRetrieved.get();
+
+        locationHierarchyCascadeSoftDeleteService.cascadeBeforeDeletingDistrict(districtToBeDeleted.getId(), locale, username);
+
         districtToBeDeleted.setEntityStatus(EntityStatus.DELETED);
 
         District districtDeleted = districtServiceAuditable.delete(districtToBeDeleted, locale);
 
-        DistrictDto districtDtoReturned = modelMapper.map(districtDeleted, DistrictDto.class);
+        DistrictDto districtDtoReturned = toDistrictDto(districtDeleted);
 
         message = messageService.getMessage(I18Code.MESSAGE_DISTRICT_DELETED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -398,7 +406,7 @@ public class DistrictServiceImpl implements DistrictService {
                     validatorDto.getErrorMessages());
         }
 
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by(Sort.Direction.ASC, "id"));
 
         if (isNotEmpty(request.getName())) {
             spec = addToSpec(request.getName(), spec, DistrictSpecification::nameLike);
@@ -491,13 +499,39 @@ public class DistrictServiceImpl implements DistrictService {
         return geoCoordinatesRepository.findByIdAndEntityStatusNot(geoCoordinatesId, EntityStatus.DELETED);
     }
 
+    private DistrictDto toDistrictDto(District entity) {
+        DistrictDto dto = new DistrictDto();
+        dto.setId(entity.getId());
+        dto.setName(entity.getName());
+        dto.setCode(entity.getCode());
+        if (entity.getProvince() != null) {
+            dto.setProvinceId(entity.getProvince().getId());
+            dto.setProvinceName(entity.getProvince().getName());
+            if (entity.getProvince().getCountry() != null) {
+                dto.setCountryId(entity.getProvince().getCountry().getId());
+                dto.setCountryName(entity.getProvince().getCountry().getName());
+            }
+        }
+        if (entity.getAdministrativeLevel() != null) {
+            dto.setAdministrativeLevelId(entity.getAdministrativeLevel().getId());
+            dto.setAdministrativeLevelName(entity.getAdministrativeLevel().getName());
+        }
+        dto.setGeoCoordinatesId(entity.getGeoCoordinates() != null ? entity.getGeoCoordinates().getId() : null);
+        dto.setCreatedAt(entity.getCreatedAt());
+        dto.setUpdatedAt(entity.getUpdatedAt());
+        dto.setEntityStatus(entity.getEntityStatus());
+        if (entity.getLocalizedNames() != null && Hibernate.isInitialized(entity.getLocalizedNames())) {
+            dto.setLocalizedNameIds(entity.getLocalizedNames().stream().map(LocalizedName::getId).collect(Collectors.toList()));
+        }
+        return dto;
+    }
+
     private Page<DistrictDto> convertDistrictEntityToDistrictDto(Page<District> districtPage) {
         List<District> districtList = districtPage.getContent();
         List<DistrictDto> districtDtoList = new ArrayList<>();
 
         for (District district : districtPage) {
-            DistrictDto districtDto = modelMapper.map(district, DistrictDto.class);
-            districtDtoList.add(districtDto);
+            districtDtoList.add(toDistrictDto(district));
         }
 
         int page = districtPage.getNumber();
@@ -524,6 +558,9 @@ public class DistrictServiceImpl implements DistrictService {
             sb.append(district.getId()).append(",")
                     .append(safe(district.getName())).append(",")
                     .append(safe(district.getCode())).append(",")
+                    .append(safe(district.getProvinceName())).append(",")
+                    .append(safe(district.getCountryName())).append(",")
+                    .append(safe(district.getAdministrativeLevelName())).append(",")
                     .append(district.getProvinceId() != null ? district.getProvinceId() : "").append(",")
                     .append(district.getAdministrativeLevelId() != null ? district.getAdministrativeLevelId() : "").append(",")
                     .append(district.getGeoCoordinatesId() != null ? district.getGeoCoordinatesId() : "").append(",")
@@ -554,12 +591,15 @@ public class DistrictServiceImpl implements DistrictService {
             row.createCell(0).setCellValue(district.getId());
             row.createCell(1).setCellValue(safe(district.getName()));
             row.createCell(2).setCellValue(safe(district.getCode()));
-            row.createCell(3).setCellValue(district.getProvinceId() != null ? district.getProvinceId() : 0);
-            row.createCell(4).setCellValue(district.getAdministrativeLevelId() != null ? district.getAdministrativeLevelId() : 0);
-            row.createCell(5).setCellValue(district.getGeoCoordinatesId() != null ? district.getGeoCoordinatesId() : 0);
-            row.createCell(6).setCellValue(district.getCreatedAt() != null ? district.getCreatedAt().toString() : "");
-            row.createCell(7).setCellValue(district.getUpdatedAt() != null ? district.getUpdatedAt().toString() : "");
-            row.createCell(8).setCellValue(district.getEntityStatus() != null ? district.getEntityStatus().toString() : "");
+            row.createCell(3).setCellValue(safe(district.getProvinceName()));
+            row.createCell(4).setCellValue(safe(district.getCountryName()));
+            row.createCell(5).setCellValue(safe(district.getAdministrativeLevelName()));
+            row.createCell(6).setCellValue(district.getProvinceId() != null ? district.getProvinceId() : 0);
+            row.createCell(7).setCellValue(district.getAdministrativeLevelId() != null ? district.getAdministrativeLevelId() : 0);
+            row.createCell(8).setCellValue(district.getGeoCoordinatesId() != null ? district.getGeoCoordinatesId() : 0);
+            row.createCell(9).setCellValue(district.getCreatedAt() != null ? district.getCreatedAt().toString() : "");
+            row.createCell(10).setCellValue(district.getUpdatedAt() != null ? district.getUpdatedAt().toString() : "");
+            row.createCell(11).setCellValue(district.getEntityStatus() != null ? district.getEntityStatus().toString() : "");
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -592,6 +632,9 @@ public class DistrictServiceImpl implements DistrictService {
             table.addCell(String.valueOf(district.getId()));
             table.addCell(safe(district.getName()));
             table.addCell(safe(district.getCode()));
+            table.addCell(safe(district.getProvinceName()));
+            table.addCell(safe(district.getCountryName()));
+            table.addCell(safe(district.getAdministrativeLevelName()));
             table.addCell(district.getProvinceId() != null ? district.getProvinceId().toString() : "");
             table.addCell(district.getAdministrativeLevelId() != null ? district.getAdministrativeLevelId().toString() : "");
             table.addCell(district.getGeoCoordinatesId() != null ? district.getGeoCoordinatesId().toString() : "");
@@ -637,11 +680,27 @@ public class DistrictServiceImpl implements DistrictService {
                         continue;
                     }
 
+                    Optional<Province> provinceOpt =
+                            provinceRepository.findByIdFetchingGeoCoordinates(row.getProvinceId(), EntityStatus.DELETED);
+                    if (provinceOpt.isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Province not found for ID " + row.getProvinceId());
+                        continue;
+                    }
+
                     CreateDistrictRequest request = new CreateDistrictRequest();
                     request.setName(row.getName());
                     request.setCode(row.getCode());
                     request.setProvinceId(row.getProvinceId());
                     request.setAdministrativeLevelId(row.getAdministrativeLevelId());
+                    GeoCoordinateCsvImportHelper.ResolvedGeo geo = GeoCoordinateCsvImportHelper.resolve(
+                            row.getGeoCoordinatesId(),
+                            row.getLatitude(),
+                            row.getLongitude(),
+                            provinceOpt.get().getGeoCoordinates());
+                    request.setGeoCoordinatesId(geo.geoCoordinatesId());
+                    request.setLatitude(geo.latitude());
+                    request.setLongitude(geo.longitude());
 
                     DistrictResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
 

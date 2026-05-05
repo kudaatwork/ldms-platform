@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, ViewChild } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -7,7 +7,9 @@ import {
   MOCK_DEMO_CREDENTIALS,
   MockCredential,
 } from '@core/services/auth.service';
+import { GoogleGsiService } from '@core/services/google-gsi.service';
 import { ThemeService } from '@core/services/theme.service';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-login',
@@ -16,13 +18,16 @@ import { ThemeService } from '@core/services/theme.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: false,
 })
-export class LoginComponent {
+export class LoginComponent implements AfterViewInit {
   form: FormGroup;
   loading = false;
   showPass = false;
   error = '';
 
   readonly mockCreds = [...MOCK_DEMO_CREDENTIALS];
+  readonly googleClientId = (environment.googleOAuthClientId ?? '').trim();
+
+  @ViewChild('googleSignInHost', { static: false }) googleSignInHost?: ElementRef<HTMLElement>;
 
   constructor(
     private readonly fb: FormBuilder,
@@ -32,12 +37,54 @@ export class LoginComponent {
     private readonly cdr: ChangeDetectorRef,
     private readonly title: Title,
     readonly theme: ThemeService,
+    private readonly googleGsi: GoogleGsiService,
   ) {
     this.form = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', Validators.required],
     });
     this.title.setTitle('Sign in | LX Admin');
+  }
+
+  ngAfterViewInit(): void {
+    if (!this.googleClientId) {
+      return;
+    }
+    queueMicrotask(() => {
+      const el = this.googleSignInHost?.nativeElement;
+      if (!el) {
+        return;
+      }
+      void this.googleGsi
+        .loadScript()
+        .then(() => {
+          this.googleGsi.renderSignInButton(el, (idToken) => this.onGoogleCredential(idToken));
+          this.cdr.markForCheck();
+        })
+        .catch((e: Error) => {
+          this.error = e.message ?? 'Google sign-in could not be loaded';
+          this.cdr.markForCheck();
+        });
+    });
+  }
+
+  private onGoogleCredential(idToken: string): void {
+    this.loading = true;
+    this.error = '';
+    this.cdr.markForCheck();
+    this.auth.loginWithGoogleIdToken(idToken).subscribe({
+      next: () => {
+        this.loading = false;
+        this.cdr.markForCheck();
+        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/dashboard';
+        void this.router.navigateByUrl(returnUrl);
+      },
+      error: (e: Error) => {
+        this.error = e.message ?? 'Google sign-in failed';
+        this.loading = false;
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   toggleTheme(): void {

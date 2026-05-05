@@ -35,6 +35,38 @@ export class AuthService {
     private readonly storage: StorageService,
   ) {}
 
+  loginWithGoogleIdToken(idToken: string): Observable<void> {
+    if (environment.useMocks || environment.authUseMocks) {
+      return throwError(() => new Error('Google sign-in is not available in demo mode.'));
+    }
+    return this.http
+      .post<{ accessToken?: string; token?: string }>(
+        `${environment.apiUrl}/ldms-authentication/v1/auth/google-id-token`,
+        { idToken },
+      )
+      .pipe(
+        map((res) => {
+          const token = res.accessToken ?? res.token ?? '';
+          if (!token) {
+            throw new Error('No token in response');
+          }
+          return token;
+        }),
+        tap((token) => {
+          this.storage.setToken(token);
+          const payload = this.decodeJwtPayload(token);
+          const email = (payload?.['email'] as string) ?? 'user';
+          const name = (payload?.['name'] as string) ?? email.split('@')[0] ?? 'User';
+          const roles = Array.isArray(payload?.['roles']) ? (payload?.['roles'] as string[]) : [];
+          this.storage.setUser({ name, email, roles });
+        }),
+        map(() => undefined),
+        catchError((err: HttpErrorResponse) =>
+          throwError(() => new Error(this.messageFromHttp(err))),
+        ),
+      );
+  }
+
   login(email: string, password: string): Observable<void> {
     const normalized = email.trim().toLowerCase();
     if (environment.useMocks || environment.authUseMocks) {
@@ -42,7 +74,7 @@ export class AuthService {
     }
     return this.http
       .post<{ accessToken?: string; token?: string }>(
-        `${environment.apiUrl}/api/v1/frontend/auth/login`,
+        `${environment.apiUrl}/v1/frontend/auth/login`,
         { email: normalized, password },
       )
       .pipe(
@@ -92,5 +124,18 @@ export class AuthService {
   private messageFromHttp(err: HttpErrorResponse): string {
     const body = err.error as { message?: string } | undefined;
     return body?.message ?? err.message ?? 'Login failed';
+  }
+
+  private decodeJwtPayload(token: string): Record<string, unknown> | null {
+    const parts = token.split('.');
+    if (parts.length < 2) {
+      return null;
+    }
+    try {
+      const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(json) as Record<string, unknown>;
+    } catch {
+      return null;
+    }
   }
 }

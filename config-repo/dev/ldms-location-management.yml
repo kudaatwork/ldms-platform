@@ -1,0 +1,60 @@
+# ldms-location-management — dev (Spring Cloud Config).
+# MySQL and RabbitMQ are expected to be running (same as ldms-audit-trail / ldms-notifications); no spring-boot-docker-compose.
+#
+# Upstream mirror: ldms-config-repo/dev/ldms-location-management.yml
+
+server:
+  port: ${SERVER_PORT:8084}
+
+spring:
+  application:
+    name: ldms-location-management
+  datasource:
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/ldms_location_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true&connectTimeout=10000&socketTimeout=45000
+    username: ${DB_USERNAME:${MYSQL_USER:developer}}
+    password: ${DB_PASSWORD:${MYSQL_DEVELOPER_PASSWORD:Password098()!}}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: ${DATASOURCE_POOL_MAX:20}
+      minimum-idle: ${DATASOURCE_POOL_MIN:5}
+      idle-timeout: ${HIKARI_IDLE_TIMEOUT_MS:30000}
+      connection-timeout: ${HIKARI_CONNECTION_TIMEOUT_MS:20000}
+  jpa:
+    hibernate:
+      ddl-auto: ${JPA_DDL_AUTO:update}
+    show-sql: ${JPA_SHOW_SQL:true}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:127.0.0.1}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:${RABBITMQ_DEFAULT_USER:developer}}
+    password: ${RABBITMQ_PASSWORD:${RABBITMQ_DEFAULT_PASS:Password098()!}}
+
+management:
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:9084}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+jwt:
+  secret: ${JWT_SECRET:dev-secret-must-be-at-least-256-bits-for-hs256-xxxxxxxxxxxxxxxx}
+  access-token-expiration-ms: ${JWT_ACCESS_MS:3600000}
+  refresh-token-expiration-ms: ${JWT_REFRESH_MS:86400000}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: "http://eureka:Eureka098()!@localhost:8761/eureka/"
+    register-with-eureka: true
+    fetch-registry: true
+    eureka-server-connect-timeout-seconds: 5
+    eureka-server-read-timeout-seconds: 8
+  instance:
+    prefer-ip-address: false
+    hostname: localhost
+    instance-id: ${eureka.instance.hostname}:${spring.application.name}:${server.port}

@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -24,6 +25,9 @@ public class CountryDto {
     private String currencyCode;
     
     private Long geoCoordinatesId;
+    /** Populated when {@link #geoCoordinatesId} resolves to a row — same values as persisted {@code geo_coordinates}. */
+    private BigDecimal latitude;
+    private BigDecimal longitude;
     private List<Long> localizedNameIds;
     private List<Long> administrativeLevelIds;
     

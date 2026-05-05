@@ -18,26 +18,31 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.hibernate.Hibernate;
 import org.modelmapper.ModelMapper;
-import org.modelmapper.TypeToken;
-import org.modelmapper.convention.MatchingStrategies;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.transaction.annotation.Transactional;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.SuburbServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.SuburbService;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.SuburbServiceValidator;
 import projectlx.co.zw.locationsmanagementservice.model.AdministrativeLevel;
 import projectlx.co.zw.locationsmanagementservice.model.District;
 import projectlx.co.zw.locationsmanagementservice.model.GeoCoordinates;
+import projectlx.co.zw.locationsmanagementservice.model.LocalizedName;
+import projectlx.co.zw.locationsmanagementservice.model.Province;
 import projectlx.co.zw.locationsmanagementservice.model.Suburb;
 import projectlx.co.zw.locationsmanagementservice.repository.AdministrativeLevelRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.DistrictRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.GeoCoordinatesRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.SuburbRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.SuburbSpecification;
+import projectlx.co.zw.locationsmanagementservice.utils.GeoCoordinateCsvImportHelper;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.SuburbCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.SuburbDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
@@ -75,11 +80,13 @@ public class SuburbServiceImpl implements SuburbService {
     private final GeoCoordinatesRepository geoCoordinatesRepository;
     private final AdministrativeLevelRepository administrativeLevelRepository;
     private final SuburbServiceAuditable suburbServiceAuditable;
+    private final LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService;
     private final MessageService messageService;
     private final ModelMapper modelMapper;
 
     private static final String[] HEADERS = {
-            "ID", "NAME", "CODE", "DISTRICT ID", "POSTAL CODE", "ADMINISTRATIVE LEVEL ID", "GEO COORDINATES ID", "CREATED AT", "UPDATED AT", "ENTITY STATUS"
+            "ID", "NAME", "CODE", "DISTRICT", "PROVINCE", "COUNTRY", "ADMIN LEVEL", "DISTRICT ID", "ADMINISTRATIVE LEVEL ID",
+            "POSTAL CODE", "GEO COORDINATES ID", "CREATED AT", "UPDATED AT", "ENTITY STATUS"
     };
 
     private static final String[] CSV_HEADERS = {
@@ -102,21 +109,8 @@ public class SuburbServiceImpl implements SuburbService {
                     null, validatorDto.getErrorMessages());
         }
 
-        String normalizedName = Validators.capitalizeWords(request.getName());
-        Optional<Suburb> suburbRetrieved = suburbRepository.findByName(normalizedName)
-                .filter(suburb -> suburb.getEntityStatus() != EntityStatus.DELETED);
-
-        if (suburbRetrieved.isPresent()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_SUBURB_ALREADY_EXISTS.getCode(), new String[]{},
-                    locale);
-
-            return buildSuburbResponse(400, false, message, null,
-                    null, null);
-        }
-
-        // Validate district exists
-        Optional<District> districtRetrieved = 
+        // Validate district exists (uniqueness of suburb name is scoped to district)
+        Optional<District> districtRetrieved =
                 districtRepository.findById(request.getDistrictId());
 
         if (districtRetrieved.isEmpty() || districtRetrieved.get().getEntityStatus() == EntityStatus.DELETED) {
@@ -128,20 +122,30 @@ public class SuburbServiceImpl implements SuburbService {
                     null, null);
         }
 
-        Optional<Suburb> deletedSuburb = suburbRepository.findByName(normalizedName)
+        District district = districtRetrieved.get();
+        String normalizedName = Validators.capitalizeWords(request.getName());
+
+        Optional<Suburb> suburbActiveInDistrict = suburbRepository
+                .findByNameAndDistrictAndEntityStatusNot(normalizedName, district, EntityStatus.DELETED);
+
+        if (suburbActiveInDistrict.isPresent()) {
+
+            message = messageService.getMessage(I18Code.MESSAGE_SUBURB_ALREADY_EXISTS.getCode(), new String[]{},
+                    locale);
+
+            return buildSuburbResponse(400, false, message, null,
+                    null, null);
+        }
+
+        Optional<Suburb> deletedSuburb = suburbRepository.findByNameAndDistrict(normalizedName, district)
                 .filter(suburb -> suburb.getEntityStatus() == EntityStatus.DELETED);
 
         request.setName(normalizedName);
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         Suburb suburbToBeSaved = deletedSuburb.orElseGet(Suburb::new);
-        if (deletedSuburb.isPresent()) {
-            modelMapper.map(request, suburbToBeSaved);
-        } else {
-            suburbToBeSaved = modelMapper.map(request, Suburb.class);
-        }
+        applyCreateRequestToSuburb(suburbToBeSaved, request);
 
         // Set the district
-        suburbToBeSaved.setDistrict(districtRetrieved.get());
+        suburbToBeSaved.setDistrict(district);
         if ((request.getLatitude() == null) != (request.getLongitude() == null)) {
             message = messageService.getMessage(I18Code.MESSAGE_CREATE_GEO_COORDINATES_INVALID_REQUEST.getCode(), new String[]{}, locale);
             return buildSuburbResponse(400, false, message, null, null, null);
@@ -178,14 +182,27 @@ public class SuburbServiceImpl implements SuburbService {
             suburbToBeSaved.setAdministrativeLevel(administrativeLevelOptional.get());
         }
 
-        if (deletedSuburb.isPresent()) {
-            suburbToBeSaved.setEntityStatus(EntityStatus.ACTIVE);
-        }
-        Suburb suburbSaved = deletedSuburb.isPresent()
-                ? suburbServiceAuditable.update(suburbToBeSaved, locale, username)
-                : suburbServiceAuditable.create(suburbToBeSaved, locale, username);
+        // Ensure ACTIVE for new inserts and reactivations (ModelMapper / lifecycle edge cases).
+        suburbToBeSaved.setEntityStatus(EntityStatus.ACTIVE);
 
-        SuburbDto suburbDtoReturned = modelMapper.map(suburbSaved, SuburbDto.class);
+        Suburb suburbSaved;
+        try {
+            suburbSaved = deletedSuburb.isPresent()
+                    ? suburbServiceAuditable.update(suburbToBeSaved, locale, username)
+                    : suburbServiceAuditable.create(suburbToBeSaved, locale, username);
+        } catch (OptimisticLockingFailureException ex) {
+            // Defensive fallback for stale soft-deleted references during bulk imports:
+            // insert as a fresh row instead of failing the whole line with stale update errors.
+            Suburb fallbackInsert = new Suburb();
+            applyCreateRequestToSuburb(fallbackInsert, request);
+            fallbackInsert.setDistrict(district);
+            fallbackInsert.setGeoCoordinates(suburbToBeSaved.getGeoCoordinates());
+            fallbackInsert.setAdministrativeLevel(suburbToBeSaved.getAdministrativeLevel());
+            fallbackInsert.setEntityStatus(EntityStatus.ACTIVE);
+            suburbSaved = suburbServiceAuditable.create(fallbackInsert, locale, username);
+        }
+
+        SuburbDto suburbDtoReturned = toSuburbDto(suburbSaved);
 
         message = messageService.getMessage(I18Code.MESSAGE_SUBURB_CREATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -222,7 +239,7 @@ public class SuburbServiceImpl implements SuburbService {
         }
 
         Suburb suburbReturned = suburbRetrieved.get();
-        SuburbDto suburbDto = modelMapper.map(suburbReturned, SuburbDto.class);
+        SuburbDto suburbDto = toSuburbDto(suburbReturned);
 
         message = messageService.getMessage(I18Code.MESSAGE_SUBURB_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -249,7 +266,7 @@ public class SuburbServiceImpl implements SuburbService {
                     null, null);
         }
 
-        List<SuburbDto> suburbDtoList = modelMapper.map(suburbList, new TypeToken<List<SuburbDto>>(){}.getType());
+        List<SuburbDto> suburbDtoList = suburbList.stream().map(this::toSuburbDto).collect(Collectors.toList());
 
         message = messageService.getMessage(I18Code.MESSAGE_SUBURB_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -320,8 +337,7 @@ public class SuburbServiceImpl implements SuburbService {
 
         Suburb suburbEdited = suburbServiceAuditable.update(suburbToBeEdited, locale, username);
 
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        SuburbDto suburbDtoReturned = modelMapper.map(suburbEdited, SuburbDto.class);
+        SuburbDto suburbDtoReturned = toSuburbDto(suburbEdited);
 
         message = messageService.getMessage(I18Code.MESSAGE_SUBURB_UPDATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -331,6 +347,7 @@ public class SuburbServiceImpl implements SuburbService {
     }
 
     @Override
+    @Transactional
     public SuburbResponse delete(Long id, Locale locale, String username) {
 
         String message = "";
@@ -357,11 +374,14 @@ public class SuburbServiceImpl implements SuburbService {
         }
 
         Suburb suburbToBeDeleted = suburbRetrieved.get();
+
+        locationHierarchyCascadeSoftDeleteService.cascadeBeforeDeletingSuburb(suburbToBeDeleted.getId(), locale, username);
+
         suburbToBeDeleted.setEntityStatus(EntityStatus.DELETED);
 
         Suburb suburbDeleted = suburbServiceAuditable.delete(suburbToBeDeleted, locale, username);
 
-        SuburbDto suburbDtoReturned = modelMapper.map(suburbDeleted, SuburbDto.class);
+        SuburbDto suburbDtoReturned = toSuburbDto(suburbDeleted);
 
         message = messageService.getMessage(I18Code.MESSAGE_SUBURB_DELETED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -378,7 +398,8 @@ public class SuburbServiceImpl implements SuburbService {
         Specification<Suburb> spec = null;
         spec = addToSpec(spec, SuburbSpecification::deleted);
 
-        ValidatorDto validatorDto = suburbServiceValidator.isRequestValidForEditing(null, locale);
+        ValidatorDto validatorDto = suburbServiceValidator.isRequestValidToRetrieveSuburbsByMultipleFilters(
+                request, locale);
 
         if (!validatorDto.getSuccess()) {
             message = messageService.getMessage(I18Code.MESSAGE_UPDATE_SUBURB_INVALID_REQUEST.getCode(),
@@ -388,7 +409,7 @@ public class SuburbServiceImpl implements SuburbService {
                     null, validatorDto.getErrorMessages());
         }
 
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by(Sort.Direction.ASC, "id"));
 
         if (isNotEmpty(request.getName())) {
             spec = addToSpec(request.getName(), spec, SuburbSpecification::nameLike);
@@ -452,10 +473,14 @@ public class SuburbServiceImpl implements SuburbService {
             sb.append(suburb.getId()).append(",")
                     .append(safe(suburb.getName())).append(",")
                     .append(safe(suburb.getCode())).append(",")
-                    .append(suburb.getDistrictId()).append(",")
+                    .append(safe(suburb.getDistrictName())).append(",")
+                    .append(safe(suburb.getProvinceName())).append(",")
+                    .append(safe(suburb.getCountryName())).append(",")
+                    .append(safe(suburb.getAdministrativeLevelName())).append(",")
+                    .append(suburb.getDistrictId() != null ? suburb.getDistrictId() : "").append(",")
+                    .append(suburb.getAdministrativeLevelId() != null ? suburb.getAdministrativeLevelId() : "").append(",")
                     .append(safe(suburb.getPostalCode())).append(",")
-                    .append(suburb.getAdministrativeLevelId()).append(",")
-                    .append(suburb.getGeoCoordinatesId()).append(",")
+                    .append(suburb.getGeoCoordinatesId() != null ? suburb.getGeoCoordinatesId() : "").append(",")
                     .append(suburb.getCreatedAt()).append(",")
                     .append(suburb.getUpdatedAt()).append(",")
                     .append(suburb.getEntityStatus()).append("\n");
@@ -483,13 +508,17 @@ public class SuburbServiceImpl implements SuburbService {
             row.createCell(0).setCellValue(suburb.getId());
             row.createCell(1).setCellValue(safe(suburb.getName()));
             row.createCell(2).setCellValue(safe(suburb.getCode()));
-            row.createCell(3).setCellValue(suburb.getDistrictId() != null ? suburb.getDistrictId() : 0);
-            row.createCell(4).setCellValue(safe(suburb.getPostalCode()));
-            row.createCell(5).setCellValue(suburb.getAdministrativeLevelId() != null ? suburb.getAdministrativeLevelId() : 0);
-            row.createCell(6).setCellValue(suburb.getGeoCoordinatesId() != null ? suburb.getGeoCoordinatesId() : 0);
-            row.createCell(7).setCellValue(suburb.getCreatedAt() != null ? suburb.getCreatedAt().toString() : "");
-            row.createCell(8).setCellValue(suburb.getUpdatedAt() != null ? suburb.getUpdatedAt().toString() : "");
-            row.createCell(9).setCellValue(suburb.getEntityStatus() != null ? suburb.getEntityStatus().toString() : "");
+            row.createCell(3).setCellValue(safe(suburb.getDistrictName()));
+            row.createCell(4).setCellValue(safe(suburb.getProvinceName()));
+            row.createCell(5).setCellValue(safe(suburb.getCountryName()));
+            row.createCell(6).setCellValue(safe(suburb.getAdministrativeLevelName()));
+            row.createCell(7).setCellValue(suburb.getDistrictId() != null ? suburb.getDistrictId() : 0);
+            row.createCell(8).setCellValue(suburb.getAdministrativeLevelId() != null ? suburb.getAdministrativeLevelId() : 0);
+            row.createCell(9).setCellValue(safe(suburb.getPostalCode()));
+            row.createCell(10).setCellValue(suburb.getGeoCoordinatesId() != null ? suburb.getGeoCoordinatesId() : 0);
+            row.createCell(11).setCellValue(suburb.getCreatedAt() != null ? suburb.getCreatedAt().toString() : "");
+            row.createCell(12).setCellValue(suburb.getUpdatedAt() != null ? suburb.getUpdatedAt().toString() : "");
+            row.createCell(13).setCellValue(suburb.getEntityStatus() != null ? suburb.getEntityStatus().toString() : "");
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -521,9 +550,13 @@ public class SuburbServiceImpl implements SuburbService {
             table.addCell(String.valueOf(suburb.getId()));
             table.addCell(safe(suburb.getName()));
             table.addCell(safe(suburb.getCode()));
+            table.addCell(safe(suburb.getDistrictName()));
+            table.addCell(safe(suburb.getProvinceName()));
+            table.addCell(safe(suburb.getCountryName()));
+            table.addCell(safe(suburb.getAdministrativeLevelName()));
             table.addCell(suburb.getDistrictId() != null ? suburb.getDistrictId().toString() : "");
-            table.addCell(safe(suburb.getPostalCode()));
             table.addCell(suburb.getAdministrativeLevelId() != null ? suburb.getAdministrativeLevelId().toString() : "");
+            table.addCell(safe(suburb.getPostalCode()));
             table.addCell(suburb.getGeoCoordinatesId() != null ? suburb.getGeoCoordinatesId().toString() : "");
             table.addCell(suburb.getCreatedAt() != null ? suburb.getCreatedAt().toString() : "");
             table.addCell(suburb.getUpdatedAt() != null ? suburb.getUpdatedAt().toString() : "");
@@ -567,12 +600,28 @@ public class SuburbServiceImpl implements SuburbService {
                         continue;
                     }
 
+                    Optional<District> districtOpt =
+                            districtRepository.findByIdFetchingGeoCoordinates(row.getDistrictId(), EntityStatus.DELETED);
+                    if (districtOpt.isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": District not found for ID " + row.getDistrictId());
+                        continue;
+                    }
+
                     CreateSuburbRequest request = new CreateSuburbRequest();
                     request.setName(row.getName());
                     request.setCode(row.getCode());
                     request.setPostalCode(row.getPostalCode());
                     request.setDistrictId(row.getDistrictId());
                     request.setAdministrativeLevelId(row.getAdministrativeLevelId());
+                    GeoCoordinateCsvImportHelper.ResolvedGeo geo = GeoCoordinateCsvImportHelper.resolve(
+                            row.getGeoCoordinatesId(),
+                            row.getLatitude(),
+                            row.getLongitude(),
+                            districtOpt.get().getGeoCoordinates());
+                    request.setGeoCoordinatesId(geo.geoCoordinatesId());
+                    request.setLatitude(geo.latitude());
+                    request.setLongitude(geo.longitude());
 
                     SuburbResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
 
@@ -629,6 +678,16 @@ public class SuburbServiceImpl implements SuburbService {
         return spec;
     }
 
+    /**
+     * Use explicit field mapping so request id-like fields (districtId, administrativeLevelId) can never
+     * leak into the entity primary key through loose ModelMapper conventions.
+     */
+    private void applyCreateRequestToSuburb(Suburb suburb, CreateSuburbRequest request) {
+        suburb.setName(request.getName());
+        suburb.setCode(request.getCode());
+        suburb.setPostalCode(request.getPostalCode());
+    }
+
     private Optional<GeoCoordinates> resolveGeoCoordinates(Long geoCoordinatesId, BigDecimal latitude, BigDecimal longitude) {
         if (latitude != null || longitude != null) {
             if (latitude == null || longitude == null) {
@@ -646,14 +705,46 @@ public class SuburbServiceImpl implements SuburbService {
         return geoCoordinatesRepository.findByIdAndEntityStatusNot(geoCoordinatesId, EntityStatus.DELETED);
     }
 
+    private SuburbDto toSuburbDto(Suburb entity) {
+        SuburbDto dto = new SuburbDto();
+        dto.setId(entity.getId());
+        dto.setName(entity.getName());
+        dto.setCode(entity.getCode());
+        dto.setPostalCode(entity.getPostalCode());
+        dto.setGeoCoordinatesId(entity.getGeoCoordinates() != null ? entity.getGeoCoordinates().getId() : null);
+        dto.setCreatedAt(entity.getCreatedAt());
+        dto.setUpdatedAt(entity.getUpdatedAt());
+        dto.setEntityStatus(entity.getEntityStatus() != null ? entity.getEntityStatus() : EntityStatus.ACTIVE);
+        if (entity.getDistrict() != null) {
+            dto.setDistrictId(entity.getDistrict().getId());
+            dto.setDistrictName(entity.getDistrict().getName());
+            Province p = entity.getDistrict().getProvince();
+            if (p != null) {
+                dto.setProvinceId(p.getId());
+                dto.setProvinceName(p.getName());
+                if (p.getCountry() != null) {
+                    dto.setCountryId(p.getCountry().getId());
+                    dto.setCountryName(p.getCountry().getName());
+                }
+            }
+        }
+        if (entity.getAdministrativeLevel() != null) {
+            dto.setAdministrativeLevelId(entity.getAdministrativeLevel().getId());
+            dto.setAdministrativeLevelName(entity.getAdministrativeLevel().getName());
+        }
+        if (entity.getLocalizedNames() != null && Hibernate.isInitialized(entity.getLocalizedNames())) {
+            dto.setLocalizedNameIds(entity.getLocalizedNames().stream().map(LocalizedName::getId).collect(Collectors.toList()));
+        }
+        return dto;
+    }
+
     private Page<SuburbDto> convertSuburbEntityToSuburbDto(Page<Suburb> suburbPage) {
 
         List<Suburb> suburbList = suburbPage.getContent();
         List<SuburbDto> suburbDtoList = new ArrayList<>();
 
         for (Suburb suburb : suburbPage) {
-            SuburbDto suburbDto = modelMapper.map(suburb, SuburbDto.class);
-            suburbDtoList.add(suburbDto);
+            suburbDtoList.add(toSuburbDto(suburb));
         }
 
         int page = suburbPage.getNumber();

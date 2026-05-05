@@ -4,6 +4,7 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
+import { StaticShellPageComponent } from './shared/static-shell-page/static-shell-page.component';
 import { CoreModule } from './core/core.module';
 import { SharedModule } from './shared/shared.module';
 import { ThemeService } from './core/services/theme.service';
@@ -15,7 +16,7 @@ export function initAdminTheme(theme: ThemeService): () => void {
 }
 
 @NgModule({
-  declarations: [AppComponent],
+  declarations: [AppComponent, StaticShellPageComponent],
   imports: [
     BrowserModule,
     BrowserAnimationsModule,

@@ -2,9 +2,12 @@ package projectlx.co.zw.audittrail.business.validation.api;
 
 import java.util.Locale;
 import projectlx.co.zw.audittrail.utils.dtos.AuditLogFilter;
+import projectlx.co.zw.audittrail.utils.requests.AuditLogMultipleFiltersRequest;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 
 public interface AuditLogQueryValidator {
+
+    ValidatorDto validateMultipleFiltersRequest(AuditLogMultipleFiltersRequest request, Locale locale);
 
     ValidatorDto validateSearch(AuditLogFilter filter, Locale locale);
 

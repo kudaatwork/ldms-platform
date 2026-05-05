@@ -14,5 +14,6 @@ public class AdministrativeLevelMultipleFiltersRequest extends MultipleFiltersRe
     private String code;
     private Integer level;
     private String description;
+    private Long countryId;
     private EntityStatus entityStatus;
 }

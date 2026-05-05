@@ -19,14 +19,15 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.modelmapper.ModelMapper;
-import org.modelmapper.TypeToken;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.CountryServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.CountryService;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.CountryServiceValidator;
@@ -35,6 +36,7 @@ import projectlx.co.zw.locationsmanagementservice.model.GeoCoordinates;
 import projectlx.co.zw.locationsmanagementservice.repository.CountryRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.GeoCoordinatesRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.CountrySpecification;
+import projectlx.co.zw.locationsmanagementservice.utils.GeoCoordinateCsvImportHelper;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.CountryDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.CountryCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
@@ -71,6 +73,7 @@ public class CountryServiceImpl implements CountryService {
     private final CountryServiceAuditable countryServiceAuditable;
     private final MessageService messageService;
     private final ModelMapper modelMapper;
+    private final LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService;
 
     private static final String[] HEADERS = {
             "ID", "NAME", "ISO ALPHA-2 CODE", "ISO ALPHA-3 CODE", "DIAL CODE", "TIMEZONE", "CURRENCY CODE", "CREATED AT", "UPDATED AT", "ENTITY STATUS", "GEOCOORDINATES ID"
@@ -163,7 +166,7 @@ public class CountryServiceImpl implements CountryService {
             countrySaved = countryServiceAuditable.create(countryToBeSaved, locale, username);
         }
 
-        CountryDto countryDtoReturned = modelMapper.map(countrySaved, CountryDto.class);
+        CountryDto countryDtoReturned = toCountryDto(countrySaved);
 
         message = messageService.getMessage(I18Code.MESSAGE_COUNTRY_CREATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -201,7 +204,7 @@ public class CountryServiceImpl implements CountryService {
         }
 
         Country countryReturned = countryRetrieved.get();
-        CountryDto countryDto = modelMapper.map(countryReturned, CountryDto.class);
+        CountryDto countryDto = toCountryDto(countryReturned);
 
         message = messageService.getMessage(I18Code.MESSAGE_COUNTRY_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -228,7 +231,7 @@ public class CountryServiceImpl implements CountryService {
                     null, null);
         }
 
-        List<CountryDto> countryDtoList = modelMapper.map(countryList, new TypeToken<List<CountryDto>>(){}.getType());
+        List<CountryDto> countryDtoList = countryList.stream().map(this::toCountryDto).collect(Collectors.toList());
 
         message = messageService.getMessage(I18Code.MESSAGE_COUNTRY_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -294,7 +297,7 @@ public class CountryServiceImpl implements CountryService {
         Country countryEdited = countryServiceAuditable.update(countryToBeEdited, locale, username);
 
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        CountryDto countryDtoReturned = modelMapper.map(countryEdited, CountryDto.class);
+        CountryDto countryDtoReturned = toCountryDto(countryEdited);
 
         message = messageService.getMessage(I18Code.MESSAGE_COUNTRY_UPDATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -304,6 +307,7 @@ public class CountryServiceImpl implements CountryService {
     }
 
     @Override
+    @Transactional
     public CountryResponse delete(Long id, Locale locale, String username) {
 
         String message = "";
@@ -332,11 +336,14 @@ public class CountryServiceImpl implements CountryService {
         }
 
         Country countryToBeDeleted = countryRetrieved.get();
+
+        locationHierarchyCascadeSoftDeleteService.cascadeBeforeDeletingCountry(countryToBeDeleted.getId(), locale, username);
+
         countryToBeDeleted.setEntityStatus(EntityStatus.DELETED);
 
         Country countryDeleted = countryServiceAuditable.delete(countryToBeDeleted, locale, username);
 
-        CountryDto countryDtoReturned = modelMapper.map(countryDeleted, CountryDto.class);
+        CountryDto countryDtoReturned = toCountryDto(countryDeleted);
 
         message = messageService.getMessage(I18Code.MESSAGE_COUNTRY_DELETED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -366,7 +373,7 @@ public class CountryServiceImpl implements CountryService {
                     validatorDto.getErrorMessages());
         }
 
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by(Sort.Direction.ASC, "id"));
 
         if (isNotEmpty(request.getName())) {
             spec = addToSpec(request.getName(), spec, CountrySpecification::nameLike);
@@ -402,13 +409,9 @@ public class CountryServiceImpl implements CountryService {
 
         Page<Country> result = countryRepository.findAll(spec, pageable);
 
-        if (result.getContent().isEmpty()) {
-            message = messageService.getMessage(I18Code.MESSAGE_COUNTRY_NOT_FOUND.getCode(),
-                    new String[]{}, locale);
-
-            return buildCountryResponse(404, false, message, null, null, null);
-        }
-
+        // Always return a Spring Page (possibly empty). Empty content with totalElements > 0
+        // happens for an out-of-range page index; returning 404 would make clients drop totals
+        // and mis-report the paginator vs. rows.
         Page<CountryDto> countryDtoPage = convertCountryEntityToCountryDto(result);
 
         message = messageService.getMessage(I18Code.MESSAGE_COUNTRY_RETRIEVED_SUCCESSFULLY.getCode(),
@@ -571,7 +574,14 @@ public class CountryServiceImpl implements CountryService {
                     request.setDialCode(countryDto.getDialCode());
                     request.setTimezone(countryDto.getTimezone());
                     request.setCurrencyCode(countryDto.getCurrencyCode());
-                    request.setGeoCoordinatesId(countryDto.getGeoCoordinatesId());
+                    GeoCoordinateCsvImportHelper.ResolvedGeo geo = GeoCoordinateCsvImportHelper.resolve(
+                            countryDto.getGeoCoordinatesId(),
+                            countryDto.getLatitude(),
+                            countryDto.getLongitude(),
+                            null);
+                    request.setGeoCoordinatesId(geo.geoCoordinatesId());
+                    request.setLatitude(geo.latitude());
+                    request.setLongitude(geo.longitude());
 
                     CountryResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
 
@@ -597,6 +607,18 @@ public class CountryServiceImpl implements CountryService {
                 : "Import failed. No countries were imported.";
 
         return new ImportSummary(statusCode, isSuccess, message, total, success, failed, errors);
+    }
+
+    private CountryDto toCountryDto(Country country) {
+        Country loaded = countryRepository.findByIdFetchingGeoCoordinates(country.getId(), EntityStatus.DELETED)
+                .orElse(country);
+        CountryDto dto = modelMapper.map(loaded, CountryDto.class);
+        if (loaded.getGeoCoordinates() != null) {
+            dto.setGeoCoordinatesId(loaded.getGeoCoordinates().getId());
+            dto.setLatitude(loaded.getGeoCoordinates().getLatitude());
+            dto.setLongitude(loaded.getGeoCoordinates().getLongitude());
+        }
+        return dto;
     }
 
     private boolean isNotEmpty(String str) {
@@ -636,8 +658,7 @@ public class CountryServiceImpl implements CountryService {
         List<CountryDto> countryDtoList = new ArrayList<>();
 
         for (Country country : countryPage) {
-            CountryDto countryDto = modelMapper.map(country, CountryDto.class);
-            countryDtoList.add(countryDto);
+            countryDtoList.add(toCountryDto(country));
         }
 
         int page = countryPage.getNumber();

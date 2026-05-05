@@ -21,6 +21,8 @@
         <flyway.version>10.20.1</flyway.version>
         <mysql.version>9.1.0</mysql.version>
         <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
+        <poi-ooxml.version>5.4.0</poi-ooxml.version>
+        <openpdf.version>2.0.3</openpdf.version>
     </properties>
 
     <dependencies>
@@ -77,6 +79,10 @@
             <artifactId>spring-cloud-starter-config</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
             <version>${flyway.version}</version>
@@ -107,6 +113,16 @@
         <dependency>
             <groupId>io.micrometer</groupId>
             <artifactId>micrometer-registry-prometheus</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi-ooxml.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>${openpdf.version}</version>
         </dependency>
     </dependencies>
 

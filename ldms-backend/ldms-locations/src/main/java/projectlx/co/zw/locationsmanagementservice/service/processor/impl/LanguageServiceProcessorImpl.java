@@ -136,7 +136,7 @@ public class LanguageServiceProcessorImpl implements LanguageServiceProcessor {
         ImportSummary importSummary = languageService.importLanguageFromCsv(csvInputStream);
 
         logger.info("Outgoing response after importing languages from CSV: Total: {}, Success: {}, Failed: {}",
-                importSummary.total, importSummary.success, importSummary.failed);
+                importSummary.total, importSummary.importedCount, importSummary.failed);
 
         return importSummary;
     }

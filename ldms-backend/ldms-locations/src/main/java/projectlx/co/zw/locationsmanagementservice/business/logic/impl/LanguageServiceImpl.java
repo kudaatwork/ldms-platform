@@ -22,6 +22,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.LanguageServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.LanguageService;
@@ -305,7 +306,7 @@ public class LanguageServiceImpl implements LanguageService {
                     null, validatorDto.getErrorMessages());
         }
 
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by(Sort.Direction.ASC, "id"));
 
         if (isNotEmpty(request.getName())) {
             spec = addToSpec(request.getName(), spec, LanguageSpecification::nameLike);

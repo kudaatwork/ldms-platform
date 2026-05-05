@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.LocationNodeServiceValidator;
+import projectlx.co.zw.locationsmanagementservice.utils.enums.LocationType;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.CreateLocationNodeRequest;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.EditLocationNodeRequest;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.LocationNodeMultipleFiltersRequest;
@@ -30,6 +31,9 @@ public class LocationNodeServiceValidatorImpl implements LocationNodeServiceVali
         if (request.getLocationType() == null) {
             errors.add("Location type is required");
         }
+        if (request.getLocationType() == LocationType.CITY && request.getParentId() != null) {
+            errors.add("CITY location nodes cannot have a parent");
+        }
         if (!errors.isEmpty()) {
             logger.info("Location node create validation failed: {}", errors);
             return new ValidatorDto(false, null, errors);
@@ -52,6 +56,9 @@ public class LocationNodeServiceValidatorImpl implements LocationNodeServiceVali
         }
         if (request.getLocationType() == null) {
             errors.add("Location type is required");
+        }
+        if (request.getLocationType() == LocationType.CITY && request.getParentId() != null) {
+            errors.add("CITY location nodes cannot have a parent");
         }
         return errors.isEmpty() ? new ValidatorDto(true, null, new ArrayList<>()) : new ValidatorDto(false, null, errors);
     }

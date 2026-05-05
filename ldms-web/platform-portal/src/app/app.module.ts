@@ -8,6 +8,7 @@ import { CoreModule } from './core/core.module';
 import { SharedModule } from './shared/shared.module';
 import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.component';
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
+import { LandingComponent } from './features/landing/pages/landing/landing.component';
 import { ThemeService } from './core/services/theme.service';
 
 export function initPlatformTheme(theme: ThemeService): () => void {
@@ -17,7 +18,7 @@ export function initPlatformTheme(theme: ThemeService): () => void {
 }
 
 @NgModule({
-  declarations: [AppComponent, ShellLayoutComponent, PlaceholderPageComponent],
+  declarations: [AppComponent, ShellLayoutComponent, PlaceholderPageComponent, LandingComponent],
   imports: [
     BrowserModule,
     HttpClientModule,

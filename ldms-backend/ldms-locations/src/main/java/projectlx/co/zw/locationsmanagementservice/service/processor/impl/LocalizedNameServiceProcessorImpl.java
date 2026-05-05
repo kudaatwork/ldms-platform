@@ -136,7 +136,7 @@ public class LocalizedNameServiceProcessorImpl implements LocalizedNameServicePr
         ImportSummary importSummary = localizedNameService.importLocalizedNameFromCsv(csvInputStream);
 
         logger.info("Outgoing response after importing localized names from CSV: Total: {}, Success: {}, Failed: {}",
-                importSummary.total, importSummary.success, importSummary.failed);
+                importSummary.total, importSummary.importedCount, importSummary.failed);
 
         return importSummary;
     }

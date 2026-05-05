@@ -20,9 +20,15 @@ public class SuburbDto {
     private String code;
     
     private Long districtId;
+    private String districtName;
+    private Long provinceId;
+    private String provinceName;
+    private Long countryId;
+    private String countryName;
     private Long geoCoordinatesId;
     private String postalCode;
     private Long administrativeLevelId;
+    private String administrativeLevelName;
     private List<Long> localizedNameIds;
     
     private LocalDateTime createdAt;

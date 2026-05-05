@@ -9,6 +9,12 @@ public record AuditLogFilter(
         Integer httpStatusCode,
         LocalDateTime from,
         LocalDateTime to,
+        String searchValue,
+        /** Substring match (case-insensitive); null = no filter. */
+        String action,
+        String requestUrl,
+        String httpMethod,
+        String traceId,
         int page,
         int size,
         String sortBy,

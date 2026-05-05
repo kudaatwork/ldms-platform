@@ -1,5 +1,13 @@
-{
-  "/api": {
+[
+  {
+    "context": ["/api/v1"],
+    "target": "http://localhost:8091",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  {
+    "context": ["/api"],
     "target": "http://localhost:8091",
     "secure": false,
     "changeOrigin": true,
@@ -8,4 +16,4 @@
     },
     "logLevel": "debug"
   }
-}
+]

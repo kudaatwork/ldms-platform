@@ -135,13 +135,13 @@
       </div>
       <div class="map-body">
         <div class="map-grid-bg"></div>
-        <div class="map-pin" *ngFor="let p of mapPins" [style.left.%]="p.x" [style.top.%]="p.y">
-          <div class="pin-dot" [ngClass]="'pin-' + p.type"></div>
+        <div class="map-pin map-pin--live" *ngFor="let p of mapPins; let pi = index" [style.left.%]="p.x" [style.top.%]="p.y">
+          <div class="pin-dot" [ngClass]="'pin-' + p.type" [style.animation-delay.ms]="pi * 500"></div>
           <div class="pin-label">{{ p.label }}</div>
         </div>
         <div class="map-stat-chip">
           <div class="stat-label">On-time performance</div>
-          <div class="stat-value">96.2%</div>
+          <div class="stat-value">{{ liveOnTimePct | number : '1.1-1' }}%</div>
           <div class="stat-trend">+1.9% from last week</div>
         </div>
       </div>

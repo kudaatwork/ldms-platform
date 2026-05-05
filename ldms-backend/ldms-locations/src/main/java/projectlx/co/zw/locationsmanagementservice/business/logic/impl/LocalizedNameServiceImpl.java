@@ -16,12 +16,11 @@ import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.modelmapper.ModelMapper;
-import org.modelmapper.TypeToken;
-import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.LocalizedNameServiceAuditable;
@@ -41,6 +40,7 @@ import projectlx.co.zw.locationsmanagementservice.repository.ProvinceRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.SuburbRepository;
 import projectlx.co.zw.locationsmanagementservice.repository.specification.LocalizedNameSpecification;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.ImportSummary;
+import projectlx.co.zw.locationsmanagementservice.utils.dtos.LocalizedNameCsvDto;
 import projectlx.co.zw.locationsmanagementservice.utils.dtos.LocalizedNameDto;
 import projectlx.co.zw.locationsmanagementservice.utils.enums.I18Code;
 import projectlx.co.zw.locationsmanagementservice.utils.requests.CreateLocalizedNameRequest;
@@ -55,6 +55,8 @@ import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -62,6 +64,10 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import com.opencsv.bean.CsvToBean;
+import com.opencsv.bean.CsvToBeanBuilder;
+import com.opencsv.bean.HeaderColumnNameMappingStrategy;
 
 @RequiredArgsConstructor
 public class LocalizedNameServiceImpl implements LocalizedNameService {
@@ -80,6 +86,31 @@ public class LocalizedNameServiceImpl implements LocalizedNameService {
     private static final String[] HEADERS = {
             "ID", "VALUE", "LANGUAGE", "REFERENCE TYPE", "REFERENCE ID", "CREATED AT", "UPDATED AT", "ENTITY STATUS"
     };
+
+    /**
+     * Entity stores language + exactly one geography reference via relations; {@link LocalizedNameDto} exposes
+     * flattened {@code languageId}, {@code referenceType}, {@code referenceId}. ModelMapper does not derive these.
+     */
+    private LocalizedNameDto toLocalizedNameDto(LocalizedName source) {
+        LocalizedNameDto dto = modelMapper.map(source, LocalizedNameDto.class);
+        if (source.getLanguage() != null) {
+            dto.setLanguageId(source.getLanguage().getId());
+        }
+        if (source.getSuburb() != null) {
+            dto.setReferenceType("SUBURB");
+            dto.setReferenceId(source.getSuburb().getId());
+        } else if (source.getDistrict() != null) {
+            dto.setReferenceType("DISTRICT");
+            dto.setReferenceId(source.getDistrict().getId());
+        } else if (source.getProvince() != null) {
+            dto.setReferenceType("PROVINCE");
+            dto.setReferenceId(source.getProvince().getId());
+        } else if (source.getCountry() != null) {
+            dto.setReferenceType("COUNTRY");
+            dto.setReferenceId(source.getCountry().getId());
+        }
+        return dto;
+    }
 
     @Override
     @Transactional
@@ -169,13 +200,14 @@ public class LocalizedNameServiceImpl implements LocalizedNameService {
         }
 
         LocalizedName localizedNameSaved = localizedNameServiceAuditable.create(localizedNameToBeSaved, locale, username);
-        LocalizedNameDto localizedNameDtoReturned = modelMapper.map(localizedNameSaved, LocalizedNameDto.class);
+        LocalizedNameDto localizedNameDtoReturned = toLocalizedNameDto(localizedNameSaved);
         message = messageService.getMessage(I18Code.MESSAGE_LOCALIZED_NAME_CREATED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildLocalizedNameResponse(201, true, message, localizedNameDtoReturned, null,
                 null);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public LocalizedNameResponse findById(Long id, Locale locale, String username) {
         String message;
         ValidatorDto validatorDto = localizedNameServiceValidator.isIdValid(id, locale);
@@ -190,12 +222,13 @@ public class LocalizedNameServiceImpl implements LocalizedNameService {
             return buildLocalizedNameResponse(404, false, message, null, null, null);
         }
 
-        LocalizedNameDto localizedNameDto = modelMapper.map(localizedNameRetrieved.get(), LocalizedNameDto.class);
+        LocalizedNameDto localizedNameDto = toLocalizedNameDto(localizedNameRetrieved.get());
         message = messageService.getMessage(I18Code.MESSAGE_LOCALIZED_NAME_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildLocalizedNameResponse(200, true, message, localizedNameDto, null, null);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public LocalizedNameResponse findAllAsList(Locale locale, String username) {
         List<LocalizedName> localizedNameList = localizedNameRepository.findAll().stream()
                 .filter(localizedName -> localizedName.getEntityStatus() != EntityStatus.DELETED)
@@ -206,7 +239,7 @@ public class LocalizedNameServiceImpl implements LocalizedNameService {
             return buildLocalizedNameResponse(404, false, message, null, null, null);
         }
 
-        List<LocalizedNameDto> localizedNameDtoList = modelMapper.map(localizedNameList, new TypeToken<List<LocalizedNameDto>>(){}.getType());
+        List<LocalizedNameDto> localizedNameDtoList = localizedNameList.stream().map(this::toLocalizedNameDto).collect(Collectors.toList());
         String message = messageService.getMessage(I18Code.MESSAGE_LOCALIZED_NAME_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildLocalizedNameResponse(200, true, message, null, localizedNameDtoList, null);
     }
@@ -279,7 +312,7 @@ public class LocalizedNameServiceImpl implements LocalizedNameService {
         }
 
         LocalizedName localizedNameEdited = localizedNameServiceAuditable.update(localizedNameToBeEdited, locale, username);
-        LocalizedNameDto localizedNameDtoReturned = modelMapper.map(localizedNameEdited, LocalizedNameDto.class);
+        LocalizedNameDto localizedNameDtoReturned = toLocalizedNameDto(localizedNameEdited);
         message = messageService.getMessage(I18Code.MESSAGE_LOCALIZED_NAME_UPDATED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildLocalizedNameResponse(200, true, message, localizedNameDtoReturned, null, null);
     }
@@ -310,12 +343,13 @@ public class LocalizedNameServiceImpl implements LocalizedNameService {
         LocalizedName localizedNameToBeDeleted = localizedNameRetrieved.get();
         localizedNameToBeDeleted.setEntityStatus(EntityStatus.DELETED);
         LocalizedName localizedNameDeleted = localizedNameServiceAuditable.delete(localizedNameToBeDeleted, locale);
-        LocalizedNameDto localizedNameDtoReturned = modelMapper.map(localizedNameDeleted, LocalizedNameDto.class);
+        LocalizedNameDto localizedNameDtoReturned = toLocalizedNameDto(localizedNameDeleted);
         message = messageService.getMessage(I18Code.MESSAGE_LOCALIZED_NAME_DELETED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildLocalizedNameResponse(200, true, message, localizedNameDtoReturned, null, null);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public LocalizedNameResponse findByMultipleFilters(LocalizedNameMultipleFiltersRequest request, String username, Locale locale) {
         String message;
         ValidatorDto validatorDto = localizedNameServiceValidator.isRequestValidToRetrieveLocalizedNamesByMultipleFilters(request, locale);
@@ -340,7 +374,7 @@ public class LocalizedNameServiceImpl implements LocalizedNameService {
             spec = spec.and(LocalizedNameSpecification.hasEntityStatus(request.getEntityStatus()));
         }
 
-        Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+        Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by(Sort.Direction.ASC, "id"));
         Page<LocalizedName> result = localizedNameRepository.findAll(spec, pageable);
 
         if (result.getContent().isEmpty()) {
@@ -348,7 +382,7 @@ public class LocalizedNameServiceImpl implements LocalizedNameService {
             return buildLocalizedNameResponse(404, false, message, null, null, null);
         }
 
-        Page<LocalizedNameDto> localizedNameDtoPage = result.map(source -> modelMapper.map(source, LocalizedNameDto.class));
+        Page<LocalizedNameDto> localizedNameDtoPage = result.map(this::toLocalizedNameDto);
         message = messageService.getMessage(I18Code.MESSAGE_LOCALIZED_NAME_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildLocalizedNameResponse(200, true, message, null, null, localizedNameDtoPage);
     }
@@ -434,10 +468,92 @@ public class LocalizedNameServiceImpl implements LocalizedNameService {
 
     @Override
     public ImportSummary importLocalizedNameFromCsv(InputStream csvInputStream) throws IOException {
-        // The OpenCV dependency here is highly unusual for CSV parsing and should be replaced
-        // with a standard library like OpenCSV or Apache Commons CSV for maintainability and security.
-        // This implementation is left as-is but is not recommended for production.
-        return new ImportSummary(501, false, "Import not implemented correctly.", 0, 0, 0, new ArrayList<>());
+        List<String> errors = new ArrayList<>();
+        int success = 0;
+        int failed = 0;
+        int total = 0;
+
+        try (Reader reader = new InputStreamReader(csvInputStream, StandardCharsets.UTF_8)) {
+            HeaderColumnNameMappingStrategy<LocalizedNameCsvDto> strategy = new HeaderColumnNameMappingStrategy<>();
+            strategy.setType(LocalizedNameCsvDto.class);
+
+            CsvToBean<LocalizedNameCsvDto> csvToBean = new CsvToBeanBuilder<LocalizedNameCsvDto>(reader)
+                    .withMappingStrategy(strategy)
+                    .withIgnoreLeadingWhiteSpace(true)
+                    .build();
+
+            List<LocalizedNameCsvDto> rows = csvToBean.parse();
+            total = rows.size();
+
+            int rowNum = 1;
+            for (LocalizedNameCsvDto row : rows) {
+                rowNum++;
+                try {
+                    if (row.getValue() == null || row.getValue().trim().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing VALUE");
+                        continue;
+                    }
+                    if (row.getLanguageId() == null || row.getLanguageId().trim().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing LANGUAGE ID");
+                        continue;
+                    }
+                    if (row.getReferenceType() == null || row.getReferenceType().trim().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing REFERENCE TYPE");
+                        continue;
+                    }
+                    if (row.getReferenceId() == null || row.getReferenceId().trim().isEmpty()) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Missing REFERENCE ID");
+                        continue;
+                    }
+                    long languageId;
+                    try {
+                        languageId = Long.parseLong(row.getLanguageId().trim());
+                    } catch (NumberFormatException e) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Invalid LANGUAGE ID");
+                        continue;
+                    }
+                    long referenceId;
+                    try {
+                        referenceId = Long.parseLong(row.getReferenceId().trim());
+                    } catch (NumberFormatException e) {
+                        failed++;
+                        errors.add("Row " + rowNum + ": Invalid REFERENCE ID");
+                        continue;
+                    }
+
+                    CreateLocalizedNameRequest request = new CreateLocalizedNameRequest();
+                    request.setValue(row.getValue().trim());
+                    request.setLanguageId(languageId);
+                    request.setReferenceType(row.getReferenceType().trim());
+                    request.setReferenceId(referenceId);
+
+                    LocalizedNameResponse response = create(request, Locale.ENGLISH, "IMPORT_SCRIPT");
+
+                    if (response.isSuccess()) {
+                        success++;
+                    } else {
+                        failed++;
+                        errors.add("Row " + rowNum + ": " + response.getMessage());
+                    }
+                } catch (Exception e) {
+                    failed++;
+                    errors.add("Row " + rowNum + ": Unexpected error - " + e.getMessage());
+                }
+            }
+        }
+
+        int statusCode = success > 0 ? 200 : 400;
+        boolean isSuccess = success > 0;
+        String message = success > 0
+                ? "Import completed successfully. " + success + " out of " + total + " localized names imported."
+                : "Import failed. No localized names were imported.";
+
+        return new ImportSummary(statusCode, isSuccess, message, total, success, failed, errors);
     }
 
     private boolean isNotEmpty(String str) {

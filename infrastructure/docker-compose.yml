@@ -5,15 +5,21 @@ services:
     image: mysql:8.0
     container_name: ldms-mysql
     restart: unless-stopped
+    # Bind to IPv4 loopback so spring-boot-docker-compose can read a host port mapping
+    # (IPv6-only [::]:3306 is ignored → "No host port mapping for container port 3306").
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
+    labels:
+      org.springframework.boot.jdbc.parameters: "useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true&connectTimeout=15000&socketTimeout=60000"
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # Default DB for the MYSQL_USER session. ldms-locations uses jdbc:.../ldms_location_management (also created by mysql/docker-entrypoint-initdb.d). Query that DB when debugging empty API rows.
       MYSQL_DATABASE: ldms_platform
       MYSQL_USER: developer
       MYSQL_PASSWORD: ${MYSQL_DEVELOPER_PASSWORD}
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./mysql/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
     networks:
       - ldms-network
     healthcheck:
@@ -28,8 +34,8 @@ services:
     container_name: ldms-rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}

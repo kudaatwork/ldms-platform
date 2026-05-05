@@ -11,7 +11,9 @@ public enum LocationNodeRoles {
     VIEW_LOCATION_NODE_BY_ID("VIEW_LOCATION_NODE_BY_ID", "Views location hierarchy node by id"),
     VIEW_LOCATION_NODE_BY_PARENT("VIEW_LOCATION_NODE_BY_PARENT", "Views location hierarchy node by parent"),
     VIEW_LOCATION_NODE_BY_FILTERS("VIEW_LOCATION_NODE_BY_FILTERS", "Views location hierarchy nodes by filters"),
-    DELETE_LOCATION_NODE("DELETE_LOCATION_NODE", "Soft-deletes location hierarchy node");
+    DELETE_LOCATION_NODE("DELETE_LOCATION_NODE", "Soft-deletes location hierarchy node"),
+    EXPORT_LOCATION_NODE("EXPORT_LOCATION_NODE", "Exports location hierarchy nodes"),
+    IMPORT_LOCATION_NODE("IMPORT_LOCATION_NODE", "Imports location hierarchy nodes from CSV");
 
     private final String roleName;
     private final String description;

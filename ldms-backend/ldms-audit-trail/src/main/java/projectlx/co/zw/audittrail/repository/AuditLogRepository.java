@@ -33,14 +33,36 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
                     + "(:eventType IS NULL OR a.eventType = :eventType) AND "
                     + "(:httpStatusCode IS NULL OR a.httpStatusCode = :httpStatusCode) AND "
                     + "(:from IS NULL OR a.requestTimestamp >= :from) AND "
-                    + "(:to IS NULL OR a.requestTimestamp <= :to)",
+                    + "(:to IS NULL OR a.requestTimestamp <= :to) AND "
+                    + "(:action IS NULL OR LOWER(COALESCE(a.action, '')) LIKE LOWER(CONCAT('%', :action, '%'))) AND "
+                    + "(:requestUrl IS NULL OR LOWER(COALESCE(a.requestUrl, '')) LIKE LOWER(CONCAT('%', :requestUrl, '%'))) AND "
+                    + "(:httpMethod IS NULL OR LOWER(COALESCE(a.httpMethod, '')) LIKE LOWER(CONCAT('%', :httpMethod, '%'))) AND "
+                    + "(:traceId IS NULL OR LOWER(COALESCE(a.traceId, '')) LIKE LOWER(CONCAT('%', :traceId, '%'))) AND "
+                    + "(:searchValue IS NULL OR "
+                    + "LOWER(a.serviceName) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
+                    + "LOWER(COALESCE(a.username, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
+                    + "LOWER(COALESCE(a.traceId, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
+                    + "LOWER(COALESCE(a.action, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
+                    + "LOWER(COALESCE(a.requestUrl, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
+                    + "LOWER(COALESCE(a.httpMethod, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')))",
             countQuery = "SELECT COUNT(a) FROM AuditLog a WHERE "
                     + "(:serviceName IS NULL OR a.serviceName = :serviceName) AND "
                     + "(:username IS NULL OR a.username = :username) AND "
                     + "(:eventType IS NULL OR a.eventType = :eventType) AND "
                     + "(:httpStatusCode IS NULL OR a.httpStatusCode = :httpStatusCode) AND "
                     + "(:from IS NULL OR a.requestTimestamp >= :from) AND "
-                    + "(:to IS NULL OR a.requestTimestamp <= :to)")
+                    + "(:to IS NULL OR a.requestTimestamp <= :to) AND "
+                    + "(:action IS NULL OR LOWER(COALESCE(a.action, '')) LIKE LOWER(CONCAT('%', :action, '%'))) AND "
+                    + "(:requestUrl IS NULL OR LOWER(COALESCE(a.requestUrl, '')) LIKE LOWER(CONCAT('%', :requestUrl, '%'))) AND "
+                    + "(:httpMethod IS NULL OR LOWER(COALESCE(a.httpMethod, '')) LIKE LOWER(CONCAT('%', :httpMethod, '%'))) AND "
+                    + "(:traceId IS NULL OR LOWER(COALESCE(a.traceId, '')) LIKE LOWER(CONCAT('%', :traceId, '%'))) AND "
+                    + "(:searchValue IS NULL OR "
+                    + "LOWER(a.serviceName) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
+                    + "LOWER(COALESCE(a.username, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
+                    + "LOWER(COALESCE(a.traceId, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
+                    + "LOWER(COALESCE(a.action, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
+                    + "LOWER(COALESCE(a.requestUrl, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
+                    + "LOWER(COALESCE(a.httpMethod, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')))")
     Page<AuditLog> search(
             @Param("serviceName") String serviceName,
             @Param("username") String username,
@@ -48,6 +70,11 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
             @Param("httpStatusCode") Integer httpStatusCode,
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
+            @Param("searchValue") String searchValue,
+            @Param("action") String action,
+            @Param("requestUrl") String requestUrl,
+            @Param("httpMethod") String httpMethod,
+            @Param("traceId") String traceId,
             Pageable pageable);
 
     @Query("SELECT COUNT(a) FROM AuditLog a WHERE a.serviceName = :sn AND a.requestTimestamp >= :from")

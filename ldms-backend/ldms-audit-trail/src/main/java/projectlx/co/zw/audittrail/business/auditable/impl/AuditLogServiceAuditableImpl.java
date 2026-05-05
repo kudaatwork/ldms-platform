@@ -42,8 +42,25 @@ public class AuditLogServiceAuditableImpl implements AuditLogServiceAuditable {
             Integer httpStatusCode,
             LocalDateTime from,
             LocalDateTime to,
+            String searchValue,
+            String action,
+            String requestUrl,
+            String httpMethod,
+            String traceId,
             Pageable pageable) {
-        return auditLogRepository.search(serviceName, username, eventType, httpStatusCode, from, to, pageable);
+        return auditLogRepository.search(
+                serviceName,
+                username,
+                eventType,
+                httpStatusCode,
+                from,
+                to,
+                searchValue,
+                action,
+                requestUrl,
+                httpMethod,
+                traceId,
+                pageable);
     }
 
     @Override
