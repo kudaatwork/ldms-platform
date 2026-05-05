@@ -25,7 +25,7 @@ spring:
         accept-empty: false
         git:
           # Remote default; for local Git files use an absolute file URI, e.g.
-          #   LDMS_CONFIG_GIT_URI=file:/Users/you/IdeaProjects/ldms-platform/config-repo
+          #   LDMS_CONFIG_GIT_URI=file:/Users/you/IdeaProjects/ldms-config-repo
           # (must be a bare repo or directory with .git — same layout as GitHub ldms-config-repo: dev/*.yml)
           uri: ${LDMS_CONFIG_GIT_URI:https://github.com/kudaatwork/ldms-config-repo.git}
           clone-on-start: true

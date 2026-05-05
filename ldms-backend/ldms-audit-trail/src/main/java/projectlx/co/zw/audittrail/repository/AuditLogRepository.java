@@ -1,10 +1,12 @@
 package projectlx.co.zw.audittrail.repository;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import projectlx.co.zw.audittrail.model.AuditEventType;
@@ -99,4 +101,13 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
             "SELECT a.httpStatusCode, COUNT(a) FROM AuditLog a WHERE a.serviceName = :sn AND a.requestTimestamp >= :from "
                     + "GROUP BY a.httpStatusCode")
     List<Object[]> countByHttpStatusInWindow(@Param("sn") String serviceName, @Param("from") LocalDateTime from);
+
+    @Query(
+            "SELECT MIN(a.requestTimestamp) AS oldestRequestTimestamp, MAX(a.requestTimestamp) AS newestRequestTimestamp "
+                    + "FROM AuditLog a")
+    AuditLogRangeProjection findTimestampRange();
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = "DELETE FROM audit_log WHERE id IN (:ids)", nativeQuery = true)
+    int deleteByIds(@Param("ids") Collection<Long> ids);
 }
