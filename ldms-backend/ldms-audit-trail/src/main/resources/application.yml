@@ -1,4 +1,9 @@
 spring:
+  batch:
+    jdbc:
+      initialize-schema: never
+    job:
+      enabled: false
   application:
     name: ldms-audit-trail
   profiles:
@@ -19,3 +24,10 @@ spring:
 logging:
   level:
     org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration: ERROR
+
+ldms:
+  audit:
+    churn:
+      scheduler-enabled: true
+      chunk-size: 10000
+      job-pool-size: 4

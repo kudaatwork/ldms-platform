@@ -13,6 +13,10 @@ public enum I18Code {
     AUDIT_LOG_RETRIEVED_SUCCESS("audit.log.retrieved.success"),
     AUDIT_LOG_TRACE_RETRIEVED_SUCCESS("audit.log.trace.retrieved.success"),
     AUDIT_LOG_STATS_RETRIEVED_SUCCESS("audit.log.stats.retrieved.success"),
+    AUDIT_LOG_CHURN_OUT_SUCCESS("audit.log.churn.out.success"),
+    AUDIT_LOG_CHURN_OUT_FAILED("audit.log.churn.out.failed"),
+    AUDIT_LOG_CHURN_LAUNCH_ACCEPTED("audit.log.churn.launch.accepted"),
+    AUDIT_LOG_CHURN_ALREADY_RUNNING("audit.log.churn.already.running"),
 
     AUDIT_LOG_VALIDATION_PAGE_INVALID("audit.log.validation.page.invalid"),
     AUDIT_LOG_VALIDATION_SIZE_INVALID("audit.log.validation.size.invalid"),

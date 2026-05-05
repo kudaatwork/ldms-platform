@@ -5,6 +5,7 @@ import { Title } from '@angular/platform-browser';
 import { PageEvent } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableDataSource } from '@angular/material/table';
+import { ActivatedRoute } from '@angular/router';
 import { catchError, finalize, of } from 'rxjs';
 import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
 import { environment } from '../../../../../environments/environment';
@@ -14,6 +15,7 @@ import {
   AuditLogResponse,
 } from '../../services/audit-log-admin.service';
 import { AuditLogRequestDetailDialogComponent } from '../../components/audit-log-request-detail-dialog/audit-log-request-detail-dialog.component';
+import { ChurnOutConfirmDialogComponent } from '../../components/churn-out-confirm-dialog/churn-out-confirm-dialog.component';
 import type { RequestLogRow } from '../../models/request-log-row.model';
 
 export interface ActivityRow {
@@ -42,6 +44,8 @@ export interface RequestColumnFilters {
 })
 export class ActivityPageComponent implements OnInit {
   loading = true;
+  showActivitySection = true;
+  showRequestSection = true;
   requestLoading = false;
   requestExporting = false;
   requestTotalElements = 0;
@@ -172,6 +176,7 @@ export class ActivityPageComponent implements OnInit {
 
   constructor(
     private readonly title: Title,
+    private readonly route: ActivatedRoute,
     private readonly auditLogAdmin: AuditLogAdminService,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
@@ -250,10 +255,14 @@ export class ActivityPageComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.title.setTitle('Audit & activity | LX Admin');
+    const viewMode = String(this.route.snapshot.data['activityView'] ?? 'request').toLowerCase();
+    this.showRequestSection = viewMode !== 'activity';
+    this.showActivitySection = viewMode !== 'request';
+
+    this.title.setTitle(this.showRequestSection ? 'Request logs | LX Admin' : 'Activity logs | LX Admin');
     this.dataSource = [...this.mockRows];
     this.loading = false;
-    if (environment.useMocks) {
+    if (environment.useMocks || !this.showRequestSection) {
       this.applyRequestRows([...this.mockRequestRows], this.mockRequestRows.length);
       return;
     }
@@ -329,11 +338,61 @@ export class ActivityPageComponent implements OnInit {
 
   /** Placeholder: will call a backend endpoint to truncate / purge persisted request logs. */
   onRequestLogChurnOut(): void {
-    this.snackBar.open(
-      'Churn Out is not wired yet. This action will eventually delete all request log rows from the database.',
-      'Dismiss',
-      { duration: 6000 },
-    );
+    if (environment.useMocks) {
+      this.snackBar.open('Churn Out is disabled while mocks are enabled.', 'Dismiss', { duration: 4000 });
+      return;
+    }
+    this.dialog
+      .open(ChurnOutConfirmDialogComponent, {
+        width: '420px',
+        maxWidth: '95vw',
+        autoFocus: 'first-tabbable',
+        data: { entityLabel: 'request logs' },
+      })
+      .afterClosed()
+      .subscribe((confirmed: boolean | undefined) => {
+        if (confirmed !== true) {
+          return;
+        }
+        this.executeRequestLogChurnOut();
+      });
+  }
+
+  private executeRequestLogChurnOut(): void {
+    this.requestLoading = true;
+    this.auditLogAdmin
+      .churnOutRequestLogs()
+      .pipe(
+        finalize(() => {
+          this.requestLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          const launch = response.churnLaunch;
+          if (launch?.jobExecutionId != null) {
+            this.snackBar.open(
+              `Churn job started (${launch.triggerType ?? 'MANUAL'}) — execution #${launch.jobExecutionId}, batch ${launch.batchReference}. Logs will clear when the job finishes.`,
+              'Dismiss',
+              { duration: 8000 },
+            );
+          } else {
+            this.snackBar.open(response.message ?? 'Churn request accepted.', 'Dismiss', { duration: 6000 });
+          }
+          this.requestPageIndex = 0;
+          setTimeout(() => this.loadRequestLogs(), 1500);
+        },
+        error: (err: HttpErrorResponse) => {
+          const body = err.error as AuditLogResponse | undefined;
+          const msg =
+            body?.message ??
+            (err.status === 409
+              ? 'A churn job is already running. Try again later.'
+              : 'Churn out failed. Please try again or contact support.');
+          this.snackBar.open(msg, 'Dismiss', { duration: 6000 });
+        },
+      });
   }
 
   private openRequestLogDetailDialog(row: RequestLogRow): void {
