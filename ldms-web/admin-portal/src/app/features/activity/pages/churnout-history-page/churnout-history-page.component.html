@@ -1,0 +1,130 @@
+<section class="audit-section">
+  <div class="lx-card">
+    <h2 class="lc-title">Churnout history</h2>
+    <p class="lc-lead">Execution records for manual and scheduled request-log churn jobs.</p>
+
+    <div class="lx-filter-panel">
+      <span class="lx-filter-panel__label">Filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Trigger Type</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">bolt</mat-icon>
+            <select [(ngModel)]="filters.triggerType">
+              <option value="">All</option>
+              <option *ngFor="let option of triggerTypeOptions" [value]="option">{{ option }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Status</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">task_alt</mat-icon>
+            <select [(ngModel)]="filters.status">
+              <option value="">All</option>
+              <option *ngFor="let option of statusOptions" [value]="option">{{ option }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Triggered By</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">person</mat-icon>
+            <input [(ngModel)]="filters.triggeredBy" placeholder="Username or actor" />
+          </div>
+        </div>
+
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Batch Reference</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input [(ngModel)]="filters.batchReference" placeholder="Batch id" />
+          </div>
+        </div>
+
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">From</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">calendar_month</mat-icon>
+            <input type="datetime-local" [(ngModel)]="filters.from" />
+          </div>
+        </div>
+
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">To</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">event</mat-icon>
+            <input type="datetime-local" [(ngModel)]="filters.to" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lx-filter-actions">
+      <button type="button" class="lx-btn lx-btn-primary" (click)="applyFilters()">Apply Filters</button>
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="resetFilters()">Reset</button>
+      <button type="button" class="lx-btn lx-btn-success" [disabled]="exporting" (click)="export('csv')">Export CSV</button>
+      <button type="button" class="lx-btn lx-btn-success" [disabled]="exporting" (click)="export('xlsx')">
+        Export XLSX
+      </button>
+      <button type="button" class="lx-btn lx-btn-success" [disabled]="exporting" (click)="export('pdf')">Export PDF</button>
+    </div>
+
+    <div class="lx-table-loading" *ngIf="loading && dataSource.data.length === 0">
+      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+      <p class="lx-table-loading__text">Loading churnout history…</p>
+    </div>
+
+    <ng-container *ngIf="dataSource.data.length > 0">
+      <div class="lx-table-wrap">
+        <table mat-table [dataSource]="dataSource" class="lx-mat-table">
+          <ng-container matColumnDef="triggeredAt">
+            <th mat-header-cell *matHeaderCellDef>Triggered At</th>
+            <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.triggeredAt | date: 'medium' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="triggerType">
+            <th mat-header-cell *matHeaderCellDef>Type</th>
+            <td mat-cell *matCellDef="let row">{{ row.triggerType }}</td>
+          </ng-container>
+          <ng-container matColumnDef="triggeredBy">
+            <th mat-header-cell *matHeaderCellDef>Triggered By</th>
+            <td mat-cell *matCellDef="let row">{{ row.triggeredBy }}</td>
+          </ng-container>
+          <ng-container matColumnDef="deletedLogCount">
+            <th mat-header-cell *matHeaderCellDef>Deleted Logs</th>
+            <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.deletedLogCount | number }}</td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row">{{ row.churnStatus ?? '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="batchReference">
+            <th mat-header-cell *matHeaderCellDef>Batch Reference</th>
+            <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.batchReference }}</td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      </div>
+      <mat-paginator
+        class="lx-table-paginator"
+        [length]="totalElements"
+        [pageIndex]="pageIndex"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="[20, 50, 100]"
+        [showFirstLastButtons]="true"
+        (page)="onPage($event)"
+      ></mat-paginator>
+    </ng-container>
+
+    <ng-container *ngIf="!loading && dataSource.data.length === 0">
+      <div class="lx-empty">
+        <mat-icon class="lx-empty-icon">history</mat-icon>
+        <div class="lx-empty-title">No churnout records</div>
+        <div class="lx-empty-sub">Runs will appear here after manual or scheduled churn jobs execute.</div>
+      </div>
+    </ng-container>
+  </div>
+</section>

@@ -2,6 +2,7 @@ package projectlx.co.zw.audittrail.service.processor.impl;
 
 import com.lowagie.text.DocumentException;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -11,7 +12,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import projectlx.co.zw.audittrail.business.logic.api.AuditLogService;
 import projectlx.co.zw.audittrail.service.processor.api.AuditLogProcessor;
+import projectlx.co.zw.audittrail.utils.dtos.AuditLogChurnHistoryDto;
 import projectlx.co.zw.audittrail.utils.dtos.AuditLogDto;
+import projectlx.co.zw.audittrail.utils.requests.AuditLogChurnHistoryFiltersRequest;
 import projectlx.co.zw.audittrail.utils.requests.AuditLogMultipleFiltersRequest;
 import projectlx.co.zw.audittrail.utils.responses.AuditLogResponse;
 
@@ -64,6 +67,12 @@ public class AuditLogProcessorImpl implements AuditLogProcessor {
     }
 
     @Override
+    public List<AuditLogChurnHistoryDto> loadAllMatchingChurnHistoryForExport(
+            AuditLogChurnHistoryFiltersRequest filters, Locale locale, String username) {
+        return auditLogService.loadAllMatchingChurnHistory(filters, locale, username);
+    }
+
+    @Override
     public byte[] exportToCsv(List<AuditLogDto> items) {
         return auditLogService.exportToCsv(items);
     }
@@ -76,6 +85,21 @@ public class AuditLogProcessorImpl implements AuditLogProcessor {
     @Override
     public byte[] exportToPdf(List<AuditLogDto> items) throws DocumentException {
         return auditLogService.exportToPdf(items);
+    }
+
+    @Override
+    public byte[] exportChurnHistoryToCsv(List<AuditLogChurnHistoryDto> items) {
+        return auditLogService.exportChurnHistoryToCsv(items);
+    }
+
+    @Override
+    public byte[] exportChurnHistoryToExcel(List<AuditLogChurnHistoryDto> items) throws IOException {
+        return auditLogService.exportChurnHistoryToExcel(items);
+    }
+
+    @Override
+    public byte[] exportChurnHistoryToPdf(List<AuditLogChurnHistoryDto> items) throws DocumentException {
+        return auditLogService.exportChurnHistoryToPdf(items);
     }
 
     @Override
@@ -120,6 +144,46 @@ public class AuditLogProcessorImpl implements AuditLogProcessor {
                 response.getStatusCode(),
                 response.isSuccess());
 
+        return response;
+    }
+
+    @Override
+    public AuditLogResponse getChurnOutHistory(int page, int size, Locale locale, String username) {
+        return getChurnOutHistory(page, size, null, null, null, null, null, null, locale, username);
+    }
+
+    @Override
+    public AuditLogResponse getChurnOutHistory(
+            int page,
+            int size,
+            String triggerType,
+            String status,
+            String triggeredBy,
+            String batchReference,
+            LocalDateTime from,
+            LocalDateTime to,
+            Locale locale,
+            String username) {
+        logger.info("Incoming churn history request from {}: page={}, size={}", username, page, size);
+        AuditLogResponse response = auditLogService.getChurnOutHistory(
+                page, size, triggerType, status, triggeredBy, batchReference, from, to, locale, username);
+        logger.info(
+                "Outgoing churn history response. statusCode={}, success={}",
+                response.getStatusCode(),
+                response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public AuditLogResponse churnOutRequestLogs(Locale locale, String username, String triggerType) {
+        logger.warn("Incoming audit log churn out request from {} via {}", username, triggerType);
+        AuditLogResponse response = auditLogService.churnOutRequestLogs(locale, username, triggerType);
+        logger.warn(
+                "Outgoing audit log churn launch. statusCode={}, success={}, jobExecutionId={}, batchReference={}",
+                response.getStatusCode(),
+                response.isSuccess(),
+                response.getChurnLaunch() != null ? response.getChurnLaunch().jobExecutionId() : null,
+                response.getChurnLaunch() != null ? response.getChurnLaunch().batchReference() : null);
         return response;
     }
 

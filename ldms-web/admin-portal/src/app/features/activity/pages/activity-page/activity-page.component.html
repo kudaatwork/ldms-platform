@@ -1,6 +1,6 @@
 <div class="lx-page lx-page--audit">
   <ng-container *ngIf="!loading; else skel">
-    <section class="audit-section" aria-labelledby="activity-log-heading">
+    <section class="audit-section" aria-labelledby="activity-log-heading" *ngIf="showActivitySection">
       <div class="lx-card lx-card--subsection">
         <h3 class="lx-controls-title">Table controls</h3>
         <p class="lx-controls-subtitle">Manage activity actions, search terms, and column filters.</p>
@@ -141,7 +141,7 @@
       </div>
     </section>
 
-    <section class="audit-section" aria-labelledby="requests-log-heading">
+    <section class="audit-section" aria-labelledby="requests-log-heading" *ngIf="showRequestSection">
       <div class="lx-card lx-card--subsection">
         <h3 class="lx-controls-title">Table controls</h3>
         <p class="lx-controls-subtitle">Manage request log actions, search terms, and column filters.</p>
@@ -169,7 +169,7 @@
               class="lx-btn lx-btn-ghost lx-btn-churn-out"
               (click)="onRequestLogChurnOut()"
               [disabled]="requestLoading"
-              matTooltip="Will purge all request logs from the database once implemented."
+              matTooltip="Permanently purges all request logs and records a churn history entry."
               matTooltipPosition="above"
             >
               Churn Out

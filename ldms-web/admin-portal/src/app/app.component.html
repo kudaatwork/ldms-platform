@@ -39,9 +39,9 @@
           <a
             *ngIf="collapsed"
             class="sb-item"
-            routerLink="/locations/countries"
-            [class.active]="currentUrl.startsWith('/locations')"
-            matTooltip="Locations"
+            [routerLink]="item.children[0].route"
+            [class.active]="currentUrl.startsWith(item.route)"
+            [matTooltip]="item.label"
             matTooltipPosition="right"
           >
             <div class="sb-icon">
@@ -53,16 +53,16 @@
             <button
               type="button"
               class="sb-item sb-item--parent"
-              [class.active]="isLocationsSectionActive(currentUrl)"
-              (click)="toggleLocations()"
+              [class.active]="isSectionActive(item.route, currentUrl)"
+              (click)="toggleGroup(item.route)"
             >
               <div class="sb-icon">
                 <mat-icon>{{ item.icon }}</mat-icon>
               </div>
               <span class="sb-label">{{ item.label }}</span>
-              <mat-icon class="sb-chevron">{{ locationsExpanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+              <mat-icon class="sb-chevron">{{ isGroupExpanded(item.route) ? 'expand_less' : 'expand_more' }}</mat-icon>
             </button>
-            <div class="sb-children" *ngIf="locationsExpanded">
+            <div class="sb-children" *ngIf="isGroupExpanded(item.route)">
               <a
                 *ngFor="let c of item.children; trackBy: trackByChildRoute"
                 class="sb-subitem"
