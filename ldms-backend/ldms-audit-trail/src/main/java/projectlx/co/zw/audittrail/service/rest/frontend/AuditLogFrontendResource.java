@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import java.time.LocalDateTime;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -22,8 +23,11 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.format.annotation.DateTimeFormat;
 import projectlx.co.zw.audittrail.service.processor.api.AuditLogProcessor;
+import projectlx.co.zw.audittrail.service.rest.AuditLogChurnHistoryExportResponseFactory;
 import projectlx.co.zw.audittrail.service.rest.AuditLogExportResponseFactory;
+import projectlx.co.zw.audittrail.utils.requests.AuditLogChurnHistoryFiltersRequest;
 import projectlx.co.zw.audittrail.utils.requests.AuditLogMultipleFiltersRequest;
 import projectlx.co.zw.audittrail.utils.responses.AuditLogResponse;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
@@ -135,5 +139,91 @@ public class AuditLogFrontendResource {
                     final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return auditLogProcessor.getServiceStats(serviceName, hours, locale, username);
+    }
+
+    @Auditable(action = "CHURN_OUT_AUDIT_LOGS")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.audittrail.utils.security.AuditLogRoles).CHURN_OUT_AUDIT_LOGS.toString())")
+    @PostMapping("/churn-out")
+    @Operation(summary = "Churn out request logs", description = "Purges all request logs and records an immutable churn history entry.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Churn out completed"),
+            @ApiResponse(responseCode = "500", description = "Churn out failed")
+    })
+    public AuditLogResponse churnOutRequestLogs(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+                    @RequestHeader(
+                            value = Constants.LOCALE_LANGUAGE,
+                            defaultValue = Constants.DEFAULT_LOCALE)
+                    final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return auditLogProcessor.churnOutRequestLogs(locale, username, "MANUAL");
+    }
+
+    @Auditable(action = "VIEW_CHURN_OUT_HISTORY")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.audittrail.utils.security.AuditLogRoles).CHURN_OUT_AUDIT_LOGS.toString())")
+    @GetMapping("/churn-history")
+    @Operation(summary = "Find churn out history", description = "Paged churn out execution history for request logs.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "History retrieved"),
+            @ApiResponse(responseCode = "400", description = "Invalid paging values")
+    })
+    public AuditLogResponse getChurnOutHistory(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String triggerType,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String triggeredBy,
+            @RequestParam(required = false) String batchReference,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+                    @RequestHeader(
+                            value = Constants.LOCALE_LANGUAGE,
+                            defaultValue = Constants.DEFAULT_LOCALE)
+                    final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return auditLogProcessor.getChurnOutHistory(
+                page, size, triggerType, status, triggeredBy, batchReference, from, to, locale, username);
+    }
+
+    @Auditable(action = "VIEW_CHURN_OUT_HISTORY")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.audittrail.utils.security.AuditLogRoles).CHURN_OUT_AUDIT_LOGS.toString())")
+    @PostMapping("/churn-history/find-by-multiple-filters")
+    @Operation(summary = "Find churn out history by multiple filters")
+    public AuditLogResponse findChurnOutHistoryByMultipleFilters(
+            @Valid @RequestBody AuditLogChurnHistoryFiltersRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+                    @RequestHeader(
+                            value = Constants.LOCALE_LANGUAGE,
+                            defaultValue = Constants.DEFAULT_LOCALE)
+                    final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return auditLogProcessor.getChurnOutHistory(
+                request.getPage(),
+                request.getSize(),
+                request.getTriggerType(),
+                request.getStatus(),
+                request.getTriggeredBy(),
+                request.getBatchReference(),
+                request.getFrom(),
+                request.getTo(),
+                locale,
+                username);
+    }
+
+    @Auditable(action = "VIEW_CHURN_OUT_HISTORY")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.audittrail.utils.security.AuditLogRoles).CHURN_OUT_AUDIT_LOGS.toString())")
+    @PostMapping("/churn-history/export")
+    @Operation(summary = "Export churn out history")
+    public ResponseEntity<byte[]> exportChurnOutHistory(
+            @Valid @RequestBody AuditLogChurnHistoryFiltersRequest request,
+            @RequestParam String format,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+                    @RequestHeader(
+                            value = Constants.LOCALE_LANGUAGE,
+                            defaultValue = Constants.DEFAULT_LOCALE)
+                    final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return AuditLogChurnHistoryExportResponseFactory.export(auditLogProcessor, request, format, locale, username, logger);
     }
 }

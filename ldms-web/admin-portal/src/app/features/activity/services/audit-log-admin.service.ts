@@ -54,6 +54,60 @@ export interface AuditLogResponse {
     content?: AuditLogDto[];
     totalElements?: number;
   };
+  churnOut?: AuditLogChurnOutDto;
+  churnLaunch?: AuditLogChurnLaunchDto;
+  churnHistoryPage?: {
+    content?: AuditLogChurnHistoryDto[];
+    totalElements?: number;
+  };
+}
+
+/** Immediate response when Spring Batch churn job is accepted (runs asynchronously). */
+export interface AuditLogChurnLaunchDto {
+  jobExecutionId: number;
+  batchReference: string;
+  acceptedAt: string;
+  triggerType: string;
+  triggeredBy: string;
+  message?: string;
+}
+
+export interface AuditLogChurnOutDto {
+  historyId: number;
+  triggerType: string;
+  triggeredBy: string;
+  triggeredAt: string;
+  deletedLogCount: number;
+  oldestRequestTimestamp?: string | null;
+  newestRequestTimestamp?: string | null;
+  batchReference: string;
+}
+
+export interface AuditLogChurnHistoryDto {
+  id: number;
+  batchReference: string;
+  triggerType: string;
+  triggeredBy: string;
+  triggeredAt: string;
+  deletedLogCount: number;
+  oldestRequestTimestamp?: string | null;
+  newestRequestTimestamp?: string | null;
+  churnStatus?: string;
+  jobExecutionId?: number | null;
+  failureReason?: string | null;
+  completedAt?: string | null;
+}
+
+export interface ChurnOutHistoryFilters {
+  page?: number;
+  size?: number;
+  searchValue?: string;
+  triggerType?: string;
+  status?: string;
+  triggeredBy?: string;
+  batchReference?: string;
+  from?: string;
+  to?: string;
 }
 
 /**
@@ -91,5 +145,33 @@ export class AuditLogAdminService {
       params,
       responseType: 'blob',
     });
+  }
+
+  churnOutRequestLogs(): Observable<AuditLogResponse> {
+    const url = `${this.base}/ldms-audit-trail/v1/${environment.apiSurface}/audit-log/churn-out`;
+    return this.http.post<AuditLogResponse>(url, {});
+  }
+
+  getChurnOutHistory(page = 0, size = 20, filters?: ChurnOutHistoryFilters): Observable<AuditLogResponse> {
+    const url = `${this.base}/ldms-audit-trail/v1/${environment.apiSurface}/audit-log/churn-history/find-by-multiple-filters`;
+    const body: ChurnOutHistoryFilters = {
+      page,
+      size,
+      searchValue: '',
+      triggerType: filters?.triggerType || undefined,
+      status: filters?.status || undefined,
+      triggeredBy: filters?.triggeredBy || undefined,
+      batchReference: filters?.batchReference || undefined,
+      from: filters?.from || undefined,
+      to: filters?.to || undefined,
+    };
+    return this.http.post<AuditLogResponse>(url, body);
+  }
+
+  exportChurnOutHistory(filters: ChurnOutHistoryFilters, format: 'csv' | 'xlsx' | 'pdf'): Observable<Blob> {
+    const url = `${this.base}/ldms-audit-trail/v1/${environment.apiSurface}/audit-log/churn-history/export`;
+    const apiFormat = format === 'xlsx' ? 'xlsx' : format;
+    const params = new HttpParams().set('format', apiFormat);
+    return this.http.post(url, filters, { params, responseType: 'blob' });
   }
 }

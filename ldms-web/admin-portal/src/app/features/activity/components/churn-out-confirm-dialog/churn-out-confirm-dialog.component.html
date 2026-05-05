@@ -1,0 +1,10 @@
+<div class="lx-delete-confirm">
+  <h2 mat-dialog-title>Churn out {{ entityLabel }}?</h2>
+  <mat-dialog-content>
+    This action cannot be undone. Are you sure you want to continue?
+  </mat-dialog-content>
+  <mat-dialog-actions align="end">
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="close(false)">Cancel</button>
+    <button type="button" class="lx-btn lx-btn-danger lx-btn-sm" (click)="close(true)">Churn Out</button>
+  </mat-dialog-actions>
+</div>
