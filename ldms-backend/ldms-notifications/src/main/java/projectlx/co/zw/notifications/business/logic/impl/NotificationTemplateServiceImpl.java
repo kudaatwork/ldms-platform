@@ -70,7 +70,7 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
     private final NotificationTemplateServiceAuditable notificationTemplateServiceAuditable;
 
     private static final String[] HEADERS = {
-            "ID", "TEMPLATE KEY", "DESCRIPTION", "CHANNELS", "EMAIL SUBJECT", "SMS BODY", "IN-APP TITLE", "WHATSAPP TEMPLATE NAME", 
+            "ID", "TEMPLATE KEY", "DESCRIPTION", "CHANNELS", "EMAIL SUBJECT", "SMS BODY", "IN-APP TITLE", "WHATSAPP TEMPLATE NAME", "WHATSAPP BODY",
             "ACTIVE", "CREATED AT", "UPDATED AT"
     };
 
@@ -116,11 +116,15 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
             templateToBeReactivated.setInAppTitle(createTemplateRequest.getInAppTitle());
             templateToBeReactivated.setInAppBody(createTemplateRequest.getInAppBody());
             templateToBeReactivated.setWhatsappTemplateName(createTemplateRequest.getWhatsappTemplateName());
+            templateToBeReactivated.setWhatsappBody(createTemplateRequest.getWhatsappBody());
             templateToBeReactivated.setActive(true);
             templateToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
             templateSaved = notificationTemplateServiceAuditable.update(templateToBeReactivated, locale, username);
         } else {
             NotificationTemplate templateToBeSaved = modelMapper.map(createTemplateRequest, NotificationTemplate.class);
+            // New templates should default to active unless explicitly deactivated later by admin action.
+            templateToBeSaved.setActive(true);
+            templateToBeSaved.setEntityStatus(EntityStatus.ACTIVE);
             templateSaved = notificationTemplateServiceAuditable.create(templateToBeSaved, locale, username);
         }
 
@@ -213,7 +217,30 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
         }
 
         NotificationTemplate templateToBeUpdated = templateRetrieved.get();
-        templateToBeUpdated.setActive(updateTemplateRequest.isActive());
+        String normalizedTemplateKey = updateTemplateRequest.getTemplateKey() != null
+                ? updateTemplateRequest.getTemplateKey().trim()
+                : null;
+        Optional<NotificationTemplate> templateByKey =
+                notificationTemplateRepository.findByTemplateKeyAndEntityStatusNot(normalizedTemplateKey, EntityStatus.DELETED);
+        if (templateByKey.isPresent() && !templateByKey.get().getId().equals(templateToBeUpdated.getId())) {
+            message = messageService.getMessage(I18Code.TEMPLATE_KEY_ALREADY_EXISTS.getCode(),
+                    new String[]{normalizedTemplateKey}, locale);
+            return buildTemplateResponse(400, false, message, null, null, null);
+        }
+
+        templateToBeUpdated.setTemplateKey(normalizedTemplateKey);
+        templateToBeUpdated.setDescription(updateTemplateRequest.getDescription());
+        templateToBeUpdated.setChannels(updateTemplateRequest.getChannels());
+        templateToBeUpdated.setEmailSubject(updateTemplateRequest.getEmailSubject());
+        templateToBeUpdated.setEmailBodyHtml(updateTemplateRequest.getEmailBodyHtml());
+        templateToBeUpdated.setSmsBody(updateTemplateRequest.getSmsBody());
+        templateToBeUpdated.setInAppTitle(updateTemplateRequest.getInAppTitle());
+        templateToBeUpdated.setInAppBody(updateTemplateRequest.getInAppBody());
+        templateToBeUpdated.setWhatsappTemplateName(updateTemplateRequest.getWhatsappTemplateName());
+        templateToBeUpdated.setWhatsappBody(updateTemplateRequest.getWhatsappBody());
+        if (updateTemplateRequest.getActive() != null) {
+            templateToBeUpdated.setActive(updateTemplateRequest.getActive());
+        }
 
         NotificationTemplate templateUpdated =
                 notificationTemplateServiceAuditable.update(templateToBeUpdated, locale, username);
@@ -304,7 +331,9 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
             spec = addToSpec(request.getSearchValue(), spec, NotificationTemplateSpecification::any);
         }
 
-        spec = addToSpec(request.isActive(), spec, NotificationTemplateSpecification::isActive);
+        if (request.getIsActive() != null) {
+            spec = addToSpec(request.getIsActive(), spec, NotificationTemplateSpecification::isActive);
+        }
 
         Page<NotificationTemplate> result = notificationTemplateRepository.findAll(spec, pageable);
 
@@ -340,6 +369,7 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                     .append(safe(template.getSmsBody())).append(",")
                     .append(safe(template.getInAppTitle())).append(",")
                     .append(safe(template.getWhatsappTemplateName())).append(",")
+                    .append(safe(template.getWhatsappBody())).append(",")
                     .append(template.isActive()).append(",")
                     .append(template.getCreatedAt()).append(",")
                     .append(template.getUpdatedAt()).append("\n");
@@ -350,37 +380,37 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
 
     @Override
     public byte[] exportToExcel(List<NotificationTemplateDto> templates) throws IOException {
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Templates");
 
-        Workbook workbook = new XSSFWorkbook();
-        Sheet sheet = workbook.createSheet("Templates");
+            Row header = sheet.createRow(0);
 
-        Row header = sheet.createRow(0);
+            for (int i = 0; i < HEADERS.length; i++) {
+                header.createCell(i).setCellValue(HEADERS[i]);
+            }
 
-        for (int i = 0; i < HEADERS.length; i++) {
-            header.createCell(i).setCellValue(HEADERS[i]);
+            int rowIdx = 1;
+
+            for (NotificationTemplateDto template : templates) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(template.getId());
+                row.createCell(1).setCellValue(safe(template.getTemplateKey()));
+                row.createCell(2).setCellValue(safe(template.getDescription()));
+                row.createCell(3).setCellValue(template.getChannels() != null ? template.getChannels().toString() : "");
+                row.createCell(4).setCellValue(safe(template.getEmailSubject()));
+                row.createCell(5).setCellValue(safe(template.getSmsBody()));
+                row.createCell(6).setCellValue(safe(template.getInAppTitle()));
+                row.createCell(7).setCellValue(safe(template.getWhatsappTemplateName()));
+                row.createCell(8).setCellValue(safe(template.getWhatsappBody()));
+                row.createCell(9).setCellValue(template.isActive());
+                row.createCell(10).setCellValue(template.getCreatedAt() != null ? template.getCreatedAt().toString() : "");
+                row.createCell(11).setCellValue(template.getUpdatedAt() != null ? template.getUpdatedAt().toString() : "");
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
         }
-
-        int rowIdx = 1;
-
-        for (NotificationTemplateDto template : templates) {
-            Row row = sheet.createRow(rowIdx++);
-            row.createCell(0).setCellValue(template.getId());
-            row.createCell(1).setCellValue(safe(template.getTemplateKey()));
-            row.createCell(2).setCellValue(safe(template.getDescription()));
-            row.createCell(3).setCellValue(template.getChannels() != null ? template.getChannels().toString() : "");
-            row.createCell(4).setCellValue(safe(template.getEmailSubject()));
-            row.createCell(5).setCellValue(safe(template.getSmsBody()));
-            row.createCell(6).setCellValue(safe(template.getInAppTitle()));
-            row.createCell(7).setCellValue(safe(template.getWhatsappTemplateName()));
-            row.createCell(8).setCellValue(template.isActive());
-            row.createCell(9).setCellValue(template.getCreatedAt() != null ? template.getCreatedAt().toString() : "");
-            row.createCell(10).setCellValue(template.getUpdatedAt() != null ? template.getUpdatedAt().toString() : "");
-        }
-
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        workbook.write(out);
-        workbook.close();
-        return out.toByteArray();
     }
 
     @Override
@@ -412,6 +442,7 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
             table.addCell(safe(template.getSmsBody()));
             table.addCell(safe(template.getInAppTitle()));
             table.addCell(safe(template.getWhatsappTemplateName()));
+            table.addCell(safe(template.getWhatsappBody()));
             table.addCell(String.valueOf(template.isActive()));
             table.addCell(template.getCreatedAt() != null ? template.getCreatedAt().toString() : "");
             table.addCell(template.getUpdatedAt() != null ? template.getUpdatedAt().toString() : "");
@@ -443,8 +474,11 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
         return spec;
     }
 
-    private Specification<NotificationTemplate> addToSpec(final boolean isActive, Specification<NotificationTemplate> spec, 
+    private Specification<NotificationTemplate> addToSpec(final Boolean isActive, Specification<NotificationTemplate> spec,
                                                       Function<Boolean, Specification<NotificationTemplate>> predicateMethod) {
+        if (isActive == null) {
+            return spec;
+        }
         Specification<NotificationTemplate> localSpec = Specification.where(predicateMethod.apply(isActive));
         spec = (spec == null) ? localSpec : spec.and(localSpec);
         return spec;
@@ -545,14 +579,19 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                     // Parse channels from CSV string (comma-separated list of channel names)
                     List<Channel> channelsList = new ArrayList<>();
                     String[] channelNames = templateDto.getChannels().split(",");
+                    boolean invalidChannel = false;
                     for (String channelName : channelNames) {
                         try {
                             channelsList.add(Channel.valueOf(channelName.trim()));
                         } catch (IllegalArgumentException e) {
                             failed++;
                             errors.add("Row " + rowNum + ": Invalid channel name: " + channelName.trim());
-                            continue;
+                            invalidChannel = true;
+                            break;
                         }
+                    }
+                    if (invalidChannel) {
+                        continue;
                     }
 
                     // Create a new template
@@ -566,6 +605,7 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                     template.setInAppTitle(templateDto.getInAppTitle());
                     template.setInAppBody(templateDto.getInAppBody());
                     template.setWhatsappTemplateName(templateDto.getWhatsappTemplateName());
+                    template.setWhatsappBody(templateDto.getWhatsappBody());
 
                     // Parse active status
                     if (templateDto.getActive() != null && !templateDto.getActive().isEmpty()) {
@@ -601,6 +641,7 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                         templateToBeReactivated.setInAppTitle(template.getInAppTitle());
                         templateToBeReactivated.setInAppBody(template.getInAppBody());
                         templateToBeReactivated.setWhatsappTemplateName(template.getWhatsappTemplateName());
+                        templateToBeReactivated.setWhatsappBody(template.getWhatsappBody());
                         templateToBeReactivated.setActive(template.isActive());
                         templateToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
                         notificationTemplateServiceAuditable.update(templateToBeReactivated, Locale.ENGLISH, CSV_IMPORT_ACTOR);

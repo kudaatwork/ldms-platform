@@ -1,5 +1,6 @@
 package projectlx.co.zw.notifications.utils.dtos;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,6 +24,8 @@ public class NotificationTemplateDto {
     private String inAppTitle;
     private String inAppBody;
     private String whatsappTemplateName;
+    private String whatsappBody;
+    @JsonProperty("isActive")
     private boolean isActive;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -40,6 +40,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTreeModule } from '@angular/material/tree';
 
 import { LxTablePaginatorDirective } from './directives/lx-table-paginator.directive';
+import { DeleteConfirmDialogComponent } from './components/delete-confirm-dialog/delete-confirm-dialog.component';
 
 const MATERIAL_MODULES = [
   MatAutocompleteModule,
@@ -89,12 +90,14 @@ const MATERIAL_MODULES = [
     LxTablePaginatorDirective,
     ...MATERIAL_MODULES,
   ],
+  declarations: [DeleteConfirmDialogComponent],
   exports: [
     CommonModule,
     RouterModule,
     FormsModule,
     ReactiveFormsModule,
     LxTablePaginatorDirective,
+    DeleteConfirmDialogComponent,
     ...MATERIAL_MODULES,
   ],
 })

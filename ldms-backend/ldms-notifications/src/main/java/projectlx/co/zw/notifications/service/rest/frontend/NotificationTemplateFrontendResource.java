@@ -1,6 +1,5 @@
 package projectlx.co.zw.notifications.service.rest.frontend;
 
-import com.lowagie.text.DocumentException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -197,15 +196,11 @@ public class NotificationTemplateFrontendResource {
                     data = notificationTemplateProcessor.exportToExcel(filters, username, locale);
                     headers.setContentDispositionFormData("attachment", filename + ".xlsx");
                     break;
-                case "pdf":
-                    data = notificationTemplateProcessor.exportToPdf(filters, username, locale);
-                    headers.setContentDispositionFormData("attachment", filename + ".pdf");
-                    break;
                 default:
                     return ResponseEntity.badRequest().body(("Invalid format: " + format).getBytes(StandardCharsets.UTF_8));
             }
             return new ResponseEntity<>(data, headers, HttpStatus.OK);
-        } catch (IOException | DocumentException e) {
+        } catch (IOException e) {
             logger.error("Error exporting notification templates: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(("Error exporting notification templates: " + e.getMessage()).getBytes(StandardCharsets.UTF_8));
