@@ -39,6 +39,14 @@ spring:
           uri: lb://ldms-location-management
           predicates:
             - Path=/ldms-locations/v1/frontend/**
+        - id: local-system-notifications
+          uri: lb://ldms-notifications
+          predicates:
+            - Path=/ldms-notifications/v1/system/**
+        - id: local-frontend-notifications
+          uri: lb://ldms-notifications
+          predicates:
+            - Path=/ldms-notifications/v1/frontend/**
 
 eureka:
   client:

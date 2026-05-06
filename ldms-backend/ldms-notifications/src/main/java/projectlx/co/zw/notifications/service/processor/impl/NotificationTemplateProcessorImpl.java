@@ -210,9 +210,9 @@ public class NotificationTemplateProcessorImpl implements NotificationTemplatePr
                 TemplateFormSectionDto.builder()
                         .sectionKey("whatsapp")
                         .sectionLabel("WhatsApp")
-                        .sectionDescription("Twilio/WhatsApp template name (Content SID). Shown when WhatsApp is selected.")
+                        .sectionDescription("Twilio/WhatsApp template name (Content SID) and message body. Shown when WhatsApp is selected.")
                         .order(6)
-                        .fieldKeys(List.of("whatsappTemplateName"))
+                        .fieldKeys(List.of("whatsappTemplateName", "whatsappBody"))
                         .build()
         );
 
@@ -243,7 +243,7 @@ public class NotificationTemplateProcessorImpl implements NotificationTemplatePr
             case EMAIL -> "Send as email (subject + HTML body).";
             case SMS -> "Send as SMS (max 320 chars).";
             case IN_APP -> "Show in-app notification (title + body).";
-            case WHATSAPP -> "Send via WhatsApp (Twilio template name required).";
+            case WHATSAPP -> "Send via WhatsApp (Twilio template name + body required).";
             case SLACK -> "Send to Slack via incoming webhook.";
             case TEAMS -> "Send to Microsoft Teams via incoming webhook.";
         };

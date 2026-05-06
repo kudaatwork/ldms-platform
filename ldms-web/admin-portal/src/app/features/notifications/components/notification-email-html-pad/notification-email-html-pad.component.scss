@@ -1,0 +1,241 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.lx-html-pad {
+  width: 100%;
+}
+
+.lx-html-pad__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200, #e2e8f0);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.lx-html-pad__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gray-700, #334155);
+  font-weight: 600;
+  font-size: 12px;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: #2563eb;
+  }
+}
+
+.lx-html-pad__actions {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.lx-html-pad__btn {
+  --mdc-outlined-button-label-text-color: var(--gray-700, #334155);
+  --mdc-outlined-button-outline-color: rgba(148, 163, 184, 0.5);
+  --mdc-outlined-button-hover-label-text-color: var(--gray-900, #0f172a);
+  --mdc-outlined-button-hover-outline-color: rgba(59, 130, 246, 0.45);
+  --mdc-outlined-button-container-shape: 10px;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 11px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  background: rgba(255, 255, 255, 0.65);
+
+  .mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    margin-right: 4px;
+    color: inherit;
+  }
+}
+
+.lx-html-pad__btn--primary {
+  --mdc-outlined-button-label-text-color: #1d4ed8;
+  --mdc-outlined-button-outline-color: rgba(37, 99, 235, 0.45);
+  --mdc-outlined-button-hover-label-text-color: #1e40af;
+  font-weight: 700;
+  background: rgba(219, 234, 254, 0.65);
+}
+
+.lx-html-pad--expanded .lx-html-pad-host {
+  min-height: 620px;
+}
+
+.lx-html-pad__syntax {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(248, 250, 252, 0.9);
+  color: var(--gray-700, #334155);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+
+  .mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+
+  &.is-ok {
+    border-color: rgba(16, 185, 129, 0.55);
+    background: rgba(16, 185, 129, 0.12);
+    color: #047857;
+  }
+
+  &.is-error {
+    border-color: rgba(239, 68, 68, 0.55);
+    background: rgba(239, 68, 68, 0.12);
+    color: #b91c1c;
+  }
+
+  &.is-unknown {
+    border-color: rgba(148, 163, 184, 0.45);
+    color: var(--gray-600, #475569);
+  }
+}
+
+.lx-html-pad-host {
+  width: 100%;
+  min-height: 280px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--gray-200, #e2e8f0);
+  background: var(--surface, #ffffff);
+  transition: border-color var(--ease-fast, 0.15s ease), box-shadow var(--ease-fast, 0.15s ease);
+
+  &:focus-within {
+    outline: none;
+    border-color: var(--primary, #2563eb);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary, #2563eb) 18%, transparent);
+  }
+}
+
+:host(.ng-invalid.ng-touched) .lx-html-pad-host {
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
+/* CodeMirror fills the host */
+:host ::ng-deep .cm-editor {
+  min-height: 100%;
+  height: 100%;
+}
+
+:host ::ng-deep .lx-html-pad--expanded .cm-editor {
+  min-height: 100%;
+}
+
+:host ::ng-deep .cm-editor.cm-focused {
+  outline: none;
+}
+
+html.theme-dark .lx-html-pad__toolbar {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: linear-gradient(180deg, #1e293b 0%, #17263c 100%);
+  box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
+}
+
+html.theme-dark .lx-html-pad__title {
+  color: var(--gray-100, #f1f5f9);
+}
+
+html.theme-dark .lx-html-pad__btn {
+  --mdc-outlined-button-label-text-color: var(--gray-100, #f1f5f9);
+  --mdc-outlined-button-outline-color: rgba(148, 163, 184, 0.45);
+  --mdc-outlined-button-hover-label-text-color: #ffffff;
+  --mdc-outlined-button-hover-outline-color: rgba(96, 165, 250, 0.8);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+html.theme-dark .lx-html-pad__btn--primary {
+  --mdc-outlined-button-label-text-color: #bfdbfe;
+  --mdc-outlined-button-outline-color: rgba(96, 165, 250, 0.55);
+  --mdc-outlined-button-hover-label-text-color: #dbeafe;
+  background: rgba(30, 58, 138, 0.28);
+}
+
+html.theme-dark .lx-html-pad__syntax {
+  border-color: rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.5);
+  color: var(--gray-100, #f1f5f9);
+
+  &.is-ok {
+    border-color: rgba(16, 185, 129, 0.55);
+    background: rgba(16, 185, 129, 0.2);
+    color: #6ee7b7;
+  }
+
+  &.is-error {
+    border-color: rgba(248, 113, 113, 0.6);
+    background: rgba(239, 68, 68, 0.2);
+    color: #fecaca;
+  }
+}
+
+.lx-html-pad__preview {
+  margin-top: 10px;
+  border: 1px solid var(--gray-200, #e2e8f0);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface, #ffffff);
+}
+
+.lx-html-pad__preview-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-700, #334155);
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+
+  .mat-icon {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+    color: #2563eb;
+  }
+}
+
+.lx-html-pad__preview-frame {
+  width: 100%;
+  min-height: 420px;
+  border: 0;
+  background: #ffffff;
+}
+
+html.theme-dark .lx-html-pad__preview {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: #1b2a40;
+}
+
+html.theme-dark .lx-html-pad__preview-title {
+  border-bottom-color: rgba(148, 163, 184, 0.35);
+  color: var(--gray-100, #f1f5f9);
+  background: linear-gradient(180deg, #1e293b 0%, #17263c 100%);
+}

@@ -51,4 +51,7 @@ public class CreateTemplateRequest {
     // === SECTION: WhatsApp (shown when WHATSAPP is in channels) ===
     @Schema(description = "Twilio/WhatsApp template name (Content SID). Required when WHATSAPP is selected in channels.")
     private String whatsappTemplateName;
+
+    @Schema(description = "WhatsApp message body. Supports Handlebars placeholders e.g. {{organizationName}}. Required when WHATSAPP is selected.")
+    private String whatsappBody;
 }

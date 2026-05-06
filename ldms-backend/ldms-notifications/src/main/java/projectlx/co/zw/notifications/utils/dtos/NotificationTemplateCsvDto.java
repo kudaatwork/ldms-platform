@@ -35,6 +35,9 @@ public class NotificationTemplateCsvDto {
     
     @CsvBindByName(column = "WHATSAPP TEMPLATE NAME")
     private String whatsappTemplateName;
+
+    @CsvBindByName(column = "WHATSAPP BODY")
+    private String whatsappBody;
     
     @CsvBindByName(column = "ACTIVE")
     private String active;

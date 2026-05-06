@@ -928,6 +928,14 @@ html.theme-dark .lx-table-paginator.mat-mdc-paginator {
     border-radius: 12px !important;
     background-color: var(--surface) !important;
     box-shadow: none !important;
+    /* Inner `.mdc-text-field` defaults to small / asymmetric radii — clip like native `.lx-input-shell`. */
+    overflow: hidden !important;
+  }
+
+  .mat-mdc-text-field-wrapper.mdc-text-field--outlined,
+  .mat-mdc-text-field-wrapper .mdc-text-field,
+  .mdc-text-field--outlined {
+    border-radius: 12px !important;
   }
 
   &.mat-focused .mat-mdc-text-field-wrapper {
@@ -942,6 +950,18 @@ html.theme-dark .lx-table-paginator.mat-mdc-paginator {
 
   .mat-mdc-form-field-focus-overlay {
     opacity: 0 !important;
+  }
+
+  /* Province / location modals use native `<select>` — no MDC ripple line. Hide the filled-field
+     active-indicator strip that can still appear under outlined mat-select wrappers. */
+  .mdc-line-ripple {
+    display: none !important;
+  }
+
+  .mdc-line-ripple::before,
+  .mdc-line-ripple::after {
+    content: none !important;
+    border: none !important;
   }
 
   .mat-mdc-form-field-infix {
@@ -994,11 +1014,14 @@ html.theme-dark .lx-table-paginator.mat-mdc-paginator {
 
 html.theme-dark .mat-mdc-form-field-appearance-outline:has(mat-select),
 html.theme-dark .lx-mat-field-select.mat-mdc-form-field-appearance-outline {
+  /* Match `html.theme-dark .lx-input-shell` exactly (Administrative Level Country field). */
   .mat-mdc-text-field-wrapper {
+    background-color: #1b2a40 !important;
     border-color: rgba(148, 163, 184, 0.35) !important;
   }
 
   &.mat-focused .mat-mdc-text-field-wrapper {
+    border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.32) !important;
   }
 
@@ -1010,8 +1033,18 @@ html.theme-dark .lx-mat-field-select.mat-mdc-form-field-appearance-outline {
     color: var(--gray-100, #f1f5f9);
   }
 
+  /* Native Country select uses mute placeholder tint; avoids harsh contrast. */
   .mat-mdc-select-placeholder {
-    color: var(--gray-500) !important;
+    color: var(--gray-500, #64748b) !important;
+  }
+
+  /* Same downward chevron treatment as `.lx-input-shell select` dark SVG */
+  .mat-mdc-select-arrow {
+    color: #89a1c2;
+  }
+
+  .mat-mdc-form-field-icon-prefix mat-icon.mat-icon {
+    color: var(--gray-400, #94a3b8);
   }
 }
 
@@ -1299,6 +1332,11 @@ html.theme-dark .lx-select option {
 }
 
 /* Angular Material — mat-select overlay (also styles mat-option in autocomplete where applicable) */
+.cdk-overlay-pane:has(.mat-mdc-select-panel) {
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
 .mat-mdc-select-panel {
   border-radius: 12px !important;
   border: 1px solid var(--gray-200);
@@ -1308,6 +1346,21 @@ html.theme-dark .lx-select option {
   padding: 6px 0 !important;
   margin-top: 4px;
   overflow: hidden;
+}
+
+/* Notification template Channels multi-select — keep panel scrollable, not taller than viewport */
+.mat-mdc-select-panel.ntf-channels-select-panel {
+  max-height: min(320px, 50vh) !important;
+}
+
+.mat-mdc-select-panel .mat-mdc-option:first-of-type {
+  border-top-left-radius: 10px !important;
+  border-top-right-radius: 10px !important;
+}
+
+.mat-mdc-select-panel .mat-mdc-option:last-of-type {
+  border-bottom-left-radius: 10px !important;
+  border-bottom-right-radius: 10px !important;
 }
 
 .mat-mdc-select-panel .mat-mdc-option {
