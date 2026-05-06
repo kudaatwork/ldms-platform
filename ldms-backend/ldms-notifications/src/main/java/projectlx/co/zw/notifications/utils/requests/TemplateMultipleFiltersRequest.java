@@ -14,5 +14,5 @@ public class TemplateMultipleFiltersRequest extends MultipleFiltersRequest {
     private List<String> channels;
     private String inAppTitle;
     private String whatsappTemplateName;
-    private boolean isActive;
+    private Boolean isActive;
 }

@@ -16,4 +16,9 @@ export class NotificationTemplateDetailDialogComponent {
   channelsText(t: NotificationTemplateRow): string {
     return t.channels.join(', ');
   }
+
+  asText(value: string | null | undefined): string {
+    const next = String(value ?? '').trim();
+    return next.length ? next : '—';
+  }
 }

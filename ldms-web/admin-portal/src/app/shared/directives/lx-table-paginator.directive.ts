@@ -2,6 +2,7 @@ import { Directive, OnInit, inject } from '@angular/core';
 import { MatPaginator, MatPaginatorSelectConfig } from '@angular/material/paginator';
 
 const PANEL_CLASS = 'lx-table-paginator-select-panel';
+const DEFAULT_PAGE_SIZE = 20;
 
 function mergePanelClass(
   existing: MatPaginatorSelectConfig['panelClass'] | undefined,
@@ -43,5 +44,12 @@ export class LxTablePaginatorDirective implements OnInit {
       panelClass: mergePanelClass(c.panelClass, PANEL_CLASS),
       disableOptionCentering: c.disableOptionCentering ?? true,
     };
+
+    // Enforce a consistent default across all table pages.
+    this.paginator.pageSize = DEFAULT_PAGE_SIZE;
+    const sizes = Array.isArray(this.paginator.pageSizeOptions) ? this.paginator.pageSizeOptions : [];
+    this.paginator.pageSizeOptions = sizes.includes(DEFAULT_PAGE_SIZE)
+      ? sizes
+      : [DEFAULT_PAGE_SIZE, ...sizes].sort((a, b) => a - b);
   }
 }

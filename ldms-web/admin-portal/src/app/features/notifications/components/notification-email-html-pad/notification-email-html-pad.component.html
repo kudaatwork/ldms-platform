@@ -1,0 +1,89 @@
+<div class="lx-html-pad" [class.lx-html-pad--expanded]="expanded">
+  <div class="lx-html-pad__toolbar">
+    <div class="lx-html-pad__title">
+      <mat-icon>code</mat-icon>
+      <span>HTML + CSS Editor</span>
+    </div>
+    <div
+      class="lx-html-pad__syntax"
+      [class.is-ok]="syntaxState === 'ok'"
+      [class.is-error]="syntaxState === 'error'"
+      [class.is-unknown]="syntaxState === 'unknown'"
+      [attr.title]="syntaxMessage"
+    >
+      <mat-icon>{{ syntaxState === 'ok' ? 'check_circle' : syntaxState === 'error' ? 'error' : 'help' }}</mat-icon>
+      <span>
+        {{
+          syntaxState === 'ok'
+            ? 'Syntax valid'
+            : syntaxState === 'error'
+              ? 'Syntax issue'
+              : 'Not checked'
+        }}
+      </span>
+    </div>
+    <div class="lx-html-pad__actions">
+      <button
+        mat-stroked-button
+        type="button"
+        class="lx-html-pad__btn lx-html-pad__btn--primary"
+        (click)="formatAll()"
+        [disabled]="isDisabled || formatting"
+      >
+        <mat-icon>auto_fix_high</mat-icon>
+        <span>Format all</span>
+      </button>
+      <button mat-stroked-button type="button" class="lx-html-pad__btn" (click)="formatHtml()" [disabled]="isDisabled || formatting">
+        <mat-icon>html</mat-icon>
+        <span>HTML</span>
+      </button>
+      <button mat-stroked-button type="button" class="lx-html-pad__btn" (click)="formatCssBlocks()" [disabled]="isDisabled || formatting">
+        <mat-icon>css</mat-icon>
+        <span>CSS</span>
+      </button>
+      <button mat-stroked-button type="button" class="lx-html-pad__btn" (click)="validateSyntax()" [disabled]="isDisabled || formatting">
+        <mat-icon>rule</mat-icon>
+        <span>Validate</span>
+      </button>
+      <button mat-stroked-button type="button" class="lx-html-pad__btn" (click)="toggleWrap()">
+        <mat-icon>{{ wrapEnabled ? 'wrap_text' : 'notes' }}</mat-icon>
+        <span>{{ wrapEnabled ? 'No wrap' : 'Word wrap' }}</span>
+      </button>
+      <button mat-stroked-button type="button" class="lx-html-pad__btn" (click)="copyHtml()" [disabled]="isDisabled || formatting">
+        <mat-icon>{{ copySuccess ? 'check' : 'content_copy' }}</mat-icon>
+        <span>{{ copySuccess ? 'Copied' : 'Copy' }}</span>
+      </button>
+      <button mat-stroked-button type="button" class="lx-html-pad__btn" (click)="toggleExpanded()">
+        <mat-icon>{{ expanded ? 'unfold_less' : 'unfold_more' }}</mat-icon>
+        <span>{{ expanded ? 'Collapse' : 'Expand' }}</span>
+      </button>
+      <button mat-stroked-button type="button" class="lx-html-pad__btn" (click)="togglePreview()">
+        <mat-icon>{{ previewEnabled ? 'visibility_off' : 'visibility' }}</mat-icon>
+        <span>{{ previewEnabled ? 'Hide preview' : 'Show preview' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <div
+    #host
+    class="lx-html-pad-host"
+    role="textbox"
+    [style.height.px]="editorHeightPx"
+    [attr.aria-label]="'Email HTML body'"
+  ></div>
+
+  <div class="lx-html-pad__preview" *ngIf="previewEnabled">
+    <div class="lx-html-pad__preview-title">
+      <mat-icon>preview</mat-icon>
+      <span>Live Preview</span>
+    </div>
+    <iframe
+      #previewFrame
+      class="lx-html-pad__preview-frame"
+      title="Email preview"
+      [style.height.px]="previewHeightPx"
+      [srcdoc]="previewSrcDoc"
+      (load)="onPreviewLoaded()"
+    ></iframe>
+  </div>
+</div>

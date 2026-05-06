@@ -20,6 +20,7 @@ public class NotificationTemplate_ {
     public static volatile SingularAttribute<NotificationTemplate, String> inAppTitle;
     public static volatile SingularAttribute<NotificationTemplate, String> inAppBody;
     public static volatile SingularAttribute<NotificationTemplate, String> whatsappTemplateName;
+    public static volatile SingularAttribute<NotificationTemplate, String> whatsappBody;
     public static volatile SingularAttribute<NotificationTemplate, Boolean> isActive;
     public static volatile SingularAttribute<NotificationTemplate, LocalDateTime> createdAt;
     public static volatile SingularAttribute<NotificationTemplate, LocalDateTime> updatedAt;
