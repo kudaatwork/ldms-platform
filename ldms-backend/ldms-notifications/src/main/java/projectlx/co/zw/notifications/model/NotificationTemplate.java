@@ -60,6 +60,9 @@ public class NotificationTemplate {
     @Column(length = 255)
     private String whatsappTemplateName;
 
+    @Column(name = "whatsapp_body", columnDefinition = "TEXT")
+    private String whatsappBody;
+
     @Column(nullable = false)
     private boolean isActive = true;
 
@@ -71,6 +74,7 @@ public class NotificationTemplate {
 
     @PrePersist
     public void prePersist() {
+        whatsappBody = normalizeNewLines(whatsappBody);
         createdAt    = LocalDateTime.now();
         updatedAt    = createdAt;
         entityStatus = EntityStatus.ACTIVE;
@@ -78,6 +82,14 @@ public class NotificationTemplate {
 
     @PreUpdate
     public void preUpdate() {
+        whatsappBody = normalizeNewLines(whatsappBody);
         updatedAt = LocalDateTime.now();
+    }
+
+    private String normalizeNewLines(String value) {
+        if (value == null) {
+            return null;
+        }
+        return value.replace("\\n", "\n");
     }
 }

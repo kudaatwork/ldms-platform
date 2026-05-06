@@ -1,0 +1,4 @@
+TEMPLATE KEY,DESCRIPTION,CHANNELS,EMAIL SUBJECT,EMAIL BODY HTML,SMS BODY,IN-APP TITLE,IN-APP BODY,WHATSAPP TEMPLATE NAME,WHATSAPP BODY,ACTIVE
+ORDER_CONFIRMATION_EMAIL,Sent when an order is confirmed,EMAIL,Your order is confirmed,"<html><body><h1>Hello {{firstName}}</h1><p>Your order {{orderNumber}} is confirmed.</p></body></html>",,,,,,true
+ORDER_READY_SMS,Sent when an order is ready for collection,SMS,,,Your order {{orderNumber}} is ready for collection at {{branchName}}.,,,,true
+DRIVER_ASSIGNMENT_MULTI,Sent when a driver is assigned,IN_APP,WHATSAPP,,,Delivery assignment,Driver {{driverName}} is assigned to order {{orderNumber}}.,HX1234567890abcdef,Hi {{firstName}}, your order {{orderNumber}} is on the way.,true

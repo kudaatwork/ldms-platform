@@ -5,8 +5,16 @@ export interface NotificationTemplateRow {
   templateKey: string;
   description?: string;
   channels: NotificationChannel[];
+  emailBodyHtml?: string | null;
+  smsBody?: string | null;
+  inAppTitle?: string | null;
+  inAppBody?: string | null;
+  whatsappTemplateName?: string | null;
+  whatsappBody?: string | null;
   emailSubject?: string | null;
   isActive: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export type NotificationDeliveryStatus = 'PENDING' | 'SENT' | 'FAILED' | 'SKIPPED';
@@ -14,9 +22,9 @@ export type NotificationDeliveryStatus = 'PENDING' | 'SENT' | 'FAILED' | 'SKIPPE
 export interface NotificationLogRow {
   id: number;
   recipientDisplay: string;
-  channel: NotificationChannel;
+  channel: string;
   templateKey: string;
-  status: NotificationDeliveryStatus;
+  status: NotificationDeliveryStatus | string;
   sentAt: string;
   retryCount: number;
 }
@@ -33,17 +41,25 @@ export interface NotificationLogFilters {
   to?: Date | null;
 }
 
-/** Mirrors backend CreateTemplateRequest */
+export type NotificationLogExportFormat = 'csv' | 'excel';
+
+/** Mirrors backend CreateTemplateRequest — always sent as a single JSON object with all keys (strings may be ''). */
 export interface CreateTemplateRequest {
   templateKey: string;
   description: string;
   channels: NotificationChannel[];
-  emailSubject?: string;
-  emailBodyHtml?: string;
-  smsBody?: string;
-  inAppTitle?: string;
-  inAppBody?: string;
-  whatsappTemplateName?: string;
+  emailSubject: string;
+  emailBodyHtml: string;
+  smsBody: string;
+  inAppTitle: string;
+  inAppBody: string;
+  whatsappTemplateName: string;
+  whatsappBody: string;
+}
+
+export interface UpdateTemplateRequest extends CreateTemplateRequest {
+  id: number;
+  isActive: boolean;
 }
 
 /** Mirrors backend TemplateMultipleFiltersRequest (extends MultipleFiltersRequest). */
@@ -82,4 +98,14 @@ export interface TemplateResponse extends TemplateListResponse {
   addTemplateMetadata?: TemplateCreationMetadataDto;
 }
 
-export type TemplateExportFormat = 'csv' | 'excel' | 'pdf';
+export type TemplateExportFormat = 'csv' | 'excel';
+
+export interface TemplateImportSummary {
+  statusCode?: number;
+  isSuccess?: boolean;
+  message?: string;
+  total?: number;
+  success?: number;
+  failed?: number;
+  errors?: string[];
+}
