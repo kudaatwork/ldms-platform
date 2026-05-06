@@ -39,9 +39,15 @@ public class WhatsAppNotificationProviderServiceImpl implements NotificationProv
             return;
         }
 
-        String bodyForLogging = templateProcessor.process(template.getSmsBody(), request.getData());
+        String whatsappTemplateBody = template.getWhatsappBody();
+        if (whatsappTemplateBody == null || whatsappTemplateBody.isBlank()) {
+            // Backward compatibility for older templates saved before whatsappBody existed.
+            whatsappTemplateBody = template.getSmsBody();
+        }
+        // Keep Twilio markdown/newlines exactly as produced after template substitution.
+        String resolvedWhatsappBody = templateProcessor.process(whatsappTemplateBody, request.getData());
         NotificationLog logEntry = createLogEntry(request, "PENDING", null);
-        logEntry.setRenderedContent(bodyForLogging);
+        logEntry.setRenderedContent(resolvedWhatsappBody);
         notificationLogServiceAuditable.create(logEntry);
 
         try {
@@ -53,7 +59,7 @@ public class WhatsAppNotificationProviderServiceImpl implements NotificationProv
             // CORRECTED: Use the standard creator method, which is the most reliable.
             // This method is for sending freeform messages, suitable for the Twilio Sandbox
             // or for replies within a 24-hour user-initiated session.
-            Message message = Message.creator(to, from, bodyForLogging).create();
+            Message message = Message.creator(to, from, resolvedWhatsappBody).create();
 
             // NOTE FOR PRODUCTION: To send a pre-approved template, you would use this instead:
             /*

@@ -73,8 +73,9 @@ public class NotificationTemplateServiceValidatorImpl implements NotificationTem
                         }
                         break;
                     case WHATSAPP:
-                        if (request.getWhatsappTemplateName() == null || request.getWhatsappTemplateName().isEmpty()) {
-                            logger.info("Validation failed: WhatsApp template name is missing");
+                        if (request.getWhatsappTemplateName() == null || request.getWhatsappTemplateName().isEmpty() ||
+                                request.getWhatsappBody() == null || request.getWhatsappBody().isEmpty()) {
+                            logger.info("Validation failed: WhatsApp template name or body is missing");
                             errors.add(messageService.getMessage(I18Code.WHATSAPP_TEMPLATE_NAME_IS_MISSING.getCode(), new String[]{}, locale));
                         }
                         break;
@@ -104,7 +105,7 @@ public class NotificationTemplateServiceValidatorImpl implements NotificationTem
 
         if (isNullOrLessThanOne(id)) {
             logger.info("Validation failed: ID is null or less than one");
-            errors.add(messageService.getMessage(I18Code.DESCRIPTION_MISSING.getCode(), new String[]{}, locale));
+            errors.add(messageService.getMessage(I18Code.TEMPLATE_INVALID_ID.getCode(), new String[]{}, locale));
             return new ValidatorDto(false, null, errors);
         }
 
@@ -123,7 +124,65 @@ public class NotificationTemplateServiceValidatorImpl implements NotificationTem
 
         if (isNullOrLessThanOne(request.getId())) {
             logger.info("Validation failed: ID is null or less than one");
+            errors.add(messageService.getMessage(I18Code.TEMPLATE_INVALID_ID.getCode(), new String[]{}, locale));
+        }
+
+        if (request.getTemplateKey() == null || request.getTemplateKey().isEmpty()) {
+            logger.info("Validation failed: Template key is missing");
+            errors.add(messageService.getMessage(I18Code.NOTIFICATION_TEMPLATE_KEY_MISSING.getCode(), new String[]{}, locale));
+        }
+
+        if (request.getDescription() == null || request.getDescription().isEmpty()) {
+            logger.info("Validation failed: Description is missing");
             errors.add(messageService.getMessage(I18Code.DESCRIPTION_MISSING.getCode(), new String[]{}, locale));
+        }
+
+        if (request.getChannels() == null || request.getChannels().isEmpty()) {
+            logger.info("Validation failed: Channels list is empty or null");
+            errors.add(messageService.getMessage(I18Code.CHANNEL_LIST_IS_EMPTY_OR_NULL.getCode(), new String[]{"null"}, locale));
+        }
+
+        if (request.getChannels() != null) {
+            for (var channel : request.getChannels()) {
+                switch (channel) {
+                    case EMAIL:
+                        if (request.getEmailSubject() == null || request.getEmailSubject().isEmpty() ||
+                                request.getEmailBodyHtml() == null || request.getEmailBodyHtml().isEmpty()) {
+                            logger.info("Validation failed: Email content is missing");
+                            errors.add(messageService.getMessage(I18Code.EMAIL_CONTENT_IS_MISSING.getCode(), new String[]{}, locale));
+                        }
+                        break;
+                    case SMS:
+                        if (request.getSmsBody() == null || request.getSmsBody().isEmpty()) {
+                            logger.info("Validation failed: SMS content is missing");
+                            errors.add(messageService.getMessage(I18Code.SMS_CONTENT_IS_MISSING.getCode(), new String[]{}, locale));
+                        }
+                        break;
+                    case IN_APP:
+                        if (request.getInAppTitle() == null || request.getInAppTitle().isEmpty() ||
+                                request.getInAppBody() == null || request.getInAppBody().isEmpty()) {
+                            logger.info("Validation failed: In-app content is missing");
+                            errors.add(messageService.getMessage(I18Code.IN_APP_CONTENT_IS_MISSING.getCode(), new String[]{}, locale));
+                        }
+                        break;
+                    case WHATSAPP:
+                        if (request.getWhatsappTemplateName() == null || request.getWhatsappTemplateName().isEmpty() ||
+                                request.getWhatsappBody() == null || request.getWhatsappBody().isEmpty()) {
+                            logger.info("Validation failed: WhatsApp template name or body is missing");
+                            errors.add(messageService.getMessage(I18Code.WHATSAPP_TEMPLATE_NAME_IS_MISSING.getCode(), new String[]{}, locale));
+                        }
+                        break;
+                    case SLACK:
+                    case TEAMS:
+                        if ((request.getInAppBody() == null || request.getInAppBody().isEmpty()) &&
+                                (request.getSmsBody() == null || request.getSmsBody().isEmpty()) &&
+                                (request.getDescription() == null || request.getDescription().isEmpty())) {
+                            logger.info("Validation failed: Webhook channel content is missing");
+                            errors.add(messageService.getMessage(I18Code.IN_APP_CONTENT_IS_MISSING.getCode(), new String[]{}, locale));
+                        }
+                        break;
+                }
+            }
         }
 
         if (errors.isEmpty()) {

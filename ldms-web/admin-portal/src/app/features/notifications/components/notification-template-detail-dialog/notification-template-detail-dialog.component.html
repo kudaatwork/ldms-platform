@@ -1,14 +1,131 @@
-<h2 mat-dialog-title>Template detail</h2>
-<mat-dialog-content class="nt-detail">
-  <div class="nt-detail__row"><span class="nt-detail__k">Template code</span>{{ data.template.templateKey }}</div>
-  <div class="nt-detail__row"><span class="nt-detail__k">Subject</span>{{ data.template.emailSubject ?? '—' }}</div>
-  <div class="nt-detail__row"><span class="nt-detail__k">Channels</span>{{ channelsText(data.template) }}</div>
-  <div class="nt-detail__row nt-detail__row--block">
-    <span class="nt-detail__k">Description</span>
-    <p class="nt-detail__p">{{ data.template.description ?? '—' }}</p>
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Template detail</h2>
+      <p class="lx-dialog-subtitle">Read-only summary of this notification template.</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" mat-dialog-close>
+      <mat-icon>close</mat-icon>
+    </button>
   </div>
-  <div class="nt-detail__row"><span class="nt-detail__k">Active</span>{{ data.template.isActive ? 'Yes' : 'No' }}</div>
-</mat-dialog-content>
-<mat-dialog-actions align="end">
-  <button mat-flat-button mat-dialog-close color="primary">Close</button>
-</mat-dialog-actions>
+
+  <div class="lx-step-content nt-detail-body">
+    <div class="lx-form-grid">
+      <div class="lx-field span-2 nt-section-title">Identity</div>
+      <div class="lx-field">
+        <div class="lx-field-label">ID</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">pin</mat-icon>
+          <span class="nt-readonly-value">{{ data.template.id }}</span>
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <div class="lx-field-label">Template code</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+          <span class="nt-readonly-value">{{ data.template.templateKey }}</span>
+        </div>
+      </div>
+      <div class="lx-field">
+        <div class="lx-field-label">Status</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">toggle_on</mat-icon>
+          <span class="nt-readonly-value">{{ data.template.isActive ? 'Active' : 'Inactive' }}</span>
+        </div>
+      </div>
+      <div class="lx-field">
+        <div class="lx-field-label">Created at</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <span class="nt-readonly-value">
+            {{ data.template.createdAt ? (data.template.createdAt | date : 'medium') : '—' }}
+          </span>
+        </div>
+      </div>
+      <div class="lx-field">
+        <div class="lx-field-label">Updated at</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">update</mat-icon>
+          <span class="nt-readonly-value">
+            {{ data.template.updatedAt ? (data.template.updatedAt | date : 'medium') : '—' }}
+          </span>
+        </div>
+      </div>
+      <div class="lx-field span-2 nt-section-title">Routing</div>
+      <div class="lx-field span-2">
+        <div class="lx-field-label">Subject</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
+          <span class="nt-readonly-value">{{ asText(data.template.emailSubject) }}</span>
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <div class="lx-field-label">Channels</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">layers</mat-icon>
+          <span class="nt-readonly-value">{{ channelsText(data.template) }}</span>
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <div class="lx-field-label">Description</div>
+        <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <span class="nt-readonly-value nt-readonly-multiline">{{ asText(data.template.description) }}</span>
+        </div>
+      </div>
+      <div class="lx-field span-2 nt-section-title">Content Fields</div>
+
+      <div class="lx-field span-2">
+        <div class="lx-field-label">Email HTML body</div>
+        <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">code</mat-icon>
+          <pre class="nt-readonly-value nt-readonly-pre">{{ asText(data.template.emailBodyHtml) }}</pre>
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <div class="lx-field-label">SMS body</div>
+        <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">sms</mat-icon>
+          <span class="nt-readonly-value nt-readonly-multiline">{{ asText(data.template.smsBody) }}</span>
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <div class="lx-field-label">In-app title</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">notifications</mat-icon>
+          <span class="nt-readonly-value">{{ asText(data.template.inAppTitle) }}</span>
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <div class="lx-field-label">In-app body</div>
+        <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">description</mat-icon>
+          <span class="nt-readonly-value nt-readonly-multiline">{{ asText(data.template.inAppBody) }}</span>
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <div class="lx-field-label">WhatsApp template name (Content SID)</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">chat</mat-icon>
+          <span class="nt-readonly-value">{{ asText(data.template.whatsappTemplateName) }}</span>
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <div class="lx-field-label">WhatsApp body</div>
+        <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">message</mat-icon>
+          <span class="nt-readonly-value nt-readonly-multiline">{{ asText(data.template.whatsappBody) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="lx-step-actions">
+      <button mat-stroked-button type="button" mat-dialog-close>Close</button>
+    </div>
+  </div>
+</div>

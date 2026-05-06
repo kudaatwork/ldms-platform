@@ -33,7 +33,7 @@ import {
   type LocationFormDialogResult,
   type LocationFormDialogMode,
 } from '../location-form-dialog/location-form-dialog.component';
-import { DeleteConfirmDialogComponent } from '../delete-confirm-dialog/delete-confirm-dialog.component';
+import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 
 type Row = Record<string, unknown>;
 

@@ -1,4 +1,5 @@
 import { NgModule } from '@angular/core';
+import { NotificationEmailHtmlPadComponent } from './components/notification-email-html-pad/notification-email-html-pad.component';
 import { NotificationTemplateDetailDialogComponent } from './components/notification-template-detail-dialog/notification-template-detail-dialog.component';
 import { NotificationTemplateFormDialogComponent } from './components/notification-template-form-dialog/notification-template-form-dialog.component';
 import { NotificationsRoutingModule } from './notifications-routing.module';
@@ -8,6 +9,7 @@ import { SharedModule } from '@shared/shared.module';
 @NgModule({
   declarations: [
     NotificationsComponent,
+    NotificationEmailHtmlPadComponent,
     NotificationTemplateDetailDialogComponent,
     NotificationTemplateFormDialogComponent,
   ],
