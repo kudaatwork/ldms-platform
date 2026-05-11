@@ -1,0 +1,8 @@
+@use '../user-edit-profile-dialog/dialog-form.shared' as *;
+
+.ued-toggle-row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 4px;
+}

@@ -23,9 +23,10 @@ import net.sf.jmimemagic.MagicParseException;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -39,11 +40,22 @@ import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.i
 
 @RequiredArgsConstructor
 public class UserServiceValidatorImpl implements UserServiceValidator {
-    @Value("${constants.max-image-size:2048KB}")
+    @Value("${constants.max-image-size:15MB}")
     private String maxImageSize;
     private static final Logger logger = LoggerFactory.getLogger(UserServiceValidatorImpl.class);
-    private final List<String> executableExtensions =
-            Arrays.asList("application/x-executable", "application/x-msdos-program");
+
+    private static final Set<String> ALLOWED_IDENTIFICATION_MIME_BASE = Set.of(
+            "application/pdf",
+            "application/x-pdf",
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+            "image/heic",
+            "image/heif",
+            "image/tiff"
+    );
 
     private final MessageService messageService;
 
@@ -69,10 +81,14 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_REQUIRED_FIELDS_MISSING.getCode(), new String[]{}, locale));
         }
 
-        // Validate Identification - Accept if National ID or Passport Number is provided, even without file uploads
-        if (!isIdentificationInfoProvided(createUserRequest)) {
-            logger.info("Validation failed: No identification information provided");
+        // Identification: require at least one of (national id number + document) or (passport number + document).
+        // Document = non-empty multipart or an existing upload id (pre-staged file).
+        if (!hasAnyIdentificationNumber(createUserRequest)) {
+            logger.info("Validation failed: No identification number provided");
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_NO_IDENTIFICATION_PROVIDED.getCode(), new String[]{}, locale));
+        } else if (!isIdentificationWithDocumentComplete(createUserRequest)) {
+            logger.info("Validation failed: Identification number without matching document");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_IDENTIFICATION_DOCUMENT_MISSING.getCode(), new String[]{}, locale));
         }
 
         // Validate specific formats
@@ -111,28 +127,8 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_DATE_OF_BIRTH.getCode(), new String[]{}, locale));
         }
 
-        // File upload validation if files are provided (optional for organization-created users)
-        if (createUserRequest.getNationalIdUpload() != null && !createUserRequest.getNationalIdUpload().isEmpty()) {
-            try {
-                if (!isImageValid(createUserRequest.getNationalIdUpload())) {
-                    errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_IMAGE_UPLOAD.getCode(), new String[]{}, locale));
-                }
-            } catch (IOException e) {
-                logger.info("Error while validating National ID upload: {}", e.getMessage());
-                errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_IMAGE_UPLOAD.getCode(), new String[]{}, locale));
-            }
-        }
-
-        if (createUserRequest.getPassportUpload() != null && !createUserRequest.getPassportUpload().isEmpty()) {
-            try {
-                if (!isImageValid(createUserRequest.getPassportUpload())) {
-                    errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_IMAGE_UPLOAD.getCode(), new String[]{}, locale));
-                }
-            } catch (IOException e) {
-                logger.info("Error while validating Passport upload: {}", e.getMessage());
-                errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_IMAGE_UPLOAD.getCode(), new String[]{}, locale));
-            }
-        }
+        appendIdentificationUploadErrors(createUserRequest.getNationalIdUpload(), locale, errors);
+        appendIdentificationUploadErrors(createUserRequest.getPassportUpload(), locale, errors);
 
         if (errors.isEmpty()) {
             return new ValidatorDto(true, null, null);
@@ -232,17 +228,7 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_DATE_OF_BIRTH.getCode(), new String[]{}, locale));
         }
 
-        // Validate uploaded image if provided
-        if (editUserRequest.getNationalIdUpload() != null && !editUserRequest.getNationalIdUpload().isEmpty()) {
-            try {
-                if (!isImageValid(editUserRequest.getNationalIdUpload())) {
-                    errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_IMAGE_UPLOAD.getCode(), new String[]{}, locale));
-                }
-            } catch (IOException e) {
-                logger.info("Error encountered while validating image: {}", e.getMessage());
-                errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_IMAGE_UPLOAD.getCode(), new String[]{}, locale));
-            }
-        }
+        appendIdentificationUploadErrors(editUserRequest.getNationalIdUpload(), locale, errors);
 
         if (errors.isEmpty()) {
             return new ValidatorDto(true, null, null);
@@ -303,6 +289,9 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
 
     @Override
     public boolean isPhoneNumberValid(String phoneNumber) {
+        if (!StringUtils.hasText(phoneNumber)) {
+            return false;
+        }
         if (!isValidPhoneLocalPhoneNumber(phoneNumber)) {
             logger.info("Validation failed: Phone number is invalid");
             return false;
@@ -312,6 +301,9 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
 
     @Override
     public boolean isNationalIdValid(String nationalIdNumber) {
+        if (!StringUtils.hasText(nationalIdNumber)) {
+            return false;
+        }
         if (!isValidNationalIdNumber(nationalIdNumber)) {
             logger.info("Validation failed: National ID number is invalid");
             return false;
@@ -376,34 +368,75 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
         return false;
     }
 
-    private boolean isImageValid(MultipartFile multipartFile) throws IOException {
+    private void appendIdentificationUploadErrors(MultipartFile multipartFile, Locale locale, List<String> errors) {
+        if (multipartFile == null || multipartFile.isEmpty()) {
+            return;
+        }
+        try {
+            byte[] fileData = multipartFile.getBytes();
+            if (exceedsMaxIdentificationFileSize(fileData)) {
+                errors.add(messageService.getMessage(
+                        I18Code.MESSAGE_CREATE_USER_IDENTIFICATION_FILE_TOO_LARGE.getCode(),
+                        new String[]{humanReadableMaxImageSize()},
+                        locale));
+            } else if (!isAllowedIdentificationFile(fileData, multipartFile.getContentType())) {
+                errors.add(messageService.getMessage(
+                        I18Code.MESSAGE_CREATE_USER_IDENTIFICATION_FILE_TYPE_NOT_ALLOWED.getCode(),
+                        new String[]{},
+                        locale));
+            }
+        } catch (IOException e) {
+            logger.info("Error while validating identification upload: {}", e.getMessage());
+            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_IMAGE_UPLOAD.getCode(),
+                    new String[]{}, locale));
+        }
+    }
 
-        if (multipartFile == null) {
+    private boolean exceedsMaxIdentificationFileSize(byte[] fileData) {
+        return fileData.length > resolveMaxImageSizeBytes();
+    }
+
+    private String humanReadableMaxImageSize() {
+        return DataSize.ofBytes(resolveMaxImageSizeBytes()).toString();
+    }
+
+    private boolean isAllowedIdentificationFile(byte[] fileData, String declaredContentType) {
+        Optional<String> mimeOpt = normalizedMime(fileData, declaredContentType);
+        if (mimeOpt.isEmpty()) {
             return false;
         }
-
-        byte[] file = multipartFile.getBytes();
-
-        return !(checkImageSizeLimit(file) || checkIfFileTypeAndExtensionAreValid(file));
+        String mimeBase = mimeOpt.get();
+        if (mimeLooksDangerous(mimeBase)) {
+            return false;
+        }
+        return ALLOWED_IDENTIFICATION_MIME_BASE.contains(mimeBase);
     }
 
-    private Boolean checkImageSizeLimit(byte[] fileData) {
-        return resolveMaxImageSizeBytes() <= fileData.length;
-    }
-
-    private Boolean checkIfFileTypeAndExtensionAreValid(byte[] fileData) {
-
+    private Optional<String> normalizedMime(byte[] fileData, String declaredContentType) {
         try {
             MagicMatch match = Magic.getMagicMatch(fileData, false);
-
-            if (executableExtensions.contains(match.getExtension().toUpperCase())) {
-                return true;
+            String mt = match.getMimeType();
+            if (StringUtils.hasText(mt)) {
+                String base = mt.toLowerCase(Locale.ROOT).split(";")[0].trim();
+                return Optional.of(base);
             }
-
         } catch (MagicParseException | MagicMatchNotFoundException | MagicException e) {
-            return false;
+            logger.debug("Could not sniff MIME for identification upload: {}", e.getMessage());
         }
-        return false;
+        if (StringUtils.hasText(declaredContentType)) {
+            String base = declaredContentType.toLowerCase(Locale.ROOT).split(";")[0].trim();
+            return Optional.of(base);
+        }
+        return Optional.empty();
+    }
+
+    private static boolean mimeLooksDangerous(String mimeBase) {
+        String m = mimeBase.toLowerCase(Locale.ROOT);
+        return m.contains("executable")
+                || m.contains("x-msdownload")
+                || m.contains("x-dosexec")
+                || m.contains("x-msdos")
+                || m.contains("java-archive");
     }
 
     private long resolveMaxImageSizeBytes() {
@@ -411,21 +444,12 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
             return DataSize.parse(maxImageSize).toBytes();
         } catch (Exception ignored) {
             // Keep a safe fallback if external config is missing or malformed.
-            return DataSize.ofKilobytes(2048).toBytes();
+            return DataSize.ofMegabytes(15).toBytes();
         }
     }
 
     public boolean isIdentificationProvided(CreateUserRequest request) {
-        boolean hasValidNationalId = StringUtils.hasText(request.getNationalIdNumber())
-                && request.getNationalIdUpload() != null
-                && !request.getNationalIdUpload().isEmpty();
-
-        boolean hasValidPassport = StringUtils.hasText(request.getPassportNumber())
-                && request.getPassportUpload() != null
-                && !request.getPassportUpload().isEmpty();
-
-        // Return true if at least one is valid (or both)
-        return hasValidNationalId || hasValidPassport;
+        return hasAnyIdentificationNumber(request) && isIdentificationWithDocumentComplete(request);
     }
 
     public boolean isUpdateIdentificationProvided(EditUserRequest request) {
@@ -467,9 +491,25 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
         return value == null || value.trim().isEmpty();
     }
 
-    private boolean isIdentificationInfoProvided(CreateUserRequest request) {
-        boolean hasNationalId = StringUtils.hasText(request.getNationalIdNumber());
-        boolean hasPassport = StringUtils.hasText(request.getPassportNumber());
-        return hasNationalId || hasPassport;
+    private static boolean hasNonEmptyMultipart(MultipartFile file) {
+        return file != null && !file.isEmpty();
+    }
+
+    private static boolean hasAnyIdentificationNumber(CreateUserRequest request) {
+        return StringUtils.hasText(request.getNationalIdNumber())
+                || StringUtils.hasText(request.getPassportNumber());
+    }
+
+    /**
+     * True when at least one identification path is complete: number + (multipart upload or existing file id).
+     */
+    private static boolean isIdentificationWithDocumentComplete(CreateUserRequest request) {
+        boolean nationalComplete = StringUtils.hasText(request.getNationalIdNumber())
+                && (hasNonEmptyMultipart(request.getNationalIdUpload())
+                || request.getNationalIdUploadId() != null);
+        boolean passportComplete = StringUtils.hasText(request.getPassportNumber())
+                && (hasNonEmptyMultipart(request.getPassportUpload())
+                || request.getPassportUploadId() != null);
+        return nationalComplete || passportComplete;
     }
 }

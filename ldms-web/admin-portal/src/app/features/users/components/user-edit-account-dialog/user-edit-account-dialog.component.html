@@ -1,0 +1,33 @@
+<h2 mat-dialog-title>Edit account</h2>
+
+<mat-dialog-content class="ued-body">
+  <div class="ued-grid">
+    <label class="ued-field">
+      <span class="ued-label">Account phone</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+        <input [(ngModel)]="phoneNumber" placeholder="e.g. +263771234567" />
+      </div>
+    </label>
+    <label class="ued-field">
+      <span class="ued-label">Account number</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">confirmation_number</mat-icon>
+        <input [(ngModel)]="accountNumber" placeholder="Account or reference number" />
+      </div>
+    </label>
+    <div class="ued-field ued-field--full ued-toggle-row">
+      <span class="ued-label">Account locked</span>
+      <mat-slide-toggle [(ngModel)]="isAccountLocked">Locked</mat-slide-toggle>
+    </div>
+  </div>
+
+  <p class="ued-error" *ngIf="error">{{ error }}</p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" mat-stroked-button (click)="close()" [disabled]="saving">Cancel</button>
+  <button type="button" mat-flat-button color="primary" (click)="save()" [disabled]="saving">
+    {{ saving ? 'Saving…' : 'Save' }}
+  </button>
+</mat-dialog-actions>

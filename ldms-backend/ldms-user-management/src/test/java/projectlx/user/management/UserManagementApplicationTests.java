@@ -6,7 +6,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 @Disabled("Requires external infrastructure (MySQL/Config Server) for context startup")
 @SpringBootTest
-class UserManagementServiceApplicationTests {
+class UserManagementApplicationTests {
 
 	@Test
 	void contextLoads() {

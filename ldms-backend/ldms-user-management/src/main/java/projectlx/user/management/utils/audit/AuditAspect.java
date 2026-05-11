@@ -1,13 +1,13 @@
 package projectlx.user.management.utils.audit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.task.TaskExecutor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
@@ -18,16 +18,29 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
 
+/**
+ * Auditing must not block the servlet thread: {@code finally} runs before the controller response is flushed.
+ * Payload serialization and RabbitMQ publish run on {@link #auditDispatchExecutor}.
+ */
 @Aspect
 @Slf4j
-@RequiredArgsConstructor
 public class AuditAspect {
 
     private final AuditTrailService auditTrailService;
     private final ObjectMapper objectMapper;
+    private final TaskExecutor auditDispatchExecutor;
 
     @Value("${spring.application.name}")
     private String serviceName;
+
+    public AuditAspect(
+            AuditTrailService auditTrailService,
+            ObjectMapper objectMapper,
+            TaskExecutor auditDispatchExecutor) {
+        this.auditTrailService = auditTrailService;
+        this.objectMapper = objectMapper;
+        this.auditDispatchExecutor = auditDispatchExecutor;
+    }
 
     @Around("@annotation(projectlx.co.zw.shared_library.utils.audit.Auditable)")
     public Object auditMethod(ProceedingJoinPoint joinPoint) throws Throwable {
@@ -56,40 +69,61 @@ public class AuditAspect {
 
             assert auditable != null;
 
-            String requestPayload;
-            try {
-                requestPayload = objectMapper.writeValueAsString(joinPoint.getArgs());
-            } catch (Exception ex) {
-                // Fallback: keep payload readable if serialization fails.
-                requestPayload = Arrays.toString(joinPoint.getArgs());
-            }
-
-            String responsePayload = null;
-            if (result != null) {
-                try {
-                    responsePayload = objectMapper.writeValueAsString(result);
-                } catch (Exception ex) {
-                    responsePayload = result.toString();
-                }
-            }
-
+            Object[] argsCopy = joinPoint.getArgs() != null
+                    ? Arrays.copyOf(joinPoint.getArgs(), joinPoint.getArgs().length)
+                    : new Object[0];
+            String action = auditable.action();
             String traceId = AuditHttpTraceSupport.currentTraceIdFromMdcOrNew();
-            AuditLogDto logDto = AuditLogDto.builder()
-                    .serviceName(serviceName)
-                    .traceId(traceId)
-                    .timestamp(responseEnd)
-                    .requestTimestamp(requestStart)
-                    .responseTimestamp(responseEnd)
-                    .username(username)
-                    .action(auditable.action())
-                    .eventType(AuditEventType.SERVICE_METHOD)
-                    .requestPayload(requestPayload)
-                    .responsePayload(responsePayload)
-                    .responseTimeMs(durationMs)
-                    .exceptionMessage(exceptionMessage)
-                    .build();
 
-            auditTrailService.sendAuditLog(logDto);
+            final String capturedUsername = username;
+            final Object capturedResult = result;
+            final String capturedException = exceptionMessage;
+            final Instant capturedStart = requestStart;
+            final Instant capturedEnd = responseEnd;
+            final long capturedDuration = durationMs;
+
+            try {
+                auditDispatchExecutor.execute(() -> {
+                    try {
+                        String requestPayload;
+                        try {
+                            requestPayload = objectMapper.writeValueAsString(argsCopy);
+                        } catch (Exception ex) {
+                            requestPayload = Arrays.toString(argsCopy);
+                        }
+
+                        String responsePayload = null;
+                        if (capturedResult != null) {
+                            try {
+                                responsePayload = objectMapper.writeValueAsString(capturedResult);
+                            } catch (Exception ex) {
+                                responsePayload = capturedResult.toString();
+                            }
+                        }
+
+                        AuditLogDto logDto = AuditLogDto.builder()
+                                .serviceName(serviceName)
+                                .traceId(traceId)
+                                .timestamp(capturedEnd)
+                                .requestTimestamp(capturedStart)
+                                .responseTimestamp(capturedEnd)
+                                .username(capturedUsername)
+                                .action(action)
+                                .eventType(AuditEventType.SERVICE_METHOD)
+                                .requestPayload(requestPayload)
+                                .responsePayload(responsePayload)
+                                .responseTimeMs(capturedDuration)
+                                .exceptionMessage(capturedException)
+                                .build();
+
+                        auditTrailService.sendAuditLog(logDto);
+                    } catch (Exception ex) {
+                        log.warn("Deferred audit dispatch failed for action {}: {}", action, ex.getMessage());
+                    }
+                });
+            } catch (Exception ex) {
+                log.warn("Could not queue audit task for action {}: {}", action, ex.getMessage());
+            }
         }
     }
 }

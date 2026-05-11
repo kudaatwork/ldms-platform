@@ -1,21 +1,106 @@
+# Baseline + offline fallbacks when Config Server is unavailable (optional:configserver import).
+# When the server is up, ldms-config-repo (dev/ldms-user-management.yml) overrides these values.
 spring:
   application:
     name: user-management
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:dev}
   config:
-    import: optional:configserver:http://${CONFIG_SERVER_USERNAME:developer}:${CONFIG_SERVER_PASSWORD_ENCODED:Config098%28%29%21}@${CONFIG_SERVER_HOST:localhost}:${CONFIG_SERVER_PORT:8888}
+    # Optional local file after Config Server (see ./config/ldms-user-management-local.yml).
+    import: optional:configserver:http://${CONFIG_SERVER_USERNAME:developer}:${CONFIG_SERVER_PASSWORD_ENCODED:Config098%28%29%21}@${CONFIG_SERVER_HOST:localhost}:${CONFIG_SERVER_PORT:8888},optional:file:./config/ldms-user-management-local.yml
   cloud:
     config:
       # Eureka id is user-management; Config Server path uses this name (ldms-user-management.yml in repo).
       name: ldms-user-management
-      send-all-labels: true
-      fail-fast: true
+      send-all-labels: false
+      fail-fast: ${SPRING_CLOUD_CONFIG_FAIL_FAST:false}
       retry:
         max-attempts: 5
         initial-interval: 2000
         max-interval: 10000
         multiplier: 1.5
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/ldms_user_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+    username: ${DB_USERNAME:${MYSQL_USER:developer}}
+    password: ${DB_PASSWORD:${MYSQL_DEVELOPER_PASSWORD:Password098()!}}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 30000
+      connection-timeout: 20000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+    show-sql: true
+    properties:
+      hibernate.jdbc.batch_size: 25
+      hibernate.order_inserts: true
+      hibernate.format_sql: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:developer}
+    password: ${RABBITMQ_PASSWORD:Password098()!}
+    virtual-host: /
+    connection-timeout: 5000
+    listener:
+      simple:
+        acknowledge-mode: auto
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1000
+          multiplier: 2.0
+          max-interval: 10000
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 10
+          max-idle: 5
+          min-idle: 2
+      repositories:
+        enabled: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    validate-on-migrate: true
+    out-of-order: false
+    # Spring Boot 3.4+ binds Flyway 10 ignoreMigrationPatterns only (ignoreMissingMigrations is ignored).
+    ignore-migration-patterns:
+      - "*:missing"
+      - "*:future"
+  servlet:
+    multipart:
+      max-file-size: 128MB
+      max-request-size: 128MB
+  cache:
+    type: redis
+    redis:
+      time-to-live: 1800000
+
+server:
+  port: ${SERVER_PORT:8086}
+
+clients:
+  base-url:
+    # With profile dev, ldms.dev.force-local-feign-clients=true (see second document below) makes the Locations
+    # and File Upload Feign clients use localhost ports instead of Docker-only hostnames from Config Server.
+    # Override with CLIENTS_LOCATION_SERVICE_URL / CLIENTS_FILE_UPLOAD_SERVICE_URL, or set ldms.dev.force-local-feign-clients=false.
+    locationService: ${CLIENTS_LOCATION_SERVICE_URL:http://${LOCATION_SERVICE_HOST:127.0.0.1}:${LOCATION_MANAGEMENT_SERVER_PORT:8084}}
+    # Host:port only; paths are on FileUploadServiceClient (/ldms-file-upload-service/v1/system/file-upload/…).
+    fileUploadService: ${CLIENTS_FILE_UPLOAD_SERVICE_URL:http://${DOCUMENTS_SERVICE_HOST:127.0.0.1}:${DOCUMENTS_FILE_UPLOAD_SERVER_PORT:8085}}
+
+constants:
+  max-image-size: ${CONSTANTS_MAX_IMAGE_SIZE:15MB}
 
 eureka:
   username: ${EUREKA_USERNAME:eureka}
@@ -25,3 +110,108 @@ eureka:
       defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
     register-with-eureka: true
     fetch-registry: true
+    registry-fetch-interval-seconds: 5
+    eureka-server-connect-timeout-seconds: 5
+    eureka-server-read-timeout-seconds: 8
+  instance:
+    hostname: localhost
+    prefer-ip-address: false
+    lease-renewal-interval-in-seconds: 10
+    lease-expiration-duration-in-seconds: 30
+
+jwt:
+  secret: ${JWT_SECRET:dev-jwt-secret-change-me-please-override}
+  access-token-expiration-ms: 900000
+  refresh-token-expiration-ms: 604800000
+
+ldms:
+  audit:
+    enabled: true
+  audit-rabbitmq:
+    exchange: ldms.audit.exchange
+    routing-key: audit.log
+  user:
+    password:
+      expiry-days: 90
+      history-count: 5
+      min-length: 8
+      require-uppercase: true
+      require-digit: true
+      require-special: true
+    account:
+      max-failed-attempts: 5
+      lock-duration-minutes: 30
+
+audit:
+  rabbitmq:
+    exchange: ${ldms.audit-rabbitmq.exchange}
+    routingkey: ${ldms.audit-rabbitmq.routing-key}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  tracing:
+    sampling:
+      probability: 1.0
+  zipkin:
+    tracing:
+      endpoint: ${ZIPKIN_URL:http://localhost:9411/api/v2/spans}
+  server:
+    port: ${MANAGEMENT_SERVER_PORT:9086}
+  health:
+    rabbit:
+      enabled: false
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+feign:
+  client:
+    config:
+      default:
+        connect-timeout: 5000
+        read-timeout: 10000
+        logger-level: FULL
+  circuitbreaker:
+    enabled: true
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  pattern:
+    console: '{"timestamp":"%d{yyyy-MM-dd HH:mm:ss.SSS}","level":"%level","service":"${spring.application.name}","traceId":"%X{traceId}","spanId":"%X{spanId}","thread":"%thread","logger":"%logger{36}","message":"%msg"}%n'
+  level:
+    root: INFO
+    projectlx: DEBUG
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+    org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration: ERROR
+    org.springframework.cloud.loadbalancer: WARN
+    com.netflix.discovery: WARN
+    com.netflix.discovery.shared.resolver.aws.ConfigClusterResolver: WARN
+    com.netflix.discovery.shared.transport.decorator.RetryableEurekaHttpClient: WARN
+
+---
+# When running with profile "dev" from the IDE, Config Server often provides service hostnames that only resolve
+# inside Docker. The programmatic Locations and File Upload Feign clients read this flag after the environment is merged.
+spring:
+  config:
+    activate:
+      on-profile: dev
+ldms:
+  dev:
+    force-local-feign-clients: true

@@ -63,6 +63,23 @@ function hasNonEmptySelectFilters(extraColumnFilters: Record<string, string>): b
   });
 }
 
+/** Suburb rows without `cityId` stay visible after city pick (district tier); assigned rows must match. */
+function suburbMatchesSelectedCity(rowCityRaw: unknown, selectedCityId: number): boolean {
+  if (rowCityRaw === null || rowCityRaw === undefined || rowCityRaw === '') {
+    return true;
+  }
+  const n =
+    typeof rowCityRaw === 'number'
+      ? rowCityRaw
+      : typeof rowCityRaw === 'string'
+        ? Number(rowCityRaw.trim())
+        : Number(rowCityRaw);
+  if (!Number.isFinite(n)) {
+    return true;
+  }
+  return n === selectedCityId;
+}
+
 /**
  * Resource path segment for each location entity kind under the location-management service.
  * Cities and villages are first-class resources (Country → Province → District → City → Suburb | Village).
@@ -521,6 +538,13 @@ export class LocationsService {
         const n = Number(districtId);
         if (Number.isFinite(n)) {
           rows = rows.filter((s) => Number(s.districtId) === n);
+        }
+      }
+      const cityId = extraColumnFilters['cityId']?.trim();
+      if (cityId) {
+        const c = Number(cityId);
+        if (Number.isFinite(c)) {
+          rows = rows.filter((s) => suburbMatchesSelectedCity(s.cityId, c));
         }
       }
       return of(this.mapRowsToSelectOptions('suburb', rows as unknown[]));
@@ -1127,8 +1151,19 @@ export class LocationsService {
     if (kind === 'district' && Number.isFinite(provinceId as number)) {
       return list.filter((r) => Number(r['provinceId']) === provinceId);
     }
-    if (kind === 'suburb' && Number.isFinite(districtId as number)) {
-      return list.filter((r) => Number(r['districtId']) === districtId);
+    if (kind === 'suburb') {
+      let out = list;
+      if (Number.isFinite(districtId as number)) {
+        out = out.filter((r) => Number(r['districtId']) === districtId);
+      }
+      const cityIdFilter = extraColumnFilters['cityId']?.trim();
+      const cityIdParsed = cityIdFilter ? Number(cityIdFilter) : NaN;
+      if (Number.isFinite(cityIdParsed)) {
+        // Backend `SuburbDto` often omits `cityId` until rows are backfilled; those suburbs must
+        // still appear after the user picks a city (district-wide legacy).
+        out = out.filter((r) => suburbMatchesSelectedCity(r['cityId'], cityIdParsed));
+      }
+      return out;
     }
     return list;
   }
