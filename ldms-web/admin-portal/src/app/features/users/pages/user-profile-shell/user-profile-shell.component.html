@@ -1,0 +1,599 @@
+<div class="lx-page up-shell">
+  <div class="lx-card up-shell__card">
+    <header class="up-hero" *ngIf="!loading || userId">
+      <div class="up-hero__avatar" aria-hidden="true">{{ avatarLetter() }}</div>
+      <div class="up-hero__text">
+        <h2 class="up-hero__title lc-title">
+          <ng-container *ngIf="headingName() as hn; else upTitleFallback">{{ hn }}</ng-container>
+          <ng-template #upTitleFallback>
+            <ng-container i18n="@@userProfileTitleById">User <span class="up-mono">{{ userId }}</span></ng-container>
+          </ng-template>
+        </h2>
+        <p class="up-hero__subtitle lc-lead" *ngIf="headingSubtitle() as sub">{{ sub }}</p>
+        <p class="up-hero__subtitle lc-lead" *ngIf="!headingSubtitle() && userId" i18n="@@userProfileLead">
+          Manage account, profile, preferences, authentication, addresses, and password.
+        </p>
+        <div class="up-hero__toolbar" *ngIf="bundle.user as u">
+          <div class="up-hero__chips">
+            <span class="up-chip" *ngIf="u['entityStatus']">
+              <mat-icon inline aria-hidden="true">label</mat-icon>
+              {{ formatDisplay(u['entityStatus']) }}
+            </span>
+            <span
+              class="up-chip up-chip--email"
+              *ngIf="u['emailVerified'] !== undefined && u['emailVerified'] !== null"
+              [class.up-chip--email-verified]="u['emailVerified'] === true"
+              [class.up-chip--email-pending]="u['emailVerified'] !== true"
+            >
+              <mat-icon inline aria-hidden="true">{{ u['emailVerified'] === true ? 'mark_email_read' : 'mark_email_unread' }}</mat-icon>
+              <span class="up-chip__email-text">
+                <ng-container *ngIf="u['emailVerified'] === true" i18n="@@userProfileEmailVerified">Email verified</ng-container>
+                <ng-container *ngIf="u['emailVerified'] !== true" i18n="@@userProfileEmailNotVerified">Email not verified</ng-container>
+              </span>
+              <span class="up-verified-badge" *ngIf="u['emailVerified'] === true" i18n="@@userProfileVerifiedBadge">Verified</span>
+            </span>
+            <span class="up-chip up-chip--muted" *ngIf="u['gender']">
+              <mat-icon inline aria-hidden="true">wc</mat-icon>
+              {{ formatDisplay(u['gender']) }}
+            </span>
+          </div>
+          <button type="button" mat-button class="up-hero__edit" (click)="openEditProfile()" i18n="@@userProfileEditDetails">
+            <mat-icon aria-hidden="true">edit</mat-icon>
+            Edit profile
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="lx-table-loading" *ngIf="loading">
+      <mat-progress-bar mode="indeterminate" i18n-aria-label="@@userProfileLoadingAria" aria-label="Loading user workspace"></mat-progress-bar>
+      <p class="lx-table-loading__text" i18n="@@userProfileLoadingText">Loading user workspace…</p>
+    </div>
+
+    <div class="lx-profile-error" *ngIf="!loading && loadError === 'invalidId'" role="alert">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <span i18n="@@userProfileErrInvalidId">The user id in the URL is not valid. Go back to the user list and open a profile again.</span>
+    </div>
+    <div class="lx-profile-error lx-profile-error--warn" *ngIf="!loading && loadError === 'missingUser'" role="alert">
+      <mat-icon aria-hidden="true">info</mat-icon>
+      <span i18n="@@userProfileErrMissingUser">
+        No user record was returned. Check the API gateway and user-management service logs.
+      </span>
+    </div>
+    <div class="lx-profile-error" *ngIf="!loading && loadError === 'requestFailed'" role="alert">
+      <mat-icon aria-hidden="true">cloud_off</mat-icon>
+      <div class="lx-profile-error__body">
+        <span i18n="@@userProfileErrRequestFailed">Could not load this user. Check your connection and try again.</span>
+        <button mat-stroked-button type="button" color="primary" (click)="retryLoad()" i18n="@@userProfileRetry">
+          Retry
+        </button>
+      </div>
+    </div>
+
+    <ng-container *ngIf="!loading && !loadError && bundle.user">
+      <nav
+        class="section-nav"
+        i18n-aria-label="@@userProfileNavAria"
+        aria-label="User profile sections"
+      >
+        <a
+          *ngFor="let item of nav"
+          class="section-nav__link"
+          [routerLink]="routeFor(item.key)"
+          routerLinkActive="section-nav__link--active"
+          [attr.aria-current]="section === item.key ? 'page' : null"
+        >
+          <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+          <ng-container [ngSwitch]="item.key">
+            <span *ngSwitchCase="'profile'" i18n="@@userProfileNavProfile">Profile</span>
+            <span *ngSwitchCase="'account'" i18n="@@userProfileNavAccount">Account</span>
+            <span *ngSwitchCase="'preferences'" i18n="@@userProfileNavPreferences">Preferences</span>
+            <span *ngSwitchCase="'security-policies'" i18n="@@userProfileNavSecurity">Security details</span>
+            <span *ngSwitchCase="'addresses'" i18n="@@userProfileNavAddresses">Addresses</span>
+            <span *ngSwitchCase="'password'" i18n="@@userProfileNavPassword">Password</span>
+          </ng-container>
+        </a>
+      </nav>
+
+      <section class="section-body" [attr.aria-labelledby]="'up-section-' + section">
+        <h3 class="section-body__heading" [id]="'up-section-' + section">
+          <ng-container [ngSwitch]="section">
+            <ng-container *ngSwitchCase="'profile'" i18n="@@userProfileSectionProfile">Profile details</ng-container>
+            <ng-container *ngSwitchCase="'account'" i18n="@@userProfileSectionAccount">Account</ng-container>
+            <ng-container *ngSwitchCase="'preferences'" i18n="@@userProfileSectionPreferences">Preferences & recovery</ng-container>
+            <ng-container *ngSwitchCase="'security-policies'" i18n="@@userProfileSectionSecurity">Security details & authentication</ng-container>
+            <ng-container *ngSwitchCase="'addresses'" i18n="@@userProfileSectionAddresses">Addresses</ng-container>
+            <ng-container *ngSwitchCase="'password'" i18n="@@userProfileSectionPassword">Password</ng-container>
+          </ng-container>
+        </h3>
+
+        <ng-container [ngSwitch]="section">
+          <div *ngSwitchCase="'profile'" class="section-grid">
+            <div class="section-row">
+              <span i18n="@@userProfileFieldUsername">Username</span>
+              <strong>{{ formatDisplay(bundle.user!['username']) }}</strong>
+            </div>
+            <div class="section-row">
+              <span i18n="@@userProfileFieldFirstName">First name</span>
+              <strong>{{ formatDisplay(bundle.user!['firstName']) }}</strong>
+            </div>
+            <div class="section-row">
+              <span i18n="@@userProfileFieldLastName">Last name</span>
+              <strong>{{ formatDisplay(bundle.user!['lastName']) }}</strong>
+            </div>
+            <div class="section-row">
+              <span i18n="@@userProfileFieldEmail">Email</span>
+              <strong>{{ formatDisplay(bundle.user!['email']) }}</strong>
+            </div>
+            <div class="section-row">
+              <span i18n="@@userProfileFieldPhone">Phone number</span>
+              <strong>{{ formatDisplay(bundle.user!['phoneNumber']) }}</strong>
+            </div>
+            <div class="section-row">
+              <span i18n="@@userProfileFieldStatus">Status</span>
+              <strong>{{ formatDisplay(bundle.user!['entityStatus']) }}</strong>
+            </div>
+            <div class="section-row">
+              <span i18n="@@userProfileFieldDob">Date of birth</span>
+              <strong>{{ formatDisplay(bundle.user!['dateOfBirth']) }}</strong>
+            </div>
+            <div class="section-row">
+              <span i18n="@@userProfileFieldNationalId">National ID</span>
+              <strong>{{ formatDisplay(bundle.user!['nationalIdNumber']) }}</strong>
+            </div>
+            <ng-container *ngIf="nestedUser('userTypeDto') as ut">
+              <div class="section-row">
+                <span i18n="@@userProfileFieldUserType">User type</span>
+                <strong>{{ formatDisplay(ut['userTypeName']) }}</strong>
+              </div>
+              <div class="section-row" *ngIf="ut['description']">
+                <span i18n="@@userProfileFieldUserTypeDesc">Type description</span>
+                <strong>{{ formatDisplay(ut['description']) }}</strong>
+              </div>
+            </ng-container>
+            <ng-container *ngIf="nestedUser('userGroupDto') as ug">
+              <div class="section-row">
+                <span i18n="@@userProfileFieldGroup">User group</span>
+                <strong>{{ formatDisplay(ug['name']) }}</strong>
+              </div>
+              <div class="section-row" *ngIf="ug['description']">
+                <span i18n="@@userProfileFieldGroupDesc">Group description</span>
+                <strong>{{ formatDisplay(ug['description']) }}</strong>
+              </div>
+              <div class="section-row section-row--full" *ngIf="roleChips().length">
+                <span i18n="@@userProfileFieldRoles">Roles</span>
+                <div class="up-role-list">
+                  <span class="up-chip up-chip--small" *ngFor="let role of roleChips()">{{ role }}</span>
+                </div>
+              </div>
+            </ng-container>
+            <div class="up-docs section-row--full">
+              <h4 class="up-docs__title" i18n="@@userProfileDocumentsTitle">Uploaded documents</h4>
+              <div class="up-docs__linked" *ngIf="linkedUploadGallery().length">
+                <span class="up-docs__linked-label" i18n="@@userProfileLinkedUploadPreviews">Profile documents (from file upload)</span>
+                <div class="up-docs__linked-cards">
+                  <button
+                    type="button"
+                    class="up-docs__link-card"
+                    *ngFor="let g of linkedUploadGallery()"
+                    [disabled]="!g.row"
+                    (click)="g.row && openDocumentDetail(g.row)"
+                  >
+                    <div class="up-docs__link-card-preview" aria-hidden="true">
+                      <img
+                        *ngIf="g.row?.previewImageUrl"
+                        class="up-docs__link-thumb-img"
+                        [src]="g.row!.previewImageUrl!"
+                        alt=""
+                      />
+                      <iframe
+                        *ngIf="safePdfPreview(g.row) as pdfSafe"
+                        class="up-docs__link-thumb-pdf"
+                        [src]="pdfSafe"
+                        title=""
+                      ></iframe>
+                      <span
+                        *ngIf="g.row && !g.row.previewImageUrl && !g.row.previewPdfDataUrl && g.row.hasPdfPreview"
+                        class="up-docs__pdf-thumb up-docs__pdf-thumb--card"
+                      >
+                        <mat-icon>picture_as_pdf</mat-icon>
+                      </span>
+                      <span
+                        *ngIf="g.row && !g.row.previewImageUrl && !g.row.previewPdfDataUrl && !g.row.hasPdfPreview"
+                        class="up-docs__file-thumb up-docs__file-thumb--card"
+                      >
+                        <mat-icon>description</mat-icon>
+                      </span>
+                      <span *ngIf="!g.row" class="up-docs__link-card-missing">
+                        <mat-icon>cloud_off</mat-icon>
+                      </span>
+                    </div>
+                    <div class="up-docs__link-card-meta">
+                      <span class="up-docs__link-card-label">{{ g.label }}</span>
+                      <span class="up-docs__link-card-name" *ngIf="g.row">{{ g.row.originalFileName }}</span>
+                      <span class="up-docs__link-card-id up-mono" *ngIf="g.row">#{{ g.row.id }}</span>
+                      <span class="up-docs__link-card-err" *ngIf="!g.row" i18n="@@userProfileLinkedUploadMissing">Could not load file metadata.</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+              <p class="up-docs__hint" *ngIf="!userDocuments.length" i18n="@@userProfileDocumentsEmpty">
+                No files are registered for this user in file upload yet.
+              </p>
+              <div class="up-docs__table-wrap" *ngIf="userDocuments.length" role="region" i18n-aria-label="@@userProfileDocumentsAria" aria-label="User uploaded documents">
+                <table class="up-docs__table" mat-table [dataSource]="userDocuments">
+                  <ng-container matColumnDef="preview">
+                    <th mat-header-cell *matHeaderCellDef i18n="@@userProfileDocColPreview">Preview</th>
+                    <td mat-cell *matCellDef="let row" class="up-docs__preview-cell">
+                      <span class="up-docs__preview-visual" aria-hidden="true">
+                        <img
+                          *ngIf="row.previewImageUrl"
+                          class="up-docs__thumb"
+                          [src]="row.previewImageUrl"
+                          alt=""
+                          width="44"
+                          height="44"
+                        />
+                        <iframe
+                          *ngIf="safePdfPreview(row) as pdfSafe"
+                          class="up-docs__thumb-pdf"
+                          [src]="pdfSafe"
+                          title=""
+                        ></iframe>
+                        <span *ngIf="!row.previewImageUrl && !row.previewPdfDataUrl && row.hasPdfPreview" class="up-docs__pdf-thumb">
+                          <mat-icon>picture_as_pdf</mat-icon>
+                        </span>
+                        <span *ngIf="!row.previewImageUrl && !row.previewPdfDataUrl && !row.hasPdfPreview" class="up-docs__file-thumb">
+                          <mat-icon>description</mat-icon>
+                        </span>
+                      </span>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="originalFileName">
+                    <th mat-header-cell *matHeaderCellDef i18n="@@userProfileDocColName">File</th>
+                    <td mat-cell *matCellDef="let row">{{ row.originalFileName }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="fileType">
+                    <th mat-header-cell *matHeaderCellDef i18n="@@userProfileDocColType">Type</th>
+                    <td mat-cell *matCellDef="let row">{{ row.fileType || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="fileSizeInBytes">
+                    <th mat-header-cell *matHeaderCellDef i18n="@@userProfileDocColSize">Size</th>
+                    <td mat-cell *matCellDef="let row">{{ formatBytes(row.fileSizeInBytes) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="createdAt">
+                    <th mat-header-cell *matHeaderCellDef i18n="@@userProfileDocColCreated">Uploaded</th>
+                    <td mat-cell *matCellDef="let row">{{ formatDisplay(row.createdAt) }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="entityStatus">
+                    <th mat-header-cell *matHeaderCellDef i18n="@@userProfileDocColStatus">Status</th>
+                    <td mat-cell *matCellDef="let row">{{ row.entityStatus || '—' }}</td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="documentColumns"></tr>
+                  <tr
+                    mat-row
+                    *matRowDef="let row; columns: documentColumns"
+                    class="up-docs__click-row"
+                    (click)="openDocumentDetail(row)"
+                    (keydown.enter)="openDocumentDetail(row)"
+                    (keydown.space)="$event.preventDefault(); openDocumentDetail(row)"
+                    tabindex="0"
+                    role="button"
+                    [attr.aria-label]="'View document: ' + row.originalFileName"
+                  ></tr>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <ng-container *ngSwitchCase="'account'">
+            <div class="up-section__toolbar" *ngIf="bundle.account">
+              <button type="button" mat-button class="up-hero__edit" (click)="openEditAccount()">
+                <mat-icon aria-hidden="true">edit</mat-icon>
+                Edit account
+              </button>
+            </div>
+            <div class="section-empty" *ngIf="!bundle.account">
+              <mat-icon aria-hidden="true">manage_accounts</mat-icon>
+              <p i18n="@@userProfileAccountEmpty">No account record is linked to this user yet.</p>
+            </div>
+            <div *ngIf="bundle.account as ac" class="section-grid">
+              <div class="section-row">
+                <span i18n="@@userProfileFieldAccountNumber">Account number</span>
+                <strong class="up-mono">{{ formatDisplay(ac['accountNumber']) }}</strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldAccountPhone">Account phone</span>
+                <strong>{{ formatDisplay(ac['phoneNumber']) }}</strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldLocked">Account locked</span>
+                <strong>
+                  <ng-container [ngSwitch]="ac['isAccountLocked']">
+                    <ng-container *ngSwitchCase="true" i18n="@@userProfileYes">Yes</ng-container>
+                    <ng-container *ngSwitchCase="false" i18n="@@userProfileNo">No</ng-container>
+                    <ng-container *ngSwitchDefault>{{ formatDisplay(ac['isAccountLocked']) }}</ng-container>
+                  </ng-container>
+                </strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldLastLogin">Last login</span>
+                <strong>{{ formatDisplay(ac['lastLoginAt']) }}</strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldAccountStatus">Account status</span>
+                <strong>{{ formatDisplay(ac['entityStatus']) }}</strong>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngSwitchCase="'preferences'">
+            <div class="up-section__toolbar up-section__toolbar--split">
+              <button type="button" mat-button class="up-hero__edit" (click)="openEditProfile()">
+                <mat-icon aria-hidden="true">edit</mat-icon>
+                <ng-container i18n="@@userProfileEditLocalePrefs">Edit locale & preferences</ng-container>
+              </button>
+              <button
+                type="button"
+                mat-button
+                class="up-hero__edit"
+                *ngIf="securityPolicyRecord()"
+                (click)="openEditSecurity('recovery')"
+              >
+                <mat-icon aria-hidden="true">quiz</mat-icon>
+                <ng-container i18n="@@userProfileEditRecoveryQa">Edit recovery Q&A</ng-container>
+              </button>
+            </div>
+
+            <h4 class="up-subsection__title" i18n="@@userProfilePrefsLocaleHeading">Locale & display</h4>
+            <div class="section-empty section-empty--soft" *ngIf="!nestedUser('userPreferencesDto')">
+              <mat-icon aria-hidden="true">tune</mat-icon>
+              <p i18n="@@userProfilePrefsEmpty">No user preferences record is linked yet. Use Edit locale & preferences to add language and timezone.</p>
+            </div>
+            <div *ngIf="nestedUser('userPreferencesDto') as pref" class="section-grid up-subsection">
+              <div class="section-row">
+                <span i18n="@@userProfileFieldLanguage">Preferred language</span>
+                <strong>{{ formatDisplay(pref['preferredLanguage']) }}</strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldTimezone">Timezone</span>
+                <strong>{{ formatDisplay(pref['timezone']) }}</strong>
+              </div>
+              <div class="section-row" *ngIf="pref['id'] != null">
+                <span i18n="@@userProfilePrefsRecordId">Preferences record id</span>
+                <strong class="up-mono">{{ formatDisplay(pref['id']) }}</strong>
+              </div>
+            </div>
+
+            <h4 class="up-subsection__title" i18n="@@userProfilePrefsRecoveryHeading">Security questions & answers</h4>
+            <div class="section-empty section-empty--soft" *ngIf="!securityPolicyRecord()">
+              <mat-icon aria-hidden="true">quiz</mat-icon>
+              <p i18n="@@userProfilePrefsRecoveryEmpty">No security policy is linked yet, so recovery questions are not available.</p>
+            </div>
+            <div *ngIf="securityPolicyRecord() as s" class="section-grid up-subsection">
+              <div class="section-row section-row--full up-sec-qa">
+                <span i18n="@@userProfileSecPair1Heading">Security question and answer 1</span>
+                <div class="up-sec-qa__block">
+                  <div class="up-sec-qa__line">
+                    <span class="up-sec-qa__k" i18n="@@userProfileSecQuestionLabel">Question</span>
+                    <strong class="up-sec-qa__v">{{ formatDisplay(s['securityQuestion_1']) }}</strong>
+                  </div>
+                  <div class="up-sec-qa__line">
+                    <span class="up-sec-qa__k" i18n="@@userProfileSecAnswerLabel">Answer</span>
+                    <strong class="up-sec-qa__v up-sec-qa__v--answer">
+                      <ng-container *ngIf="secretConfigured(s['securityAnswer_1'])">{{ formatDisplay(s['securityAnswer_1']) }}</ng-container>
+                      <ng-container *ngIf="!secretConfigured(s['securityAnswer_1'])">{{ formatDisplay(null) }}</ng-container>
+                    </strong>
+                  </div>
+                </div>
+              </div>
+              <div class="section-row section-row--full up-sec-qa">
+                <span i18n="@@userProfileSecPair2Heading">Security question and answer 2</span>
+                <div class="up-sec-qa__block">
+                  <div class="up-sec-qa__line">
+                    <span class="up-sec-qa__k" i18n="@@userProfileSecQuestionLabel">Question</span>
+                    <strong class="up-sec-qa__v">{{ formatDisplay(s['securityQuestion_2']) }}</strong>
+                  </div>
+                  <div class="up-sec-qa__line">
+                    <span class="up-sec-qa__k" i18n="@@userProfileSecAnswerLabel">Answer</span>
+                    <strong class="up-sec-qa__v up-sec-qa__v--answer">
+                      <ng-container *ngIf="secretConfigured(s['securityAnswer_2'])">{{ formatDisplay(s['securityAnswer_2']) }}</ng-container>
+                      <ng-container *ngIf="!secretConfigured(s['securityAnswer_2'])">{{ formatDisplay(null) }}</ng-container>
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngSwitchCase="'security-policies'">
+            <div class="up-section__toolbar" *ngIf="securityPolicyRecord()">
+              <button type="button" mat-button class="up-hero__edit" (click)="openEditSecurity('full')">
+                <mat-icon aria-hidden="true">edit</mat-icon>
+                <ng-container i18n="@@userProfileEditSecurityAuth">Edit authentication</ng-container>
+              </button>
+            </div>
+            <div class="section-row section-row--full up-sec-group" *ngIf="nestedUser('userGroupDto') as ug">
+              <span i18n="@@userProfileFieldUserGroup">User group</span>
+              <div class="up-sec-group__body">
+                <strong class="up-sec-group__name">{{ formatDisplay(ug['name']) }}</strong>
+                <p class="up-sec-group__desc" *ngIf="ug['description']">{{ formatDisplay(ug['description']) }}</p>
+                <div class="up-sec-group__actions">
+                  <a
+                    mat-stroked-button
+                    color="primary"
+                    [routerLink]="['/users/groups']"
+                    [queryParams]="{ viewGroupId: ug['id'] }"
+                    i18n="@@userProfileOpenUserGroup"
+                  >
+                    Open group
+                  </a>
+                  <a
+                    mat-flat-button
+                    color="primary"
+                    [routerLink]="['/users/groups', ug['id'], 'roles']"
+                    i18n="@@userProfileOpenGroupRoles"
+                  >
+                    Roles on this group
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-empty" *ngIf="!securityPolicyRecord() && !nestedUser('userGroupDto')">
+              <mat-icon aria-hidden="true">gpp_maybe</mat-icon>
+              <p i18n="@@userProfileSecurityEmpty">No security policy record is linked to this user yet.</p>
+            </div>
+
+            <div class="section-empty section-empty--soft" *ngIf="!securityPolicyRecord() && nestedUser('userGroupDto')">
+              <mat-icon aria-hidden="true">gpp_maybe</mat-icon>
+              <p i18n="@@userProfileSecurityEmptyWithGroup">
+                No security policy record is linked yet. Use the links above to review this user's group and its roles.
+              </p>
+            </div>
+
+            <div *ngIf="securityPolicyRecord() as s" class="section-grid">
+              <div class="section-row section-row--full up-sec-auth">
+                <span class="up-sec-auth__heading" i18n="@@userProfileAuthHeading">Authentication & two-factor</span>
+                <div class="up-sec-auth__body">
+                  <div class="up-sec-auth__chips">
+                    <span
+                      class="up-chip up-chip--auth"
+                      [class.up-chip--auth-on]="s['isTwoFactorEnabled'] === true"
+                      [class.up-chip--auth-off]="s['isTwoFactorEnabled'] !== true"
+                    >
+                      <mat-icon aria-hidden="true">phonelink_lock</mat-icon>
+                      <span i18n="@@userProfile2faLabel">Two-factor sign-in</span>
+                      <strong class="up-sec-auth__chip-state">
+                        <ng-container [ngSwitch]="s['isTwoFactorEnabled']">
+                          <ng-container *ngSwitchCase="true" i18n="@@userProfileEnabled">Enabled</ng-container>
+                          <ng-container *ngSwitchCase="false" i18n="@@userProfileDisabled">Disabled</ng-container>
+                          <ng-container *ngSwitchDefault>{{ formatDisplay(s['isTwoFactorEnabled']) }}</ng-container>
+                        </ng-container>
+                      </strong>
+                    </span>
+                    <span
+                      class="up-chip up-chip--auth"
+                      [class.up-chip--auth-on]="twoFactorSecretStored(s)"
+                      [class.up-chip--auth-off]="!twoFactorSecretStored(s)"
+                    >
+                      <mat-icon aria-hidden="true">vpn_key</mat-icon>
+                      <span i18n="@@userProfileTotpSecretLabel">Authenticator secret</span>
+                      <strong class="up-sec-auth__chip-state">
+                        <ng-container *ngIf="twoFactorSecretStored(s)" i18n="@@userProfileSecretStored">Stored (hidden)</ng-container>
+                        <ng-container *ngIf="!twoFactorSecretStored(s)" i18n="@@userProfileSecretNotSet">Not set</ng-container>
+                      </strong>
+                    </span>
+                  </div>
+                  <p class="up-sec-auth__hint" i18n="@@userProfileAuthHintPrefs">
+                    Recovery questions and answers are on the Preferences tab. Use Edit authentication to change 2FA or the TOTP secret.
+                  </p>
+                  <div class="section-row up-sec-auth__meta" *ngIf="s['id'] != null">
+                    <span i18n="@@userProfileSecurityRecordId">Security record id</span>
+                    <strong class="up-mono">{{ formatDisplay(s['id']) }}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngSwitchCase="'addresses'">
+            <div class="up-section__toolbar" *ngIf="bundle.address">
+              <button type="button" mat-button class="up-hero__edit" (click)="openEditAddress()">
+                <mat-icon aria-hidden="true">edit</mat-icon>
+                Edit address
+              </button>
+            </div>
+            <div class="section-empty" *ngIf="!bundle.address">
+              <mat-icon aria-hidden="true">home_work</mat-icon>
+              <p i18n="@@userProfileAddressEmpty">No address is stored for this user.</p>
+            </div>
+            <div *ngIf="bundle.address as ad" class="section-grid">
+              <div class="section-row section-row--wide">
+                <span i18n="@@userProfileFieldLine1">Address line 1</span>
+                <strong>{{ formatDisplay(ad['line1']) }}</strong>
+              </div>
+              <div class="section-row section-row--wide">
+                <span i18n="@@userProfileFieldLine2">Address line 2</span>
+                <strong>{{ formatDisplay(ad['line2']) }}</strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldPostal">Postal code</span>
+                <strong>{{ formatDisplay(ad['postalCode']) }}</strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldSuburbId">Suburb id</span>
+                <strong class="up-mono">{{ formatDisplay(ad['suburbId']) }}</strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldLocationAddrId">Location address id</span>
+                <strong class="up-mono">{{ formatDisplay(ad['locationAddressId']) }}</strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldAddrStatus">Address status</span>
+                <strong>{{ formatDisplay(ad['entityStatus']) }}</strong>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-container *ngSwitchCase="'password'">
+            <div class="section-empty section-empty--soft" *ngIf="!bundle.password">
+              <mat-icon aria-hidden="true">info</mat-icon>
+              <p i18n="@@userProfilePasswordMetaMissing">
+                Password expiry metadata is not included on this profile. You can still set a new password below.
+              </p>
+            </div>
+            <div *ngIf="bundle.password as pw" class="section-grid">
+              <div class="section-row">
+                <span i18n="@@userProfileFieldPwdExpiry">Password expiry</span>
+                <strong>{{ formatDisplay(pw['expiryDate']) }}</strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldPwdExpiredFlag">Marked expired</span>
+                <strong>
+                  <ng-container [ngSwitch]="pw['isPasswordExpired']">
+                    <ng-container *ngSwitchCase="true" i18n="@@userProfileYes">Yes</ng-container>
+                    <ng-container *ngSwitchCase="false" i18n="@@userProfileNo">No</ng-container>
+                    <ng-container *ngSwitchDefault>{{ formatDisplay(pw['isPasswordExpired']) }}</ng-container>
+                  </ng-container>
+                </strong>
+              </div>
+              <div class="section-row">
+                <span i18n="@@userProfileFieldPwdUpdated">Password record updated</span>
+                <strong>{{ formatDisplay(pw['updatedAt']) }}</strong>
+              </div>
+            </div>
+
+            <div class="up-pwd-set section-row section-row--full" *ngIf="bundle.user">
+              <span i18n="@@userProfileSetNewPasswordHeading">Set new password</span>
+              <div class="up-pwd-set__form">
+                <p class="up-pwd-set__hint" i18n="@@userProfileSetNewPasswordHint">
+                  Admin update: no current password required. User receives a confirmation email when the account exists.
+                </p>
+                <label class="up-pwd-set__field">
+                  <span class="up-pwd-set__label" i18n="@@userProfileNewPassword">New password</span>
+                  <div class="lx-input-shell">
+                    <mat-icon class="lx-input-shell__icon">lock</mat-icon>
+                    <input type="password" autocomplete="new-password" [(ngModel)]="newPassword" placeholder="New password" />
+                  </div>
+                </label>
+                <label class="up-pwd-set__field">
+                  <span class="up-pwd-set__label" i18n="@@userProfileConfirmPassword">Confirm password</span>
+                  <div class="lx-input-shell">
+                    <mat-icon class="lx-input-shell__icon">lock_person</mat-icon>
+                    <input type="password" autocomplete="new-password" [(ngModel)]="confirmPassword" placeholder="Confirm new password" />
+                  </div>
+                </label>
+                <p class="up-pwd-set__error" *ngIf="passwordError">{{ passwordError }}</p>
+                <button type="button" mat-flat-button color="primary" (click)="submitPasswordChange()" [disabled]="passwordSaving">
+                  <ng-container *ngIf="passwordSaving" i18n="@@userProfileUpdatingPwd">Updating…</ng-container>
+                  <ng-container *ngIf="!passwordSaving" i18n="@@userProfileUpdatePassword">Update password</ng-container>
+                </button>
+              </div>
+            </div>
+          </ng-container>
+        </ng-container>
+      </section>
+    </ng-container>
+  </div>
+</div>

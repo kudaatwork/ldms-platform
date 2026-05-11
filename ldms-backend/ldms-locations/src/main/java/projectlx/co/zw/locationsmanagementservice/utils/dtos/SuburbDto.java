@@ -21,6 +21,9 @@ public class SuburbDto {
     
     private Long districtId;
     private String districtName;
+    /** Set when the suburb row is linked to a city (optional until data is backfilled). */
+    private Long cityId;
+    private String cityName;
     private Long provinceId;
     private String provinceName;
     private Long countryId;

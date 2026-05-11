@@ -47,6 +47,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.transaction.annotation.Transactional;
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -142,6 +143,7 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserGroupResponse findById(Long id, Locale locale, String username) {
 
         String message = "";
@@ -171,6 +173,17 @@ public class UserGroupServiceImpl implements UserGroupService {
 
         UserGroup userGroupReturned = userGroupRetrieved.get();
         UserGroupDto userGroupDto = modelMapper.map(userGroupReturned, UserGroupDto.class);
+        // DTO uses userRoleDtoSet; entity uses userRoles (ManyToMany). Map roles inside the transaction so the lazy collection loads.
+        Set<UserRole> roleSet = userGroupReturned.getUserRoles();
+        List<UserRoleDto> roleDtos = new ArrayList<>();
+        if (roleSet != null) {
+            for (UserRole role : roleSet) {
+                if (role.getEntityStatus() != EntityStatus.DELETED) {
+                    roleDtos.add(modelMapper.map(role, UserRoleDto.class));
+                }
+            }
+        }
+        userGroupDto.setUserRoleDtoSet(roleDtos);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -358,6 +371,7 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
+    @Transactional
     public UserGroupResponse assignUserRoleToUserGroup(AssignUserRoleToUserGroupRequest assignUserRoleToUserGroupRequest, Locale locale, String username) {
 
         String message = "";
@@ -430,6 +444,7 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
+    @Transactional
     public UserGroupResponse removeUserRolesFromUserGroup(RemoveUserRolesFromUserGroupRequest removeUserRolesFromUserGroupRequest, Locale locale, String username) {
 
         String message;

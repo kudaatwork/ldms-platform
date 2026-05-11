@@ -1,149 +1,245 @@
 <div class="lx-page">
-  <ng-container *ngIf="!loading; else skel">
-    <ng-container *ngIf="dataSource.length > 0; else tableCardEmpty">
-      <div class="lx-card lx-card--subsection">
+  <div class="group-context-banner" *ngIf="groupId" role="region" [attr.aria-label]="'Roles for user group ' + (contextGroupName || groupId)">
+    <div class="group-context-banner__accent" aria-hidden="true"></div>
+    <div class="group-context-banner__inner">
+      <a class="lx-btn lx-btn-ghost group-context-banner__back" routerLink="/users/groups">
+        <mat-icon>arrow_back</mat-icon>
+        Back to groups
+      </a>
+      <div class="group-context-banner__text">
+        <div class="group-context-banner__eyebrow">
+          <mat-icon class="group-context-banner__eyebrow-icon">groups</mat-icon>
+          Roles scoped to this user group
+        </div>
+        <h2 class="group-context-banner__title">{{ contextGroupName || 'Loading group…' }}</h2>
+        <p class="group-context-banner__description" *ngIf="contextGroupDescription">{{ contextGroupDescription }}</p>
+        <span class="group-context-banner__pill">Group ID {{ groupId }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="lx-card lx-card--subsection">
+    <div class="lx-controls-head">
+      <div class="lx-controls-head__text">
         <h3 class="lx-controls-title">Table controls</h3>
-        <p class="lx-controls-subtitle">Manage role actions, search terms, and column filters.</p>
-        <div class="lx-data-toolbar">
-          <div class="lx-data-toolbar__actions">
-            <button type="button" class="lx-btn lx-btn-ghost">Refresh</button>
-            <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
-            <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
-              Export
-            </button>
-            <button type="button" class="lx-btn lx-btn-primary">New role</button>
-            <button type="button" class="lx-btn lx-btn-danger">Revoke defaults</button>
-          </div>
-          <div class="lx-data-toolbar__search">
-            <div class="lx-input-shell lx-search-field">
-              <mat-icon class="lx-input-shell__icon">search</mat-icon>
-              <input [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
-            </div>
-            <button
-              type="button"
-              class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
-              (click)="filterFieldsOpen = !filterFieldsOpen"
-              [class.lx-btn-filter--on]="filterFieldsOpen"
-            >
-              <mat-icon>tune</mat-icon>
-              Filters
-            </button>
+        <p class="lx-controls-subtitle">Search, filter, and add new user role records.</p>
+      </div>
+      <button
+        type="button"
+        mat-icon-button
+        class="lx-controls-head__info-btn"
+        [class.is-on]="showSampleCsvInfo"
+        (click)="showSampleCsvInfo = !showSampleCsvInfo"
+        [attr.aria-pressed]="showSampleCsvInfo"
+        aria-label="Toggle sample CSV information"
+        [matTooltip]="showSampleCsvInfo ? 'Hide sample CSV info' : 'About the sample CSV'"
+        matTooltipPosition="left"
+      >
+        <mat-icon>info_outline</mat-icon>
+      </button>
+    </div>
+    <p class="lx-controls-hint" *ngIf="showSampleCsvInfo">
+      <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+      <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }} The download includes the
+      header row and 2 example rows you can copy or replace.</span>
+    </p>
+    <p class="lx-controls-hint lx-import-disclaimer">
+      <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+      <span>{{ importCsvDisclaimer }}</span>
+    </p>
+    <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()">Refresh</button>
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="downloadSampleCsv()">Sample CSV</button>
+        <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
+          Export
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="openCreateModal()">Add New</button>
+      </div>
+      <div class="lx-data-toolbar__search">
+        <div class="lx-input-shell lx-search-field">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
+        </div>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+          (click)="filterFieldsOpen = !filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen"
+        >
+          <mat-icon>tune</mat-icon>
+          Filters
+        </button>
+      </div>
+    </div>
+    <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="stubExport()">
+        <mat-icon>picture_as_pdf</mat-icon>
+        <span>Export PDF</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--csv" (click)="stubExport()">
+        <mat-icon>table_view</mat-icon>
+        <span>Export CSV</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="stubExport()">
+        <mat-icon>grid_on</mat-icon>
+        <span>Export XLSX</span>
+      </button>
+    </mat-menu>
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Role</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+            <input [(ngModel)]="columnFilters.role" (ngModelChange)="resetPaging()" />
           </div>
         </div>
-        <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
-          <button mat-menu-item class="lx-export-option--pdf" (click)="stubExport()">
-            <mat-icon>picture_as_pdf</mat-icon>
-            <span>Export PDF</span>
-          </button>
-          <button mat-menu-item class="lx-export-option--csv" (click)="stubExport()">
-            <mat-icon>table_view</mat-icon>
-            <span>Export CSV</span>
-          </button>
-          <button mat-menu-item class="lx-export-option--xlsx" (click)="stubExport()">
-            <mat-icon>grid_on</mat-icon>
-            <span>Export XLSX</span>
-          </button>
-        </mat-menu>
-
-        <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
-          <span class="lx-filter-panel__label">Column filters</span>
-          <div class="lx-filter-fields">
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Role</div>
-              <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">badge</mat-icon>
-              <input [(ngModel)]="columnFilters.role" (ngModelChange)="resetPaging()" />
-            </div>
-            </div>
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Permissions</div>
-              <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">vpn_key</mat-icon>
-              <input [(ngModel)]="columnFilters.permissions" (ngModelChange)="resetPaging()" />
-            </div>
-            </div>
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Status</div>
-              <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">label</mat-icon>
-              <input [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
-            </div>
-            </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Description</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">description</mat-icon>
+            <input [(ngModel)]="columnFilters.description" (ngModelChange)="resetPaging()" />
           </div>
         </div>
       </div>
+    </div>
+  </div>
 
-      <div class="lx-card">
-        <h2 class="lc-title">Roles</h2>
-        <p class="lc-lead">Map capabilities to admin roles.</p>
-        <ng-container *ngIf="filteredRows.length > 0; else noSearchHits">
-          <div class="lx-table-wrap">
-            <table mat-table [dataSource]="pagedRows">
-              <ng-container matColumnDef="role">
-                <th mat-header-cell *matHeaderCellDef>Role</th>
-                <td mat-cell *matCellDef="let row">{{ row.role }}</td>
-              </ng-container>
-              <ng-container matColumnDef="permissions">
-                <th mat-header-cell *matHeaderCellDef>Permissions</th>
-                <td mat-cell *matCellDef="let row">{{ row.permissions }}</td>
-              </ng-container>
-              <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef>Status</th>
-                <td mat-cell *matCellDef="let row">
-                  <span class="lx-status" [ngClass]="'lx-status-' + row.status.toLowerCase()">{{ row.statusLabel }}</span>
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef>Actions</th>
-                <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">Open</button>
-                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">Edit</button>
-                  <button type="button" class="lx-btn lx-btn-danger lx-btn-sm">Delete</button>
-                </td>
-              </ng-container>
-              <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-            </table>
-          </div>
-          <mat-paginator
-            class="lx-table-paginator"
-            [length]="filteredRows.length"
-            [pageIndex]="clampedPageIndex"
-            [pageSize]="pageSize"
-            [pageSizeOptions]="[5, 10, 25, 50]"
-            [showFirstLastButtons]="true"
-            (page)="onPage($event)"
-          ></mat-paginator>
-        </ng-container>
-        <ng-template #noSearchHits>
-          <div class="lx-empty lx-empty--compact">
-            <mat-icon class="lx-empty-icon">search_off</mat-icon>
-            <div class="lx-empty-title">No matching rows</div>
-            <div class="lx-empty-sub">Adjust search or column filters.</div>
-          </div>
-        </ng-template>
+  <div class="lx-card" [class.lx-card--group-roles]="!!groupId">
+    <div class="lx-table-header">
+      <div>
+        <h2 class="lc-title">{{ groupId ? 'Roles for this group' : 'Roles' }}</h2>
+        <p class="lc-lead" *ngIf="!groupId">Map capabilities to admin roles.</p>
+        <p class="lc-lead lc-lead--group-scope" *ngIf="groupId">
+          Every row below is a role currently linked to
+          <strong>{{ contextGroupName || ('Group #' + groupId) }}</strong>
+          (not the full catalog).
+        </p>
       </div>
+      <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
+    </div>
+    <div class="lx-table-loading" *ngIf="fetching && dataSource.length === 0">
+      <mat-progress-bar mode="indeterminate" aria-label="Loading user roles"></mat-progress-bar>
+      <p class="lx-table-loading__text">Loading roles…</p>
+    </div>
+    <ng-container *ngIf="dataSource.length > 0; else noSearchHits">
+      <div class="lx-table-wrap" [class.lx-table-wrap--group-scoped]="!!groupId">
+        <table mat-table [dataSource]="dataSource" class="lx-mat-table">
+          <ng-container matColumnDef="role">
+            <th mat-header-cell *matHeaderCellDef>Role</th>
+            <td mat-cell *matCellDef="let row">{{ row.role }}</td>
+          </ng-container>
+          <ng-container matColumnDef="description">
+            <th mat-header-cell *matHeaderCellDef>Description</th>
+            <td mat-cell *matCellDef="let row">{{ row.description }}</td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="lx-status" [ngClass]="'lx-status-' + (row.status || 'active').toLowerCase()">{{
+                row.statusLabel
+              }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+              <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #rowMenu="matMenu" panelClass="lx-row-actions-menu">
+                <button mat-menu-item type="button" class="lx-action-view" (click)="viewRow(row)">
+                  <mat-icon>visibility</mat-icon> View
+                </button>
+                <button mat-menu-item type="button" class="lx-action-edit" (click)="editRow(row)">
+                  <mat-icon>edit</mat-icon> Edit
+                </button>
+                <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteRow(row)">
+                  <mat-icon>delete</mat-icon> Delete
+                </button>
+              </mat-menu>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      </div>
+      <mat-paginator
+        class="lx-table-paginator"
+        [length]="totalRecords"
+        [pageIndex]="pageIndex"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="[10, 20, 25, 50]"
+        [showFirstLastButtons]="true"
+        (page)="onPage($event)"
+      ></mat-paginator>
     </ng-container>
-    <ng-template #tableCardEmpty>
-      <div class="lx-card">
-        <h2 class="lc-title">Roles</h2>
-        <p class="lc-lead">Map capabilities to admin roles.</p>
-        <div class="lx-empty">
-          <mat-icon class="lx-empty-icon">inbox</mat-icon>
-          <div class="lx-empty-title">No items found</div>
-          <div class="lx-empty-sub">Adjust filters or check back later</div>
+    <ng-template #noSearchHits>
+      <div class="lx-empty lx-empty--compact" *ngIf="!groupId">
+        <mat-icon class="lx-empty-icon">search_off</mat-icon>
+        <div class="lx-empty-title">No matching rows</div>
+        <div class="lx-empty-sub">Adjust search or column filters.</div>
+      </div>
+      <div class="lx-empty lx-empty--compact lx-empty--group-context" *ngIf="groupId">
+        <mat-icon class="lx-empty-icon">assignment_ind</mat-icon>
+        <div class="lx-empty-title">No roles on this group yet</div>
+        <div class="lx-empty-sub">
+          Use <strong>Assign roles</strong> on the group row in User groups, or open the full catalog under Roles.
         </div>
       </div>
     </ng-template>
-  </ng-container>
+  </div>
 </div>
 
-<ng-template #skel>
-  <div class="lx-page">
-    <div class="lx-card skel-card">
-      <div class="skeleton skel-line skel-line--lg"></div>
-      <div class="skeleton skel-line skel-line--md"></div>
-      <div class="skeleton skel-block" style="margin-top: 20px; height: 120px"></div>
+<div class="lx-modal-backdrop" *ngIf="showCreateModal" (click)="closeCreateModal()"></div>
+<div class="lx-modal" *ngIf="showCreateModal" role="dialog" aria-modal="true">
+  <div class="lx-modal__header">
+    <div>
+      <h3 class="lx-modal__title">
+        {{ createMode === 'create' ? 'Create user role' : createMode === 'edit' ? 'Edit user role' : 'View user role' }}
+      </h3>
+      <p class="lx-modal__subtitle">
+        {{
+          createMode === 'create'
+            ? 'Define a reusable permission profile for users.'
+            : createMode === 'edit'
+              ? 'Update this permission profile.'
+              : 'Review user role details. Editing is disabled in view mode.'
+        }}
+      </p>
     </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close modal" (click)="closeCreateModal()">
+      <mat-icon>close</mat-icon>
+    </button>
   </div>
-</ng-template>
+  <div class="lx-modal__body">
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Role <span class="req">*</span></span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+        <input [(ngModel)]="createModel.role" placeholder="e.g. KYC Reviewer" [readonly]="isViewMode" />
+      </div>
+      <span class="lx-field-hint">Role title shown in user and audit tables.</span>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Description <span class="req">*</span></span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">description</mat-icon>
+        <input [(ngModel)]="createModel.description" placeholder="Describe role capabilities" [readonly]="isViewMode" />
+      </div>
+      <span class="lx-field-hint">Summarize permissions owned by this role.</span>
+    </label>
+    <p class="lx-modal__error" *ngIf="createError">{{ createError }}</p>
+  </div>
+  <div class="lx-modal__actions">
+    <button *ngIf="!isViewMode" type="button" class="lx-btn lx-btn-ghost" (click)="closeCreateModal()">Cancel</button>
+    <button *ngIf="isViewMode" type="button" class="lx-btn lx-btn-ghost" (click)="closeCreateModal()">Close</button>
+    <button *ngIf="!isViewMode" type="button" class="lx-btn lx-btn-primary" [disabled]="creating" (click)="submitCreate()">
+      {{ createMode === 'edit' ? 'Save changes' : 'Create' }}
+    </button>
+  </div>
+</div>

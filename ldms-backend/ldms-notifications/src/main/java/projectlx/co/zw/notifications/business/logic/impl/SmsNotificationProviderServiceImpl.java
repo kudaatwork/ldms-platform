@@ -20,7 +20,7 @@ public class SmsNotificationProviderServiceImpl implements NotificationProviderS
     private final TemplateProcessorService templateProcessor;
     private final NotificationLogServiceAuditable notificationLogServiceAuditable;
 
-    @Value("${twilio.phone-number}")
+    @Value("${twilio.phone-number:}")
     private String fromPhoneNumber;
 
     @Override
@@ -36,6 +36,11 @@ public class SmsNotificationProviderServiceImpl implements NotificationProviderS
         if (recipientPhoneNumber == null || recipientPhoneNumber.isBlank()) {
             log.warn("[NOTIFICATION] Skipped channel=SMS eventId={} templateKey={} reason=missing_recipient recipientPhone={}",
                     request.getEventId(), request.getTemplateKey(), recipientPhoneNumber);
+            return;
+        }
+        if (fromPhoneNumber == null || fromPhoneNumber.isBlank()) {
+            log.warn("[NOTIFICATION] Skipped channel=SMS eventId={} templateKey={} reason=missing_twilio.phone-number",
+                    request.getEventId(), request.getTemplateKey());
             return;
         }
 

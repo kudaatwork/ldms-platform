@@ -60,7 +60,17 @@ export class AppComponent implements OnInit {
     { label: 'KYC Queue', icon: 'verified_user', route: '/kyc/applications', badge: 4 },
     { label: 'Organizations', icon: 'corporate_fare', route: '/organizations' },
     { label: 'Documents', icon: 'folder_open', route: '/kyc/documents' },
-    { label: 'Users', icon: 'people_outline', route: '/users' },
+    {
+      label: 'Users',
+      icon: 'people_outline',
+      route: '/users',
+      children: [
+        { label: 'All users', icon: 'person_search', route: '/users' },
+        { label: 'User groups', icon: 'groups', route: '/users/groups' },
+        { label: 'User roles', icon: 'verified_user', route: '/users/roles' },
+        { label: 'User types', icon: 'category', route: '/users/types' },
+      ],
+    },
     {
       label: 'Locations',
       icon: 'location_on',

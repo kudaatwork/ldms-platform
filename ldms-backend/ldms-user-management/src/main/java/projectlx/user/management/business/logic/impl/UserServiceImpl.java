@@ -75,6 +75,7 @@ import projectlx.user.management.utils.dtos.UserPasswordDto;
 import projectlx.user.management.utils.dtos.UserPreferencesDto;
 import projectlx.user.management.utils.dtos.UserRoleDto;
 import projectlx.user.management.utils.dtos.UserSecurityDto;
+import projectlx.user.management.utils.dtos.UserTypeDto;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.co.zw.shared_library.utils.generators.SecureTokenGenerator;
 import projectlx.user.management.utils.requests.CreateUserAccountRequest;
@@ -107,6 +108,8 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DateUtil;
 import org.apache.poi.ss.usermodel.Row;
@@ -122,7 +125,10 @@ import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -179,6 +185,7 @@ public class UserServiceImpl implements UserService {
     private ObjectMapper objectMapper;
 
     @Override
+    @Transactional
     public UserResponse create(CreateUserRequest createUserRequest, Locale locale, String username) {
 
         String message = "";
@@ -232,27 +239,30 @@ public class UserServiceImpl implements UserService {
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         User userToBeSaved = modelMapper.map(createUserRequest, User.class);
 
-        UserType userType = new UserType();
-
         if (createUserRequest.getUserTypeDetails() != null) {
 
             Optional<UserType> userTypeOptional = userTypeRepository.findByUserTypeNameAndEntityStatusNot(
                     createUserRequest.getUserTypeDetails().getUserTypeName(), EntityStatus.DELETED);
 
+            UserType resolvedUserType = null;
             if (userTypeOptional.isPresent()) {
-                userType = userTypeOptional.get();
+                resolvedUserType = userTypeOptional.get();
             } else {
 
                 CreateUserTypeRequest createUserTypeRequest = createUserTypeRequest(createUserRequest.getUserTypeDetails());
 
                 UserTypeResponse userTypeResponse = userTypeService.create(createUserTypeRequest, locale, username);
 
-                userTypeRepository.findByIdAndEntityStatusNot(
-                                userTypeResponse.getUserTypeDto().getId(), EntityStatus.DELETED)
-                        .ifPresent(retrievedType -> userToBeSaved.setUserType(retrievedType));
+                if (userTypeResponse.getUserTypeDto() != null && userTypeResponse.getUserTypeDto().getId() != null) {
+                    resolvedUserType = userTypeRepository.findByIdAndEntityStatusNot(
+                                    userTypeResponse.getUserTypeDto().getId(), EntityStatus.DELETED)
+                            .orElse(null);
+                }
             }
 
-            userToBeSaved.setUserType(userType);
+            if (resolvedUserType != null) {
+                userToBeSaved.setUserType(resolvedUserType);
+            }
         }
 
         // === FINAL CORRECTED ADDRESS LOGIC ===
@@ -271,7 +281,7 @@ public class UserServiceImpl implements UserService {
                     });
 
             if (address != null) {
-                addressDtoForResponse = modelMapper.map(address, AddressDto.class);
+                addressDtoForResponse = userAddressService.toAddressDto(address);
             }
         }
         // SCENARIO 2: Full address details are provided (standalone flow)
@@ -314,6 +324,13 @@ public class UserServiceImpl implements UserService {
         }
         // === END OF CORRECTED ADDRESS LOGIC ===
 
+        if (createUserRequest.getUserAddressDetails() != null && address == null) {
+            message = messageService.getMessage(I18Code.MESSAGE_ADDRESS_CREATION_FAILED.getCode(), new String[]{}, locale);
+            List<String> addressErrors = new ArrayList<>();
+            addressErrors.add(message);
+            return buildUserResponseWithErrors(400, false, message, null, null, addressErrors);
+        }
+
         User userSaved = userServiceAuditable.create(userToBeSaved, locale, username);
 
         CreateUserAccountRequest userAccountToBeCreated = createUserAccountRequest(userSaved.getPhoneNumber());
@@ -339,26 +356,36 @@ public class UserServiceImpl implements UserService {
                     .ifPresent(userSaved::setUserPreferences);
         }
 
-        UserSecurityResponse userSecurityResponse = new UserSecurityResponse();
+        UserSecurityDetails securityDetails = createUserRequest.getUserSecurityDetails() != null
+                ? createUserRequest.getUserSecurityDetails()
+                : defaultUserSecurityDetailsForNewUser();
 
-        if (createUserRequest.getUserSecurityDetails() != null) {
-
-            CreateUserSecurityRequest createUserSecurityRequest = createUserSecurityRequest(
-                    createUserRequest.getUserSecurityDetails(), userSaved.getId());
-
-            userSecurityResponse = userSecurityService.create(createUserSecurityRequest, locale, username);
-
-            userSecurityRepository.findByIdAndEntityStatusNot(
-                            userSecurityResponse.getUserSecurityDto().getId(), EntityStatus.DELETED)
-                    .ifPresent(userSaved::setUserSecurity);
+        UserSecurityResponse userSecurityResponse = attachUserSecurityFromDetails(userSaved, securityDetails, locale,
+                username);
+        if (!userSecurityResponse.isSuccess()) {
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_USER_SECURITY_INVALID_REQUEST.getCode(),
+                    new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null,
+                    userSecurityResponse.getErrorMessages() != null ? userSecurityResponse.getErrorMessages()
+                            : new ArrayList<>());
         }
+
+        userSaved = userRepository.findByIdAndEntityStatusNot(userSaved.getId(), EntityStatus.DELETED).orElse(userSaved);
 
         if (createUserRequest.getNationalIdUploadId() != null) {
             userSaved.setNationalIdUploadId(createUserRequest.getNationalIdUploadId());
         }
         if (createUserRequest.getPassportUploadId() != null) {
             userSaved.setPassportUploadId(createUserRequest.getPassportUploadId());
-        } else if (createUserRequest.getNationalIdUpload() != null || createUserRequest.getPassportUpload() != null) {
+        }
+
+        boolean nationalMultipart = createUserRequest.getNationalIdUpload() != null
+                && !createUserRequest.getNationalIdUpload().isEmpty();
+        boolean passportMultipart = createUserRequest.getPassportUpload() != null
+                && !createUserRequest.getPassportUpload().isEmpty();
+
+        if (nationalMultipart || passportMultipart) {
 
             try {
 
@@ -380,21 +407,23 @@ public class UserServiceImpl implements UserService {
                 String fileUploadRequestJson = objectMapper.writeValueAsString(requestMap);
                 FileUploadResponse fileUploadResponse = fileUploadServiceClient.upload(files, fileUploadRequestJson);
 
-                if (fileUploadResponse.isSuccess()) {
+                if (!fileUploadResponse.isSuccess()) {
+                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                    message = messageService.getMessage(I18Code.MESSAGE_CREATE_USER_IDENTIFICATION_UPLOAD_FAILED.getCode(),
+                            new String[]{}, locale);
+                    List<String> uploadErrors = new ArrayList<>();
+                    String detail = fileUploadResponse.getMessage();
+                    if (detail != null && !detail.isBlank()) {
+                        uploadErrors.add(detail);
+                    } else {
+                        uploadErrors.add(message);
+                    }
+                    return buildUserResponseWithErrors(400, false, message, null, null, uploadErrors);
+                }
 
-                    if (fileUploadResponse.getFileUploadDtoList() != null) {
+                if (fileUploadResponse.getFileUploadDtoList() != null) {
 
-                        for (FileUploadDto uploadedFile : fileUploadResponse.getFileUploadDtoList()) {
-
-                            if (FileType.NATIONAL_ID.name().equals(uploadedFile.getFileType().name())) {
-                                userSaved.setNationalIdUploadId(uploadedFile.getId());
-                            } else if (FileType.PASSPORT.name().equals(uploadedFile.getFileType().name())) {
-                                userSaved.setPassportUploadId(uploadedFile.getId());
-                            }
-                        }
-                    } else if (fileUploadResponse.getFileUploadDto() != null) {
-
-                        FileUploadDto uploadedFile = fileUploadResponse.getFileUploadDto();
+                    for (FileUploadDto uploadedFile : fileUploadResponse.getFileUploadDtoList()) {
 
                         if (FileType.NATIONAL_ID.name().equals(uploadedFile.getFileType().name())) {
                             userSaved.setNationalIdUploadId(uploadedFile.getId());
@@ -402,9 +431,30 @@ public class UserServiceImpl implements UserService {
                             userSaved.setPassportUploadId(uploadedFile.getId());
                         }
                     }
+                } else if (fileUploadResponse.getFileUploadDto() != null) {
+
+                    FileUploadDto uploadedFile = fileUploadResponse.getFileUploadDto();
+
+                    if (FileType.NATIONAL_ID.name().equals(uploadedFile.getFileType().name())) {
+                        userSaved.setNationalIdUploadId(uploadedFile.getId());
+                    } else if (FileType.PASSPORT.name().equals(uploadedFile.getFileType().name())) {
+                        userSaved.setPassportUploadId(uploadedFile.getId());
+                    }
+                }
+
+                if ((nationalMultipart && userSaved.getNationalIdUploadId() == null)
+                        || (passportMultipart && userSaved.getPassportUploadId() == null)) {
+                    TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                    message = messageService.getMessage(I18Code.MESSAGE_CREATE_USER_IDENTIFICATION_UPLOAD_FAILED.getCode(),
+                            new String[]{}, locale);
+                    return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
                 }
             } catch (Exception e) {
                 logger.error("Error while uploading the file for user creation: ", e);
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                message = messageService.getMessage(I18Code.MESSAGE_CREATE_USER_IDENTIFICATION_UPLOAD_FAILED.getCode(),
+                        new String[]{}, locale);
+                return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
             }
         }
 
@@ -467,62 +517,44 @@ public class UserServiceImpl implements UserService {
             }
         }
 
+        if (user.getUserSecurity() == null) {
+            UserSecurityResponse secBoot = attachUserSecurityFromDetails(user, defaultUserSecurityDetailsForNewUser(),
+                    locale, username);
+            if (!secBoot.isSuccess()) {
+                logger.warn("Lazy bootstrap user_security failed for user {} on findById: {}", id, secBoot.getMessage());
+            }
+            user = userRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElse(user);
+        }
+
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         UserDto userDto = modelMapper.map(user, UserDto.class);
 
-        // Retrieve user account linked to the user
+        if (user.getUserType() != null) {
+            userDto.setUserTypeDto(modelMapper.map(user.getUserType(), UserTypeDto.class));
+        }
+
         UserAccount userAccount = user.getUserAccount();
+        userDto.setUserAccountDto(
+                userAccount != null ? modelMapper.map(userAccount, UserAccountDto.class) : null);
 
-        // Map user account to DTO
-        UserAccountDto userAccountDto = modelMapper.map(userAccount, UserAccountDto.class);
-
-        // Set user account in the UserDto
-        userDto.setUserAccountDto(userAccountDto);
-
-        // Retrieve user address linked to the user
         Address address = user.getAddress();
+        userDto.setAddressDto(address != null ? userAddressService.toAddressDto(address) : null);
 
-        // Map user address to DTO
-        AddressDto addressDto = modelMapper.map(address, AddressDto.class);
-
-        // Set user address in the UserDto
-        userDto.setAddressDto(addressDto);
-
-        // Retrieve user group linked to the user
         UserGroup userGroup = user.getUserGroup();
+        userDto.setUserGroupDto(
+                userGroup != null ? modelMapper.map(userGroup, UserGroupDto.class) : null);
 
-        // Map user group to DTO
-        UserGroupDto userGroupDto = modelMapper.map(userGroup, UserGroupDto.class);
-
-        // Set user group in the UserDto
-        userDto.setUserGroupDto(userGroupDto);
-
-        // Retrieve user password linked to the user
         UserPassword userPassword = user.getUserPassword();
+        userDto.setUserPasswordDto(
+                userPassword != null ? modelMapper.map(userPassword, UserPasswordDto.class) : null);
 
-        // Map user password to DTO
-        UserPasswordDto userPasswordDto = modelMapper.map(userPassword, UserPasswordDto.class);
-
-        // Set user password in the UserDto
-        userDto.setUserPasswordDto(userPasswordDto);
-
-        // Retrieve user preferences linked to the user
         UserPreferences userPreferences = user.getUserPreferences();
+        userDto.setUserPreferencesDto(
+                userPreferences != null ? modelMapper.map(userPreferences, UserPreferencesDto.class) : null);
 
-        // Map user preferences to DTO
-        UserPreferencesDto userPreferencesDto = modelMapper.map(userPreferences, UserPreferencesDto.class);
-
-        // Set user preferences in the UserDto
-        userDto.setUserPreferencesDto(userPreferencesDto);
-
-        // Retrieve user security linked to the user
         UserSecurity userSecurity = user.getUserSecurity();
-
-        // Map user security to DTO
-        UserSecurityDto userSecurityDto = modelMapper.map(userSecurity, UserSecurityDto.class);
-
-        // Set user security in the UserDto
-        userDto.setUserSecurityDto(userSecurityDto);
+        userDto.setUserSecurityDto(
+                userSecurity != null ? modelMapper.map(userSecurity, UserSecurityDto.class) : null);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -560,47 +592,55 @@ public class UserServiceImpl implements UserService {
 
         User userReturned = userRetrieved.get();
 
-        // Always map mandatory DTOs
-        UserAccountDto userAccountDto = modelMapper.map(userReturned.getUserAccount(), UserAccountDto.class);
-        UserPasswordDto userPasswordDto = modelMapper.map(userReturned.getUserPassword(), UserPasswordDto.class);
-
-        // Map main user
-        UserDto userDto = modelMapper.map(userReturned, UserDto.class);
-        userDto.setUserAccountDto(userAccountDto);
-        userDto.setUserPasswordDto(userPasswordDto);
-
-        // Optionally map and set user security
-        if (userReturned.getUserSecurity() != null) {
-            UserSecurityDto userSecurityDto = modelMapper.map(userReturned.getUserSecurity(), UserSecurityDto.class);
-            userDto.setUserSecurityDto(userSecurityDto);
+        if (userReturned.getAddress() != null) {
+            try {
+                AddressResponse addressResponse = userAddressService.findById(userReturned.getAddress().getId(), locale, username);
+                if (addressResponse.isSuccess() && addressResponse.getAddressDto() != null) {
+                    userReturned.getAddress().setAddressDetails(addressResponse.getAddressDto());
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to populate address details for username {}: {}", username, e.getMessage());
+            }
         }
 
-        // Optionally map and set user group and roles
-        if (userReturned.getUserGroup() != null) {
-            UserGroupDto userGroupDto = modelMapper.map(userReturned.getUserGroup(), UserGroupDto.class);
+        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserDto userDto = modelMapper.map(userReturned, UserDto.class);
 
-            if (userReturned.getUserGroup().getUserRoles() != null) {
+        if (userReturned.getUserType() != null) {
+            userDto.setUserTypeDto(modelMapper.map(userReturned.getUserType(), UserTypeDto.class));
+        }
+
+        UserAccount userAccount = userReturned.getUserAccount();
+        userDto.setUserAccountDto(
+                userAccount != null ? modelMapper.map(userAccount, UserAccountDto.class) : null);
+
+        Address address = userReturned.getAddress();
+        userDto.setAddressDto(address != null ? userAddressService.toAddressDto(address) : null);
+
+        UserGroup userGroup = userReturned.getUserGroup();
+        if (userGroup != null) {
+            UserGroupDto userGroupDto = modelMapper.map(userGroup, UserGroupDto.class);
+            if (userGroup.getUserRoles() != null) {
                 List<UserRoleDto> userRoleDtoList = modelMapper.map(
-                        userReturned.getUserGroup().getUserRoles(),
-                        new TypeToken<List<UserRoleDto>>(){}.getType()
-                );
+                        userGroup.getUserRoles(),
+                        new TypeToken<List<UserRoleDto>>() {
+                        }.getType());
                 userGroupDto.setUserRoleDtoSet(userRoleDtoList);
             }
-
             userDto.setUserGroupDto(userGroupDto);
         }
 
-        // Optionally map and set address
-        if (userReturned.getAddress() != null) {
-            AddressDto addressDto = modelMapper.map(userReturned.getAddress(), AddressDto.class);
-            userDto.setAddressDto(addressDto);
-        }
+        UserPassword userPassword = userReturned.getUserPassword();
+        userDto.setUserPasswordDto(
+                userPassword != null ? modelMapper.map(userPassword, UserPasswordDto.class) : null);
 
-        // Optionally map and set preferences
-        if (userReturned.getUserPreferences() != null) {
-            UserPreferencesDto userPreferencesDto = modelMapper.map(userReturned.getUserPreferences(), UserPreferencesDto.class);
-            userDto.setUserPreferencesDto(userPreferencesDto);
-        }
+        UserPreferences userPreferences = userReturned.getUserPreferences();
+        userDto.setUserPreferencesDto(
+                userPreferences != null ? modelMapper.map(userPreferences, UserPreferencesDto.class) : null);
+
+        UserSecurity userSecurity = userReturned.getUserSecurity();
+        userDto.setUserSecurityDto(
+                userSecurity != null ? modelMapper.map(userSecurity, UserSecurityDto.class) : null);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -671,6 +711,13 @@ public class UserServiceImpl implements UserService {
         userToBeEdited.setPassportNumber(editUserRequest.getPassportNumber());
         userToBeEdited.setPhoneNumber(editUserRequest.getPhoneNumber());
         userToBeEdited.setDateOfBirth(Date.valueOf(editUserRequest.getDateOfBirth()));
+
+        if (editUserRequest.getNationalIdUploadId() != null) {
+            userToBeEdited.setNationalIdUploadId(editUserRequest.getNationalIdUploadId());
+        }
+        if (editUserRequest.getPassportUploadId() != null) {
+            userToBeEdited.setPassportUploadId(editUserRequest.getPassportUploadId());
+        }
 
         User userEdited = userServiceAuditable.update(userToBeEdited, locale, username);
 
@@ -751,8 +798,21 @@ public class UserServiceImpl implements UserService {
 
         User userEditedForTheSecondTime = userServiceAuditable.update(userEdited, locale, username);
 
+        User userForResponse = userRepository.findByIdAndEntityStatusNot(userEdited.getId(), EntityStatus.DELETED)
+                .orElse(userEditedForTheSecondTime);
+        if (userForResponse.getUserSecurity() == null) {
+            UserSecurityResponse bootstrap = attachUserSecurityFromDetails(userForResponse,
+                    defaultUserSecurityDetailsForNewUser(), locale, username);
+            if (!bootstrap.isSuccess()) {
+                logger.warn("Could not bootstrap user_security for user {} after update: {}", userForResponse.getId(),
+                        bootstrap.getMessage());
+            }
+            userForResponse = userRepository.findByIdAndEntityStatusNot(userEdited.getId(), EntityStatus.DELETED)
+                    .orElse(userForResponse);
+        }
+
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserDto userDtoReturned = modelMapper.map(userEditedForTheSecondTime, UserDto.class);
+        UserDto userDtoReturned = modelMapper.map(userForResponse, UserDto.class);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_UPDATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -806,20 +866,22 @@ public class UserServiceImpl implements UserService {
             UserPassword userPasswordDeleted = userPasswordServiceAuditable.delete(userPasswordRetrieved.get(), locale);
         }
 
-        Optional<UserPreferences> userPreferencesRetrieved = userPreferencesRepository.findByIdAndEntityStatusNot(
-                userToBeDeleted.getUserPreferences().getId(), EntityStatus.DELETED);
+        if (userToBeDeleted.getUserPreferences() != null) {
+            Optional<UserPreferences> userPreferencesRetrieved = userPreferencesRepository.findByIdAndEntityStatusNot(
+                    userToBeDeleted.getUserPreferences().getId(), EntityStatus.DELETED);
 
-        if (userPreferencesRetrieved.isPresent()) {
-            UserPreferences userPreferencesDeleted = userPreferencesServiceAuditable.delete(userToBeDeleted.getUserPreferences(),
-                    locale);
+            if (userPreferencesRetrieved.isPresent()) {
+                userPreferencesServiceAuditable.delete(userToBeDeleted.getUserPreferences(), locale);
+            }
         }
 
-        Optional<UserSecurity> userSecurityReceived = userSecurityRepository.findByIdAndEntityStatusNot(
-                userToBeDeleted.getUserSecurity().getId(), EntityStatus.DELETED);
+        if (userToBeDeleted.getUserSecurity() != null) {
+            Optional<UserSecurity> userSecurityReceived = userSecurityRepository.findByIdAndEntityStatusNot(
+                    userToBeDeleted.getUserSecurity().getId(), EntityStatus.DELETED);
 
-        if (userSecurityReceived.isPresent()) {
-            UserSecurity userSecurityDeleted = userSecurityServiceAuditable.delete(userToBeDeleted.getUserSecurity(),
-                    locale);
+            if (userSecurityReceived.isPresent()) {
+                userSecurityServiceAuditable.delete(userToBeDeleted.getUserSecurity(), locale);
+            }
         }
 
         User userDeleted = userServiceAuditable.delete(userToBeDeleted, locale);
@@ -1653,6 +1715,8 @@ public class UserServiceImpl implements UserService {
         request.setPostalCode(userAddressDetails.getPostalCode());
         request.setSuburbId(userAddressDetails.getSuburbId());
         request.setGeoCoordinatesId(userAddressDetails.getGeoCoordinatesId());
+        request.setLatitude(userAddressDetails.getLatitude());
+        request.setLongitude(userAddressDetails.getLongitude());
 
         return request;
     }
@@ -1946,6 +2010,8 @@ public class UserServiceImpl implements UserService {
         createAddressRequest.setPostalCode(userAddressDetails.getPostalCode());
         createAddressRequest.setSuburbId(userAddressDetails.getSuburbId());
         createAddressRequest.setGeoCoordinatesId(userAddressDetails.getGeoCoordinatesId());
+        createAddressRequest.setLatitude(userAddressDetails.getLatitude());
+        createAddressRequest.setLongitude(userAddressDetails.getLongitude());
 
         return createAddressRequest;
     }
@@ -1962,6 +2028,36 @@ public class UserServiceImpl implements UserService {
         return createUserPreferencesRequest;
     }
 
+    /**
+     * Bootstrap values when the client omits {@link CreateUserRequest#getUserSecurityDetails()}. Users should replace
+     * placeholder answers and TOTP secret via the security edit flow.
+     */
+    private UserSecurityDetails defaultUserSecurityDetailsForNewUser() {
+        UserSecurityDetails d = new UserSecurityDetails();
+        d.setSecurityQuestion_1("Please set your first security question (profile).");
+        d.setSecurityAnswer_1("TEMP-A1-" + UUID.randomUUID());
+        d.setSecurityQuestion_2("Please set your second security question (profile).");
+        d.setSecurityAnswer_2("TEMP-A2-" + UUID.randomUUID());
+        d.setTwoFactorAuthSecret("TOTP-" + UUID.randomUUID().toString().replace("-", ""));
+        d.setIsTwoFactorEnabled(Boolean.FALSE);
+        return d;
+    }
+
+    private UserSecurityResponse attachUserSecurityFromDetails(User user, UserSecurityDetails details, Locale locale,
+            String username) {
+        CreateUserSecurityRequest createUserSecurityRequest = createUserSecurityRequest(details, user.getId());
+        UserSecurityResponse response = userSecurityService.create(createUserSecurityRequest, locale, username);
+        if (response.isSuccess() && response.getUserSecurityDto() != null) {
+            userSecurityRepository
+                    .findByIdAndEntityStatusNot(response.getUserSecurityDto().getId(), EntityStatus.DELETED)
+                    .ifPresent(us -> {
+                        user.setUserSecurity(us);
+                        userServiceAuditable.update(user, locale, username);
+                    });
+        }
+        return response;
+    }
+
     private CreateUserSecurityRequest createUserSecurityRequest(UserSecurityDetails userSecurityDetails,
                                                                 Long userId) {
 
@@ -1972,7 +2068,9 @@ public class UserServiceImpl implements UserService {
         createUserSecurityRequest.setSecurityAnswer_1(userSecurityDetails.getSecurityAnswer_1());
         createUserSecurityRequest.setSecurityAnswer_2(userSecurityDetails.getSecurityAnswer_2());
         createUserSecurityRequest.setTwoFactorAuthSecret(userSecurityDetails.getTwoFactorAuthSecret());
-        createUserSecurityRequest.setIsTwoFactorEnabled(userSecurityDetails.getIsTwoFactorEnabled());
+        createUserSecurityRequest.setIsTwoFactorEnabled(
+                userSecurityDetails.getIsTwoFactorEnabled() != null ? userSecurityDetails.getIsTwoFactorEnabled()
+                        : Boolean.FALSE);
         createUserSecurityRequest.setUserId(userId);
 
         return createUserSecurityRequest;
@@ -1988,6 +2086,21 @@ public class UserServiceImpl implements UserService {
         return createUserTypeRequest;
     }
 
+    /**
+     * Accepts ISO-8601 date-time or calendar date only (e.g. {@code 2050-11-11}), as sent by HTML date inputs.
+     */
+    private static LocalDateTime parseExpiryStringToLocalDateTime(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        String trimmed = value.trim();
+        try {
+            return LocalDateTime.parse(trimmed);
+        } catch (DateTimeParseException ignored) {
+            return LocalDate.parse(trimmed, DateTimeFormatter.ISO_LOCAL_DATE).atStartOfDay();
+        }
+    }
+
     private FileUploadRequest buildFileUploadRequest(CreateUserRequest createUserRequest, Long userId) {
         FileUploadRequest fileUploadRequest = new FileUploadRequest();
         List<SingleFileUploadRequest> filesMetadata = new ArrayList<>();
@@ -2001,7 +2114,7 @@ public class UserServiceImpl implements UserService {
             nationalIdFile.setFileType(String.valueOf(FileType.NATIONAL_ID));
 
             if (createUserRequest.getNationalIdExpiryDate() != null) {
-                nationalIdFile.setExpiresAt(LocalDateTime.parse(createUserRequest.getNationalIdExpiryDate()));
+                nationalIdFile.setExpiresAt(parseExpiryStringToLocalDateTime(createUserRequest.getNationalIdExpiryDate()));
             }
 
             filesMetadata.add(nationalIdFile);
@@ -2014,7 +2127,7 @@ public class UserServiceImpl implements UserService {
             passportFile.setFileType(String.valueOf(FileType.PASSPORT));
 
             if (createUserRequest.getPassportExpiryDate() != null) {
-                passportFile.setExpiresAt(LocalDateTime.parse(createUserRequest.getNationalIdExpiryDate()));
+                passportFile.setExpiresAt(parseExpiryStringToLocalDateTime(createUserRequest.getPassportExpiryDate()));
             }
             filesMetadata.add(passportFile);
         }
@@ -2050,7 +2163,7 @@ public class UserServiceImpl implements UserService {
             nationalIdFile.setFileType(String.valueOf(FileType.NATIONAL_ID));
 
             if (editUserRequest.getNationalIdExpiryDate() != null) {
-                nationalIdFile.setExpiresAt(LocalDateTime.parse(editUserRequest.getNationalIdExpiryDate()));
+                nationalIdFile.setExpiresAt(parseExpiryStringToLocalDateTime(editUserRequest.getNationalIdExpiryDate()));
             }
 
             filesMetadata.add(nationalIdFile);
@@ -2067,7 +2180,7 @@ public class UserServiceImpl implements UserService {
             passportFile.setFileType(String.valueOf(FileType.PASSPORT));
 
             if (editUserRequest.getPassportExpiryDate() != null) {
-                passportFile.setExpiresAt(LocalDateTime.parse(editUserRequest.getPassportExpiryDate()));
+                passportFile.setExpiresAt(parseExpiryStringToLocalDateTime(editUserRequest.getPassportExpiryDate()));
             }
             filesMetadata.add(passportFile);
         }

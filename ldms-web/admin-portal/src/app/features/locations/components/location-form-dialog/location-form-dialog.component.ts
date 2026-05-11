@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   EMPTY,
   Observable,
@@ -113,6 +114,7 @@ export class LocationFormDialogComponent implements OnInit, OnDestroy {
     private readonly fb: FormBuilder,
     private readonly locationsService: LocationsService,
     private readonly cdr: ChangeDetectorRef,
+    private readonly snackBar: MatSnackBar,
     private readonly dialogRef: MatDialogRef<LocationFormDialogComponent, LocationFormDialogResult>,
     @Inject(MAT_DIALOG_DATA) readonly data: LocationFormDialogData,
   ) {
@@ -443,6 +445,10 @@ export class LocationFormDialogComponent implements OnInit, OnDestroy {
         if (!response.ok) {
           this.saveError =
             response.message || 'The server rejected this save. Check required fields and try again.';
+          this.snackBar.open(this.saveError, 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-error'],
+          });
           this.cdr.markForCheck();
           return;
         }
@@ -463,6 +469,10 @@ export class LocationFormDialogComponent implements OnInit, OnDestroy {
           err?.error?.error ||
           err?.message ||
           'Failed to save this location. Please check inputs and try again.';
+        this.snackBar.open(this.saveError ?? 'Failed to save this location. Please check inputs and try again.', 'Close', {
+          duration: 5000,
+          panelClass: ['app-snackbar-error'],
+        });
         this.cdr.markForCheck();
       },
     });

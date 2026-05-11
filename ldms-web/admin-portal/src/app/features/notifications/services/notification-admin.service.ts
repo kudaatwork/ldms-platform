@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, map, of } from 'rxjs';
+import { LOCATIONS_TABLE_PAGE_SIZE } from '../../locations/services/locations.service';
 import { environment } from '../../../../environments/environment';
 import { MOCK_NOTIFICATION_LOG, MOCK_NOTIFICATION_TEMPLATES } from '../data/notifications-mock-data';
 import type {
@@ -81,6 +82,63 @@ export class NotificationAdminService {
     return this.http
       .get<TemplateListResponse>(`${this.templateBase}/find-all-as-a-list`)
       .pipe(map((r) => (r.templateList ?? []).map((row) => this.normalizeTemplateRow(row))));
+  }
+
+  /**
+   * Server-paged templates (same transport pattern as locations `queryTablePage` → POST + `Page` metadata).
+   * Backend returns 404 when the page is empty; treat as zero rows.
+   */
+  getTemplatesPage(filters: TemplateMultipleFiltersRequest): Observable<{
+    rows: NotificationTemplateRow[];
+    totalElements: number;
+  }> {
+    const page = filters.page ?? 0;
+    const size = filters.size && filters.size > 0 ? filters.size : LOCATIONS_TABLE_PAGE_SIZE;
+
+    if (environment.useMocks) {
+      let list = [...this.mockTemplates];
+      const q = filters.searchValue?.trim().toLowerCase();
+      if (q) {
+        list = list.filter(
+          (t) =>
+            t.templateKey.toLowerCase().includes(q) ||
+            (t.description ?? '').toLowerCase().includes(q) ||
+            (t.emailSubject ?? '').toLowerCase().includes(q),
+        );
+      }
+      if (filters.isActive != null) {
+        list = list.filter((t) => t.isActive === filters.isActive);
+      }
+      const totalElements = list.length;
+      const start = page * size;
+      const rows = list.slice(start, start + size).map((row) => this.normalizeTemplateRow(row));
+      return of({ rows, totalElements });
+    }
+
+    const body: TemplateMultipleFiltersRequest = {
+      ...filters,
+      page,
+      size,
+      searchValue: filters.searchValue ?? '',
+    };
+
+    return this.http.post<TemplateResponse>(`${this.templateBase}/find-by-multiple-filters`, body).pipe(
+      map((r) => {
+        // Backend uses JSON `statusCode` (often still HTTP 200); empty catalog is 404 in-body.
+        if (r.statusCode === 404) {
+          return { rows: [], totalElements: 0 };
+        }
+        if (r.statusCode != null && r.statusCode >= 400) {
+          throw r;
+        }
+        const p = r.templatePage;
+        const content = p?.content ?? [];
+        return {
+          rows: content.map((row) => this.normalizeTemplateRow(row)),
+          totalElements: Number(p?.totalElements ?? content.length),
+        };
+      }),
+    );
   }
 
   getAddTemplateMetadata(): Observable<TemplateCreationMetadataDto> {

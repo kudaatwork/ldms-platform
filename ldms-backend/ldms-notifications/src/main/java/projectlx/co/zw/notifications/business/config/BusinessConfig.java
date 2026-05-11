@@ -2,7 +2,6 @@ package projectlx.co.zw.notifications.business.config;
 
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import com.google.firebase.messaging.FirebaseMessaging;
@@ -40,7 +39,9 @@ import projectlx.co.zw.notifications.repository.NotificationLogRepository;
 import projectlx.co.zw.notifications.repository.NotificationTemplateRepository;
 import projectlx.co.zw.notifications.repository.UserNotificationPreferenceRepository;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.client.RestTemplate;
+import com.sendgrid.SendGrid;
 import software.amazon.awssdk.services.ses.SesClient;
 import java.util.List;
 
@@ -132,15 +133,16 @@ public class BusinessConfig {
     }
 
     @Bean
-    @ConditionalOnBean(SesClient.class)
     public NotificationProviderService emailNotificationProviderService(
             TemplateProcessorService templateProcessorService,
             NotificationLogServiceAuditable notificationLogServiceAuditable,
-            SesClient sesClient) {
+            ObjectProvider<SesClient> sesClientProvider,
+            ObjectProvider<SendGrid> sendGridProvider) {
         return new EmailNotificationProviderServiceImpl(
                 templateProcessorService,
                 notificationLogServiceAuditable,
-                sesClient);
+                sesClientProvider,
+                sendGridProvider);
     }
 
     @Bean

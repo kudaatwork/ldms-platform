@@ -1,0 +1,35 @@
+<h2 mat-dialog-title>{{ title }}</h2>
+
+<mat-dialog-content class="assign-roles-body">
+  <p class="assign-roles-lead">
+    Choose one or more roles from the catalog. They will be linked to this user group via the server.
+  </p>
+
+  <div class="assign-roles-toolbar" *ngIf="!loading && roles.length > 0">
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="setAllSelected(true)">Select all</button>
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="setAllSelected(false)">Clear</button>
+  </div>
+
+  <div class="assign-roles-loading" *ngIf="loading">
+    <mat-progress-bar mode="indeterminate" aria-label="Loading roles"></mat-progress-bar>
+    <p>Loading roles…</p>
+  </div>
+
+  <p class="assign-roles-error" *ngIf="error">{{ error }}</p>
+
+  <div class="assign-roles-list" *ngIf="!loading && roles.length > 0">
+    <label class="assign-roles-row" *ngFor="let r of roles">
+      <mat-checkbox [(ngModel)]="r.selected">{{ r.role }}</mat-checkbox>
+      <span class="assign-roles-desc">{{ r.description }}</span>
+    </label>
+  </div>
+
+  <p class="assign-roles-empty" *ngIf="!loading && roles.length === 0 && !error">No roles are available to assign.</p>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" class="lx-btn lx-btn-ghost" (click)="close()" [disabled]="assigning">Cancel</button>
+  <button type="button" class="lx-btn lx-btn-primary" (click)="assign()" [disabled]="assigning || loading || roles.length === 0">
+    Assign selected
+  </button>
+</mat-dialog-actions>

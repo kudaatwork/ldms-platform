@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
+import static java.util.Optional.ofNullable;
+
 @RequiredArgsConstructor
 public class UserTypeServiceProcessorImpl implements UserTypeServiceProcessor {
 
@@ -29,13 +31,18 @@ public class UserTypeServiceProcessorImpl implements UserTypeServiceProcessor {
     @Override
     public UserTypeResponse create(CreateUserTypeRequest createUserTypeRequest, Locale locale, String username) {
 
-        logger.info("Incoming request to create a user type : {}", createUserTypeRequest);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Incoming request to create a user type: {}", createUserTypeRequest);
+        }
 
         UserTypeResponse userTypeResponse = userTypeService.create(createUserTypeRequest,
                 locale, username);
 
-        logger.info("Outgoing response after creating a user type : {}. Status Code: {}. Message: {}",
-                userTypeResponse, userTypeResponse.getStatusCode(), userTypeResponse.getMessage());
+        if (logger.isDebugEnabled()) {
+            Long id = ofNullable(userTypeResponse.getUserTypeDto()).map(UserTypeDto::getId).orElse(null);
+            logger.debug("Outgoing user type create: status={}, success={}, id={}, message={}",
+                    userTypeResponse.getStatusCode(), userTypeResponse.isSuccess(), id, userTypeResponse.getMessage());
+        }
 
         return userTypeResponse;
     }
@@ -69,12 +76,17 @@ public class UserTypeServiceProcessorImpl implements UserTypeServiceProcessor {
     @Override
     public UserTypeResponse update(EditUserTypeRequest editUserTypeRequest, String username, Locale locale) {
 
-        logger.info("Incoming request to update a user type : {}", editUserTypeRequest);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Incoming request to update a user type: {}", editUserTypeRequest);
+        }
 
         UserTypeResponse userTypeResponse = userTypeService.update(editUserTypeRequest, username, locale);
 
-        logger.info("Outgoing response after updating a user type : {}. Status Code: {}. Message: {}",
-                userTypeResponse, userTypeResponse.getStatusCode(), userTypeResponse.getMessage());
+        if (logger.isDebugEnabled()) {
+            Long id = ofNullable(userTypeResponse.getUserTypeDto()).map(UserTypeDto::getId).orElse(null);
+            logger.debug("Outgoing user type update: status={}, success={}, id={}, message={}",
+                    userTypeResponse.getStatusCode(), userTypeResponse.isSuccess(), id, userTypeResponse.getMessage());
+        }
 
         return userTypeResponse;
     }

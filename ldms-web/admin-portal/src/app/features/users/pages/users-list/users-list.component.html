@@ -1,159 +1,586 @@
 <div class="lx-page">
-  <ng-container *ngIf="!loading; else skel">
-    <ng-container *ngIf="dataSource.length > 0; else tableCardEmpty">
-      <div class="lx-card lx-card--subsection">
+  <div class="lx-card lx-card--subsection links-strip">
+    <a class="links-strip__item" routerLink="/users/groups" routerLinkActive="is-active"><mat-icon>groups</mat-icon>User Groups</a>
+    <a class="links-strip__item" routerLink="/users/roles" routerLinkActive="is-active"><mat-icon>verified_user</mat-icon>User Roles</a>
+    <a class="links-strip__item" routerLink="/users/types" routerLinkActive="is-active"><mat-icon>category</mat-icon>User Types</a>
+  </div>
+
+  <div class="lx-card lx-card--subsection">
+    <div class="lx-controls-head">
+      <div class="lx-controls-head__text">
         <h3 class="lx-controls-title">Table controls</h3>
-        <p class="lx-controls-subtitle">Manage user actions, search terms, and column filters.</p>
-        <div class="lx-data-toolbar">
-          <div class="lx-data-toolbar__actions">
-            <button type="button" class="lx-btn lx-btn-ghost">Refresh</button>
-            <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
-            <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
-              Export
-            </button>
-            <button type="button" class="lx-btn lx-btn-primary">Invite user</button>
-          </div>
-          <div class="lx-data-toolbar__search">
-            <div class="lx-input-shell lx-search-field">
-              <mat-icon class="lx-input-shell__icon">search</mat-icon>
-              <input [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
-            </div>
-            <button
-              type="button"
-              class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
-              (click)="filterFieldsOpen = !filterFieldsOpen"
-              [class.lx-btn-filter--on]="filterFieldsOpen"
-            >
-              <mat-icon>tune</mat-icon>
-              Filters
-            </button>
-          </div>
-        </div>
-        <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
-          <button mat-menu-item class="lx-export-option--pdf" (click)="stubExport()">
-            <mat-icon>picture_as_pdf</mat-icon>
-            <span>Export PDF</span>
-          </button>
-          <button mat-menu-item class="lx-export-option--csv" (click)="stubExport()">
-            <mat-icon>table_view</mat-icon>
-            <span>Export CSV</span>
-          </button>
-          <button mat-menu-item class="lx-export-option--xlsx" (click)="stubExport()">
-            <mat-icon>grid_on</mat-icon>
-            <span>Export XLSX</span>
-          </button>
-        </mat-menu>
-
-        <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
-          <span class="lx-filter-panel__label">Column filters</span>
-          <div class="lx-filter-fields">
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Email</div>
-              <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
-              <input [(ngModel)]="columnFilters.email" (ngModelChange)="resetPaging()" />
-            </div>
-            </div>
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Name</div>
-              <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">person</mat-icon>
-              <input [(ngModel)]="columnFilters.name" (ngModelChange)="resetPaging()" />
-            </div>
-            </div>
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Role</div>
-              <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">badge</mat-icon>
-              <input [(ngModel)]="columnFilters.role" (ngModelChange)="resetPaging()" />
-            </div>
-            </div>
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Status</div>
-              <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">label</mat-icon>
-              <input [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
-            </div>
-            </div>
-          </div>
-        </div>
+        <p class="lx-controls-subtitle">Search, filter, and add new user records.</p>
       </div>
-
-      <div class="lx-card">
-        <h2 class="lc-title">All users</h2>
-        <p class="lc-lead">Directory of portal accounts.</p>
-        <ng-container *ngIf="filteredRows.length > 0; else noSearchHits">
-          <div class="lx-table-wrap">
-            <table mat-table [dataSource]="pagedRows">
-              <ng-container matColumnDef="email">
-                <th mat-header-cell *matHeaderCellDef>Email</th>
-                <td mat-cell *matCellDef="let row">{{ row.email }}</td>
-              </ng-container>
-              <ng-container matColumnDef="name">
-                <th mat-header-cell *matHeaderCellDef>Name</th>
-                <td mat-cell *matCellDef="let row">{{ row.name }}</td>
-              </ng-container>
-              <ng-container matColumnDef="role">
-                <th mat-header-cell *matHeaderCellDef>Role</th>
-                <td mat-cell *matCellDef="let row">{{ row.role }}</td>
-              </ng-container>
-              <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef>Status</th>
-                <td mat-cell *matCellDef="let row">
-                  <span class="lx-status" [ngClass]="'lx-status-' + row.status.toLowerCase()">{{ row.statusLabel }}</span>
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef>Actions</th>
-                <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">Open</button>
-                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">Edit</button>
-                  <button type="button" class="lx-btn lx-btn-danger lx-btn-sm">Delete</button>
-                </td>
-              </ng-container>
-              <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-            </table>
-          </div>
-          <mat-paginator
-            class="lx-table-paginator"
-            [length]="filteredRows.length"
-            [pageIndex]="clampedPageIndex"
-            [pageSize]="pageSize"
-            [pageSizeOptions]="[5, 10, 25, 50]"
-            [showFirstLastButtons]="true"
-            (page)="onPage($event)"
-          ></mat-paginator>
-        </ng-container>
-        <ng-template #noSearchHits>
-          <div class="lx-empty lx-empty--compact">
-            <mat-icon class="lx-empty-icon">search_off</mat-icon>
-            <div class="lx-empty-title">No matching rows</div>
-            <div class="lx-empty-sub">Adjust search or column filters.</div>
-          </div>
-        </ng-template>
+      <button
+        type="button"
+        mat-icon-button
+        class="lx-controls-head__info-btn"
+        [class.is-on]="showSampleCsvInfo"
+        (click)="showSampleCsvInfo = !showSampleCsvInfo"
+        [attr.aria-pressed]="showSampleCsvInfo"
+        aria-label="Toggle sample CSV information"
+        [matTooltip]="showSampleCsvInfo ? 'Hide sample CSV info' : 'About the sample CSV'"
+        matTooltipPosition="left"
+      >
+        <mat-icon>info_outline</mat-icon>
+      </button>
+    </div>
+    <p class="lx-controls-hint" *ngIf="showSampleCsvInfo">
+      <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+      <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }} The download includes the header row and 2 example rows you can copy or replace.</span>
+    </p>
+    <p class="lx-controls-hint lx-import-disclaimer">
+      <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+      <span>{{ importCsvDisclaimer }}</span>
+    </p>
+    <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()">Refresh</button>
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="downloadSampleCsv()">Sample CSV</button>
+        <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
+          Export
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="openCreateModal()">Add New</button>
       </div>
-    </ng-container>
-    <ng-template #tableCardEmpty>
-      <div class="lx-card">
-        <h2 class="lc-title">All users</h2>
-        <p class="lc-lead">Directory of portal accounts.</p>
-        <div class="lx-empty">
-          <mat-icon class="lx-empty-icon">inbox</mat-icon>
-          <div class="lx-empty-title">No items found</div>
-          <div class="lx-empty-sub">Adjust filters or check back later</div>
+      <div class="lx-data-toolbar__search">
+        <div class="lx-input-shell lx-search-field">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
+        </div>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+          (click)="filterFieldsOpen = !filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen"
+        >
+          <mat-icon>tune</mat-icon>
+          Filters
+        </button>
+      </div>
+    </div>
+    <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="stubExport()">
+        <mat-icon>picture_as_pdf</mat-icon>
+        <span>Export PDF</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--csv" (click)="stubExport()">
+        <mat-icon>table_view</mat-icon>
+        <span>Export CSV</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="stubExport()">
+        <mat-icon>grid_on</mat-icon>
+        <span>Export XLSX</span>
+      </button>
+    </mat-menu>
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Email</div>
+          <div class="lx-input-shell lx-filter-field">
+          <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
+          <input [(ngModel)]="columnFilters.email" (ngModelChange)="resetPaging()" />
+        </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">First name</div>
+          <div class="lx-input-shell lx-filter-field">
+          <mat-icon class="lx-input-shell__icon">person</mat-icon>
+          <input [(ngModel)]="columnFilters.firstName" (ngModelChange)="resetPaging()" />
+        </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Last name</div>
+          <div class="lx-input-shell lx-filter-field">
+          <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+          <input [(ngModel)]="columnFilters.lastName" (ngModelChange)="resetPaging()" />
+        </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Username</div>
+          <div class="lx-input-shell lx-filter-field">
+          <mat-icon class="lx-input-shell__icon">alternate_email</mat-icon>
+          <input [(ngModel)]="columnFilters.username" (ngModelChange)="resetPaging()" />
+        </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Phone</div>
+          <div class="lx-input-shell lx-filter-field">
+          <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+          <input [(ngModel)]="columnFilters.phoneNumber" (ngModelChange)="resetPaging()" />
+        </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">National ID</div>
+          <div class="lx-input-shell lx-filter-field">
+          <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+          <input [(ngModel)]="columnFilters.nationalIdNumber" (ngModelChange)="resetPaging()" />
+        </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Passport</div>
+          <div class="lx-input-shell lx-filter-field">
+          <mat-icon class="lx-input-shell__icon">assignment_ind</mat-icon>
+          <input [(ngModel)]="columnFilters.passportNumber" (ngModelChange)="resetPaging()" />
+        </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Status</div>
+          <div class="lx-input-shell lx-filter-field">
+          <mat-icon class="lx-input-shell__icon">label</mat-icon>
+          <input [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
+        </div>
         </div>
       </div>
-    </ng-template>
-  </ng-container>
-</div>
-
-<ng-template #skel>
-  <div class="lx-page">
-    <div class="lx-card skel-card">
-      <div class="skeleton skel-line skel-line--lg"></div>
-      <div class="skeleton skel-line skel-line--md"></div>
-      <div class="skeleton skel-block" style="margin-top: 20px; height: 120px"></div>
     </div>
   </div>
-</ng-template>
+
+  <div class="lx-card">
+    <div class="lx-table-header">
+      <div>
+        <h2 class="lc-title">All users</h2>
+        <p class="lc-lead">Directory of portal accounts.</p>
+      </div>
+      <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
+    </div>
+    <div class="lx-table-loading" *ngIf="fetching && userTable.data.length === 0">
+      <mat-progress-bar mode="indeterminate" aria-label="Loading users"></mat-progress-bar>
+      <p class="lx-table-loading__text">Loading users…</p>
+    </div>
+    <ng-container *ngIf="userTable.data.length > 0; else noSearchHits">
+      <div class="lx-table-wrap lx-users-table-wrap">
+        <table mat-table [dataSource]="userTable" class="lx-mat-table lx-users-table">
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>Name</th>
+            <td mat-cell *matCellDef="let row">{{ row.name }}</td>
+          </ng-container>
+          <ng-container matColumnDef="username">
+            <th mat-header-cell *matHeaderCellDef>Username</th>
+            <td mat-cell *matCellDef="let row">{{ row.username || '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="email">
+            <th mat-header-cell *matHeaderCellDef>Email</th>
+            <td mat-cell *matCellDef="let row">{{ row.email }}</td>
+          </ng-container>
+          <ng-container matColumnDef="phoneNumber">
+            <th mat-header-cell *matHeaderCellDef>Phone</th>
+            <td mat-cell *matCellDef="let row">{{ row.phoneNumber || '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="gender">
+            <th mat-header-cell *matHeaderCellDef>Gender</th>
+            <td mat-cell *matCellDef="let row">{{ row.gender }}</td>
+          </ng-container>
+          <ng-container matColumnDef="nationalId">
+            <th mat-header-cell *matHeaderCellDef>National ID</th>
+            <td mat-cell *matCellDef="let row">{{ row.nationalIdNumber }}</td>
+          </ng-container>
+          <ng-container matColumnDef="dateOfBirth">
+            <th mat-header-cell *matHeaderCellDef>Date of birth</th>
+            <td mat-cell *matCellDef="let row">{{ row.dateOfBirthLabel }}</td>
+          </ng-container>
+          <ng-container matColumnDef="accountType">
+            <th mat-header-cell *matHeaderCellDef>User type</th>
+            <td mat-cell *matCellDef="let row">{{ row.accountType }}</td>
+          </ng-container>
+          <ng-container matColumnDef="role">
+            <th mat-header-cell *matHeaderCellDef>Role</th>
+            <td mat-cell *matCellDef="let row">{{ row.role }}</td>
+          </ng-container>
+          <ng-container matColumnDef="emailVerified">
+            <th mat-header-cell *matHeaderCellDef>Email verified</th>
+            <td mat-cell *matCellDef="let row">
+              <span
+                class="lx-pill"
+                [class.lx-pill--success]="row.emailVerifiedLabel === 'Yes'"
+                [class.lx-pill--warn]="row.emailVerifiedLabel === 'No'"
+                [class.lx-pill--muted]="row.emailVerifiedLabel === '—'"
+                >{{ row.emailVerifiedLabel }}</span
+              >
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="lx-status" [ngClass]="'lx-status-' + (row.status || 'active').toLowerCase()">{{ row.statusLabel }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="createdAt">
+            <th mat-header-cell *matHeaderCellDef>Created</th>
+            <td mat-cell *matCellDef="let row">{{ row.createdAtLabel }}</td>
+          </ng-container>
+          <ng-container matColumnDef="updatedAt">
+            <th mat-header-cell *matHeaderCellDef>Updated</th>
+            <td mat-cell *matCellDef="let row">{{ row.updatedAtLabel }}</td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+              <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #rowMenu="matMenu" panelClass="lx-row-actions-menu">
+                <a mat-menu-item class="lx-action-view" [routerLink]="userLink(row, 'profile')">
+                  <mat-icon>visibility</mat-icon> View profile
+                </a>
+                <a mat-menu-item class="lx-action-edit" [routerLink]="userLink(row, 'account')">
+                  <mat-icon>account_circle</mat-icon> Account
+                </a>
+                <a mat-menu-item [routerLink]="userLink(row, 'preferences')">
+                  <mat-icon>tune</mat-icon> Preferences
+                </a>
+                <button
+                  mat-menu-item
+                  type="button"
+                  class="lx-action-assign"
+                  *ngIf="row.userGroupId"
+                  (click)="openAssignRolesToGroupDialog(row)"
+                >
+                  <mat-icon>assignment_ind</mat-icon> Assign roles
+                </button>
+                <a mat-menu-item [routerLink]="userLink(row, 'security-policies')">
+                  <mat-icon>security</mat-icon> Security details
+                </a>
+                <a mat-menu-item [routerLink]="userLink(row, 'addresses')">
+                  <mat-icon>home</mat-icon> Addresses
+                </a>
+                <a mat-menu-item [routerLink]="userLink(row, 'password')">
+                  <mat-icon>password</mat-icon> Change password
+                </a>
+              </mat-menu>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      </div>
+      <mat-paginator
+        class="lx-table-paginator"
+        [length]="totalRecords"
+        [pageIndex]="pageIndex"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="[10, 20, 25, 50]"
+        [showFirstLastButtons]="true"
+        (page)="onPage($any($event))"
+      ></mat-paginator>
+    </ng-container>
+    <ng-template #noSearchHits>
+      <div class="lx-empty lx-empty--compact">
+        <mat-icon class="lx-empty-icon">search_off</mat-icon>
+        <div class="lx-empty-title">No matching rows</div>
+        <div class="lx-empty-sub">Adjust search or column filters.</div>
+      </div>
+    </ng-template>
+  </div>
+</div>
+
+<div class="lx-modal-backdrop" *ngIf="showCreateModal" (click)="closeCreateModal()"></div>
+<div class="lx-modal lx-modal--lg" *ngIf="showCreateModal" role="dialog" aria-modal="true">
+  <div class="lx-modal__header">
+    <div>
+      <h3 class="lx-modal__title">Create user</h3>
+      <p class="lx-modal__subtitle">Complete each section to onboard profile, address, preferences, and security.</p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close modal" (click)="closeCreateModal()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-stepper">
+    <button
+      type="button"
+      class="lx-stepper__item"
+      [class.is-active]="createStep === 0"
+      [class.is-complete]="createStep !== 0 && isStepComplete(0)"
+      [class.is-disabled]="!canAccessStep(0)"
+      [disabled]="!canAccessStep(0)"
+      (click)="goToCreateStep(0)"
+    >
+      <mat-icon>person</mat-icon><span>Basic</span>
+    </button>
+    <button
+      type="button"
+      class="lx-stepper__item"
+      [class.is-active]="createStep === 1"
+      [class.is-complete]="createStep !== 1 && isStepComplete(1)"
+      [class.is-disabled]="!canAccessStep(1)"
+      [disabled]="!canAccessStep(1)"
+      (click)="goToCreateStep(1)"
+    >
+      <mat-icon>category</mat-icon><span>Type & Address</span>
+    </button>
+    <button
+      type="button"
+      class="lx-stepper__item"
+      [class.is-active]="createStep === 2"
+      [class.is-complete]="createStep !== 2 && isStepComplete(2)"
+      [class.is-disabled]="!canAccessStep(2)"
+      [disabled]="!canAccessStep(2)"
+      (click)="goToCreateStep(2)"
+    >
+      <mat-icon>tune</mat-icon><span>Preferences</span>
+    </button>
+    <button
+      type="button"
+      class="lx-stepper__item"
+      [class.is-active]="createStep === 3"
+      [class.is-complete]="createStep !== 3 && isStepComplete(3)"
+      [class.is-disabled]="!canAccessStep(3)"
+      [disabled]="!canAccessStep(3)"
+      (click)="goToCreateStep(3)"
+    >
+      <mat-icon>security</mat-icon><span>Security</span>
+    </button>
+  </div>
+
+  <div class="lx-modal__body lx-modal__body--grid" *ngIf="createStep === 0">
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Organization</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">business</mat-icon>
+        <select
+          [ngModel]="createModel.organizationId"
+          (ngModelChange)="onOrganizationChange($event)"
+          [disabled]="organizationsLoading"
+        >
+          <option value="">{{ organizationsLoading ? 'Loading organizations…' : 'No organization (admin panel user)' }}</option>
+          <option *ngFor="let o of organizationOptions" [value]="selectOptionValue(o.id)">{{ o.label }}</option>
+        </select>
+      </div>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Branch</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">account_tree</mat-icon>
+        <select
+          [(ngModel)]="createModel.branchId"
+          [disabled]="!createModel.organizationId || branchesLoading"
+        >
+          <option value="">{{ branchesLoading ? 'Loading branches…' : 'No branch selected' }}</option>
+          <option *ngFor="let b of branchOptions" [value]="selectOptionValue(b.id)">{{ b.label }}</option>
+        </select>
+      </div>
+      <span class="lx-field-hint">Optional. Branch list updates from the selected organization.</span>
+    </label>
+    <label class="lx-modal__field"><span class="lx-field-label">Username <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">alternate_email</mat-icon><input [(ngModel)]="createModel.username" placeholder="e.g. tinashe.moyo" /></div><span class="lx-field-hint">Unique sign-in username used for portal login.</span></label>
+    <label class="lx-modal__field"><span class="lx-field-label">Email <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">mail_outline</mat-icon><input [(ngModel)]="createModel.email" placeholder="e.g. tinashe@example.com" /></div><span class="lx-field-hint">Primary email for notifications and recovery.</span></label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">First name <span class="req">*</span></span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">person</mat-icon>
+        <input [(ngModel)]="createModel.firstName" placeholder="e.g. Tinashe" />
+      </div>
+      <span class="lx-field-hint">Given name exactly as it should appear on profile records.</span>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Last name <span class="req">*</span></span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+        <input [(ngModel)]="createModel.lastName" placeholder="e.g. Moyo" />
+      </div>
+      <span class="lx-field-hint">Surname used for account display and search matches.</span>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Gender <span class="req">*</span></span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">wc</mat-icon>
+        <select [(ngModel)]="createModel.gender">
+          <option value="" disabled>Select gender</option>
+          <option *ngFor="let g of genderOptions" [value]="g">{{ g }}</option>
+        </select>
+      </div>
+      <span class="lx-field-hint">Used for profile and compliance records.</span>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Date of birth <span class="req">*</span></span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">event</mat-icon>
+        <input type="date" [(ngModel)]="createModel.dateOfBirth" [max]="maximumDateOfBirth" />
+      </div>
+      <span class="lx-field-hint">Only users aged 16 years and older are allowed.</span>
+    </label>
+    <label class="lx-modal__field"><span class="lx-field-label">Phone number <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">phone</mat-icon><input [(ngModel)]="createModel.phoneNumber" placeholder="e.g. +263771234567" /></div></label>
+    <label class="lx-modal__field"><span class="lx-field-label">Password <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">lock</mat-icon><input type="password" [(ngModel)]="createModel.password" placeholder="Temporary password" /></div><span class="lx-field-hint">User changes this after first login.</span></label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Confirm password <span class="req">*</span></span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">lock_person</mat-icon>
+        <input type="password" [(ngModel)]="createModel.confirmPassword" placeholder="Retype password" />
+      </div>
+      <span class="lx-field-hint">Must exactly match the password entered above.</span>
+    </label>
+  </div>
+
+  <div class="lx-modal__body lx-modal__body--grid" *ngIf="createStep === 1">
+    <label class="lx-modal__field">
+      <span class="lx-field-label">User type <span class="req">*</span></span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">category</mat-icon>
+        <select (change)="onUserTypeChange($any($event.target).value)">
+          <option value="" disabled selected>Select user type</option>
+          <option *ngFor="let t of userTypeOptions" [value]="t.id">{{ t.label }}</option>
+        </select>
+      </div>
+      <span class="lx-field-hint">Pick the account category from configured user types.</span>
+    </label>
+    <label class="lx-modal__field"><span class="lx-field-label">User type description</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">description</mat-icon><input [(ngModel)]="createModel.userTypeDescription" placeholder="Auto-filled from selected type" readonly /></div></label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">National ID</span>
+      <div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">badge</mat-icon><input [(ngModel)]="createModel.nationalIdNumber" placeholder="If no passport below" /></div>
+      <span class="lx-field-hint">Together with passport: fill at least one (required).</span>
+    </label>
+    <label class="lx-modal__field"><span class="lx-field-label">National ID expiry date</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">event_available</mat-icon><input type="date" [(ngModel)]="createModel.nationalIdExpiryDate" /></div></label>
+    <label class="lx-modal__field"><span class="lx-field-label">National ID upload</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">upload_file</mat-icon><input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onNationalIdUploadSelected($event)" /></div><span class="lx-field-hint">Optional at create; can be uploaded later on profile.</span></label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Passport number</span>
+      <div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">assignment_ind</mat-icon><input [(ngModel)]="createModel.passportNumber" placeholder="If no national ID above" /></div>
+    </label>
+    <label class="lx-modal__field"><span class="lx-field-label">Passport expiry date</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">event_busy</mat-icon><input type="date" [(ngModel)]="createModel.passportExpiryDate" /></div></label>
+    <label class="lx-modal__field"><span class="lx-field-label">Passport upload</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">upload</mat-icon><input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onPassportUploadSelected($event)" /></div><span class="lx-field-hint">Optional at create; can be uploaded later on profile.</span></label>
+    <label class="lx-modal__field"><span class="lx-field-label">Address line 1</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">home</mat-icon><input [(ngModel)]="createModel.addressLine1" placeholder="e.g. 12 Main Road" /></div></label>
+    <label class="lx-modal__field"><span class="lx-field-label">Address line 2</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">pin_drop</mat-icon><input [(ngModel)]="createModel.addressLine2" placeholder="e.g. Apartment 6B" /></div></label>
+    <label class="lx-modal__field"><span class="lx-field-label">Postal code</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon><input [(ngModel)]="createModel.postalCode" placeholder="e.g. 00263" /></div></label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Country</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">public</mat-icon>
+        <select
+          [ngModel]="addressCountryId"
+          (ngModelChange)="onAddressCountryChange($event)"
+          [disabled]="optionsLoading || countryOptions.length === 0"
+        >
+          <option value="" disabled>Select country</option>
+          <option *ngFor="let c of countryOptions; trackBy: trackBySelectOptionId" [value]="selectOptionValue(c.id)">{{ c.label }}</option>
+        </select>
+      </div>
+      <span class="lx-field-hint">Used only to narrow the suburb list; not sent separately on create.</span>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Province</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">map</mat-icon>
+        <select
+          [ngModel]="addressProvinceId"
+          (ngModelChange)="onAddressProvinceChange($event)"
+          [disabled]="!addressCountryId || provinceOptionsLoading"
+        >
+          <option value="" disabled>{{ provinceOptionsLoading ? 'Loading provinces…' : 'Select province' }}</option>
+          <option *ngFor="let p of provinceOptions; trackBy: trackBySelectOptionId" [value]="selectOptionValue(p.id)">{{ p.label }}</option>
+        </select>
+      </div>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">District</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">terrain</mat-icon>
+        <select
+          [ngModel]="addressDistrictId"
+          (ngModelChange)="onAddressDistrictChange($event)"
+          [disabled]="!addressProvinceId || districtOptionsLoading"
+        >
+          <option value="" disabled>{{ districtOptionsLoading ? 'Loading districts…' : 'Select district' }}</option>
+          <option *ngFor="let d of districtOptions; trackBy: trackBySelectOptionId" [value]="selectOptionValue(d.id)">{{ d.label }}</option>
+        </select>
+      </div>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">City</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">location_city</mat-icon>
+        <select
+          [ngModel]="addressCityId"
+          (ngModelChange)="onAddressCityChange($event)"
+          [disabled]="!addressDistrictId || cityOptionsLoading"
+        >
+          <option value="" disabled>{{ cityOptionsLoading ? 'Loading cities…' : 'Select city' }}</option>
+          <option *ngFor="let ct of cityOptions; trackBy: trackBySelectOptionId" [value]="selectOptionValue(ct.id)">{{ ct.label }}</option>
+        </select>
+      </div>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Suburb</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">home_work</mat-icon>
+        <select
+          [ngModel]="createModel.suburbId"
+          (ngModelChange)="onSuburbChange($event)"
+          [disabled]="!addressCityId || suburbOptionsLoading"
+        >
+          <option value="" disabled>{{ suburbOptionsLoading ? 'Loading suburbs…' : 'Select suburb' }}</option>
+          <option *ngFor="let s of suburbOptions; trackBy: trackBySelectOptionId" [value]="selectOptionValue(s.id)">{{ s.label }}</option>
+        </select>
+      </div>
+      <span class="lx-field-hint">Required. Used when creating the address in Location Service.</span>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Geo coordinates ID</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">place</mat-icon>
+        <input [(ngModel)]="createModel.geoCoordinatesId" type="text" inputmode="numeric" placeholder="e.g. 42 (optional)" />
+      </div>
+      <span class="lx-field-hint">Optional. Use when the point already exists in Location Service; leave blank to omit.</span>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Latitude</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">explore</mat-icon>
+        <input [(ngModel)]="createModel.geoLatitude" type="text" placeholder="e.g. -17.8252 (optional)" />
+      </div>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Longitude</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">explore</mat-icon>
+        <input [(ngModel)]="createModel.geoLongitude" type="text" placeholder="e.g. 31.0335 (optional)" />
+      </div>
+      <span class="lx-field-hint">Optional. If you set latitude, set longitude as well (decimal degrees).</span>
+    </label>
+  </div>
+
+  <div class="lx-modal__body lx-modal__body--grid" *ngIf="createStep === 2">
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Preferred language</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">translate</mat-icon>
+        <select [(ngModel)]="createModel.preferredLanguage">
+          <option value="">Select language</option>
+          <option *ngFor="let lang of languageOptions" [value]="lang">{{ lang }}</option>
+        </select>
+      </div>
+      <span class="lx-field-hint">Default language for messages and notifications.</span>
+    </label>
+    <label class="lx-modal__field">
+      <span class="lx-field-label">Timezone</span>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+        <select [(ngModel)]="createModel.timezone">
+          <option value="">Select timezone</option>
+          <option *ngFor="let tz of timezoneOptions" [value]="tz">{{ tz }}</option>
+        </select>
+      </div>
+      <span class="lx-field-hint">IANA timezone identifier.</span>
+    </label>
+  </div>
+
+  <div class="lx-modal__body lx-modal__body--grid" *ngIf="createStep === 3">
+    <p class="lx-field-hint">Leave all security fields blank to skip. If you fill any, include question 1, both answers, and a 2FA secret (backend rule). Question 2 is optional.</p>
+    <label class="lx-modal__field"><span class="lx-field-label">Security question 1</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">help</mat-icon><input [(ngModel)]="createModel.securityQuestion1" placeholder="e.g. Name of your first school?" /></div></label>
+    <label class="lx-modal__field"><span class="lx-field-label">Security answer 1</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">key</mat-icon><input [(ngModel)]="createModel.securityAnswer1" placeholder="Enter answer" /></div></label>
+    <label class="lx-modal__field"><span class="lx-field-label">Security question 2</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">help_outline</mat-icon><input [(ngModel)]="createModel.securityQuestion2" placeholder="e.g. Favorite childhood friend?" /></div></label>
+    <label class="lx-modal__field"><span class="lx-field-label">Security answer 2</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">vpn_key</mat-icon><input [(ngModel)]="createModel.securityAnswer2" placeholder="Enter answer" /></div></label>
+    <label class="lx-modal__field"><span class="lx-field-label">2FA secret</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">lock_clock</mat-icon><input [(ngModel)]="createModel.twoFactorAuthSecret" placeholder="Optional secret seed" /></div></label>
+    <label class="lx-modal__field lx-modal__field--checkbox">
+      <input type="checkbox" [(ngModel)]="createModel.isTwoFactorEnabled" />
+      <span>Enable two-factor auth</span>
+    </label>
+  </div>
+
+  <p class="lx-modal__error" *ngIf="createError">{{ createError }}</p>
+  <div class="lx-modal__actions">
+    <button type="button" class="lx-btn lx-btn-ghost" (click)="closeCreateModal()">Cancel</button>
+    <button type="button" class="lx-btn lx-btn-ghost" *ngIf="createStep > 0" (click)="prevCreateStep()">Back</button>
+    <button type="button" class="lx-btn lx-btn-primary" *ngIf="createStep < 3" (click)="nextCreateStep()">Next</button>
+    <button type="button" class="lx-btn lx-btn-primary" *ngIf="createStep === 3" [disabled]="creating || optionsLoading" (click)="submitCreate()">{{ creating ? 'Creating...' : 'Create user' }}</button>
+  </div>
+</div>
