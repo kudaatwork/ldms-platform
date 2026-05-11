@@ -336,12 +336,14 @@ class UserTypeServiceImplTest {
         when(userTypeServiceValidator.isRequestValidForEditing(any(EditUserTypeRequest.class), eq(locale))).thenReturn(validatorDto);
         when(userTypeRepository.findByIdAndEntityStatusNot(anyLong(), eq(EntityStatus.DELETED)))
                 .thenReturn(Optional.of(userType));
+        when(userRepository.countNonDeletedUsersForUserTypeAtMostTwo(eq(userTypeId), eq(EntityStatus.DELETED.name())))
+                .thenReturn(1L);
         when(userTypeServiceAuditable.update(any(UserType.class), eq(locale), eq(username))).thenReturn(userType);
         when(modelMapper.map(any(UserType.class), eq(UserTypeDto.class))).thenReturn(userTypeDto);
         when(messageService.getMessage(eq(I18Code.MESSAGE_USER_TYPE_UPDATED_SUCCESSFULLY.getCode()), any(String[].class), eq(locale)))
                 .thenReturn("User type updated successfully");
 
-        // Set up the userType to have only one user
+        // Set up the userType to have only one user (service uses capped DB count, not this collection).
         User user = new User();
         List<User> users = new ArrayList<>();
         users.add(user);
@@ -366,12 +368,14 @@ class UserTypeServiceImplTest {
         when(userTypeServiceValidator.isRequestValidForEditing(any(EditUserTypeRequest.class), eq(locale))).thenReturn(validatorDto);
         when(userTypeRepository.findByIdAndEntityStatusNot(anyLong(), eq(EntityStatus.DELETED)))
                 .thenReturn(Optional.of(userType));
+        when(userRepository.countNonDeletedUsersForUserTypeAtMostTwo(eq(userTypeId), eq(EntityStatus.DELETED.name())))
+                .thenReturn(2L);
         when(userTypeServiceAuditable.update(any(UserType.class), eq(locale), eq(username))).thenReturn(userType);
         when(modelMapper.map(any(UserType.class), eq(UserTypeDto.class))).thenReturn(userTypeDto);
         when(messageService.getMessage(eq(I18Code.MESSAGE_USER_TYPE_UPDATED_SUCCESSFULLY.getCode()), any(String[].class), eq(locale)))
                 .thenReturn("User type updated successfully");
 
-        // Set up the userType to have multiple users
+        // Set up the userType to have multiple users (service uses capped DB count).
         User user1 = new User();
         User user2 = new User();
         List<User> users = new ArrayList<>();

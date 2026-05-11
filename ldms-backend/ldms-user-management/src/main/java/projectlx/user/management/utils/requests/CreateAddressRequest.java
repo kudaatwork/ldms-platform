@@ -4,6 +4,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.math.BigDecimal;
+
 /**
  * Request object for creating user addresses.
  * Contains the details to create an address in the Location Service.
@@ -18,4 +20,6 @@ public class CreateAddressRequest {
     private String postalCode; // Postal code
     private Long suburbId; // ID of the suburb in the Location Service
     private Long geoCoordinatesId; // ID of the geo coordinates in the Location Service
+    private BigDecimal latitude;
+    private BigDecimal longitude;
 }

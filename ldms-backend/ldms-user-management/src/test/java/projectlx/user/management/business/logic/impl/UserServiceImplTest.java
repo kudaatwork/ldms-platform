@@ -233,6 +233,9 @@ class UserServiceImplTest {
         userAccount.setEntityStatus(EntityStatus.ACTIVE);
         userAccount.setUser(user);
         user.setUserAccount(userAccount);
+        user.setUserPassword(userPassword);
+        user.setUserPreferences(userPreferences);
+        user.setUserSecurity(userSecurity);
 
         userDto = new UserDto();
         userDto.setId(userId);

@@ -3,8 +3,6 @@ package projectlx.user.management.business.config;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import projectlx.co.zw.shared_library.utils.config.UtilsConfig;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
-import projectlx.user.management.business.logic.api.AuditTrailService;
-import projectlx.user.management.business.logic.impl.AuditTrailServiceImpl;
 import projectlx.user.management.business.auditable.api.UserAccountServiceAuditable;
 import projectlx.user.management.business.auditable.api.UserAddressServiceAuditable;
 import projectlx.user.management.business.auditable.api.UserGroupServiceAuditable;
@@ -72,8 +70,6 @@ import projectlx.user.management.repository.UserRoleRepository;
 import projectlx.user.management.repository.UserSecurityRepository;
 import projectlx.user.management.repository.UserTypeRepository;
 import org.modelmapper.ModelMapper;
-import org.springframework.cloud.openfeign.FeignClientBuilder;
-import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -84,11 +80,6 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 // Skip SharedDataConfig: stale JARs used @EntityScan(shared model) and can collide with local persistence mappings.
 @Import({UtilsConfig.class})
 public class BusinessConfig {
-
-    @Bean
-    public AuditTrailService auditTrailService(RabbitTemplate rabbitTemplate) {
-        return new AuditTrailServiceImpl(rabbitTemplate);
-    }
 
     @Bean
     public UserServiceAuditable userServiceAuditable(UserRepository userRepository){
@@ -175,15 +166,6 @@ public class BusinessConfig {
 
     @Bean
     public UserGroupServiceValidator userGroupServiceValidator(MessageService messageService){ return new UserGroupServiceValidatorImpl(messageService); }
-
-    @Bean
-    public LocationsServiceClient locationsServiceClient(ApplicationContext context) {
-        // Create a Feign client for LocationsServiceClient
-        return new FeignClientBuilder(context)
-                .forType(LocationsServiceClient.class, "locations-management-service")
-                .url("${clients.base-url.locationService}")
-                .build();
-    }
 
     @Bean
     public UserAddressService userAddressService(UserAddressServiceValidator userAddressServiceValidator,

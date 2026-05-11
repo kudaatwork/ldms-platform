@@ -14,10 +14,15 @@ public class AuditTrailServiceImpl implements AuditTrailService {
 
     private final RabbitTemplate rabbitTemplate;
 
-    @Value("${audit.rabbitmq.exchange:${ldms.audit-rabbitmq.exchange:ldms.audit.exchange}}")
+    /**
+     * Must match {@code ldms-audit-trail} topic exchange ({@code ldms.audit.exchange}).
+     * We bind only to {@code ldms.audit-rabbitmq.*} so a stale {@code audit.rabbitmq.exchange}
+     * value from Config Server (e.g. {@code exchange.audit.log}) cannot override the platform default.
+     */
+    @Value("${ldms.audit-rabbitmq.exchange:ldms.audit.exchange}")
     private String exchange;
 
-    @Value("${audit.rabbitmq.routingkey:${ldms.audit-rabbitmq.routing-key:audit.log}}")
+    @Value("${ldms.audit-rabbitmq.routing-key:audit.log}")
     private String routingKey;
 
     @Async // Fire-and-forget: send an audit log without blocking the main thread

@@ -1,6 +1,8 @@
 package projectlx.co.zw.fileuploadservice.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import projectlx.co.zw.fileuploadservice.model.FileUpload;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
@@ -16,6 +18,11 @@ public interface FileUploadRepository extends JpaRepository<FileUpload, Long> {
 
     Optional<FileUpload> findByOriginalFileNameAndEntityStatusNot(String originalFileName, EntityStatus entityStatus);
 
+    @Query(
+            "SELECT f FROM FileUpload f WHERE f.ownerType = :ownerType AND f.ownerId = :ownerId "
+                    + "AND f.entityStatus <> :excludeStatus")
     List<FileUpload> findByOwnerTypeAndOwnerIdAndEntityStatusNot(
-            OwnerType ownerType, Long ownerId, EntityStatus entityStatus);
+            @Param("ownerType") OwnerType ownerType,
+            @Param("ownerId") Long ownerId,
+            @Param("excludeStatus") EntityStatus entityStatus);
 }

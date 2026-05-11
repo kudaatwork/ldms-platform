@@ -102,6 +102,9 @@ public class Validators {
     }
 
     public static boolean isValidPhoneLocalPhoneNumber(String name) {
+        if (name == null) {
+            return false;
+        }
 
         String regex = Constants.ZIM_NUMBER_REGEX;
 
@@ -127,8 +130,11 @@ public class Validators {
         return m.matches();
     }
 
-    public static boolean isValidNationalIdNumber(String nationalIdNumber)
-    {
+    public static boolean isValidNationalIdNumber(String nationalIdNumber) {
+        if (nationalIdNumber == null || nationalIdNumber.isBlank()) {
+            return false;
+        }
+
         String regex = Constants.NATIONAL_ID_REGEX;
 
         Pattern p = Pattern.compile(regex);

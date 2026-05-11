@@ -32,6 +32,7 @@ import projectlx.co.zw.locationsmanagementservice.business.auditable.api.SuburbS
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.SuburbService;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.SuburbServiceValidator;
 import projectlx.co.zw.locationsmanagementservice.model.AdministrativeLevel;
+import projectlx.co.zw.locationsmanagementservice.model.City;
 import projectlx.co.zw.locationsmanagementservice.model.District;
 import projectlx.co.zw.locationsmanagementservice.model.GeoCoordinates;
 import projectlx.co.zw.locationsmanagementservice.model.LocalizedName;
@@ -391,6 +392,7 @@ public class SuburbServiceImpl implements SuburbService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public SuburbResponse findByMultipleFilters(SuburbMultipleFiltersRequest request, String username, Locale locale) {
 
         String message = "";
@@ -727,6 +729,11 @@ public class SuburbServiceImpl implements SuburbService {
                     dto.setCountryName(p.getCountry().getName());
                 }
             }
+        }
+        City city = entity.getCity();
+        if (city != null) {
+            dto.setCityId(city.getId());
+            dto.setCityName(city.getName());
         }
         if (entity.getAdministrativeLevel() != null) {
             dto.setAdministrativeLevelId(entity.getAdministrativeLevel().getId());

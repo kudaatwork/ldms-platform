@@ -23,6 +23,9 @@ spring:
         initial-interval: 2000
         max-interval: 10000
         multiplier: 1.5
+    loadbalancer:
+      cache:
+        enabled: false
     gateway:
       # Local fallback routes so the gateway still works when Config Server
       # is unavailable (import above is optional).
@@ -47,6 +50,21 @@ spring:
           uri: lb://ldms-notifications
           predicates:
             - Path=/ldms-notifications/v1/frontend/**
+        - id: local-system-user-management
+          uri: http://${USER_MANAGEMENT_HOST:127.0.0.1}:${USER_MANAGEMENT_PORT:8086}
+          predicates:
+            - Path=/ldms-user-management/v1/system/**
+        - id: local-frontend-user-management
+          uri: http://${USER_MANAGEMENT_HOST:127.0.0.1}:${USER_MANAGEMENT_PORT:8086}
+          predicates:
+            - Path=/ldms-user-management/v1/frontend/**
+        - id: local-backoffice-user-management
+          uri: http://${USER_MANAGEMENT_HOST:127.0.0.1}:${USER_MANAGEMENT_PORT:8086}
+          predicates:
+            - Path=/ldms-user-management/v1/backoffice/**
+        # File upload routes are registered in code (LdmsFileUploadGatewayRoutesConfiguration) so they survive
+        # Config Server replacing spring.cloud.gateway.routes. Override host/port with FILE_UPLOAD_HOST / FILE_UPLOAD_PORT.
+        # To disable: ldms.gateway.file-upload.routes-enabled=false
 
 eureka:
   client:

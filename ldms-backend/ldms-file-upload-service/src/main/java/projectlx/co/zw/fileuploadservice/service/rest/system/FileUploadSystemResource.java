@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import projectlx.co.zw.fileuploadservice.service.processor.api.FileUploadProcessor;
+import projectlx.co.zw.fileuploadservice.service.rest.support.FileUploadOwnerTypeParam;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
 import projectlx.co.zw.shared_library.utils.enums.OwnerType;
 import projectlx.co.zw.shared_library.utils.responses.FileUploadResponse;
@@ -70,7 +71,12 @@ public class FileUploadSystemResource {
             @RequestParam String ownerType,
             @RequestParam Long ownerId,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
-        OwnerType ot = OwnerType.valueOf(ownerType.toUpperCase());
+        final OwnerType ot;
+        try {
+            ot = FileUploadOwnerTypeParam.parse(ownerType);
+        } catch (IllegalArgumentException ex) {
+            return FileUploadOwnerTypeParam.invalidOwnerTypeResponse(ex.getMessage());
+        }
         FileUploadResponse response = fileUploadProcessor.findByOwnerTypeAndId(ot, ownerId, locale, SYSTEM_USER);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }

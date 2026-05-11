@@ -63,6 +63,7 @@ import java.io.Reader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -127,12 +128,13 @@ public class AddressServiceImpl implements AddressService {
                 .collect(Collectors.toList());
 
         if (!existingAddresses.isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_ADDRESS_ALREADY_EXISTS.getCode(), new String[]{},
+            Address existing = existingAddresses.stream()
+                    .min(Comparator.comparing(Address::getId))
+                    .orElse(existingAddresses.get(0));
+            AddressDto addressDtoReturned = convertAddressToDto(existing);
+            message = messageService.getMessage(I18Code.MESSAGE_ADDRESS_EXISTING_RETURNED.getCode(), new String[]{},
                     locale);
-
-            return buildAddressResponse(400, false, message, null, null,
-                    null);
+            return buildAddressResponse(200, true, message, addressDtoReturned, null, null);
         }
 
         // Create new address

@@ -243,28 +243,22 @@ public class FileUploadServiceImpl implements FileUploadService {
         List<FileUpload> filesRetrieved =
                 fileUploadRepository.findByOwnerTypeAndOwnerIdAndEntityStatusNot(ownerType, ownerId, EntityStatus.DELETED);
 
-        List<FileUploadDto> fileUploadDtoList = filesRetrieved.stream().map(file -> {
-            FileUploadDto dto = modelMapper.map(file, FileUploadDto.class);
-            String fileUrl = "/files/" + file.getStoredFileName();
-            dto.setFileUrl(fileUrl);
-            dto.setUpdatedAt(file.getModifiedAt());
+        if (filesRetrieved.isEmpty()) {
+            log.debug("findByOwner: no rows for ownerType={} ownerId={}", ownerType, ownerId);
+        }
 
-            try {
-                byte[] fileBytes = readFileBytes(file);
-                String base64FileContent = Base64.getEncoder().encodeToString(fileBytes);
-                dto.setFileContent(base64FileContent);
-            } catch (Exception e) {
-                dto.setFileContent(null);
-            }
-
-            return dto;
-        }).toList();
+        // Same mapping as find-by-id (includes base64 when RustFS/local read succeeds).
+        List<FileUploadDto> fileUploadDtoList =
+                filesRetrieved.stream().map(file -> toDtoWithContent(file, locale)).toList();
 
         FileUploadResponse response = new FileUploadResponse();
         response.setStatusCode(200);
         response.setSuccess(true);
         response.setMessage(messageService.getMessage(I18Code.FILE_UPLOAD_SUCCESS.getCode(), new String[]{}, locale));
         response.setFileUploadDtoList(fileUploadDtoList);
+        if (fileUploadDtoList.size() == 1) {
+            response.setFileUploadDto(fileUploadDtoList.get(0));
+        }
         return response;
     }
 

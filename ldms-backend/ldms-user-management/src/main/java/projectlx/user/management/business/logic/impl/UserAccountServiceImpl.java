@@ -242,6 +242,16 @@ public class UserAccountServiceImpl implements UserAccountService {
 
         UserAccount userAccountToBeEdited = userAddressRetrieved.get();
 
+        if (editUserAccountRequest.getPhoneNumber() != null) {
+            userAccountToBeEdited.setPhoneNumber(editUserAccountRequest.getPhoneNumber().trim());
+        }
+        if (editUserAccountRequest.getAccountNumber() != null) {
+            userAccountToBeEdited.setAccountNumber(editUserAccountRequest.getAccountNumber().trim());
+        }
+        if (editUserAccountRequest.getIsAccountLocked() != null) {
+            userAccountToBeEdited.setIsAccountLocked(editUserAccountRequest.getIsAccountLocked());
+        }
+
         UserAccount userAccountEdited = userAccountServiceAuditable.update(userAccountToBeEdited, locale, username);
 
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);

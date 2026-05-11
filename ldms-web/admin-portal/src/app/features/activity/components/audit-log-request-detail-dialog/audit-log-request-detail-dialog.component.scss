@@ -42,6 +42,54 @@
   &:first-of-type {
     margin-top: 0;
   }
+
+  &--tight {
+    margin: 0;
+  }
+}
+
+.ald-grid + .ald-block {
+  margin-top: 20px;
+}
+
+.ald-block + .ald-block {
+  margin-top: 16px;
+}
+
+.ald-block__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.ald-copy-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+
+  .ald-v {
+    flex: 1;
+    min-width: 0;
+  }
+}
+
+.ald-copy-btn {
+  flex-shrink: 0;
+  margin: -6px -8px -6px 0;
+  color: var(--gray-500);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+  }
 }
 
 .ald-grid {
@@ -82,6 +130,10 @@
 .lx-mono {
   font-family: ui-monospace, Menlo, monospace;
   font-size: 13px;
+}
+
+.ald-block .ald-pre {
+  margin: 0;
 }
 
 .ald-pre {

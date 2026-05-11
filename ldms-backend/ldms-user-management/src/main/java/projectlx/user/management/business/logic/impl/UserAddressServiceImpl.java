@@ -573,14 +573,23 @@ public class UserAddressServiceImpl implements UserAddressService {
         return address;
     }
 
+    @Override
+    public AddressDto toAddressDto(Address address) {
+        return convertToAddressDto(address);
+    }
+
     /**
-     * Convert Address entity to AddressDto
+     * Convert Address entity to AddressDto (avoids ModelMapper on {@code Address} which has a
+     * transient nested {@link AddressDto} and a {@code users} back-reference).
      */
     private AddressDto convertToAddressDto(Address address) {
 
         AddressDto addressDto = new AddressDto();
         addressDto.setId(address.getId());
         addressDto.setLocationAddressId(address.getLocationAddressId());
+        addressDto.setCreatedAt(address.getCreatedAt());
+        addressDto.setUpdatedAt(address.getUpdatedAt());
+        addressDto.setEntityStatus(toSharedEntityStatus(address.getEntityStatus()));
 
         if (address.getAddressDetails() != null) {
             // Copy details from the fetched address
@@ -593,6 +602,18 @@ public class UserAddressServiceImpl implements UserAddressService {
         }
 
         return addressDto;
+    }
+
+    private static projectlx.co.zw.shared_library.utils.enums.EntityStatus toSharedEntityStatus(EntityStatus status) {
+        if (status == null) {
+            return null;
+        }
+        return switch (status) {
+            case ACTIVE -> projectlx.co.zw.shared_library.utils.enums.EntityStatus.ACTIVE;
+            case INACTIVE -> projectlx.co.zw.shared_library.utils.enums.EntityStatus.INACTIVE;
+            case DELETED -> projectlx.co.zw.shared_library.utils.enums.EntityStatus.DELETED;
+            case SUSPENDED -> projectlx.co.zw.shared_library.utils.enums.EntityStatus.INACTIVE;
+        };
     }
 
     // Fallback methods for circuit breaker

@@ -2,7 +2,6 @@ import { Directive, OnInit, inject } from '@angular/core';
 import { MatPaginator, MatPaginatorSelectConfig } from '@angular/material/paginator';
 
 const PANEL_CLASS = 'lx-table-paginator-select-panel';
-const DEFAULT_PAGE_SIZE = 20;
 
 function mergePanelClass(
   existing: MatPaginatorSelectConfig['panelClass'] | undefined,
@@ -29,6 +28,10 @@ function mergePanelClass(
 /**
  * Applies shared page-size select behaviour for {@link MatPaginator} when the host uses
  * {@code class="lx-table-paginator"} (panel class + option centering).
+ *
+ * Does not overwrite {@link MatPaginator#pageSize}. Parents bind {@code [pageSize]} to match
+ * server requests; forcing a default here emitted {@code (page)}, caused double loads, and
+ * load-token races that left tables empty (e.g. Users list at page size 10).
  */
 @Directive({
   selector: 'mat-paginator.lx-table-paginator',
@@ -44,12 +47,5 @@ export class LxTablePaginatorDirective implements OnInit {
       panelClass: mergePanelClass(c.panelClass, PANEL_CLASS),
       disableOptionCentering: c.disableOptionCentering ?? true,
     };
-
-    // Enforce a consistent default across all table pages.
-    this.paginator.pageSize = DEFAULT_PAGE_SIZE;
-    const sizes = Array.isArray(this.paginator.pageSizeOptions) ? this.paginator.pageSizeOptions : [];
-    this.paginator.pageSizeOptions = sizes.includes(DEFAULT_PAGE_SIZE)
-      ? sizes
-      : [DEFAULT_PAGE_SIZE, ...sizes].sort((a, b) => a - b);
   }
 }
