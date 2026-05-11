@@ -1,5 +1,6 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { finalize } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
 import type { RequestLogRow } from '../../models/request-log-row.model';
@@ -46,6 +47,7 @@ export class AuditLogRequestDetailDialogComponent implements OnInit {
   constructor(
     private readonly dialogRef: MatDialogRef<AuditLogRequestDetailDialogComponent, void>,
     private readonly auditLogAdmin: AuditLogAdminService,
+    private readonly snackBar: MatSnackBar,
     @Inject(MAT_DIALOG_DATA) readonly data: AuditLogRequestDetailDialogData,
   ) {}
 
@@ -77,6 +79,41 @@ export class AuditLogRequestDetailDialogComponent implements OnInit {
 
   close(): void {
     this.dialogRef.close();
+  }
+
+  /** True when the value is non-empty and not the empty-state em dash. */
+  copyable(value: string | null | undefined): boolean {
+    const t = (value ?? '').trim();
+    return t.length > 0 && t !== '—';
+  }
+
+  async copyToClipboard(value: string, label: string): Promise<void> {
+    const text = value === '—' ? '' : value.trim();
+    if (!text) {
+      this.snackBar.open('Nothing to copy.', 'Close', { duration: 2500 });
+      return;
+    }
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.setAttribute('readonly', '');
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      this.snackBar.open(`${label} copied to clipboard.`, 'Close', { duration: 2500 });
+    } catch {
+      this.snackBar.open('Copy failed. Select the text and copy manually.', 'Close', {
+        duration: 4500,
+        panelClass: ['app-snackbar-error'],
+      });
+    }
   }
 
   private buildFromDto(d: AuditLogDto): AuditLogDetailView {

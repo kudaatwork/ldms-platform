@@ -1,12 +1,13 @@
 import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatPaginator } from '@angular/material/paginator';
+import { MatPaginator, PageEvent } from '@angular/material/paginator';
 import { MatSort } from '@angular/material/sort';
 import { MatTableDataSource } from '@angular/material/table';
 import { Title } from '@angular/platform-browser';
 import { Subject, finalize, takeUntil } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
+import { LOCATIONS_TABLE_PAGE_SIZE } from '../../../locations/services/locations.service';
 import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { NotificationTemplateDetailDialogComponent } from '../../components/notification-template-detail-dialog/notification-template-detail-dialog.component';
 import { NotificationTemplateFormDialogComponent } from '../../components/notification-template-form-dialog/notification-template-form-dialog.component';
@@ -34,16 +35,6 @@ interface PlaceholderGuideItem {
   standalone: false,
 })
 export class NotificationsComponent implements OnInit, OnDestroy {
-  @ViewChild('tplSort')
-  set tplSort(s: MatSort) {
-    if (s) this.tplData.sort = s;
-  }
-
-  @ViewChild('tplPaginator')
-  set tplPaginator(p: MatPaginator) {
-    if (p) this.tplData.paginator = p;
-  }
-
   @ViewChild('logSort')
   set logSort(s: MatSort) {
     if (s) this.logData.sort = s;
@@ -60,6 +51,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   tplError: string | null = null;
   logError: string | null = null;
   importingTpl = false;
+  logLoaded = false;
 
   private readonly dialogOpts = {
     width: '640px',
@@ -89,6 +81,12 @@ export class NotificationsComponent implements OnInit, OnDestroy {
 
   tplData = new MatTableDataSource<NotificationTemplateRow>([]);
   logData = new MatTableDataSource<NotificationLogRow>([]);
+
+  /** Server-driven template grid (same defaults as locations countries table). */
+  tplPageIndex = 0;
+  tplPageSize = LOCATIONS_TABLE_PAGE_SIZE;
+  tplTotalRecords = 0;
+  private latestTplLoadToken = 0;
 
   logSearch = '';
   logFrom: Date | null = null;
@@ -146,6 +144,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   ];
 
   private destroy$ = new Subject<void>();
+  private reloadLog$ = new Subject<void>();
 
   constructor(
     private readonly notificationAdmin: NotificationAdminService,
@@ -157,7 +156,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.title.setTitle('Notification Management | LX Admin');
     this.loadTemplates();
-    this.loadLog();
+    this.reloadLog$.pipe(takeUntil(this.destroy$)).subscribe(() => this.loadLog());
   }
 
   ngOnDestroy(): void {
@@ -167,24 +166,52 @@ export class NotificationsComponent implements OnInit, OnDestroy {
 
   loadTemplates(): void {
     this.tplError = null;
+    const loadToken = ++this.latestTplLoadToken;
     this.fetchingTpl = true;
     this.notificationAdmin
-      .getTemplates()
+      .getTemplatesPage({
+        page: this.tplPageIndex,
+        size: this.tplPageSize,
+      })
       .pipe(
         finalize(() => {
-          this.fetchingTpl = false;
+          if (loadToken === this.latestTplLoadToken) {
+            this.fetchingTpl = false;
+          }
         }),
         takeUntil(this.destroy$),
       )
       .subscribe({
-        next: (rows) => {
+        next: ({ rows, totalElements }) => {
+          if (loadToken !== this.latestTplLoadToken) {
+            return;
+          }
+          if (rows.length === 0 && this.tplPageIndex > 0) {
+            this.tplPageIndex = 0;
+            this.loadTemplates();
+            return;
+          }
+          this.tplTotalRecords = totalElements > 0 ? totalElements : rows.length;
           this.tplData.data = rows;
         },
         error: (err) => {
+          if (loadToken !== this.latestTplLoadToken) {
+            return;
+          }
           this.tplData.data = [];
+          this.tplTotalRecords = 0;
           this.tplError = this.errorMessage(err, 'Failed to load templates.');
         },
       });
+  }
+
+  onTplPage(ev: PageEvent): void {
+    if (ev.pageIndex === this.tplPageIndex && ev.pageSize === this.tplPageSize) {
+      return;
+    }
+    this.tplPageIndex = ev.pageIndex;
+    this.tplPageSize = ev.pageSize;
+    this.loadTemplates();
   }
 
   loadLog(): void {
@@ -215,7 +242,14 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   }
 
   applyLogFilters(): void {
-    this.loadLog();
+    this.reloadLog$.next();
+  }
+
+  onTabChange(index: number): void {
+    if (index === 1 && !this.logLoaded) {
+      this.logLoaded = true;
+      this.reloadLog$.next();
+    }
   }
 
   exportLog(format: NotificationLogExportFormat): void {
@@ -258,6 +292,10 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       .afterClosed()
       .subscribe((created) => {
         if (created) {
+          this.snackBar.open('Template created successfully.', 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-success'],
+          });
           this.loadTemplates();
         }
       });
@@ -273,6 +311,10 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       .afterClosed()
       .subscribe((updated) => {
         if (updated) {
+          this.snackBar.open('Template updated successfully.', 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-success'],
+          });
           this.loadTemplates();
         }
       });
@@ -435,6 +477,12 @@ export class NotificationsComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
       )
       .subscribe({
+        next: () => {
+          this.snackBar.open('Template status updated.', 'Close', {
+            duration: 4000,
+            panelClass: ['app-snackbar-success'],
+          });
+        },
         error: (err) => {
           row.isActive = previous;
           this.snackBar.open(this.errorMessage(err, 'Could not update template status.'), 'Close', {
@@ -475,11 +523,15 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   private errorMessage(error: unknown, fallback: string): string {
     const err = error as {
       status?: number;
+      statusCode?: number;
       error?: { messageResponse?: string; message?: string; error?: string };
       message?: string;
     };
     if (err?.status === 0) {
       return 'Request failed before the server response reached the browser. Please retry.';
+    }
+    if (typeof err?.message === 'string' && err.message.length > 0 && err.statusCode != null && err.statusCode >= 400) {
+      return err.message;
     }
     return err?.error?.messageResponse || err?.error?.message || err?.error?.error || err?.message || fallback;
   }

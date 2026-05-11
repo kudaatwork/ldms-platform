@@ -93,9 +93,16 @@ export interface TemplateCreationMetadataDto {
   channelOptions?: ChannelOptionDto[];
 }
 
+/** Spring `Page<>` JSON as nested under `TemplateResponse.templatePage`. */
+export interface NotificationTemplatePage {
+  content?: NotificationTemplateRow[];
+  totalElements?: number;
+}
+
 export interface TemplateResponse extends TemplateListResponse {
   template?: NotificationTemplateRow;
   addTemplateMetadata?: TemplateCreationMetadataDto;
+  templatePage?: NotificationTemplatePage;
 }
 
 export type TemplateExportFormat = 'csv' | 'excel';

@@ -25,4 +25,9 @@ public class EditUserRequest {
     private String passportExpiryDate;
     private String phoneNumber;
     private String dateOfBirth;
+
+    /** When set, persists the national ID file-upload reference without re-uploading a file. */
+    private Long nationalIdUploadId;
+    /** When set, persists the passport file-upload reference without re-uploading a file. */
+    private Long passportUploadId;
 }

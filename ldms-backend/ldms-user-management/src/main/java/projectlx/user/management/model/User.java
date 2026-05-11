@@ -21,7 +21,7 @@ import java.time.LocalDateTime;
 import java.util.Date;
 
 @Entity
-@Table(name = "app_user")
+@Table(name = "user")
 @Getter
 @Setter
 @ToString(onlyExplicitlyIncluded = true)

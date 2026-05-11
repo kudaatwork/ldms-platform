@@ -218,6 +218,19 @@ public class UserRoleServiceImpl implements UserRoleService {
 
         UserRole userRoleToBeEdited = userRoleRetrieved.get();
 
+        String normalizedRole = editUserRoleRequest.getRole().trim().toUpperCase();
+        Optional<UserRole> duplicateRole = userRoleRepository.findByRoleAndEntityStatusNot(normalizedRole,
+                EntityStatus.DELETED);
+        if (duplicateRole.isPresent() && !duplicateRole.get().getId().equals(editUserRoleRequest.getId())) {
+            message = messageService.getMessage(I18Code.MESSAGE_USER_ROLE_ALREADY_EXISTS.getCode(), new String[]{},
+                    locale);
+            return buildUserRoleResponse(400, false, message, null, null,
+                    null);
+        }
+
+        userRoleToBeEdited.setRole(normalizedRole);
+        userRoleToBeEdited.setDescription(editUserRoleRequest.getDescription().trim());
+
         UserRole userRoleEdited = userRoleServiceAuditable.update(userRoleToBeEdited, locale, username);
 
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);

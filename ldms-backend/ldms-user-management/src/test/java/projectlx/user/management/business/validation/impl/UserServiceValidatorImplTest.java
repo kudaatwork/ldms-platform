@@ -123,6 +123,8 @@ class UserServiceValidatorImplTest {
                 "passport content".getBytes()
         );
 
+        createUserRequest.setNationalIdUpload(nationalIdFile);
+
         // Setup EditUserRequest with valid data
         editUserRequest = new EditUserRequest();
         editUserRequest.setId(1L);
@@ -319,10 +321,37 @@ class UserServiceValidatorImplTest {
     public void isCreateUserRequestValid_shouldReturnFalseForNoIdentification() {
         createUserRequest.setNationalIdNumber(null);
         createUserRequest.setPassportNumber(null);
+        createUserRequest.setNationalIdUpload(null);
+        createUserRequest.setNationalIdUploadId(null);
+        createUserRequest.setPassportUpload(null);
+        createUserRequest.setPassportUploadId(null);
 
         boolean result = userServiceValidator.isCreateUserRequestValid(createUserRequest);
 
         assertFalse(result, "Should return false for no identification provided");
+    }
+
+    @Test
+    public void isCreateUserRequestValid_shouldReturnFalseWhenNationalIdNumberWithoutDocument() {
+        createUserRequest.setNationalIdUpload(null);
+        createUserRequest.setNationalIdUploadId(null);
+        createUserRequest.setPassportNumber(null);
+        createUserRequest.setPassportUpload(null);
+        createUserRequest.setPassportUploadId(null);
+
+        boolean result = userServiceValidator.isCreateUserRequestValid(createUserRequest);
+
+        assertFalse(result, "Should require national id document or pre-assigned upload id");
+    }
+
+    @Test
+    public void isCreateUserRequestValid_shouldReturnTrueWhenNationalIdUploadIdInsteadOfMultipart() {
+        createUserRequest.setNationalIdUpload(null);
+        createUserRequest.setNationalIdUploadId(99L);
+
+        boolean result = userServiceValidator.isCreateUserRequestValid(createUserRequest);
+
+        assertTrue(result, "Pre-staged national id document id should satisfy document requirement");
     }
 
     @Test

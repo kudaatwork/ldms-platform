@@ -104,6 +104,7 @@ public enum I18Code {
     MESSAGE_CREATE_ADDRESS_SUBURB_ID_MISSING("message.create.address.suburb.id.missing"),
     MESSAGE_CREATE_ADDRESS_GEO_COORDINATES_ID_MISSING("message.create.address.geo.coordinates.id.missing"),
     MESSAGE_ADDRESS_ALREADY_EXISTS("message.address.already.exists"),
+    MESSAGE_ADDRESS_EXISTING_RETURNED("message.address.existing.returned"),
     MESSAGE_ADDRESS_CREATED_SUCCESSFULLY("message.address.created.successfully"),
     MESSAGE_ADDRESS_NOT_FOUND("message.address.not.found"),
     MESSAGE_ADDRESS_RETRIEVED_SUCCESSFULLY("message.address.retrieved.successfully"),

@@ -24,3 +24,25 @@ eureka:
       defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka}
     register-with-eureka: true
     fetch-registry: true
+
+# Align with ldms-audit-trail (topic exchange ldms.audit.exchange). Do not use legacy exchange.audit.log.
+ldms:
+  audit-rabbitmq:
+    exchange: ${LDMS_AUDIT_RABBITMQ_EXCHANGE:ldms.audit.exchange}
+    routing-key: ${LDMS_AUDIT_RABBITMQ_ROUTING_KEY:audit.log}
+
+# Optional outbound email/SMS (set via env or Config Server; never commit real secrets to git)
+aws:
+  ses:
+    from-email: ${AWS_SES_FROM_EMAIL:}
+
+twilio:
+  account-sid: ${TWILIO_ACCOUNT_SID:}
+  auth-token: ${TWILIO_AUTH_TOKEN:}
+  phone-number: ${TWILIO_PHONE_NUMBER:}
+  whatsapp:
+    from-number: ${TWILIO_WHATSAPP_FROM:}
+
+sendgrid:
+  api-key: ${SENDGRID_API_KEY:}
+  from-email: ${SENDGRID_FROM_EMAIL:${AWS_SES_FROM_EMAIL:}}

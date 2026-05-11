@@ -20,7 +20,7 @@ public class WhatsAppNotificationProviderServiceImpl implements NotificationProv
     private final TemplateProcessorService templateProcessor;
     private final NotificationLogServiceAuditable notificationLogServiceAuditable;
 
-    @Value("${twilio.whatsapp.from-number}")
+    @Value("${twilio.whatsapp.from-number:}")
     private String fromPhoneNumber;
 
     @Override
@@ -36,6 +36,11 @@ public class WhatsAppNotificationProviderServiceImpl implements NotificationProv
         if (recipientPhoneNumber == null || recipientPhoneNumber.isBlank()) {
             log.warn("[NOTIFICATION] Skipped channel=WHATSAPP eventId={} templateKey={} reason=missing_recipient recipientPhone={}",
                     request.getEventId(), request.getTemplateKey(), recipientPhoneNumber);
+            return;
+        }
+        if (fromPhoneNumber == null || fromPhoneNumber.isBlank()) {
+            log.warn("[NOTIFICATION] Skipped channel=WHATSAPP eventId={} templateKey={} reason=missing_twilio.whatsapp.from-number",
+                    request.getEventId(), request.getTemplateKey());
             return;
         }
 

@@ -70,6 +70,9 @@ public class UserTypeServiceImpl implements UserTypeService {
     private final UserRepository userRepository;
     private final UserTypeServiceAuditable userTypeServiceAuditable;
 
+    private final Object modelMapperLock = new Object();
+    private volatile boolean modelMapperStrictConfigured;
+
     private static final String[] HEADERS = {
             "ID", "USER TYPE NAME", "DESCRIPTION"
     };
@@ -90,7 +93,7 @@ public class UserTypeServiceImpl implements UserTypeService {
                     null, validatorDto.getErrorMessages());
         }
 
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        ensureModelMapperStrictOnce();
         UserType userTypeToBeSaved = modelMapper.map(createUserTypeRequest, UserType.class);
 
         UserType userTypeSaved = userTypeServiceAuditable.create(userTypeToBeSaved, locale,
@@ -196,12 +199,15 @@ public class UserTypeServiceImpl implements UserTypeService {
 
         UserType userTypeToBeEdited = userTypeRetrieved.get();
 
-        // Check if other users are using this UserType
-        long associatedUsersCount = userTypeToBeEdited.getUsers().size();
+        // Only need ">1 active user" branch; capped count avoids full-table aggregates on busy types.
+        long usersApprox = userRepository.countNonDeletedUsersForUserTypeAtMostTwo(
+                userTypeToBeEdited.getId(),
+                EntityStatus.DELETED.name()
+        );
 
         UserType userTypeToSave;
 
-        if (associatedUsersCount > 1) {
+        if (usersApprox >= 2) {
 
             // Clone the user type for this user (preserve immutability for others)
             userTypeToSave = new UserType();
@@ -218,7 +224,7 @@ public class UserTypeServiceImpl implements UserTypeService {
 
         UserType userTypeEdited = userTypeServiceAuditable.update(userTypeToSave, locale, username);
 
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        ensureModelMapperStrictOnce();
         UserTypeDto userTypeDtoReturned = modelMapper.map(userTypeEdited, UserTypeDto.class);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_TYPE_UPDATED_SUCCESSFULLY.getCode(), new String[]{}, locale);
@@ -377,6 +383,18 @@ public class UserTypeServiceImpl implements UserTypeService {
     private void applyUpdatesToUserType(UserType userType, EditUserTypeRequest editRequest) {
         userType.setUserTypeName(editRequest.getUserTypeName());
         userType.setDescription(editRequest.getDescription());
+    }
+
+    private void ensureModelMapperStrictOnce() {
+        if (modelMapperStrictConfigured) {
+            return;
+        }
+        synchronized (modelMapperLock) {
+            if (!modelMapperStrictConfigured) {
+                modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+                modelMapperStrictConfigured = true;
+            }
+        }
     }
 
     private UserTypeResponse buildUserTypeResponse(int statusCode, boolean isSuccess, String message,
