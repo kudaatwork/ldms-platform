@@ -4,13 +4,16 @@ import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import projectlx.co.zw.notifications.business.auditable.api.NotificationLogServiceAuditable;
+import org.springframework.util.StringUtils;
+import projectlx.co.zw.notifications.business.logic.api.NotificationLogRecorder;
 import projectlx.co.zw.notifications.business.logic.api.NotificationProviderService;
 import projectlx.co.zw.notifications.business.logic.api.TemplateProcessorService;
 import projectlx.co.zw.notifications.model.Channel;
 import projectlx.co.zw.notifications.model.NotificationLog;
 import projectlx.co.zw.notifications.model.NotificationTemplate;
+import projectlx.co.zw.notifications.utils.config.LdmsConfigRepoSecretsResolver;
+import projectlx.co.zw.notifications.utils.config.OutboundMessagingReadiness;
+import projectlx.co.zw.notifications.utils.config.OutboundTwilioInitializer;
 import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 
 @Slf4j
@@ -18,10 +21,10 @@ import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 public class WhatsAppNotificationProviderServiceImpl implements NotificationProviderService {
 
     private final TemplateProcessorService templateProcessor;
-    private final NotificationLogServiceAuditable notificationLogServiceAuditable;
-
-    @Value("${twilio.whatsapp.from-number:}")
-    private String fromPhoneNumber;
+    private final NotificationLogRecorder notificationLogRecorder;
+    private final OutboundMessagingReadiness outboundMessagingReadiness;
+    private final OutboundTwilioInitializer outboundTwilioInitializer;
+    private final LdmsConfigRepoSecretsResolver secretsResolver;
 
     @Override
     public Channel getChannel() {
@@ -33,14 +36,24 @@ public class WhatsAppNotificationProviderServiceImpl implements NotificationProv
 
         String recipientPhoneNumber = request.getRecipient().getPhoneNumber();
 
-        if (recipientPhoneNumber == null || recipientPhoneNumber.isBlank()) {
+        if (!StringUtils.hasText(recipientPhoneNumber)) {
             log.warn("[NOTIFICATION] Skipped channel=WHATSAPP eventId={} templateKey={} reason=missing_recipient recipientPhone={}",
                     request.getEventId(), request.getTemplateKey(), recipientPhoneNumber);
+            notificationLogRecorder.markSkipped(request, Channel.WHATSAPP, "missing_recipient phone");
             return;
         }
-        if (fromPhoneNumber == null || fromPhoneNumber.isBlank()) {
+        String fromPhoneNumber = secretsResolver.twilioWhatsappFrom();
+        if (!StringUtils.hasText(fromPhoneNumber)) {
             log.warn("[NOTIFICATION] Skipped channel=WHATSAPP eventId={} templateKey={} reason=missing_twilio.whatsapp.from-number",
                     request.getEventId(), request.getTemplateKey());
+            notificationLogRecorder.markSkipped(request, Channel.WHATSAPP, "missing_twilio.whatsapp.from-number");
+            return;
+        }
+        if (!outboundMessagingReadiness.isTwilioReady()) {
+            log.warn("[NOTIFICATION] Skipped channel=WHATSAPP eventId={} templateKey={} reason=twilio_not_configured",
+                    request.getEventId(), request.getTemplateKey());
+            notificationLogRecorder.markSkipped(request, Channel.WHATSAPP,
+                    "twilio_not_configured (set twilio.account-sid and twilio.auth-token)");
             return;
         }
 
@@ -51,11 +64,11 @@ public class WhatsAppNotificationProviderServiceImpl implements NotificationProv
         }
         // Keep Twilio markdown/newlines exactly as produced after template substitution.
         String resolvedWhatsappBody = templateProcessor.process(whatsappTemplateBody, request.getData());
-        NotificationLog logEntry = createLogEntry(request, "PENDING", null);
+        NotificationLog logEntry = notificationLogRecorder.beginDispatch(request, Channel.WHATSAPP);
         logEntry.setRenderedContent(resolvedWhatsappBody);
-        notificationLogServiceAuditable.create(logEntry);
 
         try {
+            outboundTwilioInitializer.ensureInitialized();
             PhoneNumber to = new PhoneNumber("whatsapp:" + recipientPhoneNumber);
             PhoneNumber from = new PhoneNumber("whatsapp:" + fromPhoneNumber);
 
@@ -82,29 +95,12 @@ public class WhatsAppNotificationProviderServiceImpl implements NotificationProv
                 .create();
             */
 
-            logEntry.setStatus("SENT");
-            logEntry.setProvider("TWILIO_WHATSAPP");
-            logEntry.setProviderMessageId(message.getSid());
-            notificationLogServiceAuditable.update(logEntry);
+            notificationLogRecorder.markSent(logEntry, "TWILIO_WHATSAPP", message.getSid(), resolvedWhatsappBody);
             log.info("[NOTIFICATION] Sent channel=WHATSAPP provider=TWILIO_WHATSAPP eventId={} templateKey={} recipientPhone={} sid={}", request.getEventId(), request.getTemplateKey(), recipientPhoneNumber, message.getSid());
 
         } catch (Exception e) {
             log.error("[NOTIFICATION] Failed channel=WHATSAPP provider=TWILIO_WHATSAPP eventId={} templateKey={} recipientPhone={} error={}", request.getEventId(), request.getTemplateKey(), recipientPhoneNumber, e.getMessage(), e);
-            logEntry.setStatus("FAILED");
-            logEntry.setErrorMessage(e.getMessage());
-            notificationLogServiceAuditable.update(logEntry);
+            notificationLogRecorder.markFailed(logEntry, e.getMessage());
         }
-    }
-
-    private NotificationLog createLogEntry(NotificationRequest request, String status, String errorMessage) {
-
-        NotificationLog logEntry = new NotificationLog();
-        logEntry.setRecipientId(request.getRecipient().getUserId());
-        logEntry.setTemplateKey(request.getTemplateKey());
-        logEntry.setChannel(getChannel());
-        logEntry.setStatus(status);
-        logEntry.setPayload(request.getData());
-        logEntry.setErrorMessage(errorMessage);
-        return logEntry;
     }
 }

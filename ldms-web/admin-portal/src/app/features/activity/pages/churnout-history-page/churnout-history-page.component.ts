@@ -3,6 +3,7 @@ import { PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { Title } from '@angular/platform-browser';
 import { finalize } from 'rxjs';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 import {
   AuditLogAdminService,
   AuditLogChurnHistoryDto,
@@ -19,7 +20,7 @@ export class ChurnoutHistoryPageComponent implements OnInit {
   loading = false;
   totalElements = 0;
   pageIndex = 0;
-  pageSize = 20;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
   displayedColumns = ['triggeredAt', 'triggerType', 'triggeredBy', 'deletedLogCount', 'status', 'batchReference'];
   dataSource = new MatTableDataSource<AuditLogChurnHistoryDto>([]);
   filters: ChurnOutHistoryFilters = {

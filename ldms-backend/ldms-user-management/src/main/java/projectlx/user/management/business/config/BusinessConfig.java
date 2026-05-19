@@ -40,6 +40,7 @@ import projectlx.user.management.business.logic.impl.UserSecurityServiceImpl;
 import projectlx.user.management.business.logic.impl.UserServiceImpl;
 import projectlx.user.management.business.logic.impl.UserTypeServiceImpl;
 import projectlx.co.zw.shared_library.business.logic.impl.TokenService;
+import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
 import projectlx.user.management.business.validator.api.UserAccountServiceValidator;
 import projectlx.user.management.business.validator.api.UserAddressServiceValidator;
 import projectlx.user.management.business.validator.api.UserGroupServiceValidator;
@@ -142,13 +143,14 @@ public class BusinessConfig {
             UserSecurityServiceAuditable userSecurityServiceAuditable, UserAccountService userAccountService,
             UserPasswordService userPasswordService, UserAddressService userAddressService,
             UserPreferencesService userPreferencesService, UserSecurityService userSecurityService, UserTypeService userTypeService,
-            FileUploadServiceClient fileUploadServiceClient, RabbitTemplate rabbitTemplate, TokenService tokenService) {
+            FileUploadServiceClient fileUploadServiceClient, RabbitTemplate rabbitTemplate, TokenService tokenService,
+            EmailVerificationLinkProperties emailVerificationLinkProperties) {
         return new UserServiceImpl(userServiceValidator, messageService, userRepository, userAccountRepository,
                 userAddressRepository, userPasswordRepository, userPreferencesRepository, userSecurityRepository,
                 userTypeRepository, modelMapper, userServiceAuditable, userAccountServiceAuditable, userPasswordServiceAuditable,
                 userPreferencesServiceAuditable, userSecurityServiceAuditable, userAccountService, userPasswordService,
                 userAddressService, userPreferencesService, userSecurityService, userTypeService, fileUploadServiceClient,
-                rabbitTemplate, tokenService
+                rabbitTemplate, tokenService, emailVerificationLinkProperties
         );
     }
 

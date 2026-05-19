@@ -220,7 +220,7 @@ class UserPreferencesServiceImplTest {
                 .thenReturn(validatorDto);
         when(userRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
                 .thenReturn(Optional.of(user));
-        when(userPreferencesRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
+        when(userPreferencesRepository.findByUser_IdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
                 .thenReturn(Optional.of(userPreferences));
         when(messageService.getMessage(anyString(), any(), any(Locale.class)))
                 .thenReturn("User preferences already exist");
@@ -232,7 +232,7 @@ class UserPreferencesServiceImplTest {
         verify(userRepository, times(1))
                 .findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class));
         verify(userPreferencesRepository, times(1))
-                .findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class));
+                .findByUser_IdAndEntityStatusNot(anyLong(), any(EntityStatus.class));
         verify(userPreferencesServiceAuditable, times(0))
                 .create(any(UserPreferences.class), any(Locale.class), anyString());
         verify(messageService, times(1))
@@ -253,7 +253,7 @@ class UserPreferencesServiceImplTest {
                 .thenReturn(validatorDto);
         when(userRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
                 .thenReturn(Optional.of(user));
-        when(userPreferencesRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
+        when(userPreferencesRepository.findByUser_IdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
                 .thenReturn(Optional.empty());
 
         // Stub ModelMapper configuration chain
@@ -278,7 +278,7 @@ class UserPreferencesServiceImplTest {
         verify(userRepository, times(1))
                 .findByIdAndEntityStatusNot(createUserPreferencesRequest.getUserId(), EntityStatus.DELETED);
         verify(userPreferencesRepository, times(1))
-                .findByIdAndEntityStatusNot(createUserPreferencesRequest.getUserId(), EntityStatus.DELETED);
+                .findByUser_IdAndEntityStatusNot(createUserPreferencesRequest.getUserId(), EntityStatus.DELETED);
         verify(modelMapper, times(1))
                 .map(createUserPreferencesRequest, UserPreferences.class);
         verify(userPreferencesServiceAuditable, times(1))
@@ -519,11 +519,10 @@ class UserPreferencesServiceImplTest {
                 .thenReturn(validatorDto);
         when(userPreferencesRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
                 .thenReturn(Optional.of(userPreferences));
-        when(userPreferencesRepository.countByPreferredLanguageAndTimezoneAndEntityStatusNot(
-                anyString(), anyString(), any(EntityStatus.class)))
-                .thenReturn(1L);
         when(userPreferencesServiceAuditable.update(any(UserPreferences.class), any(Locale.class), anyString()))
                 .thenReturn(userPreferences);
+        when(modelMapper.getConfiguration()).thenReturn(configurationMock);
+        when(configurationMock.setMatchingStrategy(any())).thenReturn(configurationMock);
         when(modelMapper.map(any(UserPreferences.class), eq(UserPreferencesDto.class)))
                 .thenReturn(userPreferencesDto);
         when(messageService.getMessage(anyString(), any(), any(Locale.class)))
@@ -535,8 +534,6 @@ class UserPreferencesServiceImplTest {
                 .isRequestValidForEditing(any(EditUserPreferencesRequest.class), any(Locale.class));
         verify(userPreferencesRepository, times(1))
                 .findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class));
-        verify(userPreferencesRepository, times(1))
-                .countByPreferredLanguageAndTimezoneAndEntityStatusNot(anyString(), anyString(), any(EntityStatus.class));
         verify(userPreferencesServiceAuditable, times(1))
                 .update(any(UserPreferences.class), any(Locale.class), anyString());
         verify(modelMapper, times(1))

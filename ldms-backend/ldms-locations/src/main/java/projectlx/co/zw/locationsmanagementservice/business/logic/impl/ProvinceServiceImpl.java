@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -56,7 +49,6 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.globalvalidators.Validators;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -393,38 +385,30 @@ public class ProvinceServiceImpl implements ProvinceService {
         if (items == null) {
             items = Collections.emptyList();
         }
-        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Document document = new Document(PageSize.A4.rotate());
-            PdfWriter.getInstance(document, out);
-            document.open();
-            Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-            document.add(new Paragraph("PROVINCE EXPORT", font));
-            document.add(new Paragraph(" "));
-            PdfPTable table = new PdfPTable(HEADERS.length);
-            for (String header : HEADERS) {
-                PdfPCell cell = new PdfPCell(new Phrase(header, font));
-                cell.setBackgroundColor(Color.LIGHT_GRAY);
-                table.addCell(cell);
-            }
-            for (ProvinceDto province : items) {
-                table.addCell(String.valueOf(province.getId()));
-                table.addCell(safe(province.getName()));
-                table.addCell(safe(province.getCode()));
-                table.addCell(safe(province.getCountryName()));
-                table.addCell(safe(province.getAdministrativeLevelName()));
-                table.addCell(province.getCountryId() != null ? province.getCountryId().toString() : "");
-                table.addCell(province.getAdministrativeLevelId() != null ? province.getAdministrativeLevelId().toString() : "");
-                table.addCell(province.getGeoCoordinatesId() != null ? province.getGeoCoordinatesId().toString() : "");
-                table.addCell(province.getCreatedAt() != null ? province.getCreatedAt().toString() : "");
-                table.addCell(province.getUpdatedAt() != null ? province.getUpdatedAt().toString() : "");
-                table.addCell(province.getEntityStatus() != null ? province.getEntityStatus().toString() : "");
-            }
-            document.add(table);
-            document.close();
-            return out.toByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        List<String[]> rows = new ArrayList<>();
+        for (ProvinceDto province : items) {
+            rows.add(new String[]{
+                    String.valueOf(province.getId()),
+                    safe(province.getName()),
+                    safe(province.getCode()),
+                    safe(province.getCountryName()),
+                    safe(province.getAdministrativeLevelName()),
+                    province.getCountryId() != null ? province.getCountryId().toString() : "",
+                    province.getAdministrativeLevelId() != null ? province.getAdministrativeLevelId().toString() : "",
+                    province.getGeoCoordinatesId() != null ? province.getGeoCoordinatesId().toString() : "",
+                    province.getCreatedAt() != null ? province.getCreatedAt().toString() : "",
+                    province.getUpdatedAt() != null ? province.getUpdatedAt().toString() : "",
+                    province.getEntityStatus() != null ? province.getEntityStatus().toString() : ""
+            });
         }
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Provinces")
+                .reportCode("LOC-PRV")
+                .subtitle("Province registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

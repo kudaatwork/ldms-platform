@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatDialog } from '@angular/material/dialog';
 import { Title } from '@angular/platform-browser';
@@ -6,7 +6,19 @@ import { PageEvent } from '@angular/material/paginator';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableDataSource } from '@angular/material/table';
 import { ActivatedRoute } from '@angular/router';
-import { catchError, finalize, of } from 'rxjs';
+import {
+  EMPTY,
+  Observable,
+  Subject,
+  catchError,
+  debounceTime,
+  finalize,
+  merge,
+  of,
+  switchMap,
+  takeUntil,
+  tap,
+} from 'rxjs';
 import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
 import { environment } from '../../../../../environments/environment';
 import {
@@ -18,6 +30,11 @@ import { AuditLogRequestDetailDialogComponent } from '../../components/audit-log
 import { ChurnOutConfirmDialogComponent } from '../../components/churn-out-confirm-dialog/churn-out-confirm-dialog.component';
 import type { RequestLogRow } from '../../models/request-log-row.model';
 
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import {
+  LxExportFormat,
+  exportClientTableAsCsv,
+} from '@shared/utils/lx-export.util';
 export interface ActivityRow {
   time: string;
   actor: string;
@@ -42,7 +59,7 @@ export interface RequestColumnFilters {
   styleUrl: './activity-page.component.scss',
   standalone: false,
 })
-export class ActivityPageComponent implements OnInit {
+export class ActivityPageComponent implements OnInit, OnDestroy {
   loading = true;
   showActivitySection = true;
   showRequestSection = true;
@@ -65,7 +82,7 @@ export class ActivityPageComponent implements OnInit {
   };
 
   activityPageIndex = 0;
-  activityPageSize = 10;
+  activityPageSize = DEFAULT_TABLE_PAGE_SIZE;
 
   /* ── Requests log ─────────────────────────────────────────── */
   requestDisplayedColumns = [
@@ -101,7 +118,7 @@ export class ActivityPageComponent implements OnInit {
   };
 
   requestPageIndex = 0;
-  requestPageSize = 25;
+  requestPageSize = DEFAULT_TABLE_PAGE_SIZE;
 
   private readonly mockRows: ActivityRow[] = [
     {
@@ -174,6 +191,14 @@ export class ActivityPageComponent implements OnInit {
 
   private readonly mockRequestRows: RequestLogRow[] = [];
 
+  private destroy$ = new Subject<void>();
+  /** Mirrors LocationTablePageComponent: debounced filter changes cancel superseded HTTP calls. */
+  private readonly requestFilterReload$ = new Subject<void>();
+  /** Monotonic token to drop stale in-flight responses (same guard as LocationTablePageComponent). */
+  private requestLatestLoadToken = 0;
+  /** Prevents duplicate reload when the filter set didn't actually change. */
+  private lastRequestFilterSignature = '';
+
   constructor(
     private readonly title: Title,
     private readonly route: ActivatedRoute,
@@ -218,14 +243,21 @@ export class ActivityPageComponent implements OnInit {
   }
 
   onRequestPage(e: PageEvent): void {
+    if (e.pageIndex === this.requestPageIndex && e.pageSize === this.requestPageSize) {
+      return;
+    }
     this.requestPageIndex = e.pageIndex;
     this.requestPageSize = e.pageSize;
-    this.loadRequestLogs();
+    this.runRequestTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
   }
 
   onRequestFiltersChanged(): void {
-    this.requestPageIndex = 0;
-    this.loadRequestLogs();
+    const next = this.currentRequestFilterSignature();
+    if (next === this.lastRequestFilterSignature) {
+      return;
+    }
+    this.lastRequestFilterSignature = next;
+    this.requestFilterReload$.next();
   }
 
   trackByRequestLogId(_index: number, row: RequestLogRow): number {
@@ -262,11 +294,32 @@ export class ActivityPageComponent implements OnInit {
     this.title.setTitle(this.showRequestSection ? 'Request logs | LX Admin' : 'Activity logs | LX Admin');
     this.dataSource = [...this.mockRows];
     this.loading = false;
+
     if (environment.useMocks || !this.showRequestSection) {
       this.applyRequestRows([...this.mockRequestRows], this.mockRequestRows.length);
       return;
     }
-    this.loadRequestLogs();
+
+    // Mirror LocationTablePageComponent: initial load + debounced filter-change reloads share
+    // the same switchMap pipeline so superseded in-flight requests are automatically cancelled.
+    this.lastRequestFilterSignature = this.currentRequestFilterSignature();
+    merge(
+      of(undefined as void),
+      this.requestFilterReload$.pipe(debounceTime(150)),
+    )
+      .pipe(
+        switchMap(() => {
+          this.requestPageIndex = 0;
+          return this.runRequestTableQuery({ background: false });
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   requestFiltersActive(): boolean {
@@ -278,29 +331,71 @@ export class ActivityPageComponent implements OnInit {
 
   stubImport(): void {}
 
-  stubExport(): void {}
+  exportActivityLogs(format: LxExportFormat): void {
+    const ok = exportClientTableAsCsv(
+      format,
+      this.filteredRows,
+      [
+        { header: 'time', value: (r) => r.time },
+        { header: 'actor', value: (r) => r.actor },
+        { header: 'action', value: (r) => r.action },
+        { header: 'resource', value: (r) => r.resource },
+      ],
+      'activity-logs',
+      (message) => this.snackBar.open(message, 'Dismiss', { duration: 4500 }),
+    );
+    if (ok) {
+      this.snackBar.open('Exported activity logs as CSV.', 'Dismiss', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
+    }
+  }
 
   stubRequestImport(): void {}
 
+  /** Public entry-point kept for the Refresh button and post-churn reload. */
   loadRequestLogs(): void {
-    this.requestLoading = true;
+    this.runRequestTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
+  }
+
+  /**
+   * Single observable for request-log data — mirrors LocationTablePageComponent.runTableQuery().
+   * Callers that go through the filter-reload switchMap pipeline get automatic cancellation;
+   * direct callers (page nav, Refresh) create an independent subscription guarded by the token.
+   */
+  private runRequestTableQuery(opts?: { background?: boolean }): Observable<AuditLogResponse> {
+    const loadToken = ++this.requestLatestLoadToken;
+    const background = opts?.background === true;
+    if (!background || this.requestTotalElements === 0) {
+      this.requestLoading = true;
+    }
     const payload = this.buildRequestFiltersPayload();
 
-    this.auditLogAdmin
-      .findByMultipleFilters(payload)
-      .pipe(
-        catchError((_error: HttpErrorResponse) => {
-          this.applyRequestRows([], 0);
-          return of({ auditLogPage: { content: [], totalElements: 0 } });
-        }),
-        finalize(() => {
+    return this.auditLogAdmin.findByMultipleFilters(payload).pipe(
+      tap((response) => {
+        if (loadToken === this.requestLatestLoadToken) {
+          this.applyRequestLogResponse(response);
+        }
+      }),
+      catchError((_error: HttpErrorResponse) => {
+        if (loadToken !== this.requestLatestLoadToken) {
+          return EMPTY;
+        }
+        this.applyRequestRows([], 0);
+        this.snackBar.open('Failed to load request logs. Please try again.', 'Dismiss', {
+          duration: 5000,
+          panelClass: ['app-snackbar-error'],
+        });
+        return EMPTY;
+      }),
+      finalize(() => {
+        if (loadToken === this.requestLatestLoadToken) {
           this.requestLoading = false;
           this.cdr.markForCheck();
-        }),
-      )
-      .subscribe((response) => {
-        this.applyRequestLogResponse(response);
-      });
+        }
+      }),
+    );
   }
 
   exportRequestLogs(format: 'csv' | 'xlsx' | 'pdf'): void {
@@ -406,6 +501,13 @@ export class ActivityPageComponent implements OnInit {
       autoFocus: 'first-tabbable',
       panelClass: 'lx-audit-request-dialog-panel',
       data: { row },
+    });
+  }
+
+  private currentRequestFilterSignature(): string {
+    return JSON.stringify({
+      q: this.requestSearchQuery.trim(),
+      filters: this.requestColumnFilters,
     });
   }
 

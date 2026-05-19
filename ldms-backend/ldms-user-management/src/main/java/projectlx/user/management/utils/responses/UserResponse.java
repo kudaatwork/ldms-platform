@@ -21,4 +21,6 @@ public class UserResponse extends CommonResponse {
     private String accessToken;
     private String refreshToken;
     private List<String> errorMessages;
+    /** Set by verify-email only: {@code VERIFIED} or {@code ALREADY_VERIFIED}. */
+    private String emailVerificationOutcome;
 }

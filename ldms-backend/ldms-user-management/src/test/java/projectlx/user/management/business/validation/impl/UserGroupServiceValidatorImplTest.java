@@ -51,7 +51,7 @@ class UserGroupServiceValidatorImplTest {
         // Setup EditUserGroupRequest with valid data
         editUserGroupRequest = new EditUserGroupRequest();
         editUserGroupRequest.setId(1L);
-        editUserGroupRequest.setName("Test1Group");  // Contains a digit as required by validation
+        editUserGroupRequest.setName("TestGroup");
         editUserGroupRequest.setDescription("Updated test group description");
 
         // Setup UserGroupMultipleFiltersRequest with valid data
@@ -240,12 +240,12 @@ class UserGroupServiceValidatorImplTest {
     }
 
     @Test
-    public void isRequestValidForEditing_shouldReturnFalseForNameWithoutDigits() {
-        editUserGroupRequest.setName("TestGroup");
+    public void isRequestValidForEditing_shouldReturnFalseForNameWithDigits() {
+        editUserGroupRequest.setName("TestGroup123");
 
         ValidatorDto result = userGroupServiceValidator.isRequestValidForEditing(editUserGroupRequest, locale);
 
-        assertFalse(result.getSuccess(), "Should return false for name without digits");
+        assertFalse(result.getSuccess(), "Should return false for name containing digits");
     }
 
     @Test

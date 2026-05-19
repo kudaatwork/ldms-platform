@@ -1,15 +1,8 @@
 package projectlx.user.management.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvException;
@@ -44,7 +37,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -74,7 +66,7 @@ public class UserTypeServiceImpl implements UserTypeService {
     private volatile boolean modelMapperStrictConfigured;
 
     private static final String[] HEADERS = {
-            "ID", "USER TYPE NAME", "DESCRIPTION"
+            "ID", "USER TYPE NAME", "DESCRIPTION", "ENTITY STATUS"
     };
 
     @Override
@@ -441,7 +433,8 @@ public class UserTypeServiceImpl implements UserTypeService {
         for (UserTypeDto userType : userTypes) {
             sb.append(userType.getId()).append(",")
                     .append(safe(userType.getUserTypeName())).append(",")
-                    .append(safe(userType.getDescription())).append("\n");
+                    .append(safe(userType.getDescription())).append(",")
+                    .append(userType.getEntityStatus()).append("\n");
         }
 
         return sb.toString().getBytes(StandardCharsets.UTF_8);
@@ -465,6 +458,8 @@ public class UserTypeServiceImpl implements UserTypeService {
             row.createCell(0).setCellValue(userType.getId());
             row.createCell(1).setCellValue(safe(userType.getUserTypeName()));
             row.createCell(2).setCellValue(safe(userType.getDescription()));
+            row.createCell(3).setCellValue(
+                    userType.getEntityStatus() != null ? userType.getEntityStatus().name() : "");
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -475,31 +470,23 @@ public class UserTypeServiceImpl implements UserTypeService {
 
     @Override
     public byte[] exportToPdf(List<UserTypeDto> userTypes) throws DocumentException {
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("USER TYPE EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (UserTypeDto userType : userTypes) {
-            table.addCell(String.valueOf(userType.getId()));
-            table.addCell(safe(userType.getUserTypeName()));
-            table.addCell(safe(userType.getDescription()));
+            rows.add(new String[]{
+                    String.valueOf(userType.getId()),
+                    safe(userType.getUserTypeName()),
+                    safe(userType.getDescription()),
+                    userType.getEntityStatus() != null ? userType.getEntityStatus().name() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("User Types")
+                .reportCode("USR-TYP")
+                .subtitle("User type definitions export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

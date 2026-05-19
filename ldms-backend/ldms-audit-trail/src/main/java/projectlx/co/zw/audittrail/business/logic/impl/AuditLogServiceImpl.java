@@ -1,16 +1,10 @@
 package projectlx.co.zw.audittrail.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -356,42 +350,30 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     public byte[] exportToPdf(List<AuditLogDto> items) throws DocumentException {
-
-        com.lowagie.text.Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
-        com.lowagie.text.Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 8);
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        document.add(new Paragraph("AUDIT LOG EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(EXPORT_HEADERS.length);
-        for (String h : EXPORT_HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(h, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (AuditLogDto log : items) {
-            table.addCell(new Phrase(String.valueOf(log.id()), cellFont));
-            table.addCell(new Phrase(safeCsv(log.action()), cellFont));
-            table.addCell(new Phrase(safeCsv(log.serviceName()), cellFont));
-            table.addCell(new Phrase(safeCsv(log.username()), cellFont));
-            table.addCell(new Phrase(log.eventType() != null ? log.eventType().name() : "", cellFont));
-            table.addCell(new Phrase(safeCsv(log.httpMethod()), cellFont));
-            table.addCell(new Phrase(log.httpStatusCode() != null ? String.valueOf(log.httpStatusCode()) : "", cellFont));
-            table.addCell(new Phrase(log.requestTimestamp() != null ? log.requestTimestamp().toString() : "", cellFont));
-            table.addCell(new Phrase(safeCsv(log.traceId()), cellFont));
-            table.addCell(new Phrase(log.responseTimeMs() != null ? String.valueOf(log.responseTimeMs()) : "", cellFont));
-            table.addCell(new Phrase(safeCsv(log.clientIpAddress()), cellFont));
+            rows.add(new String[]{
+                    String.valueOf(log.id()),
+                    safeCsv(log.action()),
+                    safeCsv(log.serviceName()),
+                    safeCsv(log.username()),
+                    log.eventType() != null ? log.eventType().name() : "",
+                    safeCsv(log.httpMethod()),
+                    log.httpStatusCode() != null ? String.valueOf(log.httpStatusCode()) : "",
+                    log.requestTimestamp() != null ? log.requestTimestamp().toString() : "",
+                    safeCsv(log.traceId()),
+                    log.responseTimeMs() != null ? String.valueOf(log.responseTimeMs()) : "",
+                    safeCsv(log.clientIpAddress())
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Audit Request Log")
+                .reportCode("AUD-LOG")
+                .subtitle("Audit trail request log export")
+                .columnHeaders(EXPORT_HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override
@@ -446,40 +428,29 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     public byte[] exportChurnHistoryToPdf(List<AuditLogChurnHistoryDto> items) throws DocumentException {
-        com.lowagie.text.Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 9);
-        com.lowagie.text.Font cellFont = FontFactory.getFont(FontFactory.HELVETICA, 8);
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        document.add(new Paragraph("AUDIT LOG CHURN HISTORY EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(CHURN_HISTORY_EXPORT_HEADERS.length);
-        for (String h : CHURN_HISTORY_EXPORT_HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(h, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (AuditLogChurnHistoryDto item : items) {
-            table.addCell(new Phrase(item.id() != null ? String.valueOf(item.id()) : "", cellFont));
-            table.addCell(new Phrase(safeCsv(item.batchReference()), cellFont));
-            table.addCell(new Phrase(safeCsv(item.triggerType()), cellFont));
-            table.addCell(new Phrase(safeCsv(item.triggeredBy()), cellFont));
-            table.addCell(new Phrase(item.triggeredAt() != null ? item.triggeredAt().toString() : "", cellFont));
-            table.addCell(new Phrase(item.deletedLogCount() != null ? String.valueOf(item.deletedLogCount()) : "", cellFont));
-            table.addCell(new Phrase(safeCsv(item.churnStatus()), cellFont));
-            table.addCell(new Phrase(item.jobExecutionId() != null ? String.valueOf(item.jobExecutionId()) : "", cellFont));
-            table.addCell(new Phrase(item.completedAt() != null ? item.completedAt().toString() : "", cellFont));
-            table.addCell(new Phrase(safeCsv(item.failureReason()), cellFont));
+            rows.add(new String[]{
+                    item.id() != null ? String.valueOf(item.id()) : "",
+                    safeCsv(item.batchReference()),
+                    safeCsv(item.triggerType()),
+                    safeCsv(item.triggeredBy()),
+                    item.triggeredAt() != null ? item.triggeredAt().toString() : "",
+                    item.deletedLogCount() != null ? String.valueOf(item.deletedLogCount()) : "",
+                    safeCsv(item.churnStatus()),
+                    item.jobExecutionId() != null ? String.valueOf(item.jobExecutionId()) : "",
+                    item.completedAt() != null ? item.completedAt().toString() : "",
+                    safeCsv(item.failureReason())
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Audit Churn History")
+                .reportCode("AUD-CHN")
+                .subtitle("Audit log churn history export")
+                .columnHeaders(CHURN_HISTORY_EXPORT_HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     private static String safeCsv(String value) {

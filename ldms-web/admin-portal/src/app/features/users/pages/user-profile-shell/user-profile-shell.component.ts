@@ -10,7 +10,9 @@ import { UserEditAccountDialogComponent } from '../../components/user-edit-accou
 import { UserEditAddressDialogComponent } from '../../components/user-edit-address-dialog/user-edit-address-dialog.component';
 import { UserEditProfileDialogComponent } from '../../components/user-edit-profile-dialog/user-edit-profile-dialog.component';
 import { UserEditSecurityDialogComponent } from '../../components/user-edit-security-dialog/user-edit-security-dialog.component';
+import { UserAssignUserGroupDialogComponent } from '../../components/user-assign-user-group-dialog/user-assign-user-group-dialog.component';
 import { UsersAdminService, UserFileUploadSummary, UserProfileBundle } from '../../services/users-admin.service';
+import { isLdmsPasswordValid, LDMS_PASSWORD_INVALID_MESSAGE } from '@core/utils/ldms-password.util';
 
 type UserSection = 'profile' | 'account' | 'preferences' | 'security-policies' | 'addresses' | 'password';
 type ProfileLoadErrorKey = '' | 'invalidId' | 'missingUser' | 'requestFailed';
@@ -134,6 +136,16 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     return this.asRecord(this.bundle.user?.[key]);
   }
 
+  /** Router state so the group-roles banner matches this nested group (name/description). */
+  groupRolesNavState(ug: Record<string, unknown>): { lxGroupId: number; lxGroupName: string; lxGroupDescription: string } {
+    const id = Number(ug['id']);
+    return {
+      lxGroupId: Number.isFinite(id) && id > 0 ? id : 0,
+      lxGroupName: String(ug['name'] ?? ''),
+      lxGroupDescription: String(ug['description'] ?? ''),
+    };
+  }
+
   /** Security row from merged bundle or nested `userSecurityDto` on the user. */
   securityPolicyRecord(): Record<string, unknown> | null {
     return this.bundle.security ?? this.nestedUser('userSecurityDto');
@@ -144,6 +156,15 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
       return $localize`:@@userProfileEmptyValue:—`;
     }
     return String(v);
+  }
+
+  statusToneClass(v: unknown): string {
+    const t = String(v ?? '').trim().toUpperCase();
+    if (t === 'ACTIVE') return 'up-status--active';
+    if (t === 'INACTIVE') return 'up-status--inactive';
+    if (t === 'DELETED') return 'up-status--deleted';
+    if (t === 'ARCHIVED') return 'up-status--archived';
+    return 'up-status--neutral';
   }
 
   secretConfigured(v: unknown): boolean {
@@ -175,6 +196,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
         width: '640px',
         maxWidth: '95vw',
         autoFocus: 'first-tabbable',
+        panelClass: 'lx-location-dialog-panel',
         data: { user: u },
       })
       .afterClosed()
@@ -194,6 +216,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
       .open(UserEditAddressDialogComponent, {
         width: '560px',
         maxWidth: '95vw',
+        panelClass: 'lx-location-dialog-panel',
         data: { address: ad },
       })
       .afterClosed()
@@ -213,6 +236,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
       .open(UserEditAccountDialogComponent, {
         width: '480px',
         maxWidth: '95vw',
+        panelClass: 'lx-location-dialog-panel',
         data: { account: ac, userId: this.userIdNumber },
       })
       .afterClosed()
@@ -224,17 +248,46 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
   }
 
   openEditSecurity(emphasis: 'recovery' | 'full' = 'full'): void {
-    const s = this.securityPolicyRecord();
-    if (!s || !Number.isFinite(this.userIdNumber) || this.userIdNumber <= 0) {
+    if (!Number.isFinite(this.userIdNumber) || this.userIdNumber <= 0) {
       return;
     }
+    const s = this.securityPolicyRecord() ?? {};
     this.dialog
       .open(UserEditSecurityDialogComponent, {
         width: '640px',
         maxWidth: '95vw',
         autoFocus: 'first-tabbable',
-        panelClass: 'lx-user-edit-security-dialog',
+        panelClass: 'lx-location-dialog-panel',
         data: { security: s, userId: this.userIdNumber, emphasis },
+      })
+      .afterClosed()
+      .subscribe((saved) => {
+        if (saved) {
+          this.loadBundle();
+        }
+      });
+  }
+
+  openAssignUserGroupDialog(): void {
+    if (!Number.isFinite(this.userIdNumber) || this.userIdNumber <= 0) {
+      return;
+    }
+    const ug = this.nestedUser('userGroupDto');
+    const currentGroupIdRaw = ug?.['id'];
+    const currentGroupId =
+      typeof currentGroupIdRaw === 'number' && Number.isFinite(currentGroupIdRaw) && currentGroupIdRaw > 0
+        ? currentGroupIdRaw
+        : Number(currentGroupIdRaw);
+    this.dialog
+      .open(UserAssignUserGroupDialogComponent, {
+        width: '560px',
+        maxWidth: '95vw',
+        autoFocus: 'first-tabbable',
+        panelClass: 'lx-location-dialog-panel',
+        data: {
+          userId: this.userIdNumber,
+          currentGroupId: Number.isFinite(currentGroupId) && currentGroupId > 0 ? currentGroupId : null,
+        },
       })
       .afterClosed()
       .subscribe((saved) => {
@@ -251,6 +304,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     this.dialog.open(UserDocumentDetailDialogComponent, {
       width: '720px',
       maxWidth: '95vw',
+      panelClass: 'lx-location-dialog-panel',
       data: { id: row.id },
     });
   }
@@ -285,8 +339,8 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     }
     const p = this.newPassword.trim();
     const c = this.confirmPassword.trim();
-    if (p.length < 8) {
-      this.passwordError = 'Password must be at least 8 characters.';
+    if (!isLdmsPasswordValid(p)) {
+      this.passwordError = LDMS_PASSWORD_INVALID_MESSAGE;
       return;
     }
     if (p !== c) {

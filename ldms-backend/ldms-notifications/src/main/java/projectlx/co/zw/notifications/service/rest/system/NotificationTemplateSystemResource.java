@@ -14,7 +14,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -33,6 +32,7 @@ import projectlx.co.zw.notifications.utils.requests.UpdateTemplateRequest;
 import projectlx.co.zw.notifications.utils.responses.TemplateResponse;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportMediaTypes;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,7 +40,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import org.springframework.web.multipart.MultipartFile;
 
-@CrossOrigin
 @RestController
 @RequestMapping("/ldms-notifications/v1/system/notification-template")
 @Tag(name = "Notification Template System Resource", description = "System operations related to managing notification templates")
@@ -157,26 +156,25 @@ public class NotificationTemplateSystemResource {
                                                @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                                @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
         String filename = "notification_templates";
 
         try {
             byte[] data;
-            switch (format.toLowerCase()) {
-                case "csv":
-                    data = notificationTemplateProcessor.exportToCsv(filters, "SYSTEM", locale);
-                    headers.setContentDispositionFormData("attachment", filename + ".csv");
-                    break;
-                case "excel":
-                    data = notificationTemplateProcessor.exportToExcel(filters, "SYSTEM", locale);
-                    headers.setContentDispositionFormData("attachment", filename + ".xlsx");
-                    break;
-                case "pdf":
-                    data = notificationTemplateProcessor.exportToPdf(filters, "SYSTEM", locale);
-                    headers.setContentDispositionFormData("attachment", filename + ".pdf");
-                    break;
-                default:
-                    return ResponseEntity.badRequest().body(("Invalid format: " + format).getBytes(StandardCharsets.UTF_8));
+            String normalized = LdmsExportMediaTypes.normalizeFormat(format);
+            if (LdmsExportMediaTypes.isCsv(normalized)) {
+                data = notificationTemplateProcessor.exportToCsv(filters, "SYSTEM", locale);
+                headers.setContentDispositionFormData("attachment", filename + ".csv");
+                headers.setContentType(MediaType.parseMediaType(LdmsExportMediaTypes.CSV));
+            } else if (LdmsExportMediaTypes.isExcel(normalized)) {
+                data = notificationTemplateProcessor.exportToExcel(filters, "SYSTEM", locale);
+                headers.setContentDispositionFormData("attachment", filename + ".xlsx");
+                headers.setContentType(MediaType.parseMediaType(LdmsExportMediaTypes.XLSX));
+            } else if (LdmsExportMediaTypes.isPdf(normalized)) {
+                data = notificationTemplateProcessor.exportToPdf(filters, "SYSTEM", locale);
+                headers.setContentDispositionFormData("attachment", filename + ".pdf");
+                headers.setContentType(MediaType.parseMediaType(LdmsExportMediaTypes.PDF));
+            } else {
+                return ResponseEntity.badRequest().body(("Invalid format: " + format).getBytes(StandardCharsets.UTF_8));
             }
             return new ResponseEntity<>(data, headers, HttpStatus.OK);
         } catch (IOException | DocumentException e) {

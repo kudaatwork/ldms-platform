@@ -1,0 +1,103 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.lx-email-preview {
+  border: 1px solid var(--gray-200, #e2e8f0);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface, #ffffff);
+}
+
+.lx-email-preview__subject {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+  background: var(--gray-50, #f8fafc);
+}
+
+.lx-email-preview__subject-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-500, #64748b);
+}
+
+.lx-email-preview__subject-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-800, #1e293b);
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.lx-email-preview__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: 100%;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-700, #334155);
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+
+  .mat-icon {
+    font-size: 15px;
+    width: 15px;
+    height: 15px;
+    color: #2563eb;
+  }
+}
+
+.lx-email-preview__hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--gray-500, #64748b);
+  margin-left: auto;
+}
+
+.lx-email-preview__frame {
+  width: 100%;
+  min-height: 420px;
+  border: 0;
+  background: #ffffff;
+}
+
+html.theme-dark .lx-email-preview {
+  border-color: rgba(148, 163, 184, 0.35);
+  background: #1b2a40;
+}
+
+html.theme-dark .lx-email-preview__subject {
+  border-bottom-color: rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+html.theme-dark .lx-email-preview__subject-value {
+  color: var(--gray-100, #f1f5f9);
+}
+
+html.theme-dark .lx-email-preview__title {
+  border-bottom-color: rgba(148, 163, 184, 0.35);
+  color: var(--gray-100, #f1f5f9);
+  background: linear-gradient(180deg, #1e293b 0%, #17263c 100%);
+}
+
+html.theme-dark .lx-email-preview__hint {
+  color: var(--gray-400, #94a3b8);
+}
+
+@media (max-width: 720px) {
+  .lx-email-preview__hint {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}

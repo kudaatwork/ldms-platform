@@ -131,6 +131,8 @@ ldms:
     exchange: ldms.audit.exchange
     routing-key: audit.log
   user:
+    # Admin portal base URL (no trailing slash). Used in registration verification emails.
+    portal-base-url: ${LDMS_USER_PORTAL_BASE_URL:http://localhost:4200}
     password:
       expiry-days: 90
       history-count: 5

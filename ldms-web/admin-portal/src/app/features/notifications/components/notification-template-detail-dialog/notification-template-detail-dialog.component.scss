@@ -1,80 +1,7 @@
-:host {
-  display: block;
-}
+@use '../../../../shared/styles/lx-dialog-form-shell';
 
-.lx-dialog-shell {
-  position: relative;
-  width: 520px;
-  max-width: 95vw;
-  max-height: 90vh;
-  display: flex;
-  flex-direction: column;
-  border-radius: 20px;
-  overflow: hidden;
-  box-shadow:
-    0 4px 6px rgba(0, 0, 0, 0.04),
-    0 20px 50px rgba(0, 0, 0, 0.08);
-  background: var(--surface, #ffffff);
-}
-
-.lx-dialog-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 26px 24px 16px;
-  border-bottom: 1px solid var(--gray-200, #e2e8f0);
-}
-
-.lx-header-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.lx-dialog-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--gray-900, #0f172a);
-  margin: 0 0 6px;
-}
-
-.lx-dialog-subtitle {
-  font-size: 13px;
-  line-height: 1.45;
-  color: var(--gray-500, #64748b);
-  margin: 0;
-}
-
-.lx-close-button {
-  color: var(--gray-500, #64748b);
-
-  &:hover {
-    color: var(--gray-800, #1e293b);
-    background: var(--gray-100, #f1f5f9);
-  }
-}
-
-.lx-step-content {
-  padding: 12px 24px 20px;
-  overflow-y: auto;
-  flex: 1;
-  min-height: 0;
-}
-
-.lx-form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px 16px;
-}
-
-.span-2 {
-  grid-column: span 2;
-}
-
-.lx-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
+.nt-detail-body {
+  padding-bottom: 4px;
 }
 
 .nt-section-title {
@@ -86,34 +13,18 @@
   padding-top: 6px;
 }
 
-.lx-field-label {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--gray-700, #334155);
-}
-
-.lx-input-shell {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
 .lx-input-shell--readonly {
   background: var(--gray-50, #f8fafc);
 }
 
-.lx-input-shell__icon {
-  color: var(--gray-400, #94a3b8);
-  flex: 0 0 auto;
+html.theme-dark .lx-input-shell--readonly {
+  background: color-mix(in srgb, var(--surface) 88%, var(--gray-800));
 }
 
-.lx-input-shell--textarea {
-  align-items: flex-start;
-}
-
-.lx-input-shell--textarea .lx-input-shell__icon {
-  margin-top: 2px;
+.lx-input-shell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .nt-readonly-value {
@@ -136,27 +47,44 @@
   overflow: auto;
 }
 
-.lx-step-actions {
+.lx-field app-notification-email-html-preview {
+  margin-top: 4px;
+}
+
+.nt-field-label-row {
   display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--gray-200, #e2e8f0);
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+
+  .lx-field-label {
+    margin: 0;
+  }
+}
+
+.nt-copy-btn {
+  flex-shrink: 0;
+  margin: -6px -8px -6px 0;
+  color: var(--gray-500, #64748b);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:disabled {
+    opacity: 0.35;
+  }
+}
+
+html.theme-dark .nt-copy-btn {
+  color: var(--gray-400, #94a3b8);
 }
 
 @media (max-width: 600px) {
-  .lx-dialog-shell {
-    width: 100vw;
-    max-height: 100vh;
-    border-radius: 0;
-  }
-
-  .lx-form-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .span-2 {
-    grid-column: span 1;
+  .nt-detail-body {
+    padding-bottom: 0;
   }
 }

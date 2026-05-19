@@ -191,10 +191,11 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_NO_IDENTIFICATION_PROVIDED.getCode(), new String[]{}, locale));
         }
 
-        // Validate specific formats and content
-        if (!isValidNationalIdNumber(editUserRequest.getNationalIdNumber())) {
+        // Validate specific formats and content (only when a value was supplied for that field)
+        if (StringUtils.hasText(editUserRequest.getNationalIdNumber())
+                && !isValidNationalIdNumber(editUserRequest.getNationalIdNumber())) {
             logger.info("Validation failed: National ID number is invalid");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_EMAIL_FORMAT.getCode(), new String[]{}, locale));
+            errors.add(messageService.getMessage(I18Code.MESSAGE_USER_ACCOUNT_NATIONAL_ID_INVALID.getCode(), new String[]{}, locale));
         }
 
         if (!isValidEmail(editUserRequest.getEmail())) {
@@ -229,6 +230,7 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
         }
 
         appendIdentificationUploadErrors(editUserRequest.getNationalIdUpload(), locale, errors);
+        appendIdentificationUploadErrors(editUserRequest.getPassportUpload(), locale, errors);
 
         if (errors.isEmpty()) {
             return new ValidatorDto(true, null, null);
@@ -456,21 +458,19 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
 
         boolean hasNationalIdNumber = StringUtils.hasText(request.getNationalIdNumber());
         boolean hasNationalIdUpload = request.getNationalIdUpload() != null && !request.getNationalIdUpload().isEmpty();
+        boolean hasNationalIdUploadId = request.getNationalIdUploadId() != null && request.getNationalIdUploadId() > 0L;
 
         boolean hasPassportNumber = StringUtils.hasText(request.getPassportNumber());
         boolean hasPassportUpload = request.getPassportUpload() != null && !request.getPassportUpload().isEmpty();
+        boolean hasPassportUploadId = request.getPassportUploadId() != null && request.getPassportUploadId() > 0L;
 
-        // Either both National ID Number & Upload
-        boolean hasValidNationalId = hasNationalIdNumber && hasNationalIdUpload;
+        // National ID number plus a new upload or an existing file-upload reference.
+        boolean hasValidNationalId = hasNationalIdNumber && (hasNationalIdUpload || hasNationalIdUploadId);
 
-        // Or both Passport Number & Upload
-        boolean hasValidPassport = hasPassportNumber && hasPassportUpload;
+        // Passport number plus a new upload or an existing file-upload reference.
+        boolean hasValidPassport = hasPassportNumber && (hasPassportUpload || hasPassportUploadId);
 
-        // Or both provided
-        boolean hasBoth = hasValidNationalId && hasValidPassport;
-
-        // At least one valid identification or both
-        return hasValidNationalId || hasValidPassport || hasBoth;
+        return hasValidNationalId || hasValidPassport;
     }
 
     private boolean isValidDateOfBirth(String dateOfBirth) {

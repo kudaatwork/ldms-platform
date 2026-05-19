@@ -160,14 +160,10 @@
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
     </div>
 
-    <div class="lx-table-loading" *ngIf="fetching && rawRows.length === 0">
-      <mat-progress-bar mode="indeterminate" aria-label="Loading records"></mat-progress-bar>
-      <p class="lx-table-loading__text">Loading {{ pageTitle | lowercase }}…</p>
-    </div>
-
-    <ng-container *ngIf="rawRows.length > 0 || totalRecords > 0">
+    <lx-table-loading [busy]="fetching && rawRows.length === 0" message="Loading records…"></lx-table-loading>
+<ng-container *ngIf="rawRows.length > 0 || totalRecords > 0">
       <ng-container *ngIf="dataSource.data.length > 0; else noSearchHits">
-        <div class="lx-table-wrap">
+        <div class="lx-table-wrap lx-table-wrap--host"><lx-table-loading [busy]="fetching && rawRows.length > 0" [hasData]="true" message="Refreshing records…"></lx-table-loading>
           <!-- Server returns stable id ASC order; client MatSort reorders only the current page and breaks "new row at end". -->
           <table mat-table [dataSource]="dataSource" class="lx-mat-table">
             <ng-container *ngFor="let col of displayedColumns" [matColumnDef]="col">

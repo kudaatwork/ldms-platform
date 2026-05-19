@@ -2,7 +2,11 @@
   <div class="group-context-banner" *ngIf="groupId" role="region" [attr.aria-label]="'Roles for user group ' + (contextGroupName || groupId)">
     <div class="group-context-banner__accent" aria-hidden="true"></div>
     <div class="group-context-banner__inner">
-      <a class="lx-btn lx-btn-ghost group-context-banner__back" routerLink="/users/groups">
+      <a
+        class="lx-btn lx-btn-ghost group-context-banner__back"
+        [routerLink]="['/users', 'groups']"
+        [state]="backToGroupsState()"
+      >
         <mat-icon>arrow_back</mat-icon>
         Back to groups
       </a>
@@ -52,8 +56,8 @@
         <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()">Refresh</button>
         <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
         <button type="button" class="lx-btn lx-btn-ghost" (click)="downloadSampleCsv()">Sample CSV</button>
-        <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
-          Export
+        <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu" [disabled]="exporting">
+          {{ exporting ? 'Exporting…' : 'Export' }}
         </button>
         <button type="button" class="lx-btn lx-btn-primary" (click)="openCreateModal()">Add New</button>
       </div>
@@ -74,15 +78,15 @@
       </div>
     </div>
     <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
-      <button mat-menu-item class="lx-export-option--pdf" (click)="stubExport()">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')" [disabled]="exporting">
         <mat-icon>picture_as_pdf</mat-icon>
         <span>Export PDF</span>
       </button>
-      <button mat-menu-item class="lx-export-option--csv" (click)="stubExport()">
+      <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')" [disabled]="exporting">
         <mat-icon>table_view</mat-icon>
         <span>Export CSV</span>
       </button>
-      <button mat-menu-item class="lx-export-option--xlsx" (click)="stubExport()">
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')" [disabled]="exporting">
         <mat-icon>grid_on</mat-icon>
         <span>Export XLSX</span>
       </button>
@@ -122,11 +126,8 @@
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
     </div>
-    <div class="lx-table-loading" *ngIf="fetching && dataSource.length === 0">
-      <mat-progress-bar mode="indeterminate" aria-label="Loading user roles"></mat-progress-bar>
-      <p class="lx-table-loading__text">Loading roles…</p>
-    </div>
-    <ng-container *ngIf="dataSource.length > 0; else noSearchHits">
+    <lx-table-loading [busy]="fetching && dataSource.length === 0" message="Loading roles…"></lx-table-loading>
+<ng-container *ngIf="dataSource.length > 0; else noSearchHits">
       <div class="lx-table-wrap" [class.lx-table-wrap--group-scoped]="!!groupId">
         <table mat-table [dataSource]="dataSource" class="lx-mat-table">
           <ng-container matColumnDef="role">
@@ -148,20 +149,16 @@
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>Actions</th>
             <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-              <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
+              <button
+                type="button"
+                mat-icon-button
+                [matMenuTriggerFor]="userRolesRowActionsMenu"
+                [matMenuTriggerData]="{ roleRow: row }"
+                (click)="$event.stopPropagation()"
+                aria-label="Row actions"
+              >
                 <mat-icon>more_vert</mat-icon>
               </button>
-              <mat-menu #rowMenu="matMenu" panelClass="lx-row-actions-menu">
-                <button mat-menu-item type="button" class="lx-action-view" (click)="viewRow(row)">
-                  <mat-icon>visibility</mat-icon> View
-                </button>
-                <button mat-menu-item type="button" class="lx-action-edit" (click)="editRow(row)">
-                  <mat-icon>edit</mat-icon> Edit
-                </button>
-                <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteRow(row)">
-                  <mat-icon>delete</mat-icon> Delete
-                </button>
-              </mat-menu>
             </td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
@@ -178,6 +175,19 @@
         (page)="onPage($event)"
       ></mat-paginator>
     </ng-container>
+    <mat-menu #userRolesRowActionsMenu="matMenu" panelClass="lx-row-actions-menu">
+      <ng-template matMenuContent let-roleRow="roleRow">
+        <button mat-menu-item type="button" class="lx-action-view" (click)="viewRow(roleRow)">
+          <mat-icon>visibility</mat-icon> View
+        </button>
+        <button mat-menu-item type="button" class="lx-action-edit" (click)="editRow(roleRow)">
+          <mat-icon>edit</mat-icon> Edit
+        </button>
+        <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteRow(roleRow)">
+          <mat-icon>delete</mat-icon> Delete
+        </button>
+      </ng-template>
+    </mat-menu>
     <ng-template #noSearchHits>
       <div class="lx-empty lx-empty--compact" *ngIf="!groupId">
         <mat-icon class="lx-empty-icon">search_off</mat-icon>

@@ -3,7 +3,10 @@ package projectlx.user.management.repository.specification;
 import projectlx.user.management.model.EntityStatus;
 import projectlx.user.management.model.Gender;
 import projectlx.user.management.model.User;
+import projectlx.user.management.model.UserGroup;
 import projectlx.user.management.model.User_;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 import java.util.List;
@@ -67,6 +70,13 @@ public class UserSpecification {
         return (root, query, cb) -> {
             Predicate p = cb.like(root.get(User_.passportNumber).as(String.class), passportNumber + "%");
             return p;
+        };
+    }
+
+    public static Specification<User> belongsToUserGroup(final Long userGroupId) {
+        return (root, query, cb) -> {
+            Join<User, UserGroup> ug = root.join("userGroup", JoinType.INNER);
+            return cb.equal(ug.get("id"), userGroupId);
         };
     }
 

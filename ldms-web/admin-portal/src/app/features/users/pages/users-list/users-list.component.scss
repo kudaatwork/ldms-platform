@@ -35,8 +35,10 @@
 }
 
 .lx-pill--success {
-  background: color-mix(in srgb, #22c55e 18%, #fff);
-  color: #15803d;
+  /* Match user profile status / hero chip active tone (Bootstrap #198754 family) */
+  background: color-mix(in srgb, #198754 14%, #fff);
+  color: #0f5132;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #198754 45%, transparent);
 }
 
 .lx-pill--warn {
@@ -93,8 +95,8 @@
   gap: 8px;
   margin: 4px 0 14px;
   padding: 8px 10px;
-  background: color-mix(in srgb, var(--primary-light, #DBEAFE) 42%, #fff);
-  border: 1px solid color-mix(in srgb, var(--primary, #1976d2) 20%, #fff);
+  background: color-mix(in srgb, var(--primary-light, #dbeafe) 42%, var(--surface, #fff));
+  border: 1px solid color-mix(in srgb, var(--primary, #1976d2) 20%, var(--surface, #fff));
   border-radius: 4px;
   font-size: 12.5px;
   line-height: 1.45;
@@ -248,15 +250,15 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(560px, 92vw);
-  background: #fff;
+  background: var(--surface, #ffffff);
+  color: var(--gray-800);
   border-radius: 20px;
   overflow: hidden;
   z-index: 1001;
   max-height: 88vh;
   overflow: auto;
-  box-shadow:
-    0 4px 6px rgba(0, 0, 0, 0.04),
-    0 20px 50px rgba(0, 0, 0, 0.08);
+  border: var(--card-border);
+  box-shadow: var(--card-shadow);
 }
 
 .lx-modal--lg {
@@ -338,6 +340,50 @@
   min-height: 16px;
 }
 
+.lx-modal__field--file {
+  min-height: auto;
+}
+
+.lx-modal__field--file:not(:has(.lx-field-hint))::after {
+  display: none;
+}
+
+.lx-file-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-200, #e2e8f0);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  font-family: var(--font, inherit);
+  font-size: 13px;
+  color: var(--gray-800, #1e293b);
+  cursor: pointer;
+
+  &::file-selector-button {
+    margin-right: 12px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--primary, #1976d2) 12%, var(--surface, #fff));
+    color: var(--primary, #1976d2);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+
+.lx-file-input__name {
+  font-size: 12px;
+  color: var(--gray-600, #475569);
+  word-break: break-all;
+  line-height: 1.35;
+}
+
 .lx-modal__field .lx-input-shell__icon {
   color: var(--gray-400);
 }
@@ -393,9 +439,9 @@
 }
 
 .lx-stepper__item.is-complete {
-  border-color: #22c55e;
-  background: rgba(34, 197, 94, 0.12);
-  color: #15803d;
+  border-color: color-mix(in srgb, #198754 45%, transparent);
+  background: color-mix(in srgb, #198754 14%, #fff);
+  color: #0f5132;
 }
 
 .lx-stepper__item.is-disabled {

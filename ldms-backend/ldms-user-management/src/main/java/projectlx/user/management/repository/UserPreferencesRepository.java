@@ -9,6 +9,7 @@ import java.util.Optional;
 
 public interface UserPreferencesRepository extends JpaRepository<UserPreferences, Long>, JpaSpecificationExecutor<UserPreferences> {
     Optional<UserPreferences> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
+    Optional<UserPreferences> findByUser_IdAndEntityStatusNot(Long userId, EntityStatus entityStatus);
     List<UserPreferences> findByEntityStatusNot(EntityStatus entityStatus);
     long countByPreferredLanguageAndTimezoneAndEntityStatusNot(String preferredLanguage, String timezone,
                                                                EntityStatus entityStatus);

@@ -2,6 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { PageEvent } from '@angular/material/paginator';
 import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import {
+  LxExportFormat,
+  exportClientTableAsCsv,
+} from '@shared/utils/lx-export.util';
 
 export interface MonitoringRow {
   metric: string;
@@ -33,7 +39,7 @@ export class SystemMonitoringComponent implements OnInit {
   };
 
   pageIndex = 0;
-  pageSize = 10;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
 
   private readonly mockRows: MonitoringRow[] = [
     {
@@ -68,7 +74,10 @@ export class SystemMonitoringComponent implements OnInit {
     },
   ];
 
-  constructor(private readonly title: Title) {}
+  constructor(
+    private readonly title: Title,
+    private readonly snackBar: MatSnackBar,
+  ) {}
 
   get filteredRows(): MonitoringRow[] {
     return filterByGlobalAndColumns(
@@ -108,5 +117,23 @@ export class SystemMonitoringComponent implements OnInit {
 
   stubImport(): void {}
 
-  stubExport(): void {}
+  exportAs(format: LxExportFormat): void {
+    const ok = exportClientTableAsCsv(
+      format,
+      this.filteredRows,
+      [
+        { header: 'metric', value: (r) => r.metric },
+        { header: 'value', value: (r) => r.value },
+        { header: 'status', value: (r) => r.statusLabel },
+      ],
+      'system-monitoring',
+      (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
+    );
+    if (ok) {
+      this.snackBar.open('Exported monitoring metrics as CSV.', 'Close', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
+    }
+  }
 }

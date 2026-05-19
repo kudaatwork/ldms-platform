@@ -1,129 +1,145 @@
-<h2 mat-dialog-title>Edit user details</h2>
-
-<mat-dialog-content class="ued-body">
-  <p class="ued-lead">Changes are saved to user management. Leave file fields empty to keep existing uploads.</p>
-
-  <div class="ued-grid">
-    <label class="ued-field">
-      <span class="ued-label">Username <span class="ued-req">*</span></span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">alternate_email</mat-icon>
-        <input [(ngModel)]="username" placeholder="e.g. tinashe.moyo" autocomplete="off" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Email <span class="ued-req">*</span></span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
-        <input type="email" [(ngModel)]="email" placeholder="e.g. tinashe@example.com" autocomplete="off" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">First name <span class="ued-req">*</span></span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">person</mat-icon>
-        <input [(ngModel)]="firstName" placeholder="e.g. Tinashe" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Last name <span class="ued-req">*</span></span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
-        <input [(ngModel)]="lastName" placeholder="e.g. Moyo" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Gender <span class="ued-req">*</span></span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">wc</mat-icon>
-        <select [(ngModel)]="gender">
-          <option value="" disabled>Select…</option>
-          <option *ngFor="let g of genderOptions" [value]="g">{{ g }}</option>
-        </select>
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Phone <span class="ued-req">*</span></span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">phone</mat-icon>
-        <input [(ngModel)]="phoneNumber" placeholder="e.g. +263771234567" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Date of birth <span class="ued-req">*</span></span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">event</mat-icon>
-        <input type="date" [(ngModel)]="dateOfBirth" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">National ID</span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">badge</mat-icon>
-        <input [(ngModel)]="nationalIdNumber" placeholder="National ID number" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">National ID expiry</span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">event_available</mat-icon>
-        <input type="date" [(ngModel)]="nationalIdExpiryDate" />
-      </div>
-    </label>
-    <label class="ued-field ued-field--full">
-      <span class="ued-label">Replace national ID scan</span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">upload_file</mat-icon>
-        <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onNationalFile($event)" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Passport number</span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">assignment_ind</mat-icon>
-        <input [(ngModel)]="passportNumber" placeholder="Passport number" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Passport expiry</span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">event_busy</mat-icon>
-        <input type="date" [(ngModel)]="passportExpiryDate" />
-      </div>
-    </label>
-    <label class="ued-field ued-field--full">
-      <span class="ued-label">Replace passport scan</span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">upload</mat-icon>
-        <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onPassportFile($event)" />
-      </div>
-    </label>
-
-    <ng-container *ngIf="hasPreferences">
-      <p class="ued-lead ued-lead--divider">Preferences</p>
-      <label class="ued-field">
-        <span class="ued-label">Preferred language <span class="ued-req">*</span></span>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">translate</mat-icon>
-          <input [(ngModel)]="preferredLanguage" placeholder="e.g. en" />
-        </div>
-      </label>
-      <label class="ued-field">
-        <span class="ued-label">Timezone (IANA) <span class="ued-req">*</span></span>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
-          <input [(ngModel)]="timezone" placeholder="e.g. Africa/Harare" />
-        </div>
-      </label>
-    </ng-container>
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Edit user details</h2>
+      <p class="lx-dialog-subtitle">
+        Changes are saved to user management. Leave file fields empty to keep existing uploads.
+      </p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
   </div>
 
-  <p class="ued-error" *ngIf="error">{{ error }}</p>
-</mat-dialog-content>
+  <div class="lx-step-content">
+    <div class="lx-form-grid">
+      <div class="lx-field">
+        <label class="lx-field-label">Username <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">alternate_email</mat-icon>
+          <input [(ngModel)]="username" placeholder="e.g. tinashe.moyo" autocomplete="off" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Email <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
+          <input type="email" [(ngModel)]="email" placeholder="e.g. tinashe@example.com" autocomplete="off" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">First name <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">person</mat-icon>
+          <input [(ngModel)]="firstName" placeholder="e.g. Tinashe" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Last name <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+          <input [(ngModel)]="lastName" placeholder="e.g. Moyo" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Gender <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">wc</mat-icon>
+          <select [(ngModel)]="gender">
+            <option value="" disabled>Select…</option>
+            <option *ngFor="let g of genderOptions" [value]="g">{{ g }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Phone <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+          <input [(ngModel)]="phoneNumber" placeholder="e.g. +263771234567" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Date of birth <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <input type="date" [(ngModel)]="dateOfBirth" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">National ID</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+          <input [(ngModel)]="nationalIdNumber" placeholder="National ID number" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">National ID expiry (optional)</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event_available</mat-icon>
+          <input type="date" [(ngModel)]="nationalIdExpiryDate" />
+        </div>
+        <small class="ued-hint">Leave blank if the national ID has no expiry date.</small>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Replace national ID scan</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">upload_file</mat-icon>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onNationalFile($event)" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Passport number</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">assignment_ind</mat-icon>
+          <input [(ngModel)]="passportNumber" placeholder="Passport number" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Passport expiry</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event_busy</mat-icon>
+          <input type="date" [(ngModel)]="passportExpiryDate" />
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Replace passport scan</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">upload</mat-icon>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onPassportFile($event)" />
+        </div>
+      </div>
 
-<mat-dialog-actions align="end">
-  <button type="button" mat-stroked-button (click)="close()" [disabled]="saving">Cancel</button>
-  <button type="button" mat-flat-button color="primary" (click)="save()" [disabled]="saving">
-    {{ saving ? 'Saving…' : 'Save changes' }}
-  </button>
-</mat-dialog-actions>
+      <ng-container *ngIf="hasPreferences">
+        <div class="lx-form-section span-2">
+          <div class="lx-form-section-title">Preferences</div>
+        </div>
+        <div class="lx-field">
+          <label class="lx-field-label">Preferred language <span class="req">*</span></label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">translate</mat-icon>
+            <input [(ngModel)]="preferredLanguage" placeholder="e.g. en" />
+          </div>
+        </div>
+        <div class="lx-field">
+          <label class="lx-field-label">Timezone (IANA) <span class="req">*</span></label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+            <input [(ngModel)]="timezone" placeholder="e.g. Africa/Harare" />
+          </div>
+        </div>
+      </ng-container>
+    </div>
+
+    <p class="lx-form-error" *ngIf="error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+    </p>
+
+    <div class="lx-step-actions">
+      <button mat-stroked-button type="button" (click)="close()" [disabled]="saving">Cancel</button>
+      <button mat-raised-button color="primary" type="button" (click)="save()" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Save changes' }}
+      </button>
+    </div>
+  </div>
+</div>

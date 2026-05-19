@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
@@ -48,7 +41,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -385,35 +377,25 @@ public class GeoCoordinatesServiceImpl implements GeoCoordinatesService {
 
     @Override
     public byte[] exportToPdf(List<GeoCoordinatesDto> items) throws DocumentException {
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("GEO COORDINATES EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (GeoCoordinatesDto geoCoordinates : items) {
-            table.addCell(String.valueOf(geoCoordinates.getId()));
-            table.addCell(geoCoordinates.getLatitude() != null ? geoCoordinates.getLatitude().toString() : "");
-            table.addCell(geoCoordinates.getLongitude() != null ? geoCoordinates.getLongitude().toString() : "");
-            table.addCell(geoCoordinates.getCreatedAt() != null ? geoCoordinates.getCreatedAt().toString() : "");
-            table.addCell(geoCoordinates.getUpdatedAt() != null ? geoCoordinates.getUpdatedAt().toString() : "");
-            table.addCell(geoCoordinates.getEntityStatus() != null ? geoCoordinates.getEntityStatus().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(geoCoordinates.getId()),
+                    geoCoordinates.getLatitude() != null ? geoCoordinates.getLatitude().toString() : "",
+                    geoCoordinates.getLongitude() != null ? geoCoordinates.getLongitude().toString() : "",
+                    geoCoordinates.getCreatedAt() != null ? geoCoordinates.getCreatedAt().toString() : "",
+                    geoCoordinates.getUpdatedAt() != null ? geoCoordinates.getUpdatedAt().toString() : "",
+                    geoCoordinates.getEntityStatus() != null ? geoCoordinates.getEntityStatus().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Geo Coordinates")
+                .reportCode("LOC-GEO")
+                .subtitle("Geo coordinates registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

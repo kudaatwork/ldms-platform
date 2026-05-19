@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -47,7 +40,6 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.globalvalidators.Validators;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
-import java.awt.Color;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -562,38 +554,28 @@ public class AdministrativeLevelServiceImpl implements AdministrativeLevelServic
 
     @Override
     public byte[] exportToPdf(List<AdministrativeLevelDto> items) throws DocumentException {
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("ADMINISTRATIVE LEVEL EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (AdministrativeLevelDto administrativeLevel : items) {
-            table.addCell(String.valueOf(administrativeLevel.getId()));
-            table.addCell(safe(administrativeLevel.getName()));
-            table.addCell(safe(administrativeLevel.getCode()));
-            table.addCell(administrativeLevel.getLevel() != null ? String.valueOf(administrativeLevel.getLevel()) : "");
-            table.addCell(safe(administrativeLevel.getCountryName()));
-            table.addCell(safe(administrativeLevel.getDescription()));
-            table.addCell(administrativeLevel.getCreatedAt() != null ? administrativeLevel.getCreatedAt().toString() : "");
-            table.addCell(administrativeLevel.getUpdatedAt() != null ? administrativeLevel.getUpdatedAt().toString() : "");
-            table.addCell(administrativeLevel.getEntityStatus() != null ? administrativeLevel.getEntityStatus().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(administrativeLevel.getId()),
+                    safe(administrativeLevel.getName()),
+                    safe(administrativeLevel.getCode()),
+                    administrativeLevel.getLevel() != null ? String.valueOf(administrativeLevel.getLevel()) : "",
+                    safe(administrativeLevel.getCountryName()),
+                    safe(administrativeLevel.getDescription()),
+                    administrativeLevel.getCreatedAt() != null ? administrativeLevel.getCreatedAt().toString() : "",
+                    administrativeLevel.getUpdatedAt() != null ? administrativeLevel.getUpdatedAt().toString() : "",
+                    administrativeLevel.getEntityStatus() != null ? administrativeLevel.getEntityStatus().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Administrative Levels")
+                .reportCode("LOC-ADM")
+                .subtitle("Administrative level registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

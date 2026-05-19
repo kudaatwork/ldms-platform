@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 import com.opencsv.bean.HeaderColumnNameMappingStrategy;
@@ -48,7 +41,6 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.globalvalidators.Validators;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -303,38 +295,33 @@ public class CityServiceImpl implements CityService {
 
     @Override
     public byte[] exportToPdf(List<CityDto> items) throws DocumentException {
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("CITY EXPORT", font));
-        document.add(new Paragraph(" "));
-        PdfPTable table = new PdfPTable(EXPORT_HEADERS.length);
-        for (String h : EXPORT_HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(h, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
+        List<String[]> rows = new ArrayList<>();
         for (CityDto c : items) {
-            table.addCell(String.valueOf(c.getId()));
-            table.addCell(safe(c.getName()));
-            table.addCell(safe(c.getCode()));
-            table.addCell(c.getDistrictId() != null ? c.getDistrictId().toString() : "");
-            table.addCell(safe(c.getDistrictName()));
-            table.addCell(safe(c.getProvinceName()));
-            table.addCell(safe(c.getCountryName()));
-            table.addCell(c.getLatitude() != null ? c.getLatitude().toString() : "");
-            table.addCell(c.getLongitude() != null ? c.getLongitude().toString() : "");
-            table.addCell(safe(c.getTimezone()));
-            table.addCell(safe(c.getPostalCode()));
-            table.addCell(c.getCreatedAt() != null ? c.getCreatedAt().toString() : "");
-            table.addCell(c.getUpdatedAt() != null ? c.getUpdatedAt().toString() : "");
-            table.addCell(c.getEntityStatus() != null ? c.getEntityStatus().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(c.getId()),
+                    safe(c.getName()),
+                    safe(c.getCode()),
+                    c.getDistrictId() != null ? c.getDistrictId().toString() : "",
+                    safe(c.getDistrictName()),
+                    safe(c.getProvinceName()),
+                    safe(c.getCountryName()),
+                    c.getLatitude() != null ? c.getLatitude().toString() : "",
+                    c.getLongitude() != null ? c.getLongitude().toString() : "",
+                    safe(c.getTimezone()),
+                    safe(c.getPostalCode()),
+                    c.getCreatedAt() != null ? c.getCreatedAt().toString() : "",
+                    c.getUpdatedAt() != null ? c.getUpdatedAt().toString() : "",
+                    c.getEntityStatus() != null ? c.getEntityStatus().toString() : ""
+            });
         }
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Cities")
+                .reportCode("LOC-CTY")
+                .subtitle("City registry export")
+                .columnHeaders(EXPORT_HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

@@ -1,78 +1,102 @@
-<h2 mat-dialog-title>{{ dialogTitle }}</h2>
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ dialogTitle }}</h2>
+      <p class="lx-dialog-subtitle" *ngIf="emphasis === 'recovery'" i18n="@@userEditSecurityLeadRecovery">
+        Update the recovery questions and answers below. Two-factor fields are included because the API requires them on
+        each save—leave them as loaded unless you intend to change authentication.
+      </p>
+      <p class="lx-dialog-subtitle" *ngIf="emphasis !== 'recovery'" i18n="@@userEditSecurityLeadFull">
+        Update security questions, answers, and two-factor settings. Values are refreshed from the server when this dialog
+        opens.
+      </p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
 
-<mat-dialog-content class="ued-body">
-  <div class="ued-loading" *ngIf="loading">
+  <div class="lx-loading-shell" *ngIf="loading">
     <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
     <p i18n="@@userEditSecurityLoading">Loading current security settings…</p>
   </div>
 
-  <ng-container *ngIf="!loading">
-    <p class="ued-lead" *ngIf="emphasis === 'recovery'" i18n="@@userEditSecurityLeadRecovery">
-      Update the recovery questions and answers below. Two-factor fields are included because the API requires them on
-      each save—leave them as loaded unless you intend to change authentication.
-    </p>
-    <p class="ued-lead" *ngIf="emphasis !== 'recovery'" i18n="@@userEditSecurityLeadFull">
-      Update security questions, answers, and two-factor settings. Values are refreshed from the server when this
-      dialog opens.
-    </p>
-
-    <section class="ued-section" aria-labelledby="ued-sec-qa">
-      <h3 class="ued-section__title" id="ued-sec-qa" i18n="@@userEditSecuritySectionQa">Security questions &amp; answers</h3>
-      <div class="ued-fields">
-        <mat-form-field appearance="outline" class="ued-mat-field">
-          <mat-label i18n="@@userEditSecurityQ1">Security question 1</mat-label>
-          <input matInput name="secQ1" [(ngModel)]="securityQuestion_1" autocomplete="off" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="ued-mat-field">
-          <mat-label i18n="@@userEditSecurityA1">Answer 1</mat-label>
-          <input matInput name="secA1" [(ngModel)]="securityAnswer_1" autocomplete="off" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="ued-mat-field">
-          <mat-label i18n="@@userEditSecurityQ2">Security question 2 (optional)</mat-label>
-          <input matInput name="secQ2" [(ngModel)]="securityQuestion_2" autocomplete="off" />
-        </mat-form-field>
-        <mat-form-field appearance="outline" class="ued-mat-field">
-          <mat-label i18n="@@userEditSecurityA2">Answer 2</mat-label>
-          <input matInput name="secA2" [(ngModel)]="securityAnswer_2" autocomplete="off" />
-        </mat-form-field>
+  <div class="lx-step-content" *ngIf="!loading">
+    <div class="lx-form-grid">
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title" i18n="@@userEditSecuritySectionQa">Security questions &amp; answers</div>
       </div>
-    </section>
 
-    <mat-divider class="ued-divider" />
-
-    <section class="ued-section" aria-labelledby="ued-sec-2fa">
-      <h3 class="ued-section__title" id="ued-sec-2fa" i18n="@@userEditSecuritySection2fa">Two-factor authentication</h3>
-      <div class="ued-fields">
-        <mat-form-field appearance="outline" class="ued-mat-field ued-mat-field--wide">
-          <mat-label i18n="@@userEditSecurityTotpSecret">Authenticator / TOTP secret</mat-label>
-          <textarea
-            matInput
-            name="totpSecret"
-            rows="2"
-            [(ngModel)]="twoFactorAuthSecret"
-            autocomplete="off"
-            class="ued-mono"
-          ></textarea>
-          <mat-hint i18n="@@userEditSecurityTotpHint">Required on save. Loaded from the server when available.</mat-hint>
-        </mat-form-field>
-        <div class="ued-toggle">
-          <mat-slide-toggle [(ngModel)]="isTwoFactorEnabled" name="twoFaEnabled" i18n="@@userEditSecurity2faEnabled">
-            Two-factor sign-in enabled
-          </mat-slide-toggle>
+      <div class="lx-field span-2">
+        <label class="lx-field-label" i18n="@@userEditSecurityQ1">Security question 1 <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">help_outline</mat-icon>
+          <input name="secQ1" [(ngModel)]="securityQuestion_1" autocomplete="off" placeholder="e.g. What is your mother's maiden name?" />
         </div>
       </div>
-    </section>
 
-    <p class="ued-error" *ngIf="error">{{ error }}</p>
-  </ng-container>
-</mat-dialog-content>
+      <div class="lx-field span-2">
+        <label class="lx-field-label" i18n="@@userEditSecurityA1">Answer 1 <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">lock</mat-icon>
+          <input name="secA1" [(ngModel)]="securityAnswer_1" autocomplete="off" placeholder="Enter answer for question 1" />
+        </div>
+      </div>
 
-<mat-dialog-actions align="end">
-  <button type="button" mat-stroked-button (click)="close()" [disabled]="saving || loading" i18n="@@userEditSecurityCancel">
-    Cancel
-  </button>
-  <button type="button" mat-flat-button color="primary" (click)="save()" [disabled]="saving || loading">
-    <ng-container *ngIf="saving" i18n="@@userEditSecuritySaving">Saving…</ng-container>
-    <ng-container *ngIf="!saving" i18n="@@userEditSecuritySave">Save</ng-container>
-  </button>
-</mat-dialog-actions>
+      <div class="lx-field span-2">
+        <label class="lx-field-label" i18n="@@userEditSecurityQ2">Security question 2</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">help</mat-icon>
+          <input name="secQ2" [(ngModel)]="securityQuestion_2" autocomplete="off" placeholder="e.g. What was your first school?" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label" i18n="@@userEditSecurityA2">Answer 2 <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">lock_person</mat-icon>
+          <input name="secA2" [(ngModel)]="securityAnswer_2" autocomplete="off" placeholder="Enter answer for question 2" />
+        </div>
+      </div>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title" i18n="@@userEditSecuritySection2fa">Two-factor authentication</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label" i18n="@@userEditSecurityTotpSecret">Authenticator / TOTP secret <span class="req">*</span></label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">vpn_key</mat-icon>
+          <textarea name="totpSecret" rows="2" [(ngModel)]="twoFactorAuthSecret" autocomplete="off" class="ued-mono"></textarea>
+        </div>
+        <div class="ued-hint-row">
+          <small class="ued-hint" i18n="@@userEditSecurityTotpHint">Required on save. Loaded from the server when available.</small>
+          <button type="button" mat-stroked-button class="ued-generate-btn" (click)="generateTwoFactorSecret()" [disabled]="saving">
+            <mat-icon aria-hidden="true">autorenew</mat-icon>
+            <span i18n="@@userEditSecurityGenerateSecret">Generate secret</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="lx-field span-2 ued-toggle-row">
+        <span class="lx-field-label" i18n="@@userEditSecurity2faEnabled">Two-factor sign-in enabled</span>
+        <mat-slide-toggle [(ngModel)]="isTwoFactorEnabled" name="twoFaEnabled"></mat-slide-toggle>
+      </div>
+    </div>
+
+    <p class="lx-form-error" *ngIf="error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+    </p>
+
+    <div class="lx-step-actions">
+      <button mat-stroked-button type="button" (click)="close()" [disabled]="saving || loading" i18n="@@userEditSecurityCancel">
+        Cancel
+      </button>
+      <button mat-raised-button color="primary" type="button" (click)="save()" [disabled]="saving || loading">
+        <ng-container *ngIf="saving" i18n="@@userEditSecuritySaving">Saving…</ng-container>
+        <ng-container *ngIf="!saving" i18n="@@userEditSecuritySave">Save</ng-container>
+      </button>
+    </div>
+  </div>
+</div>

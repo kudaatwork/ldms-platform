@@ -1,0 +1,90 @@
+<div class="assign-user-group-dialog lx-dialog-shell lx-dialog-shell--compact">
+  <div class="assign-user-group-dialog__accent" aria-hidden="true"></div>
+
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title" i18n="@@userAssignUserGroupTitle">User group membership</h2>
+      <p class="lx-dialog-subtitle" i18n="@@userAssignUserGroupLead">
+        Each user is linked to one user group. Pick the group this profile should belong to; the server replaces any
+        previous assignment.
+      </p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-loading-shell" *ngIf="loading">
+    <mat-progress-spinner mode="indeterminate" diameter="40" aria-label="Loading user groups"></mat-progress-spinner>
+    <p i18n="@@userAssignUserGroupLoading">Loading groups…</p>
+  </div>
+
+  <div class="lx-step-content lx-step-content--stack" *ngIf="!loading">
+    <p class="lx-form-error" *ngIf="error">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      {{ error }}
+    </p>
+
+    <div class="lx-field assign-ug-field" *ngIf="groups.length > 0">
+      <label class="lx-field-label" for="userGroupMembershipSearch" i18n="@@userAssignUserGroupSearchLabel"
+        >Search groups</label
+      >
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon" aria-hidden="true">search</mat-icon>
+        <input
+          id="userGroupMembershipSearch"
+          type="search"
+          [(ngModel)]="groupSearch"
+          placeholder="Filter by name or description…"
+          [disabled]="saving"
+          autocomplete="off"
+        />
+      </div>
+    </div>
+
+    <div class="lx-field assign-ug-field" *ngIf="groups.length > 0">
+      <label class="lx-field-label" for="userGroupMembershipSelect" i18n="@@userAssignUserGroupLabel">User group</label>
+      <div class="lx-input-shell" [class.lx-input-shell--invalid]="!!error && !selectedGroupId">
+        <mat-icon class="lx-input-shell__icon" aria-hidden="true">groups</mat-icon>
+        <select
+          id="userGroupMembershipSelect"
+          name="userGroupMembershipGroup"
+          [(ngModel)]="selectedGroupId"
+          (ngModelChange)="onGroupChange()"
+          [disabled]="saving"
+          aria-label="User group"
+          i18n-aria-label="@@userAssignUserGroupAria"
+        >
+          <option [ngValue]="null" disabled i18n="@@userAssignUserGroupPlaceholder">Select a group</option>
+          <option *ngFor="let g of filteredGroups" [ngValue]="g.id">{{ groupOptionLabel(g) }}</option>
+        </select>
+      </div>
+      <p class="lx-field-hint assign-ug-hint" *ngIf="selectedGroupDescription">{{ selectedGroupDescription }}</p>
+      <p class="lx-field-hint assign-ug-hint" *ngIf="filteredGroups.length === 0 && groupSearch.trim()">
+        No groups match your search.
+      </p>
+    </div>
+
+    <p class="assign-ug-empty" *ngIf="groups.length === 0 && !error" i18n="@@userAssignUserGroupEmpty">
+      No user groups are available. Create one under User groups first.
+    </p>
+
+    <div class="lx-step-actions">
+      <button type="button" mat-stroked-button (click)="close()" [disabled]="saving" i18n="@@commonCancel">Cancel</button>
+      <button
+        type="button"
+        mat-raised-button
+        color="primary"
+        (click)="save()"
+        [disabled]="saving || groups.length === 0 || !selectedGroupId"
+        i18n="@@userAssignUserGroupSave"
+      >
+        <span class="lx-cta-content" *ngIf="!saving">Save</span>
+        <span class="lx-cta-content lx-cta-loading" *ngIf="saving">
+          <span class="lx-btn-loader" aria-hidden="true"></span>
+          Saving…
+        </span>
+      </button>
+    </div>
+  </div>
+</div>

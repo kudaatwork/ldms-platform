@@ -1,15 +1,8 @@
 package projectlx.user.management.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -39,7 +32,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -419,34 +411,25 @@ public class UserRoleServiceImpl implements UserRoleService {
 
     @Override
     public byte[] exportToPdf(List<UserRoleDto> userRoles) throws DocumentException {
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("USER ROLE EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (UserRoleDto userRole : userRoles) {
-            table.addCell(String.valueOf(userRole.getId()));
-            table.addCell(safe(userRole.getRole()));
-            table.addCell(safe(userRole.getDescription()));
-            table.addCell(userRole.getCreatedAt() != null ? userRole.getCreatedAt().toString() : "");
-            table.addCell(userRole.getUpdatedAt() != null ? userRole.getUpdatedAt().toString() : "");
-            table.addCell(userRole.getEntityStatus() != null ? userRole.getEntityStatus().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(userRole.getId()),
+                    safe(userRole.getRole()),
+                    safe(userRole.getDescription()),
+                    userRole.getCreatedAt() != null ? userRole.getCreatedAt().toString() : "",
+                    userRole.getUpdatedAt() != null ? userRole.getUpdatedAt().toString() : "",
+                    userRole.getEntityStatus() != null ? userRole.getEntityStatus().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("User Roles")
+                .reportCode("USR-ROL")
+                .subtitle("User role registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     private Page<UserRoleDto> convertUserRoleEntityToUserRoleDto(Page<UserRole> userRolePage) {

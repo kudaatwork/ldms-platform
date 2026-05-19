@@ -1,0 +1,46 @@
+<div class="lx-dialog-shell lx-dialog-shell--compact">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ dialogTitle }}</h2>
+      <p class="lx-dialog-subtitle">Choose a user. They will be linked to this group (any previous group on that user is replaced).</p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content">
+    <div class="assign-ug-loading" *ngIf="loading">
+      <mat-progress-bar mode="indeterminate" aria-label="Loading users"></mat-progress-bar>
+      <p>Loading users…</p>
+    </div>
+
+    <p class="assign-ug-error" *ngIf="error">{{ error }}</p>
+
+    <div class="lx-field assign-ug-field" *ngIf="!loading && users.length > 0">
+      <label class="lx-field-label" for="addUserToGroupSelect">User</label>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon" aria-hidden="true">person</mat-icon>
+        <select
+          id="addUserToGroupSelect"
+          name="addUserToGroupUser"
+          [(ngModel)]="selectedUserId"
+          [disabled]="saving"
+          aria-label="User to add to this group"
+        >
+          <option [ngValue]="null" disabled>Select a user</option>
+          <option *ngFor="let u of users" [ngValue]="u.id">{{ userOptionLabel(u) }}</option>
+        </select>
+      </div>
+    </div>
+
+    <p class="assign-ug-empty" *ngIf="!loading && users.length === 0 && !error">No users are available to assign.</p>
+
+    <div class="lx-step-actions">
+      <button type="button" mat-stroked-button (click)="close()" [disabled]="saving">Cancel</button>
+      <button type="button" mat-raised-button color="primary" (click)="save()" [disabled]="saving || loading || users.length === 0">
+        Add to group
+      </button>
+    </div>
+  </div>
+</div>

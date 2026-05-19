@@ -1,0 +1,249 @@
+<div class="ug-members-dialog lx-dialog-shell lx-dialog-shell--wide">
+  <div class="ug-members-dialog__accent" aria-hidden="true"></div>
+
+  <div class="lx-dialog-header ug-members-dialog__header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">
+        Each user has one primary group. Adding someone who already belongs elsewhere moves them here; their previous group's user count will decrease.
+      </p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="ug-members-dialog__body">
+    <div class="ug-members-panels" role="tablist" aria-label="Manage users panels">
+      <button
+        type="button"
+        class="ug-members-panel-tab"
+        role="tab"
+        [class.is-active]="activePanel === 'members'"
+        [attr.aria-selected]="activePanel === 'members'"
+        (click)="setPanel('members')"
+      >
+        <mat-icon aria-hidden="true">groups</mat-icon>
+        In group
+        <span class="ug-members-panel-tab__count">{{ members.length }}</span>
+      </button>
+      <button
+        type="button"
+        class="ug-members-panel-tab"
+        role="tab"
+        [class.is-active]="activePanel === 'add'"
+        [attr.aria-selected]="activePanel === 'add'"
+        (click)="setPanel('add')"
+      >
+        <mat-icon aria-hidden="true">person_add</mat-icon>
+        Add users
+        <span class="ug-members-panel-tab__count">{{ catalog.length }}</span>
+      </button>
+    </div>
+
+    <div class="ug-members-loading" *ngIf="loading && activePanel === 'members'">
+      <mat-progress-bar mode="indeterminate" aria-label="Loading members"></mat-progress-bar>
+      <p>Loading group members…</p>
+    </div>
+
+    <div class="ug-members-loading" *ngIf="loadingCatalog && activePanel === 'add'">
+      <mat-progress-bar mode="indeterminate" aria-label="Loading users"></mat-progress-bar>
+      <p>Loading user catalog…</p>
+    </div>
+
+    <ng-container *ngIf="!(loading && activePanel === 'members') && !(loadingCatalog && activePanel === 'add')">
+      <div class="ug-members-controls">
+        <div class="ug-members-search lx-input-shell">
+          <mat-icon class="lx-input-shell__icon" aria-hidden="true">search</mat-icon>
+          <input
+            type="search"
+            [(ngModel)]="searchQuery"
+            [placeholder]="activePanel === 'members' ? 'Search members…' : 'Search users to add…'"
+            [attr.aria-label]="activePanel === 'members' ? 'Search members' : 'Search users to add'"
+            [disabled]="mutating"
+          />
+        </div>
+
+        <div class="ug-members-meta">
+          <ng-container *ngIf="activePanel === 'members'">
+            <span class="ug-members-stat ug-members-stat--muted" *ngIf="totalElements > 0">
+              Showing {{ filteredMembers.length }} of {{ members.length }} loaded
+              <ng-container *ngIf="totalElements !== members.length">({{ totalElements }} total)</ng-container>
+            </span>
+            <span class="ug-members-stat ug-members-stat--assign" *ngIf="selectedMemberCount > 0">
+              {{ selectedMemberCount }} selected to remove
+            </span>
+          </ng-container>
+          <ng-container *ngIf="activePanel === 'add'">
+            <span class="ug-members-stat ug-members-stat--muted"> {{ filteredCatalog.length }} available to add </span>
+            <span class="ug-members-stat ug-members-stat--assign" *ngIf="selectedAddCount > 0">
+              {{ selectedAddCount }} selected to add
+            </span>
+          </ng-container>
+          <span class="ug-members-stat ug-members-stat--warn" *ngIf="loadTruncated && activePanel === 'members'">
+            Loaded first {{ members.length }} members.
+          </span>
+          <div class="ug-members-meta__actions">
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              (click)="activePanel === 'members' ? toggleVisibleMemberSelection() : toggleVisibleCatalogSelection()"
+              [disabled]="mutating || (activePanel === 'members' ? filteredMembers.length === 0 : filteredCatalog.length === 0)"
+            >
+              Select visible
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              (click)="activePanel === 'members' ? clearMemberSelection() : clearCatalogSelection()"
+              [disabled]="mutating || (activePanel === 'members' ? selectedMemberCount === 0 : selectedAddCount === 0)"
+            >
+              Clear
+            </button>
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refreshAll()" [disabled]="mutating || loading || loadingCatalog">
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <p class="ug-members-error" *ngIf="error">{{ error }}</p>
+
+      <ng-container *ngIf="activePanel === 'members'">
+        <p class="ug-members-empty" *ngIf="!error && totalElements === 0 && members.length === 0">
+          No users are in this group yet. Switch to <strong>Add users</strong> to link members.
+        </p>
+        <p class="ug-members-empty" *ngIf="members.length > 0 && filteredMembers.length === 0 && !error">
+          No members match your search.
+        </p>
+
+        <div class="ug-members-viewport-head" *ngIf="filteredMembers.length > 0" aria-hidden="true">
+          <span class="ug-members-viewport-head__col ug-members-viewport-head__col--pick"></span>
+          <span class="ug-members-viewport-head__col ug-members-viewport-head__col--user">Member</span>
+          <span class="ug-members-viewport-head__col ug-members-viewport-head__col--contact">Contact</span>
+          <span class="ug-members-viewport-head__col ug-members-viewport-head__col--status">Status</span>
+          <span class="ug-members-viewport-head__col ug-members-viewport-head__col--action"></span>
+        </div>
+
+        <cdk-virtual-scroll-viewport
+          *ngIf="filteredMembers.length > 0"
+          class="ug-members-viewport"
+          [itemSize]="virtualRowHeight"
+          role="list"
+          aria-label="Group members"
+        >
+          <article
+            class="ug-members-row"
+            role="listitem"
+            *cdkVirtualFor="let m of filteredMembers; trackBy: trackMember"
+            [class.ug-members-row--selected]="m.selected"
+            (click)="toggleMemberSelection(m, $event)"
+          >
+            <span class="ug-members-row__check">
+              <mat-checkbox [(ngModel)]="m.selected" [disabled]="mutating" (click)="$event.stopPropagation()"></mat-checkbox>
+            </span>
+            <div class="ug-members-row__identity">
+              <span class="ug-members-row__avatar" aria-hidden="true">{{ userInitials(m) }}</span>
+              <span class="ug-members-row__text">
+                <span class="ug-members-row__name">{{ m.name || '—' }}</span>
+                <span class="ug-members-row__username">{{ '@' + (m.username || '—') }}</span>
+              </span>
+            </div>
+            <div class="ug-members-row__contact">
+              <span class="ug-members-row__email">{{ m.email || '—' }}</span>
+              <span class="ug-members-row__phone" *ngIf="m.phoneNumber">{{ m.phoneNumber }}</span>
+            </div>
+            <span class="ug-members-row__status" [class.is-active]="m.status === 'active'">{{ m.statusLabel }}</span>
+            <a
+              mat-stroked-button
+              color="primary"
+              class="ug-members-row__profile"
+              [routerLink]="profileLink(m)"
+              (click)="close()"
+            >
+              Profile
+            </a>
+          </article>
+        </cdk-virtual-scroll-viewport>
+      </ng-container>
+
+      <ng-container *ngIf="activePanel === 'add'">
+        <p class="ug-members-empty" *ngIf="catalog.length === 0 && !loadingCatalog && !loading">
+          No more users to add — everyone loaded is already in this group.
+        </p>
+        <p class="ug-members-empty" *ngIf="catalog.length > 0 && filteredCatalog.length === 0">
+          No users match your search.
+        </p>
+
+        <div class="ug-members-viewport-head ug-members-viewport-head--catalog" *ngIf="filteredCatalog.length > 0" aria-hidden="true">
+          <span class="ug-members-viewport-head__col ug-members-viewport-head__col--pick"></span>
+          <span class="ug-members-viewport-head__col ug-members-viewport-head__col--user">User</span>
+          <span class="ug-members-viewport-head__col ug-members-viewport-head__col--contact">Contact</span>
+          <span class="ug-members-viewport-head__col ug-members-viewport-head__col--status">Current group</span>
+        </div>
+
+        <cdk-virtual-scroll-viewport
+          *ngIf="filteredCatalog.length > 0"
+          class="ug-members-viewport"
+          [itemSize]="virtualRowHeight"
+          role="list"
+          aria-label="Users available to add"
+        >
+          <article
+            class="ug-members-row ug-members-row--catalog"
+            role="listitem"
+            *cdkVirtualFor="let m of filteredCatalog; trackBy: trackMember"
+            [class.ug-members-row--selected-add]="m.selected"
+            (click)="toggleCatalogSelection(m, $event)"
+          >
+            <span class="ug-members-row__check">
+              <mat-checkbox [(ngModel)]="m.selected" [disabled]="mutating" (click)="$event.stopPropagation()"></mat-checkbox>
+            </span>
+            <div class="ug-members-row__identity">
+              <span class="ug-members-row__avatar" aria-hidden="true">{{ userInitials(m) }}</span>
+              <span class="ug-members-row__text">
+                <span class="ug-members-row__name">{{ m.name || '—' }}</span>
+                <span class="ug-members-row__username">{{ '@' + (m.username || '—') }}</span>
+              </span>
+            </div>
+            <div class="ug-members-row__contact">
+              <span class="ug-members-row__email">{{ m.email || '—' }}</span>
+              <span class="ug-members-row__phone" *ngIf="m.phoneNumber">{{ m.phoneNumber }}</span>
+            </div>
+            <span class="ug-members-row__group-pill">{{ currentGroupLabel(m) }}</span>
+          </article>
+        </cdk-virtual-scroll-viewport>
+      </ng-container>
+    </ng-container>
+  </div>
+
+  <footer class="ug-members-footer">
+    <button type="button" mat-stroked-button class="ug-members-footer__close" (click)="close()" [disabled]="mutating">Close</button>
+    <div class="ug-members-footer__actions">
+      <button
+        *ngIf="activePanel === 'members'"
+        type="button"
+        mat-stroked-button
+        color="warn"
+        class="ug-members-footer__btn"
+        (click)="removeSelected()"
+        [disabled]="mutating || loading || selectedMemberCount === 0"
+      >
+        <span *ngIf="selectedMemberCount > 0">Remove {{ selectedMemberCount }}</span>
+        <span *ngIf="selectedMemberCount === 0">Remove from group</span>
+      </button>
+      <button
+        *ngIf="activePanel === 'add'"
+        type="button"
+        mat-raised-button
+        color="primary"
+        class="ug-members-footer__btn ug-members-footer__btn--primary"
+        (click)="addSelected()"
+        [disabled]="mutating || loadingCatalog || selectedAddCount === 0"
+      >
+        <span *ngIf="selectedAddCount > 0">Add {{ selectedAddCount }}</span>
+        <span *ngIf="selectedAddCount === 0">Add to group</span>
+      </button>
+    </div>
+  </footer>
+</div>

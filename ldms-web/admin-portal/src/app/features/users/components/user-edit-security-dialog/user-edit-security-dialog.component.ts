@@ -68,7 +68,8 @@ export class UserEditSecurityDialogComponent implements OnInit {
       });
     } else {
       this.loading = false;
-      this.error = 'Missing security record id; save may fail until the profile loads a valid security row.';
+      this.error =
+        'No security record exists yet for this user. Fill in the details below and Save to create one.';
     }
   }
 
@@ -76,12 +77,28 @@ export class UserEditSecurityDialogComponent implements OnInit {
     this.dialogRef.close(false);
   }
 
+  generateTwoFactorSecret(): void {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    const targetLen = 32;
+    const bytes = new Uint8Array(targetLen);
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+      crypto.getRandomValues(bytes);
+    } else {
+      for (let i = 0; i < targetLen; i++) {
+        bytes[i] = Math.floor(Math.random() * 256);
+      }
+    }
+    let out = '';
+    for (let i = 0; i < targetLen; i++) {
+      out += alphabet[bytes[i] % alphabet.length];
+    }
+    this.twoFactorAuthSecret = out;
+    this.error = '';
+    this.snackBar.open('Generated a new authenticator secret.', 'Close', { duration: 3000 });
+  }
+
   save(): void {
     this.error = '';
-    if (!Number.isFinite(this.securityId) || this.securityId <= 0) {
-      this.error = 'Invalid security record id.';
-      return;
-    }
     if (!Number.isFinite(this.initialUserId) || this.initialUserId <= 0) {
       this.error = 'Invalid user id.';
       return;
@@ -97,21 +114,28 @@ export class UserEditSecurityDialogComponent implements OnInit {
     }
     this.saving = true;
     const q2 = this.securityQuestion_2.trim();
-    this.usersAdmin
-      .updateUserSecurity({
-        id: this.securityId,
-        userId: this.initialUserId,
-        securityQuestion_1: this.securityQuestion_1.trim(),
-        securityAnswer_1: this.securityAnswer_1.trim(),
-        securityAnswer_2: this.securityAnswer_2.trim(),
-        twoFactorAuthSecret: this.twoFactorAuthSecret.trim(),
-        isTwoFactorEnabled: this.isTwoFactorEnabled,
-        ...(q2 ? { securityQuestion_2: q2 } : {}),
-      })
+    const basePayload = {
+      userId: this.initialUserId,
+      securityQuestion_1: this.securityQuestion_1.trim(),
+      securityAnswer_1: this.securityAnswer_1.trim(),
+      securityQuestion_2: q2,
+      securityAnswer_2: this.securityAnswer_2.trim(),
+      twoFactorAuthSecret: this.twoFactorAuthSecret.trim(),
+      isTwoFactorEnabled: this.isTwoFactorEnabled,
+    };
+    const save$ =
+      Number.isFinite(this.securityId) && this.securityId > 0
+        ? this.usersAdmin.updateUserSecurity({ id: this.securityId, ...basePayload })
+        : this.usersAdmin.createUserSecurity(basePayload);
+    const okMessage =
+      Number.isFinite(this.securityId) && this.securityId > 0
+        ? 'Security settings updated.'
+        : 'Security settings created.';
+    save$
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({
         next: () => {
-          this.snackBar.open('Security settings updated.', 'Close', { duration: 4000 });
+          this.snackBar.open(okMessage, 'Close', { duration: 4000 });
           this.dialogRef.close(true);
         },
         error: (err: unknown) => {

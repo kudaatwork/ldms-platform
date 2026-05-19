@@ -19,6 +19,7 @@ import projectlx.user.management.utils.dtos.UserPasswordDto;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.user.management.utils.requests.ChangeUserPasswordRequest;
 import projectlx.user.management.utils.requests.CreateUserPasswordRequest;
+import projectlx.user.management.utils.notifications.UserNotificationTemplateData;
 import projectlx.user.management.utils.requests.NotificationRequest;
 import projectlx.user.management.utils.requests.ResetPasswordRequest;
 import projectlx.user.management.utils.responses.ExpiringPasswordsResponse;
@@ -431,11 +432,7 @@ public class UserPasswordServiceImpl implements UserPasswordService {
     private void sendPasswordChangeConfirmationEmail(User user) {
 
         // Prepare the dynamic data
-        Map<String, Object> data = Map.of(
-                "firstName", user.getFirstName(),
-                "userName", user.getUsername(),
-                "Email", user.getEmail()
-        );
+        Map<String, Object> data = UserNotificationTemplateData.forUser(user);
 
         // Prepare the recipient details
         NotificationRequest.Recipient recipient = new NotificationRequest.Recipient(

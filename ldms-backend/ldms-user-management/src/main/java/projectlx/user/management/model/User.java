@@ -94,7 +94,7 @@ public class User {
     @JoinColumn(name = "user_address_id", referencedColumnName = "id")
     private Address address;      // Linked address
 
-    @ManyToOne(cascade = CascadeType.ALL)
+    @ManyToOne
     @JoinColumn(name = "user_group_id", referencedColumnName = "id")
     @JsonIgnore
     private UserGroup userGroup;          // Linked user group
