@@ -1,4 +1,5 @@
 <div class="lx-page dashboard-page">
+  <mat-progress-bar *ngIf="loading" class="lx-page-progress" mode="indeterminate" aria-label="Loading dashboard"></mat-progress-bar>
   <div class="dashboard-topbar mb-lg">
     <div>
       <h2 class="dashboard-title">Operations Dashboard</h2>
@@ -12,15 +13,15 @@
     </div>
   </div>
   <mat-menu #dashboardExportMenu="matMenu" panelClass="lx-export-menu">
-    <button mat-menu-item class="lx-export-option--pdf">
+    <button mat-menu-item class="lx-export-option--pdf" (click)="exportSnapshot('pdf')">
       <mat-icon>picture_as_pdf</mat-icon>
       <span>Export PDF</span>
     </button>
-    <button mat-menu-item class="lx-export-option--csv">
+    <button mat-menu-item class="lx-export-option--csv" (click)="exportSnapshot('csv')">
       <mat-icon>table_view</mat-icon>
       <span>Export CSV</span>
     </button>
-    <button mat-menu-item class="lx-export-option--xlsx">
+    <button mat-menu-item class="lx-export-option--xlsx" (click)="exportSnapshot('xlsx')">
       <mat-icon>grid_on</mat-icon>
       <span>Export XLSX</span>
     </button>

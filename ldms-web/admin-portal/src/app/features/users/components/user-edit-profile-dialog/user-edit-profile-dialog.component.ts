@@ -2,7 +2,7 @@ import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { finalize, switchMap } from 'rxjs/operators';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { UsersAdminService } from '../../services/users-admin.service';
 
 export interface UserEditProfileDialogData {
@@ -137,14 +137,17 @@ export class UserEditProfileDialogComponent {
         passportUploadId: !this.passportUpload && this.existingPassportUploadId ? this.existingPassportUploadId : undefined,
       })
       .pipe(
-        switchMap(() => {
+        switchMap((userResp) => {
+          if (this.usersAdmin.isUserMutationFailure(userResp)) {
+            return throwError(() => userResp);
+          }
           if (this.preferencesId <= 0) {
-            return of(true);
+            return of(userResp);
           }
           const lang = this.preferredLanguage.trim();
           const tz = this.timezone.trim();
           if (!lang || !tz) {
-            return of(true);
+            return of(userResp);
           }
           return this.usersAdmin.updateUserPreferences({
             id: this.preferencesId,
@@ -152,6 +155,12 @@ export class UserEditProfileDialogComponent {
             preferredLanguage: lang,
             timezone: tz,
           });
+        }),
+        switchMap((prefResp) => {
+          if (this.usersAdmin.isUserMutationFailure(prefResp)) {
+            return throwError(() => prefResp);
+          }
+          return of(prefResp);
         }),
         finalize(() => (this.saving = false)),
       )
@@ -161,6 +170,13 @@ export class UserEditProfileDialogComponent {
           this.dialogRef.close(true);
         },
         error: (err: unknown) => {
+          if (this.usersAdmin.isUserMutationFailure(err)) {
+            this.error = this.usersAdmin.formatUserMutationError(
+              err,
+              'Update failed. Check required fields and try again.',
+            );
+            return;
+          }
           this.error = this.formatHttpError(err);
         },
       });

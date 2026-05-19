@@ -41,6 +41,9 @@ import { MatTreeModule } from '@angular/material/tree';
 
 import { LxTablePaginatorDirective } from './directives/lx-table-paginator.directive';
 import { DeleteConfirmDialogComponent } from './components/delete-confirm-dialog/delete-confirm-dialog.component';
+import { LdmsPasswordRequirementsComponent } from './components/ldms-password-requirements/ldms-password-requirements.component';
+import { LxInlineBusyComponent } from './components/lx-inline-busy/lx-inline-busy.component';
+import { LxTableLoadingComponent } from './components/lx-table-loading/lx-table-loading.component';
 
 const MATERIAL_MODULES = [
   MatAutocompleteModule,
@@ -90,7 +93,12 @@ const MATERIAL_MODULES = [
     LxTablePaginatorDirective,
     ...MATERIAL_MODULES,
   ],
-  declarations: [DeleteConfirmDialogComponent],
+  declarations: [
+    DeleteConfirmDialogComponent,
+    LdmsPasswordRequirementsComponent,
+    LxInlineBusyComponent,
+    LxTableLoadingComponent,
+  ],
   exports: [
     CommonModule,
     RouterModule,
@@ -98,6 +106,9 @@ const MATERIAL_MODULES = [
     ReactiveFormsModule,
     LxTablePaginatorDirective,
     DeleteConfirmDialogComponent,
+    LdmsPasswordRequirementsComponent,
+    LxInlineBusyComponent,
+    LxTableLoadingComponent,
     ...MATERIAL_MODULES,
   ],
 })

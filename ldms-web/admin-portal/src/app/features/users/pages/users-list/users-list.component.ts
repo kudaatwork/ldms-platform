@@ -8,8 +8,19 @@ import { Subject, debounceTime, forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
 import { LocationsService } from '../../../locations/services/locations.service';
 import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { AssignRolesDialogComponent } from '../../components/assign-roles-dialog/assign-roles-dialog.component';
+import { UserAssignUserGroupDialogComponent } from '../../components/user-assign-user-group-dialog/user-assign-user-group-dialog.component';
+import { UserEditProfileDialogComponent } from '../../components/user-edit-profile-dialog/user-edit-profile-dialog.component';
 import { NotificationService } from '../../../../core/services/notification.service';
+import { isLdmsPasswordValid, LDMS_PASSWORD_INVALID_MESSAGE } from '@core/utils/ldms-password.util';
+import {
+  LxExportFormat,
+  downloadBlob,
+  exportFilename,
+} from '@shared/utils/lx-export.util';
 
 interface SelectOption {
   id: number;
@@ -29,7 +40,8 @@ interface UserTypeOption extends SelectOption {
 })
 export class UsersListComponent implements OnInit {
   private static readonly MINIMUM_USER_AGE = 16;
-  fetching = false;
+  fetching = true;
+  exporting = false;
 
   displayedColumns = [
     'name',
@@ -71,7 +83,7 @@ export class UsersListComponent implements OnInit {
   };
 
   pageIndex = 0;
-  pageSize = 10;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
   totalRecords = 0;
   private readonly reload$ = new Subject<void>();
   private latestLoadToken = 0;
@@ -80,6 +92,8 @@ export class UsersListComponent implements OnInit {
   createError = '';
   createStep = 0;
   optionsLoading = false;
+  nationalIdUploadLabel = '';
+  passportUploadLabel = '';
   createModel = {
     organizationId: '',
     branchId: '',
@@ -104,7 +118,6 @@ export class UsersListComponent implements OnInit {
     addressLine2: '',
     postalCode: '',
     suburbId: '',
-    geoCoordinatesId: '',
     geoLatitude: '',
     geoLongitude: '',
     preferredLanguage: '',
@@ -140,11 +153,14 @@ export class UsersListComponent implements OnInit {
   organizationsLoading = false;
   branchesLoading = false;
 
+  private pendingDeleteSnapshot: { row: UserListRow; index: number; didPageBack: boolean } | null = null;
+
   constructor(
     private readonly title: Title,
     private readonly usersService: UsersAdminService,
     private readonly locationsService: LocationsService,
     private readonly dialog: MatDialog,
+    private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
     private readonly notifications: NotificationService,
   ) {}
@@ -186,19 +202,170 @@ export class UsersListComponent implements OnInit {
     if (!row.userGroupId) return;
     const groupLabel = row.role !== '—' ? row.role : undefined;
     this.dialog.open(AssignRolesDialogComponent, {
-      width: '560px',
-      maxWidth: '94vw',
+      width: '840px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      panelClass: 'lx-location-dialog-panel',
       data: { userGroupId: row.userGroupId, groupLabel },
     });
   }
 
+  openEditUserDialog(row: UserListRow): void {
+    if (!Number.isFinite(row.id) || row.id <= 0) {
+      return;
+    }
+    this.usersService.getUserProfileBundle(row.id).subscribe({
+      next: (bundle) => {
+        const user = bundle.user;
+        if (!user) {
+          this.notifications.error('Could not load user profile for editing.');
+          return;
+        }
+        this.dialog
+          .open(UserEditProfileDialogComponent, {
+            width: '640px',
+            maxWidth: '95vw',
+            autoFocus: 'first-tabbable',
+            panelClass: 'lx-location-dialog-panel',
+            data: { user },
+          })
+          .afterClosed()
+          .subscribe((saved) => {
+            if (saved) {
+              this.reload$.next();
+            }
+          });
+      },
+      error: () => {
+        this.notifications.error('Could not load user profile for editing.');
+      },
+    });
+  }
+
+  deleteUserRow(row: UserListRow): void {
+    if (!Number.isFinite(row.id) || row.id <= 0) {
+      return;
+    }
+    this.dialog
+      .open(DeleteConfirmDialogComponent, {
+        width: '420px',
+        maxWidth: '92vw',
+        data: {
+          entityLabel: 'user',
+          onConfirm: () => {
+            const rows = this.userTable.data;
+            const idx = rows.findIndex((r) => r.id === row.id);
+            let didPageBack = false;
+            this.userTable.data = rows.filter((r) => r.id !== row.id);
+            this.totalRecords = Math.max(0, this.totalRecords - 1);
+            if (this.userTable.data.length === 0 && this.totalRecords > 0 && this.pageIndex > 0) {
+              this.pageIndex -= 1;
+              didPageBack = true;
+              this.reload$.next();
+            }
+            this.pendingDeleteSnapshot = { row: { ...row }, index: idx >= 0 ? idx : 0, didPageBack };
+            this.cdr.detectChanges();
+          },
+        },
+      })
+      .afterClosed()
+      .subscribe((confirmed) => {
+        if (!confirmed) {
+          return;
+        }
+        this.usersService.deleteUser(row.id).subscribe({
+          next: (resp) => {
+            if (this.usersService.isUserMutationFailure(resp)) {
+              this.rollbackOptimisticDelete();
+              this.snackBar.open(
+                this.usersService.formatUserMutationError(resp, 'Failed to delete user.'),
+                'Close',
+                { duration: 5000, panelClass: ['app-snackbar-error'] },
+              );
+              return;
+            }
+            this.pendingDeleteSnapshot = null;
+            this.snackBar.open('User deleted successfully.', 'Close', {
+              duration: 5000,
+              panelClass: ['app-snackbar-success'],
+            });
+          },
+          error: () => {
+            this.rollbackOptimisticDelete();
+            this.snackBar.open('Failed to delete user.', 'Close', {
+              duration: 5000,
+              panelClass: ['app-snackbar-error'],
+            });
+          },
+        });
+      });
+  }
+
+  openAddUserToGroupDialog(row: UserListRow): void {
+    if (!Number.isFinite(row.id) || row.id <= 0) {
+      return;
+    }
+    this.dialog
+      .open(UserAssignUserGroupDialogComponent, {
+        width: '560px',
+        maxWidth: '95vw',
+        autoFocus: 'first-tabbable',
+        panelClass: 'lx-location-dialog-panel',
+        data: { userId: row.id, currentGroupId: row.userGroupId },
+      })
+      .afterClosed()
+      .subscribe((saved) => {
+        if (saved) {
+          this.reload$.next();
+        }
+      });
+  }
+
   refresh(): void {
+    this.fetching = true;
+    this.cdr.detectChanges();
     this.reload$.next();
   }
 
   stubImport(): void {}
 
-  stubExport(): void {}
+  exportAs(format: LxExportFormat): void {
+    if (this.exporting) {
+      return;
+    }
+    this.exporting = true;
+    this.usersService
+      .exportUsers(
+        {
+          page: this.pageIndex,
+          size: this.pageSize,
+          searchQuery: this.searchQuery,
+          columnFilters: this.columnFilters,
+        },
+        format,
+      )
+      .pipe(
+        finalize(() => {
+          this.exporting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (blob) => {
+          downloadBlob(blob, exportFilename('users', format));
+          this.snackBar.open(`Exported users as ${format.toUpperCase()}.`, 'Close', {
+            duration: 3500,
+            panelClass: ['app-snackbar-success'],
+          });
+        },
+        error: (err: Error) => {
+          this.snackBar.open(err.message ?? 'Export failed.', 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-error'],
+          });
+        },
+      });
+  }
 
   downloadSampleCsv(): void {
     const rows = [
@@ -241,6 +408,10 @@ export class UsersListComponent implements OnInit {
       this.createError = 'Password and confirm password must match.';
       return;
     }
+    if (!isLdmsPasswordValid(this.createModel.password)) {
+      this.createError = LDMS_PASSWORD_INVALID_MESSAGE;
+      return;
+    }
     const nid = this.createModel.nationalIdNumber.trim();
     const ppt = this.createModel.passportNumber.trim();
     if (!nid && !ppt) {
@@ -278,7 +449,6 @@ export class UsersListComponent implements OnInit {
         addressLine2: this.createModel.addressLine2.trim(),
         postalCode: this.createModel.postalCode.trim(),
         suburbId: this.parseLong(this.createModel.suburbId),
-        geoCoordinatesId: this.parseLong(this.createModel.geoCoordinatesId),
         geoLatitude: this.parseOptionalNumber(this.createModel.geoLatitude),
         geoLongitude: this.parseOptionalNumber(this.createModel.geoLongitude),
         preferredLanguage: this.createModel.preferredLanguage.trim(),
@@ -370,12 +540,14 @@ export class UsersListComponent implements OnInit {
     const input = event.target as HTMLInputElement | null;
     const file = input?.files?.[0] ?? null;
     this.createModel.nationalIdUpload = file;
+    this.nationalIdUploadLabel = file?.name ?? '';
   }
 
   onPassportUploadSelected(event: Event): void {
     const input = event.target as HTMLInputElement | null;
     const file = input?.files?.[0] ?? null;
     this.createModel.passportUpload = file;
+    this.passportUploadLabel = file?.name ?? '';
   }
 
   onOrganizationChange(value: unknown): void {
@@ -520,6 +692,26 @@ export class UsersListComponent implements OnInit {
     queueMicrotask(() => this.cdr.detectChanges());
   }
 
+  private rollbackOptimisticDelete(): void {
+    const snap = this.pendingDeleteSnapshot;
+    if (!snap) {
+      return;
+    }
+    if (snap.didPageBack) {
+      this.pageIndex += 1;
+      this.pendingDeleteSnapshot = null;
+      this.reload$.next();
+      return;
+    }
+    const rows = this.userTable.data.slice();
+    const insertAt = Math.min(Math.max(snap.index, 0), rows.length);
+    rows.splice(insertAt, 0, snap.row);
+    this.userTable.data = rows;
+    this.totalRecords += 1;
+    this.pendingDeleteSnapshot = null;
+    this.cdr.detectChanges();
+  }
+
   private loadUsers(): void {
     const loadToken = ++this.latestLoadToken;
     this.fetching = true;
@@ -605,6 +797,11 @@ export class UsersListComponent implements OnInit {
         this.createError = 'Password and confirm password must match before continuing.';
       }
       if (!passwordsMatch) return false;
+
+      if (!isLdmsPasswordValid(this.createModel.password)) {
+        if (showError) this.createError = LDMS_PASSWORD_INVALID_MESSAGE;
+        return false;
+      }
 
       const dateIsValid = this.isDateOfBirthAllowed(this.createModel.dateOfBirth);
       if (!dateIsValid && showError) {
@@ -726,6 +923,8 @@ export class UsersListComponent implements OnInit {
   private resetCreateWizardForm(): void {
     this.createError = '';
     this.createStep = 0;
+    this.nationalIdUploadLabel = '';
+    this.passportUploadLabel = '';
     this.createModel = {
       organizationId: '',
       branchId: '',
@@ -750,7 +949,6 @@ export class UsersListComponent implements OnInit {
       addressLine2: '',
       postalCode: '',
       suburbId: '',
-      geoCoordinatesId: '',
       geoLatitude: '',
       geoLongitude: '',
       preferredLanguage: '',

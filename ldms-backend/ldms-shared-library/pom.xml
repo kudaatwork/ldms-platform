@@ -18,6 +18,8 @@
         <spring-boot.version>3.4.2</spring-boot.version>
         <modelmapper.version>3.2.1</modelmapper.version>
         <jmimemagic.version>0.1.5</jmimemagic.version>
+        <openpdf.version>2.0.3</openpdf.version>
+        <poi-ooxml.version>5.4.1</poi-ooxml.version>
     </properties>
 
     <dependencies>
@@ -86,6 +88,16 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>${openpdf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi-ooxml.version}</version>
         </dependency>
     </dependencies>
 

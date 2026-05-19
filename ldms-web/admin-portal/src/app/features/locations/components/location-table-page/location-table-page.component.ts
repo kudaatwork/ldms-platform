@@ -907,7 +907,7 @@ export class LocationTablePageComponent implements OnInit, OnDestroy {
     if (this.entity === 'suburb') {
       normalizedRows = [...normalizedRows].sort((a, b) => Number(a['id']) - Number(b['id']));
     }
-    if (normalizedRows.length === 0 && this.pageIndex > 0) {
+    if (normalizedRows.length === 0 && totalElements > 0 && this.pageIndex > 0) {
       this.pageIndex = 0;
       this.runTableQuery({ background: true }).pipe(takeUntil(this.destroy$)).subscribe();
       return;

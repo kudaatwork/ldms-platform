@@ -13,28 +13,79 @@
     <div class="lx-form-grid">
       <div class="lx-field span-2 nt-section-title">Identity</div>
       <div class="lx-field">
-        <div class="lx-field-label">ID</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">ID</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(data.template.id)"
+            matTooltip="Copy ID"
+            aria-label="Copy ID"
+            (click)="copyId()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">pin</mat-icon>
           <span class="nt-readonly-value">{{ data.template.id }}</span>
         </div>
       </div>
       <div class="lx-field span-2">
-        <div class="lx-field-label">Template code</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">Template code</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(data.template.templateKey)"
+            matTooltip="Copy template code"
+            aria-label="Copy template code"
+            (click)="copyTemplateKey()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">tag</mat-icon>
           <span class="nt-readonly-value">{{ data.template.templateKey }}</span>
         </div>
       </div>
       <div class="lx-field">
-        <div class="lx-field-label">Status</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">Status</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            matTooltip="Copy status"
+            aria-label="Copy status"
+            (click)="copyStatus()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">toggle_on</mat-icon>
           <span class="nt-readonly-value">{{ data.template.isActive ? 'Active' : 'Inactive' }}</span>
         </div>
       </div>
       <div class="lx-field">
-        <div class="lx-field-label">Created at</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">Created at</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyableDate(data.template.createdAt)"
+            matTooltip="Copy created at"
+            aria-label="Copy created at"
+            (click)="copyCreatedAt()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">event</mat-icon>
           <span class="nt-readonly-value">
@@ -43,7 +94,20 @@
         </div>
       </div>
       <div class="lx-field">
-        <div class="lx-field-label">Updated at</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">Updated at</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyableDate(data.template.updatedAt)"
+            matTooltip="Copy updated at"
+            aria-label="Copy updated at"
+            (click)="copyUpdatedAt()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">update</mat-icon>
           <span class="nt-readonly-value">
@@ -53,21 +117,60 @@
       </div>
       <div class="lx-field span-2 nt-section-title">Routing</div>
       <div class="lx-field span-2">
-        <div class="lx-field-label">Subject</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">Subject</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(data.template.emailSubject)"
+            matTooltip="Copy subject"
+            aria-label="Copy subject"
+            (click)="copyEmailSubject()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
           <span class="nt-readonly-value">{{ asText(data.template.emailSubject) }}</span>
         </div>
       </div>
       <div class="lx-field span-2">
-        <div class="lx-field-label">Channels</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">Channels</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(channelsText(data.template))"
+            matTooltip="Copy channels"
+            aria-label="Copy channels"
+            (click)="copyChannels()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">layers</mat-icon>
           <span class="nt-readonly-value">{{ channelsText(data.template) }}</span>
         </div>
       </div>
       <div class="lx-field span-2">
-        <div class="lx-field-label">Description</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">Description</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(data.template.description)"
+            matTooltip="Copy description"
+            aria-label="Copy description"
+            (click)="copyDescription()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">notes</mat-icon>
           <span class="nt-readonly-value nt-readonly-multiline">{{ asText(data.template.description) }}</span>
@@ -75,8 +178,41 @@
       </div>
       <div class="lx-field span-2 nt-section-title">Content Fields</div>
 
+      <div class="lx-field span-2" *ngIf="hasEmailBodyHtml()">
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">Email preview</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            matTooltip="Copy email HTML"
+            aria-label="Copy email HTML"
+            (click)="copyEmailBodyHtml()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+        <app-notification-email-html-preview
+          [html]="data.template.emailBodyHtml"
+          [subject]="data.template.emailSubject"
+        />
+      </div>
+
       <div class="lx-field span-2">
-        <div class="lx-field-label">Email HTML body</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">Email HTML body (source)</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(data.template.emailBodyHtml)"
+            matTooltip="Copy email HTML source"
+            aria-label="Copy email HTML source"
+            (click)="copyEmailBodyHtml()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">code</mat-icon>
           <pre class="nt-readonly-value nt-readonly-pre">{{ asText(data.template.emailBodyHtml) }}</pre>
@@ -84,7 +220,20 @@
       </div>
 
       <div class="lx-field span-2">
-        <div class="lx-field-label">SMS body</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">SMS body</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(data.template.smsBody)"
+            matTooltip="Copy SMS body"
+            aria-label="Copy SMS body"
+            (click)="copySmsBody()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">sms</mat-icon>
           <span class="nt-readonly-value nt-readonly-multiline">{{ asText(data.template.smsBody) }}</span>
@@ -92,7 +241,20 @@
       </div>
 
       <div class="lx-field span-2">
-        <div class="lx-field-label">In-app title</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">In-app title</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(data.template.inAppTitle)"
+            matTooltip="Copy in-app title"
+            aria-label="Copy in-app title"
+            (click)="copyInAppTitle()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">notifications</mat-icon>
           <span class="nt-readonly-value">{{ asText(data.template.inAppTitle) }}</span>
@@ -100,7 +262,20 @@
       </div>
 
       <div class="lx-field span-2">
-        <div class="lx-field-label">In-app body</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">In-app body</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(data.template.inAppBody)"
+            matTooltip="Copy in-app body"
+            aria-label="Copy in-app body"
+            (click)="copyInAppBody()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">description</mat-icon>
           <span class="nt-readonly-value nt-readonly-multiline">{{ asText(data.template.inAppBody) }}</span>
@@ -108,7 +283,20 @@
       </div>
 
       <div class="lx-field span-2">
-        <div class="lx-field-label">WhatsApp template name (Content SID)</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">WhatsApp template name (Content SID)</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(data.template.whatsappTemplateName)"
+            matTooltip="Copy WhatsApp template name"
+            aria-label="Copy WhatsApp template name"
+            (click)="copyWhatsappTemplateName()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">chat</mat-icon>
           <span class="nt-readonly-value">{{ asText(data.template.whatsappTemplateName) }}</span>
@@ -116,7 +304,20 @@
       </div>
 
       <div class="lx-field span-2">
-        <div class="lx-field-label">WhatsApp body</div>
+        <div class="nt-field-label-row">
+          <div class="lx-field-label">WhatsApp body</div>
+          <button
+            type="button"
+            mat-icon-button
+            class="nt-copy-btn"
+            [disabled]="!copyable(data.template.whatsappBody)"
+            matTooltip="Copy WhatsApp body"
+            aria-label="Copy WhatsApp body"
+            (click)="copyWhatsappBody()"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
         <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
           <mat-icon class="lx-input-shell__icon">message</mat-icon>
           <span class="nt-readonly-value nt-readonly-multiline">{{ asText(data.template.whatsappBody) }}</span>

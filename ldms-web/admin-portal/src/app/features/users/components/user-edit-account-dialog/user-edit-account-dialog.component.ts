@@ -65,11 +65,19 @@ export class UserEditAccountDialogComponent {
       })
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({
-        next: () => {
+        next: (resp) => {
+          if (this.usersAdmin.isUserMutationFailure(resp)) {
+            this.error = this.usersAdmin.formatUserMutationError(resp, 'Update failed. Check phone number format.');
+            return;
+          }
           this.snackBar.open('Account updated.', 'Close', { duration: 4000 });
           this.dialogRef.close(true);
         },
         error: (err: unknown) => {
+          if (this.usersAdmin.isUserMutationFailure(err)) {
+            this.error = this.usersAdmin.formatUserMutationError(err, 'Update failed. Check phone number format.');
+            return;
+          }
           this.error = this.formatHttpError(err);
         },
       });

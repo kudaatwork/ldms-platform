@@ -6,6 +6,11 @@ import {
   OnInit,
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import {
+  LxExportFormat,
+  exportClientTableAsCsv,
+} from '@shared/utils/lx-export.util';
 import { ChartData, ChartOptions } from 'chart.js';
 import { Subject, takeUntil, timer } from 'rxjs';
 
@@ -234,7 +239,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
   constructor(
     private readonly cdr: ChangeDetectorRef,
     private readonly title: Title,
+    private readonly snackBar: MatSnackBar,
   ) {}
+
+  get filteredShipments(): ShipmentRow[] {
+    const q = this.searchTerm.trim().toLowerCase();
+    if (!q) {
+      return this.shipments;
+    }
+    return this.shipments.filter(
+      (s) =>
+        s.reg.toLowerCase().includes(q) ||
+        s.from.toLowerCase().includes(q) ||
+        s.to.toLowerCase().includes(q) ||
+        s.statusLabel.toLowerCase().includes(q),
+    );
+  }
 
   get totalPipelineApplications(): number {
     return this.pipeline.reduce((a, b) => a + b.count, 0);
@@ -299,4 +319,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
   trackByReg = (_: number, s: ShipmentRow): string => s.reg;
 
   trackByLabel = (_: number, p: PipelineRow): string => p.label;
+
+  exportSnapshot(format: LxExportFormat): void {
+    const ok = exportClientTableAsCsv(
+      format,
+      this.filteredShipments,
+      [
+        { header: 'reg', value: (r) => r.reg },
+        { header: 'from', value: (r) => r.from },
+        { header: 'to', value: (r) => r.to },
+        { header: 'status', value: (r) => r.statusLabel },
+        { header: 'eta', value: (r) => r.eta },
+      ],
+      'dashboard-shipments',
+      (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
+    );
+    if (ok) {
+      this.snackBar.open('Exported dashboard shipments as CSV.', 'Close', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
+    }
+  }
 }

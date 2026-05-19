@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.opencsv.bean.CsvToBean;
@@ -47,7 +40,6 @@ import projectlx.co.zw.locationsmanagementservice.utils.responses.LocationNodeRe
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -289,48 +281,34 @@ public class LocationNodeServiceImpl implements LocationNodeService {
 
     @Override
     public byte[] exportToPdf(List<LocationNodeDto> items) throws DocumentException {
-        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Document document = new Document(PageSize.A4.rotate());
-            PdfWriter.getInstance(document, out);
-            document.open();
-
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12, Color.BLACK);
-            document.add(new Paragraph("Location Nodes", titleFont));
-            document.add(new Paragraph(" "));
-
-            PdfPTable table = new PdfPTable(CSV_EXPORT_HEADERS.length);
-            table.setWidthPercentage(100);
-            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 8, Color.WHITE);
-            for (String header : CSV_EXPORT_HEADERS) {
-                PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
-                cell.setBackgroundColor(Color.DARK_GRAY);
-                table.addCell(cell);
-            }
-
-            for (LocationNodeDto node : items) {
-                table.addCell(value(node.getId()));
-                table.addCell(value(node.getName()));
-                table.addCell(value(node.getCode()));
-                table.addCell(value(node.getLocationType()));
-                table.addCell(value(node.getParentId()));
-                table.addCell(value(node.getParentName()));
-                table.addCell(value(node.getDistrictId()));
-                table.addCell(value(node.getSuburbId()));
-                table.addCell(value(node.getLatitude()));
-                table.addCell(value(node.getLongitude()));
-                table.addCell(value(node.getTimezone()));
-                table.addCell(value(node.getPostalCode()));
-                table.addCell(value(node.getEntityStatus()));
-                table.addCell(value(node.getCreatedAt()));
-                table.addCell(value(node.getModifiedAt()));
-            }
-
-            document.add(table);
-            document.close();
-            return out.toByteArray();
-        } catch (IOException ioException) {
-            throw new DocumentException(ioException);
+        List<String[]> rows = new ArrayList<>();
+        for (LocationNodeDto node : items) {
+            rows.add(new String[]{
+                    value(node.getId()),
+                    value(node.getName()),
+                    value(node.getCode()),
+                    value(node.getLocationType()),
+                    value(node.getParentId()),
+                    value(node.getParentName()),
+                    value(node.getDistrictId()),
+                    value(node.getSuburbId()),
+                    value(node.getLatitude()),
+                    value(node.getLongitude()),
+                    value(node.getTimezone()),
+                    value(node.getPostalCode()),
+                    value(node.getEntityStatus()),
+                    value(node.getCreatedAt()),
+                    value(node.getModifiedAt())
+            });
         }
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Location Nodes")
+                .reportCode("LOC-NOD")
+                .subtitle("Location node hierarchy export")
+                .columnHeaders(CSV_EXPORT_HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

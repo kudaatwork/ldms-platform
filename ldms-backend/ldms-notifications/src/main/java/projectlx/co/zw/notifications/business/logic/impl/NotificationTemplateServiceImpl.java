@@ -1,15 +1,8 @@
 package projectlx.co.zw.notifications.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -38,7 +31,6 @@ import projectlx.co.zw.notifications.utils.responses.TemplateResponse;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -217,6 +209,16 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
         }
 
         NotificationTemplate templateToBeUpdated = templateRetrieved.get();
+
+        if (updateTemplateRequest.isStatusOnlyUpdate()) {
+            templateToBeUpdated.setActive(updateTemplateRequest.getActive());
+            NotificationTemplate templateUpdated =
+                    notificationTemplateServiceAuditable.update(templateToBeUpdated, locale, username);
+            NotificationTemplateDto templateDtoReturned = modelMapper.map(templateUpdated, NotificationTemplateDto.class);
+            message = messageService.getMessage(I18Code.TEMPLATE_UPDATED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+            return buildTemplateResponse(200, true, message, templateDtoReturned, null, null);
+        }
+
         String normalizedTemplateKey = updateTemplateRequest.getTemplateKey() != null
                 ? updateTemplateRequest.getTemplateKey().trim()
                 : null;
@@ -415,42 +417,31 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
 
     @Override
     public byte[] exportToPdf(List<NotificationTemplateDto> templates) throws DocumentException {
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("TEMPLATE EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (NotificationTemplateDto template : templates) {
-            table.addCell(String.valueOf(template.getId()));
-            table.addCell(safe(template.getTemplateKey()));
-            table.addCell(safe(template.getDescription()));
-            table.addCell(template.getChannels() != null ? template.getChannels().toString() : "");
-            table.addCell(safe(template.getEmailSubject()));
-            table.addCell(safe(template.getSmsBody()));
-            table.addCell(safe(template.getInAppTitle()));
-            table.addCell(safe(template.getWhatsappTemplateName()));
-            table.addCell(safe(template.getWhatsappBody()));
-            table.addCell(String.valueOf(template.isActive()));
-            table.addCell(template.getCreatedAt() != null ? template.getCreatedAt().toString() : "");
-            table.addCell(template.getUpdatedAt() != null ? template.getUpdatedAt().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(template.getId()),
+                    safe(template.getTemplateKey()),
+                    safe(template.getDescription()),
+                    template.getChannels() != null ? template.getChannels().toString() : "",
+                    safe(template.getEmailSubject()),
+                    safe(template.getSmsBody()),
+                    safe(template.getInAppTitle()),
+                    safe(template.getWhatsappTemplateName()),
+                    safe(template.getWhatsappBody()),
+                    String.valueOf(template.isActive()),
+                    template.getCreatedAt() != null ? template.getCreatedAt().toString() : "",
+                    template.getUpdatedAt() != null ? template.getUpdatedAt().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Notification Templates")
+                .reportCode("NTF-TPL")
+                .subtitle("Notification template registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     private boolean isNotEmpty(String str) {

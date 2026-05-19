@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import projectlx.co.zw.notifications.business.logic.api.TemplateProcessorService;
 import projectlx.co.zw.notifications.business.validation.api.TemplateProcessorServiceValidator;
+import projectlx.co.zw.notifications.utils.NotificationTemplateDataEnricher;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import java.io.IOException;
 import java.util.Locale;
@@ -44,7 +45,7 @@ public class TemplateProcessorServiceImpl implements TemplateProcessorService {
                 }
             });
 
-            return template.apply(data);
+            return template.apply(NotificationTemplateDataEnricher.enrich(data));
 
         } catch (IOException e) {
             log.error("Failed to apply data to Handlebars template", e);

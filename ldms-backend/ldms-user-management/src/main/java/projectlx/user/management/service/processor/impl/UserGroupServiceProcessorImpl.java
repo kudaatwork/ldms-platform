@@ -7,10 +7,12 @@ import projectlx.user.management.service.processor.api.UserGroupServiceProcessor
 import projectlx.user.management.utils.dtos.ImportSummary;
 import projectlx.user.management.utils.dtos.UserGroupDto;
 import projectlx.user.management.utils.requests.AddUserToUserGroupRequest;
+import projectlx.user.management.utils.requests.AddUsersToUserGroupRequest;
 import projectlx.user.management.utils.requests.AssignUserRoleToUserGroupRequest;
 import projectlx.user.management.utils.requests.CreateUserGroupRequest;
 import projectlx.user.management.utils.requests.EditUserGroupRequest;
 import projectlx.user.management.utils.requests.RemoveUserRolesFromUserGroupRequest;
+import projectlx.user.management.utils.requests.RemoveUsersFromUserGroupRequest;
 import projectlx.user.management.utils.requests.UserGroupMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserGroupResponse;
 import lombok.RequiredArgsConstructor;
@@ -147,6 +149,36 @@ public class UserGroupServiceProcessorImpl implements UserGroupServiceProcessor 
                 locale, username);
 
         logger.info("Outgoing response after adding a user group to a user: {}. Status Code: {}. Message: {}",
+                userGroupResponse, userGroupResponse.getStatusCode(), userGroupResponse.getMessage());
+
+        return userGroupResponse;
+    }
+
+    @Override
+    public UserGroupResponse addUsersToUserGroup(AddUsersToUserGroupRequest addUsersToUserGroupRequest, Locale locale,
+                                                 String username) {
+
+        logger.info("Incoming request to add users to a user group : {}", addUsersToUserGroupRequest);
+
+        UserGroupResponse userGroupResponse = userGroupService.addUsersToUserGroup(addUsersToUserGroupRequest,
+                locale, username);
+
+        logger.info("Outgoing response after adding users to a user group: {}. Status Code: {}. Message: {}",
+                userGroupResponse, userGroupResponse.getStatusCode(), userGroupResponse.getMessage());
+
+        return userGroupResponse;
+    }
+
+    @Override
+    public UserGroupResponse removeUsersFromUserGroup(RemoveUsersFromUserGroupRequest removeUsersFromUserGroupRequest,
+                                                      Locale locale, String username) {
+
+        logger.info("Incoming request to remove user(s) from a user group : {}", removeUsersFromUserGroupRequest);
+
+        UserGroupResponse userGroupResponse = userGroupService.removeUsersFromUserGroup(removeUsersFromUserGroupRequest,
+                locale, username);
+
+        logger.info("Outgoing response after removing user(s) from a user group: {}. Status Code: {}. Message: {}",
                 userGroupResponse, userGroupResponse.getStatusCode(), userGroupResponse.getMessage());
 
         return userGroupResponse;

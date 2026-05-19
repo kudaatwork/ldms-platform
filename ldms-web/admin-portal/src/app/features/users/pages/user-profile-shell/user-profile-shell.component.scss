@@ -102,6 +102,46 @@
   color: var(--gray-700);
 }
 
+.up-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.up-status--active {
+  color: #0f5132;
+  background: color-mix(in srgb, #198754 14%, #fff);
+  border-color: color-mix(in srgb, #198754 45%, transparent);
+}
+
+.up-status--inactive {
+  color: #92400e;
+  background: color-mix(in srgb, #f59e0b 18%, #fff);
+  border-color: color-mix(in srgb, #d97706 40%, transparent);
+}
+
+.up-status--deleted {
+  color: #991b1b;
+  background: color-mix(in srgb, #ef4444 16%, #fff);
+  border-color: color-mix(in srgb, #dc2626 45%, transparent);
+}
+
+.up-status--archived {
+  color: #1e3a8a;
+  background: color-mix(in srgb, #3b82f6 14%, #fff);
+  border-color: color-mix(in srgb, #2563eb 42%, transparent);
+}
+
+.up-status--neutral {
+  color: var(--gray-700);
+  background: color-mix(in srgb, var(--gray-500) 10%, var(--surface, #fff));
+  border-color: var(--gray-200);
+}
+
 .up-chip--email {
   gap: 8px;
   font-weight: 600;
@@ -287,41 +327,136 @@
 }
 
 .up-sec-auth__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  align-items: stretch;
 }
 
 .up-chip--auth {
-  gap: 8px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
   align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 76px;
+  padding: 12px 14px;
+  border-radius: 14px;
   font-weight: 500;
   font-size: 12px;
+  border-width: 1px;
+  border-style: solid;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 
   mat-icon {
-    font-size: 20px;
-    width: 20px;
-    height: 20px;
-    line-height: 20px;
-    color: var(--gray-600);
+    display: grid;
+    place-items: center;
+    font-size: 18px;
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
+    border-radius: 999px;
+    color: var(--gray-700);
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.5);
   }
 }
 
+/* Light UI: darker type + solid green ring so label/state/outline read clearly */
 .up-chip--auth-on {
+  color: #042f1e;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #198754 22%, #ffffff) 0%,
+    color-mix(in srgb, #198754 30%, #f8fafc) 100%
+  );
+  border-color: #157347;
+  box-shadow:
+    0 0 0 1px rgba(21, 115, 71, 0.18),
+    0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+.up-chip--auth-on mat-icon {
   color: #0f5132;
-  background: color-mix(in srgb, #198754 12%, #fff);
-  border-color: color-mix(in srgb, #198754 40%, transparent);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(21, 115, 71, 0.35);
 }
 
 .up-chip--auth-off {
-  color: var(--gray-700);
-  background: color-mix(in srgb, var(--gray-500) 10%, var(--surface, #fff));
-  border-color: var(--gray-200);
+  color: #1e293b;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--gray-500) 10%, #ffffff) 0%,
+    color-mix(in srgb, var(--gray-500) 14%, #f8fafc) 100%
+  );
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.2);
+}
+
+.up-chip--auth-off mat-icon {
+  color: #334155;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+/* Dark UI: saturated panel + light copy (pale mint + light grey fails WCAG here) */
+:host-context(html.theme-dark) .up-chip--auth-on {
+  color: #ecfdf5;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #059669 58%, #020617) 0%,
+    color-mix(in srgb, #047857 52%, #0f172a) 100%
+  );
+  border-color: #6ee7b7;
+  box-shadow:
+    0 0 0 1px rgba(52, 211, 153, 0.35),
+    0 6px 20px rgba(0, 0, 0, 0.42);
+}
+
+:host-context(html.theme-dark) .up-chip--auth-on mat-icon {
+  color: #065f46;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+}
+
+:host-context(html.theme-dark) .up-chip--auth-off {
+  color: #e2e8f0;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--gray-500) 22%, #0f172a) 0%,
+    color-mix(in srgb, var(--gray-500) 28%, #1e293b) 100%
+  );
+  border-color: rgba(148, 163, 184, 0.55);
+  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.2);
+}
+
+:host-context(html.theme-dark) .up-chip--auth-off mat-icon {
+  color: #cbd5e1;
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+}
+
+.up-sec-auth__chip-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.up-sec-auth__chip-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  opacity: 0.95;
 }
 
 .up-sec-auth__chip-state {
-  margin-left: 4px;
+  margin-left: 0;
+  display: block;
+  font-size: 26px;
+  line-height: 1.15;
   font-weight: 700;
 }
 
@@ -463,9 +598,34 @@
   margin-bottom: 4px;
 }
 
-.section-row strong {
+/* Status pills set their own text/background — do not apply section value colour (in dark
+   theme --gray-800 is a light ink and would wash out on pale success chips). */
+.section-row strong:not(.up-status-pill) {
   font-size: 13px;
   color: var(--gray-800);
+}
+
+/* Auth 2FA summary chips sit inside `.section-row`; generic span/strong rules above would
+   paint light greys on pale green in dark theme — restore chip foregrounds. */
+.up-chip--auth .up-sec-auth__chip-label {
+  color: inherit;
+  opacity: 1;
+  font-size: 11px;
+  margin-bottom: 0;
+}
+
+.up-chip--auth .up-sec-auth__chip-state {
+  color: inherit;
+}
+
+:host-context(html.theme-dark) .up-chip--auth-on .up-sec-auth__chip-label,
+:host-context(html.theme-dark) .up-chip--auth-on .up-sec-auth__chip-state {
+  color: #f8fafc;
+}
+
+:host-context(html.theme-dark) .up-chip--auth-off .up-sec-auth__chip-label,
+:host-context(html.theme-dark) .up-chip--auth-off .up-sec-auth__chip-state {
+  color: #f1f5f9;
 }
 
 .section-row--full {
@@ -781,5 +941,13 @@
 
   .up-hero__edit {
     align-self: center;
+  }
+
+  .up-sec-auth__chips {
+    grid-template-columns: 1fr;
+  }
+
+  .up-sec-auth__chip-state {
+    font-size: 22px;
   }
 }

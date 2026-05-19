@@ -5,6 +5,12 @@ import { map } from 'rxjs/operators';
 import { PageEvent } from '@angular/material/paginator';
 import { ORG_CLASSIFICATIONS } from '../../../../shared/models/org-classifications';
 import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import {
+  LxExportFormat,
+  exportClientTableAsCsv,
+} from '@shared/utils/lx-export.util';
 
 export interface OrgByClassRow {
   name: string;
@@ -21,6 +27,7 @@ export interface OrgByClassRow {
 export class OrganizationsByClassificationComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly title = inject(Title);
+  private readonly snackBar = inject(MatSnackBar);
 
   loading = true;
 
@@ -39,7 +46,7 @@ export class OrganizationsByClassificationComponent implements OnInit {
   };
 
   pageIndex = 0;
-  pageSize = 10;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
 
   private readonly mockRows: OrgByClassRow[] = [
     {
@@ -119,5 +126,22 @@ export class OrganizationsByClassificationComponent implements OnInit {
 
   stubImport(): void {}
 
-  stubExport(): void {}
+  exportAs(format: LxExportFormat): void {
+    const ok = exportClientTableAsCsv(
+      format,
+      this.filteredRows,
+      [
+        { header: 'name', value: (r) => r.name },
+        { header: 'status', value: (r) => r.statusLabel },
+      ],
+      'organizations-by-classification',
+      (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
+    );
+    if (ok) {
+      this.snackBar.open('Exported organizations as CSV.', 'Close', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
+    }
+  }
 }

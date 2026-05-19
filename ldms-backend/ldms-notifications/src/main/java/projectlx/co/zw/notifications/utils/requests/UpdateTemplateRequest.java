@@ -28,4 +28,25 @@ public class UpdateTemplateRequest {
     private String whatsappBody;
     @JsonProperty("isActive")
     private Boolean active;
+
+    /** True when the client only toggles active/inactive (no template body fields). */
+    public boolean isStatusOnlyUpdate() {
+        if (active == null) {
+            return false;
+        }
+        return isBlank(templateKey)
+                && isBlank(description)
+                && (channels == null || channels.isEmpty())
+                && isBlank(emailSubject)
+                && isBlank(emailBodyHtml)
+                && isBlank(smsBody)
+                && isBlank(inAppTitle)
+                && isBlank(inAppBody)
+                && isBlank(whatsappTemplateName)
+                && isBlank(whatsappBody);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
 }

@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
@@ -54,7 +47,6 @@ import projectlx.co.zw.locationsmanagementservice.utils.responses.AddressRespons
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -738,44 +730,33 @@ public class AddressServiceImpl implements AddressService {
 
     @Override
     public byte[] exportToPdf(List<AddressDto> items) throws DocumentException {
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("ADDRESS EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (AddressDto address : items) {
-            table.addCell(String.valueOf(address.getId()));
-            table.addCell(safe(address.getLine1()));
-            table.addCell(safe(address.getLine2()));
-            table.addCell(safe(address.getPostalCode()));
-            table.addCell(safe(address.getSettlementType() != null ? address.getSettlementType().toString() : null));
-            table.addCell(safe(address.getVillageName()));
-            table.addCell(safe(address.getCityName()));
-            table.addCell(safe(address.getSuburbName()));
-            table.addCell(safe(address.getDistrictName()));
-            table.addCell(safe(address.getProvinceName()));
-            table.addCell(safe(address.getCountryName()));
-            table.addCell(address.getCreatedAt() != null ? address.getCreatedAt().toString() : "");
-            table.addCell(address.getUpdatedAt() != null ? address.getUpdatedAt().toString() : "");
-            table.addCell(address.getEntityStatus() != null ? address.getEntityStatus().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(address.getId()),
+                    safe(address.getLine1()),
+                    safe(address.getLine2()),
+                    safe(address.getPostalCode()),
+                    safe(address.getSettlementType() != null ? address.getSettlementType().toString() : null),
+                    safe(address.getVillageName()),
+                    safe(address.getCityName()),
+                    safe(address.getSuburbName()),
+                    safe(address.getDistrictName()),
+                    safe(address.getProvinceName()),
+                    safe(address.getCountryName()),
+                    address.getCreatedAt() != null ? address.getCreatedAt().toString() : "",
+                    address.getUpdatedAt() != null ? address.getUpdatedAt().toString() : "",
+                    address.getEntityStatus() != null ? address.getEntityStatus().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Addresses")
+                .reportCode("LOC-ADR")
+                .subtitle("Address registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     private String safe(String value) {

@@ -38,8 +38,13 @@
         <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()">Refresh</button>
         <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
         <button type="button" class="lx-btn lx-btn-ghost" (click)="downloadSampleCsv()">Sample CSV</button>
-        <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
-          Export
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-export-trigger"
+          [matMenuTriggerFor]="exportMenu"
+          [disabled]="exporting"
+        >
+          {{ exporting ? 'Exporting…' : 'Export' }}
         </button>
         <button type="button" class="lx-btn lx-btn-primary" (click)="openCreateModal()">Add New</button>
       </div>
@@ -60,15 +65,15 @@
       </div>
     </div>
     <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
-      <button mat-menu-item class="lx-export-option--pdf" (click)="stubExport()">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')" [disabled]="exporting">
         <mat-icon>picture_as_pdf</mat-icon>
         <span>Export PDF</span>
       </button>
-      <button mat-menu-item class="lx-export-option--csv" (click)="stubExport()">
+      <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')" [disabled]="exporting">
         <mat-icon>table_view</mat-icon>
         <span>Export CSV</span>
       </button>
-      <button mat-menu-item class="lx-export-option--xlsx" (click)="stubExport()">
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')" [disabled]="exporting">
         <mat-icon>grid_on</mat-icon>
         <span>Export XLSX</span>
       </button>
@@ -145,12 +150,17 @@
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
     </div>
-    <div class="lx-table-loading" *ngIf="fetching && userTable.data.length === 0">
-      <mat-progress-bar mode="indeterminate" aria-label="Loading users"></mat-progress-bar>
-      <p class="lx-table-loading__text">Loading users…</p>
+    <div class="lx-table-loading-panel" *ngIf="fetching && userTable.data.length === 0" role="status" aria-live="polite">
+      <lx-table-loading [busy]="true" message="Loading users…"></lx-table-loading>
     </div>
-    <ng-container *ngIf="userTable.data.length > 0; else noSearchHits">
-      <div class="lx-table-wrap lx-users-table-wrap">
+
+    <ng-container *ngIf="userTable.data.length > 0">
+      <div class="lx-table-wrap lx-users-table-wrap lx-table-wrap--host">
+        <lx-table-loading
+          [busy]="fetching"
+          [hasData]="true"
+          message="Refreshing users…"
+        ></lx-table-loading>
         <table mat-table [dataSource]="userTable" class="lx-mat-table lx-users-table">
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef>Name</th>
@@ -217,38 +227,16 @@
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>Actions</th>
             <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-              <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
+              <button
+                type="button"
+                mat-icon-button
+                [matMenuTriggerFor]="userListRowActionsMenu"
+                [matMenuTriggerData]="{ userRow: row }"
+                (click)="$event.stopPropagation()"
+                aria-label="Row actions"
+              >
                 <mat-icon>more_vert</mat-icon>
               </button>
-              <mat-menu #rowMenu="matMenu" panelClass="lx-row-actions-menu">
-                <a mat-menu-item class="lx-action-view" [routerLink]="userLink(row, 'profile')">
-                  <mat-icon>visibility</mat-icon> View profile
-                </a>
-                <a mat-menu-item class="lx-action-edit" [routerLink]="userLink(row, 'account')">
-                  <mat-icon>account_circle</mat-icon> Account
-                </a>
-                <a mat-menu-item [routerLink]="userLink(row, 'preferences')">
-                  <mat-icon>tune</mat-icon> Preferences
-                </a>
-                <button
-                  mat-menu-item
-                  type="button"
-                  class="lx-action-assign"
-                  *ngIf="row.userGroupId"
-                  (click)="openAssignRolesToGroupDialog(row)"
-                >
-                  <mat-icon>assignment_ind</mat-icon> Assign roles
-                </button>
-                <a mat-menu-item [routerLink]="userLink(row, 'security-policies')">
-                  <mat-icon>security</mat-icon> Security details
-                </a>
-                <a mat-menu-item [routerLink]="userLink(row, 'addresses')">
-                  <mat-icon>home</mat-icon> Addresses
-                </a>
-                <a mat-menu-item [routerLink]="userLink(row, 'password')">
-                  <mat-icon>password</mat-icon> Change password
-                </a>
-              </mat-menu>
             </td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
@@ -265,13 +253,53 @@
         (page)="onPage($any($event))"
       ></mat-paginator>
     </ng-container>
-    <ng-template #noSearchHits>
+    <mat-menu #userListRowActionsMenu="matMenu" panelClass="lx-row-actions-menu">
+      <ng-template matMenuContent let-userRow="userRow">
+        <a mat-menu-item class="lx-action-view" [routerLink]="userLink(userRow, 'profile')">
+          <mat-icon>visibility</mat-icon> View profile
+        </a>
+        <button mat-menu-item type="button" class="lx-action-edit" (click)="openEditUserDialog(userRow)">
+          <mat-icon>edit</mat-icon> Edit user
+        </button>
+        <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteUserRow(userRow)">
+          <mat-icon>delete</mat-icon> Delete user
+        </button>
+        <a mat-menu-item class="lx-action-edit" [routerLink]="userLink(userRow, 'account')">
+          <mat-icon>account_circle</mat-icon> Account
+        </a>
+        <a mat-menu-item [routerLink]="userLink(userRow, 'preferences')">
+          <mat-icon>tune</mat-icon> Preferences
+        </a>
+        <button
+          mat-menu-item
+          type="button"
+          class="lx-action-assign"
+          *ngIf="userRow.userGroupId"
+          (click)="openAssignRolesToGroupDialog(userRow)"
+        >
+          <mat-icon>assignment_ind</mat-icon> Manage roles
+        </button>
+        <button mat-menu-item type="button" class="lx-action-group" (click)="openAddUserToGroupDialog(userRow)">
+          <mat-icon>group_add</mat-icon> Add user to group
+        </button>
+        <a mat-menu-item [routerLink]="userLink(userRow, 'security-policies')">
+          <mat-icon>security</mat-icon> Security details
+        </a>
+        <a mat-menu-item [routerLink]="userLink(userRow, 'addresses')">
+          <mat-icon>home</mat-icon> Addresses
+        </a>
+        <a mat-menu-item [routerLink]="userLink(userRow, 'password')">
+          <mat-icon>password</mat-icon> Change password
+        </a>
+      </ng-template>
+    </mat-menu>
+    <ng-container *ngIf="!fetching && userTable.data.length === 0">
       <div class="lx-empty lx-empty--compact">
         <mat-icon class="lx-empty-icon">search_off</mat-icon>
         <div class="lx-empty-title">No matching rows</div>
         <div class="lx-empty-sub">Adjust search or column filters.</div>
       </div>
-    </ng-template>
+    </ng-container>
   </div>
 </div>
 
@@ -401,7 +429,7 @@
       <span class="lx-field-hint">Only users aged 16 years and older are allowed.</span>
     </label>
     <label class="lx-modal__field"><span class="lx-field-label">Phone number <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">phone</mat-icon><input [(ngModel)]="createModel.phoneNumber" placeholder="e.g. +263771234567" /></div></label>
-    <label class="lx-modal__field"><span class="lx-field-label">Password <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">lock</mat-icon><input type="password" [(ngModel)]="createModel.password" placeholder="Temporary password" /></div><span class="lx-field-hint">User changes this after first login.</span></label>
+    <label class="lx-modal__field"><span class="lx-field-label">Password <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">lock</mat-icon><input type="password" [(ngModel)]="createModel.password" placeholder="Temporary password" /></div><ldms-password-requirements [password]="createModel.password"></ldms-password-requirements><span class="lx-field-hint">User changes this after first login.</span></label>
     <label class="lx-modal__field">
       <span class="lx-field-label">Confirm password <span class="req">*</span></span>
       <div class="lx-input-shell">
@@ -430,14 +458,34 @@
       <div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">badge</mat-icon><input [(ngModel)]="createModel.nationalIdNumber" placeholder="If no passport below" /></div>
       <span class="lx-field-hint">Together with passport: fill at least one (required).</span>
     </label>
-    <label class="lx-modal__field"><span class="lx-field-label">National ID expiry date</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">event_available</mat-icon><input type="date" [(ngModel)]="createModel.nationalIdExpiryDate" /></div></label>
-    <label class="lx-modal__field"><span class="lx-field-label">National ID upload</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">upload_file</mat-icon><input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onNationalIdUploadSelected($event)" /></div><span class="lx-field-hint">Optional at create; can be uploaded later on profile.</span></label>
+    <label class="lx-modal__field"><span class="lx-field-label">National ID expiry date (optional)</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">event_available</mat-icon><input type="date" [(ngModel)]="createModel.nationalIdExpiryDate" /></div><span class="lx-field-hint">Leave blank if your country's national ID does not expire.</span></label>
+    <label class="lx-modal__field lx-modal__field--file">
+      <span class="lx-field-label">National ID upload</span>
+      <input
+        type="file"
+        class="lx-file-input"
+        accept=".pdf,.jpg,.jpeg,.png"
+        (change)="onNationalIdUploadSelected($event)"
+      />
+      <span class="lx-file-input__name" *ngIf="nationalIdUploadLabel">{{ nationalIdUploadLabel }}</span>
+      <span class="lx-field-hint">Optional at create; PDF, JPG, or PNG. Can be uploaded later on profile.</span>
+    </label>
     <label class="lx-modal__field">
       <span class="lx-field-label">Passport number</span>
       <div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">assignment_ind</mat-icon><input [(ngModel)]="createModel.passportNumber" placeholder="If no national ID above" /></div>
     </label>
     <label class="lx-modal__field"><span class="lx-field-label">Passport expiry date</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">event_busy</mat-icon><input type="date" [(ngModel)]="createModel.passportExpiryDate" /></div></label>
-    <label class="lx-modal__field"><span class="lx-field-label">Passport upload</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">upload</mat-icon><input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onPassportUploadSelected($event)" /></div><span class="lx-field-hint">Optional at create; can be uploaded later on profile.</span></label>
+    <label class="lx-modal__field lx-modal__field--file">
+      <span class="lx-field-label">Passport upload</span>
+      <input
+        type="file"
+        class="lx-file-input"
+        accept=".pdf,.jpg,.jpeg,.png"
+        (change)="onPassportUploadSelected($event)"
+      />
+      <span class="lx-file-input__name" *ngIf="passportUploadLabel">{{ passportUploadLabel }}</span>
+      <span class="lx-field-hint">Optional at create; PDF, JPG, or PNG. Can be uploaded later on profile.</span>
+    </label>
     <label class="lx-modal__field"><span class="lx-field-label">Address line 1</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">home</mat-icon><input [(ngModel)]="createModel.addressLine1" placeholder="e.g. 12 Main Road" /></div></label>
     <label class="lx-modal__field"><span class="lx-field-label">Address line 2</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">pin_drop</mat-icon><input [(ngModel)]="createModel.addressLine2" placeholder="e.g. Apartment 6B" /></div></label>
     <label class="lx-modal__field"><span class="lx-field-label">Postal code</span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon><input [(ngModel)]="createModel.postalCode" placeholder="e.g. 00263" /></div></label>
@@ -512,14 +560,6 @@
         </select>
       </div>
       <span class="lx-field-hint">Required. Used when creating the address in Location Service.</span>
-    </label>
-    <label class="lx-modal__field">
-      <span class="lx-field-label">Geo coordinates ID</span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">place</mat-icon>
-        <input [(ngModel)]="createModel.geoCoordinatesId" type="text" inputmode="numeric" placeholder="e.g. 42 (optional)" />
-      </div>
-      <span class="lx-field-hint">Optional. Use when the point already exists in Location Service; leave blank to omit.</span>
     </label>
     <label class="lx-modal__field">
       <span class="lx-field-label">Latitude</span>

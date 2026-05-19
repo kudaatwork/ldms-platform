@@ -1,0 +1,19 @@
+<div class="lx-email-preview" *ngIf="hasContent">
+  <div class="lx-email-preview__subject" *ngIf="subjectLine">
+    <span class="lx-email-preview__subject-label">Subject</span>
+    <span class="lx-email-preview__subject-value">{{ subjectLine }}</span>
+  </div>
+  <div class="lx-email-preview__title">
+    <mat-icon>preview</mat-icon>
+    <span>Rendered preview</span>
+    <span class="lx-email-preview__hint">HTML and CSS as recipients will see it (placeholders unchanged).</span>
+  </div>
+  <iframe
+    #previewFrame
+    class="lx-email-preview__frame"
+    title="Email template preview"
+    [style.height.px]="previewHeightPx"
+    [srcdoc]="previewSrcDoc"
+    (load)="onPreviewLoaded()"
+  ></iframe>
+</div>

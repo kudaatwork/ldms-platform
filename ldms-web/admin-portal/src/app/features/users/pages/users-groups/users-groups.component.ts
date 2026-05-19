@@ -1,19 +1,31 @@
+import { Location } from '@angular/common';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { UsersAdminService } from '../../services/users-admin.service';
 import { PageEvent } from '@angular/material/paginator';
-import { Subject, Subscription, debounceTime, distinctUntilChanged, map, of, switchMap } from 'rxjs';
+import { Subject, Subscription, debounceTime, distinctUntilChanged, finalize, map, of, switchMap } from 'rxjs';
+import {
+  LxExportFormat,
+  downloadBlob,
+  exportFilename,
+} from '@shared/utils/lx-export.util';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { AssignRolesDialogComponent } from '../../components/assign-roles-dialog/assign-roles-dialog.component';
+import {
+  UserGroupMembersDialogComponent,
+  UserGroupMembersDialogResult,
+} from '../../components/user-group-members-dialog/user-group-members-dialog.component';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 
 interface UserGroupRow {
   id: number;
   name: string;
   description: string;
   users: number;
+  roles: number;
   status: string;
   statusLabel: string;
 }
@@ -25,10 +37,12 @@ interface UserGroupRow {
   standalone: false,
 })
 export class UsersGroupsComponent implements OnInit, OnDestroy {
-  private static readonly ROWS_CACHE_KEY = 'lx.admin.users.userGroups.rows';
+  /** Bumped when row shape changes (e.g. member counts) so stale localStorage does not keep `users: 0`. */
+  private static readonly ROWS_CACHE_KEY = 'lx.admin.users.userGroups.rows.v3';
   private viewGroupQuerySub?: Subscription;
   fetching = false;
-  displayedColumns = ['name', 'description', 'users', 'status', 'actions'];
+  exporting = false;
+  displayedColumns = ['name', 'description', 'users', 'roles', 'status', 'actions'];
   searchQuery = '';
   filterFieldsOpen = false;
   showSampleCsvInfo = false;
@@ -38,7 +52,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     'CSV import only. Keep `name` and `description` headers unchanged and avoid duplicate group names.';
   columnFilters = { name: '', description: '' };
   pageIndex = 0;
-  pageSize = 10;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
   totalRecords = 0;
   private readonly reload$ = new Subject<void>();
   private latestLoadToken = 0;
@@ -49,6 +63,11 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
   private pendingGroupMutation = false;
   private pendingCreateTempId: number | null = null;
   private pendingDeleteSnapshot: { row: UserGroupRow; index: number; didPageBack: boolean } | null = null;
+  /**
+   * When returning from `/users/groups/:id/roles`, re-fetch that row by id so name/description
+   * match the server instead of stale router state.
+   */
+  private pendingListRefreshFromRoles: { id: number } | null = null;
   createError = '';
   createMode: 'create' | 'view' | 'edit' = 'create';
   createModel = { id: 0, name: '', description: '' };
@@ -61,6 +80,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     private readonly title: Title,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
+    private readonly location: Location,
     private readonly usersService: UsersAdminService,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
@@ -68,8 +88,8 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.readPendingGroupListRefreshFromLocationState();
     this.title.setTitle('User Groups | LX Admin');
-    this.restoreCachedRows();
     this.reload$.pipe(debounceTime(150)).subscribe(() => this.loadGroups());
     this.reload$.next();
     this.viewGroupQuerySub = this.route.queryParamMap
@@ -106,17 +126,31 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
             }
             const name = String(dto['name'] ?? '').trim() || 'User group';
             const description = String(dto['description'] ?? '').trim();
+            const row = this.mapRecordToUserGroupRow(dto as Record<string, unknown>);
             this.viewRow({
               id: Number(dto['id'] ?? id),
               name,
               description,
-              users: 0,
+              users: row.users,
+              roles: row.roles,
               status: 'active',
               statusLabel: 'Active',
             });
             this.cdr.markForCheck();
           });
       });
+  }
+
+  private readPendingGroupListRefreshFromLocationState(): void {
+    const raw = this.location.getState() as {
+      lxUserGroupListRefresh?: { id: unknown; name?: unknown; description?: unknown };
+    } | null;
+    const r = raw?.lxUserGroupListRefresh;
+    const id = Number(r?.id);
+    if (!Number.isFinite(id) || id <= 0) {
+      return;
+    }
+    this.pendingListRefreshFromRoles = { id };
   }
 
   ngOnDestroy(): void {
@@ -143,7 +177,43 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
 
   stubImport(): void {}
 
-  stubExport(): void {}
+  exportAs(format: LxExportFormat): void {
+    if (this.exporting) {
+      return;
+    }
+    this.exporting = true;
+    this.usersService
+      .exportUserGroups(
+        {
+          page: this.pageIndex,
+          size: this.pageSize,
+          searchQuery: this.searchQuery,
+          columnFilters: this.columnFilters,
+        },
+        format,
+      )
+      .pipe(
+        finalize(() => {
+          this.exporting = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (blob) => {
+          downloadBlob(blob, exportFilename('user-groups', format));
+          this.snackBar.open(`Exported user groups as ${format.toUpperCase()}.`, 'Close', {
+            duration: 3500,
+            panelClass: ['app-snackbar-success'],
+          });
+        },
+        error: (err: Error) => {
+          this.snackBar.open(err.message ?? 'Export failed.', 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-error'],
+          });
+        },
+      });
+  }
 
   downloadSampleCsv(): void {
     const rows = [
@@ -175,12 +245,85 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     this.createModel = { id: row.id, name: row.name, description: row.description };
   }
 
-  openAssignRolesDialog(row: UserGroupRow): void {
-    this.dialog.open(AssignRolesDialogComponent, {
-      width: '560px',
-      maxWidth: '94vw',
-      data: { userGroupId: row.id, groupLabel: row.name },
+  /** Navigate with latest list row + state so the group-roles screen banner matches what you just edited. */
+  goViewGroupRoles(row: UserGroupRow): void {
+    if (!Number.isFinite(row.id) || row.id <= 0) {
+      return;
+    }
+    const fresh = this.groups.find((g) => g.id === row.id) ?? row;
+    void this.router.navigate(['/users', 'groups', fresh.id, 'roles'], {
+      state: {
+        lxGroupId: fresh.id,
+        lxGroupName: fresh.name,
+        lxGroupDescription: fresh.description,
+      },
     });
+  }
+
+  openAssignRolesDialog(row: UserGroupRow): void {
+    const fresh = this.groups.find((g) => g.id === row.id) ?? row;
+    this.dialog
+      .open(AssignRolesDialogComponent, {
+        width: '840px',
+        maxWidth: '96vw',
+        maxHeight: '92vh',
+        panelClass: 'lx-location-dialog-panel',
+        data: { userGroupId: fresh.id, groupLabel: fresh.name },
+      })
+      .afterClosed()
+      .subscribe((changed) => {
+        if (changed) {
+          this.reload$.next();
+        }
+      });
+  }
+
+  openManageUsersInGroupDialog(row: UserGroupRow): void {
+    if (!Number.isFinite(row.id) || row.id <= 0) {
+      return;
+    }
+    this.dialog
+      .open(UserGroupMembersDialogComponent, {
+        width: '840px',
+        maxWidth: '96vw',
+        maxHeight: '92vh',
+        autoFocus: 'first-tabbable',
+        panelClass: 'lx-location-dialog-panel',
+        data: { userGroupId: row.id, groupLabel: row.name },
+      })
+      .afterClosed()
+      .subscribe((result) => {
+        this.onManageUsersDialogClosed(result);
+      });
+  }
+
+  private onManageUsersDialogClosed(result: UserGroupMembersDialogResult | false | undefined): void {
+    if (!result) {
+      return;
+    }
+    if (result.memberCounts && Object.keys(result.memberCounts).length > 0) {
+      this.applyMemberCountPatches(result.memberCounts);
+    }
+    if (result.changed) {
+      this.reload$.next();
+    }
+  }
+
+  private applyMemberCountPatches(patches: Record<number, { users: number; roles: number }>): void {
+    let updated = false;
+    const next = this.groups.map((row) => {
+      const patch = patches[row.id];
+      if (!patch) {
+        return row;
+      }
+      updated = true;
+      return { ...row, users: patch.users, roles: patch.roles };
+    });
+    if (updated) {
+      this.groups = next;
+      this.persistRowsCache();
+      this.cdr.markForCheck();
+    }
   }
 
   deleteRow(row: UserGroupRow): void {
@@ -211,7 +354,21 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       .subscribe((confirmed: boolean) => {
         if (!confirmed) return;
         this.usersService.deleteUserGroup(row.id).subscribe({
-          next: () => {
+          next: (resp) => {
+            if (this.isUserGroupMutationFailure(resp)) {
+              if (this.pendingDeleteSnapshot?.didPageBack) {
+                this.pageIndex += 1;
+                this.pendingDeleteSnapshot = null;
+                this.loadGroups();
+              } else {
+                this.rollbackOptimisticDelete();
+              }
+              this.snackBar.open(this.formatUserGroupMutationError(resp, 'Failed to delete user group.'), 'Close', {
+                duration: 5000,
+                panelClass: ['app-snackbar-error'],
+              });
+              return;
+            }
             this.pendingDeleteSnapshot = null;
             this.snackBar.open('User group deleted successfully.', 'Close', {
               duration: 5000,
@@ -282,6 +439,26 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     request$.subscribe({
       next: (response) => {
         this.pendingGroupMutation = false;
+        if (submittedMode === 'edit' && this.isUserGroupMutationFailure(response)) {
+          if (rowSnapshotBeforeEdit) {
+            const idx = this.groups.findIndex((r) => r.id === rowSnapshotBeforeEdit.id);
+            if (idx >= 0) {
+              const restored = [...this.groups];
+              restored[idx] = { ...rowSnapshotBeforeEdit };
+              this.groups = restored;
+              this.persistRowsCache();
+            }
+          }
+          this.createMode = submittedMode;
+          this.createModel = submittedModel;
+          this.showCreateModal = true;
+          this.createError = this.formatUserGroupMutationError(response, 'Failed to update user group.');
+          this.snackBar.open(this.createError, 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-error'],
+          });
+          return;
+        }
         const createdId = submittedMode === 'create' ? this.extractCreatedUserGroupId(response) : null;
         if (submittedMode === 'create') {
           if (createdId !== null) {
@@ -352,26 +529,60 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
             return;
           }
           this.groups = rows.map((r) => this.mapRecordToUserGroupRow(r));
+          this.applyPendingListRefreshFromRolesAfterLoad();
           this.totalRecords = totalElements;
           this.persistRowsCache();
           this.fetching = false;
+          this.cdr.markForCheck();
         },
         error: () => {
           if (loadToken !== this.latestLoadToken) return;
           this.fetching = false;
+          this.snackBar.open('Could not load user groups. Check your connection and try Refresh.', 'Close', {
+            duration: 6000,
+            panelClass: ['app-snackbar-error'],
+          });
+          this.cdr.markForCheck();
         },
       });
   }
 
+  /** API rows are usually flat `UserGroupDto`; some gateways wrap as `userGroupDto`. */
+  private resolveUserGroupPayload(r: Record<string, unknown>): Record<string, unknown> {
+    const nested = this.asRecord(r['userGroupDto']);
+    return nested ?? r;
+  }
+
   private mapRecordToUserGroupRow(r: Record<string, unknown>): UserGroupRow {
+    const src = this.resolveUserGroupPayload(r);
+    const users = this.resolveMemberCount(
+      src['userMemberCount'] ?? src['user_member_count'],
+      Array.isArray(src['userDtoSet']) ? (src['userDtoSet'] as unknown[]).length : null,
+    );
+    const roles = this.resolveMemberCount(
+      src['userRoleMemberCount'] ?? src['user_role_member_count'],
+      Array.isArray(src['userRoleDtoSet']) ? (src['userRoleDtoSet'] as unknown[]).length : null,
+    );
     return {
-      id: Number(r['id'] ?? 0),
-      name: String(r['name'] ?? ''),
-      description: String(r['description'] ?? '—'),
-      users: Array.isArray(r['userDtoSet']) ? (r['userDtoSet'] as unknown[]).length : 0,
+      id: Number(src['id'] ?? r['id'] ?? 0),
+      name: String(src['name'] ?? ''),
+      description: String(src['description'] ?? '—'),
+      users,
+      roles,
       status: 'active',
       statusLabel: 'Active',
     };
+  }
+
+  private resolveMemberCount(rawCount: unknown, legacyListLength: number | null): number {
+    if (rawCount !== null && rawCount !== undefined && rawCount !== '') {
+      const parsed =
+        typeof rawCount === 'number' && Number.isFinite(rawCount) ? Math.trunc(rawCount) : Number(rawCount);
+      if (Number.isFinite(parsed) && parsed >= 0) {
+        return parsed;
+      }
+    }
+    return legacyListLength != null ? legacyListLength : 0;
   }
 
   private downloadCsv(filename: string, contents: string): void {
@@ -392,31 +603,40 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     }
   }
 
-  private restoreCachedRows(): void {
-    try {
-      const raw = localStorage.getItem(UsersGroupsComponent.ROWS_CACHE_KEY);
-      if (!raw) return;
-      const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) return;
-      const restored = parsed
-        .map((r) => {
-          const rec = r as Record<string, unknown>;
-          return {
-            id: Number(rec['id'] ?? 0),
-            name: String(rec['name'] ?? ''),
-            description: String(rec['description'] ?? '—'),
-            users: Number(rec['users'] ?? 0),
-            status: String(rec['status'] ?? 'active'),
-            statusLabel: String(rec['statusLabel'] ?? 'Active'),
-          };
-        })
-        .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.name.trim().length > 0);
-      if (restored.length === 0) return;
-      this.groups = restored;
-      this.totalRecords = Math.max(this.totalRecords, restored.length);
-    } catch {
-      // ignore cache parse errors
+  /** Re-fetch one group by id after returning from the roles screen (avoids stale router state). */
+  private applyPendingListRefreshFromRolesAfterLoad(): void {
+    const p = this.pendingListRefreshFromRoles;
+    if (!p) {
+      return;
     }
+    this.pendingListRefreshFromRoles = null;
+    const idx = this.groups.findIndex((g) => g.id === p.id);
+    if (idx < 0) {
+      return;
+    }
+    this.usersService.getUserGroupById(p.id).subscribe({
+      next: (dto) => {
+        if (!dto) {
+          return;
+        }
+        const rowIdx = this.groups.findIndex((g) => g.id === p.id);
+        if (rowIdx < 0) {
+          return;
+        }
+        const mapped = this.mapRecordToUserGroupRow(dto as Record<string, unknown>);
+        const next = [...this.groups];
+        next[rowIdx] = {
+          ...next[rowIdx],
+          name: mapped.name || next[rowIdx].name,
+          description: mapped.description || next[rowIdx].description,
+          users: mapped.users,
+          roles: mapped.roles,
+        };
+        this.groups = next;
+        this.persistRowsCache();
+        this.cdr.markForCheck();
+      },
+    });
   }
 
   private applySuccessfulSaveToVisibleRows(
@@ -449,6 +669,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       name: model.name.trim(),
       description: model.description.trim(),
       users: 0,
+      roles: 0,
       status: 'active',
       statusLabel: 'Active',
     };
@@ -468,6 +689,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       name,
       description,
       users: 0,
+      roles: 0,
       status: 'active',
       statusLabel: 'Active',
     };
@@ -495,6 +717,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
         name,
         description,
         users: 0,
+        roles: 0,
         status: 'active',
         statusLabel: 'Active',
       };
@@ -503,7 +726,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       const filtered = this.groups.filter((r) => r.id !== createdId);
       let next = [
         ...filtered,
-        { id: createdId, name, description, users: 0, status: 'active', statusLabel: 'Active' },
+        { id: createdId, name, description, users: 0, roles: 0, status: 'active', statusLabel: 'Active' },
       ];
       if (next.length > this.pageSize) {
         next = next.slice(next.length - this.pageSize);
@@ -603,5 +826,31 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     return value !== null && typeof value === 'object' && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : null;
+  }
+
+  private isUserGroupMutationFailure(resp: unknown): boolean {
+    if (resp === null || typeof resp !== 'object') {
+      return false;
+    }
+    const r = resp as Record<string, unknown>;
+    if (r['success'] === false || r['isSuccess'] === false) {
+      return true;
+    }
+    const statusCode = r['statusCode'];
+    return typeof statusCode === 'number' && statusCode >= 400;
+  }
+
+  private formatUserGroupMutationError(resp: unknown, fallback: string): string {
+    if (resp !== null && typeof resp === 'object') {
+      const r = resp as Record<string, unknown>;
+      const messages = r['errorMessages'];
+      if (Array.isArray(messages) && messages.length > 0) {
+        return messages.map((m) => String(m)).join(' ');
+      }
+      if (typeof r['message'] === 'string' && r['message'].trim()) {
+        return r['message'].trim();
+      }
+    }
+    return fallback;
   }
 }

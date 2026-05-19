@@ -32,7 +32,7 @@
           <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()">Refresh</button>
           <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
           <button type="button" class="lx-btn lx-btn-ghost" (click)="downloadSampleCsv()">Sample CSV</button>
-          <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
+          <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu" [disabled]="exporting">
             Export
           </button>
           <button type="button" class="lx-btn lx-btn-primary" (click)="openCreateModal()">Add New</button>
@@ -54,15 +54,15 @@
         </div>
       </div>
       <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
-        <button mat-menu-item class="lx-export-option--pdf" (click)="stubExport()">
+        <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')" [disabled]="exporting">
           <mat-icon>picture_as_pdf</mat-icon>
           <span>Export PDF</span>
         </button>
-        <button mat-menu-item class="lx-export-option--csv" (click)="stubExport()">
+        <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')" [disabled]="exporting">
           <mat-icon>table_view</mat-icon>
           <span>Export CSV</span>
         </button>
-        <button mat-menu-item class="lx-export-option--xlsx" (click)="stubExport()">
+        <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')" [disabled]="exporting">
           <mat-icon>grid_on</mat-icon>
           <span>Export XLSX</span>
         </button>
@@ -96,12 +96,9 @@
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
     </div>
-    <div class="lx-table-loading" *ngIf="fetching && rows.length === 0">
-      <mat-progress-bar mode="indeterminate" aria-label="Loading user types"></mat-progress-bar>
-      <p class="lx-table-loading__text">Loading user types…</p>
-    </div>
-    <ng-container *ngIf="rows.length > 0; else noRows">
-      <div class="lx-table-wrap">
+    <lx-table-loading [busy]="fetching && rows.length === 0" message="Loading user types…"></lx-table-loading>
+<ng-container *ngIf="rows.length > 0; else noRows">
+      <div class="lx-table-wrap lx-table-wrap--host"><lx-table-loading [busy]="fetching && rows.length > 0" [hasData]="true" message="Refreshing user types…"></lx-table-loading>
         <table mat-table [dataSource]="rows" class="lx-mat-table">
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef>Type name</th>
@@ -111,23 +108,27 @@
             <th mat-header-cell *matHeaderCellDef>Description</th>
             <td mat-cell *matCellDef="let row">{{ row.description }}</td>
           </ng-container>
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Status</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="lx-status" [ngClass]="'lx-status-' + (row.status || 'active').toLowerCase()">{{
+                row.statusLabel
+              }}</span>
+            </td>
+          </ng-container>
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>Actions</th>
             <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-              <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
+              <button
+                type="button"
+                mat-icon-button
+                [matMenuTriggerFor]="userTypesRowActionsMenu"
+                [matMenuTriggerData]="{ typeRow: row }"
+                (click)="$event.stopPropagation()"
+                aria-label="Row actions"
+              >
                 <mat-icon>more_vert</mat-icon>
               </button>
-              <mat-menu #rowMenu="matMenu" panelClass="lx-row-actions-menu">
-                <button mat-menu-item type="button" class="lx-action-view" (click)="viewRow(row)">
-                  <mat-icon>visibility</mat-icon> View
-                </button>
-                <button mat-menu-item type="button" class="lx-action-edit" (click)="editRow(row)">
-                  <mat-icon>edit</mat-icon> Edit
-                </button>
-                <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteRow(row)">
-                  <mat-icon>delete</mat-icon> Delete
-                </button>
-              </mat-menu>
             </td>
           </ng-container>
           <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
@@ -144,6 +145,19 @@
         (page)="onPage($event)"
       ></mat-paginator>
     </ng-container>
+    <mat-menu #userTypesRowActionsMenu="matMenu" panelClass="lx-row-actions-menu">
+      <ng-template matMenuContent let-typeRow="typeRow">
+        <button mat-menu-item type="button" class="lx-action-view" (click)="viewRow(typeRow)">
+          <mat-icon>visibility</mat-icon> View
+        </button>
+        <button mat-menu-item type="button" class="lx-action-edit" (click)="editRow(typeRow)">
+          <mat-icon>edit</mat-icon> Edit
+        </button>
+        <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteRow(typeRow)">
+          <mat-icon>delete</mat-icon> Delete
+        </button>
+      </ng-template>
+    </mat-menu>
     <ng-template #noRows>
       <div class="lx-empty">
         <mat-icon class="lx-empty-icon">inbox</mat-icon>

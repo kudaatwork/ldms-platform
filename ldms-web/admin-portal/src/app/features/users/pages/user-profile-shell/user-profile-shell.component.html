@@ -15,7 +15,7 @@
         </p>
         <div class="up-hero__toolbar" *ngIf="bundle.user as u">
           <div class="up-hero__chips">
-            <span class="up-chip" *ngIf="u['entityStatus']">
+            <span class="up-chip" *ngIf="u['entityStatus']" [ngClass]="statusToneClass(u['entityStatus'])">
               <mat-icon inline aria-hidden="true">label</mat-icon>
               {{ formatDisplay(u['entityStatus']) }}
             </span>
@@ -45,10 +45,7 @@
       </div>
     </header>
 
-    <div class="lx-table-loading" *ngIf="loading">
-      <mat-progress-bar mode="indeterminate" i18n-aria-label="@@userProfileLoadingAria" aria-label="Loading user workspace"></mat-progress-bar>
-      <p class="lx-table-loading__text" i18n="@@userProfileLoadingText">Loading user workspace…</p>
-    </div>
+    <lx-table-loading [busy]="loading" message="Loading user workspace…"></lx-table-loading>
 
     <div class="lx-profile-error" *ngIf="!loading && loadError === 'invalidId'" role="alert">
       <mat-icon aria-hidden="true">error_outline</mat-icon>
@@ -131,7 +128,9 @@
             </div>
             <div class="section-row">
               <span i18n="@@userProfileFieldStatus">Status</span>
-              <strong>{{ formatDisplay(bundle.user!['entityStatus']) }}</strong>
+              <strong class="up-status-pill" [ngClass]="statusToneClass(bundle.user!['entityStatus'])">
+                {{ formatDisplay(bundle.user!['entityStatus']) }}
+              </strong>
             </div>
             <div class="section-row">
               <span i18n="@@userProfileFieldDob">Date of birth</span>
@@ -267,7 +266,14 @@
                   </ng-container>
                   <ng-container matColumnDef="entityStatus">
                     <th mat-header-cell *matHeaderCellDef i18n="@@userProfileDocColStatus">Status</th>
-                    <td mat-cell *matCellDef="let row">{{ row.entityStatus || '—' }}</td>
+                    <td mat-cell *matCellDef="let row">
+                      <ng-container *ngIf="row.entityStatus; else noDocStatus">
+                        <strong class="up-status-pill" [ngClass]="statusToneClass(row.entityStatus)">
+                          {{ formatDisplay(row.entityStatus) }}
+                        </strong>
+                      </ng-container>
+                      <ng-template #noDocStatus>—</ng-template>
+                    </td>
                   </ng-container>
                   <tr mat-header-row *matHeaderRowDef="documentColumns"></tr>
                   <tr
@@ -322,7 +328,9 @@
               </div>
               <div class="section-row">
                 <span i18n="@@userProfileFieldAccountStatus">Account status</span>
-                <strong>{{ formatDisplay(ac['entityStatus']) }}</strong>
+                <strong class="up-status-pill" [ngClass]="statusToneClass(ac['entityStatus'])">
+                  {{ formatDisplay(ac['entityStatus']) }}
+                </strong>
               </div>
             </div>
           </ng-container>
@@ -337,7 +345,6 @@
                 type="button"
                 mat-button
                 class="up-hero__edit"
-                *ngIf="securityPolicyRecord()"
                 (click)="openEditSecurity('recovery')"
               >
                 <mat-icon aria-hidden="true">quiz</mat-icon>
@@ -368,7 +375,7 @@
             <h4 class="up-subsection__title" i18n="@@userProfilePrefsRecoveryHeading">Security questions & answers</h4>
             <div class="section-empty section-empty--soft" *ngIf="!securityPolicyRecord()">
               <mat-icon aria-hidden="true">quiz</mat-icon>
-              <p i18n="@@userProfilePrefsRecoveryEmpty">No security policy is linked yet, so recovery questions are not available.</p>
+              <p i18n="@@userProfilePrefsRecoveryEmpty">No security policy is linked yet. Use Edit recovery Q&A to create questions and answers.</p>
             </div>
             <div *ngIf="securityPolicyRecord() as s" class="section-grid up-subsection">
               <div class="section-row section-row--full up-sec-qa">
@@ -407,10 +414,14 @@
           </ng-container>
 
           <ng-container *ngSwitchCase="'security-policies'">
-            <div class="up-section__toolbar" *ngIf="securityPolicyRecord()">
+            <div class="up-section__toolbar up-section__toolbar--split">
               <button type="button" mat-button class="up-hero__edit" (click)="openEditSecurity('full')">
                 <mat-icon aria-hidden="true">edit</mat-icon>
                 <ng-container i18n="@@userProfileEditSecurityAuth">Edit authentication</ng-container>
+              </button>
+              <button type="button" mat-button class="up-hero__edit" (click)="openAssignUserGroupDialog()">
+                <mat-icon aria-hidden="true">group_add</mat-icon>
+                <ng-container i18n="@@userProfileAssignUserGroup">User group</ng-container>
               </button>
             </div>
             <div class="section-row section-row--full up-sec-group" *ngIf="nestedUser('userGroupDto') as ug">
@@ -432,6 +443,7 @@
                     mat-flat-button
                     color="primary"
                     [routerLink]="['/users/groups', ug['id'], 'roles']"
+                    [state]="groupRolesNavState(ug)"
                     i18n="@@userProfileOpenGroupRoles"
                   >
                     Roles on this group
@@ -442,7 +454,7 @@
 
             <div class="section-empty" *ngIf="!securityPolicyRecord() && !nestedUser('userGroupDto')">
               <mat-icon aria-hidden="true">gpp_maybe</mat-icon>
-              <p i18n="@@userProfileSecurityEmpty">No security policy record is linked to this user yet.</p>
+              <p i18n="@@userProfileSecurityEmpty">No security policy record is linked to this user yet. Use Edit authentication to create one.</p>
             </div>
 
             <div class="section-empty section-empty--soft" *ngIf="!securityPolicyRecord() && nestedUser('userGroupDto')">
@@ -463,14 +475,16 @@
                       [class.up-chip--auth-off]="s['isTwoFactorEnabled'] !== true"
                     >
                       <mat-icon aria-hidden="true">phonelink_lock</mat-icon>
-                      <span i18n="@@userProfile2faLabel">Two-factor sign-in</span>
-                      <strong class="up-sec-auth__chip-state">
-                        <ng-container [ngSwitch]="s['isTwoFactorEnabled']">
-                          <ng-container *ngSwitchCase="true" i18n="@@userProfileEnabled">Enabled</ng-container>
-                          <ng-container *ngSwitchCase="false" i18n="@@userProfileDisabled">Disabled</ng-container>
-                          <ng-container *ngSwitchDefault>{{ formatDisplay(s['isTwoFactorEnabled']) }}</ng-container>
-                        </ng-container>
-                      </strong>
+                      <span class="up-sec-auth__chip-text">
+                        <span class="up-sec-auth__chip-label" i18n="@@userProfile2faLabel">Two-factor sign-in</span>
+                        <strong class="up-sec-auth__chip-state">
+                          <ng-container [ngSwitch]="s['isTwoFactorEnabled']">
+                            <ng-container *ngSwitchCase="true" i18n="@@userProfileEnabled">Enabled</ng-container>
+                            <ng-container *ngSwitchCase="false" i18n="@@userProfileDisabled">Disabled</ng-container>
+                            <ng-container *ngSwitchDefault>{{ formatDisplay(s['isTwoFactorEnabled']) }}</ng-container>
+                          </ng-container>
+                        </strong>
+                      </span>
                     </span>
                     <span
                       class="up-chip up-chip--auth"
@@ -478,11 +492,13 @@
                       [class.up-chip--auth-off]="!twoFactorSecretStored(s)"
                     >
                       <mat-icon aria-hidden="true">vpn_key</mat-icon>
-                      <span i18n="@@userProfileTotpSecretLabel">Authenticator secret</span>
-                      <strong class="up-sec-auth__chip-state">
-                        <ng-container *ngIf="twoFactorSecretStored(s)" i18n="@@userProfileSecretStored">Stored (hidden)</ng-container>
-                        <ng-container *ngIf="!twoFactorSecretStored(s)" i18n="@@userProfileSecretNotSet">Not set</ng-container>
-                      </strong>
+                      <span class="up-sec-auth__chip-text">
+                        <span class="up-sec-auth__chip-label" i18n="@@userProfileTotpSecretLabel">Authenticator secret</span>
+                        <strong class="up-sec-auth__chip-state">
+                          <ng-container *ngIf="twoFactorSecretStored(s)" i18n="@@userProfileSecretStored">Stored (hidden)</ng-container>
+                          <ng-container *ngIf="!twoFactorSecretStored(s)" i18n="@@userProfileSecretNotSet">Not set</ng-container>
+                        </strong>
+                      </span>
                     </span>
                   </div>
                   <p class="up-sec-auth__hint" i18n="@@userProfileAuthHintPrefs">
@@ -531,7 +547,9 @@
               </div>
               <div class="section-row">
                 <span i18n="@@userProfileFieldAddrStatus">Address status</span>
-                <strong>{{ formatDisplay(ad['entityStatus']) }}</strong>
+                <strong class="up-status-pill" [ngClass]="statusToneClass(ad['entityStatus'])">
+                  {{ formatDisplay(ad['entityStatus']) }}
+                </strong>
               </div>
             </div>
           </ng-container>
@@ -575,6 +593,7 @@
                   <div class="lx-input-shell">
                     <mat-icon class="lx-input-shell__icon">lock</mat-icon>
                     <input type="password" autocomplete="new-password" [(ngModel)]="newPassword" placeholder="New password" />
+                  <ldms-password-requirements [password]="newPassword"></ldms-password-requirements>
                   </div>
                 </label>
                 <label class="up-pwd-set__field">

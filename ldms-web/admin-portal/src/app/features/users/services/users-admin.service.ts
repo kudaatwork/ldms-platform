@@ -1,15 +1,19 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, forkJoin, map, of, switchMap, throwError } from 'rxjs';
+import { Observable, catchError, forkJoin, from, map, of, switchMap, throwError } from 'rxjs';
 import { environment } from '../../../../environments/environment';
+import { ldmsApiUrl } from '../../../core/utils/api-url.util';
 import { collectUploadIdsFromJsonTree } from '../../../shared/utils/collect-upload-ids';
 import { resolveFilePreview } from '../../../shared/utils/file-upload-preview';
+import { LxExportFormat, exportFormatToApiParam } from '../../../shared/utils/lx-export.util';
 
 export interface UsersQuery {
   page: number;
   size: number;
   searchQuery: string;
   columnFilters: Record<string, string>;
+  /** When set, restricts results to users in this primary user group (ldms-user-management filter). */
+  userGroupId?: number | null;
 }
 
 export interface UserListRow {
@@ -67,34 +71,53 @@ export interface IdLabelOption {
   providedIn: 'root',
 })
 export class UsersAdminService {
-  private readonly base = `${environment.apiUrl}/ldms-user-management/v1/${environment.apiSurface}`;
-  private readonly fileUploadBase = `${environment.apiUrl}/ldms-file-upload-service/v1/${environment.apiSurface}/file-upload`;
+  private static readonly EXPORT_PAGE_SIZE = 10_000;
+
+  private readonly base = ldmsApiUrl(`/ldms-user-management/v1/${environment.apiSurface}`);
+  private readonly fileUploadBase = ldmsApiUrl(
+    `/ldms-file-upload-service/v1/${environment.apiSurface}/file-upload`,
+  );
 
   constructor(private readonly http: HttpClient) {}
 
+  exportUsers(q: UsersQuery, format: LxExportFormat): Observable<Blob> {
+    const body = this.buildUsersFilterBody({
+      ...q,
+      page: 0,
+      size: UsersAdminService.EXPORT_PAGE_SIZE,
+    });
+    return this.postExport('user', body, format);
+  }
+
+  exportUserRoles(q: UsersQuery, format: LxExportFormat): Observable<Blob> {
+    const body = this.buildUserRolesFilterBody({
+      ...q,
+      page: 0,
+      size: UsersAdminService.EXPORT_PAGE_SIZE,
+    });
+    return this.postExport('user-role', body, format);
+  }
+
+  exportUserGroups(q: UsersQuery, format: LxExportFormat): Observable<Blob> {
+    const body = this.buildUserGroupsFilterBody({
+      ...q,
+      page: 0,
+      size: UsersAdminService.EXPORT_PAGE_SIZE,
+    });
+    return this.postExport('user-group', body, format);
+  }
+
+  exportUserTypes(q: UsersQuery, format: LxExportFormat): Observable<Blob> {
+    const body = this.buildUserTypesFilterBody({
+      ...q,
+      page: 0,
+      size: UsersAdminService.EXPORT_PAGE_SIZE,
+    });
+    return this.postExport('user-type', body, format);
+  }
+
   queryUsers(q: UsersQuery): Observable<{ rows: UserListRow[]; totalElements: number }> {
-    const firstName = this.normalizedFilter(q.columnFilters['firstName']);
-    const lastName = this.normalizedFilter(q.columnFilters['lastName']);
-    const username = this.normalizedFilter(q.columnFilters['username']);
-    const email = this.normalizedFilter(q.columnFilters['email']);
-    const phoneNumber = this.normalizedFilter(q.columnFilters['phoneNumber']);
-    const nationalIdNumber = this.normalizedFilter(q.columnFilters['nationalIdNumber']);
-    const passportNumber = this.normalizedFilter(q.columnFilters['passportNumber']);
-    const entityStatus = this.statusToEntityStatus(q.columnFilters['statusLabel']);
-    const body: Record<string, unknown> = {
-      page: q.page,
-      size: q.size,
-      searchValue: q.searchQuery.trim(),
-      ...(firstName ? { firstName } : {}),
-      ...(lastName ? { lastName } : {}),
-      ...(username ? { username } : {}),
-      ...(email ? { email } : {}),
-      ...(phoneNumber ? { phoneNumber } : {}),
-      ...(nationalIdNumber ? { nationalIdNumber } : {}),
-      ...(passportNumber ? { passportNumber } : {}),
-      ...(entityStatus ? { entityStatus } : {}),
-      gender: [],
-    };
+    const body = this.buildUsersFilterBody(q);
     return this.http.post<unknown>(`${this.base}/user/find-by-multiple-filters`, body).pipe(
       map((resp) => {
         const page = this.extractPagedResult(resp, 'userDtoPage');
@@ -111,15 +134,7 @@ export class UsersAdminService {
   }
 
   queryUserRoles(q: UsersQuery): Observable<{ rows: Record<string, unknown>[]; totalElements: number }> {
-    const role = this.normalizedFilter(q.columnFilters['role']);
-    const description = this.normalizedFilter(q.columnFilters['description']);
-    const body = {
-      page: q.page,
-      size: q.size,
-      searchValue: q.searchQuery.trim(),
-      ...(role ? { role } : {}),
-      ...(description ? { description } : {}),
-    };
+    const body = this.buildUserRolesFilterBody(q);
     return this.http.post<unknown>(`${this.base}/user-role/find-by-multiple-filters`, body).pipe(
       map((resp) => this.extractPagedResult(resp, 'userRoleDtoPage')),
       catchError((err) => this.emptyPageOnNotFound(err)),
@@ -127,49 +142,27 @@ export class UsersAdminService {
   }
 
   queryUserGroups(q: UsersQuery): Observable<{ rows: Record<string, unknown>[]; totalElements: number }> {
-    const name = this.normalizedFilter(q.columnFilters['name']);
-    const description = this.normalizedFilter(q.columnFilters['description']);
-    const body = {
-      page: q.page,
-      size: q.size,
-      searchValue: q.searchQuery.trim(),
-      ...(name ? { name } : {}),
-      ...(description ? { description } : {}),
-    };
-    return this.http.post<unknown>(`${this.base}/user-group/find-by-multiple-filters`, body).pipe(
-      map((resp) => this.extractPagedResult(resp, 'userGroupDtoPage')),
+    const body = this.buildUserGroupsFilterBody(q);
+    return this.http
+      .post<unknown>(`${this.base}/user-group/find-by-multiple-filters?_t=${Date.now()}`, body)
+      .pipe(
+      map((resp) =>
+        this.extractPagedResultWithAlternateKeys(resp, 'userGroupDtoPage', [
+          'userGroupPage',
+          'user_group_dto_page',
+          'page',
+        ]),
+      ),
       catchError((err) => this.emptyPageOnNotFound(err)),
     );
   }
 
   queryUserTypes(q: UsersQuery): Observable<{ rows: Record<string, unknown>[]; totalElements: number }> {
-    const userTypeName = this.normalizedFilter(q.columnFilters['userTypeName']);
-    const description = this.normalizedFilter(q.columnFilters['description']);
-    const body = {
-      page: q.page,
-      size: q.size,
-      searchValue: q.searchQuery.trim(),
-      ...(userTypeName ? { userTypeName } : {}),
-      ...(description ? { description } : {}),
-    };
+    const body = this.buildUserTypesFilterBody(q);
     return this.http.post<unknown>(`${this.base}/user-type/find-by-multiple-filters`, body).pipe(
-      map((resp) => {
-        const parsed = this.parsePossiblyStringifiedJson(resp);
-        const obj = this.toObj(parsed);
-        const root = obj ? this.toObj(obj['data']) ?? obj : null;
-        const explicitPage = root
-          ? this.toObj(root['userTypeDtoPage']) ??
-            this.toObj(root['userTypePage']) ??
-            this.toObj(root['page'])
-          : null;
-        const discoveredPage = root ? this.findPageObject(root) : null;
-        const page = explicitPage ?? discoveredPage;
-        const content = page && Array.isArray(page['content']) ? (page['content'] as Record<string, unknown>[]) : [];
-        return {
-          rows: content,
-          totalElements: Number((page?.['totalElements'] as number | undefined) ?? content.length),
-        };
-      }),
+      map((resp) =>
+        this.extractPagedResultWithAlternateKeys(resp, 'userTypeDtoPage', ['userTypePage', 'user_type_dto_page', 'page']),
+      ),
       catchError((err) => this.emptyPageOnNotFound(err)),
     );
   }
@@ -187,11 +180,77 @@ export class UsersAdminService {
     return null;
   }
 
+  /**
+   * Like {@link extractPagedResult} but tries extra page property names per resource. Required when gateways add a
+   * `data` object that does not hold the Spring `Page`, while `*DtoPage` remains a sibling on the outer envelope.
+   */
+  private extractPagedResultWithAlternateKeys(
+    response: unknown,
+    primaryDtoPageKey: string,
+    alternateKeys: string[],
+  ): { rows: Record<string, unknown>[]; totalElements: number } {
+    const empty = { rows: [] as Record<string, unknown>[], totalElements: 0 };
+    const parsed = this.parsePossiblyStringifiedJson(response);
+    const obj = this.toObj(parsed);
+    if (!obj) {
+      return empty;
+    }
+    const pageKeys = [primaryDtoPageKey, ...alternateKeys.filter((k) => k && k !== primaryDtoPageKey)];
+    const candidates = [
+      obj,
+      this.toObj(this.parsePossiblyStringifiedJson(obj['data'])),
+      this.toObj(this.parsePossiblyStringifiedJson(obj['body'])),
+      this.toObj(this.parsePossiblyStringifiedJson(obj['payload'])),
+    ].filter(Boolean) as Record<string, unknown>[];
+    for (const src of candidates) {
+      for (const key of pageKeys) {
+        const page = this.unwrapPageRecord(src[key]);
+        if (page && Array.isArray(page['content'])) {
+          return {
+            rows: page['content'] as Record<string, unknown>[],
+            totalElements: Number(page['totalElements'] ?? (page['content'] as unknown[]).length),
+          };
+        }
+      }
+      const listKey = primaryDtoPageKey.replace(/Page$/, 'List');
+      const list = src[listKey];
+      if (Array.isArray(list)) {
+        return { rows: list as Record<string, unknown>[], totalElements: list.length };
+      }
+      for (const [key, val] of Object.entries(src)) {
+        if (key.toLowerCase().endsWith('dtopage')) {
+          const page = this.unwrapPageRecord(val);
+          if (page && Array.isArray(page['content'])) {
+            return {
+              rows: page['content'] as Record<string, unknown>[],
+              totalElements: Number(page['totalElements'] ?? (page['content'] as unknown[]).length),
+            };
+          }
+        }
+        if (key.toLowerCase().endsWith('dtolist') && Array.isArray(val)) {
+          return { rows: val as Record<string, unknown>[], totalElements: val.length };
+        }
+      }
+    }
+    const discovered = this.findPageObject(obj);
+    if (discovered && Array.isArray(discovered['content'])) {
+      return {
+        rows: discovered['content'] as Record<string, unknown>[],
+        totalElements: Number(discovered['totalElements'] ?? (discovered['content'] as unknown[]).length),
+      };
+    }
+    return empty;
+  }
+
   getUserGroupById(id: number): Observable<Record<string, unknown> | null> {
-    return this.http.get<unknown>(`${this.base}/user-group/find-by-id/${id}`).pipe(
-      map((resp) => this.extractSingleDto(resp, 'userGroupDto')),
-      catchError((err) => this.emptyOnNotFound(err)),
-    );
+    return this.http
+      .get<unknown>(`${this.base}/user-group/find-by-id/${id}`, {
+        params: { _t: String(Date.now()) },
+      })
+      .pipe(
+        map((resp) => this.extractSingleDto(resp, 'userGroupDto')),
+        catchError((err) => this.emptyOnNotFound(err)),
+      );
   }
 
   getUserProfileBundle(userId: number): Observable<UserProfileBundle> {
@@ -280,12 +339,24 @@ export class UsersAdminService {
     userId: number;
     securityQuestion_1: string;
     securityAnswer_1: string;
+    securityQuestion_2: string;
     securityAnswer_2: string;
     twoFactorAuthSecret: string;
     isTwoFactorEnabled: boolean;
-    securityQuestion_2?: string;
   }): Observable<unknown> {
     return this.http.put(`${this.base}/user-security/update`, payload);
+  }
+
+  createUserSecurity(payload: {
+    userId: number;
+    securityQuestion_1: string;
+    securityAnswer_1: string;
+    securityQuestion_2: string;
+    securityAnswer_2: string;
+    twoFactorAuthSecret: string;
+    isTwoFactorEnabled: boolean;
+  }): Observable<unknown> {
+    return this.http.post(`${this.base}/user-security/create`, payload);
   }
 
   updateUserPreferences(payload: {
@@ -592,6 +663,42 @@ export class UsersAdminService {
     return this.http.put(`${this.base}/user/update`, form);
   }
 
+  deleteUser(id: number): Observable<unknown> {
+    return this.http.delete(`${this.base}/user/delete-by-id/${id}`);
+  }
+
+  /** True when the API envelope reports failure (often HTTP 200 with success=false). */
+  isUserMutationFailure(resp: unknown): boolean {
+    if (resp === null || typeof resp !== 'object') {
+      return false;
+    }
+    const r = resp as Record<string, unknown>;
+    if (r['success'] === false || r['isSuccess'] === false) {
+      return true;
+    }
+    const statusCode = r['statusCode'];
+    return typeof statusCode === 'number' && statusCode >= 400;
+  }
+
+  formatUserMutationError(resp: unknown, fallback: string): string {
+    if (resp !== null && typeof resp === 'object') {
+      const r = resp as Record<string, unknown>;
+      const messages = r['errorMessages'];
+      if (Array.isArray(messages) && messages.length > 0) {
+        return messages.map((m) => String(m)).join(' ');
+      }
+      if (typeof r['message'] === 'string' && r['message'].trim()) {
+        return r['message'].trim();
+      }
+    }
+    return fallback;
+  }
+
+  /** User-facing message from a mutation response or HTTP error body. */
+  formatUserMutationMessage(resp: unknown, fallback: string): string {
+    return this.formatUserMutationError(resp, fallback);
+  }
+
   createUserGroup(payload: { name: string; description: string }): Observable<unknown> {
     return this.http.post(`${this.base}/user-group/create`, payload);
   }
@@ -601,7 +708,7 @@ export class UsersAdminService {
   }
 
   deleteUserGroup(id: number): Observable<unknown> {
-    return this.http.delete(`${this.base}/user-group/delete/${id}`);
+    return this.http.delete(`${this.base}/user-group/delete-by-id/${id}`);
   }
 
   assignUserRolesToUserGroup(userGroupId: number, userRoleIds: number[]): Observable<unknown> {
@@ -609,6 +716,81 @@ export class UsersAdminService {
       userGroupId,
       userRoleIds,
     });
+  }
+
+  /** Unlinks catalog roles from this group only; roles remain for other groups. */
+  removeUserRolesFromUserGroup(userGroupId: number, userRoleIds: number[]): Observable<unknown> {
+    return this.http.post<unknown>(`${this.base}/user-group/remove-user-roles-from-user-group`, {
+      userGroupId,
+      userRoleIds,
+    });
+  }
+
+  /** Sets the user's primary user group (server replaces any previous assignment). */
+  addUserToUserGroup(userId: number, userGroupId: number): Observable<unknown> {
+    return this.http.post(`${this.base}/user-group/add-user-group-to-user`, { userId, userGroupId });
+  }
+
+  /**
+   * Assigns users to a group as their primary group. Users previously in another group are moved;
+   * the response includes refreshed member counts for every affected group.
+   */
+  addUsersToUserGroup(userGroupId: number, userIds: number[]): Observable<unknown> {
+    return this.http.post(`${this.base}/user-group/add-users-to-user-group`, { userGroupId, userIds });
+  }
+
+  /** Unlinks user(s) from this group (clears the user's primary group when it matches). */
+  removeUsersFromUserGroup(userGroupId: number, userIds: number[]): Observable<unknown> {
+    return this.http.post(`${this.base}/user-group/remove-users-from-user-group`, { userGroupId, userIds });
+  }
+
+  /** Reads {@code userGroupDto} / {@code userGroupDtoList} member counts from a mutation response. */
+  extractUserGroupMemberCounts(resp: unknown): Record<number, { users: number; roles: number }> {
+    const counts: Record<number, { users: number; roles: number }> = {};
+    const parsed = this.parsePossiblyStringifiedJson(resp);
+    const roots: Record<string, unknown>[] = [];
+    const rootObj = this.asRecord(parsed);
+    if (rootObj) {
+      roots.push(rootObj);
+      const data = this.asRecord(this.parsePossiblyStringifiedJson(rootObj['data']));
+      if (data) {
+        roots.push(data);
+      }
+    }
+    for (const root of roots) {
+      const single = this.asRecord(root['userGroupDto']);
+      if (single) {
+        this.putUserGroupMemberCount(counts, single);
+      }
+      const list = root['userGroupDtoList'];
+      if (Array.isArray(list)) {
+        for (const item of list) {
+          const dto = this.asRecord(item);
+          if (dto) {
+            this.putUserGroupMemberCount(counts, dto);
+          }
+        }
+      }
+    }
+    return counts;
+  }
+
+  private putUserGroupMemberCount(
+    counts: Record<number, { users: number; roles: number }>,
+    dto: Record<string, unknown>,
+  ): void {
+    const id = Number(dto['id'] ?? 0);
+    if (!Number.isFinite(id) || id < 1) {
+      return;
+    }
+    const usersRaw = dto['userMemberCount'] ?? dto['user_member_count'];
+    const rolesRaw = dto['userRoleMemberCount'] ?? dto['user_role_member_count'];
+    const usersParsed = Number(usersRaw);
+    const rolesParsed = Number(rolesRaw);
+    counts[id] = {
+      users: Number.isFinite(usersParsed) && usersParsed >= 0 ? Math.trunc(usersParsed) : 0,
+      roles: Number.isFinite(rolesParsed) && rolesParsed >= 0 ? Math.trunc(rolesParsed) : 0,
+    };
   }
 
   createUserRole(payload: { role: string; description: string }): Observable<unknown> {
@@ -721,7 +903,8 @@ export class UsersAdminService {
     const secSecret = payload.twoFactorAuthSecret?.trim() ?? '';
     if (secQ1 && secA1 && secA2 && secSecret) {
       form.append('userSecurityDetails.securityQuestion_1', secQ1);
-      if (secQ2) form.append('userSecurityDetails.securityQuestion_2', secQ2);
+      // Always send Q2 key to make the field explicitly editable (add/update/clear).
+      form.append('userSecurityDetails.securityQuestion_2', secQ2);
       form.append('userSecurityDetails.securityAnswer_1', secA1);
       form.append('userSecurityDetails.securityAnswer_2', secA2);
       form.append('userSecurityDetails.twoFactorAuthSecret', secSecret);
@@ -731,7 +914,7 @@ export class UsersAdminService {
   }
 
   queryOrganizationsForSelect(): Observable<IdLabelOption[]> {
-    const url = `${environment.apiUrl}/ldms-organization-management/v1/backoffice/organization/kyc/queue?page=0&size=500`;
+    const url = ldmsApiUrl('/ldms-organization-management/v1/backoffice/organization/kyc/queue?page=0&size=500');
     return this.http.get<unknown>(url).pipe(
       map((resp) => {
         const rows = this.extractOrganizationRows(resp);
@@ -749,7 +932,7 @@ export class UsersAdminService {
 
   queryBranchesForOrganization(organizationId: number): Observable<IdLabelOption[]> {
     if (!Number.isFinite(organizationId) || organizationId < 1) return of([]);
-    const url = `${environment.apiUrl}/ldms-organization-management/v1/backoffice/organization/${organizationId}`;
+    const url = ldmsApiUrl(`/ldms-organization-management/v1/backoffice/organization/${organizationId}`);
     return this.http.get<unknown>(url).pipe(
       map((resp) => {
         const org = this.extractSingleDto(resp, 'organizationDto');
@@ -874,9 +1057,9 @@ export class UsersAdminService {
     }
     const candidates = [
       obj,
-      this.toObj(obj['data']),
-      this.toObj(obj['body']),
-      this.toObj(obj['payload']),
+      this.toObj(this.parsePossiblyStringifiedJson(obj['data'])),
+      this.toObj(this.parsePossiblyStringifiedJson(obj['body'])),
+      this.toObj(this.parsePossiblyStringifiedJson(obj['payload'])),
     ].filter(Boolean) as Record<string, unknown>[];
     for (const src of candidates) {
       const page = this.unwrapPageRecord(src[dtoPageKey]);
@@ -1016,6 +1199,119 @@ export class UsersAdminService {
       return of(null);
     }
     return throwError(() => err);
+  }
+
+  private buildUsersFilterBody(q: UsersQuery): Record<string, unknown> {
+    const firstName = this.normalizedFilter(q.columnFilters['firstName']);
+    const lastName = this.normalizedFilter(q.columnFilters['lastName']);
+    const username = this.normalizedFilter(q.columnFilters['username']);
+    const email = this.normalizedFilter(q.columnFilters['email']);
+    const phoneNumber = this.normalizedFilter(q.columnFilters['phoneNumber']);
+    const nationalIdNumber = this.normalizedFilter(q.columnFilters['nationalIdNumber']);
+    const passportNumber = this.normalizedFilter(q.columnFilters['passportNumber']);
+    const entityStatus = this.statusToEntityStatus(q.columnFilters['statusLabel']);
+    const gid = q.userGroupId;
+    const userGroupId =
+      gid != null && Number.isFinite(gid) && gid > 0 ? Math.trunc(gid) : null;
+    return {
+      page: q.page,
+      size: q.size,
+      searchValue: q.searchQuery.trim(),
+      ...(firstName ? { firstName } : {}),
+      ...(lastName ? { lastName } : {}),
+      ...(username ? { username } : {}),
+      ...(email ? { email } : {}),
+      ...(phoneNumber ? { phoneNumber } : {}),
+      ...(nationalIdNumber ? { nationalIdNumber } : {}),
+      ...(passportNumber ? { passportNumber } : {}),
+      ...(entityStatus ? { entityStatus } : {}),
+      ...(userGroupId != null ? { userGroupId } : {}),
+      gender: [],
+    };
+  }
+
+  private buildUserRolesFilterBody(q: UsersQuery): Record<string, unknown> {
+    const role = this.normalizedFilter(q.columnFilters['role']);
+    const description = this.normalizedFilter(q.columnFilters['description']);
+    return {
+      page: q.page,
+      size: q.size,
+      searchValue: q.searchQuery.trim(),
+      ...(role ? { role } : {}),
+      ...(description ? { description } : {}),
+    };
+  }
+
+  private buildUserGroupsFilterBody(q: UsersQuery): Record<string, unknown> {
+    const name = this.normalizedFilter(q.columnFilters['name']);
+    const description = this.normalizedFilter(q.columnFilters['description']);
+    return {
+      page: q.page,
+      size: q.size,
+      searchValue: q.searchQuery.trim(),
+      ...(name ? { name } : {}),
+      ...(description ? { description } : {}),
+    };
+  }
+
+  private buildUserTypesFilterBody(q: UsersQuery): Record<string, unknown> {
+    const userTypeName = this.normalizedFilter(q.columnFilters['userTypeName']);
+    const description = this.normalizedFilter(q.columnFilters['description']);
+    return {
+      page: q.page,
+      size: q.size,
+      searchValue: q.searchQuery.trim(),
+      ...(userTypeName ? { userTypeName } : {}),
+      ...(description ? { description } : {}),
+    };
+  }
+
+  private postExport(
+    resource: string,
+    body: Record<string, unknown>,
+    format: LxExportFormat,
+  ): Observable<Blob> {
+    return this.http
+      .post(`${this.base}/${resource}/export`, body, {
+        params: new HttpParams().set('format', exportFormatToApiParam(format)),
+        responseType: 'blob',
+      })
+      .pipe(switchMap((blob) => this.ensureExportBlob(blob)));
+  }
+
+  private ensureExportBlob(blob: Blob): Observable<Blob> {
+    const type = (blob.type ?? '').toLowerCase();
+    if (
+      type.includes('csv') ||
+      type.includes('spreadsheet') ||
+      type.includes('pdf') ||
+      type.includes('octet-stream') ||
+      type.includes('ms-excel')
+    ) {
+      return of(blob);
+    }
+    return from(blob.text()).pipe(
+      switchMap((text) => {
+        const trimmed = text.trim();
+        if (
+          trimmed.startsWith('{') ||
+          /^failed/i.test(trimmed) ||
+          trimmed.toLowerCase().includes('failed to export')
+        ) {
+          let message = trimmed.slice(0, 240);
+          try {
+            const parsed = JSON.parse(trimmed) as { message?: string };
+            if (parsed.message?.trim()) {
+              message = parsed.message.trim();
+            }
+          } catch {
+            /* keep slice */
+          }
+          return throwError(() => new Error(message));
+        }
+        return of(new Blob([text], { type: blob.type || 'application/octet-stream' }));
+      }),
+    );
   }
 
   private emptyPageOnNotFound(

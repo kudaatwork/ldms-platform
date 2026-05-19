@@ -1,40 +1,51 @@
 package projectlx.co.zw.notifications.utils.config;
 
-import com.sendgrid.SendGrid;
-import com.twilio.Twilio;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.util.StringUtils;
 
 @Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class ApiClientConfig {
 
-    @Value("${twilio.account-sid:}")
-    private String twilioAccountSid;
-
-    @Value("${twilio.auth-token:}")
-    private String twilioAuthToken;
+    private final OutboundMessagingReadiness outboundMessagingReadiness;
+    private final OutboundEmailClientSupplier outboundEmailClientSupplier;
+    private final OutboundSesClientSupplier outboundSesClientSupplier;
+    private final OutboundTwilioInitializer outboundTwilioInitializer;
 
     /**
-     * Initializes Twilio only when both credentials are set; otherwise SMS/WhatsApp calls fail fast with a clear log.
+     * Warms Twilio when credentials are already available at startup; sends also call
+     * {@link OutboundTwilioInitializer#ensureInitialized()} lazily after config-repo secrets load.
      */
     @PostConstruct
     public void initTwilio() {
-        if (!StringUtils.hasText(twilioAccountSid) || !StringUtils.hasText(twilioAuthToken)) {
+        if (!outboundMessagingReadiness.isTwilioReady()) {
             log.warn("Twilio is not initialized: configure twilio.account-sid and twilio.auth-token (or env equivalents) for SMS/WhatsApp.");
             return;
         }
-        Twilio.init(twilioAccountSid, twilioAuthToken);
+        outboundTwilioInitializer.ensureInitialized();
     }
 
-    @Bean
-    @ConditionalOnExpression("T(org.springframework.util.StringUtils).hasText('${sendgrid.api-key:}')")
-    public SendGrid sendGridClient(@Value("${sendgrid.api-key}") String sendgridApiKey) {
-        return new SendGrid(sendgridApiKey);
+    @PostConstruct
+    public void logEmailOutboundReadiness() {
+        boolean sesReady = outboundMessagingReadiness.isSesEmailReady();
+        boolean sesClientOk = outboundSesClientSupplier.getIfAvailable() != null;
+
+        log.info(
+                "[NOTIFICATION] Email outbound readiness (default=AWS SES): sesReady={} sesClientOk={} sendgridConfigured={}",
+                sesReady,
+                sesClientOk,
+                outboundEmailClientSupplier.isConfigured());
+
+        if (!sesReady) {
+            log.warn(
+                    "[NOTIFICATION] AWS SES is not ready. Set in ldms-config-repo/.env: "
+                            + "AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SES_FROM_EMAIL, AWS_REGION. "
+                            + "SendGrid is optional and not required when using SES.");
+        } else if (!sesClientOk) {
+            log.warn("[NOTIFICATION] AWS SES credentials look valid but SesClient could not be created; check AWS_REGION and IAM permissions.");
+        }
     }
 }

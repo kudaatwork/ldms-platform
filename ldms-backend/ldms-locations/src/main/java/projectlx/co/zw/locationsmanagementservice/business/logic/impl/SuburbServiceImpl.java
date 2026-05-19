@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
@@ -57,7 +50,6 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.globalvalidators.Validators;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -531,43 +523,33 @@ public class SuburbServiceImpl implements SuburbService {
 
     @Override
     public byte[] exportToPdf(List<SuburbDto> items) throws DocumentException {
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("SUBURB EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (SuburbDto suburb : items) {
-            table.addCell(String.valueOf(suburb.getId()));
-            table.addCell(safe(suburb.getName()));
-            table.addCell(safe(suburb.getCode()));
-            table.addCell(safe(suburb.getDistrictName()));
-            table.addCell(safe(suburb.getProvinceName()));
-            table.addCell(safe(suburb.getCountryName()));
-            table.addCell(safe(suburb.getAdministrativeLevelName()));
-            table.addCell(suburb.getDistrictId() != null ? suburb.getDistrictId().toString() : "");
-            table.addCell(suburb.getAdministrativeLevelId() != null ? suburb.getAdministrativeLevelId().toString() : "");
-            table.addCell(safe(suburb.getPostalCode()));
-            table.addCell(suburb.getGeoCoordinatesId() != null ? suburb.getGeoCoordinatesId().toString() : "");
-            table.addCell(suburb.getCreatedAt() != null ? suburb.getCreatedAt().toString() : "");
-            table.addCell(suburb.getUpdatedAt() != null ? suburb.getUpdatedAt().toString() : "");
-            table.addCell(suburb.getEntityStatus() != null ? suburb.getEntityStatus().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(suburb.getId()),
+                    safe(suburb.getName()),
+                    safe(suburb.getCode()),
+                    safe(suburb.getDistrictName()),
+                    safe(suburb.getProvinceName()),
+                    safe(suburb.getCountryName()),
+                    safe(suburb.getAdministrativeLevelName()),
+                    suburb.getDistrictId() != null ? suburb.getDistrictId().toString() : "",
+                    suburb.getAdministrativeLevelId() != null ? suburb.getAdministrativeLevelId().toString() : "",
+                    safe(suburb.getPostalCode()),
+                    suburb.getGeoCoordinatesId() != null ? suburb.getGeoCoordinatesId().toString() : "",
+                    suburb.getCreatedAt() != null ? suburb.getCreatedAt().toString() : "",
+                    suburb.getUpdatedAt() != null ? suburb.getUpdatedAt().toString() : "",
+                    suburb.getEntityStatus() != null ? suburb.getEntityStatus().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Suburbs")
+                .reportCode("LOC-SUB")
+                .subtitle("Suburb registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

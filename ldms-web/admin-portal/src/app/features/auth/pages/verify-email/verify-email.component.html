@@ -1,0 +1,116 @@
+<div
+  class="login-shell"
+  [class.login-shell--verified]="success && !verifying"
+  [class.login-shell--already-verified]="alreadyVerified && !verifying"
+>
+  <button
+    type="button"
+    class="login-theme-toggle"
+    (click)="toggleTheme()"
+    [matTooltip]="theme.dark() ? 'Light mode' : 'Dark mode'"
+    [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+  >
+    <mat-icon>{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+  </button>
+
+  <div class="login-left">
+    <div class="ll-brand">
+      <div class="ll-logo">
+        <mat-icon style="font-size: 28px; color: #fff">{{
+          alreadyVerified && !verifying ? 'info' : success && !verifying ? 'verified' : 'mark_email_read'
+        }}</mat-icon>
+      </div>
+      <span class="ll-name">Project <span class="brand-lx">LX</span></span>
+    </div>
+    <div class="ll-headline" *ngIf="verifying || (!success && !alreadyVerified)">Verify your<br />email address</div>
+    <div class="ll-headline" *ngIf="alreadyVerified && !verifying">Account already<br />verified</div>
+    <div class="ll-headline" *ngIf="success && !verifying && !alreadyVerified">You're all<br />set to sign in</div>
+    <div class="ll-sub" *ngIf="verifying || (!success && !alreadyVerified)">
+      Confirm your account so you can sign in to the admin console.
+    </div>
+    <div class="ll-sub" *ngIf="alreadyVerified && !verifying">
+      This email was verified earlier. Sign in with your existing credentials.
+    </div>
+    <div class="ll-sub" *ngIf="success && !verifying && !alreadyVerified">
+      Your email is confirmed. Continue to the admin console with your credentials.
+    </div>
+    <div class="ll-version">Admin Console · projectlx.co.zw</div>
+  </div>
+
+  <div class="login-right">
+    <div class="login-card">
+      <div class="lc-header" *ngIf="verifying">
+        <h1 class="lc-title">Email verification</h1>
+        <p class="lc-sub">We are confirming your registration link.</p>
+      </div>
+
+      <div class="ve-loading" *ngIf="verifying">
+        <mat-progress-spinner diameter="40" mode="indeterminate" aria-label="Verifying email"></mat-progress-spinner>
+        <p class="ve-loading__text">Verifying your email…</p>
+      </div>
+
+      <div
+        class="ve-result ve-result--success"
+        *ngIf="success && !verifying && !alreadyVerified"
+        role="status"
+        aria-live="polite"
+      >
+        <div class="ve-result__banner">
+          <div class="ve-result__icon" aria-hidden="true">
+            <mat-icon>check_circle</mat-icon>
+          </div>
+          <div class="ve-result__copy">
+            <h2 class="ve-result__title">Email verified successfully</h2>
+            <p class="ve-result__message">{{ message }}</p>
+          </div>
+        </div>
+        <p class="ve-result__hint">You can now sign in with the email and password you registered.</p>
+        <a routerLink="/auth/login" class="ve-result__cta lc-submit">
+          <mat-icon>login</mat-icon>
+          Sign in to admin console
+        </a>
+      </div>
+
+      <div
+        class="ve-result ve-result--info"
+        *ngIf="alreadyVerified && !verifying"
+        role="status"
+        aria-live="polite"
+      >
+        <div class="ve-result__banner">
+          <div class="ve-result__icon ve-result__icon--info" aria-hidden="true">
+            <mat-icon>info</mat-icon>
+          </div>
+          <div class="ve-result__copy">
+            <h2 class="ve-result__title">Account already verified</h2>
+            <p class="ve-result__message">{{ message }}</p>
+          </div>
+        </div>
+        <p class="ve-result__hint">No further action is needed. Sign in to the admin console when you are ready.</p>
+        <a routerLink="/auth/login" class="ve-result__cta lc-submit">
+          <mat-icon>login</mat-icon>
+          Sign in to admin console
+        </a>
+      </div>
+
+      <div
+        class="ve-result ve-result--error"
+        *ngIf="!success && !alreadyVerified && error && !verifying"
+        role="alert"
+        aria-live="assertive"
+      >
+        <div class="ve-result__banner">
+          <div class="ve-result__icon ve-result__icon--error" aria-hidden="true">
+            <mat-icon>error_outline</mat-icon>
+          </div>
+          <div class="ve-result__copy">
+            <h2 class="ve-result__title">Verification could not be completed</h2>
+            <p class="ve-result__message">{{ error }}</p>
+          </div>
+        </div>
+        <p class="ve-result__hint">Request a new verification link from your administrator or try registering again.</p>
+        <a routerLink="/auth/login" class="ve-result__cta ve-result__cta--secondary">Back to sign in</a>
+      </div>
+    </div>
+  </div>
+</div>

@@ -31,8 +31,18 @@ public class NotificationLog {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Correlates all channel rows for one RabbitMQ notification event. */
+    @Column(name = "event_id", length = 64)
+    private String eventId;
+
     @Column(nullable = true, updatable = false)
     private String recipientId;
+
+    @Column(name = "recipient_email")
+    private String recipientEmail;
+
+    @Column(name = "recipient_phone", length = 50)
+    private String recipientPhone;
 
     @Column(nullable = false, updatable = false)
     private String templateKey;

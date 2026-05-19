@@ -16,4 +16,8 @@ public class UserGroupDto {
     private String name;
     private String description;
     private List<UserRoleDto> userRoleDtoSet;
+    /** Non-deleted users whose primary {@code user_group_id} points at this group. */
+    private Long userMemberCount;
+    /** Non-deleted catalog roles linked to this group via {@code user_group_user_role}. */
+    private Long userRoleMemberCount;
 }

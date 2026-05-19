@@ -1,4 +1,5 @@
 <div class="lx-page">
+  <mat-progress-bar *ngIf="loading" class="lx-page-progress" mode="indeterminate" aria-label="Loading KYC documents"></mat-progress-bar>
   <ng-container *ngIf="!loading; else skel">
     <ng-container *ngIf="dataSource.length > 0; else tableCardEmpty">
       <div class="lx-card lx-card--subsection">
@@ -30,15 +31,15 @@
           </div>
         </div>
         <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
-          <button mat-menu-item class="lx-export-option--pdf" (click)="stubExport()">
+          <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')">
             <mat-icon>picture_as_pdf</mat-icon>
             <span>Export PDF</span>
           </button>
-          <button mat-menu-item class="lx-export-option--csv" (click)="stubExport()">
+          <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')">
             <mat-icon>table_view</mat-icon>
             <span>Export CSV</span>
           </button>
-          <button mat-menu-item class="lx-export-option--xlsx" (click)="stubExport()">
+          <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')">
             <mat-icon>grid_on</mat-icon>
             <span>Export XLSX</span>
           </button>
@@ -109,7 +110,7 @@
             [length]="filteredRows.length"
             [pageIndex]="clampedPageIndex"
             [pageSize]="pageSize"
-            [pageSizeOptions]="[5, 10, 25, 50]"
+            [pageSizeOptions]="[10, 20, 25, 50]"
             [showFirstLastButtons]="true"
             (page)="onPage($event)"
           ></mat-paginator>
