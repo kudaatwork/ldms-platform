@@ -2,6 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { PageEvent } from '@angular/material/paginator';
 import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import {
+  LxExportFormat,
+  exportClientTableAsCsv,
+} from '@shared/utils/lx-export.util';
 
 export interface KycDocumentRow {
   fileName: string;
@@ -17,6 +23,11 @@ export interface KycDocumentRow {
   standalone: false,
 })
 export class KycDocumentsComponent implements OnInit {
+  constructor(
+    private readonly title: Title,
+    private readonly snackBar: MatSnackBar,
+  ) {}
+
   loading = true;
 
   displayedColumns = ['fileName', 'type', 'status', 'actions'];
@@ -33,7 +44,7 @@ export class KycDocumentsComponent implements OnInit {
   };
 
   pageIndex = 0;
-  pageSize = 10;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
 
   private readonly mockRows: KycDocumentRow[] = [
     {
@@ -98,8 +109,6 @@ export class KycDocumentsComponent implements OnInit {
     },
   ];
 
-  constructor(private readonly title: Title) {}
-
   get filteredRows(): KycDocumentRow[] {
     return filterByGlobalAndColumns(
       this.dataSource,
@@ -138,5 +147,23 @@ export class KycDocumentsComponent implements OnInit {
 
   stubImport(): void {}
 
-  stubExport(): void {}
+  exportAs(format: LxExportFormat): void {
+    const ok = exportClientTableAsCsv(
+      format,
+      this.filteredRows,
+      [
+        { header: 'fileName', value: (r) => r.fileName },
+        { header: 'type', value: (r) => r.type },
+        { header: 'status', value: (r) => r.statusLabel },
+      ],
+      'kyc-documents',
+      (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
+    );
+    if (ok) {
+      this.snackBar.open('Exported KYC documents as CSV.', 'Close', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
+    }
+  }
 }

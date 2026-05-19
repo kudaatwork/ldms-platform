@@ -11,7 +11,16 @@ import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
+
+    @Query("SELECT COUNT(u) FROM User u WHERE u.userGroup IS NOT NULL AND u.userGroup.id = :userGroupId "
+            + "AND u.entityStatus <> :excluded")
+    long countActiveUsersForUserGroup(
+            @Param("userGroupId") Long userGroupId,
+            @Param("excluded") EntityStatus excluded);
+
     Optional<User> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
+
+    List<User> findByUserGroup_IdAndEntityStatusNot(Long userGroupId, EntityStatus entityStatus);
     Optional<User> findByPhoneNumberAndEntityStatusNot(String phoneNumber, EntityStatus entityStatus);
     List<User> findByEntityStatusNot(EntityStatus entityStatus);
     Optional<User> findByUsernameAndEntityStatusNot(String username, EntityStatus entityStatus);

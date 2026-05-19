@@ -35,6 +35,7 @@ import projectlx.user.management.utils.requests.AssignUserRoleToUserGroupRequest
 import projectlx.user.management.utils.requests.CreateUserGroupRequest;
 import projectlx.user.management.utils.requests.EditUserGroupRequest;
 import projectlx.user.management.utils.requests.RemoveUserRolesFromUserGroupRequest;
+import projectlx.user.management.utils.requests.RemoveUsersFromUserGroupRequest;
 import projectlx.user.management.utils.requests.UserGroupMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserGroupResponse;
 import org.springframework.web.multipart.MultipartFile;
@@ -202,6 +203,25 @@ public class UserGroupFrontendResource {
     {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userGroupServiceProcessor.removeUserRolesFromUserGroup(removeUserRolesFromUserGroupRequest, locale, username);
+    }
+
+    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserGroupRoles).ASSIGN_USER_ROLES_TO_USER_GROUP.toString())")
+    @Auditable(action = "REMOVE_USERS_FROM_USER_GROUP")
+    @PostMapping(value = "/remove-users-from-user-group")
+    @Operation(summary = "Remove users from a user group", description = "Unlinks user(s) from a user group")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Users removed from user group successfully"),
+            @ApiResponse(responseCode = "404", description = "Users or group not found"),
+            @ApiResponse(responseCode = "500", description = "Server error while removing users from user group")
+    })
+    public UserGroupResponse removeUsersFromUserGroup(@Valid @RequestBody final RemoveUsersFromUserGroupRequest
+                                                              removeUsersFromUserGroupRequest,
+                                                      @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+                                                      @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                                                              defaultValue = Constants.DEFAULT_LOCALE) final Locale locale)
+    {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userGroupServiceProcessor.removeUsersFromUserGroup(removeUsersFromUserGroupRequest, locale, username);
     }
 
     @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserGroupRoles).IMPORT_USER_GROUPS.toString())")

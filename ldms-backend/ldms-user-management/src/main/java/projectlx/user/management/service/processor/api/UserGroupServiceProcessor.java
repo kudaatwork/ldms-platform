@@ -3,10 +3,12 @@ package projectlx.user.management.service.processor.api;
 import com.lowagie.text.DocumentException;
 import projectlx.user.management.utils.dtos.ImportSummary;
 import projectlx.user.management.utils.requests.AddUserToUserGroupRequest;
+import projectlx.user.management.utils.requests.AddUsersToUserGroupRequest;
 import projectlx.user.management.utils.requests.AssignUserRoleToUserGroupRequest;
 import projectlx.user.management.utils.requests.CreateUserGroupRequest;
 import projectlx.user.management.utils.requests.EditUserGroupRequest;
 import projectlx.user.management.utils.requests.RemoveUserRolesFromUserGroupRequest;
+import projectlx.user.management.utils.requests.RemoveUsersFromUserGroupRequest;
 import projectlx.user.management.utils.requests.UserGroupMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserGroupResponse;
 
@@ -27,6 +29,8 @@ public interface UserGroupServiceProcessor {
     UserGroupResponse removeUserRolesFromUserGroup(RemoveUserRolesFromUserGroupRequest removeUserRolesFromUserGroupRequest,
                                                    Locale locale, String username);
     UserGroupResponse addUserGroupToUser(AddUserToUserGroupRequest addUserToUserGroupRequest, Locale locale, String username);
+    UserGroupResponse addUsersToUserGroup(AddUsersToUserGroupRequest addUsersToUserGroupRequest, Locale locale, String username);
+    UserGroupResponse removeUsersFromUserGroup(RemoveUsersFromUserGroupRequest removeUsersFromUserGroupRequest, Locale locale, String username);
     byte[] exportToCsv(UserGroupMultipleFiltersRequest filters, String username, Locale locale);
     byte[] exportToExcel(UserGroupMultipleFiltersRequest filters, String username, Locale locale) throws IOException;
     byte[] exportToPdf(UserGroupMultipleFiltersRequest filters, String username, Locale locale) throws DocumentException;

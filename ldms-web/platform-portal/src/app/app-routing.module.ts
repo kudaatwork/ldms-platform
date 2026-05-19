@@ -4,9 +4,11 @@ import { ClassificationGuard } from './core/guards/classification.guard';
 import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.component';
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
 import { LandingComponent } from './features/landing/pages/landing/landing.component';
+import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
 
 const routes: Routes = [
   { path: 'welcome', component: LandingComponent },
+  { path: 'contact', component: ContactDemoComponent },
   {
     path: 'signup',
     loadChildren: () => import('./features/signup/signup.module').then((m) => m.SignupModule),

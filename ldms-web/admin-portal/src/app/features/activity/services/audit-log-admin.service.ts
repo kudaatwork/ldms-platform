@@ -1,7 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { environment } from '../../../../environments/environment';
+import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
 
 /** POST body for `find-by-multiple-filters` (ldms-audit-trail). */
 export interface AuditLogMultipleFiltersRequest {
@@ -110,26 +110,21 @@ export interface ChurnOutHistoryFilters {
   to?: string;
 }
 
-/**
- * Audit HTTP request log (requests table) — same gateway URL pattern as {@link LocationsService}
- * (`{apiUrl}/ldms-audit-trail/v1/{apiSurface}/...`).
- */
+/** Audit HTTP request log — all calls go through the API gateway (`ldmsServiceUrl`). */
 @Injectable({
   providedIn: 'root',
 })
 export class AuditLogAdminService {
-  private readonly base = environment.apiUrl;
-
   constructor(private readonly http: HttpClient) {}
 
   findByMultipleFilters(request: AuditLogMultipleFiltersRequest): Observable<AuditLogResponse> {
-    const url = `${this.base}/ldms-audit-trail/v1/${environment.apiSurface}/audit-log/find-by-multiple-filters`;
+    const url = ldmsServiceUrl('audit-trail', 'audit-log', 'find-by-multiple-filters');
     return this.http.post<AuditLogResponse>(url, request);
   }
 
   /** Full row including payloads and curl (backend uses `includeLargePayloads` for this path). */
   findById(id: number): Observable<AuditLogResponse> {
-    const url = `${this.base}/ldms-audit-trail/v1/${environment.apiSurface}/audit-log/find-by-id/${id}`;
+    const url = ldmsServiceUrl('audit-trail', 'audit-log', `find-by-id/${id}`);
     return this.http.get<AuditLogResponse>(url);
   }
 
@@ -138,7 +133,7 @@ export class AuditLogAdminService {
    * (gateway maps to audit-trail `/export?format=`).
    */
   exportAuditLogs(request: AuditLogMultipleFiltersRequest, format: 'csv' | 'xlsx' | 'pdf'): Observable<Blob> {
-    const url = `${this.base}/ldms-audit-trail/v1/${environment.apiSurface}/audit-log/export`;
+    const url = ldmsServiceUrl('audit-trail', 'audit-log', 'export');
     const apiFormat = format === 'xlsx' ? 'xlsx' : format;
     const params = new HttpParams().set('format', apiFormat);
     return this.http.post(url, request, {
@@ -148,12 +143,12 @@ export class AuditLogAdminService {
   }
 
   churnOutRequestLogs(): Observable<AuditLogResponse> {
-    const url = `${this.base}/ldms-audit-trail/v1/${environment.apiSurface}/audit-log/churn-out`;
+    const url = ldmsServiceUrl('audit-trail', 'audit-log', 'churn-out');
     return this.http.post<AuditLogResponse>(url, {});
   }
 
   getChurnOutHistory(page = 0, size = 20, filters?: ChurnOutHistoryFilters): Observable<AuditLogResponse> {
-    const url = `${this.base}/ldms-audit-trail/v1/${environment.apiSurface}/audit-log/churn-history/find-by-multiple-filters`;
+    const url = ldmsServiceUrl('audit-trail', 'audit-log', 'churn-history/find-by-multiple-filters');
     const body: ChurnOutHistoryFilters = {
       page,
       size,
@@ -169,7 +164,7 @@ export class AuditLogAdminService {
   }
 
   exportChurnOutHistory(filters: ChurnOutHistoryFilters, format: 'csv' | 'xlsx' | 'pdf'): Observable<Blob> {
-    const url = `${this.base}/ldms-audit-trail/v1/${environment.apiSurface}/audit-log/churn-history/export`;
+    const url = ldmsServiceUrl('audit-trail', 'audit-log', 'churn-history/export');
     const apiFormat = format === 'xlsx' ? 'xlsx' : format;
     const params = new HttpParams().set('format', apiFormat);
     return this.http.post(url, filters, { params, responseType: 'blob' });

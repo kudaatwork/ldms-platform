@@ -2,10 +2,12 @@ package projectlx.user.management.business.validator.api;
 
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.user.management.utils.requests.AddUserToUserGroupRequest;
+import projectlx.user.management.utils.requests.AddUsersToUserGroupRequest;
 import projectlx.user.management.utils.requests.AssignUserRoleToUserGroupRequest;
 import projectlx.user.management.utils.requests.CreateUserGroupRequest;
 import projectlx.user.management.utils.requests.EditUserGroupRequest;
 import projectlx.user.management.utils.requests.RemoveUserRolesFromUserGroupRequest;
+import projectlx.user.management.utils.requests.RemoveUsersFromUserGroupRequest;
 import projectlx.user.management.utils.requests.UserGroupMultipleFiltersRequest;
 
 import java.util.Locale;
@@ -19,7 +21,9 @@ public interface UserGroupServiceValidator {
     ValidatorDto isStringValid(String input, Locale locale);
     ValidatorDto isRequestValidToAssignUserRolesToUserGroup(AssignUserRoleToUserGroupRequest assignUserRoleToUserGroupRequest, Locale locale);
     ValidatorDto isRequestValidToRemoveUserRolesFromUserGroup(RemoveUserRolesFromUserGroupRequest removeUserRolesFromUserGroupRequest, Locale locale);
+    ValidatorDto isRequestValidToRemoveUsersFromUserGroup(RemoveUsersFromUserGroupRequest removeUsersFromUserGroupRequest, Locale locale);
     ValidatorDto isRequestValidToAddUserToUserGroup(AddUserToUserGroupRequest addUserToUserGroupRequest, Locale locale);
+    ValidatorDto isRequestValidToAddUsersToUserGroup(AddUsersToUserGroupRequest addUsersToUserGroupRequest, Locale locale);
 
     // Methods returning ValidatorDto without Locale parameter
     default ValidatorDto isCreateUserGroupRequestValidDto(CreateUserGroupRequest createUserGroupRequest) {

@@ -1,23 +1,23 @@
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { MatPaginator, PageEvent } from '@angular/material/paginator';
-import { MatSort } from '@angular/material/sort';
+import { PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
 import { Title } from '@angular/platform-browser';
 import { Subject, finalize, takeUntil } from 'rxjs';
 import { environment } from '../../../../../environments/environment';
 import { LOCATIONS_TABLE_PAGE_SIZE } from '../../../locations/services/locations.service';
 import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
+import { NotificationLogDetailDialogComponent } from '../../components/notification-log-detail-dialog/notification-log-detail-dialog.component';
 import { NotificationTemplateDetailDialogComponent } from '../../components/notification-template-detail-dialog/notification-template-detail-dialog.component';
 import { NotificationTemplateFormDialogComponent } from '../../components/notification-template-form-dialog/notification-template-form-dialog.component';
 import type {
-  NotificationChannel,
   NotificationLogExportFormat,
   NotificationLogRow,
   NotificationLogFilters,
   NotificationTemplateRow,
-  UpdateTemplateRequest,
+  TemplateExportFormat,
+  TemplateMultipleFiltersRequest,
 } from '../../models/notification-admin.models';
 import { NotificationAdminService } from '../../services/notification-admin.service';
 
@@ -28,6 +28,11 @@ interface PlaceholderGuideItem {
   where: string[];
 }
 
+/** Matches ldms-notifications {@code Channel} enum (system/backoffice APIs). */
+const NOTIFICATION_CHANNEL_FILTER_OPTIONS = ['EMAIL', 'SMS', 'WHATSAPP', 'IN_APP', 'SLACK', 'TEAMS'] as const;
+
+const NOTIFICATION_LOG_STATUS_OPTIONS = ['QUEUED', 'PENDING', 'SENT', 'FAILED', 'SKIPPED'] as const;
+
 @Component({
   selector: 'app-notifications',
   templateUrl: './notifications.component.html',
@@ -35,19 +40,11 @@ interface PlaceholderGuideItem {
   standalone: false,
 })
 export class NotificationsComponent implements OnInit, OnDestroy {
-  @ViewChild('logSort')
-  set logSort(s: MatSort) {
-    if (s) this.logData.sort = s;
-  }
-
-  @ViewChild('logPaginator')
-  set logPaginator(p: MatPaginator) {
-    if (p) this.logData.paginator = p;
-  }
-
   fetchingTpl = false;
   fetchingLog = false;
   actionInProgress = false;
+  /** Template IDs with an in-flight active/inactive toggle (does not block the whole table). */
+  private readonly tplStatusUpdatingIds = new Set<number>();
   tplError: string | null = null;
   logError: string | null = null;
   importingTpl = false;
@@ -69,14 +66,25 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     actions: 'Actions',
   };
 
-  logColumns = ['recipientDisplay', 'channel', 'templateKey', 'status', 'sentAt', 'retryCount'];
+  logColumns = [
+    'recipientDisplay',
+    'channel',
+    'templateKey',
+    'status',
+    'errorMessage',
+    'sentAt',
+    'retryCount',
+    'actions',
+  ];
   logLabels: Record<string, string> = {
     recipientDisplay: 'Recipient',
     channel: 'Channel',
     templateKey: 'Template code',
     status: 'Status',
+    errorMessage: 'Detail',
     sentAt: 'Sent at',
     retryCount: 'Retry count',
+    actions: 'Actions',
   };
 
   tplData = new MatTableDataSource<NotificationTemplateRow>([]);
@@ -88,9 +96,38 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   tplTotalRecords = 0;
   private latestTplLoadToken = 0;
 
+  /** Server-driven log grid (same pattern as templates). */
+  logPageIndex = 0;
+  logPageSize = LOCATIONS_TABLE_PAGE_SIZE;
+  logTotalRecords = 0;
+  queueSummary: { queueName?: string; messagesReady?: number } | null = null;
+  private latestLogLoadToken = 0;
+
   logSearch = '';
+  /** Optional filters sent to {@code NotificationLogMultipleFiltersRequest}. */
+  logTemplateKey = '';
+  logChannel = '';
+  logStatus = '';
+  logRecipientId = '';
+  logProvider = '';
   logFrom: Date | null = null;
   logTo: Date | null = null;
+
+  /** Collapsible column filters (same pattern as locations / provinces table). */
+  tplFilterFieldsOpen = false;
+  logFilterFieldsOpen = false;
+
+  /** Template list filters (backend {@code TemplateMultipleFiltersRequest}). */
+  tplSearch = '';
+  tplTemplateKey = '';
+  /** Single channel filter (backend {@code channels} list with one entry). */
+  tplChannel = '';
+  /** any | active | inactive */
+  tplActiveFilter: 'any' | 'active' | 'inactive' = 'any';
+
+  readonly notificationChannelOptions = NOTIFICATION_CHANNEL_FILTER_OPTIONS;
+  readonly notificationLogStatusOptions = NOTIFICATION_LOG_STATUS_OPTIONS;
+
   showPlaceholderGuide = false;
   readonly placeholderGuide: PlaceholderGuideItem[] = [
     {
@@ -151,6 +188,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     private readonly title: Title,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -169,10 +207,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     const loadToken = ++this.latestTplLoadToken;
     this.fetchingTpl = true;
     this.notificationAdmin
-      .getTemplatesPage({
-        page: this.tplPageIndex,
-        size: this.tplPageSize,
-      })
+      .getTemplatesPage(this.buildTplFilters())
       .pipe(
         finalize(() => {
           if (loadToken === this.latestTplLoadToken) {
@@ -214,34 +249,117 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     this.loadTemplates();
   }
 
+  applyTplFilters(): void {
+    this.tplPageIndex = 0;
+    this.loadTemplates();
+  }
+
+  clearTplFilters(): void {
+    this.tplSearch = '';
+    this.tplTemplateKey = '';
+    this.tplChannel = '';
+    this.tplActiveFilter = 'any';
+    this.tplPageIndex = 0;
+    this.loadTemplates();
+  }
+
+  private buildTplFilters(): TemplateMultipleFiltersRequest {
+    const req: TemplateMultipleFiltersRequest = {
+      page: this.tplPageIndex,
+      size: this.tplPageSize,
+      searchValue: this.tplSearch.trim(),
+    };
+    const tk = this.tplTemplateKey.trim();
+    if (tk) {
+      req.templateKey = tk;
+    }
+    const ch = this.tplChannel.trim();
+    if (ch) {
+      req.channels = [ch];
+    }
+    if (this.tplActiveFilter === 'active') {
+      req.isActive = true;
+    } else if (this.tplActiveFilter === 'inactive') {
+      req.isActive = false;
+    }
+    return req;
+  }
+
   loadLog(): void {
     this.logError = null;
+    const loadToken = ++this.latestLogLoadToken;
     this.fetchingLog = true;
     const filters: NotificationLogFilters = {
+      page: this.logPageIndex,
+      size: this.logPageSize,
       search: this.logSearch,
+      templateKey: this.logTemplateKey.trim() || undefined,
+      channel: this.logChannel.trim() || undefined,
+      status: this.logStatus.trim() || undefined,
+      recipientId: this.logRecipientId.trim() || undefined,
+      provider: this.logProvider.trim() || undefined,
       from: this.logFrom,
       to: this.logTo,
     };
     this.notificationAdmin
-      .getNotificationLog(filters)
+      .getNotificationLogPage(filters)
       .pipe(
         finalize(() => {
-          this.fetchingLog = false;
+          if (loadToken === this.latestLogLoadToken) {
+            this.fetchingLog = false;
+          }
         }),
         takeUntil(this.destroy$),
       )
       .subscribe({
-        next: (rows) => {
+        next: ({ rows, totalElements, queueSummary }) => {
+          if (loadToken !== this.latestLogLoadToken) {
+            return;
+          }
+          if (rows.length === 0 && this.logPageIndex > 0) {
+            this.logPageIndex = 0;
+            this.loadLog();
+            return;
+          }
+          this.logTotalRecords = totalElements > 0 ? totalElements : rows.length;
           this.logData.data = rows;
+          this.queueSummary = queueSummary;
         },
         error: (err) => {
+          if (loadToken !== this.latestLogLoadToken) {
+            return;
+          }
           this.logData.data = [];
+          this.logTotalRecords = 0;
           this.logError = this.errorMessage(err, 'Failed to load log.');
         },
       });
   }
 
+  onLogPage(ev: PageEvent): void {
+    if (ev.pageIndex === this.logPageIndex && ev.pageSize === this.logPageSize) {
+      return;
+    }
+    this.logPageIndex = ev.pageIndex;
+    this.logPageSize = ev.pageSize;
+    this.loadLog();
+  }
+
   applyLogFilters(): void {
+    this.logPageIndex = 0;
+    this.reloadLog$.next();
+  }
+
+  clearLogFilters(): void {
+    this.logSearch = '';
+    this.logTemplateKey = '';
+    this.logChannel = '';
+    this.logStatus = '';
+    this.logRecipientId = '';
+    this.logProvider = '';
+    this.logFrom = null;
+    this.logTo = null;
+    this.logPageIndex = 0;
     this.reloadLog$.next();
   }
 
@@ -255,6 +373,11 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   exportLog(format: NotificationLogExportFormat): void {
     const filters: NotificationLogFilters = {
       search: this.logSearch,
+      templateKey: this.logTemplateKey.trim() || undefined,
+      channel: this.logChannel.trim() || undefined,
+      status: this.logStatus.trim() || undefined,
+      recipientId: this.logRecipientId.trim() || undefined,
+      provider: this.logProvider.trim() || undefined,
       from: this.logFrom,
       to: this.logTo,
     };
@@ -263,8 +386,12 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (blob) => {
-          const ext = format === 'excel' ? 'xlsx' : 'csv';
+          const ext = format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv';
           this.saveBlob(blob, `notification_activity_log.${ext}`);
+          this.snackBar.open(`Exported notification log as ${ext.toUpperCase()}.`, 'Close', {
+            duration: 3500,
+            panelClass: ['app-snackbar-success'],
+          });
         },
         error: (err) => {
           this.snackBar.open(this.errorMessage(err, 'Log export failed.'), 'Close', {
@@ -280,6 +407,14 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       ...this.dialogOpts,
       maxHeight: '90vh',
       data: { template: t },
+    });
+  }
+
+  viewLog(row: NotificationLogRow): void {
+    this.dialog.open(NotificationLogDetailDialogComponent, {
+      ...this.dialogOpts,
+      maxHeight: '90vh',
+      data: { log: row },
     });
   }
 
@@ -360,14 +495,18 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       });
   }
 
-  exportTemplates(format: 'csv' | 'excel'): void {
+  exportTemplates(format: TemplateExportFormat): void {
     this.notificationAdmin
-      .exportTemplates(format, { page: 0, size: 10_000 })
+      .exportTemplates(format, { ...this.buildTplFilters(), page: 0, size: 10_000 })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (blob) => {
-          const ext = format === 'excel' ? 'xlsx' : 'csv';
+          const ext = format === 'excel' ? 'xlsx' : format === 'pdf' ? 'pdf' : 'csv';
           this.saveBlob(blob, `notification_templates.${ext}`);
+          this.snackBar.open(`Exported templates as ${ext.toUpperCase()}.`, 'Close', {
+            duration: 3500,
+            panelClass: ['app-snackbar-success'],
+          });
         },
         error: (err) => {
           this.snackBar.open(this.errorMessage(err, 'Export failed.'), 'Close', {
@@ -440,46 +579,40 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     URL.revokeObjectURL(url);
   }
 
+  isTplStatusUpdating(row: NotificationTemplateRow): boolean {
+    return this.tplStatusUpdatingIds.has(row.id);
+  }
+
   onToggleActive(row: NotificationTemplateRow, active: boolean): void {
-    if (this.actionInProgress) {
+    if (this.tplStatusUpdatingIds.has(row.id)) {
       return;
     }
     const previous = row.isActive;
     row.isActive = active;
-    this.actionInProgress = true;
 
     if (environment.useMocks) {
-      this.actionInProgress = false;
+      this.snackBar.open(this.tplStatusSnackMessage(active), 'Close', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
       return;
     }
 
-    const updateBody: UpdateTemplateRequest = {
-      id: row.id,
-      isActive: active,
-      templateKey: row.templateKey ?? '',
-      description: row.description ?? '',
-      channels: (row.channels ?? []) as NotificationChannel[],
-      emailSubject: row.emailSubject ?? '',
-      emailBodyHtml: row.emailBodyHtml ?? '',
-      smsBody: row.smsBody ?? '',
-      inAppTitle: row.inAppTitle ?? '',
-      inAppBody: row.inAppBody ?? '',
-      whatsappTemplateName: row.whatsappTemplateName ?? '',
-      whatsappBody: row.whatsappBody ?? '',
-    };
-
+    this.tplStatusUpdatingIds.add(row.id);
+    this.cdr.markForCheck();
     this.notificationAdmin
-      .updateTemplate(updateBody)
+      .setTemplateActive(row.id, active)
       .pipe(
         finalize(() => {
-          this.actionInProgress = false;
+          this.tplStatusUpdatingIds.delete(row.id);
+          this.cdr.markForCheck();
         }),
         takeUntil(this.destroy$),
       )
       .subscribe({
         next: () => {
-          this.snackBar.open('Template status updated.', 'Close', {
-            duration: 4000,
+          this.snackBar.open(this.tplStatusSnackMessage(active), 'Close', {
+            duration: 3500,
             panelClass: ['app-snackbar-success'],
           });
         },
@@ -489,8 +622,13 @@ export class NotificationsComponent implements OnInit, OnDestroy {
             duration: 5000,
             panelClass: ['app-snackbar-error'],
           });
+          this.cdr.markForCheck();
         },
       });
+  }
+
+  private tplStatusSnackMessage(active: boolean): string {
+    return active ? 'Template is now active.' : 'Template is now inactive.';
   }
 
   tplStatusClass(row: NotificationTemplateRow): string {
@@ -503,6 +641,8 @@ export class NotificationsComponent implements OnInit, OnDestroy {
 
   logStatusClass(status: string): string {
     switch (status) {
+      case 'QUEUED':
+        return 'pending';
       case 'PENDING':
         return 'pending';
       case 'SENT':

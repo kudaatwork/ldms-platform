@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable, delay, of, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { ldmsApiUrl } from '../utils/api-url.util';
 import { StorageService, StoredUser } from './storage.service';
 
 export interface MockCredential {
@@ -41,7 +42,7 @@ export class AuthService {
     }
     return this.http
       .post<{ accessToken?: string; token?: string }>(
-        `${environment.apiUrl}/ldms-authentication/v1/auth/google-id-token`,
+        ldmsApiUrl('/ldms-authentication/v1/auth/google-id-token'),
         { idToken },
       )
       .pipe(
@@ -74,7 +75,7 @@ export class AuthService {
     }
     return this.http
       .post<{ accessToken?: string; token?: string }>(
-        `${environment.apiUrl}/v1/frontend/auth/login`,
+        ldmsApiUrl('/v1/frontend/auth/login'),
         { email: normalized, password },
       )
       .pipe(

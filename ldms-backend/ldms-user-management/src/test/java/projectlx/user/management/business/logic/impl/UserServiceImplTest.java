@@ -132,6 +132,8 @@ class UserServiceImplTest {
         configurationMock = mock(Configuration.class);
         rabbitTemplate = mock(org.springframework.amqp.rabbit.core.RabbitTemplate.class);
         tokenService = mock(TokenService.class);
+        var emailVerificationLinkProperties = new projectlx.user.management.utils.config.EmailVerificationLinkProperties(
+                "http://localhost:4200");
 
         userService = new UserServiceImpl(
                 userServiceValidator,
@@ -157,7 +159,8 @@ class UserServiceImplTest {
                 userTypeService,
                 fileUploadServiceClient,
                 rabbitTemplate,
-                tokenService
+                tokenService,
+                emailVerificationLinkProperties
         );
 
         // Set the objectMapper field using reflection

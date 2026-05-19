@@ -1,0 +1,110 @@
+<div class="ldms-contact">
+  <header class="ldms-contact__header">
+    <div class="ldms-contact__header-inner">
+      <button type="button" class="ldms-contact__back lx-btn lx-btn-ghost" (click)="goHome()">
+        ← Back to home
+      </button>
+      <div class="ldms-contact__header-actions">
+        <button
+          type="button"
+          class="ldms-contact__theme lx-btn lx-btn-secondary"
+          (click)="toggleTheme()"
+          [attr.title]="theme.dark() ? 'Light mode' : 'Dark mode'"
+          [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+        >
+          <span class="material-icons" aria-hidden="true">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="ldms-contact__main">
+    <div class="ldms-contact__panel">
+      <p class="ldms-contact__eyebrow">Project LX · LDMS</p>
+      <h1 class="ldms-contact__title">Book a demo</h1>
+      <p class="ldms-contact__intro">
+        Share your contact details and a short note about what you would like to see. Our team will reach out to schedule a
+        walkthrough.
+      </p>
+
+      <div *ngIf="submittedOk()" class="ldms-contact__success" role="status">
+        <span class="material-icons ldms-contact__success-icon" aria-hidden="true">check_circle</span>
+        <p><strong>Thank you.</strong> Your request has been recorded. We will contact you using the details you provided.</p>
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="prepareAnotherRequest()">Submit another request</button>
+      </div>
+
+      <form *ngIf="!submittedOk()" class="ldms-contact__form" [formGroup]="form" (ngSubmit)="onSubmit()" novalidate>
+        <div class="ldms-contact__field">
+          <label class="ldms-contact__label" for="cd-fullName">Full name</label>
+          <input
+            id="cd-fullName"
+            class="lx-input"
+            type="text"
+            autocomplete="name"
+            formControlName="fullName"
+            placeholder="Your name"
+          />
+          <p *ngIf="fieldError('fullName') as err" class="ldms-contact__error">{{ err }}</p>
+        </div>
+
+        <div class="ldms-contact__field">
+          <label class="ldms-contact__label" for="cd-email">Email</label>
+          <input
+            id="cd-email"
+            class="lx-input"
+            type="email"
+            autocomplete="email"
+            formControlName="email"
+            placeholder="you@organisation.com"
+          />
+          <p *ngIf="fieldError('email') as err" class="ldms-contact__error">{{ err }}</p>
+        </div>
+
+        <div class="ldms-contact__field">
+          <label class="ldms-contact__label" for="cd-phone">Phone number</label>
+          <input
+            id="cd-phone"
+            class="lx-input"
+            type="tel"
+            autocomplete="tel"
+            formControlName="phone"
+            placeholder="Include country code if applicable"
+          />
+          <p *ngIf="fieldError('phone') as err" class="ldms-contact__error">{{ err }}</p>
+        </div>
+
+        <div class="ldms-contact__field">
+          <label class="ldms-contact__label" for="cd-address">Address</label>
+          <textarea
+            id="cd-address"
+            class="lx-input ldms-contact__textarea"
+            rows="3"
+            autocomplete="street-address"
+            formControlName="address"
+            placeholder="Street, city, region / country"
+          ></textarea>
+          <p *ngIf="fieldError('address') as err" class="ldms-contact__error">{{ err }}</p>
+        </div>
+
+        <div class="ldms-contact__field">
+          <label class="ldms-contact__label" for="cd-demoRequest">Demo request</label>
+          <textarea
+            id="cd-demoRequest"
+            class="lx-input ldms-contact__textarea ldms-contact__textarea--tall"
+            rows="6"
+            formControlName="demoRequest"
+            placeholder="Describe your corridor, volumes, and what you would like to explore in the demo (e.g. orders, trips, compliance, reporting)."
+          ></textarea>
+          <p *ngIf="fieldError('demoRequest') as err" class="ldms-contact__error">{{ err }}</p>
+        </div>
+
+        <div class="ldms-contact__actions">
+          <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting()">
+            {{ submitting() ? 'Submitting…' : 'Submit request' }}
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost" (click)="goHome()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </main>
+</div>

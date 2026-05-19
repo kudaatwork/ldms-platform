@@ -1,8 +1,13 @@
 {
-    "java.configuration.updateBuildConfiguration": "automatic",
-    "java.configuration.maven.userSettings": "${workspaceFolder}/ldms-backend/.mvn/projectx-settings.xml",
-    "java.import.maven.enabled": true,
-    "java.jdt.ls.java.home": "${env:JAVA_HOME}",
-    "maven.settingsFile": "${workspaceFolder}/ldms-backend/.mvn/projectx-settings.xml",
-    "maven.terminal.useJavaHome": true
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.configuration.maven.userSettings": "${workspaceFolder}/ldms-backend/.mvn/projectx-settings.xml",
+  "java.import.maven.enabled": true,
+  "java.jdt.ls.java.home": "${env:JAVA_HOME}",
+  "maven.settingsFile": "${workspaceFolder}/ldms-backend/.mvn/projectx-settings.xml",
+  "maven.terminal.useJavaHome": true,
+  "java.debug.settings.console": "integratedTerminal",
+  "java.import.gradle.enabled": false,
+  "[java]": {
+    "editor.semanticHighlighting.enabled": true
+  }
 }

@@ -16,7 +16,9 @@ import projectlx.user.management.utils.requests.CreateUserRequest;
 import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
+import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
 import projectlx.user.management.utils.responses.UserResponse;
+import projectlx.user.management.utils.web.EmailVerificationHtmlRenderer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -49,6 +51,7 @@ import java.util.Locale;
 public class UserSystemResource {
 
     private final UserServiceProcessor userServiceProcessor;
+    private final EmailVerificationLinkProperties emailVerificationLinkProperties;
     private static final Logger logger = LoggerFactory.getLogger(UserSystemResource.class);
 
     @Auditable(action = "CREATE_USER")
@@ -328,6 +331,25 @@ public class UserSystemResource {
                                       @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                               defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return userServiceProcessor.verifyEmail(email, token, locale, "SYSTEM");
+    }
+
+    /**
+     * Browser-friendly verification for links in email (GET). Same logic as POST {@link #verifyEmail}.
+     */
+    @Auditable(action = "VERIFY_USER_EMAIL")
+    @GetMapping(value = "/verify-email", produces = MediaType.TEXT_HTML_VALUE)
+    @Operation(summary = "Verify user's email (browser link)",
+            description = "Verifies email when the user opens the link from their inbox (HTML response).")
+    public ResponseEntity<String> verifyEmailFromBrowserLink(
+            @RequestParam String token,
+            @RequestParam String email,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        UserResponse response = userServiceProcessor.verifyEmail(email, token, locale, "SYSTEM");
+        int status = response.getStatusCode() > 0 ? response.getStatusCode() : (response.isSuccess() ? 200 : 400);
+        return ResponseEntity.status(status).body(
+                EmailVerificationHtmlRenderer.render(response, emailVerificationLinkProperties.buildSignInUrl()));
     }
 
     @Auditable(action = "FORGOT_PASSWORD")

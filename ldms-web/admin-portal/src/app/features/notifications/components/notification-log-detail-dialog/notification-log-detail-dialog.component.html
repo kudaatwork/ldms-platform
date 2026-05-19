@@ -1,0 +1,129 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Delivery log detail</h2>
+      <p class="lx-dialog-subtitle">Read-only summary of this notification delivery attempt.</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" mat-dialog-close>
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content nt-detail-body">
+    <div class="lx-form-grid">
+      <div class="lx-field span-2 nt-section-title">Delivery</div>
+      <div class="lx-field">
+        <div class="lx-field-label">Log ID</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">pin</mat-icon>
+          <span class="nt-readonly-value">{{ log.id }}</span>
+        </div>
+      </div>
+      <div class="lx-field">
+        <div class="lx-field-label">Status</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">flag</mat-icon>
+          <span class="lx-status nt-readonly-status" [ngClass]="'lx-status-' + statusClass(log.status)">
+            {{ log.status }}
+          </span>
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <div class="lx-field-label">Event ID</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">fingerprint</mat-icon>
+          <span class="nt-readonly-value">{{ asText(log.eventId) }}</span>
+        </div>
+      </div>
+      <div class="lx-field">
+        <div class="lx-field-label">Channel</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">layers</mat-icon>
+          <span class="nt-readonly-value">{{ asText(log.channel) }}</span>
+        </div>
+      </div>
+      <div class="lx-field">
+        <div class="lx-field-label">Template code</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+          <span class="nt-readonly-value">{{ asText(log.templateKey) }}</span>
+        </div>
+      </div>
+
+      <div class="lx-field span-2 nt-section-title">Recipient</div>
+      <div class="lx-field span-2">
+        <div class="lx-field-label">Display</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">person</mat-icon>
+          <span class="nt-readonly-value">{{ asText(log.recipientDisplay) }}</span>
+        </div>
+      </div>
+      <div class="lx-field">
+        <div class="lx-field-label">User ID</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+          <span class="nt-readonly-value">{{ asText(log.recipientId) }}</span>
+        </div>
+      </div>
+      <div class="lx-field">
+        <div class="lx-field-label">Email</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
+          <span class="nt-readonly-value">{{ asText(log.recipientEmail) }}</span>
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <div class="lx-field-label">Phone</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+          <span class="nt-readonly-value">{{ asText(log.recipientPhone) }}</span>
+        </div>
+      </div>
+
+      <div class="lx-field span-2 nt-section-title">Provider</div>
+      <div class="lx-field">
+        <div class="lx-field-label">Provider</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">cloud</mat-icon>
+          <span class="nt-readonly-value">{{ asText(log.provider) }}</span>
+        </div>
+      </div>
+      <div class="lx-field">
+        <div class="lx-field-label">Provider message ID</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">confirmation_number</mat-icon>
+          <span class="nt-readonly-value">{{ asText(log.providerMessageId) }}</span>
+        </div>
+      </div>
+      <div class="lx-field">
+        <div class="lx-field-label">Recorded at</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <span class="nt-readonly-value">
+            {{ log.sentAt ? (log.sentAt | date : 'medium') : '—' }}
+          </span>
+        </div>
+      </div>
+      <div class="lx-field" *ngIf="log.updatedAt">
+        <div class="lx-field-label">Updated at</div>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">update</mat-icon>
+          <span class="nt-readonly-value">{{ log.updatedAt | date : 'medium' }}</span>
+        </div>
+      </div>
+
+      <div class="lx-field span-2 nt-section-title" *ngIf="log.errorMessage">Outcome detail</div>
+      <div class="lx-field span-2" *ngIf="log.errorMessage">
+        <div class="lx-field-label">Message / reason</div>
+        <div class="lx-input-shell lx-input-shell--textarea lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">info</mat-icon>
+          <span class="nt-readonly-value nt-readonly-multiline">{{ log.errorMessage }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="lx-step-actions">
+      <button mat-stroked-button type="button" mat-dialog-close>Close</button>
+    </div>
+  </div>
+</div>

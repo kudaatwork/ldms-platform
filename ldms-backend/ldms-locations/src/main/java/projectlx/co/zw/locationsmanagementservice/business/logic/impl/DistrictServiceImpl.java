@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
@@ -55,7 +48,6 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.globalvalidators.Validators;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -610,42 +602,31 @@ public class DistrictServiceImpl implements DistrictService {
 
     @Override
     public byte[] exportToPdf(List<DistrictDto> items) throws DocumentException {
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("DISTRICT EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (DistrictDto district : items) {
-            table.addCell(String.valueOf(district.getId()));
-            table.addCell(safe(district.getName()));
-            table.addCell(safe(district.getCode()));
-            table.addCell(safe(district.getProvinceName()));
-            table.addCell(safe(district.getCountryName()));
-            table.addCell(safe(district.getAdministrativeLevelName()));
-            table.addCell(district.getProvinceId() != null ? district.getProvinceId().toString() : "");
-            table.addCell(district.getAdministrativeLevelId() != null ? district.getAdministrativeLevelId().toString() : "");
-            table.addCell(district.getGeoCoordinatesId() != null ? district.getGeoCoordinatesId().toString() : "");
-            table.addCell(district.getCreatedAt() != null ? district.getCreatedAt().toString() : "");
-            table.addCell(district.getUpdatedAt() != null ? district.getUpdatedAt().toString() : "");
-            table.addCell(district.getEntityStatus() != null ? district.getEntityStatus().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(district.getId()),
+                    safe(district.getName()),
+                    safe(district.getCode()),
+                    safe(district.getProvinceName()),
+                    safe(district.getCountryName()),
+                    safe(district.getAdministrativeLevelName()),
+                    district.getProvinceId() != null ? district.getProvinceId().toString() : "",
+                    district.getAdministrativeLevelId() != null ? district.getAdministrativeLevelId().toString() : "",
+                    district.getGeoCoordinatesId() != null ? district.getGeoCoordinatesId().toString() : "",
+                    district.getCreatedAt() != null ? district.getCreatedAt().toString() : "",
+                    district.getUpdatedAt() != null ? district.getUpdatedAt().toString() : "",
+                    district.getEntityStatus() != null ? district.getEntityStatus().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Districts")
+                .reportCode("LOC-DST")
+                .subtitle("District registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

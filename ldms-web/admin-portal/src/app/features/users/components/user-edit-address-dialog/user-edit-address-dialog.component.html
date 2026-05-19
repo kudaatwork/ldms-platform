@@ -1,59 +1,70 @@
-<h2 mat-dialog-title>Edit address</h2>
-
-<mat-dialog-content class="ued-body">
-  <p class="ued-lead">Updates sync to the location service. Suburb id must match an existing suburb.</p>
-
-  <div class="ued-grid">
-    <label class="ued-field ued-field--full">
-      <span class="ued-label">Line 1 <span class="ued-req">*</span></span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">home</mat-icon>
-        <input [(ngModel)]="line1" placeholder="e.g. 12 Main Road" />
-      </div>
-    </label>
-    <label class="ued-field ued-field--full">
-      <span class="ued-label">Line 2</span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">pin_drop</mat-icon>
-        <input [(ngModel)]="line2" placeholder="e.g. Apartment 6B" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Postal code <span class="ued-req">*</span></span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">local_post_office</mat-icon>
-        <input [(ngModel)]="postalCode" placeholder="e.g. 0000" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Suburb id <span class="ued-req">*</span></span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">location_city</mat-icon>
-        <input inputmode="numeric" [(ngModel)]="suburbIdStr" placeholder="Existing suburb id" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Location address id</span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">place</mat-icon>
-        <input inputmode="numeric" [(ngModel)]="locationAddressIdStr" placeholder="Optional" />
-      </div>
-    </label>
-    <label class="ued-field">
-      <span class="ued-label">Geo coordinates id</span>
-      <div class="lx-input-shell">
-        <mat-icon class="lx-input-shell__icon">my_location</mat-icon>
-        <input inputmode="numeric" [(ngModel)]="geoCoordinatesIdStr" placeholder="Optional" />
-      </div>
-    </label>
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Edit address</h2>
+      <p class="lx-dialog-subtitle">Updates sync to the location service. Suburb id must match an existing suburb.</p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
   </div>
 
-  <p class="ued-error" *ngIf="error">{{ error }}</p>
-</mat-dialog-content>
+  <div class="lx-step-content">
+    <div class="lx-form-grid">
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Line 1 <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">home</mat-icon>
+          <input [(ngModel)]="line1" placeholder="e.g. 12 Main Road" />
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Line 2</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">pin_drop</mat-icon>
+          <input [(ngModel)]="line2" placeholder="e.g. Apartment 6B" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Postal code <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">local_post_office</mat-icon>
+          <input [(ngModel)]="postalCode" placeholder="e.g. 0000" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Suburb id <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">location_city</mat-icon>
+          <input inputmode="numeric" [(ngModel)]="suburbIdStr" placeholder="Existing suburb id" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Location address id</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">place</mat-icon>
+          <input inputmode="numeric" [(ngModel)]="locationAddressIdStr" placeholder="Optional" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Geo coordinates id</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">my_location</mat-icon>
+          <input inputmode="numeric" [(ngModel)]="geoCoordinatesIdStr" placeholder="Optional" />
+        </div>
+      </div>
+    </div>
 
-<mat-dialog-actions align="end">
-  <button type="button" mat-stroked-button (click)="close()" [disabled]="saving">Cancel</button>
-  <button type="button" mat-flat-button color="primary" (click)="save()" [disabled]="saving">
-    {{ saving ? 'Saving…' : 'Save address' }}
-  </button>
-</mat-dialog-actions>
+    <p class="lx-form-error" *ngIf="error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+    </p>
+
+    <div class="lx-step-actions">
+      <button mat-stroked-button type="button" (click)="close()" [disabled]="saving">Cancel</button>
+      <button mat-raised-button color="primary" type="button" (click)="save()" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Save address' }}
+      </button>
+    </div>
+  </div>
+</div>

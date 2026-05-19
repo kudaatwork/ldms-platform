@@ -1,0 +1,50 @@
+@use '../../../../shared/styles/lx-dialog-form-shell';
+
+.nt-detail-body {
+  padding-bottom: 4px;
+}
+
+.nt-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-500, #64748b);
+  padding-top: 6px;
+}
+
+.lx-input-shell--readonly {
+  background: var(--gray-50, #f8fafc);
+}
+
+html.theme-dark .lx-input-shell--readonly {
+  background: color-mix(in srgb, var(--surface) 88%, var(--gray-800));
+}
+
+.lx-input-shell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nt-readonly-value {
+  font-size: 13px;
+  color: var(--gray-800, #1e293b);
+  line-height: 1.45;
+  flex: 1;
+  min-width: 0;
+}
+
+.nt-readonly-status {
+  font-weight: 600;
+}
+
+.nt-readonly-multiline {
+  white-space: pre-wrap;
+}
+
+@media (max-width: 600px) {
+  .nt-detail-body {
+    padding-bottom: 0;
+  }
+}

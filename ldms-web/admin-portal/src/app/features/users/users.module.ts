@@ -1,4 +1,5 @@
 import { NgModule } from '@angular/core';
+import { ScrollingModule } from '@angular/cdk/scrolling';
 import { UsersRoutingModule } from './users-routing.module';
 import { UsersListComponent } from './pages/users-list/users-list.component';
 import { UsersRolesComponent } from './pages/users-roles/users-roles.component';
@@ -11,6 +12,8 @@ import { UserDocumentDetailDialogComponent } from './components/user-document-de
 import { UserEditAddressDialogComponent } from './components/user-edit-address-dialog/user-edit-address-dialog.component';
 import { UserEditAccountDialogComponent } from './components/user-edit-account-dialog/user-edit-account-dialog.component';
 import { UserEditSecurityDialogComponent } from './components/user-edit-security-dialog/user-edit-security-dialog.component';
+import { UserAssignUserGroupDialogComponent } from './components/user-assign-user-group-dialog/user-assign-user-group-dialog.component';
+import { UserGroupMembersDialogComponent } from './components/user-group-members-dialog/user-group-members-dialog.component';
 import { SharedModule } from '../../shared/shared.module';
 
 @NgModule({
@@ -27,6 +30,12 @@ import { SharedModule } from '../../shared/shared.module';
     UserEditAccountDialogComponent,
     UserEditSecurityDialogComponent,
   ],
-  imports: [SharedModule, UsersRoutingModule],
+  imports: [
+    SharedModule,
+    ScrollingModule,
+    UsersRoutingModule,
+    UserAssignUserGroupDialogComponent,
+    UserGroupMembersDialogComponent,
+  ],
 })
 export class UsersModule {}

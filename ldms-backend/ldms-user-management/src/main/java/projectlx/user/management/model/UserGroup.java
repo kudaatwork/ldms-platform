@@ -42,7 +42,7 @@ public class UserGroup {
     @Enumerated(EnumType.STRING)
     private EntityStatus entityStatus;
 
-    @OneToMany(mappedBy = "userGroup", cascade = CascadeType.ALL) // mappedBy refers to 'userGroup' field in User
+    @OneToMany(mappedBy = "userGroup")
     private List<User> users;
 
     @JsonIgnore

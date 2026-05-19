@@ -41,7 +41,7 @@ export class UserDocumentDetailDialogComponent implements OnInit {
         this.loading = false;
         if (!d) {
           this.error =
-            'Could not load this document. Confirm the admin portal proxy reaches the file-upload service (same path as your working curl) and that the upload id exists.';
+            'Could not load this document. Confirm the API gateway routes to the file-upload service and that the upload id exists.';
           return;
         }
         this.doc = d;

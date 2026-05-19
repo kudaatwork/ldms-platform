@@ -27,6 +27,10 @@ spring:
       cache:
         enabled: false
     gateway:
+      # Microservices with @CrossOrigin echo Access-Control-* as well as the gateway CorsWebFilter.
+      # Duplicate Allow-Origin values break browser CORS (locations has no @CrossOrigin and works).
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Allow-Methods Access-Control-Allow-Headers Access-Control-Max-Age Vary, RETAIN_FIRST
       # Local fallback routes so the gateway still works when Config Server
       # is unavailable (import above is optional).
       routes:
@@ -42,12 +46,14 @@ spring:
           uri: lb://ldms-location-management
           predicates:
             - Path=/ldms-locations/v1/frontend/**
+        # Fallback when Config Server is down. Live routes use LdmsNotificationsGatewayRoutesConfiguration
+        # (Config Server still has lb://notifications — wrong Eureka id; programmatic routes win via order).
         - id: local-system-notifications
-          uri: lb://ldms-notifications
+          uri: http://${NOTIFICATIONS_HOST:127.0.0.1}:${NOTIFICATIONS_PORT:8094}
           predicates:
             - Path=/ldms-notifications/v1/system/**
         - id: local-frontend-notifications
-          uri: lb://ldms-notifications
+          uri: http://${NOTIFICATIONS_HOST:127.0.0.1}:${NOTIFICATIONS_PORT:8094}
           predicates:
             - Path=/ldms-notifications/v1/frontend/**
         - id: local-system-user-management

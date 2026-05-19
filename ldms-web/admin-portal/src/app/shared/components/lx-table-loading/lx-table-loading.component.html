@@ -1,0 +1,9 @@
+<div class="lx-table-loading" *ngIf="busy && !hasData" role="status" aria-live="polite">
+  <mat-progress-bar mode="indeterminate" [attr.aria-label]="message"></mat-progress-bar>
+  <p class="lx-table-loading__text">{{ message }}</p>
+</div>
+
+<div class="lx-table-busy-overlay" *ngIf="busy && hasData" role="status" aria-live="polite">
+  <mat-spinner diameter="32" [attr.aria-label]="message"></mat-spinner>
+  <p class="lx-table-busy-overlay__text">{{ message }}</p>
+</div>

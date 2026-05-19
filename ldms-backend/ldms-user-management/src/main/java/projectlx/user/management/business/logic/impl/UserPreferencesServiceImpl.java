@@ -73,8 +73,8 @@ public class UserPreferencesServiceImpl implements UserPreferencesService {
         }
 
         Optional<UserPreferences> userPreferencesRetrieved =
-                userPreferencesRepository.findByIdAndEntityStatusNot(createUserPreferencesRequest.getUserId(),
-                EntityStatus.DELETED);
+                userPreferencesRepository.findByUser_IdAndEntityStatusNot(createUserPreferencesRequest.getUserId(),
+                        EntityStatus.DELETED);
 
         if (userPreferencesRetrieved.isPresent()) {
 
@@ -192,30 +192,18 @@ public class UserPreferencesServiceImpl implements UserPreferencesService {
 
         UserPreferences existingPreferences = userPreferencesRetrieved.get();
 
-        // Check how many users share the same preferences
-        long sharedCount = userPreferencesRepository.countByPreferredLanguageAndTimezoneAndEntityStatusNot(
-                existingPreferences.getPreferredLanguage(),
-                existingPreferences.getTimezone(),
-                EntityStatus.DELETED
-        );
+        if (editUserPreferencesRequest.getUserId() != null
+                && existingPreferences.getUser() != null
+                && !editUserPreferencesRequest.getUserId().equals(existingPreferences.getUser().getId())) {
 
-        UserPreferences preferencesToPersist;
+            message = messageService.getMessage(I18Code.MESSAGE_USER_PREFERENCES_NOT_FOUND.getCode(), new String[]{}, locale);
 
-        if (sharedCount > 1) {
-
-            // Multiple users share this preference, create a new record
-            preferencesToPersist = new UserPreferences();
-        } else {
-
-            // Only this user uses this preference, update the existing record
-            preferencesToPersist = existingPreferences;
+            return buildUserPreferencesResponse(400, false, message, null, null, null);
         }
 
-        // Apply updates
-        applyUpdatesToUserPreferences(preferencesToPersist, editUserPreferencesRequest);
+        applyUpdatesToUserPreferences(existingPreferences, editUserPreferencesRequest);
 
-        // Save the new or updated preferences
-        UserPreferences savedPreferences = userPreferencesServiceAuditable.update(preferencesToPersist, locale, username);
+        UserPreferences savedPreferences = userPreferencesServiceAuditable.update(existingPreferences, locale, username);
 
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         UserPreferencesDto preferencesDtoReturned = modelMapper.map(savedPreferences, UserPreferencesDto.class);

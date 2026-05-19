@@ -1,8 +1,9 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, ReplaySubject, catchError, forkJoin, from, map, mergeMap, of, share, shareReplay, throwError } from 'rxjs';
+import { Observable, ReplaySubject, catchError, forkJoin, from, map, mergeMap, of, share, throwError } from 'rxjs';
 import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
 import { environment } from '../../../../environments/environment';
+import { apiBaseUrl, ldmsApiUrl } from '../../../core/utils/api-url.util';
 import {
   MOCK_ADMIN_LEVELS,
   MOCK_CITIES,
@@ -31,8 +32,10 @@ import type {
   SuburbListResponse,
 } from '../models/location.models';
 
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+
 /** Default page size for location admin tables and list helpers. */
-export const LOCATIONS_TABLE_PAGE_SIZE = 20;
+export const LOCATIONS_TABLE_PAGE_SIZE = DEFAULT_TABLE_PAGE_SIZE;
 
 const DEFAULT_PAGE_SIZE = LOCATIONS_TABLE_PAGE_SIZE;
 
@@ -278,11 +281,11 @@ const SAMPLE_CSV_TEMPLATES: Partial<Record<LocationEntityKind, SampleCsvTemplate
   providedIn: 'root',
 })
 export class LocationsService {
-  private readonly base = environment.apiUrl;
+  private readonly base = apiBaseUrl();
   private countriesSelectCache$?: Observable<LocationSelectOption[]>;
   private districtsSelectCache$?: Observable<LocationSelectOption[]>;
   private suburbsSelectCache$?: Observable<LocationSelectOption[]>;
-  /** Cached tagged rows from `GET …/city|village/find-by-list` (merged for wide pickers). */
+  /** Cached tagged rows from paged `find-by-multiple-filters` on city + village (wide pickers). */
   private locationNodesCatalogCache$?: Observable<Record<string, unknown>[]>;
   private parentNodesSelectCache$?: Observable<LocationSelectOption[]>;
   private provincesSelectCache$?: Observable<LocationSelectOption[]>;
@@ -457,7 +460,13 @@ export class LocationsService {
       catchError(() => of([])),
     );
     if (Object.keys(extraColumnFilters).length === 0) {
-      this.provincesSelectCache$ = loader$.pipe(shareReplay(1));
+      this.provincesSelectCache$ = loader$.pipe(
+        share({
+          connector: () => new ReplaySubject<LocationSelectOption[]>(1),
+          resetOnError: true,
+          resetOnRefCountZero: false,
+        }),
+      );
       return this.provincesSelectCache$;
     }
     return loader$;
@@ -490,7 +499,7 @@ export class LocationsService {
       );
     }
     // Full catalog (e.g. Add City / Village): same mechanism as `fetchCountriesForSelect` —
-    // one paged `find-by-multiple-filters` request + shared replay, not GET `find-by-list` first.
+    // one paged `find-by-multiple-filters` request + shared cache (same as Countries).
     if (Object.keys(extraColumnFilters).length === 0) {
       if (!this.districtsSelectCache$) {
         this.districtsSelectCache$ = this.queryTablePage('district', {
@@ -510,20 +519,14 @@ export class LocationsService {
       }
       return this.districtsSelectCache$;
     }
-    return this.fetchAllRowsByList('district').pipe(
-      map((rows) => this.filterRowsBySelectColumns('district', rows, extraColumnFilters)),
-      map((rows) => this.mapRowsToSelectOptions('district', rows)),
-      catchError(() =>
-        this.queryTablePage('district', {
-          page: 0,
-          size: LOCATION_SELECT_LIST_CAP,
-          searchQuery: '',
-          columnFilters: { name: '', code: '', ...extraColumnFilters },
-        }).pipe(
-          map(({ rows }) => this.mapRowsToSelectOptions('district', rows)),
-          catchError(() => of([])),
-        ),
-      ),
+    return this.queryTablePage('district', {
+      page: 0,
+      size: LOCATION_SELECT_LIST_CAP,
+      searchQuery: '',
+      columnFilters: { name: '', code: '', ...extraColumnFilters },
+    }).pipe(
+      map(({ rows }) => this.mapRowsToSelectOptions('district', rows)),
+      catchError(() => of([])),
     );
   }
 
@@ -549,40 +552,42 @@ export class LocationsService {
       }
       return of(this.mapRowsToSelectOptions('suburb', rows as unknown[]));
     }
-    if (hasNonEmptySelectFilters(extraColumnFilters)) {
-      return this.fetchAllRowsByList('suburb').pipe(
-        map((rows) => this.filterRowsBySelectColumns('suburb', rows, extraColumnFilters)),
-        map((rows) => this.mapRowsToSelectOptions('suburb', rows)),
-        catchError(() =>
-          this.queryTablePage('suburb', {
-            page: 0,
-            size: LOCATION_SELECT_QUERY_SIZE,
-            searchQuery: '',
-            columnFilters: { name: '', code: '', ...extraColumnFilters },
-          }).pipe(
-            map(({ rows }) => this.mapRowsToSelectOptions('suburb', rows)),
-            catchError(() => of([])),
-          ),
-        ),
-      );
+    const pageSize = hasNonEmptySelectFilters(extraColumnFilters)
+      ? LOCATION_SELECT_QUERY_SIZE
+      : LOCATION_SELECT_LIST_CAP;
+    const cityIdFilter = extraColumnFilters['cityId']?.trim();
+    const serverFilters: Record<string, string> = { name: '', code: '', ...extraColumnFilters };
+    if (cityIdFilter) {
+      delete serverFilters['cityId'];
     }
-    const loader$ = this.fetchAllRowsByList('suburb').pipe(
-      map((rows) => this.filterRowsBySelectColumns('suburb', rows, extraColumnFilters)),
-      map((rows) => this.mapRowsToSelectOptions('suburb', rows)),
-      catchError(() =>
-        this.queryTablePage('suburb', {
-          page: 0,
-          size: LOCATION_SELECT_LIST_CAP,
-          searchQuery: '',
-          columnFilters: { name: '', code: '', ...extraColumnFilters },
-        }).pipe(
-          map(({ rows }) => this.mapRowsToSelectOptions('suburb', rows)),
-          catchError(() => of([])),
-        ),
-      ),
+    const loader$ = this.queryTablePage('suburb', {
+      page: 0,
+      size: pageSize,
+      searchQuery: '',
+      columnFilters: serverFilters,
+    }).pipe(
+      map(({ rows }) => {
+        let list = rows;
+        if (cityIdFilter) {
+          const cityId = Number(cityIdFilter);
+          if (Number.isFinite(cityId)) {
+            list = (rows as Record<string, unknown>[]).filter((r) =>
+              suburbMatchesSelectedCity(r['cityId'], cityId),
+            );
+          }
+        }
+        return this.mapRowsToSelectOptions('suburb', list);
+      }),
+      catchError(() => of([])),
     );
     if (Object.keys(extraColumnFilters).length === 0) {
-      this.suburbsSelectCache$ = loader$.pipe(shareReplay(1));
+      this.suburbsSelectCache$ = loader$.pipe(
+        share({
+          connector: () => new ReplaySubject<LocationSelectOption[]>(1),
+          resetOnError: true,
+          resetOnRefCountZero: false,
+        }),
+      );
       return this.suburbsSelectCache$;
     }
     return loader$;
@@ -608,8 +613,12 @@ export class LocationsService {
       columnFilters: { name: '', code: '', description: '' },
     }).pipe(
       map(({ rows }) => this.mapRowsToSelectOptions('admin-level', rows)),
+      share({
+        connector: () => new ReplaySubject<LocationSelectOption[]>(1),
+        resetOnError: true,
+        resetOnRefCountZero: false,
+      }),
       catchError(() => of([])),
-      shareReplay(1),
     );
     return this.adminLevelsSelectCache$;
   }
@@ -657,7 +666,13 @@ export class LocationsService {
       const villageOpts = this.mapRowsToSelectOptions('village', MOCK_VILLAGES as unknown[]);
       this.parentNodesSelectCache$ = of(
         [...cityOpts, ...villageOpts].sort((a, b) => a.label.localeCompare(b.label)),
-      ).pipe(shareReplay(1));
+      ).pipe(
+        share({
+          connector: () => new ReplaySubject<LocationSelectOption[]>(1),
+          resetOnError: true,
+          resetOnRefCountZero: false,
+        }),
+      );
       return this.parentNodesSelectCache$;
     }
     this.parentNodesSelectCache$ = this.fetchLocationNodesCatalogRows().pipe(
@@ -669,14 +684,17 @@ export class LocationsService {
         return [...cityOpts, ...villageOpts].sort((a, b) => a.label.localeCompare(b.label));
       }),
       catchError(() => of([])),
-      shareReplay(1),
+      share({
+        connector: () => new ReplaySubject<LocationSelectOption[]>(1),
+        resetOnError: true,
+        resetOnRefCountZero: false,
+      }),
     );
     return this.parentNodesSelectCache$;
   }
 
   /**
    * Cities and villages in `districtId` for optional-parent dropdowns (Add/Edit City, Village).
-   * Uses `find-by-list` + client filter; does not page through `find-by-multiple-filters`.
    */
   fetchLocationNodeParentOptionsForDistrict(
     districtId: number,
@@ -700,9 +718,9 @@ export class LocationsService {
   }
 
   /**
-   * Warm the *light* shareReplay-backed FK lists the location form dialogs need
+   * Warm the *light* cached FK lists the location form dialogs need
    * upfront. Deliberately excludes `fetchLocationNodesForParentSelect` (combined city +
-   * village catalog from `find-by-list`) — that list is large and lazy-loaded where needed.
+   * village catalog) — that list is large and lazy-loaded where needed.
    */
   prefetchAllDialogOptions(): Observable<void> {
     return forkJoin({
@@ -1089,16 +1107,7 @@ export class LocationsService {
     return [];
   }
 
-  private fetchAllRowsByList(kind: Exclude<LocationEntityKind, 'city' | 'village' | 'address'>): Observable<unknown[]> {
-    const dtoPageKey = this.dtoPageKeyForTable(kind);
-    const dtoListKey = dtoPageKey.replace(/Page$/, 'List');
-    return this.http.get<unknown>(this.url(kind, 'find-by-list')).pipe(
-      map((r) => this.extractEntityRows<unknown>(r, dtoPageKey, dtoListKey)),
-      catchError((err) => this.emptyOnNotFound<unknown>(err)),
-    );
-  }
-
-  /** Cities + villages from first-class `GET …/city|village/find-by-list` (shared cache). */
+  /** Cities + villages via paged `find-by-multiple-filters` (same transport as Countries table). */
   private fetchLocationNodesCatalogRows(): Observable<Record<string, unknown>[]> {
     if (environment.useMocks) {
       const tagged = [
@@ -1112,17 +1121,23 @@ export class LocationsService {
     }
     if (!this.locationNodesCatalogCache$) {
       this.locationNodesCatalogCache$ = forkJoin({
-        cities: this.http.get<unknown>(this.url('city', 'find-by-list')),
-        villages: this.http.get<unknown>(this.url('village', 'find-by-list')),
-      }).pipe(
-        map(({ cities, villages }) => {
-          const cRows = this.extractEntityRows<Record<string, unknown>>(cities, 'cityDtoPage', 'cityDtoList');
-          const vRows = this.extractEntityRows<Record<string, unknown>>(villages, 'villageDtoPage', 'villageDtoList');
-          return [
-            ...cRows.map((r) => ({ ...r, _catalogKind: 'city' as const })),
-            ...vRows.map((r) => ({ ...r, _catalogKind: 'village' as const })),
-          ];
+        cities: this.queryTablePage('city', {
+          page: 0,
+          size: LOCATION_SELECT_LIST_CAP,
+          searchQuery: '',
+          columnFilters: { name: '', code: '' },
         }),
+        villages: this.queryTablePage('village', {
+          page: 0,
+          size: LOCATION_SELECT_LIST_CAP,
+          searchQuery: '',
+          columnFilters: { name: '', code: '' },
+        }),
+      }).pipe(
+        map(({ cities, villages }) => [
+          ...(cities.rows as Record<string, unknown>[]).map((r) => ({ ...r, _catalogKind: 'city' as const })),
+          ...(villages.rows as Record<string, unknown>[]).map((r) => ({ ...r, _catalogKind: 'village' as const })),
+        ]),
         catchError(() => of([])),
         share({
           connector: () => new ReplaySubject<Record<string, unknown>[]>(1),
@@ -1132,40 +1147,6 @@ export class LocationsService {
       );
     }
     return this.locationNodesCatalogCache$;
-  }
-
-  private filterRowsBySelectColumns(
-    kind: 'district' | 'suburb',
-    rows: unknown[],
-    extraColumnFilters: Record<string, string>,
-  ): unknown[] {
-    if (!rows.length) {
-      return rows;
-    }
-    const list = rows as Record<string, unknown>[];
-    const districtIdFilter = extraColumnFilters['districtId']?.trim();
-    const provinceIdFilter = extraColumnFilters['provinceId']?.trim();
-    const districtId = districtIdFilter ? Number(districtIdFilter) : null;
-    const provinceId = provinceIdFilter ? Number(provinceIdFilter) : null;
-
-    if (kind === 'district' && Number.isFinite(provinceId as number)) {
-      return list.filter((r) => Number(r['provinceId']) === provinceId);
-    }
-    if (kind === 'suburb') {
-      let out = list;
-      if (Number.isFinite(districtId as number)) {
-        out = out.filter((r) => Number(r['districtId']) === districtId);
-      }
-      const cityIdFilter = extraColumnFilters['cityId']?.trim();
-      const cityIdParsed = cityIdFilter ? Number(cityIdFilter) : NaN;
-      if (Number.isFinite(cityIdParsed)) {
-        // Backend `SuburbDto` often omits `cityId` until rows are backfilled; those suburbs must
-        // still appear after the user picks a city (district-wide legacy).
-        out = out.filter((r) => suburbMatchesSelectedCity(r['cityId'], cityIdParsed));
-      }
-      return out;
-    }
-    return list;
   }
 
   private toObj(value: unknown): Record<string, unknown> | null {
@@ -1591,19 +1572,81 @@ export class LocationsService {
     return Number.isFinite(n) ? n : null;
   }
 
+  /** Same contract as Users admin: gateways may stringify JSON or nest the page under `data` / `body` / `payload`. */
+  private parsePossiblyStringifiedJson(value: unknown): unknown {
+    if (typeof value !== 'string') {
+      return value;
+    }
+    const trimmed = value.trim();
+    if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) {
+      return value;
+    }
+    try {
+      return JSON.parse(trimmed) as unknown;
+    } catch {
+      return value;
+    }
+  }
+
+  /**
+   * Locates a Spring `Page` JSON object when the known DTO key is missing (mirrors
+   * `UsersAdminService.findPageObject` for location `find-by-multiple-filters` responses).
+   */
+  private findPageObject(src: Record<string, unknown>): Record<string, unknown> | null {
+    if (Array.isArray(src['content'])) {
+      return src;
+    }
+    for (const value of Object.values(src)) {
+      const nested = this.toObj(value);
+      if (!nested) continue;
+      const found = this.findPageObject(nested);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  /** e.g. `countryDtoPage` → `country_dto_page` for snake_case API envelopes. */
+  private snakeDtoPageKey(dtoPageKey: string): string | null {
+    const m = /^(.+?)DtoPage$/.exec(dtoPageKey);
+    if (!m) {
+      return null;
+    }
+    const base = m[1].replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+    return `${base}_dto_page`;
+  }
+
   private extractPagedResult(response: unknown, dtoPageKey: string): { rows: unknown[]; totalElements: number } {
     const empty = { rows: [] as unknown[], totalElements: 0 };
-    const obj = this.toObj(response);
+    const parsed = this.parsePossiblyStringifiedJson(response);
+    const obj = this.toObj(parsed);
     if (!obj) {
       return empty;
     }
-    const candidates = [obj, this.toObj(obj['data'])].filter(Boolean) as Record<string, unknown>[];
-    for (const src of candidates) {
-      const direct = this.readSpringPage(src[dtoPageKey]);
-      if (direct) {
-        return direct;
+    const envelopeSources = [
+      obj,
+      this.toObj(obj['data']),
+      this.toObj(obj['body']),
+      this.toObj(obj['payload']),
+    ].filter(Boolean) as Record<string, unknown>[];
+
+    const snakeKey = this.snakeDtoPageKey(dtoPageKey);
+    const explicitPageKeys = [dtoPageKey, dtoPageKey.replace(/DtoPage$/, 'Page'), 'page', ...(snakeKey ? [snakeKey] : [])];
+    const dedupedKeys = [...new Set(explicitPageKeys.filter((k) => !!k))];
+
+    for (const src of envelopeSources) {
+      for (const key of dedupedKeys) {
+        const direct = this.readSpringPage(src[key]);
+        if (direct) {
+          return direct;
+        }
       }
-      // Fallback for endpoints that may return *DtoList instead of *DtoPage.
+      const discovered = this.findPageObject(src);
+      if (discovered) {
+        const fromNested = this.readSpringPage(discovered);
+        if (fromNested) {
+          return fromNested;
+        }
+      }
       const listKey = dtoPageKey.replace(/Page$/, 'List');
       const list = src[listKey];
       if (Array.isArray(list)) {

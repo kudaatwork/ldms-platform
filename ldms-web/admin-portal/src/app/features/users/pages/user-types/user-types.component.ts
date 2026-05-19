@@ -2,15 +2,23 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { UsersAdminService } from '../../services/users-admin.service';
 import { PageEvent } from '@angular/material/paginator';
-import { Subject, debounceTime } from 'rxjs';
+import { Subject, debounceTime, finalize } from 'rxjs';
+import {
+  LxExportFormat,
+  downloadBlob,
+  exportFilename,
+} from '@shared/utils/lx-export.util';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 
 interface UserTypeRow {
   id: number;
   name: string;
   description: string;
+  status: string;
+  statusLabel: string;
 }
 
 @Component({
@@ -20,9 +28,10 @@ interface UserTypeRow {
   standalone: false,
 })
 export class UserTypesComponent implements OnInit {
-  private static readonly ROWS_CACHE_KEY = 'lx.admin.users.userTypes.rows';
+  private static readonly ROWS_CACHE_KEY = 'lx.admin.users.userTypes.rows.v2';
   fetching = false;
-  displayedColumns = ['name', 'description', 'actions'];
+  exporting = false;
+  displayedColumns = ['name', 'description', 'status', 'actions'];
   searchQuery = '';
   filterFieldsOpen = false;
   showSampleCsvInfo = false;
@@ -32,7 +41,7 @@ export class UserTypesComponent implements OnInit {
     'CSV import only. Keep `userTypeName` and `description` headers unchanged and ensure type names are unique.';
   columnFilters = { userTypeName: '', description: '' };
   pageIndex = 0;
-  pageSize = 10;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
   totalRecords = 0;
   private readonly reload$ = new Subject<void>();
   private latestLoadToken = 0;
@@ -88,7 +97,43 @@ export class UserTypesComponent implements OnInit {
 
   stubImport(): void {}
 
-  stubExport(): void {}
+  exportAs(format: LxExportFormat): void {
+    if (this.exporting) {
+      return;
+    }
+    this.exporting = true;
+    this.usersService
+      .exportUserTypes(
+        {
+          page: this.pageIndex,
+          size: this.pageSize,
+          searchQuery: this.searchQuery,
+          columnFilters: this.columnFilters,
+        },
+        format,
+      )
+      .pipe(
+        finalize(() => {
+          this.exporting = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (blob) => {
+          downloadBlob(blob, exportFilename('user-types', format));
+          this.snackBar.open(`Exported user types as ${format.toUpperCase()}.`, 'Close', {
+            duration: 3500,
+            panelClass: ['app-snackbar-success'],
+          });
+        },
+        error: (err: Error) => {
+          this.snackBar.open(err.message ?? 'Export failed.', 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-error'],
+          });
+        },
+      });
+  }
 
   downloadSampleCsv(): void {
     const rows = [
@@ -291,11 +336,7 @@ export class UserTypesComponent implements OnInit {
             this.loadRows(opts);
             return;
           }
-          this.rows = rows.map((r) => ({
-            id: Number(r['id'] ?? 0),
-            name: String(r['userTypeName'] ?? ''),
-            description: String(r['description'] ?? '—'),
-          }));
+          this.rows = rows.map((r) => this.mapRecordToUserTypeRow(r));
           this.totalRecords = totalElements;
           this.persistRowsCache();
           this.fetching = false;
@@ -336,10 +377,13 @@ export class UserTypesComponent implements OnInit {
       const restored = parsed
         .map((r) => {
           const rec = r as Record<string, unknown>;
+          const statusRaw = String(rec['status'] ?? rec['entityStatus'] ?? 'active').toLowerCase();
           return {
             id: Number(rec['id'] ?? 0),
             name: String(rec['name'] ?? ''),
             description: String(rec['description'] ?? '—'),
+            status: statusRaw,
+            statusLabel: String(rec['statusLabel'] ?? this.readableStatus(statusRaw)),
           };
         })
         .filter((r) => Number.isFinite(r.id) && r.id > 0 && r.name.trim().length > 0);
@@ -381,6 +425,8 @@ export class UserTypesComponent implements OnInit {
       id: createdId,
       name: model.userTypeName.trim(),
       description: model.description.trim(),
+      status: 'active',
+      statusLabel: 'Active',
     };
     const withoutDup = this.rows.filter((r) => r.id !== createdId);
     let next = [...withoutDup, nextRow];
@@ -393,7 +439,7 @@ export class UserTypesComponent implements OnInit {
   }
 
   private applyOptimisticCreateRow(tempId: number, name: string, description: string): void {
-    const nextRow: UserTypeRow = { id: tempId, name, description };
+    const nextRow: UserTypeRow = { id: tempId, name, description, status: 'active', statusLabel: 'Active' };
     const withoutDup = this.rows.filter((r) => r.id !== tempId);
     let next = [...withoutDup, nextRow];
     if (next.length > this.pageSize) {
@@ -413,11 +459,11 @@ export class UserTypesComponent implements OnInit {
     const idx = this.rows.findIndex((r) => r.id === temp);
     if (idx >= 0) {
       const next = [...this.rows];
-      next[idx] = { id: createdId, name, description };
+      next[idx] = { id: createdId, name, description, status: 'active', statusLabel: 'Active' };
       this.rows = next;
     } else {
       const filtered = this.rows.filter((r) => r.id !== createdId);
-      let next = [...filtered, { id: createdId, name, description }];
+      let next = [...filtered, { id: createdId, name, description, status: 'active', statusLabel: 'Active' }];
       if (next.length > this.pageSize) {
         next = next.slice(next.length - this.pageSize);
       }
@@ -517,5 +563,23 @@ export class UserTypesComponent implements OnInit {
     return value !== null && typeof value === 'object' && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : null;
+  }
+
+  private mapRecordToUserTypeRow(r: Record<string, unknown>): UserTypeRow {
+    const statusRaw = String(r['entityStatus'] ?? 'ACTIVE').toLowerCase();
+    return {
+      id: Number(r['id'] ?? 0),
+      name: String(r['userTypeName'] ?? ''),
+      description: String(r['description'] ?? '—'),
+      status: statusRaw,
+      statusLabel: this.readableStatus(statusRaw),
+    };
+  }
+
+  private readableStatus(raw: string): string {
+    if (raw === 'active') return 'Active';
+    if (raw === 'inactive') return 'Inactive';
+    if (raw === 'deleted') return 'Deleted';
+    return 'Pending';
   }
 }

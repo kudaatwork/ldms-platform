@@ -1,0 +1,43 @@
+@use '../../../../shared/styles/lx-dialog-form-shell';
+
+:host {
+  display: block;
+}
+
+.assign-user-group-dialog {
+  width: 100%;
+  max-width: 560px;
+  position: relative;
+}
+
+.assign-user-group-dialog__accent {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--primary) 85%, #6366f1),
+    color-mix(in srgb, #06b6d4 70%, var(--primary))
+  );
+  z-index: 1;
+}
+
+.assign-user-group-dialog .lx-dialog-header {
+  padding-top: 30px;
+}
+
+.assign-ug-field {
+  width: 100%;
+}
+
+.assign-ug-hint {
+  margin-top: 4px;
+}
+
+.assign-ug-empty {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--gray-600);
+}

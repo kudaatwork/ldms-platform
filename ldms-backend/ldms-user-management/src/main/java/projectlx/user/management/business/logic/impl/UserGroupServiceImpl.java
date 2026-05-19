@@ -1,15 +1,8 @@
 package projectlx.user.management.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -32,10 +25,12 @@ import projectlx.user.management.utils.dtos.UserGroupDto;
 import projectlx.user.management.utils.dtos.UserRoleDto;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.user.management.utils.requests.AddUserToUserGroupRequest;
+import projectlx.user.management.utils.requests.AddUsersToUserGroupRequest;
 import projectlx.user.management.utils.requests.AssignUserRoleToUserGroupRequest;
 import projectlx.user.management.utils.requests.CreateUserGroupRequest;
 import projectlx.user.management.utils.requests.EditUserGroupRequest;
 import projectlx.user.management.utils.requests.RemoveUserRolesFromUserGroupRequest;
+import projectlx.user.management.utils.requests.RemoveUsersFromUserGroupRequest;
 import projectlx.user.management.utils.requests.UserGroupMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserGroupResponse;
 import lombok.RequiredArgsConstructor;
@@ -48,7 +43,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
-import java.awt.Color;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -56,8 +52,10 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -69,6 +67,8 @@ import projectlx.user.management.utils.dtos.ImportSummary;
 
 @RequiredArgsConstructor
 public class UserGroupServiceImpl implements UserGroupService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserGroupServiceImpl.class);
 
     private final UserGroupServiceValidator userGroupServiceValidator;
     private final MessageService messageService;
@@ -134,6 +134,7 @@ public class UserGroupServiceImpl implements UserGroupService {
         }
 
         UserGroupDto useGroupDtoReturned = modelMapper.map(userGroupSaved, UserGroupDto.class);
+        enrichMemberCount(useGroupDtoReturned);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_CREATED_SUCCESSFULLY.getCode(), new String[]{},
                     locale);
@@ -184,6 +185,7 @@ public class UserGroupServiceImpl implements UserGroupService {
             }
         }
         userGroupDto.setUserRoleDtoSet(roleDtos);
+        enrichMemberCount(userGroupDto);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -209,6 +211,9 @@ public class UserGroupServiceImpl implements UserGroupService {
         }
 
         List<UserGroupDto> userGroupDtoList = modelMapper.map(userGroupList, new TypeToken<List<UserGroupDto>>(){}.getType());
+        for (UserGroupDto dto : userGroupDtoList) {
+            enrichMemberCount(dto);
+        }
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -247,10 +252,14 @@ public class UserGroupServiceImpl implements UserGroupService {
 
         UserGroup userGroupToBeEdited = userGroupRetrieved.get();
 
+        userGroupToBeEdited.setName(editUserGroupRequest.getName());
+        userGroupToBeEdited.setDescription(editUserGroupRequest.getDescription());
+
         UserGroup userGroupEdited = userGroupServiceAuditable.update(userGroupToBeEdited, locale, username);
 
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         UserGroupDto userGroupDtoReturned = modelMapper.map(userGroupEdited, UserGroupDto.class);
+        enrichMemberCount(userGroupDtoReturned);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_UPDATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -260,6 +269,7 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
+    @Transactional
     public UserGroupResponse delete(Long id, Locale locale, String username) {
 
         String message = "";
@@ -288,11 +298,17 @@ public class UserGroupServiceImpl implements UserGroupService {
         }
 
         UserGroup userGroupToBeDeleted = userGroupRetrieved.get();
+        detachAllUsersFromGroup(userGroupToBeDeleted.getId(), locale, username);
+        // Drop join-table links only for this group; UserRole rows stay and remain linked to other groups.
+        if (userGroupToBeDeleted.getUserRoles() != null) {
+            userGroupToBeDeleted.getUserRoles().clear();
+        }
         userGroupToBeDeleted.setEntityStatus(EntityStatus.DELETED);
 
         UserGroup userGroupDeleted = userGroupServiceAuditable.delete(userGroupToBeDeleted, locale, username);
 
         UserGroupDto useGroupDtoReturned = modelMapper.map(userGroupDeleted, UserGroupDto.class);
+        enrichMemberCount(useGroupDtoReturned);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_DELETED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -352,15 +368,6 @@ public class UserGroupServiceImpl implements UserGroupService {
 
         Page<UserGroup> result = userGroupRepository.findAll(spec, pageable);
 
-        if (result.getContent().isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_NOT_FOUND.getCode(),
-                    new String[]{}, locale);
-
-            return buildUserGroupResponse(404, false, message,null, null,
-                    null);
-        }
-
         Page<UserGroupDto> userGroupDtoPage = convertUserGroupEntityToUserGroupDto(result);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_RETRIEVED_SUCCESSFULLY.getCode(),
@@ -414,7 +421,18 @@ public class UserGroupServiceImpl implements UserGroupService {
                     null);
         }
 
-        if (userGroupToBeUpdated.getUserRoles().containsAll(userRoleSet)) {
+        Set<Long> existingRoleIds = userGroupToBeUpdated.getUserRoles().stream()
+                .map(UserRole::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Set<UserRole> rolesToAssign = userRoleSet.stream()
+                .filter(role -> role.getId() != null && !existingRoleIds.contains(role.getId()))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        int skippedRoleCount = userRoleSet.size() - rolesToAssign.size();
+
+        if (rolesToAssign.isEmpty()) {
 
             message = messageService.getMessage(I18Code.MESSAGE_USER_ROLES_ALREADY_ASSIGNED.getCode(),
                     new String[]{}, locale);
@@ -423,8 +441,9 @@ public class UserGroupServiceImpl implements UserGroupService {
                     null);
         }
 
-        userRoleSet.addAll(userGroupToBeUpdated.getUserRoles());
-        userGroupToBeUpdated.setUserRoles(userRoleSet);
+        Set<UserRole> mergedRoles = new LinkedHashSet<>(userGroupToBeUpdated.getUserRoles());
+        mergedRoles.addAll(rolesToAssign);
+        userGroupToBeUpdated.setUserRoles(mergedRoles);
 
         UserGroup userGroupUpdated = userGroupServiceAuditable.update(userGroupToBeUpdated, locale, username);
 
@@ -434,10 +453,18 @@ public class UserGroupServiceImpl implements UserGroupService {
                 new TypeToken<List<UserRoleDto>>() {}.getType());
 
         userGroupDto.setUserRoleDtoSet(userRoleDtoList);
+        enrichMemberCount(userGroupDto);
 
-        message = messageService.getMessage(
-                I18Code.MESSAGE_USER_ROLE_ASSIGNED_SUCCESSFULLY.getCode(), new String[]{},
-                locale);
+        if (skippedRoleCount > 0) {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_USER_ROLES_ASSIGNED_WITH_SKIPPED.getCode(),
+                    new String[]{String.valueOf(skippedRoleCount), String.valueOf(rolesToAssign.size())},
+                    locale);
+        } else {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_USER_ROLE_ASSIGNED_SUCCESSFULLY.getCode(), new String[]{},
+                    locale);
+        }
 
         return buildUserGroupResponse(201, true, message, userGroupDto, null,
                 null);
@@ -510,6 +537,7 @@ public class UserGroupServiceImpl implements UserGroupService {
                 new TypeToken<List<UserRoleDto>>() {}.getType());
 
         userGroupDto.setUserRoleDtoSet(userRoleDtoList);
+        enrichMemberCount(userGroupDto);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_ROLES_REMOVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -519,26 +547,38 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
+    @Transactional
     public UserGroupResponse addUserGroupToUser(AddUserToUserGroupRequest addUserToUserGroupRequest, Locale locale, String username) {
+
+        AddUsersToUserGroupRequest batchRequest = new AddUsersToUserGroupRequest();
+        batchRequest.setUserGroupId(addUserToUserGroupRequest.getUserGroupId());
+        batchRequest.setUserIds(List.of(addUserToUserGroupRequest.getUserId()));
+        return addUsersToUserGroup(batchRequest, locale, username);
+    }
+
+    @Override
+    @Transactional
+    public UserGroupResponse addUsersToUserGroup(AddUsersToUserGroupRequest addUsersToUserGroupRequest, Locale locale,
+                                                 String username) {
 
         String message = "";
 
-        ValidatorDto validatorDto = userGroupServiceValidator.isRequestValidToAddUserToUserGroup(addUserToUserGroupRequest, locale);
+        ValidatorDto validatorDto = userGroupServiceValidator.isRequestValidToAddUsersToUserGroup(
+                addUsersToUserGroupRequest, locale);
 
         if (!validatorDto.getSuccess()) {
 
-            message = messageService.getMessage(I18Code.MESSAGE_INVALID_ADD_USER_GROUP_TO_USER_REQUEST.getCode(),
+            message = messageService.getMessage(I18Code.MESSAGE_INVALID_ADD_USERS_TO_USER_GROUP_REQUEST.getCode(),
                     new String[]{}, locale);
 
-            UserGroupResponse response = buildUserGroupResponseWithErrors(400, false, message, null, null, validatorDto.getErrorMessages());
-            return response;
+            return buildUserGroupResponseWithErrors(400, false, message, null, null, validatorDto.getErrorMessages());
         }
 
-        Optional<UserGroup> userGroup =
-                userGroupRepository.findByIdAndEntityStatusNot(addUserToUserGroupRequest.getUserGroupId(),
+        Optional<UserGroup> userGroupOptional =
+                userGroupRepository.findByIdAndEntityStatusNot(addUsersToUserGroupRequest.getUserGroupId(),
                         EntityStatus.DELETED);
 
-        if (userGroup.isEmpty()) {
+        if (userGroupOptional.isEmpty()) {
 
             message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_NOT_FOUND.getCode(), new String[]{},
                     locale);
@@ -547,31 +587,210 @@ public class UserGroupServiceImpl implements UserGroupService {
                     null);
         }
 
-        Optional<User> userRetrieved = userRepository.findByIdAndEntityStatusNot(
-                addUserToUserGroupRequest.getUserId(), EntityStatus.DELETED);
+        UserGroup targetGroup = userGroupOptional.get();
+        Set<Long> affectedGroupIds = new LinkedHashSet<>();
+        affectedGroupIds.add(targetGroup.getId());
+        int skippedUserCount = 0;
+        int addedUserCount = 0;
 
-        if (userRetrieved.isEmpty()) {
+        for (Long userId : addUsersToUserGroupRequest.getUserIds()) {
 
-            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(),
+            Optional<User> userOptional = userRepository.findByIdAndEntityStatusNot(userId, EntityStatus.DELETED);
+
+            if (userOptional.isEmpty()) {
+
+                message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(),
+                        new String[]{}, locale);
+
+                return buildUserGroupResponse(400, false, message, null, null,
+                        null);
+            }
+
+            User user = userOptional.get();
+            UserGroup previousGroup = user.getUserGroup();
+
+            if (previousGroup != null
+                    && previousGroup.getId() != null
+                    && previousGroup.getId().equals(targetGroup.getId())) {
+                skippedUserCount++;
+                continue;
+            }
+
+            if (previousGroup != null && previousGroup.getId() != null) {
+                affectedGroupIds.add(previousGroup.getId());
+            }
+
+            user.setUserGroup(targetGroup);
+            userServiceAuditable.update(user, locale, username);
+            addedUserCount++;
+        }
+
+        if (addedUserCount == 0) {
+
+            message = messageService.getMessage(I18Code.MESSAGE_USERS_ALREADY_IN_USER_GROUP.getCode(),
                     new String[]{}, locale);
 
             return buildUserGroupResponse(400, false, message, null, null,
                     null);
         }
 
-        User userToBeUpdated = userRetrieved.get();
+        List<UserGroupDto> affectedGroupDtos = buildEnrichedUserGroupDtos(affectedGroupIds);
+        UserGroupDto primaryDto = affectedGroupDtos.stream()
+                .filter(dto -> dto.getId() != null && dto.getId().equals(targetGroup.getId()))
+                .findFirst()
+                .orElse(affectedGroupDtos.isEmpty() ? null : affectedGroupDtos.get(0));
 
-        userToBeUpdated.setUserGroup(userGroup.get());
+        if (skippedUserCount > 0) {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_USERS_ADDED_TO_USER_GROUP_WITH_SKIPPED.getCode(),
+                    new String[]{String.valueOf(skippedUserCount), String.valueOf(addedUserCount)},
+                    locale);
+        } else {
+            message = messageService.getMessage(I18Code.MESSAGE_USERS_ADDED_TO_USER_GROUP_SUCCESSFULLY.getCode(),
+                    new String[]{}, locale);
+        }
 
-        User userUpdated = userServiceAuditable.update(userToBeUpdated, locale, username);
-
-        UserGroupDto userGroupDto = modelMapper.map(userGroup.get(), UserGroupDto.class);
-
-        message = messageService.getMessage(I18Code.MESSAGE_USER_UPDATED_SUCCESSFULLY.getCode(),
-                new String[]{userUpdated.getUsername()}, locale);
-
-        return buildUserGroupResponse(200, true, message, userGroupDto, null,
+        return buildUserGroupResponse(200, true, message, primaryDto, affectedGroupDtos,
                 null);
+    }
+
+    @Override
+    @Transactional
+    public UserGroupResponse removeUsersFromUserGroup(RemoveUsersFromUserGroupRequest removeUsersFromUserGroupRequest,
+                                                      Locale locale, String username) {
+
+        String message = "";
+
+        ValidatorDto validatorDto = userGroupServiceValidator.isRequestValidToRemoveUsersFromUserGroup(
+                removeUsersFromUserGroupRequest, locale);
+
+        if (!validatorDto.getSuccess()) {
+
+            message = messageService.getMessage(I18Code.MESSAGE_INVALID_REMOVE_USERS_FROM_USER_GROUP_REQUEST.getCode(),
+                    new String[]{}, locale);
+
+            return buildUserGroupResponseWithErrors(400, false, message, null, null, validatorDto.getErrorMessages());
+        }
+
+        Optional<UserGroup> userGroupOptional =
+                userGroupRepository.findByIdAndEntityStatusNot(removeUsersFromUserGroupRequest.getUserGroupId(),
+                        EntityStatus.DELETED);
+
+        if (userGroupOptional.isEmpty()) {
+
+            message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_NOT_FOUND.getCode(), new String[]{},
+                    locale);
+
+            return buildUserGroupResponse(400, false, message, null, null,
+                    null);
+        }
+
+        UserGroup userGroup = userGroupOptional.get();
+        boolean removedAny = false;
+
+        for (Long userId : removeUsersFromUserGroupRequest.getUserIds()) {
+
+            Optional<User> userOptional = userRepository.findByIdAndEntityStatusNot(userId, EntityStatus.DELETED);
+
+            if (userOptional.isEmpty()) {
+
+                message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(),
+                        new String[]{}, locale);
+
+                return buildUserGroupResponse(400, false, message, null, null,
+                        null);
+            }
+
+            User user = userOptional.get();
+            UserGroup assignedGroup = user.getUserGroup();
+
+            if (assignedGroup == null || assignedGroup.getId() == null
+                    || !assignedGroup.getId().equals(userGroup.getId())) {
+
+                message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_ASSIGNED_TO_USER_GROUP.getCode(),
+                        new String[]{}, locale);
+
+                return buildUserGroupResponse(400, false, message, null, null,
+                        null);
+            }
+
+            user.setUserGroup(null);
+            userServiceAuditable.update(user, locale, username);
+            removedAny = true;
+        }
+
+        if (!removedAny) {
+
+            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_ASSIGNED_TO_USER_GROUP.getCode(),
+                    new String[]{}, locale);
+
+            return buildUserGroupResponse(400, false, message, null, null,
+                    null);
+        }
+
+        UserGroupDto userGroupDto = modelMapper.map(userGroup, UserGroupDto.class);
+        enrichMemberCount(userGroupDto);
+
+        message = messageService.getMessage(I18Code.MESSAGE_USERS_REMOVED_FROM_USER_GROUP_SUCCESSFULLY.getCode(),
+                new String[]{}, locale);
+
+        return buildUserGroupResponse(200, true, message, userGroupDto, List.of(userGroupDto),
+                null);
+    }
+
+    private List<UserGroupDto> buildEnrichedUserGroupDtos(Set<Long> groupIds) {
+        List<UserGroupDto> dtoList = new ArrayList<>();
+        if (groupIds == null || groupIds.isEmpty()) {
+            return dtoList;
+        }
+        for (Long groupId : groupIds) {
+            if (groupId == null || groupId < 1) {
+                continue;
+            }
+            Optional<UserGroup> groupOptional = userGroupRepository.findByIdAndEntityStatusNot(groupId, EntityStatus.DELETED);
+            if (groupOptional.isEmpty()) {
+                continue;
+            }
+            UserGroupDto dto = modelMapper.map(groupOptional.get(), UserGroupDto.class);
+            enrichMemberCount(dto);
+            dtoList.add(dto);
+        }
+        return dtoList;
+    }
+
+    private void detachAllUsersFromGroup(Long userGroupId, Locale locale, String username) {
+        if (userGroupId == null || userGroupId < 1) {
+            return;
+        }
+        List<User> assignedUsers = userRepository.findByUserGroup_IdAndEntityStatusNot(userGroupId, EntityStatus.DELETED);
+        for (User user : assignedUsers) {
+            UserGroup assignedGroup = user.getUserGroup();
+            if (assignedGroup == null || assignedGroup.getId() == null
+                    || !assignedGroup.getId().equals(userGroupId)) {
+                continue;
+            }
+            user.setUserGroup(null);
+            userServiceAuditable.update(user, locale, username);
+        }
+    }
+
+    private void enrichMemberCount(UserGroupDto dto) {
+        if (dto == null || dto.getId() == null) {
+            return;
+        }
+        try {
+            dto.setUserMemberCount(userRepository.countActiveUsersForUserGroup(dto.getId(), EntityStatus.DELETED));
+        } catch (Exception ex) {
+            log.warn("Failed to resolve userMemberCount for userGroupId={}: {}", dto.getId(), ex.toString());
+            dto.setUserMemberCount(0L);
+        }
+        try {
+            dto.setUserRoleMemberCount(
+                    userRoleRepository.countActiveRolesForUserGroup(dto.getId(), EntityStatus.DELETED));
+        } catch (Exception ex) {
+            log.warn("Failed to resolve userRoleMemberCount for userGroupId={}: {}", dto.getId(), ex.toString());
+            dto.setUserRoleMemberCount(0L);
+        }
     }
 
     private Specification<UserGroup> addToSpec(Specification<UserGroup> spec,
@@ -598,6 +817,7 @@ public class UserGroupServiceImpl implements UserGroupService {
 
         for (UserGroup userGroup : userGroupPage) {
             UserGroupDto userGroupDto = modelMapper.map(userGroup, UserGroupDto.class);
+            enrichMemberCount(userGroupDto);
             userGroupDtoList.add(userGroupDto);
         }
 
@@ -669,37 +889,27 @@ public class UserGroupServiceImpl implements UserGroupService {
 
     @Override
     public byte[] exportToPdf(List<UserGroupDto> userGroups) throws DocumentException {
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("USER GROUP EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (UserGroupDto userGroup : userGroups) {
-            table.addCell(String.valueOf(userGroup.getId()));
-            table.addCell(safe(userGroup.getName()));
-            table.addCell(safe(userGroup.getDescription()));
-
-            String userRoles = userGroup.getUserRoleDtoSet() != null ? 
-                userGroup.getUserRoleDtoSet().stream()
-                    .map(role -> role.getRole())
-                    .collect(Collectors.joining("; ")) : "";
-            table.addCell(safe(userRoles));
+            String userRoles = userGroup.getUserRoleDtoSet() != null ?
+                    userGroup.getUserRoleDtoSet().stream()
+                            .map(role -> role.getRole())
+                            .collect(Collectors.joining("; ")) : "";
+            rows.add(new String[]{
+                    String.valueOf(userGroup.getId()),
+                    safe(userGroup.getName()),
+                    safe(userGroup.getDescription()),
+                    safe(userRoles)
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("User Groups")
+                .reportCode("USR-GRP")
+                .subtitle("User group registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override
