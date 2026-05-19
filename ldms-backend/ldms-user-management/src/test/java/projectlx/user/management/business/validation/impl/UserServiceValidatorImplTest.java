@@ -639,4 +639,43 @@ class UserServiceValidatorImplTest {
 
         assertTrue(result, "Should return true for valid password");
     }
+
+    /** Exercises the real validator (not the test stub) for edit identification rules. */
+    @Test
+    public void isRequestValidForEditing_passportOnlyWithoutNationalId_shouldSucceed() {
+        UserServiceValidatorImpl realValidator = new UserServiceValidatorImpl(messageService);
+
+        EditUserRequest request = new EditUserRequest();
+        request.setId(1L);
+        request.setUsername("johndoe");
+        request.setFirstName("John");
+        request.setLastName("Doe");
+        request.setEmail("john.doe@example.com");
+        request.setPhoneNumber("+263771234567");
+        request.setGender("MALE");
+        request.setDateOfBirth("2000-01-01");
+        request.setPassportNumber("AB123456");
+        request.setPassportUploadId(42L);
+
+        assertTrue(realValidator.isRequestValidForEditing(request));
+    }
+
+    @Test
+    public void isRequestValidForEditing_nationalIdUploadIdWithoutMultipart_shouldSucceed() {
+        UserServiceValidatorImpl realValidator = new UserServiceValidatorImpl(messageService);
+
+        EditUserRequest request = new EditUserRequest();
+        request.setId(1L);
+        request.setUsername("johndoe");
+        request.setFirstName("John");
+        request.setLastName("Doe");
+        request.setEmail("john.doe@example.com");
+        request.setPhoneNumber("+263771234567");
+        request.setGender("MALE");
+        request.setDateOfBirth("2000-01-01");
+        request.setNationalIdNumber("12-1234567A12");
+        request.setNationalIdUploadId(99L);
+
+        assertTrue(realValidator.isRequestValidForEditing(request));
+    }
 }

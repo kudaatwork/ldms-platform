@@ -127,6 +127,13 @@ public class NotificationTemplateServiceValidatorImpl implements NotificationTem
             errors.add(messageService.getMessage(I18Code.TEMPLATE_INVALID_ID.getCode(), new String[]{}, locale));
         }
 
+        if (request.isStatusOnlyUpdate()) {
+            if (errors.isEmpty()) {
+                return new ValidatorDto(true, null, null);
+            }
+            return new ValidatorDto(false, null, errors);
+        }
+
         if (request.getTemplateKey() == null || request.getTemplateKey().isEmpty()) {
             logger.info("Validation failed: Template key is missing");
             errors.add(messageService.getMessage(I18Code.NOTIFICATION_TEMPLATE_KEY_MISSING.getCode(), new String[]{}, locale));

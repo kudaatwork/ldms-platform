@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import projectlx.co.zw.notifications.business.logic.api.NotificationService;
+import projectlx.co.zw.notifications.utils.exception.TemplateNotFoundException;
 import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 
 @Slf4j
@@ -21,10 +22,12 @@ public class NotificationConsumer {
 
         try {
             notificationService.processNotification(request);
+        } catch (TemplateNotFoundException e) {
+            log.error("[NOTIFICATION] Template not found eventId={} templateKey={} error={}",
+                    request.getEventId(), request.getTemplateKey(), e.getMessage());
         } catch (Exception e) {
-            log.error("[NOTIFICATION] Unhandled exception processing message eventId={} templateKey={} error={}", request.getEventId(), request.getTemplateKey(), e.getMessage());
-            // It's important to catch exceptions here to prevent infinite retry loops.
-            // The message will be dead-lettered based on the queue configuration.
+            log.error("[NOTIFICATION] Unhandled exception processing message eventId={} templateKey={} error={}",
+                    request.getEventId(), request.getTemplateKey(), e.getMessage(), e);
         }
     }
 }

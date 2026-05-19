@@ -20,4 +20,6 @@ public class UsersMultipleFiltersRequest extends MultipleFiltersRequest {
     private String nationalIdNumber;
     private String passportNumber;
     private String entityStatus;
+    /** When set, only users whose primary user group matches this id. */
+    private Long userGroupId;
 }

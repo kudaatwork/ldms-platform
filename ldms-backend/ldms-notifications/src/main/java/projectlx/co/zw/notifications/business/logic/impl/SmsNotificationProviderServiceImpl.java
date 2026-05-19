@@ -4,13 +4,16 @@ import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import projectlx.co.zw.notifications.business.auditable.api.NotificationLogServiceAuditable;
+import org.springframework.util.StringUtils;
+import projectlx.co.zw.notifications.business.logic.api.NotificationLogRecorder;
 import projectlx.co.zw.notifications.business.logic.api.NotificationProviderService;
 import projectlx.co.zw.notifications.business.logic.api.TemplateProcessorService;
 import projectlx.co.zw.notifications.model.Channel;
 import projectlx.co.zw.notifications.model.NotificationLog;
 import projectlx.co.zw.notifications.model.NotificationTemplate;
+import projectlx.co.zw.notifications.utils.config.LdmsConfigRepoSecretsResolver;
+import projectlx.co.zw.notifications.utils.config.OutboundMessagingReadiness;
+import projectlx.co.zw.notifications.utils.config.OutboundTwilioInitializer;
 import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 
 @Slf4j
@@ -18,10 +21,10 @@ import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 public class SmsNotificationProviderServiceImpl implements NotificationProviderService {
 
     private final TemplateProcessorService templateProcessor;
-    private final NotificationLogServiceAuditable notificationLogServiceAuditable;
-
-    @Value("${twilio.phone-number:}")
-    private String fromPhoneNumber;
+    private final NotificationLogRecorder notificationLogRecorder;
+    private final OutboundMessagingReadiness outboundMessagingReadiness;
+    private final OutboundTwilioInitializer outboundTwilioInitializer;
+    private final LdmsConfigRepoSecretsResolver secretsResolver;
 
     @Override
     public Channel getChannel() {
@@ -33,55 +36,48 @@ public class SmsNotificationProviderServiceImpl implements NotificationProviderS
 
         String recipientPhoneNumber = request.getRecipient().getPhoneNumber();
 
-        if (recipientPhoneNumber == null || recipientPhoneNumber.isBlank()) {
+        if (!StringUtils.hasText(recipientPhoneNumber)) {
             log.warn("[NOTIFICATION] Skipped channel=SMS eventId={} templateKey={} reason=missing_recipient recipientPhone={}",
                     request.getEventId(), request.getTemplateKey(), recipientPhoneNumber);
+            notificationLogRecorder.markSkipped(request, Channel.SMS, "missing_recipient phone");
             return;
         }
-        if (fromPhoneNumber == null || fromPhoneNumber.isBlank()) {
+        String fromPhoneNumber = secretsResolver.twilioPhoneNumber();
+        if (!StringUtils.hasText(fromPhoneNumber)) {
             log.warn("[NOTIFICATION] Skipped channel=SMS eventId={} templateKey={} reason=missing_twilio.phone-number",
                     request.getEventId(), request.getTemplateKey());
+            notificationLogRecorder.markSkipped(request, Channel.SMS, "missing_twilio.phone-number");
+            return;
+        }
+        if (!outboundMessagingReadiness.isTwilioReady()) {
+            log.warn("[NOTIFICATION] Skipped channel=SMS eventId={} templateKey={} reason=twilio_not_configured",
+                    request.getEventId(), request.getTemplateKey());
+            notificationLogRecorder.markSkipped(request, Channel.SMS,
+                    "twilio_not_configured (set twilio.account-sid and twilio.auth-token)");
             return;
         }
 
         String body = templateProcessor.process(template.getSmsBody(), request.getData());
-        NotificationLog logEntry = createLogEntry(request, "PENDING", null);
+        NotificationLog logEntry = notificationLogRecorder.beginDispatch(request, Channel.SMS);
         logEntry.setRenderedContent(body);
-        NotificationLog savedLogEntry = notificationLogServiceAuditable.create(logEntry);
 
         try {
+            outboundTwilioInitializer.ensureInitialized();
             PhoneNumber to = new PhoneNumber(recipientPhoneNumber);
             PhoneNumber from = new PhoneNumber(fromPhoneNumber);
 
-            log.info("[NOTIFICATION] Attempting send channel=SMS provider=TWILIO eventId={} templateKey={} recipientPhone={}", request.getEventId(), request.getTemplateKey(), recipientPhoneNumber);
+            log.info("[NOTIFICATION] Attempting send channel=SMS provider=TWILIO eventId={} templateKey={} recipientPhone={}",
+                    request.getEventId(), request.getTemplateKey(), recipientPhoneNumber);
             Message message = Message.creator(to, from, body).create();
 
-            logEntry.setStatus("SENT");
-            logEntry.setProvider("TWILIO");
-            logEntry.setProviderMessageId(message.getSid());
-            NotificationLog updatedLogEntry = notificationLogServiceAuditable.update(logEntry);
-            log.info("[NOTIFICATION] Sent channel=SMS provider=TWILIO eventId={} templateKey={} recipientPhone={} sid={}", request.getEventId(), request.getTemplateKey(), recipientPhoneNumber, message.getSid());
+            notificationLogRecorder.markSent(logEntry, "TWILIO", message.getSid(), body);
+            log.info("[NOTIFICATION] Sent channel=SMS provider=TWILIO eventId={} templateKey={} recipientPhone={} sid={}",
+                    request.getEventId(), request.getTemplateKey(), recipientPhoneNumber, message.getSid());
 
         } catch (Exception e) {
-            log.error("[NOTIFICATION] Failed channel=SMS provider=TWILIO eventId={} templateKey={} recipientPhone={} error={}", request.getEventId(), request.getTemplateKey(), recipientPhoneNumber, e.getMessage(), e);
-            logEntry.setStatus("FAILED");
-            logEntry.setErrorMessage(e.getMessage());
-            NotificationLog updatedLogEntry = notificationLogServiceAuditable.update(logEntry);
+            log.error("[NOTIFICATION] Failed channel=SMS provider=TWILIO eventId={} templateKey={} recipientPhone={} error={}",
+                    request.getEventId(), request.getTemplateKey(), recipientPhoneNumber, e.getMessage(), e);
+            notificationLogRecorder.markFailed(logEntry, e.getMessage());
         }
     }
-
-    // Helper method to create a log entry
-    private NotificationLog createLogEntry(NotificationRequest request, String status, String errorMessage) {
-
-        NotificationLog logEntry = new NotificationLog();
-        logEntry.setRecipientId(request.getRecipient().getUserId());
-        logEntry.setTemplateKey(request.getTemplateKey());
-        logEntry.setChannel(getChannel());
-        logEntry.setStatus(status);
-        logEntry.setPayload(request.getData());
-        logEntry.setErrorMessage(errorMessage);
-        return logEntry;
-    }
 }
-
-

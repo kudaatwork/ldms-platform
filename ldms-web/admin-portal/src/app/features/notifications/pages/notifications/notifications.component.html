@@ -11,7 +11,8 @@
       <ng-template matTabContent>
         <div class="lx-card lx-card--subsection nt-tpl-toolbar">
           <h3 class="lx-controls-title">Table controls</h3>
-          <p class="lx-controls-subtitle">Add templates, export the catalog, or toggle availability.</p>
+          <p class="lx-controls-subtitle">Search, filter, and add notification templates.</p>
+
 
           <div class="nt-hb-guide">
             <div class="nt-hb-guide__head">
@@ -87,6 +88,25 @@
                 Add template
               </button>
             </div>
+            <div class="lx-data-toolbar__search">
+              <div class="lx-input-shell lx-search-field">
+                <mat-icon class="lx-input-shell__icon">search</mat-icon>
+                <input
+                  [(ngModel)]="tplSearch"
+                  (keyup.enter)="applyTplFilters()"
+                  placeholder="Search…"
+                />
+              </div>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+                (click)="tplFilterFieldsOpen = !tplFilterFieldsOpen"
+                [class.lx-btn-filter--on]="tplFilterFieldsOpen"
+              >
+                <mat-icon>tune</mat-icon>
+                Filters
+              </button>
+            </div>
           </div>
           <input
             #tplImportInput
@@ -104,7 +124,59 @@
               <mat-icon>grid_on</mat-icon>
               <span>Export XLSX</span>
             </button>
+            <button mat-menu-item type="button" class="lx-export-option--pdf" (click)="exportTemplates('pdf')">
+              <mat-icon>picture_as_pdf</mat-icon>
+              <span>Export PDF</span>
+            </button>
           </mat-menu>
+
+          <div class="lx-filter-panel" *ngIf="tplFilterFieldsOpen">
+            <span class="lx-filter-panel__label">Column filters</span>
+            <div class="lx-filter-fields">
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Template code</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">label</mat-icon>
+                  <input
+                    [(ngModel)]="tplTemplateKey"
+                    (keyup.enter)="applyTplFilters()"
+                    placeholder="Starts with…"
+                    aria-label="Template code"
+                  />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Channel</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">layers</mat-icon>
+                  <select [(ngModel)]="tplChannel" (ngModelChange)="applyTplFilters()" aria-label="Channel">
+                    <option value="">Any</option>
+                    <option *ngFor="let ch of notificationChannelOptions" [value]="ch">{{ ch }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Status</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">toggle_on</mat-icon>
+                  <select [(ngModel)]="tplActiveFilter" (ngModelChange)="applyTplFilters()" aria-label="Status">
+                    <option value="any">Any</option>
+                    <option value="active">Active only</option>
+                    <option value="inactive">Inactive only</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="lx-filter-panel__footer">
+              <button type="button" class="lx-btn lx-btn-primary" (click)="applyTplFilters()" [disabled]="fetchingTpl">
+                Apply
+              </button>
+              <button type="button" class="lx-btn lx-btn-ghost" (click)="clearTplFilters()" [disabled]="fetchingTpl">
+                Clear
+              </button>
+            </div>
+          </div>
+
         </div>
 
         <div class="lx-card nt-panel">
@@ -121,13 +193,18 @@
             {{ tplError }}
           </p>
 
-          <div class="lx-table-loading" *ngIf="fetchingTpl && tplData.data.length === 0">
-            <mat-progress-bar mode="indeterminate" aria-label="Loading templates"></mat-progress-bar>
-            <p class="lx-table-loading__text">Loading templates…</p>
-          </div>
+          <lx-table-loading
+            [busy]="fetchingTpl && tplData.data.length === 0"
+            message="Loading templates…"
+          ></lx-table-loading>
 
           <ng-container *ngIf="tplData.data.length > 0 || fetchingTpl">
-            <div class="lx-table-wrap">
+            <div class="lx-table-wrap lx-table-wrap--host">
+              <lx-table-loading
+                [busy]="fetchingTpl && tplData.data.length > 0"
+                [hasData]="true"
+                message="Refreshing templates…"
+              ></lx-table-loading>
               <table mat-table [dataSource]="tplData" class="lx-mat-table">
                 <ng-container matColumnDef="templateKey">
                   <th mat-header-cell *matHeaderCellDef>{{ tplLabels['templateKey'] }}</th>
@@ -147,9 +224,13 @@
                     <span class="lx-status" [ngClass]="'lx-status-' + tplStatusClass(row)">
                       {{ tplStatusLabel(row) }}
                     </span>
+                    <lx-inline-busy
+                      *ngIf="isTplStatusUpdating(row)"
+                      message="Updating status…"
+                    ></lx-inline-busy>
                     <mat-slide-toggle
+                      *ngIf="!isTplStatusUpdating(row)"
                       [checked]="row.isActive"
-                      [disabled]="actionInProgress"
                       (change)="onToggleActive(row, $event.checked)"
                       (click)="$event.stopPropagation()"
                       color="primary"
@@ -202,128 +283,260 @@
     <mat-tab label="Log">
       <ng-template matTabContent>
         <div class="lx-card lx-card--subsection nt-log-toolbar">
-          <h3 class="lx-controls-title">Log filters</h3>
-          <p class="lx-controls-subtitle">Audit trail entries for the notifications service (backend filtered/exported).</p>
-          <div class="nt-log-toolbar__row">
-            <div class="lx-input-shell lx-search-field nt-log-search">
-              <mat-icon class="lx-input-shell__icon">search</mat-icon>
-              <input
-                [(ngModel)]="logSearch"
-                (keyup.enter)="applyLogFilters()"
-                placeholder="Search recipient email or template code…"
-              />
-            </div>
-            <div class="lx-input-shell nt-log-date">
-              <mat-icon class="lx-input-shell__icon">event</mat-icon>
-              <input [matDatepicker]="dpFrom" [(ngModel)]="logFrom" placeholder="From date" />
+          <h3 class="lx-controls-title">Table controls</h3>
+          <p class="lx-controls-subtitle">Search and filter delivery log entries (server-side).</p>
+          <div class="lx-data-toolbar">
+            <div class="lx-data-toolbar__actions">
+              <button type="button" class="lx-btn lx-btn-ghost" (click)="loadLog()" [disabled]="fetchingLog">
+                Refresh
+              </button>
               <button
                 type="button"
-                class="lx-input-shell__suffix"
-                mat-icon-button
-                (click)="dpFrom.open()"
-                aria-label="Open from date picker"
+                class="lx-btn lx-btn-success lx-export-trigger"
+                [matMenuTriggerFor]="logExportMenu"
+                [disabled]="fetchingLog"
               >
-                <mat-icon>calendar_today</mat-icon>
+                Export
               </button>
-              <mat-datepicker #dpFrom></mat-datepicker>
+              <mat-menu #logExportMenu="matMenu" panelClass="lx-export-menu">
+                <button mat-menu-item type="button" (click)="exportLog('csv')">
+                  <mat-icon>table_view</mat-icon>
+                  <span>Export CSV</span>
+                </button>
+                <button mat-menu-item type="button" (click)="exportLog('excel')">
+                  <mat-icon>grid_on</mat-icon>
+                  <span>Export XLSX</span>
+                </button>
+                <button mat-menu-item type="button" class="lx-export-option--pdf" (click)="exportLog('pdf')">
+                  <mat-icon>picture_as_pdf</mat-icon>
+                  <span>Export PDF</span>
+                </button>
+              </mat-menu>
             </div>
-            <div class="lx-input-shell nt-log-date">
-              <mat-icon class="lx-input-shell__icon">event</mat-icon>
-              <input [matDatepicker]="dpTo" [(ngModel)]="logTo" placeholder="To date" />
+            <div class="lx-data-toolbar__search">
+              <div class="lx-input-shell lx-search-field">
+                <mat-icon class="lx-input-shell__icon">search</mat-icon>
+                <input
+                  [(ngModel)]="logSearch"
+                  (keyup.enter)="applyLogFilters()"
+                  placeholder="Search…"
+                />
+              </div>
               <button
                 type="button"
-                class="lx-input-shell__suffix"
-                mat-icon-button
-                (click)="dpTo.open()"
-                aria-label="Open to date picker"
+                class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+                (click)="logFilterFieldsOpen = !logFilterFieldsOpen"
+                [class.lx-btn-filter--on]="logFilterFieldsOpen"
               >
-                <mat-icon>calendar_today</mat-icon>
+                <mat-icon>tune</mat-icon>
+                Filters
               </button>
-              <mat-datepicker #dpTo></mat-datepicker>
             </div>
-            <button type="button" class="lx-btn lx-btn-primary nt-apply" (click)="applyLogFilters()" [disabled]="fetchingLog">
-              Apply
-            </button>
-            <button
-              type="button"
-              class="lx-btn lx-btn-success lx-export-trigger"
-              [matMenuTriggerFor]="logExportMenu"
-              [disabled]="fetchingLog"
-            >
-              Export
-            </button>
-            <mat-menu #logExportMenu="matMenu" panelClass="lx-export-menu">
-              <button mat-menu-item type="button" (click)="exportLog('csv')">
-                <mat-icon>table_view</mat-icon>
-                <span>Export CSV</span>
+          </div>
+          <div class="lx-filter-panel" *ngIf="logFilterFieldsOpen">
+            <span class="lx-filter-panel__label">Column filters</span>
+            <div class="lx-filter-fields">
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Template code</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">label</mat-icon>
+                  <input
+                    [(ngModel)]="logTemplateKey"
+                    (keyup.enter)="applyLogFilters()"
+                    placeholder="Contains…"
+                    aria-label="Template code"
+                  />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Channel</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">layers</mat-icon>
+                  <select [(ngModel)]="logChannel" (ngModelChange)="applyLogFilters()" aria-label="Channel">
+                    <option value="">Any</option>
+                    <option *ngFor="let ch of notificationChannelOptions" [value]="ch">{{ ch }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Status</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">flag</mat-icon>
+                  <select [(ngModel)]="logStatus" (ngModelChange)="applyLogFilters()" aria-label="Status">
+                    <option value="">Any</option>
+                    <option *ngFor="let st of notificationLogStatusOptions" [value]="st">{{ st }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">From date</div>
+                <div class="lx-input-shell lx-filter-field nt-filter-date">
+                  <mat-icon class="lx-input-shell__icon">event</mat-icon>
+                  <input [matDatepicker]="dpFrom" [(ngModel)]="logFrom" placeholder="From" aria-label="From date" />
+                  <button
+                    type="button"
+                    class="lx-input-shell__suffix"
+                    mat-icon-button
+                    (click)="dpFrom.open()"
+                    aria-label="Open from date picker"
+                  >
+                    <mat-icon>calendar_today</mat-icon>
+                  </button>
+                  <mat-datepicker #dpFrom></mat-datepicker>
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">To date</div>
+                <div class="lx-input-shell lx-filter-field nt-filter-date">
+                  <mat-icon class="lx-input-shell__icon">event</mat-icon>
+                  <input [matDatepicker]="dpTo" [(ngModel)]="logTo" placeholder="To" aria-label="To date" />
+                  <button
+                    type="button"
+                    class="lx-input-shell__suffix"
+                    mat-icon-button
+                    (click)="dpTo.open()"
+                    aria-label="Open to date picker"
+                  >
+                    <mat-icon>calendar_today</mat-icon>
+                  </button>
+                  <mat-datepicker #dpTo></mat-datepicker>
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Recipient user id</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">person</mat-icon>
+                  <input
+                    [(ngModel)]="logRecipientId"
+                    (keyup.enter)="applyLogFilters()"
+                    placeholder="Exact match…"
+                    aria-label="Recipient user id"
+                  />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Provider</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">cloud</mat-icon>
+                  <input
+                    [(ngModel)]="logProvider"
+                    (keyup.enter)="applyLogFilters()"
+                    placeholder="e.g. AWS_SES"
+                    aria-label="Provider"
+                  />
+                </div>
+              </div>
+            </div>
+            <div class="lx-filter-panel__footer">
+              <button type="button" class="lx-btn lx-btn-primary" (click)="applyLogFilters()" [disabled]="fetchingLog">
+                Apply
               </button>
-              <button mat-menu-item type="button" (click)="exportLog('excel')">
-                <mat-icon>grid_on</mat-icon>
-                <span>Export XLSX</span>
+              <button type="button" class="lx-btn lx-btn-ghost" (click)="clearLogFilters()" [disabled]="fetchingLog">
+                Clear
               </button>
-            </mat-menu>
+            </div>
           </div>
         </div>
 
         <div class="lx-card nt-panel">
           <div class="lx-table-header">
             <div>
-              <h2 class="lc-title">Activity log</h2>
-              <p class="lc-lead">Recent requests recorded for ldms-notifications.</p>
+              <h2 class="lc-title">Delivery log</h2>
+              <p class="lc-lead">Per-channel notification outcomes and queue visibility.</p>
             </div>
             <span class="lx-fetch-hint" *ngIf="fetchingLog">Refreshing…</span>
           </div>
+
+          <p class="nt-queue-banner" *ngIf="queueSummary && (queueSummary.messagesReady ?? 0) > 0">
+            <mat-icon>hourglass_empty</mat-icon>
+            <span>
+              <strong>{{ queueSummary.messagesReady }}</strong> message(s) waiting in RabbitMQ queue
+              <code>{{ queueSummary.queueName }}</code> (not yet consumed).
+            </span>
+          </p>
 
           <p class="lx-list-error" *ngIf="logError && !fetchingLog">
             <mat-icon>warning_amber</mat-icon>
             {{ logError }}
           </p>
 
-          <div class="lx-table-loading" *ngIf="fetchingLog && logData.data.length === 0">
-            <mat-progress-bar mode="indeterminate" aria-label="Loading log"></mat-progress-bar>
-            <p class="lx-table-loading__text">Loading log…</p>
-          </div>
+          <lx-table-loading
+            [busy]="fetchingLog && logData.data.length === 0"
+            message="Loading delivery log…"
+          ></lx-table-loading>
 
-          <ng-container *ngIf="logData.data.length > 0">
-            <div class="lx-table-wrap">
-              <table mat-table [dataSource]="logData" matSort matSortDisableClear class="lx-mat-table" #logSort="matSort">
+          <ng-container *ngIf="logData.data.length > 0 || fetchingLog">
+            <div class="lx-table-wrap lx-table-wrap--host">
+              <lx-table-loading
+                [busy]="fetchingLog && logData.data.length > 0"
+                [hasData]="true"
+                message="Refreshing delivery log…"
+              ></lx-table-loading>
+              <table mat-table [dataSource]="logData" class="lx-mat-table">
                 <ng-container matColumnDef="recipientDisplay">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['recipientDisplay'] }}</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ logLabels['recipientDisplay'] }}</th>
                   <td mat-cell *matCellDef="let row">{{ row.recipientDisplay }}</td>
                 </ng-container>
                 <ng-container matColumnDef="channel">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['channel'] }}</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ logLabels['channel'] }}</th>
                   <td mat-cell *matCellDef="let row">{{ row.channel }}</td>
                 </ng-container>
                 <ng-container matColumnDef="templateKey">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['templateKey'] }}</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ logLabels['templateKey'] }}</th>
                   <td mat-cell *matCellDef="let row">{{ row.templateKey }}</td>
                 </ng-container>
                 <ng-container matColumnDef="status">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['status'] }}</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ logLabels['status'] }}</th>
                   <td mat-cell *matCellDef="let row">
                     <span class="lx-status" [ngClass]="'lx-status-' + logStatusClass(row.status)">
                       {{ row.status }}
                     </span>
                   </td>
                 </ng-container>
+                <ng-container matColumnDef="errorMessage">
+                  <th mat-header-cell *matHeaderCellDef>{{ logLabels['errorMessage'] }}</th>
+                  <td mat-cell *matCellDef="let row" class="nt-log-detail" [title]="row.errorMessage || ''">
+                    {{ row.errorMessage || '—' }}
+                  </td>
+                </ng-container>
                 <ng-container matColumnDef="sentAt">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['sentAt'] }}</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ logLabels['sentAt'] }}</th>
                   <td mat-cell *matCellDef="let row">{{ row.sentAt | date : 'medium' }}</td>
                 </ng-container>
                 <ng-container matColumnDef="retryCount">
-                  <th mat-header-cell *matHeaderCellDef mat-sort-header>{{ logLabels['retryCount'] }}</th>
+                  <th mat-header-cell *matHeaderCellDef>{{ logLabels['retryCount'] }}</th>
                   <td mat-cell *matCellDef="let row">{{ row.retryCount }}</td>
+                </ng-container>
+                <ng-container matColumnDef="actions">
+                  <th mat-header-cell *matHeaderCellDef>{{ logLabels['actions'] }}</th>
+                  <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+                    <button
+                      type="button"
+                      mat-icon-button
+                      [matMenuTriggerFor]="logRowMenu"
+                      aria-label="Log entry actions"
+                    >
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #logRowMenu="matMenu" panelClass="lx-row-actions-menu">
+                      <button mat-menu-item type="button" class="lx-action-view" (click)="viewLog(row)">
+                        <mat-icon>visibility</mat-icon> View
+                      </button>
+                    </mat-menu>
+                  </td>
                 </ng-container>
                 <tr mat-header-row *matHeaderRowDef="logColumns; sticky: true"></tr>
                 <tr mat-row *matRowDef="let row; columns: logColumns"></tr>
               </table>
             </div>
             <mat-paginator
-              #logPaginator
               class="lx-table-paginator"
-              [pageSizeOptions]="[5, 10, 25]"
+              [length]="logTotalRecords"
+              [pageIndex]="logPageIndex"
+              [pageSize]="logPageSize"
+              [pageSizeOptions]="[10, 20, 25, 50]"
               [showFirstLastButtons]="true"
+              (page)="onLogPage($event)"
             ></mat-paginator>
           </ng-container>
 

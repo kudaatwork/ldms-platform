@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 import com.opencsv.bean.HeaderColumnNameMappingStrategy;
@@ -53,7 +46,6 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.globalvalidators.Validators;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -337,41 +329,36 @@ public class VillageServiceImpl implements VillageService {
 
     @Override
     public byte[] exportToPdf(List<VillageDto> items) throws DocumentException {
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("VILLAGE EXPORT", font));
-        document.add(new Paragraph(" "));
-        PdfPTable table = new PdfPTable(EXPORT_HEADERS.length);
-        for (String h : EXPORT_HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(h, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
+        List<String[]> rows = new ArrayList<>();
         for (VillageDto v : items) {
-            table.addCell(String.valueOf(v.getId()));
-            table.addCell(safe(v.getName()));
-            table.addCell(safe(v.getCode()));
-            table.addCell(v.getCityId() != null ? v.getCityId().toString() : "");
-            table.addCell(safe(v.getCityName()));
-            table.addCell(v.getDistrictId() != null ? v.getDistrictId().toString() : "");
-            table.addCell(safe(v.getDistrictName()));
-            table.addCell(safe(v.getProvinceName()));
-            table.addCell(safe(v.getCountryName()));
-            table.addCell(v.getSuburbId() != null ? v.getSuburbId().toString() : "");
-            table.addCell(v.getLatitude() != null ? v.getLatitude().toString() : "");
-            table.addCell(v.getLongitude() != null ? v.getLongitude().toString() : "");
-            table.addCell(safe(v.getTimezone()));
-            table.addCell(safe(v.getPostalCode()));
-            table.addCell(v.getCreatedAt() != null ? v.getCreatedAt().toString() : "");
-            table.addCell(v.getUpdatedAt() != null ? v.getUpdatedAt().toString() : "");
-            table.addCell(v.getEntityStatus() != null ? v.getEntityStatus().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(v.getId()),
+                    safe(v.getName()),
+                    safe(v.getCode()),
+                    v.getCityId() != null ? v.getCityId().toString() : "",
+                    safe(v.getCityName()),
+                    v.getDistrictId() != null ? v.getDistrictId().toString() : "",
+                    safe(v.getDistrictName()),
+                    safe(v.getProvinceName()),
+                    safe(v.getCountryName()),
+                    v.getSuburbId() != null ? v.getSuburbId().toString() : "",
+                    v.getLatitude() != null ? v.getLatitude().toString() : "",
+                    v.getLongitude() != null ? v.getLongitude().toString() : "",
+                    safe(v.getTimezone()),
+                    safe(v.getPostalCode()),
+                    v.getCreatedAt() != null ? v.getCreatedAt().toString() : "",
+                    v.getUpdatedAt() != null ? v.getUpdatedAt().toString() : "",
+                    v.getEntityStatus() != null ? v.getEntityStatus().toString() : ""
+            });
         }
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Villages")
+                .reportCode("LOC-VLG")
+                .subtitle("Village registry export")
+                .columnHeaders(EXPORT_HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

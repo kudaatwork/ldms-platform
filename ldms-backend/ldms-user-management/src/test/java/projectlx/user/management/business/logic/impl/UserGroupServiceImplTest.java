@@ -2,6 +2,7 @@ package projectlx.user.management.business.logic.impl;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
 import org.modelmapper.config.Configuration;
@@ -31,6 +32,7 @@ import projectlx.user.management.utils.requests.AssignUserRoleToUserGroupRequest
 import projectlx.user.management.utils.requests.CreateUserGroupRequest;
 import projectlx.user.management.utils.requests.EditUserGroupRequest;
 import projectlx.user.management.utils.requests.RemoveUserRolesFromUserGroupRequest;
+import projectlx.user.management.utils.requests.RemoveUsersFromUserGroupRequest;
 import projectlx.user.management.utils.requests.UserGroupMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserGroupResponse;
 import java.io.IOException;
@@ -46,6 +48,7 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -54,6 +57,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -532,12 +536,15 @@ class UserGroupServiceImplTest {
 
         UserGroupResponse response = userGroupService.update(editUserGroupRequest, username, locale);
 
+        ArgumentCaptor<UserGroup> updatedCaptor = ArgumentCaptor.forClass(UserGroup.class);
         verify(userGroupServiceValidator, times(1))
                 .isRequestValidForEditing(any(EditUserGroupRequest.class), any(Locale.class));
         verify(userGroupRepository, times(1))
                 .findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class));
         verify(userGroupServiceAuditable, times(1))
-                .update(any(UserGroup.class), any(Locale.class), anyString());
+                .update(updatedCaptor.capture(), any(Locale.class), anyString());
+        assertEquals("users", updatedCaptor.getValue().getName());
+        assertEquals("Regular Users", updatedCaptor.getValue().getDescription());
         verify(modelMapper, times(1))
                 .map(userGroup, UserGroupDto.class);
         verify(messageService, times(1))
@@ -609,6 +616,8 @@ class UserGroupServiceImplTest {
                 .thenReturn(createValidatorDto(true));
         when(userGroupRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
                 .thenReturn(Optional.of(userGroup));
+        when(userRepository.findByUserGroup_IdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
+                .thenReturn(Collections.emptyList());
         when(userGroupServiceAuditable.delete(any(UserGroup.class), any(Locale.class), anyString()))
                 .thenReturn(userGroup);
         when(modelMapper.map(any(UserGroup.class), eq(UserGroupDto.class)))
@@ -639,6 +648,37 @@ class UserGroupServiceImplTest {
     }
 
     @Test
+    public void delete_shouldDetachUsersBeforeSoftDelete() {
+        user.setUserGroup(userGroup);
+        when(userGroupServiceValidator.isIdValid(anyLong(), any(Locale.class)))
+                .thenReturn(createValidatorDto(true));
+        when(userGroupRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
+                .thenReturn(Optional.of(userGroup));
+        when(userRepository.findByUserGroup_IdAndEntityStatusNot(eq(userGroupId), eq(EntityStatus.DELETED)))
+                .thenReturn(List.of(user));
+        when(userServiceAuditable.update(any(User.class), any(Locale.class), anyString()))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userGroupServiceAuditable.delete(any(UserGroup.class), any(Locale.class), anyString()))
+                .thenReturn(userGroup);
+        when(modelMapper.map(any(UserGroup.class), eq(UserGroupDto.class)))
+                .thenReturn(userGroupDto);
+        when(messageService.getMessage(
+                eq(I18Code.MESSAGE_USER_GROUP_DELETED_SUCCESSFULLY.getCode()),
+                any(String[].class),
+                eq(locale)))
+                .thenReturn("Deleted");
+
+        UserGroupResponse response = userGroupService.delete(userGroupId, locale, username);
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userServiceAuditable, times(1))
+                .update(userCaptor.capture(), eq(locale), eq(username));
+        assertNull(userCaptor.getValue().getUserGroup());
+        assertNotNull(response);
+        assertTrue(response.isSuccess());
+    }
+
+    @Test
     public void findByMultipleFilters_shouldReturnFalseAnd400IfInvalid() {
         when(userGroupServiceValidator.isRequestValidToRetrieveUsersByMultipleFilters(any(), any(Locale.class)))
                 .thenReturn(createValidatorDto(false));
@@ -663,7 +703,7 @@ class UserGroupServiceImplTest {
     }
 
     @Test
-    public void findByMultipleFilters_shouldReturnFalseAnd404IfNoResults() {
+    public void findByMultipleFilters_shouldReturnTrueAnd200WithEmptyPageIfNoResults() {
         when(userGroupServiceValidator.isRequestValidToRetrieveUsersByMultipleFilters(any(), any(Locale.class)))
                 .thenReturn(createValidatorDto(true));
         when(userGroupServiceValidator.isStringValid(anyString(), any(Locale.class)))
@@ -671,10 +711,10 @@ class UserGroupServiceImplTest {
         when(userGroupRepository.findAll(any(Specification.class), any(Pageable.class)))
                 .thenReturn(Page.empty());
         when(messageService.getMessage(
-                eq(I18Code.MESSAGE_USER_GROUP_NOT_FOUND.getCode()),
+                eq(I18Code.MESSAGE_USER_GROUP_RETRIEVED_SUCCESSFULLY.getCode()),
                 any(String[].class),
                 eq(locale)))
-                .thenReturn("No groups");
+                .thenReturn("Page retrieved (empty)");
 
         UserGroupResponse response = userGroupService.findByMultipleFilters(userGroupMultipleFiltersRequest, username, locale);
 
@@ -683,11 +723,14 @@ class UserGroupServiceImplTest {
         verify(userGroupRepository, times(1))
                 .findAll(any(Specification.class), any(Pageable.class));
         verify(messageService, times(1))
-                .getMessage(eq(I18Code.MESSAGE_USER_GROUP_NOT_FOUND.getCode()), any(String[].class), eq(locale));
+                .getMessage(eq(I18Code.MESSAGE_USER_GROUP_RETRIEVED_SUCCESSFULLY.getCode()), any(String[].class), eq(locale));
 
         assertNotNull(response);
-        assertFalse(response.isSuccess());
-        assertEquals(404, response.getStatusCode());
+        assertTrue(response.isSuccess());
+        assertEquals(200, response.getStatusCode());
+        assertNotNull(response.getUserGroupDtoPage());
+        assertTrue(response.getUserGroupDtoPage().isEmpty());
+        assertEquals(0, response.getUserGroupDtoPage().getTotalElements());
     }
 
     @Test
@@ -889,6 +932,51 @@ class UserGroupServiceImplTest {
     }
 
     @Test
+    public void assignUserRoleToUserGroup_shouldAssignOnlyNewRolesWhenSomeAlreadyAssigned() {
+        UserRole newRole = new UserRole();
+        newRole.setId(11L);
+        newRole.setRole("ROLE_MANAGER");
+        newRole.setEntityStatus(EntityStatus.ACTIVE);
+
+        Set<UserRole> requestedRoles = new HashSet<>();
+        requestedRoles.add(userRole);
+        requestedRoles.add(newRole);
+        assignUserRoleToUserGroupRequest.setUserRoleIds(List.of(10L, 11L));
+        userGroup.getUserRoles().add(userRole);
+
+        ValidatorDto validatorDto = new ValidatorDto(true, null, null);
+        when(userGroupServiceValidator.isRequestValidToAssignUserRolesToUserGroup(any(AssignUserRoleToUserGroupRequest.class), any(Locale.class)))
+                .thenReturn(validatorDto);
+        when(userGroupRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
+                .thenReturn(Optional.of(userGroup));
+        when(userRoleRepository.findByIdInAndEntityStatusNot(anyList(), any(EntityStatus.class)))
+                .thenReturn(requestedRoles);
+        when(userGroupServiceAuditable.update(any(UserGroup.class), any(Locale.class), anyString()))
+                .thenReturn(userGroup);
+        when(modelMapper.map(any(UserGroup.class), eq(UserGroupDto.class)))
+                .thenReturn(userGroupDto);
+        when(modelMapper.map(eq(userGroup.getUserRoles()), eq(new TypeToken<List<UserRoleDto>>(){}.getType())))
+                .thenReturn(userRoleDtoList);
+        when(messageService.getMessage(
+                eq(I18Code.MESSAGE_USER_ROLES_ASSIGNED_WITH_SKIPPED.getCode()),
+                any(String[].class),
+                eq(locale)))
+                .thenReturn("1 skipped, 1 assigned");
+
+        UserGroupResponse response = userGroupService.assignUserRoleToUserGroup(assignUserRoleToUserGroupRequest, locale, username);
+
+        verify(userGroupServiceAuditable, times(1))
+                .update(any(UserGroup.class), any(Locale.class), anyString());
+        verify(messageService, times(1))
+                .getMessage(eq(I18Code.MESSAGE_USER_ROLES_ASSIGNED_WITH_SKIPPED.getCode()), any(String[].class), eq(locale));
+
+        assertNotNull(response);
+        assertTrue(response.isSuccess());
+        assertEquals(201, response.getStatusCode());
+        assertEquals("1 skipped, 1 assigned", response.getMessage());
+    }
+
+    @Test
     public void removeUserRolesFromUserGroup_shouldReturnFalseAnd400IfInvalid() {
         List<String> errors = new ArrayList<>();
         errors.add("Invalid request");
@@ -1057,10 +1145,10 @@ class UserGroupServiceImplTest {
         List<String> errors = new ArrayList<>();
         errors.add("Invalid request");
         ValidatorDto validatorDto = new ValidatorDto(false, null, errors);
-        when(userGroupServiceValidator.isRequestValidToAddUserToUserGroup(any(AddUserToUserGroupRequest.class), any(Locale.class)))
+        when(userGroupServiceValidator.isRequestValidToAddUsersToUserGroup(any(), any(Locale.class)))
                 .thenReturn(validatorDto);
         when(messageService.getMessage(
-                eq(I18Code.MESSAGE_INVALID_ADD_USER_GROUP_TO_USER_REQUEST.getCode()),
+                eq(I18Code.MESSAGE_INVALID_ADD_USERS_TO_USER_GROUP_REQUEST.getCode()),
                 any(String[].class),
                 eq(locale)))
                 .thenReturn("Invalid add");
@@ -1068,9 +1156,9 @@ class UserGroupServiceImplTest {
         UserGroupResponse response = userGroupService.addUserGroupToUser(addUserToUserGroupRequest, locale, username);
 
         verify(userGroupServiceValidator, times(1))
-                .isRequestValidToAddUserToUserGroup(any(AddUserToUserGroupRequest.class), any(Locale.class));
+                .isRequestValidToAddUsersToUserGroup(any(), any(Locale.class));
         verify(messageService, times(1))
-                .getMessage(eq(I18Code.MESSAGE_INVALID_ADD_USER_GROUP_TO_USER_REQUEST.getCode()), any(String[].class), eq(locale));
+                .getMessage(eq(I18Code.MESSAGE_INVALID_ADD_USERS_TO_USER_GROUP_REQUEST.getCode()), any(String[].class), eq(locale));
         verify(userGroupRepository, times(0))
                 .findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class));
 
@@ -1082,7 +1170,7 @@ class UserGroupServiceImplTest {
     @Test
     public void addUserToUserGroup_shouldReturnFalseAnd400IfGroupNotFound() {
         ValidatorDto validatorDto = new ValidatorDto(true, null, null);
-        when(userGroupServiceValidator.isRequestValidToAddUserToUserGroup(any(AddUserToUserGroupRequest.class), any(Locale.class)))
+        when(userGroupServiceValidator.isRequestValidToAddUsersToUserGroup(any(), any(Locale.class)))
                 .thenReturn(validatorDto);
         when(userGroupRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
                 .thenReturn(Optional.empty());
@@ -1095,7 +1183,7 @@ class UserGroupServiceImplTest {
         UserGroupResponse response = userGroupService.addUserGroupToUser(addUserToUserGroupRequest, locale, username);
 
         verify(userGroupServiceValidator, times(1))
-                .isRequestValidToAddUserToUserGroup(any(AddUserToUserGroupRequest.class), any(Locale.class));
+                .isRequestValidToAddUsersToUserGroup(any(), any(Locale.class));
         verify(userGroupRepository, times(1))
                 .findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class));
         verify(messageService, times(1))
@@ -1109,7 +1197,7 @@ class UserGroupServiceImplTest {
     @Test
     public void addUserToUserGroup_shouldReturnFalseAnd400IfUserNotFound() {
         ValidatorDto validatorDto = new ValidatorDto(true, null, null);
-        when(userGroupServiceValidator.isRequestValidToAddUserToUserGroup(any(AddUserToUserGroupRequest.class), any(Locale.class)))
+        when(userGroupServiceValidator.isRequestValidToAddUsersToUserGroup(any(), any(Locale.class)))
                 .thenReturn(validatorDto);
         when(userGroupRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
                 .thenReturn(Optional.of(userGroup));
@@ -1124,7 +1212,7 @@ class UserGroupServiceImplTest {
         UserGroupResponse response = userGroupService.addUserGroupToUser(addUserToUserGroupRequest, locale, username);
 
         verify(userGroupServiceValidator, times(1))
-                .isRequestValidToAddUserToUserGroup(any(AddUserToUserGroupRequest.class), any(Locale.class));
+                .isRequestValidToAddUsersToUserGroup(any(), any(Locale.class));
         verify(userGroupRepository, times(1))
                 .findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class));
         verify(userRepository, times(1))
@@ -1140,7 +1228,7 @@ class UserGroupServiceImplTest {
     @Test
     public void addUserToUserGroup_shouldReturnTrueAnd200ForValid() {
         ValidatorDto validatorDto = new ValidatorDto(true, null, null);
-        when(userGroupServiceValidator.isRequestValidToAddUserToUserGroup(any(AddUserToUserGroupRequest.class), any(Locale.class)))
+        when(userGroupServiceValidator.isRequestValidToAddUsersToUserGroup(any(), any(Locale.class)))
                 .thenReturn(validatorDto);
         when(userGroupRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
                 .thenReturn(Optional.of(userGroup));
@@ -1151,30 +1239,90 @@ class UserGroupServiceImplTest {
         when(modelMapper.map(any(UserGroup.class), eq(UserGroupDto.class)))
                 .thenReturn(userGroupDto);
         when(messageService.getMessage(
-                eq(I18Code.MESSAGE_USER_UPDATED_SUCCESSFULLY.getCode()),
+                eq(I18Code.MESSAGE_USERS_ADDED_TO_USER_GROUP_SUCCESSFULLY.getCode()),
                 any(String[].class),
                 eq(locale)))
-                .thenReturn("User updated");
+                .thenReturn("Users added");
 
         UserGroupResponse response = userGroupService.addUserGroupToUser(addUserToUserGroupRequest, locale, username);
 
         verify(userGroupServiceValidator, times(1))
-                .isRequestValidToAddUserToUserGroup(any(AddUserToUserGroupRequest.class), any(Locale.class));
-        verify(userGroupRepository, times(1))
+                .isRequestValidToAddUsersToUserGroup(any(), any(Locale.class));
+        verify(userGroupRepository, times(2))
                 .findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class));
         verify(userRepository, times(1))
                 .findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class));
         verify(userServiceAuditable, times(1))
                 .update(any(User.class), any(Locale.class), anyString());
-        verify(modelMapper, times(1))
-                .map(userGroup, UserGroupDto.class);
         verify(messageService, times(1))
-                .getMessage(eq(I18Code.MESSAGE_USER_UPDATED_SUCCESSFULLY.getCode()), any(String[].class), eq(locale));
+                .getMessage(eq(I18Code.MESSAGE_USERS_ADDED_TO_USER_GROUP_SUCCESSFULLY.getCode()), any(String[].class), eq(locale));
 
         assertNotNull(response);
         assertTrue(response.isSuccess());
         assertEquals(200, response.getStatusCode());
         assertNotNull(response.getUserGroupDto());
+    }
+
+    @Test
+    public void addUserToUserGroup_shouldReturnFalseAnd400IfUserAlreadyInGroup() {
+        user.setUserGroup(userGroup);
+
+        ValidatorDto validatorDto = new ValidatorDto(true, null, null);
+        when(userGroupServiceValidator.isRequestValidToAddUsersToUserGroup(any(), any(Locale.class)))
+                .thenReturn(validatorDto);
+        when(userGroupRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
+                .thenReturn(Optional.of(userGroup));
+        when(userRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
+                .thenReturn(Optional.of(user));
+        when(messageService.getMessage(
+                eq(I18Code.MESSAGE_USERS_ALREADY_IN_USER_GROUP.getCode()),
+                any(String[].class),
+                eq(locale)))
+                .thenReturn("Already in group");
+
+        UserGroupResponse response = userGroupService.addUserGroupToUser(addUserToUserGroupRequest, locale, username);
+
+        verify(userServiceAuditable, never())
+                .update(any(User.class), any(Locale.class), anyString());
+        verify(messageService, times(1))
+                .getMessage(eq(I18Code.MESSAGE_USERS_ALREADY_IN_USER_GROUP.getCode()), any(String[].class), eq(locale));
+
+        assertNotNull(response);
+        assertFalse(response.isSuccess());
+        assertEquals(400, response.getStatusCode());
+        assertEquals("Already in group", response.getMessage());
+    }
+
+    @Test
+    public void removeUsersFromUserGroup_shouldReturnTrueAnd200ForValid() {
+        RemoveUsersFromUserGroupRequest request = new RemoveUsersFromUserGroupRequest();
+        request.setUserGroupId(userGroupId);
+        request.setUserIds(List.of(100L));
+        user.setUserGroup(userGroup);
+
+        when(userGroupServiceValidator.isRequestValidToRemoveUsersFromUserGroup(any(RemoveUsersFromUserGroupRequest.class), any(Locale.class)))
+                .thenReturn(createValidatorDto(true));
+        when(userGroupRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
+                .thenReturn(Optional.of(userGroup));
+        when(userRepository.findByIdAndEntityStatusNot(anyLong(), any(EntityStatus.class)))
+                .thenReturn(Optional.of(user));
+        when(userServiceAuditable.update(any(User.class), any(Locale.class), anyString()))
+                .thenReturn(user);
+        when(modelMapper.map(userGroup, UserGroupDto.class))
+                .thenReturn(userGroupDto);
+        when(messageService.getMessage(
+                eq(I18Code.MESSAGE_USERS_REMOVED_FROM_USER_GROUP_SUCCESSFULLY.getCode()),
+                any(String[].class),
+                eq(locale)))
+                .thenReturn("Removed");
+
+        UserGroupResponse response = userGroupService.removeUsersFromUserGroup(request, locale, username);
+
+        verify(userServiceAuditable, times(1))
+                .update(any(User.class), any(Locale.class), anyString());
+        assertNotNull(response);
+        assertTrue(response.isSuccess());
+        assertEquals(200, response.getStatusCode());
     }
 
     @Test

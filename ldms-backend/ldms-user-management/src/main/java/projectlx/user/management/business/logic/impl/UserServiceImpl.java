@@ -2,21 +2,15 @@ package projectlx.user.management.business.logic.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVReaderBuilder;
 import com.opencsv.exceptions.CsvException;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 import java.util.Objects;
 
@@ -76,6 +70,8 @@ import projectlx.user.management.utils.dtos.UserPreferencesDto;
 import projectlx.user.management.utils.dtos.UserRoleDto;
 import projectlx.user.management.utils.dtos.UserSecurityDto;
 import projectlx.user.management.utils.dtos.UserTypeDto;
+import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
+import projectlx.user.management.utils.notifications.UserNotificationTemplateData;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.co.zw.shared_library.utils.generators.SecureTokenGenerator;
 import projectlx.user.management.utils.requests.CreateUserAccountRequest;
@@ -116,7 +112,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import java.awt.Color;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -165,6 +161,7 @@ public class UserServiceImpl implements UserService {
     private final FileUploadServiceClient fileUploadServiceClient;
     private final RabbitTemplate rabbitTemplate;
     private final TokenService tokenService;
+    private final EmailVerificationLinkProperties emailVerificationLinkProperties;
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
     private static final String[] HEADERS = {
@@ -350,6 +347,18 @@ public class UserServiceImpl implements UserService {
                     createUserRequest.getUserPreferencesDetails(), userSaved.getId());
 
             userPreferencesResponse = userPreferencesService.create(createUserPreferencesRequest, locale, username);
+
+            if (!userPreferencesResponse.isSuccess() || userPreferencesResponse.getUserPreferencesDto() == null) {
+                TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
+                message = userPreferencesResponse.getMessage() != null && !userPreferencesResponse.getMessage().isBlank()
+                        ? userPreferencesResponse.getMessage()
+                        : messageService.getMessage(I18Code.MESSAGE_CREATE_USER_PREFERENCES_INVALID_REQUEST.getCode(),
+                        new String[]{}, locale);
+                List<String> preferenceErrors = userPreferencesResponse.getErrorMessages() != null
+                        ? userPreferencesResponse.getErrorMessages()
+                        : List.of(message);
+                return buildUserResponseWithErrors(400, false, message, null, null, preferenceErrors);
+            }
 
             userPreferencesRepository.findByIdAndEntityStatusNot(
                             userPreferencesResponse.getUserPreferencesDto().getId(), EntityStatus.DELETED)
@@ -685,8 +694,8 @@ public class UserServiceImpl implements UserService {
             message = messageService.getMessage(I18Code.MESSAGE_UPDATE_USER_INVALID_REQUEST.getCode(), new String[]{},
                     locale);
 
-            return buildUserResponse(400, false, message, null, null,
-                    null);
+            return buildUserResponseWithErrors(400, false, message, null, null,
+                    validatorDto.getErrorMessages());
         }
 
         Optional<User> userRetrieved = userRepository.findByIdAndEntityStatusNot(editUserRequest.getId(),
@@ -721,6 +730,12 @@ public class UserServiceImpl implements UserService {
 
         User userEdited = userServiceAuditable.update(userToBeEdited, locale, username);
 
+        boolean nationalMultipart = editUserRequest.getNationalIdUpload() != null
+                && !editUserRequest.getNationalIdUpload().isEmpty();
+        boolean passportMultipart = editUserRequest.getPassportUpload() != null
+                && !editUserRequest.getPassportUpload().isEmpty();
+
+        if (nationalMultipart || passportMultipart) {
         try {
 
             EditFileUploadRequest editFileUploadRequest = buildFileUploadUpdateRequest(editUserRequest, userEdited.getId(),
@@ -793,7 +808,8 @@ public class UserServiceImpl implements UserService {
 
         } catch (Exception e) {
 
-            logger.error("Error while uploading the file for user creation: ", e);
+            logger.error("Error while uploading identification file(s) during user update: ", e);
+        }
         }
 
         User userEditedForTheSecondTime = userServiceAuditable.update(userEdited, locale, username);
@@ -992,8 +1008,22 @@ public class UserServiceImpl implements UserService {
             spec = addToSpec(usersMultipleFiltersRequest.getSearchValue(), spec, UserSpecification::any);
         }
 
+        Long filterUserGroupId = usersMultipleFiltersRequest.getUserGroupId();
+        if (filterUserGroupId != null && filterUserGroupId > 0) {
+            spec = spec.and(UserSpecification.belongsToUserGroup(filterUserGroupId));
+        }
+
         long totalCount = userRepository.count(spec);
-        int maxPage = (int) Math.ceil((double) totalCount / usersMultipleFiltersRequest.getSize());
+
+        if (totalCount == 0) {
+            message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(),
+                    new String[]{}, locale);
+            Page<UserDto> emptyPage = new PageImpl<>(List.of(), pageable, 0);
+            return buildUserResponse(200, true, message, null, null, emptyPage);
+        }
+
+        int pageSize = Math.max(1, usersMultipleFiltersRequest.getSize());
+        int maxPage = (int) Math.ceil((double) totalCount / pageSize);
 
         if (usersMultipleFiltersRequest.getPage() >= maxPage) {
 
@@ -1080,39 +1110,29 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public byte[] exportToPdf(List<UserDto> users) throws DocumentException {
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("USER EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (UserDto user : users) {
-            table.addCell(String.valueOf(user.getId()));
-            table.addCell(safe(user.getUsername()));
-            table.addCell(safe(user.getEmail()));
-            table.addCell(safe(user.getFirstName()));
-            table.addCell(safe(user.getLastName()));
-            table.addCell(enumToString(user.getGender()));
-            table.addCell(safe(user.getPhoneNumber()));
-            table.addCell(safe(user.getNationalIdNumber()));
-            table.addCell(safe(user.getPassportNumber()));
-            table.addCell(user.getDateOfBirth() != null ? user.getDateOfBirth().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(user.getId()),
+                    safe(user.getUsername()),
+                    safe(user.getEmail()),
+                    safe(user.getFirstName()),
+                    safe(user.getLastName()),
+                    enumToString(user.getGender()),
+                    safe(user.getPhoneNumber()),
+                    safe(user.getNationalIdNumber()),
+                    safe(user.getPassportNumber()),
+                    user.getDateOfBirth() != null ? user.getDateOfBirth().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Users")
+                .reportCode("USR-LST")
+                .subtitle("User account listing export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override
@@ -1288,7 +1308,9 @@ public class UserServiceImpl implements UserService {
 
             message = messageService.getMessage(I18Code.MESSAGE_EMAIL_ALREADY_VERIFIED.getCode(), new String[] {}, locale);
 
-            return buildUserResponse(200, true, message, null, null, null);
+            UserResponse alreadyVerified = buildUserResponse(200, true, message, null, null, null);
+            alreadyVerified.setEmailVerificationOutcome("ALREADY_VERIFIED");
+            return alreadyVerified;
         }
 
         // Check if the token matches the stored token
@@ -1306,7 +1328,9 @@ public class UserServiceImpl implements UserService {
 
         message = messageService.getMessage(I18Code.MESSAGE_EMAIL_VERIFIED_SUCCESSFULLY.getCode(), new String[] {}, locale);
 
-        return buildUserResponse(200, true, message, null, null, null);
+        UserResponse verified = buildUserResponse(200, true, message, null, null, null);
+        verified.setEmailVerificationOutcome("VERIFIED");
+        return verified;
     }
 
     @Override
@@ -1680,7 +1704,7 @@ public class UserServiceImpl implements UserService {
     // This method would be called right after newUser is saved
     public void sendWelcomeSms(User newUser) {
         // 1. Prepare the dynamic data for the template
-        Map<String, Object> data = Map.of("userName", newUser.getFirstName());
+        Map<String, Object> data = UserNotificationTemplateData.forUser(newUser);
 
         // 2. Prepare the recipient details
         NotificationRequest.Recipient recipient = new NotificationRequest.Recipient(
@@ -1724,10 +1748,9 @@ public class UserServiceImpl implements UserService {
     // This method would be called right after newUser is saved
     public void sendWhatsAppVerificationReminder(User newUser) {
         // 1. Prepare the dynamic data for the template
-        Map<String, Object> data = Map.of(
-                "userName", newUser.getFirstName(),
+        Map<String, Object> data = UserNotificationTemplateData.forUser(newUser, Map.of(
                 "userEmail", newUser.getEmail()
-        );
+        ));
 
         //newUser.setPhoneNumber("+14155238886");
         // 2. Prepare the recipient details
@@ -1761,16 +1784,14 @@ public class UserServiceImpl implements UserService {
      */
     public void sendVerificationEmail(User newUser, String verificationToken) {
 
-        // 1. Construct the full verification link for your frontend application
-        String verificationLink = "http://localhost:9012/ldms-user-management/v1/system/user/verify-email?token=" + verificationToken +
-                "&email=" + newUser.getEmail();
+        // 1. Link opens the admin portal verify page (GET); the page calls POST /verify-email on the API.
+        String verificationLink = emailVerificationLinkProperties.buildVerificationLink(
+                verificationToken, newUser.getEmail());
 
         // 2. Prepare the dynamic data that will replace the placeholders in the template
-        Map<String, Object> data = Map.of(
-                "userName", newUser.getUsername(),
-                "verificationLink", verificationLink,
-                "email", newUser.getEmail()
-        );
+        Map<String, Object> data = UserNotificationTemplateData.forUser(newUser, Map.of(
+                "verificationLink", verificationLink
+        ));
 
         // 3. Prepare the recipient details
         NotificationRequest.Recipient recipient = new NotificationRequest.Recipient(
@@ -1789,24 +1810,27 @@ public class UserServiceImpl implements UserService {
                 null
         );
 
-        // 5. Send IN-APP notification for registration
-        NotificationRequest inAppNotificationRequest = new NotificationRequest(
-                UUID.randomUUID().toString(),
-                "USER_REGISTRATION_IN_APP", // In-App template
-                recipient,
-                data,
-                null
-        );
-
-        // 6. Publish both notifications to RabbitMQ
+        // 6. Publish notifications to RabbitMQ
         try {
             logger.info("Publishing verification email request for user: {}", newUser.getEmail());
             rabbitTemplate.convertAndSend("notifications.direct", "notifications.send", emailNotificationRequest);
             logger.info("Successfully published verification email request for user: {}", newUser.getEmail());
 
-            logger.info("Publishing verification in-app notification for user: {}", newUser.getId());
-            rabbitTemplate.convertAndSend("notifications.direct", "notifications.send", inAppNotificationRequest);
-            logger.info("Successfully published verification in-app notification for user: {}", newUser.getId());
+            // In-app requires an FCM device token; skip when none is available (avoids permanent SKIPPED log rows).
+            if (StringUtils.hasText(recipient.getFcmToken())) {
+                NotificationRequest inAppNotificationRequest = new NotificationRequest(
+                        UUID.randomUUID().toString(),
+                        "USER_REGISTRATION_IN_APP",
+                        recipient,
+                        data,
+                        null
+                );
+                logger.info("Publishing verification in-app notification for user: {}", newUser.getId());
+                rabbitTemplate.convertAndSend("notifications.direct", "notifications.send", inAppNotificationRequest);
+                logger.info("Successfully published verification in-app notification for user: {}", newUser.getId());
+            } else {
+                logger.debug("Skipping in-app verification notification for user {}: no FCM token", newUser.getId());
+            }
         } catch (Exception e) {
             logger.error("Failed to publish verification notifications for user: {}. Error: {}",
                     newUser.getEmail(), e.getMessage());
@@ -1818,12 +1842,9 @@ public class UserServiceImpl implements UserService {
         String resetLink = "https://localhost:9012/reset-password?token=" + resetToken + "&email=" + user.getEmail();
 
         // Prepare the dynamic data
-        Map<String, Object> data = Map.of(
-                "firstName", user.getFirstName(),
-                "userName", user.getUsername(),
-                "Email", user.getEmail(),
+        Map<String, Object> data = UserNotificationTemplateData.forUser(user, Map.of(
                 "resetLink", resetLink
-        );
+        ));
 
         // Prepare the recipient details
         NotificationRequest.Recipient recipient = new NotificationRequest.Recipient(
@@ -1858,10 +1879,7 @@ public class UserServiceImpl implements UserService {
      */
     public void sendPasswordResetSms(User user, String resetToken) {
         // Prepare the dynamic data
-        Map<String, Object> data = Map.of(
-                "userName", user.getUsername(),
-                "firstName", user.getFirstName()
-        );
+        Map<String, Object> data = UserNotificationTemplateData.forUser(user);
 
         // Prepare the recipient details
         NotificationRequest.Recipient recipient = new NotificationRequest.Recipient(
@@ -1896,11 +1914,7 @@ public class UserServiceImpl implements UserService {
      */
     public void sendPasswordResetWhatsApp(User user, String resetToken) {
         // Prepare the dynamic data
-        Map<String, Object> data = Map.of(
-                "userName", user.getUsername(),
-                "firstName", user.getFirstName(),
-                "email", user.getEmail()
-        );
+        Map<String, Object> data = UserNotificationTemplateData.forUser(user);
 
         // Prepare the recipient details
         NotificationRequest.Recipient recipient = new NotificationRequest.Recipient(
@@ -1935,11 +1949,7 @@ public class UserServiceImpl implements UserService {
      */
     public void sendPasswordResetInAppNotification(User user) {
         // Prepare the dynamic data
-        Map<String, Object> data = Map.of(
-                "Email", user.getEmail(),
-                "userName", user.getUsername(),
-                "firstName", user.getFirstName()
-        );
+        Map<String, Object> data = UserNotificationTemplateData.forUser(user);
 
         // Prepare the recipient details
         NotificationRequest.Recipient recipient = new NotificationRequest.Recipient(

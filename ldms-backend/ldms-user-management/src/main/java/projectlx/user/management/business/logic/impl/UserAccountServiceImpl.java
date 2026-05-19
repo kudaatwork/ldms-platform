@@ -1,15 +1,8 @@
 package projectlx.user.management.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -48,7 +41,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import java.awt.Color;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -439,36 +432,27 @@ public class UserAccountServiceImpl implements UserAccountService {
 
     @Override
     public byte[] exportToPdf(List<UserAccountDto> userAccounts) throws DocumentException {
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("USER ACCOUNT EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (UserAccountDto userAccount : userAccounts) {
-            table.addCell(String.valueOf(userAccount.getId()));
-            table.addCell(safe(userAccount.getAccountNumber()));
-            table.addCell(safe(userAccount.getPhoneNumber()));
-            table.addCell(String.valueOf(userAccount.getIsAccountLocked() != null ? userAccount.getIsAccountLocked() : false));
-            table.addCell(userAccount.getLastLoginAt() != null ? userAccount.getLastLoginAt().toString() : "");
-            table.addCell(userAccount.getCreatedAt() != null ? userAccount.getCreatedAt().toString() : "");
-            table.addCell(userAccount.getUpdatedAt() != null ? userAccount.getUpdatedAt().toString() : "");
-            table.addCell(userAccount.getEntityStatus() != null ? userAccount.getEntityStatus().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(userAccount.getId()),
+                    safe(userAccount.getAccountNumber()),
+                    safe(userAccount.getPhoneNumber()),
+                    String.valueOf(userAccount.getIsAccountLocked() != null ? userAccount.getIsAccountLocked() : false),
+                    userAccount.getLastLoginAt() != null ? userAccount.getLastLoginAt().toString() : "",
+                    userAccount.getCreatedAt() != null ? userAccount.getCreatedAt().toString() : "",
+                    userAccount.getUpdatedAt() != null ? userAccount.getUpdatedAt().toString() : "",
+                    userAccount.getEntityStatus() != null ? userAccount.getEntityStatus().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("User Accounts")
+                .reportCode("USR-ACC")
+                .subtitle("User account details export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

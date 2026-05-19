@@ -7,10 +7,12 @@ import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.management.business.validator.api.UserGroupServiceValidator;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.user.management.utils.requests.AddUserToUserGroupRequest;
+import projectlx.user.management.utils.requests.AddUsersToUserGroupRequest;
 import projectlx.user.management.utils.requests.AssignUserRoleToUserGroupRequest;
 import projectlx.user.management.utils.requests.CreateUserGroupRequest;
 import projectlx.user.management.utils.requests.EditUserGroupRequest;
 import projectlx.user.management.utils.requests.RemoveUserRolesFromUserGroupRequest;
+import projectlx.user.management.utils.requests.RemoveUsersFromUserGroupRequest;
 import projectlx.user.management.utils.requests.UserGroupMultipleFiltersRequest;
 
 import java.util.ArrayList;
@@ -96,9 +98,9 @@ public class UserGroupServiceValidatorImpl implements UserGroupServiceValidator 
             errors.add(messageService.getMessage(I18Code.MESSAGE_UPDATE_USER_GROUP_DESCRIPTION_MISSING.getCode(), new String[]{}, locale));
         }
 
-        if (editUserGroupRequest.getName() != null && !doesStringHaveDigit(editUserGroupRequest.getName())) {
-            logger.info("Validation failed: Group name does not contain digits for editing");
-            errors.add(messageService.getMessage(I18Code.MESSAGE_UPDATE_USER_GROUP_NAME_DOES_NOT_CONTAIN_DIGITS.getCode(), new String[]{}, locale));
+        if (editUserGroupRequest.getName() != null && doesStringHaveDigit(editUserGroupRequest.getName())) {
+            logger.info("Validation failed: Group name contains digits for editing");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_UPDATE_USER_GROUP_NAME_CONTAINS_DIGITS.getCode(), new String[]{}, locale));
         }
 
         if (errors.isEmpty()) {
@@ -218,6 +220,43 @@ public class UserGroupServiceValidatorImpl implements UserGroupServiceValidator 
     }
 
     @Override
+    public ValidatorDto isRequestValidToRemoveUsersFromUserGroup(RemoveUsersFromUserGroupRequest removeUsersFromUserGroupRequest, Locale locale) {
+        List<String> errors = new ArrayList<>();
+
+        if (removeUsersFromUserGroupRequest == null) {
+            logger.info("Validation failed: RemoveUsersFromUserGroupRequest is null");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_REMOVE_USERS_FROM_USER_GROUP_REQUEST_IS_NULL.getCode(), new String[]{}, locale));
+            return new ValidatorDto(false, null, errors);
+        }
+
+        if (removeUsersFromUserGroupRequest.getUserGroupId() == null
+                || removeUsersFromUserGroupRequest.getUserGroupId() < 1) {
+            logger.info("Validation failed: User group ID is null or less than 1 for user removal");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_REMOVE_USERS_FROM_USER_GROUP_USER_GROUP_ID_INVALID.getCode(), new String[]{}, locale));
+        }
+
+        if (removeUsersFromUserGroupRequest.getUserIds() == null
+                || removeUsersFromUserGroupRequest.getUserIds().isEmpty()) {
+            logger.info("Validation failed: User IDs list is null or empty for removal");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_REMOVE_USERS_FROM_USER_GROUP_USER_IDS_INVALID.getCode(), new String[]{}, locale));
+        } else {
+            for (Long userId : removeUsersFromUserGroupRequest.getUserIds()) {
+                if (userId == null || userId < 1) {
+                    logger.info("Validation failed: User ID is less than 1 for removal");
+                    errors.add(messageService.getMessage(I18Code.MESSAGE_REMOVE_USERS_FROM_USER_GROUP_USER_ID_LESS_THAN_ONE.getCode(), new String[]{}, locale));
+                    break;
+                }
+            }
+        }
+
+        if (errors.isEmpty()) {
+            return new ValidatorDto(true, null, null);
+        } else {
+            return new ValidatorDto(false, null, errors);
+        }
+    }
+
+    @Override
     public ValidatorDto isRequestValidToAddUserToUserGroup(AddUserToUserGroupRequest addUserToUserGroupRequest, Locale locale) {
         List<String> errors = new ArrayList<>();
 
@@ -237,6 +276,43 @@ public class UserGroupServiceValidatorImpl implements UserGroupServiceValidator 
                 addUserToUserGroupRequest.getUserId() < 1) {
             logger.info("Validation failed: User ID is null or less than 1");
             errors.add(messageService.getMessage(I18Code.MESSAGE_ADD_USER_TO_USER_GROUP_USER_ID_INVALID.getCode(), new String[]{}, locale));
+        }
+
+        if (errors.isEmpty()) {
+            return new ValidatorDto(true, null, null);
+        } else {
+            return new ValidatorDto(false, null, errors);
+        }
+    }
+
+    @Override
+    public ValidatorDto isRequestValidToAddUsersToUserGroup(AddUsersToUserGroupRequest addUsersToUserGroupRequest, Locale locale) {
+        List<String> errors = new ArrayList<>();
+
+        if (addUsersToUserGroupRequest == null) {
+            logger.info("Validation failed: AddUsersToUserGroupRequest is null");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_ADD_USERS_TO_USER_GROUP_REQUEST_IS_NULL.getCode(), new String[]{}, locale));
+            return new ValidatorDto(false, null, errors);
+        }
+
+        if (addUsersToUserGroupRequest.getUserGroupId() == null
+                || addUsersToUserGroupRequest.getUserGroupId() < 1) {
+            logger.info("Validation failed: User group ID is null or less than 1 for batch user add");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_ADD_USER_TO_USER_GROUP_USER_GROUP_ID_INVALID.getCode(), new String[]{}, locale));
+        }
+
+        if (addUsersToUserGroupRequest.getUserIds() == null
+                || addUsersToUserGroupRequest.getUserIds().isEmpty()) {
+            logger.info("Validation failed: User IDs list is null or empty for batch add");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_ADD_USERS_TO_USER_GROUP_USER_IDS_INVALID.getCode(), new String[]{}, locale));
+        } else {
+            for (Long userId : addUsersToUserGroupRequest.getUserIds()) {
+                if (userId == null || userId < 1) {
+                    logger.info("Validation failed: User ID is less than 1 for batch add");
+                    errors.add(messageService.getMessage(I18Code.MESSAGE_ADD_USERS_TO_USER_GROUP_USER_ID_LESS_THAN_ONE.getCode(), new String[]{}, locale));
+                    break;
+                }
+            }
         }
 
         if (errors.isEmpty()) {

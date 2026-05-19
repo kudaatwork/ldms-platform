@@ -12,6 +12,11 @@ import type {
 } from '../../models/kyc-application.model';
 import { KycApplicationDeleteDialogComponent } from '../kyc-application-delete-dialog/kyc-application-delete-dialog.component';
 import { KycApplicationDetailDialogComponent } from '../kyc-application-detail-dialog/kyc-application-detail-dialog.component';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import {
+  LxExportFormat,
+  exportClientTableAsCsv,
+} from '@shared/utils/lx-export.util';
 import {
   KycApplicationEditDialogComponent,
   type KycApplicationEditResult,
@@ -40,7 +45,7 @@ export class KycApplicationsComponent implements OnInit {
   };
 
   pageIndex = 0;
-  pageSize = 10;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
 
   constructor(
     private readonly title: Title,
@@ -178,7 +183,23 @@ export class KycApplicationsComponent implements OnInit {
     /* Wire file picker / API */
   }
 
-  stubExport(): void {
-    /* Wire export API */
+  exportAs(format: LxExportFormat): void {
+    const ok = exportClientTableAsCsv(
+      format,
+      this.filteredRows,
+      [
+        { header: 'applicant', value: (r) => r.applicant },
+        { header: 'submitted', value: (r) => r.submitted },
+        { header: 'status', value: (r) => r.statusLabel },
+      ],
+      'kyc-applications',
+      (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
+    );
+    if (ok) {
+      this.snackBar.open('Exported KYC applications as CSV.', 'Close', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
+    }
   }
 }

@@ -2,6 +2,7 @@ export const environment = {
   production: false,
   /**
    * Dev: `/api` — same-origin via `ng serve` proxy (`proxy.conf.json` → gateway :8091), avoids browser CORS.
+   * Override with `http://localhost:8091` only when not using the dev proxy.
    * Prod: absolute gateway URL in `environment.prod.ts`.
    */
   apiUrl: '/api',

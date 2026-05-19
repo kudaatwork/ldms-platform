@@ -7,7 +7,8 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestTemplate;
-import projectlx.co.zw.notifications.business.auditable.api.NotificationLogServiceAuditable;
+import org.springframework.util.StringUtils;
+import projectlx.co.zw.notifications.business.logic.api.NotificationLogRecorder;
 import projectlx.co.zw.notifications.business.logic.api.NotificationProviderService;
 import projectlx.co.zw.notifications.business.logic.api.TemplateProcessorService;
 import projectlx.co.zw.notifications.model.Channel;
@@ -22,7 +23,7 @@ import java.util.Map;
 public class SlackNotificationProviderServiceImpl implements NotificationProviderService {
 
     private final TemplateProcessorService templateProcessor;
-    private final NotificationLogServiceAuditable notificationLogServiceAuditable;
+    private final NotificationLogRecorder notificationLogRecorder;
     private final RestTemplate restTemplate;
 
     @Value("${notifications.providers.slack.webhook-url:}")
@@ -37,16 +38,16 @@ public class SlackNotificationProviderServiceImpl implements NotificationProvide
     public void send(NotificationRequest request, NotificationTemplate template) {
         String webhookUrl = resolveWebhookUrl(request);
 
-        if (webhookUrl == null || webhookUrl.isBlank()) {
+        if (!StringUtils.hasText(webhookUrl)) {
             log.warn("[NOTIFICATION] Skipped channel=SLACK eventId={} templateKey={} reason=missing_webhook",
                     request.getEventId(), request.getTemplateKey());
+            notificationLogRecorder.markSkipped(request, Channel.SLACK, "missing_webhook");
             return;
         }
 
         String messageText = templateProcessor.process(resolveMessageTemplate(template), request.getData());
-        NotificationLog logEntry = createLogEntry(request, "PENDING", null);
+        NotificationLog logEntry = notificationLogRecorder.beginDispatch(request, Channel.SLACK);
         logEntry.setRenderedContent(messageText);
-        notificationLogServiceAuditable.create(logEntry);
 
         try {
             Map<String, String> payload = Map.of("text", messageText);
@@ -57,17 +58,13 @@ public class SlackNotificationProviderServiceImpl implements NotificationProvide
                     request.getEventId(), request.getTemplateKey());
             restTemplate.postForEntity(webhookUrl, new HttpEntity<>(payload, headers), String.class);
 
-            logEntry.setStatus("SENT");
-            logEntry.setProvider("SLACK_WEBHOOK");
-            notificationLogServiceAuditable.update(logEntry);
+            notificationLogRecorder.markSent(logEntry, "SLACK_WEBHOOK", null, messageText);
             log.info("[NOTIFICATION] Sent channel=SLACK provider=WEBHOOK eventId={} templateKey={}",
                     request.getEventId(), request.getTemplateKey());
         } catch (Exception exception) {
             log.error("[NOTIFICATION] Failed channel=SLACK provider=WEBHOOK eventId={} templateKey={} error={}",
                     request.getEventId(), request.getTemplateKey(), exception.getMessage(), exception);
-            logEntry.setStatus("FAILED");
-            logEntry.setErrorMessage(exception.getMessage());
-            notificationLogServiceAuditable.update(logEntry);
+            notificationLogRecorder.markFailed(logEntry, exception.getMessage());
         }
     }
 
@@ -96,14 +93,4 @@ public class SlackNotificationProviderServiceImpl implements NotificationProvide
         return template.getDescription();
     }
 
-    private NotificationLog createLogEntry(NotificationRequest request, String status, String errorMessage) {
-        NotificationLog logEntry = new NotificationLog();
-        logEntry.setRecipientId(request.getRecipient() != null ? request.getRecipient().getUserId() : null);
-        logEntry.setTemplateKey(request.getTemplateKey());
-        logEntry.setChannel(getChannel());
-        logEntry.setStatus(status);
-        logEntry.setPayload(request.getData());
-        logEntry.setErrorMessage(errorMessage);
-        return logEntry;
-    }
 }

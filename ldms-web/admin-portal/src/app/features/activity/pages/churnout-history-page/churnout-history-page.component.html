@@ -72,13 +72,9 @@
       <button type="button" class="lx-btn lx-btn-success" [disabled]="exporting" (click)="export('pdf')">Export PDF</button>
     </div>
 
-    <div class="lx-table-loading" *ngIf="loading && dataSource.data.length === 0">
-      <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-      <p class="lx-table-loading__text">Loading churnout history…</p>
-    </div>
-
-    <ng-container *ngIf="dataSource.data.length > 0">
-      <div class="lx-table-wrap">
+    <lx-table-loading [busy]="loading && dataSource.data.length === 0" message="Loading churnout history…"></lx-table-loading>
+<ng-container *ngIf="dataSource.data.length > 0">
+      <div class="lx-table-wrap lx-table-wrap--host"><lx-table-loading [busy]="loading && dataSource.data.length > 0" [hasData]="true" message="Refreshing churnout history…"></lx-table-loading>
         <table mat-table [dataSource]="dataSource" class="lx-mat-table">
           <ng-container matColumnDef="triggeredAt">
             <th mat-header-cell *matHeaderCellDef>Triggered At</th>
@@ -113,7 +109,7 @@
         [length]="totalElements"
         [pageIndex]="pageIndex"
         [pageSize]="pageSize"
-        [pageSizeOptions]="[20, 50, 100]"
+        [pageSizeOptions]="[10, 20, 25, 50]"
         [showFirstLastButtons]="true"
         (page)="onPage($event)"
       ></mat-paginator>

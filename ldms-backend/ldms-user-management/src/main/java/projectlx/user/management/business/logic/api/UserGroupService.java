@@ -4,10 +4,12 @@ import com.lowagie.text.DocumentException;
 import projectlx.user.management.utils.dtos.ImportSummary;
 import projectlx.user.management.utils.dtos.UserGroupDto;
 import projectlx.user.management.utils.requests.AddUserToUserGroupRequest;
+import projectlx.user.management.utils.requests.AddUsersToUserGroupRequest;
 import projectlx.user.management.utils.requests.AssignUserRoleToUserGroupRequest;
 import projectlx.user.management.utils.requests.CreateUserGroupRequest;
 import projectlx.user.management.utils.requests.EditUserGroupRequest;
 import projectlx.user.management.utils.requests.RemoveUserRolesFromUserGroupRequest;
+import projectlx.user.management.utils.requests.RemoveUsersFromUserGroupRequest;
 import projectlx.user.management.utils.requests.UserGroupMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserGroupResponse;
 import java.io.IOException;
@@ -28,6 +30,8 @@ public interface UserGroupService {
     UserGroupResponse removeUserRolesFromUserGroup(RemoveUserRolesFromUserGroupRequest removeUserRolesFromUserGroupRequest,
                                                    Locale locale, String username);
     UserGroupResponse addUserGroupToUser(AddUserToUserGroupRequest addUserToUserGroupRequest, Locale locale, String username);
+    UserGroupResponse addUsersToUserGroup(AddUsersToUserGroupRequest addUsersToUserGroupRequest, Locale locale, String username);
+    UserGroupResponse removeUsersFromUserGroup(RemoveUsersFromUserGroupRequest removeUsersFromUserGroupRequest, Locale locale, String username);
     byte[] exportToCsv(List<UserGroupDto> userGroups);
     byte[] exportToExcel(List<UserGroupDto> userGroups) throws IOException;
     byte[] exportToPdf(List<UserGroupDto> userGroups) throws DocumentException;

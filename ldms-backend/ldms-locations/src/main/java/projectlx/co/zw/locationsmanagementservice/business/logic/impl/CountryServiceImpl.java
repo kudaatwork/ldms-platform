@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
@@ -49,7 +42,6 @@ import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.globalvalidators.Validators;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -501,40 +493,30 @@ public class CountryServiceImpl implements CountryService {
 
     @Override
     public byte[] exportToPdf(List<CountryDto> items) throws DocumentException {
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("COUNTRY EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (CountryDto country : items) {
-            table.addCell(String.valueOf(country.getId()));
-            table.addCell(safe(country.getName()));
-            table.addCell(safe(country.getIsoAlpha2Code()));
-            table.addCell(safe(country.getIsoAlpha3Code()));
-            table.addCell(safe(country.getDialCode()));
-            table.addCell(safe(country.getTimezone()));
-            table.addCell(safe(country.getCurrencyCode()));
-            table.addCell(country.getCreatedAt() != null ? country.getCreatedAt().toString() : "");
-            table.addCell(country.getUpdatedAt() != null ? country.getUpdatedAt().toString() : "");
-            table.addCell(country.getEntityStatus() != null ? country.getEntityStatus().toString() : "");
-            table.addCell(country.getGeoCoordinatesId() != null ? country.getGeoCoordinatesId().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(country.getId()),
+                    safe(country.getName()),
+                    safe(country.getIsoAlpha2Code()),
+                    safe(country.getIsoAlpha3Code()),
+                    safe(country.getDialCode()),
+                    safe(country.getTimezone()),
+                    safe(country.getCurrencyCode()),
+                    country.getCreatedAt() != null ? country.getCreatedAt().toString() : "",
+                    country.getUpdatedAt() != null ? country.getUpdatedAt().toString() : "",
+                    country.getEntityStatus() != null ? country.getEntityStatus().toString() : "",
+                    country.getGeoCoordinatesId() != null ? country.getGeoCoordinatesId().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Countries")
+                .reportCode("LOC-CNT")
+                .subtitle("Country registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

@@ -7,6 +7,10 @@ import {
   ViewChild,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import {
+  normalizeNotificationEmailMarkup,
+  toNotificationEmailPreviewHtml,
+} from '../../utils/notification-email-preview.util';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { html } from '@codemirror/lang-html';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
@@ -326,36 +330,11 @@ export class NotificationEmailHtmlPadComponent
   }
 
   private normalizeMarkup(input: string): string {
-    const trimmed = input.trim();
-    if (!trimmed) {
-      return trimmed;
-    }
-
-    // Support pasted JSON-escaped HTML blobs:
-    // e.g. \" and \n should become normal HTML before parser/formatter runs.
-    const unquoted =
-      (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-      (trimmed.startsWith("'") && trimmed.endsWith("'"))
-        ? trimmed.slice(1, -1)
-        : trimmed;
-
-    return unquoted
-      .replace(/\\"/g, '"')
-      .replace(/\\n/g, '\n')
-      .replace(/\\t/g, '\t')
-      .replace(/\\r/g, '\r');
+    return normalizeNotificationEmailMarkup(input);
   }
 
   private toPreviewHtml(input: string): string {
-    const normalized = this.normalizeMarkup(input);
-    // Preview mirrors source as-is (including {{placeholders}}).
-    const asIs = normalized;
-    const hasHtmlTag = /<html[\s>]/i.test(asIs);
-    if (hasHtmlTag) {
-      return asIs;
-    }
-
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${asIs}</body></html>`;
+    return toNotificationEmailPreviewHtml(input);
   }
 
   onPreviewLoaded(): void {

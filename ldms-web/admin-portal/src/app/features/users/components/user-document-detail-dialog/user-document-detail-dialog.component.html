@@ -1,42 +1,55 @@
-<h2 mat-dialog-title>Document details</h2>
-
-<mat-dialog-content class="udd-body">
-  <div class="udd-loading" *ngIf="loading">
-    <mat-spinner diameter="36"></mat-spinner>
-    <span>Loading…</span>
+<div class="lx-dialog-shell lx-dialog-shell--wide">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Document details</h2>
+      <p class="lx-dialog-subtitle">Preview and metadata for this uploaded file.</p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" mat-dialog-close>
+      <mat-icon>close</mat-icon>
+    </button>
   </div>
 
-  <p class="udd-error" *ngIf="!loading && error">{{ error }}</p>
+  <div class="lx-step-content">
+    <div class="lx-loading-shell" *ngIf="loading">
+      <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+      <span>Loading…</span>
+    </div>
 
-  <div class="udd-grid" *ngIf="!loading && doc && !error">
-    <p class="udd-pdf-hint" *ngIf="canOpenPdfInNewTab">
-      If the preview is blank in your browser, use <strong>Open PDF</strong> to view the file in a new tab.
+    <p class="lx-form-error" *ngIf="!loading && error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
     </p>
-    <div class="udd-preview" *ngIf="previewImageUrl">
-      <img [src]="previewImageUrl" alt="Preview" />
+
+    <div class="udd-grid" *ngIf="!loading && doc && !error">
+      <p class="udd-pdf-hint" *ngIf="canOpenPdfInNewTab">
+        If the preview is blank in your browser, use <strong>Open PDF</strong> to view the file in a new tab.
+      </p>
+      <div class="udd-preview" *ngIf="previewImageUrl">
+        <img [src]="previewImageUrl" alt="Preview" />
+      </div>
+      <div class="udd-preview udd-preview--pdf" *ngIf="previewPdfUrl">
+        <iframe [src]="previewPdfUrl" title="PDF preview"></iframe>
+      </div>
+      <div class="udd-fields">
+        <div class="udd-row"><span class="udd-k">File name</span><span class="udd-v">{{ str('originalFileName') || '—' }}</span></div>
+        <div class="udd-row"><span class="udd-k">Content type</span><span class="udd-v">{{ str('contentType') || '—' }}</span></div>
+        <div class="udd-row"><span class="udd-k">File type</span><span class="udd-v">{{ str('fileType') || '—' }}</span></div>
+        <div class="udd-row"><span class="udd-k">Size</span><span class="udd-v">{{ formatBytes(doc['fileSizeInBytes']) }}</span></div>
+        <div class="udd-row"><span class="udd-k">Owner</span><span class="udd-v">{{ str('ownerType') }} #{{ str('ownerId') }}</span></div>
+        <div class="udd-row"><span class="udd-k">Status</span><span class="udd-v">{{ str('entityStatus') || '—' }}</span></div>
+        <div class="udd-row"><span class="udd-k">Version</span><span class="udd-v">{{ str('version') || '—' }}</span></div>
+        <div class="udd-row"><span class="udd-k">Created</span><span class="udd-v">{{ str('createdAt') || '—' }}</span></div>
+        <div class="udd-row"><span class="udd-k">Created by</span><span class="udd-v">{{ str('createdBy') || '—' }}</span></div>
+        <div class="udd-row"><span class="udd-k">Modified</span><span class="udd-v">{{ str('modifiedAt') || '—' }}</span></div>
+        <div class="udd-row"><span class="udd-k">Modified by</span><span class="udd-v">{{ str('modifiedBy') || '—' }}</span></div>
+      </div>
     </div>
-    <div class="udd-preview udd-preview--pdf" *ngIf="previewPdfUrl">
-      <iframe [src]="previewPdfUrl" title="PDF preview"></iframe>
-    </div>
-    <div class="udd-fields">
-      <div class="udd-row"><span class="udd-k">File name</span><span class="udd-v">{{ str('originalFileName') || '—' }}</span></div>
-      <div class="udd-row"><span class="udd-k">Content type</span><span class="udd-v">{{ str('contentType') || '—' }}</span></div>
-      <div class="udd-row"><span class="udd-k">File type</span><span class="udd-v">{{ str('fileType') || '—' }}</span></div>
-      <div class="udd-row"><span class="udd-k">Size</span><span class="udd-v">{{ formatBytes(doc['fileSizeInBytes']) }}</span></div>
-      <div class="udd-row"><span class="udd-k">Owner</span><span class="udd-v">{{ str('ownerType') }} #{{ str('ownerId') }}</span></div>
-      <div class="udd-row"><span class="udd-k">Status</span><span class="udd-v">{{ str('entityStatus') || '—' }}</span></div>
-      <div class="udd-row"><span class="udd-k">Version</span><span class="udd-v">{{ str('version') || '—' }}</span></div>
-      <div class="udd-row"><span class="udd-k">Created</span><span class="udd-v">{{ str('createdAt') || '—' }}</span></div>
-      <div class="udd-row"><span class="udd-k">Created by</span><span class="udd-v">{{ str('createdBy') || '—' }}</span></div>
-      <div class="udd-row"><span class="udd-k">Modified</span><span class="udd-v">{{ str('modifiedAt') || '—' }}</span></div>
-      <div class="udd-row"><span class="udd-k">Modified by</span><span class="udd-v">{{ str('modifiedBy') || '—' }}</span></div>
+
+    <div class="lx-step-actions" *ngIf="!loading && doc && !error">
+      <button *ngIf="canOpenPdfInNewTab" type="button" mat-raised-button color="primary" (click)="openPdfInNewTab()">
+        Open PDF
+      </button>
+      <button type="button" mat-stroked-button mat-dialog-close>Close</button>
     </div>
   </div>
-</mat-dialog-content>
-
-<mat-dialog-actions align="end">
-  <button *ngIf="canOpenPdfInNewTab" type="button" mat-flat-button color="primary" (click)="openPdfInNewTab()">
-    Open PDF
-  </button>
-  <button type="button" mat-stroked-button mat-dialog-close>Close</button>
-</mat-dialog-actions>
+</div>

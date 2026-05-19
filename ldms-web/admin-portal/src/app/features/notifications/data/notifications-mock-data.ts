@@ -39,6 +39,16 @@ export const MOCK_NOTIFICATION_TEMPLATES: NotificationTemplateRow[] = MOCK_TEMPL
 export const MOCK_NOTIFICATION_LOG: NotificationLogRow[] = [
   {
     id: 1,
+    eventId: 'mock-event-1',
+    recipientDisplay: 'new.user@projectlx.co.zw',
+    channel: 'EMAIL',
+    templateKey: 'USER_REGISTRATION_VERIFICATION',
+    status: 'QUEUED',
+    sentAt: '2026-05-17T09:10:00',
+    retryCount: 0,
+  },
+  {
+    id: 2,
     recipientDisplay: 'ops@projectlx.co.zw',
     channel: 'EMAIL',
     templateKey: 'KYC_APPROVED',
@@ -47,7 +57,7 @@ export const MOCK_NOTIFICATION_LOG: NotificationLogRow[] = [
     retryCount: 0,
   },
   {
-    id: 2,
+    id: 3,
     recipientDisplay: 'finance@acme.co.zw',
     channel: 'EMAIL',
     templateKey: 'INVOICE_CREATED',
@@ -56,7 +66,7 @@ export const MOCK_NOTIFICATION_LOG: NotificationLogRow[] = [
     retryCount: 0,
   },
   {
-    id: 3,
+    id: 4,
     recipientDisplay: 'driver@hauliers.co.zw',
     channel: 'SMS',
     templateKey: 'TRIP_STARTED',
@@ -65,7 +75,7 @@ export const MOCK_NOTIFICATION_LOG: NotificationLogRow[] = [
     retryCount: 2,
   },
   {
-    id: 4,
+    id: 5,
     recipientDisplay: 'viewer@demo.org',
     channel: 'IN_APP',
     templateKey: 'PO_CREATED',

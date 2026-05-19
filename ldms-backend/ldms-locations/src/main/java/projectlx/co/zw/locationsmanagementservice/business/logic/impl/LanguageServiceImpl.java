@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -42,7 +35,6 @@ import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.globalvalidators.Validators;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -406,37 +398,27 @@ public class LanguageServiceImpl implements LanguageService {
 
     @Override
     public byte[] exportToPdf(List<LanguageDto> items) throws DocumentException {
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("LANGUAGE EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(HEADERS.length);
-        for (String header : HEADERS) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
+        List<String[]> rows = new ArrayList<>();
         for (LanguageDto language : items) {
-            table.addCell(String.valueOf(language.getId()));
-            table.addCell(safe(language.getName()));
-            table.addCell(safe(language.getIsoCode()));
-            table.addCell(safe(language.getNativeName()));
-            table.addCell(language.getIsDefault() != null ? language.getIsDefault().toString() : "false");
-            table.addCell(language.getCreatedAt() != null ? language.getCreatedAt().toString() : "");
-            table.addCell(language.getUpdatedAt() != null ? language.getUpdatedAt().toString() : "");
-            table.addCell(language.getEntityStatus() != null ? language.getEntityStatus().toString() : "");
+            rows.add(new String[]{
+                    String.valueOf(language.getId()),
+                    safe(language.getName()),
+                    safe(language.getIsoCode()),
+                    safe(language.getNativeName()),
+                    language.getIsDefault() != null ? language.getIsDefault().toString() : "false",
+                    language.getCreatedAt() != null ? language.getCreatedAt().toString() : "",
+                    language.getUpdatedAt() != null ? language.getUpdatedAt().toString() : "",
+                    language.getEntityStatus() != null ? language.getEntityStatus().toString() : ""
+            });
         }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Languages")
+                .reportCode("LOC-LNG")
+                .subtitle("Language registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

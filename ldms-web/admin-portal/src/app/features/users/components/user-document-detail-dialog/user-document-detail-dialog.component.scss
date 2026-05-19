@@ -1,22 +1,10 @@
-.udd-body {
-  min-width: 280px;
-  max-width: min(92vw, 720px);
-  max-height: 70vh;
-  overflow: auto;
-}
+@use '../../../../shared/styles/lx-dialog-form-shell';
 
-.udd-loading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 0;
-  color: var(--gray-600);
-}
-
-.udd-error {
-  margin: 0;
-  font-size: 13px;
-  color: #b91c1c;
+.udd-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
 }
 
 .udd-pdf-hint {
@@ -29,13 +17,6 @@
   background: color-mix(in srgb, var(--primary, #1976d2) 8%, var(--surface, #fff));
   border: 1px solid color-mix(in srgb, var(--primary, #1976d2) 22%, transparent);
   border-radius: 8px;
-}
-
-.udd-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
 }
 
 .udd-preview {

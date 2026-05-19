@@ -1,16 +1,20 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map, of } from 'rxjs';
+import { Observable, catchError, from, map, of, switchMap, throwError } from 'rxjs';
 import { LOCATIONS_TABLE_PAGE_SIZE } from '../../locations/services/locations.service';
 import { environment } from '../../../../environments/environment';
+import { apiBaseUrl } from '../../../core/utils/api-url.util';
 import { MOCK_NOTIFICATION_LOG, MOCK_NOTIFICATION_TEMPLATES } from '../data/notifications-mock-data';
 import type {
   ChannelOptionDto,
   CreateTemplateRequest,
   NotificationChannel,
   NotificationLogFilters,
+  NotificationLogMultipleFiltersRequest,
   NotificationLogExportFormat,
+  NotificationLogListResponse,
   NotificationLogRow,
+  NotificationQueueSummary,
   NotificationTemplateRow,
   TemplateCreationMetadataDto,
   TemplateExportFormat,
@@ -20,37 +24,6 @@ import type {
   TemplateResponse,
   UpdateTemplateRequest,
 } from '../models/notification-admin.models';
-
-interface AuditLogFilters {
-  page: number;
-  size: number;
-  searchValue: string;
-  serviceName: string;
-  username: string;
-  eventType: string;
-  httpStatusCode: number | null;
-  from: string | null;
-  to: string | null;
-  sortBy: string;
-  sortDir: string;
-}
-
-interface AuditLogDto {
-  id?: number;
-  action?: string;
-  username?: string;
-  requestTimestamp?: string;
-  responseTimestamp?: string;
-  requestPayload?: string | null;
-  responsePayload?: string | null;
-  httpStatusCode?: number;
-}
-
-interface AuditLogResponse {
-  auditLogPage?: {
-    content?: AuditLogDto[];
-  };
-}
 
 /** Static fallback when metadata API is unavailable (matches ldms-notifications Channel enum + processor copy). */
 const FALLBACK_CHANNEL_OPTIONS: ChannelOptionDto[] = [
@@ -62,13 +35,13 @@ const FALLBACK_CHANNEL_OPTIONS: ChannelOptionDto[] = [
   { value: 'TEAMS', label: 'TEAMS', description: 'Send to Microsoft Teams via incoming webhook.' },
 ];
 
+type NotificationResource = 'notification-template' | 'notification-log';
+
 @Injectable({
   providedIn: 'root',
 })
 export class NotificationAdminService {
-  private readonly base = environment.apiUrl;
-  private readonly templateBase = `${this.base}/ldms-notifications/v1/${environment.apiSurface}/notification-template`;
-  private readonly auditBase = `${this.base}/ldms-audit-trail/v1/${environment.apiSurface}/audit-log`;
+  private readonly base = apiBaseUrl();
 
   /** Mutable copy for mock create/delete flows */
   private mockTemplates: NotificationTemplateRow[] = [...MOCK_NOTIFICATION_TEMPLATES];
@@ -80,7 +53,7 @@ export class NotificationAdminService {
       return of([...this.mockTemplates]);
     }
     return this.http
-      .get<TemplateListResponse>(`${this.templateBase}/find-all-as-a-list`)
+      .get<TemplateListResponse>(this.url('notification-template', 'find-all-as-a-list'))
       .pipe(map((r) => (r.templateList ?? []).map((row) => this.normalizeTemplateRow(row))));
   }
 
@@ -106,6 +79,15 @@ export class NotificationAdminService {
             (t.emailSubject ?? '').toLowerCase().includes(q),
         );
       }
+      const tk = filters.templateKey?.trim().toLowerCase();
+      if (tk) {
+        list = list.filter((t) => t.templateKey.toLowerCase().startsWith(tk));
+      }
+      if (filters.channels?.length) {
+        list = list.filter((t) =>
+          filters.channels!.every((ch) => t.channels.includes(ch as NotificationChannel)),
+        );
+      }
       if (filters.isActive != null) {
         list = list.filter((t) => t.isActive === filters.isActive);
       }
@@ -122,21 +104,13 @@ export class NotificationAdminService {
       searchValue: filters.searchValue ?? '',
     };
 
-    return this.http.post<TemplateResponse>(`${this.templateBase}/find-by-multiple-filters`, body).pipe(
-      map((r) => {
-        // Backend uses JSON `statusCode` (often still HTTP 200); empty catalog is 404 in-body.
-        if (r.statusCode === 404) {
-          return { rows: [], totalElements: 0 };
+    return this.http.post<TemplateResponse>(this.url('notification-template', 'find-by-multiple-filters'), body).pipe(
+      map((r) => this.mapTemplatePageResponse(r)),
+      catchError((err) => {
+        if (err instanceof HttpErrorResponse && err.status === 404) {
+          return of({ rows: [], totalElements: 0 });
         }
-        if (r.statusCode != null && r.statusCode >= 400) {
-          throw r;
-        }
-        const p = r.templatePage;
-        const content = p?.content ?? [];
-        return {
-          rows: content.map((row) => this.normalizeTemplateRow(row)),
-          totalElements: Number(p?.totalElements ?? content.length),
-        };
+        return throwError(() => err);
       }),
     );
   }
@@ -147,7 +121,7 @@ export class NotificationAdminService {
         channelOptions: FALLBACK_CHANNEL_OPTIONS,
       });
     }
-    return this.http.get<TemplateResponse>(`${this.templateBase}/add-template-metadata`).pipe(
+    return this.http.get<TemplateResponse>(this.url('notification-template', 'add-template-metadata')).pipe(
       map((r) => {
         if (r.addTemplateMetadata?.channelOptions?.length) {
           return r.addTemplateMetadata;
@@ -166,7 +140,7 @@ export class NotificationAdminService {
       return of({ ...row });
     }
     return this.http
-      .get<TemplateResponse>(`${this.templateBase}/find-by-id/${id}`)
+      .get<TemplateResponse>(this.url('notification-template', `find-by-id/${id}`))
       .pipe(map((r) => this.normalizeTemplateRow(r.template as NotificationTemplateRow)));
   }
 
@@ -191,7 +165,7 @@ export class NotificationAdminService {
       return of(row);
     }
     return this.http
-      .post<TemplateResponse>(`${this.templateBase}/create`, body)
+      .post<TemplateResponse>(this.url('notification-template', 'create'), body)
       .pipe(map((r) => this.normalizeTemplateRow(r.template as NotificationTemplateRow)));
   }
 
@@ -206,7 +180,7 @@ export class NotificationAdminService {
       return of(updated);
     }
     return this.http
-      .put<TemplateResponse>(`${this.templateBase}/update`, body)
+      .put<TemplateResponse>(this.url('notification-template', 'update'), body)
       .pipe(map((r) => this.normalizeTemplateRow(r.template as NotificationTemplateRow)));
   }
 
@@ -224,7 +198,7 @@ export class NotificationAdminService {
     }
     const formData = new FormData();
     formData.append('file', file, file.name);
-    return this.http.post<TemplateImportSummary>(`${this.templateBase}/import`, formData);
+    return this.http.post<TemplateImportSummary>(this.url('notification-template', 'import'), formData);
   }
 
   deleteTemplate(id: number): Observable<void> {
@@ -232,7 +206,7 @@ export class NotificationAdminService {
       this.mockTemplates = this.mockTemplates.filter((t) => t.id !== id);
       return of(void 0);
     }
-    return this.http.delete<void>(`${this.templateBase}/delete-by-id/${id}`);
+    return this.http.delete<void>(this.url('notification-template', `delete-by-id/${id}`));
   }
 
   exportTemplates(
@@ -242,21 +216,49 @@ export class NotificationAdminService {
     if (environment.useMocks) {
       return of(this.buildMockExportBlob(format, [...this.mockTemplates]));
     }
-    return this.http.post(`${this.templateBase}/export`, filters, {
-      params: { format },
-      responseType: 'blob',
-    });
+    return this.http
+      .post(this.url('notification-template', 'export'), filters, {
+        params: { format },
+        responseType: 'blob',
+      })
+      .pipe(switchMap((blob) => this.ensureExportBlob(blob)));
   }
 
-  getNotificationLog(filters: NotificationLogFilters): Observable<NotificationLogRow[]> {
+  /**
+   * Server-paged activity log (same transport pattern as templates `getTemplatesPage`).
+   */
+  getNotificationLogPage(filters: NotificationLogFilters): Observable<{
+    rows: NotificationLogRow[];
+    totalElements: number;
+    queueSummary: NotificationQueueSummary | null;
+  }> {
+    const page = filters.page ?? 0;
+    const size = filters.size && filters.size > 0 ? filters.size : LOCATIONS_TABLE_PAGE_SIZE;
+
     if (environment.useMocks) {
-      return of(this.applyLogFilters([...MOCK_NOTIFICATION_LOG], filters));
+      const filtered = this.applyLogFilters([...MOCK_NOTIFICATION_LOG], filters);
+      const totalElements = filtered.length;
+      const start = page * size;
+      const rows = filtered.slice(start, start + size);
+      return of({
+        rows,
+        totalElements,
+        queueSummary: { queueName: 'notifications.queue', messagesReady: 0 },
+      });
     }
 
+    const body = this.buildLogFilters({ ...filters, page, size });
+
     return this.http
-      .post<AuditLogResponse>(`${this.auditBase}/find-by-multiple-filters`, this.buildAuditFilters(filters))
+      .post<NotificationLogListResponse>(this.url('notification-log', 'find-by-multiple-filters'), body)
       .pipe(
-        map((resp) => (resp.auditLogPage?.content ?? []).map((log) => this.mapAuditLogToNotificationRow(log))),
+        map((r) => this.mapNotificationLogPageResponse(r)),
+        catchError((err) => {
+          if (err instanceof HttpErrorResponse && err.status === 404) {
+            return of({ rows: [], totalElements: 0, queueSummary: null });
+          }
+          return throwError(() => err);
+        }),
       );
   }
 
@@ -265,12 +267,48 @@ export class NotificationAdminService {
     filters: NotificationLogFilters,
   ): Observable<Blob> {
     if (environment.useMocks) {
+      if (format === 'pdf') {
+        return throwError(() => new Error('PDF export is not available while mocks are enabled.'));
+      }
       return of(this.logsToCsvBlob(this.applyLogFilters([...MOCK_NOTIFICATION_LOG], filters)));
     }
-    return this.http.post(`${this.auditBase}/export`, this.buildAuditFilters(filters), {
-      params: { format },
-      responseType: 'blob',
-    });
+    return this.http
+      .post(this.url('notification-log', 'export'), this.buildLogFilters({ ...filters, page: 0, size: 10_000 }), {
+        params: { format },
+        responseType: 'blob',
+      })
+      .pipe(switchMap((blob) => this.ensureExportBlob(blob)));
+  }
+
+  private ensureExportBlob(blob: Blob): Observable<Blob> {
+    const type = (blob.type ?? '').toLowerCase();
+    if (
+      type.includes('csv') ||
+      type.includes('spreadsheet') ||
+      type.includes('pdf') ||
+      type.includes('octet-stream') ||
+      type.includes('ms-excel')
+    ) {
+      return of(blob);
+    }
+    return from(blob.text()).pipe(
+      switchMap((text) => {
+        const trimmed = text.trim();
+        if (trimmed.startsWith('{') || /^failed/i.test(trimmed) || trimmed.toLowerCase().includes('export failed')) {
+          let message = trimmed.slice(0, 240);
+          try {
+            const parsed = JSON.parse(trimmed) as { message?: string };
+            if (parsed.message?.trim()) {
+              message = parsed.message.trim();
+            }
+          } catch {
+            /* use raw text */
+          }
+          return throwError(() => new Error(message));
+        }
+        return of(blob);
+      }),
+    );
   }
 
   setTemplateActive(id: number, isActive: boolean): Observable<void> {
@@ -281,10 +319,53 @@ export class NotificationAdminService {
       }
       return of(void 0);
     }
-    return this.http.put<void>(`${this.templateBase}/update`, {
+    return this.http.put<void>(this.url('notification-template', 'update'), {
       id,
       isActive,
     });
+  }
+
+  /**
+   * Build a fully-qualified API URL for the notifications service (same pattern as locations `url()`).
+   */
+  private url(resource: NotificationResource, operation: string): string {
+    return `${this.base}/ldms-notifications/v1/${environment.apiSurface}/${resource}/${operation}`;
+  }
+
+  private mapTemplatePageResponse(r: TemplateResponse): {
+    rows: NotificationTemplateRow[];
+    totalElements: number;
+  } {
+    // Backend uses JSON `statusCode` (often still HTTP 200); empty catalog is 404 in-body.
+    if (r.statusCode === 404) {
+      return { rows: [], totalElements: 0 };
+    }
+    if (r.statusCode != null && r.statusCode >= 400) {
+      throw r;
+    }
+    const p = r.templatePage;
+    const content = p?.content ?? [];
+    return {
+      rows: content.map((row) => this.normalizeTemplateRow(row)),
+      totalElements: Number(p?.totalElements ?? content.length),
+    };
+  }
+
+  private mapNotificationLogPageResponse(r: NotificationLogListResponse): {
+    rows: NotificationLogRow[];
+    totalElements: number;
+    queueSummary: NotificationQueueSummary | null;
+  } {
+    if (r.statusCode != null && r.statusCode >= 400) {
+      throw r;
+    }
+    const p = r.notificationLogPage;
+    const content = p?.content ?? [];
+    return {
+      rows: content.map((log) => this.mapNotificationLogDto(log)),
+      totalElements: Number(p?.totalElements ?? content.length),
+      queueSummary: r.queueSummary ?? null,
+    };
   }
 
   /** Backend may emit boolean status as `active` or `isActive`; normalize for UI code paths. */
@@ -299,25 +380,25 @@ export class NotificationAdminService {
     };
   }
 
-  private mapAuditLogToNotificationRow(log: AuditLogDto): NotificationLogRow {
-    const payload = `${log.requestPayload ?? ''} ${log.responsePayload ?? ''}`;
-    const templateKey = this.extractValue(payload, /"templateKey"\s*:\s*"([^"]+)"/) ?? 'N/A';
-    const channel = this.extractValue(payload, /"channel"\s*:\s*"([^"]+)"/) ?? 'N/A';
-    const status = (log.httpStatusCode ?? 500) >= 200 && (log.httpStatusCode ?? 500) < 300 ? 'SENT' : 'FAILED';
+  private mapNotificationLogDto(log: NotificationLogRow): NotificationLogRow {
     return {
-      id: log.id ?? Date.now(),
-      recipientDisplay: log.username ?? 'System',
-      channel,
-      templateKey,
-      status,
-      sentAt: log.requestTimestamp ?? log.responseTimestamp ?? new Date().toISOString(),
-      retryCount: 0,
+      id: Number(log.id ?? 0),
+      eventId: log.eventId ?? null,
+      recipientId: log.recipientId ?? null,
+      recipientDisplay: log.recipientDisplay ?? '—',
+      recipientEmail: log.recipientEmail ?? null,
+      recipientPhone: log.recipientPhone ?? null,
+      channel: log.channel ?? '—',
+      templateKey: log.templateKey ?? '—',
+      status: log.status ?? 'PENDING',
+      provider: log.provider ?? null,
+      providerMessageId: log.providerMessageId ?? null,
+      errorMessage: log.errorMessage ?? null,
+      sentAt: log.createdAt ?? log.sentAt ?? new Date().toISOString(),
+      createdAt: log.createdAt ?? null,
+      updatedAt: log.updatedAt ?? null,
+      retryCount: log.retryCount ?? 0,
     };
-  }
-
-  private extractValue(input: string, regex: RegExp): string | null {
-    const match = regex.exec(input);
-    return match?.[1] ?? null;
   }
 
   private buildMockExportBlob(_format: TemplateExportFormat, rows: NotificationTemplateRow[]): Blob {
@@ -356,6 +437,26 @@ export class NotificationAdminService {
           r.recipientDisplay.toLowerCase().includes(q) || r.templateKey.toLowerCase().includes(q),
       );
     }
+    const tk = f.templateKey?.trim().toLowerCase();
+    if (tk) {
+      out = out.filter((r) => r.templateKey.toLowerCase().includes(tk));
+    }
+    if (f.channel?.trim()) {
+      const c = f.channel.trim();
+      out = out.filter((r) => r.channel === c);
+    }
+    if (f.status?.trim()) {
+      const s = f.status.trim();
+      out = out.filter((r) => r.status === s);
+    }
+    if (f.recipientId?.trim()) {
+      const id = f.recipientId.trim();
+      out = out.filter((r) => String(r.recipientId ?? '') === id);
+    }
+    if (f.provider?.trim()) {
+      const p = f.provider.trim().toLowerCase();
+      out = out.filter((r) => (r.provider ?? '').toLowerCase().includes(p));
+    }
     if (f.from) {
       const t = f.from.getTime();
       out = out.filter((r) => new Date(r.sentAt).getTime() >= t);
@@ -367,20 +468,43 @@ export class NotificationAdminService {
     return out;
   }
 
-  private buildAuditFilters(filters: NotificationLogFilters): AuditLogFilters {
-    return {
-      page: 0,
-      size: 200,
-      searchValue: filters.search?.trim() || '',
-      serviceName: 'ldms-notifications',
-      username: '',
-      eventType: '',
-      httpStatusCode: null,
-      from: filters.from ? filters.from.toISOString() : null,
-      to: filters.to ? filters.to.toISOString() : null,
-      sortBy: 'requestTimestamp',
-      sortDir: 'desc',
+  private buildLogFilters(filters: NotificationLogFilters): NotificationLogMultipleFiltersRequest {
+    const page = filters.page ?? 0;
+    const size = filters.size && filters.size > 0 ? filters.size : LOCATIONS_TABLE_PAGE_SIZE;
+    const body: NotificationLogMultipleFiltersRequest = {
+      page,
+      size,
+      searchValue: filters.search?.trim() ?? '',
     };
+    if (filters.from) {
+      body.from = filters.from.toISOString();
+    }
+    if (filters.to) {
+      const end = new Date(filters.to);
+      end.setHours(23, 59, 59, 999);
+      body.to = end.toISOString();
+    }
+    const tk = filters.templateKey?.trim();
+    if (tk) {
+      body.templateKey = tk;
+    }
+    const ch = filters.channel?.trim();
+    if (ch) {
+      body.channel = ch;
+    }
+    const st = filters.status?.trim();
+    if (st) {
+      body.status = st;
+    }
+    const rid = filters.recipientId?.trim();
+    if (rid) {
+      body.recipientId = rid;
+    }
+    const prov = filters.provider?.trim();
+    if (prov) {
+      body.provider = prov;
+    }
+    return body;
   }
 
   private logsToCsvBlob(rows: NotificationLogRow[]): Blob {

@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "k--kato.intellij-idea-keybindings",
+    "fogio.jetbrains-color-theme",
+    "compassak.intellij-idea-new-ui",
+    "ardonplay.vscode-jetbrains-icon-theme",
+    "fogio.jetbrains-product-icon-theme",
+    "redhat.java",
+    "vscjava.vscode-java-pack",
+    "vscjava.vscode-maven",
+    "vmware.vscode-spring-boot"
+  ]
+}

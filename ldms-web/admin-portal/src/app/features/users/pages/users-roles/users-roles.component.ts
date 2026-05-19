@@ -1,12 +1,19 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { PageEvent } from '@angular/material/paginator';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { UsersAdminService } from '../../services/users-admin.service';
-import { Subject, Subscription, catchError, debounceTime, map, of, switchMap, throwError } from 'rxjs';
+import { Subject, Subscription, catchError, debounceTime, finalize, map, of, switchMap, throwError } from 'rxjs';
+import {
+  LxExportFormat,
+  downloadBlob,
+  exportFilename,
+  exportRowsAsCsv,
+} from '@shared/utils/lx-export.util';
 import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 
 export interface RoleRow {
   id: number;
@@ -24,10 +31,16 @@ export interface RoleRow {
 })
 export class UsersRolesComponent implements OnInit, OnDestroy {
   fetching = false;
+  exporting = false;
   groupId: string | null = null;
   /** Filled when viewing `/users/groups/:id/roles` from `getUserGroupById` for the banner. */
   contextGroupName = '';
   contextGroupDescription = '';
+  /**
+   * One-shot banner hint from {@link UsersGroupsComponent.goViewGroupRoles} (or profile link state)
+   * so the title matches the list after an edit when GET lags or returns a nested envelope.
+   */
+  private pendingGroupBannerFromNav: { id: number; name: string; description: string } | null = null;
   private routeParamsSub?: Subscription;
 
   displayedColumns = ['role', 'description', 'status', 'actions'];
@@ -48,7 +61,7 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
   };
 
   pageIndex = 0;
-  pageSize = 10;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
   totalRecords = 0;
   private readonly reload$ = new Subject<void>();
   private latestLoadToken = 0;
@@ -64,14 +77,46 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
   constructor(
     private readonly title: Title,
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly usersService: UsersAdminService,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
-  ) {}
+  ) {
+    const nav = this.router.getCurrentNavigation();
+    const st = nav?.extras?.state as {
+      lxGroupId?: unknown;
+      lxGroupName?: unknown;
+      lxGroupDescription?: unknown;
+    } | undefined;
+    const gid = Number(st?.lxGroupId);
+    if (Number.isFinite(gid) && gid > 0 && (st?.lxGroupName != null || st?.lxGroupDescription != null)) {
+      this.pendingGroupBannerFromNav = {
+        id: gid,
+        name: String(st.lxGroupName ?? '').trim(),
+        description: String(st.lxGroupDescription ?? '').trim(),
+      };
+    }
+  }
 
   get isViewMode(): boolean {
     return this.createMode === 'view';
+  }
+
+  /**
+   * Lets {@link UsersGroupsComponent} re-fetch this group by id when the paged list is stale.
+   */
+  backToGroupsState(): { lxUserGroupListRefresh: { id: number } } | undefined {
+    if (this.groupId === null) {
+      return undefined;
+    }
+    const id = Number(this.groupId);
+    if (!Number.isFinite(id) || id <= 0) {
+      return undefined;
+    }
+    return {
+      lxUserGroupListRefresh: { id },
+    };
   }
 
   resetPaging(): void {
@@ -107,7 +152,62 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
 
   stubImport(): void {}
 
-  stubExport(): void {}
+  exportAs(format: LxExportFormat): void {
+    if (this.exporting) {
+      return;
+    }
+    if (this.groupId) {
+      if (format !== 'csv') {
+        this.snackBar.open('Export this group role list as CSV from the group view.', 'Close', {
+          duration: 4500,
+        });
+        return;
+      }
+      const blob = exportRowsAsCsv(this.dataSource, [
+        { header: 'role', value: (r) => r.role },
+        { header: 'description', value: (r) => r.description },
+        { header: 'status', value: (r) => r.statusLabel },
+      ]);
+      downloadBlob(blob, exportFilename('user-group-roles', 'csv'));
+      this.snackBar.open('Exported group roles as CSV.', 'Close', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
+      return;
+    }
+    this.exporting = true;
+    this.usersService
+      .exportUserRoles(
+        {
+          page: this.pageIndex,
+          size: this.pageSize,
+          searchQuery: this.searchQuery,
+          columnFilters: this.columnFilters,
+        },
+        format,
+      )
+      .pipe(
+        finalize(() => {
+          this.exporting = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (blob) => {
+          downloadBlob(blob, exportFilename('user-roles', format));
+          this.snackBar.open(`Exported roles as ${format.toUpperCase()}.`, 'Close', {
+            duration: 3500,
+            panelClass: ['app-snackbar-success'],
+          });
+        },
+        error: (err: Error) => {
+          this.snackBar.open(err.message ?? 'Export failed.', 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-error'],
+          });
+        },
+      });
+  }
 
   downloadSampleCsv(): void {
     const rows = [
@@ -375,9 +475,15 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
       this.usersService.getUserGroupById(id).subscribe({
         next: (group) => {
           if (loadToken !== this.latestLoadToken) return;
-          this.contextGroupName = String(group?.['name'] ?? '').trim() || `Group #${id}`;
-          this.contextGroupDescription = String(group?.['description'] ?? '').trim();
-          const roles = (group?.['userRoleDtoSet'] as Record<string, unknown>[] | undefined) ?? [];
+          const src = this.unwrapEmbeddedUserGroup(group);
+          if (this.pendingGroupBannerFromNav?.id === id) {
+            this.pendingGroupBannerFromNav = null;
+          }
+          const apiName = String(src['name'] ?? '').trim() || `Group #${id}`;
+          const apiDesc = String(src['description'] ?? '').trim();
+          this.contextGroupName = apiName;
+          this.contextGroupDescription = apiDesc;
+          const roles = (src['userRoleDtoSet'] as Record<string, unknown>[] | undefined) ?? [];
           this.dataSource = roles.map((r) => this.mapRecordToRoleRow(r));
           this.totalRecords = this.dataSource.length;
           this.fetching = false;
@@ -386,8 +492,14 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
         },
         error: () => {
           if (loadToken !== this.latestLoadToken) return;
-          this.contextGroupName = `Group #${id}`;
-          this.contextGroupDescription = '';
+          const hint =
+            this.pendingGroupBannerFromNav?.id === id ? this.pendingGroupBannerFromNav : null;
+          if (this.pendingGroupBannerFromNav?.id === id) {
+            this.pendingGroupBannerFromNav = null;
+          }
+          this.contextGroupName =
+            hint && hint.name.trim().length > 0 ? hint.name.trim() : `Group #${id}`;
+          this.contextGroupDescription = hint?.description?.trim() ?? '';
           this.dataSource = [];
           this.totalRecords = 0;
           this.fetching = false;
@@ -429,6 +541,16 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         },
       });
+  }
+
+  /** Backend may return the group as a flat object or nested under `userGroupDto`. */
+  private unwrapEmbeddedUserGroup(group: Record<string, unknown> | null): Record<string, unknown> {
+    if (!group) return {};
+    const nested = group['userGroupDto'];
+    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+      return nested as Record<string, unknown>;
+    }
+    return group;
   }
 
   private mapRecordToRoleRow(r: Record<string, unknown>): RoleRow {

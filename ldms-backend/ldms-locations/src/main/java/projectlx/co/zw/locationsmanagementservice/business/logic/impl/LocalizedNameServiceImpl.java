@@ -1,15 +1,8 @@
 package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 
-import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -51,7 +44,6 @@ import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
-import java.awt.Color;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -435,35 +427,27 @@ public class LocalizedNameServiceImpl implements LocalizedNameService {
 
     @Override
     public byte[] exportToPdf(List<LocalizedNameDto> items) throws DocumentException {
-        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Document document = new Document(PageSize.A4.rotate());
-            PdfWriter.getInstance(document, out);
-            document.open();
-            Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-            document.add(new Paragraph("LOCALIZED NAME EXPORT", font));
-            document.add(new Paragraph(" "));
-            PdfPTable table = new PdfPTable(HEADERS.length);
-            for (String header : HEADERS) {
-                PdfPCell cell = new PdfPCell(new Phrase(header, font));
-                cell.setBackgroundColor(Color.LIGHT_GRAY);
-                table.addCell(cell);
-            }
-            for (LocalizedNameDto localizedName : items) {
-                table.addCell(String.valueOf(localizedName.getId()));
-                table.addCell(safe(localizedName.getValue()));
-                table.addCell(String.valueOf(localizedName.getLanguageId()));
-                table.addCell(safe(localizedName.getReferenceType()));
-                table.addCell(String.valueOf(localizedName.getReferenceId()));
-                table.addCell(localizedName.getCreatedAt() != null ? localizedName.getCreatedAt().toString() : "");
-                table.addCell(localizedName.getUpdatedAt() != null ? localizedName.getUpdatedAt().toString() : "");
-                table.addCell(localizedName.getEntityStatus() != null ? localizedName.getEntityStatus().toString() : "");
-            }
-            document.add(table);
-            document.close();
-            return out.toByteArray();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        List<String[]> rows = new ArrayList<>();
+        for (LocalizedNameDto localizedName : items) {
+            rows.add(new String[]{
+                    String.valueOf(localizedName.getId()),
+                    safe(localizedName.getValue()),
+                    String.valueOf(localizedName.getLanguageId()),
+                    safe(localizedName.getReferenceType()),
+                    String.valueOf(localizedName.getReferenceId()),
+                    localizedName.getCreatedAt() != null ? localizedName.getCreatedAt().toString() : "",
+                    localizedName.getUpdatedAt() != null ? localizedName.getUpdatedAt().toString() : "",
+                    localizedName.getEntityStatus() != null ? localizedName.getEntityStatus().toString() : ""
+            });
         }
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("Localized Names")
+                .reportCode("LOC-LCN")
+                .subtitle("Localized name registry export")
+                .columnHeaders(HEADERS)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     @Override

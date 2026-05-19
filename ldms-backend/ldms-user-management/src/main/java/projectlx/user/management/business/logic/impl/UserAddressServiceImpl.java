@@ -4,15 +4,8 @@ import com.lowagie.text.DocumentException;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
-import com.lowagie.text.Document;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
+import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
+import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import org.apache.commons.io.output.ByteArrayOutputStream;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -39,7 +32,7 @@ import projectlx.user.management.utils.responses.AddressResponse;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 
-import java.awt.*;
+import java.util.ArrayList;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -397,18 +390,29 @@ public class UserAddressServiceImpl implements UserAddressService {
 
     @Override
     public byte[] exportToPdf(List<AddressDto> userAddresses) throws DocumentException {
-        try {
-            if (userAddresses == null || userAddresses.isEmpty()) {
-                throw new DocumentException("No addresses available for export");
-            }
-
-            log.info("Exporting {} user addresses to PDF", userAddresses.size());
-            return generatePdfExport(userAddresses);
-
-        } catch (Exception e) {
-            log.error("Error exporting addresses to PDF: ", e);
-            throw new DocumentException("Failed to export addresses to PDF: " + e.getMessage());
+        String[] headers = {"ID", "LINE 1", "LINE 2", "POSTAL CODE", "SUBURB ID", "GEO COORDINATES ID", "CREATED AT", "UPDATED AT", "ENTITY STATUS"};
+        List<String[]> rows = new ArrayList<>();
+        for (AddressDto address : userAddresses) {
+            rows.add(new String[]{
+                    address.getId() != null ? address.getId().toString() : "",
+                    safe(address.getLine1()),
+                    safe(address.getLine2()),
+                    safe(address.getPostalCode()),
+                    address.getSuburbId() != null ? address.getSuburbId().toString() : "",
+                    address.getGeoCoordinatesId() != null ? address.getGeoCoordinatesId().toString() : "",
+                    address.getCreatedAt() != null ? address.getCreatedAt().toString() : "",
+                    address.getUpdatedAt() != null ? address.getUpdatedAt().toString() : "",
+                    address.getEntityStatus() != null ? address.getEntityStatus().toString() : ""
+            });
         }
+        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+                .title("User Addresses")
+                .reportCode("USR-ADR")
+                .subtitle("User address details export")
+                .columnHeaders(headers)
+                .rows(rows)
+                .landscape(true)
+                .build());
     }
 
     /**
@@ -472,42 +476,6 @@ public class UserAddressServiceImpl implements UserAddressService {
     /**
      * Generate PDF export directly from user addresses
      */
-    private byte[] generatePdfExport(List<AddressDto> addresses) throws DocumentException {
-        String[] headers = {"ID", "LINE 1", "LINE 2", "POSTAL CODE", "SUBURB ID", "GEO COORDINATES ID", "CREATED AT", "UPDATED AT", "ENTITY STATUS"};
-
-        Document document = new Document(PageSize.A4.rotate());
-        ByteArrayOutputStream out = new ByteArrayOutputStream();
-        PdfWriter.getInstance(document, out);
-
-        document.open();
-        Font font = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 12);
-        document.add(new Paragraph("USER ADDRESS EXPORT", font));
-        document.add(new Paragraph(" "));
-
-        PdfPTable table = new PdfPTable(headers.length);
-
-        for (String header : headers) {
-            PdfPCell cell = new PdfPCell(new Phrase(header, font));
-            cell.setBackgroundColor(Color.LIGHT_GRAY);
-            table.addCell(cell);
-        }
-
-        for (AddressDto address : addresses) {
-            table.addCell(address.getId() != null ? address.getId().toString() : "");
-            table.addCell(safe(address.getLine1()));
-            table.addCell(safe(address.getLine2()));
-            table.addCell(safe(address.getPostalCode()));
-            table.addCell(address.getSuburbId() != null ? address.getSuburbId().toString() : "");
-            table.addCell(address.getGeoCoordinatesId() != null ? address.getGeoCoordinatesId().toString() : "");
-            table.addCell(address.getCreatedAt() != null ? address.getCreatedAt().toString() : "");
-            table.addCell(address.getUpdatedAt() != null ? address.getUpdatedAt().toString() : "");
-            table.addCell(address.getEntityStatus() != null ? address.getEntityStatus().toString() : "");
-        }
-
-        document.add(table);
-        document.close();
-        return out.toByteArray();
-    }
 
     /**
      * Utility method to safely handle null strings
