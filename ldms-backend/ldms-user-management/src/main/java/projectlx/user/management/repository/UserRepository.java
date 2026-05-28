@@ -28,6 +28,9 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     List<User> findByOrganizationIdAndEntityStatusNot(Long organizationId, EntityStatus entityStatus);
     List<User> findByBranchIdAndEntityStatusNot(Long branchId, EntityStatus entityStatus);
 
+    List<User> findByOrganizationKycApproverTrueAndOrganizationIdIsNullAndEntityStatusNot(
+            EntityStatus entityStatus);
+
     /**
      * Returns {@code min( actual non-deleted user count for user type , 2 )}. Used so we only need to know {@code >= 2}
      * for branching, without scanning entire {@code user}.

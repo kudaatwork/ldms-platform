@@ -22,6 +22,7 @@
         <logstash-logback-encoder.version>8.0</logstash-logback-encoder.version>
         <modelmapper.version>3.2.1</modelmapper.version>
         <hibernate.jpamodelgen.version>6.4.4.Final</hibernate.jpamodelgen.version>
+        <opencsv.version>5.10</opencsv.version>
     </properties>
 
     <dependencies>
@@ -104,6 +105,11 @@
             <version>${projectlx.co.zw.version}</version>
         </dependency>
         <dependency>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+            <version>${opencsv.version}</version>
+        </dependency>
+        <dependency>
             <groupId>net.logstash.logback</groupId>
             <artifactId>logstash-logback-encoder</artifactId>
             <version>${logstash-logback-encoder.version}</version>
@@ -113,6 +119,21 @@
             <artifactId>hibernate-jpamodelgen</artifactId>
             <version>${hibernate.jpamodelgen.version}</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.opencsv</groupId>
+            <artifactId>opencsv</artifactId>
+            <version>5.10</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>5.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>com.github.librepdf</groupId>
+            <artifactId>openpdf</artifactId>
+            <version>2.0.3</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

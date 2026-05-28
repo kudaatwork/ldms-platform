@@ -7,6 +7,7 @@ import projectlx.co.zw.notifications.business.logic.api.NotificationProviderServ
 import projectlx.co.zw.notifications.business.validation.api.NotificationServiceValidator;
 import projectlx.co.zw.notifications.model.Channel;
 import projectlx.co.zw.notifications.model.NotificationTemplate;
+import projectlx.co.zw.notifications.utils.support.TemplateChannelDeliverySupport;
 import projectlx.co.zw.notifications.repository.NotificationTemplateRepository;
 import projectlx.co.zw.notifications.repository.UserNotificationPreferenceRepository;
 import projectlx.co.zw.notifications.utils.exception.TemplateNotFoundException;
@@ -63,6 +64,13 @@ public class NotificationServiceImpl implements NotificationService {
         notificationLogRecorder.recordQueued(request, template);
 
         template.getChannels().forEach(channel -> {
+            if (!TemplateChannelDeliverySupport.isChannelDeliveryEnabled(template, channel)) {
+                log.info("[NOTIFICATION] Skipped (channel delivery disabled on template) templateKey={} channel={}",
+                        request.getTemplateKey(), channel);
+                notificationLogRecorder.markSkipped(request, channel, "channel delivery disabled on template");
+                return;
+            }
+
             boolean isEnabled = isNotificationEnabledForUser(request.getRecipient().getUserId(), request.getTemplateKey(),
                     channel);
 

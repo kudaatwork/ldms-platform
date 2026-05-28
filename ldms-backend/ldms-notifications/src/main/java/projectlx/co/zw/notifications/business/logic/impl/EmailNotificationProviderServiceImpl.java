@@ -41,6 +41,9 @@ public class EmailNotificationProviderServiceImpl implements NotificationProvide
     @Value("${notifications.email.provider:ses}")
     private String emailProviderPreference;
 
+    @Value("${notifications.email.development.redirect-to:}")
+    private String developmentRedirectTo;
+
     public EmailNotificationProviderServiceImpl(
             TemplateProcessorService templateProcessor,
             NotificationLogRecorder notificationLogRecorder,
@@ -96,23 +99,55 @@ public class EmailNotificationProviderServiceImpl implements NotificationProvide
 
         String subject = templateProcessor.process(template.getEmailSubject(), request.getData());
         String body = templateProcessor.process(template.getEmailBodyHtml(), request.getData());
+        ResolvedRecipient resolved = resolveRecipient(recipientEmail, subject);
 
         NotificationLog logEntry = notificationLogRecorder.beginDispatch(request, Channel.EMAIL);
-        logEntry.setRenderedContent("Subject: " + subject);
+        logEntry.setRenderedContent("Subject: " + resolved.subject());
 
         try {
             if (preferSes && canSes) {
-                sendViaSes(request, recipientEmail, subject, body, sesClient, logEntry);
+                sendViaSes(request, resolved.to(), resolved.subject(), body, sesClient, logEntry);
             } else if (canSendgrid) {
-                sendViaSendGrid(request, recipientEmail, subject, body, sendGrid, logEntry);
+                sendViaSendGrid(request, resolved.to(), resolved.subject(), body, sendGrid, logEntry);
             } else {
-                sendViaSes(request, recipientEmail, subject, body, sesClient, logEntry);
+                sendViaSes(request, resolved.to(), resolved.subject(), body, sesClient, logEntry);
             }
         } catch (Exception e) {
+            String errorDetail = describeEmailSendFailure(e);
             log.error("[NOTIFICATION] Failed channel=EMAIL eventId={} templateKey={} recipientEmail={} error={}",
-                    request.getEventId(), request.getTemplateKey(), recipientEmail, e.getMessage(), e);
-            notificationLogRecorder.markFailed(logEntry, e.getMessage());
+                    request.getEventId(), request.getTemplateKey(), recipientEmail, errorDetail, e);
+            notificationLogRecorder.markFailed(logEntry, errorDetail);
         }
+    }
+
+    /**
+     * AWS SES sandbox rejects unverified recipient addresses; surface a clear hint in logs and notification_log.
+     */
+    private ResolvedRecipient resolveRecipient(String intendedRecipient, String subject) {
+        if (!StringUtils.hasText(developmentRedirectTo)) {
+            return new ResolvedRecipient(intendedRecipient.trim(), subject);
+        }
+        String redirect = developmentRedirectTo.trim();
+        if (redirect.equalsIgnoreCase(intendedRecipient.trim())) {
+            return new ResolvedRecipient(redirect, subject);
+        }
+        log.warn("[NOTIFICATION] DEV email redirect: {} -> {}", intendedRecipient, redirect);
+        return new ResolvedRecipient(redirect, "[DEV to: " + intendedRecipient + "] " + subject);
+    }
+
+    private record ResolvedRecipient(String to, String subject) {
+    }
+
+    private static String describeEmailSendFailure(Exception e) {
+        String message = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+        if (message.contains("Email address is not verified")
+                || message.contains("MessageRejected")
+                || message.contains("not verified")) {
+            return message
+                    + " | Hint: AWS SES is likely in sandbox mode — verify the recipient email (and FROM address) "
+                    + "under Verified identities in the same AWS region as AWS_REGION, or request SES production access.";
+        }
+        return message;
     }
 
     private void sendViaSes(

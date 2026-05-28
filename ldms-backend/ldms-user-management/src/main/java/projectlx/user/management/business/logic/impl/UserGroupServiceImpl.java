@@ -23,6 +23,7 @@ import projectlx.user.management.repository.UserRoleRepository;
 import projectlx.user.management.repository.specification.UserGroupSpecification;
 import projectlx.user.management.utils.dtos.UserGroupDto;
 import projectlx.user.management.utils.dtos.UserRoleDto;
+import projectlx.user.management.utils.security.UserRoleDtoModuleEnricher;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.user.management.utils.requests.AddUserToUserGroupRequest;
 import projectlx.user.management.utils.requests.AddUsersToUserGroupRequest;
@@ -184,6 +185,7 @@ public class UserGroupServiceImpl implements UserGroupService {
                 }
             }
         }
+        UserRoleDtoModuleEnricher.enrichAll(roleDtos);
         userGroupDto.setUserRoleDtoSet(roleDtos);
         enrichMemberCount(userGroupDto);
 
@@ -451,6 +453,7 @@ public class UserGroupServiceImpl implements UserGroupService {
 
         List<UserRoleDto> userRoleDtoList = modelMapper.map(userGroupUpdated.getUserRoles(),
                 new TypeToken<List<UserRoleDto>>() {}.getType());
+        UserRoleDtoModuleEnricher.enrichAll(userRoleDtoList);
 
         userGroupDto.setUserRoleDtoSet(userRoleDtoList);
         enrichMemberCount(userGroupDto);
@@ -535,6 +538,7 @@ public class UserGroupServiceImpl implements UserGroupService {
 
         List<UserRoleDto> userRoleDtoList = modelMapper.map(userGroupReturned.getUserRoles(),
                 new TypeToken<List<UserRoleDto>>() {}.getType());
+        UserRoleDtoModuleEnricher.enrichAll(userRoleDtoList);
 
         userGroupDto.setUserRoleDtoSet(userRoleDtoList);
         enrichMemberCount(userGroupDto);

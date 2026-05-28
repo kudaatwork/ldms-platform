@@ -3,8 +3,15 @@ import { Injectable } from '@angular/core';
 import { Observable, catchError, from, map, of, switchMap, throwError } from 'rxjs';
 import { LOCATIONS_TABLE_PAGE_SIZE } from '../../locations/services/locations.service';
 import { environment } from '../../../../environments/environment';
-import { apiBaseUrl } from '../../../core/utils/api-url.util';
+import {
+  extractPagedResult,
+  isApiFailureEnvelope,
+  readApiFailureMessage,
+  readInBodyStatusCode,
+} from '../../../core/utils/api-paged-response.util';
+import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
 import { MOCK_NOTIFICATION_LOG, MOCK_NOTIFICATION_TEMPLATES } from '../data/notifications-mock-data';
+import { coerceChannelDeliveryMap } from '../utils/notification-channel.util';
 import type {
   ChannelOptionDto,
   CreateTemplateRequest,
@@ -41,8 +48,6 @@ type NotificationResource = 'notification-template' | 'notification-log';
   providedIn: 'root',
 })
 export class NotificationAdminService {
-  private readonly base = apiBaseUrl();
-
   /** Mutable copy for mock create/delete flows */
   private mockTemplates: NotificationTemplateRow[] = [...MOCK_NOTIFICATION_TEMPLATES];
 
@@ -110,7 +115,7 @@ export class NotificationAdminService {
         if (err instanceof HttpErrorResponse && err.status === 404) {
           return of({ rows: [], totalElements: 0 });
         }
-        return throwError(() => err);
+        return throwError(() => this.toTableError(err, 'Failed to load notification templates.'));
       }),
     );
   }
@@ -257,7 +262,7 @@ export class NotificationAdminService {
           if (err instanceof HttpErrorResponse && err.status === 404) {
             return of({ rows: [], totalElements: 0, queueSummary: null });
           }
-          return throwError(() => err);
+          return throwError(() => this.toTableError(err, 'Failed to load notification log.'));
         }),
       );
   }
@@ -325,29 +330,52 @@ export class NotificationAdminService {
     });
   }
 
+  setTemplateChannelDelivery(
+    id: number,
+    channelDeliveryEnabled: Record<string, boolean>,
+  ): Observable<NotificationTemplateRow> {
+    if (environment.useMocks) {
+      const idx = this.mockTemplates.findIndex((t) => t.id === id);
+      if (idx >= 0) {
+        this.mockTemplates[idx] = {
+          ...this.mockTemplates[idx],
+          channelDeliveryEnabled: { ...channelDeliveryEnabled },
+        };
+        return of(this.mockTemplates[idx]);
+      }
+      return of(this.mockTemplates[0]);
+    }
+    return this.http
+      .put<TemplateResponse>(this.url('notification-template', 'update'), {
+        id,
+        channelDeliveryEnabled,
+      })
+      .pipe(map((r) => this.normalizeTemplateRow(r.template as NotificationTemplateRow)));
+  }
+
   /**
-   * Build a fully-qualified API URL for the notifications service (same pattern as locations `url()`).
+   * Admin portal: {@code backoffice} (JWT only), same as organizations / users admin services.
+   * {@code frontend} enforces per-endpoint {@code @PreAuthorize} notification roles on the service.
    */
   private url(resource: NotificationResource, operation: string): string {
-    return `${this.base}/ldms-notifications/v1/${environment.apiSurface}/${resource}/${operation}`;
+    return ldmsServiceUrl('notifications', resource, operation, 'backoffice');
   }
 
   private mapTemplatePageResponse(r: TemplateResponse): {
     rows: NotificationTemplateRow[];
     totalElements: number;
   } {
-    // Backend uses JSON `statusCode` (often still HTTP 200); empty catalog is 404 in-body.
-    if (r.statusCode === 404) {
+    const inBodyStatus = readInBodyStatusCode(r) ?? r.statusCode;
+    if (inBodyStatus === 404) {
       return { rows: [], totalElements: 0 };
     }
-    if (r.statusCode != null && r.statusCode >= 400) {
-      throw r;
+    if (isApiFailureEnvelope(r)) {
+      throw new Error(readApiFailureMessage(r, 'Failed to load notification templates.'));
     }
-    const p = r.templatePage;
-    const content = p?.content ?? [];
+    const { rows, totalElements } = extractPagedResult(r, 'templatePage');
     return {
-      rows: content.map((row) => this.normalizeTemplateRow(row)),
-      totalElements: Number(p?.totalElements ?? content.length),
+      rows: rows.map((row) => this.normalizeTemplateRow(row as NotificationTemplateRow)),
+      totalElements,
     };
   }
 
@@ -356,14 +384,17 @@ export class NotificationAdminService {
     totalElements: number;
     queueSummary: NotificationQueueSummary | null;
   } {
-    if (r.statusCode != null && r.statusCode >= 400) {
-      throw r;
+    const inBodyStatus = readInBodyStatusCode(r) ?? r.statusCode;
+    if (inBodyStatus === 404) {
+      return { rows: [], totalElements: 0, queueSummary: r.queueSummary ?? null };
     }
-    const p = r.notificationLogPage;
-    const content = p?.content ?? [];
+    if (isApiFailureEnvelope(r)) {
+      throw new Error(readApiFailureMessage(r, 'Failed to load notification log.'));
+    }
+    const { rows, totalElements } = extractPagedResult(r, 'notificationLogPage');
     return {
-      rows: content.map((log) => this.mapNotificationLogDto(log)),
-      totalElements: Number(p?.totalElements ?? content.length),
+      rows: rows.map((log) => this.mapNotificationLogDto(log as NotificationLogRow)),
+      totalElements,
       queueSummary: r.queueSummary ?? null,
     };
   }
@@ -376,8 +407,34 @@ export class NotificationAdminService {
       id: Number(safe.id ?? 0),
       templateKey: String(safe.templateKey ?? ''),
       channels: (safe.channels ?? []) as NotificationChannel[],
+      channelDeliveryEnabled: (() => {
+        const map = coerceChannelDeliveryMap(safe.channelDeliveryEnabled);
+        return Object.keys(map).length ? map : null;
+      })(),
       isActive: typeof safe.isActive === 'boolean' ? safe.isActive : Boolean(safe.active),
     };
+  }
+
+  private toTableError(err: unknown, fallback: string): Error {
+    if (err instanceof Error) {
+      return err;
+    }
+    if (err instanceof HttpErrorResponse) {
+      const body = err.error as { message?: string } | undefined;
+      if (body?.message?.trim()) {
+        return new Error(body.message.trim());
+      }
+      if (err.status === 401) {
+        return new Error('Not signed in. Log in again to continue.');
+      }
+      if (err.status === 0) {
+        return new Error(
+          'Request failed before the server responded. Check that the API gateway and notifications service are running.',
+        );
+      }
+      return new Error(err.message || fallback);
+    }
+    return new Error(fallback);
   }
 
   private mapNotificationLogDto(log: NotificationLogRow): NotificationLogRow {

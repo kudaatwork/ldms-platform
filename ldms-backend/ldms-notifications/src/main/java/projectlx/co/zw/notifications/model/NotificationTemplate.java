@@ -19,6 +19,7 @@ import org.hibernate.type.SqlTypes;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Entity
 @Table
@@ -41,6 +42,11 @@ public class NotificationTemplate {
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "json", nullable = false)
     private List<Channel> channels;
+
+    /** When set, only channels mapped to {@code true} are dispatched (others may still appear in {@link #channels}). */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "channel_delivery_enabled", columnDefinition = "json")
+    private Map<String, Boolean> channelDeliveryEnabled;
 
     @Column(length = 255)
     private String emailSubject;

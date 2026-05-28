@@ -3,6 +3,7 @@ package projectlx.user.authentication.service.business.validator.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import projectlx.user.authentication.service.business.validator.api.AuthenticationServiceValidator;
+import org.springframework.util.StringUtils;
 import projectlx.user.authentication.service.utils.requests.AuthRequest;
 import projectlx.user.authentication.service.utils.requests.GoogleLoginRequest;
 import projectlx.user.authentication.service.utils.requests.RefreshTokenRequest;
@@ -19,13 +20,8 @@ public class AuthenticationServiceValidatorImpl implements AuthenticationService
             return false;
         }
 
-        if (authRequest.getUsername() == null || authRequest.getPassword()  == null) {
-            logger.info("Validation failed: Username or password is null");
-            return false;
-        }
-
-        if (authRequest.getUsername().isEmpty() || authRequest.getPassword().isEmpty()) {
-            logger.info("Validation failed: Username or password is empty");
+        if (!StringUtils.hasText(authRequest.getUsername()) || !StringUtils.hasText(authRequest.getPassword())) {
+            logger.info("Validation failed: Username/email or password is blank");
             return false;
         }
 

@@ -179,7 +179,7 @@
 
         </div>
 
-        <div class="lx-card nt-panel">
+        <div class="lx-card lx-card--flat nt-panel">
           <div class="lx-table-header">
             <div>
               <h2 class="lc-title">Templates</h2>
@@ -214,9 +214,47 @@
                   <th mat-header-cell *matHeaderCellDef>{{ tplLabels['emailSubject'] }}</th>
                   <td mat-cell *matCellDef="let row">{{ row.emailSubject ?? '—' }}</td>
                 </ng-container>
-                <ng-container matColumnDef="channels">
-                  <th mat-header-cell *matHeaderCellDef>{{ tplLabels['channels'] }}</th>
-                  <td mat-cell *matCellDef="let row">{{ channelsText(row) }}</td>
+                <ng-container matColumnDef="channelDelivery">
+                  <th mat-header-cell *matHeaderCellDef>{{ tplLabels['channelDelivery'] }}</th>
+                  <td mat-cell *matCellDef="let row" class="nt-channel-delivery-cell">
+                    <ng-container *ngIf="showChannelDeliveryToggles(row); else channelsPlain">
+                      <div class="nt-channel-delivery-stack">
+                        <div
+                          *ngFor="let ch of channelDeliveryRows(row)"
+                          class="nt-channel-delivery-pill"
+                          [class.nt-channel-delivery-pill--active]="isRowChannelDeliveryActive(row, ch.channel)"
+                          [style.--nt-pill-accent]="ch.meta.accent"
+                          [style.--nt-pill-bg]="ch.meta.softBg"
+                          [style.--nt-pill-border]="ch.meta.border"
+                        >
+                          <span class="nt-channel-delivery-pill__icon">
+                            <mat-icon>{{ ch.meta.icon }}</mat-icon>
+                          </span>
+                          <span class="nt-channel-delivery-pill__text">
+                            <span class="nt-channel-delivery-pill__label">{{ ch.label }}</span>
+                            <span class="nt-channel-delivery-pill__state">
+                              {{ isRowChannelDeliveryActive(row, ch.channel) ? 'Sending' : 'Off' }}
+                            </span>
+                          </span>
+                          <lx-inline-busy
+                            *ngIf="isTplChannelDeliveryUpdating(row, ch.channel)"
+                            message="…"
+                          ></lx-inline-busy>
+                          <mat-slide-toggle
+                            *ngIf="!isTplChannelDeliveryUpdating(row, ch.channel)"
+                            [checked]="isRowChannelDeliveryActive(row, ch.channel)"
+                            (change)="onToggleChannelDelivery(row, ch.channel, $event.checked)"
+                            (click)="$event.stopPropagation()"
+                            color="primary"
+                            [attr.aria-label]="'Toggle ' + ch.label + ' delivery'"
+                          ></mat-slide-toggle>
+                        </div>
+                      </div>
+                    </ng-container>
+                    <ng-template #channelsPlain>
+                      <span class="nt-channels-plain">{{ channelsText(row) }}</span>
+                    </ng-template>
+                  </td>
                 </ng-container>
                 <ng-container matColumnDef="isActive">
                   <th mat-header-cell *matHeaderCellDef>{{ tplLabels['isActive'] }}</th>
@@ -438,7 +476,7 @@
           </div>
         </div>
 
-        <div class="lx-card nt-panel">
+        <div class="lx-card lx-card--flat nt-panel">
           <div class="lx-table-header">
             <div>
               <h2 class="lc-title">Delivery log</h2>

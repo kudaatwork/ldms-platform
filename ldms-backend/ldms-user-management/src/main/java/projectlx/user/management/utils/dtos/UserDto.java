@@ -21,6 +21,7 @@ public class UserDto {
     private Long id;
     private Long organizationId;
     private Long branchId;
+    private Boolean organizationKycApprover;
 
     private String username;
     private String email;

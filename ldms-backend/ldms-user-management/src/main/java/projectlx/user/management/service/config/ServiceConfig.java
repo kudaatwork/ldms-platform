@@ -8,6 +8,7 @@ import projectlx.user.management.business.logic.api.UserPreferencesService;
 import projectlx.user.management.business.logic.api.UserRoleService;
 import projectlx.user.management.business.logic.api.UserSecurityService;
 import projectlx.user.management.business.logic.api.UserService;
+import projectlx.user.management.business.logic.support.OrganizationContactPersonProvisioner;
 import projectlx.user.management.business.logic.api.UserTypeService;
 import projectlx.user.management.service.processor.api.UserAccountServiceProcessor;
 import projectlx.user.management.service.processor.api.UserAddressServiceProcessor;
@@ -33,8 +34,9 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ServiceConfig {
     @Bean
-    public UserServiceProcessor userServiceProcessor(UserService userService) {
-        return new UserServiceProcessorImpl(userService);
+    public UserServiceProcessor userServiceProcessor(UserService userService,
+            OrganizationContactPersonProvisioner organizationContactPersonProvisioner) {
+        return new UserServiceProcessorImpl(userService, organizationContactPersonProvisioner);
     }
 
     @Bean

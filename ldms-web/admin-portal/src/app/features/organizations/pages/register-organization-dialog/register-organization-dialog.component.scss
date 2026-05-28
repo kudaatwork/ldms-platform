@@ -1,0 +1,50 @@
+@use '../../../../shared/styles/lx-dialog-form-shell';
+
+.lx-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-100, #f1f5f9);
+}
+
+.lx-field--file {
+  min-height: auto;
+}
+
+.lx-file-input {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-200, #e2e8f0);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  font-family: var(--font, inherit);
+  font-size: 13px;
+  color: var(--gray-800, #1e293b);
+  cursor: pointer;
+
+  &::file-selector-button {
+    margin-right: 12px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--primary, #1976d2) 12%, var(--surface, #fff));
+    color: var(--primary, #1976d2);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+
+.lx-file-input__name {
+  font-size: 12px;
+  color: var(--gray-600, #475569);
+  word-break: break-all;
+  line-height: 1.35;
+}

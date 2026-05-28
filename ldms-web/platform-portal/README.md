@@ -10,7 +10,7 @@ To start a local development server, run:
 ng serve
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+Once the server is running, open your browser and navigate to `http://localhost:4201/`. API calls use `environment.apiUrl` (`/api` in dev), proxied to the API gateway on port **8091** — not the admin portal on `:4200`.
 
 ## Code scaffolding
 

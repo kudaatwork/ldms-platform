@@ -5,89 +5,89 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
-import org.modelmapper.TypeToken;
-import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.util.StringUtils;
 import projectlx.co.zw.shared_library.business.logic.api.CustomUserDetailsService;
+import projectlx.co.zw.shared_library.utils.dtos.UserDto;
+import projectlx.co.zw.shared_library.utils.dtos.UserGroupDto;
+import projectlx.co.zw.shared_library.utils.dtos.UserPasswordDto;
+import projectlx.co.zw.shared_library.utils.dtos.UserRoleDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
-import projectlx.user.authentication.service.utils.enums.I18Code;
-import projectlx.user.authentication.service.model.Address;
-import projectlx.user.authentication.service.model.User;
-import projectlx.user.authentication.service.model.UserAccount;
-import projectlx.user.authentication.service.model.UserGroup;
-import projectlx.user.authentication.service.model.UserPassword;
-import projectlx.user.authentication.service.model.UserPreferences;
-import projectlx.user.authentication.service.model.UserRole;
-import projectlx.user.authentication.service.model.UserSecurity;
 import projectlx.co.zw.shared_library.utils.responses.UserResponse;
 import projectlx.user.authentication.service.clients.UserManagementServiceClient;
+import projectlx.user.authentication.service.utils.enums.I18Code;
 
 @RequiredArgsConstructor
 public class CustomUserDetailsServiceImpl implements CustomUserDetailsService {
 
     private final UserManagementServiceClient userManagementServiceClient;
-    private final ModelMapper modelMapper;
     private final MessageService messageService;
-
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
+        UserResponse userResponse = loadUserProfile(username);
+        UserDto userDto = userResponse.getUserDto();
 
-        UserResponse userResponse = userManagementServiceClient.findByUsername(username);
-
-        if (!userResponse.isSuccess()) {
-            String detail = messageService.getMessage(
-                    I18Code.MESSAGE_USER_NOT_FOUND_FOR_USERNAME.getCode(), new String[] {username}, Locale.getDefault());
-            throw new UsernameNotFoundException(detail);
+        String resolvedUsername = userDto.getUsername();
+        if (!StringUtils.hasText(resolvedUsername)) {
+            throw userNotFound(username);
         }
 
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserAccount userAccount = modelMapper.map(userResponse.getUserDto().getUserAccountDto(), UserAccount.class);
+        UserPasswordDto passwordDto = userDto.getUserPasswordDto();
+        if (passwordDto == null || !StringUtils.hasText(passwordDto.getPassword())) {
+            throw new UsernameNotFoundException("User account has no password configured");
+        }
 
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserSecurity userSecurity = modelMapper.map(userResponse.getUserDto().getUserSecurityDto(), UserSecurity.class);
-
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserGroup userGroup = modelMapper.map(userResponse.getUserDto().getUserGroupDto(), UserGroup.class);
-
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        Address address = modelMapper.map(userResponse.getUserDto().getAddressDto(), Address.class);
-
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserPreferences userPreferences = modelMapper.map(userResponse.getUserDto().getUserPreferencesDto(), UserPreferences.class);
-
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserPassword userPassword = modelMapper.map(userResponse.getUserDto().getUserPasswordDto(), UserPassword.class);
-
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        List<UserRole> userRoleList = modelMapper.map(userResponse.getUserDto().getUserGroupDto().getUserRoleDtoSet(), new TypeToken<List<UserRole>>(){}.getType());
-        Set<UserRole> userRoleSet = new HashSet<>(userRoleList);
-
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        User user = modelMapper.map(userResponse.getUserDto(), User.class);
-        user.setUserAccount(userAccount);
-        user.setUserSecurity(userSecurity);
-        user.setUserGroup(userGroup);
-        user.getUserGroup().setUserRoles(userRoleSet);
-        user.setAddress(address);
-        user.setUserPreferences(userPreferences);
-        user.setUserPassword(userPassword);
-
-        // Map roles from UserGroup -> UserRoles
-        Set<GrantedAuthority> authorities = user.getUserGroup().getUserRoles().stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getRole()))
-                .collect(Collectors.toSet());
+        Set<GrantedAuthority> authorities = resolveAuthorities(userDto.getUserGroupDto());
 
         return new org.springframework.security.core.userdetails.User(
-                user.getUsername(),
-                user.getUserPassword().getPassword(),
+                resolvedUsername.trim(),
+                passwordDto.getPassword(),
                 authorities
         );
     }
-}
 
+    private UserResponse loadUserProfile(String username) {
+        try {
+            UserResponse userResponse = userManagementServiceClient.findByUsername(username);
+            if (userResponse == null || !userResponse.isSuccess() || userResponse.getUserDto() == null) {
+                throw userNotFound(username);
+            }
+            return userResponse;
+        } catch (UsernameNotFoundException ex) {
+            throw ex;
+        } catch (FeignException ex) {
+            throw new UsernameNotFoundException(
+                    "User management service is unavailable; cannot load user profile", ex);
+        }
+    }
+
+    private UsernameNotFoundException userNotFound(String username) {
+        String detail = messageService.getMessage(
+                I18Code.MESSAGE_USER_NOT_FOUND_FOR_USERNAME.getCode(),
+                new String[] {username},
+                Locale.getDefault());
+        return new UsernameNotFoundException(detail);
+    }
+
+    private static Set<GrantedAuthority> resolveAuthorities(UserGroupDto userGroupDto) {
+        if (userGroupDto == null || userGroupDto.getUserRoleDtoSet() == null) {
+            return Set.of();
+        }
+        List<UserRoleDto> roles = userGroupDto.getUserRoleDtoSet();
+        Set<GrantedAuthority> authorities = new HashSet<>();
+        for (UserRoleDto roleDto : roles) {
+            if (roleDto == null || !StringUtils.hasText(roleDto.getRole())) {
+                continue;
+            }
+            String code = roleDto.getRole().trim().toUpperCase();
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + code));
+        }
+        return authorities;
+    }
+}

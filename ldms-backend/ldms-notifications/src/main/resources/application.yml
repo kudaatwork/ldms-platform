@@ -1,3 +1,6 @@
+server:
+  port: ${SERVER_PORT:8094}
+
 spring:
   application:
     name: ldms-notifications
@@ -38,6 +41,12 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
 
+# Fallback when Spring Cloud Config is unavailable. Must match ldms-authentication / ldms-api-gateway.
+jwt:
+  secret: ${JWT_SECRET:LDMS-local-dev-jwt-secret-at-least-thirty-two-chars-long}
+  access-token-expiration-ms: ${JWT_ACCESS_MS:3600000}
+  refresh-token-expiration-ms: ${JWT_REFRESH_MS:86400000}
+
 # Align with ldms-audit-trail (topic exchange ldms.audit.exchange). Do not use legacy exchange.audit.log.
 ldms:
   audit-rabbitmq:
@@ -66,6 +75,10 @@ notifications:
   # Prefer AWS SES for email (default). Set NOTIFICATIONS_EMAIL_PROVIDER=sendgrid only if not using SES.
   email:
     provider: ${NOTIFICATIONS_EMAIL_PROVIDER:ses}
+    # Local dev: set NOTIFICATIONS_EMAIL_DEV_REDIRECT to a SES-verified inbox (e.g. your test Gmail).
+    # All outbound emails are delivered there with subject prefix [DEV] while keeping template data intact.
+    development:
+      redirect-to: ${NOTIFICATIONS_EMAIL_DEV_REDIRECT:}
   rabbitmq:
     exchange: ${NOTIFICATIONS_RABBITMQ_EXCHANGE:notifications.direct}
     queue: ${NOTIFICATIONS_RABBITMQ_QUEUE:notifications.queue}

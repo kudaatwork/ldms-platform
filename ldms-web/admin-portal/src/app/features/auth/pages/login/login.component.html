@@ -60,24 +60,21 @@
       <form [formGroup]="form" (ngSubmit)="submit()">
 
         <div class="lc-field">
-          <div class="lc-field-label">Email address</div>
+          <div class="lc-field-label">Email or username</div>
           <div
             class="lx-input-shell"
-            [class.lx-input-shell--invalid]="emailCtrl?.invalid && emailCtrl?.touched"
+            [class.lx-input-shell--invalid]="usernameOrEmailCtrl?.invalid && usernameOrEmailCtrl?.touched"
           >
-            <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
+            <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
             <input
-              formControlName="email"
-              type="email"
-              placeholder="admin@projectlx.co.zw"
-              autocomplete="email"
+              formControlName="usernameOrEmail"
+              type="text"
+              placeholder="admin@projectlx.co.zw or your username"
+              autocomplete="username"
             />
           </div>
-          <div class="lc-field-error" *ngIf="emailCtrl?.hasError('required') && emailCtrl?.touched">
-            Email is required
-          </div>
-          <div class="lc-field-error" *ngIf="emailCtrl?.hasError('email') && emailCtrl?.touched && !emailCtrl?.hasError('required')">
-            Enter a valid email
+          <div class="lc-field-error" *ngIf="usernameOrEmailCtrl?.hasError('required') && usernameOrEmailCtrl?.touched">
+            Email or username is required
           </div>
         </div>
 
@@ -141,7 +138,7 @@
       </div>
 
       <!-- Mock credentials panel -->
-      <div class="lc-mock">
+      <div class="lc-mock" *ngIf="showMockCredentials">
         <div class="lc-mock-title">
           <mat-icon style="font-size:14px">person_search</mat-icon>
           Sample sign-in (demo)

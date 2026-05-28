@@ -1,0 +1,140 @@
+:host {
+  display: block;
+}
+
+.section-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: clamp(10px, 2vw, 14px);
+}
+
+.section-row {
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--gray-500) 4%, var(--surface, #fff));
+}
+
+.section-row span:first-of-type {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-500);
+  margin-bottom: 6px;
+}
+
+.section-row strong {
+  font-size: 13px;
+  color: var(--gray-850, var(--gray-800));
+  font-weight: 600;
+}
+
+.section-row--wide {
+  grid-column: span 2;
+}
+
+.ocpp__toolbar {
+  margin-bottom: 1rem;
+}
+
+.ocpp__hero {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+}
+
+.ocpp__avatar {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--primary, #1565c0);
+  background: color-mix(in srgb, var(--primary, #1565c0) 12%, #fff);
+}
+
+.ocpp__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.ocpp__subtitle {
+  margin: 0 0 0.5rem;
+  font-size: 0.875rem;
+  color: var(--gray-600, #475569);
+}
+
+.ocpp__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.ocpp__chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #f97316 18%, #fff);
+  color: #c2410c;
+}
+
+.ocpp__chip--ok {
+  background: color-mix(in srgb, #198754 14%, #fff);
+  color: #0f5132;
+}
+
+.ocpp__block {
+  margin-bottom: 1.75rem;
+}
+
+.ocpp__block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+
+  h4 {
+    margin: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+  }
+}
+
+.ocpp__hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  color: var(--gray-600, #64748b);
+}
+
+.ocpp__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-radius: 8px;
+  background: var(--gray-50, #f8fafc);
+  color: var(--gray-600, #64748b);
+
+  mat-icon {
+    opacity: 0.7;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.875rem;
+  }
+}

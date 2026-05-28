@@ -7,6 +7,8 @@ import javax.annotation.processing.Generated;
 @Generated(value = "org.hibernate.jpamodelgen.JPAMetaModelEntityProcessor")
 @StaticMetamodel(User.class)
 public class User_ {
+    public static volatile SingularAttribute<User, Long> organizationId;
+    public static volatile SingularAttribute<User, Long> branchId;
     public static volatile SingularAttribute<User, String> firstName;
     public static volatile SingularAttribute<User, String> lastName;
     public static volatile SingularAttribute<User, String> username;

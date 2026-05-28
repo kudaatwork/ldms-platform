@@ -30,6 +30,7 @@ export class LoginComponent implements AfterViewInit {
   readonly googleClientId = (environment.googleOAuthClientId ?? '').trim();
   @ViewChild('googleSignInHost', { static: false }) googleSignInHost?: ElementRef<HTMLElement>;
 
+  readonly showMockCredentials = environment.useMocks;
   readonly mockCreds: MockCredRow[] = MOCK_USERS.map((row) => ({
     label: row.user.orgClassification.replace(/_/g, ' '),
     email: row.email,
@@ -46,7 +47,7 @@ export class LoginComponent implements AfterViewInit {
     private readonly googleGsi: GoogleGsiService,
   ) {
     this.form = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
+      usernameOrEmail: ['', Validators.required],
       password: ['', Validators.required],
     });
     this.title.setTitle('Sign in | LX Platform');
@@ -98,7 +99,7 @@ export class LoginComponent implements AfterViewInit {
   }
 
   fillMock(cred: MockCredRow): void {
-    this.form.patchValue({ email: cred.email, password: cred.pass });
+    this.form.patchValue({ usernameOrEmail: cred.email, password: cred.pass });
     this.cdr.markForCheck();
   }
 
@@ -113,11 +114,14 @@ export class LoginComponent implements AfterViewInit {
       this.cdr.markForCheck();
       return;
     }
-    const { email, password } = this.form.value as { email: string; password: string };
+    const { usernameOrEmail, password } = this.form.value as {
+      usernameOrEmail: string;
+      password: string;
+    };
     this.loading = true;
     this.error = '';
     this.cdr.markForCheck();
-    this.authService.login(email, password).subscribe({
+    this.authService.login(usernameOrEmail, password).subscribe({
       next: () => {
         this.loading = false;
         this.cdr.markForCheck();
@@ -131,8 +135,8 @@ export class LoginComponent implements AfterViewInit {
     });
   }
 
-  get emailCtrl() {
-    return this.form.get('email');
+  get usernameOrEmailCtrl() {
+    return this.form.get('usernameOrEmail');
   }
 
   get passCtrl() {

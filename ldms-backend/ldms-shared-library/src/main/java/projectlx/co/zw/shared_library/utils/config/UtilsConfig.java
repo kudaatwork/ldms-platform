@@ -4,17 +4,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.MessageSource;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.support.ReloadableResourceBundleMessageSource;
 import org.springframework.web.client.RestTemplate;
-import projectlx.co.zw.shared_library.business.logic.api.JwtService;
-import projectlx.co.zw.shared_library.business.logic.impl.JwtServiceImpl;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.co.zw.shared_library.utils.i18.impl.MessageServiceImpl;
 
 @Configuration
+@EnableConfigurationProperties(JwtProperties.class)
 public class UtilsConfig {
 
     @Bean(name = "customMessageSource")

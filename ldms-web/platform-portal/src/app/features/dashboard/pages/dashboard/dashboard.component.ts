@@ -1,7 +1,9 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { Subject, takeUntil } from 'rxjs';
 import { Router } from '@angular/router';
 import { OrganizationClassification } from '../../../../core/models/auth.model';
 import { AuthStateService } from '../../../../core/services/auth-state.service';
+import { formatWelcomeMessage } from '../../../../core/utils/welcome-message.util';
 import {
   KpiCard,
   PLATFORM_KPI_CONFIG,
@@ -19,7 +21,8 @@ type ShipmentFilter = 'ALL' | SupplierShipmentStatus;
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: false,
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
   cards: KpiCard[] = [];
   classification: OrganizationClassification | '' = '';
   classificationLabel = '';
@@ -36,14 +39,28 @@ export class DashboardComponent implements OnInit {
     private readonly router: Router,
   ) {}
 
+  welcomeMessage = 'Welcome';
+
   ngOnInit(): void {
-    const user = this.authState.currentUser;
-    this.classification = user?.orgClassification ?? '';
-    this.classificationLabel = this.formatClassification(this.classification);
-    this.cards = user ? PLATFORM_KPI_CONFIG[user.orgClassification] : [];
-    if (this.isSupplier) {
-      this.selectedShipmentId = this.filteredShipments[0]?.id ?? null;
-    }
+    this.authState.currentUser$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
+      this.welcomeMessage = formatWelcomeMessage({
+        firstName: user?.firstName,
+        displayName: user?.displayName,
+        email: user?.email,
+      });
+      this.classification = user?.orgClassification ?? '';
+      this.classificationLabel = this.formatClassification(this.classification);
+      this.cards = user ? PLATFORM_KPI_CONFIG[user.orgClassification] : [];
+      if (this.isSupplier) {
+        this.selectedShipmentId = this.filteredShipments[0]?.id ?? null;
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   get isSupplier(): boolean {

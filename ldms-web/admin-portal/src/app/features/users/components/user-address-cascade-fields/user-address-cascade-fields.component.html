@@ -1,0 +1,87 @@
+<div class="uacf-grid">
+  <div class="lx-field">
+    <label class="lx-field-label">Country</label>
+    <div class="lx-input-shell">
+      <mat-icon class="lx-input-shell__icon">public</mat-icon>
+      <select
+        [ngModel]="countryId"
+        (ngModelChange)="onCountryChange($event)"
+        [disabled]="disabled || countriesLoading || countryOptions.length === 0"
+      >
+        <option value="" disabled>{{ countriesLoading ? 'Loading countries…' : 'Select country' }}</option>
+        <option *ngFor="let c of countryOptions; trackBy: trackBySelectOptionId" [value]="selectOptionValue(c.id)">
+          {{ c.label }}
+        </option>
+      </select>
+    </div>
+    <small class="uacf-hint">Start here to narrow province, district, city, and suburb — same as when adding a user.</small>
+  </div>
+
+  <div class="lx-field">
+    <label class="lx-field-label">Province</label>
+    <div class="lx-input-shell">
+      <mat-icon class="lx-input-shell__icon">map</mat-icon>
+      <select
+        [ngModel]="provinceId"
+        (ngModelChange)="onProvinceChange($event)"
+        [disabled]="disabled || !countryId || provinceOptionsLoading"
+      >
+        <option value="" disabled>{{ provinceOptionsLoading ? 'Loading provinces…' : 'Select province' }}</option>
+        <option *ngFor="let p of provinceOptions; trackBy: trackBySelectOptionId" [value]="selectOptionValue(p.id)">
+          {{ p.label }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <div class="lx-field">
+    <label class="lx-field-label">District</label>
+    <div class="lx-input-shell">
+      <mat-icon class="lx-input-shell__icon">terrain</mat-icon>
+      <select
+        [ngModel]="districtId"
+        (ngModelChange)="onDistrictChange($event)"
+        [disabled]="disabled || !provinceId || districtOptionsLoading"
+      >
+        <option value="" disabled>{{ districtOptionsLoading ? 'Loading districts…' : 'Select district' }}</option>
+        <option *ngFor="let d of districtOptions; trackBy: trackBySelectOptionId" [value]="selectOptionValue(d.id)">
+          {{ d.label }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <div class="lx-field">
+    <label class="lx-field-label">City</label>
+    <div class="lx-input-shell">
+      <mat-icon class="lx-input-shell__icon">location_city</mat-icon>
+      <select
+        [ngModel]="cityId"
+        (ngModelChange)="onCityChange($event)"
+        [disabled]="disabled || !districtId || cityOptionsLoading"
+      >
+        <option value="" disabled>{{ cityOptionsLoading ? 'Loading cities…' : 'Select city' }}</option>
+        <option *ngFor="let ct of cityOptions; trackBy: trackBySelectOptionId" [value]="selectOptionValue(ct.id)">
+          {{ ct.label }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <div class="lx-field span-2">
+    <label class="lx-field-label">Suburb</label>
+    <div class="lx-input-shell">
+      <mat-icon class="lx-input-shell__icon">home_work</mat-icon>
+      <select
+        [ngModel]="suburbId"
+        (ngModelChange)="onSuburbChange($event)"
+        [disabled]="disabled || !cityId || suburbOptionsLoading"
+      >
+        <option value="" disabled>{{ suburbOptionsLoading ? 'Loading suburbs…' : 'Select suburb' }}</option>
+        <option *ngFor="let s of suburbOptions; trackBy: trackBySelectOptionId" [value]="selectOptionValue(s.id)">
+          {{ s.label }}
+        </option>
+      </select>
+    </div>
+  </div>
+</div>

@@ -1,8 +1,22 @@
-import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent } from '@angular/common/http';
+import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, throwError } from 'rxjs';
 import { isLdmsApiRequest } from '../utils/api-url.util';
 import { StorageService } from '../services/storage.service';
+
+function normalizeAccessToken(raw: string | null | undefined): string | null {
+  if (!raw) {
+    return null;
+  }
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.startsWith('mock-token-')) {
+    return null;
+  }
+  if (trimmed.toLowerCase().startsWith('bearer ')) {
+    return trimmed.slice(7).trim() || null;
+  }
+  return trimmed;
+}
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
@@ -12,14 +26,23 @@ export class AuthInterceptor implements HttpInterceptor {
     if (!isLdmsApiRequest(req.url)) {
       return next.handle(req);
     }
-    // System endpoints are intentionally unauthenticated.
-    if (req.url.includes('/v1/system/')) {
+    if (req.url.includes('/v1/system/') || req.url.includes('/v1/auth/')) {
       return next.handle(req);
     }
-    const token = this.storage.getToken();
+
+    const token = normalizeAccessToken(this.storage.getToken());
     if (!token) {
-      return next.handle(req);
+      return throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 401,
+            statusText: 'Unauthorized',
+            url: req.url,
+            error: { message: 'Not signed in. Log in again to continue.' },
+          }),
+      );
     }
+
     const authReq = req.clone({
       setHeaders: { Authorization: `Bearer ${token}` },
     });

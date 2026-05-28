@@ -18,6 +18,14 @@ public interface SuburbRepository extends JpaRepository<Suburb, Long>, JpaSpecif
     @Query("SELECT s FROM Suburb s LEFT JOIN FETCH s.geoCoordinates WHERE s.id = :id "
             + "AND (s.entityStatus IS NULL OR s.entityStatus <> :excluded)")
     Optional<Suburb> findByIdFetchingGeoCoordinates(@Param("id") Long id, @Param("excluded") EntityStatus excluded);
+
+    @Query("SELECT s FROM Suburb s "
+            + "LEFT JOIN FETCH s.city "
+            + "LEFT JOIN FETCH s.cityLocationNode "
+            + "LEFT JOIN FETCH s.district "
+            + "WHERE s.id = :id AND (s.entityStatus IS NULL OR s.entityStatus <> :excluded)")
+    Optional<Suburb> findByIdFetchingCityContext(@Param("id") Long id, @Param("excluded") EntityStatus excluded);
+
     Optional<Suburb> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
 
     Optional<Suburb> findByNameAndDistrict(String name, District district);

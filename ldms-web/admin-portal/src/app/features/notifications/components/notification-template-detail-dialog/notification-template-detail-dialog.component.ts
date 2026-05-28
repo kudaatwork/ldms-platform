@@ -3,6 +3,7 @@ import { Component, Inject } from '@angular/core';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import type { NotificationTemplateRow } from '../../models/notification-admin.models';
+import { formatChannelsWithDelivery } from '../../utils/notification-channel.util';
 
 @Component({
   selector: 'app-notification-template-detail-dialog',
@@ -17,7 +18,7 @@ export class NotificationTemplateDetailDialogComponent {
   ) {}
 
   channelsText(t: NotificationTemplateRow): string {
-    return t.channels.join(', ');
+    return formatChannelsWithDelivery(t);
   }
 
   asText(value: string | null | undefined): string {

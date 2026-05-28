@@ -1,11 +1,11 @@
 export const environment = {
   production: true,
   apiUrl: 'https://api.projectlx.co.zw',
+  gatewayUrl: 'https://api.projectlx.co.zw',
   useMocks: false,
   authUseMocks: false,
-  // 'system'   -> hits /<service>/v1/system/...   (no auth required, dev convenience)
-  // 'frontend' -> hits /<service>/v1/frontend/... (requires JWT auth, prod default)
-  apiSurface: 'frontend' as 'system' | 'frontend',
+  /** Platform self-service default; admin services use {@code backoffice} explicitly. */
+  apiSurface: 'frontend' as 'system' | 'frontend' | 'backoffice',
   googleAutocompleteEnabled: false,
   googlePlacesApiKey: '',
   googleOAuthClientId: '',

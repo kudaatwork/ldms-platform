@@ -71,6 +71,9 @@ public class OrganizationEventPublisher {
         payload.put("organizationId", org.getId());
         payload.put("classification", nameOrNull(org.getOrganizationClassification()));
         payload.put("verifiedAt", verifiedAt);
+        payload.put("email", org.getEmail());
+        payload.put("contactPersonEmail", org.getContactPersonEmail());
+        payload.put("name", org.getName());
         send(RK_VERIFIED, payload);
     }
 

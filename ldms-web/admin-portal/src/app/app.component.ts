@@ -3,25 +3,42 @@ import {
   ChangeDetectorRef,
   Component,
   HostListener,
+  OnDestroy,
   OnInit,
+  signal,
 } from '@angular/core';
 import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
-import { filter, tap } from 'rxjs/operators';
+import { filter, takeUntil, tap } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { CurrentUserService, ShellUserView } from './core/services/current-user.service';
+import { KycQueueStatsService } from './core/services/kyc-queue-stats.service';
 import { StorageService } from './core/services/storage.service';
+import type { KycQueueSummary } from './features/organizations/services/organizations-admin.service';
 import { ThemeService } from './core/services/theme.service';
+import { ORG_CLASSIFICATIONS } from './shared/models/org-classifications';
+
+/** Leaf link or non-clickable section label inside a nav subsection. */
+type NavSubEntry =
+  | { type?: 'link'; label: string; icon: string; route: string }
+  | { type: 'heading'; label: string };
 
 interface NavChild {
   label: string;
   icon: string;
   route: string;
+  /** Nested items under this subsection (e.g. All organisations → classifications only). */
+  children?: NavSubEntry[];
 }
+
+/** Top-level item under an expandable nav group (link subsection or section title). */
+type NavGroupEntry = NavChild | { type: 'heading'; label: string };
 
 interface NavItem {
   label: string;
   icon: string;
   route: string;
   badge?: number | null;
-  children?: NavChild[];
+  children?: NavGroupEntry[];
 }
 
 interface Breadcrumb {
@@ -36,6 +53,27 @@ interface TopNotification {
   time: string;
 }
 
+function classificationNavIcon(slug: string): string {
+  switch (slug) {
+    case 'SUPPLIER':
+      return 'inventory_2';
+    case 'CUSTOMER':
+      return 'storefront';
+    case 'TRANSPORT_COMPANY':
+      return 'local_shipping';
+    case 'CLEARING_AGENT':
+      return 'fact_check';
+    case 'SERVICE_STATION':
+      return 'local_gas_station';
+    case 'ROADSIDE_SUPPORT_SERVICE':
+      return 'support_agent';
+    case 'GOVERNMENT_AGENCY':
+      return 'account_balance';
+    default:
+      return 'layers';
+  }
+}
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -43,22 +81,60 @@ interface TopNotification {
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: false,
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
+  private readonly idleTimeoutMs = 5 * 60 * 1000;
+  private readonly idleWarningMs = 2 * 60 * 1000;
+  private readonly activityEvents: Array<keyof DocumentEventMap> = [
+    'mousemove',
+    'mousedown',
+    'keydown',
+    'touchstart',
+    'scroll',
+  ];
+  private idleWarningTimerId: ReturnType<typeof setTimeout> | null = null;
+  private idleLogoutTimerId: ReturnType<typeof setTimeout> | null = null;
+  private idleCountdownTimerId: ReturnType<typeof setInterval> | null = null;
+  private warningDeadlineMs = 0;
+  private readonly onActivityBound = () => this.onUserActivity();
+
   collapsed = false;
   pageTitle = 'Dashboard';
   showShell = true;
   breadcrumbs: Breadcrumb[] = [];
 
   /** Expanded state per sidebar group route (e.g. /locations, /activity). */
-  expandedGroups: Record<string, boolean> = {};
+  private readonly expandedGroups = signal<Record<string, boolean>>({});
 
   /** Snapshot for templates (e.g. sidebar active states). */
   currentUrl = '';
 
   navItems: NavItem[] = [
     { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
-    { label: 'KYC Queue', icon: 'verified_user', route: '/kyc/applications', badge: 4 },
-    { label: 'Organizations', icon: 'corporate_fare', route: '/organizations' },
+    { label: 'KYC Queue', icon: 'verified_user', route: '/kyc/applications' },
+    {
+      label: 'Organizations',
+      icon: 'corporate_fare',
+      route: '/organizations',
+      children: [
+        {
+          label: 'All organisations',
+          icon: 'corporate_fare',
+          route: '/organizations',
+          children: ORG_CLASSIFICATIONS.map((c) => ({
+            type: 'link' as const,
+            label: c.label,
+            icon: classificationNavIcon(c.slug),
+            route: `/organizations/classification/${c.slug}`,
+          })),
+        },
+        { type: 'heading', label: 'Branch sectors' },
+        { label: 'Branches', icon: 'account_tree', route: '/organizations/branches' },
+        { label: 'Agents', icon: 'badge', route: '/organizations/agents' },
+        { type: 'heading', label: 'Industry sectors' },
+        { label: 'Industries', icon: 'factory', route: '/organizations/industries' },
+      ],
+    },
     { label: 'Documents', icon: 'folder_open', route: '/kyc/documents' },
     {
       label: 'Users',
@@ -107,45 +183,37 @@ export class AppComponent implements OnInit {
     { label: 'System Health', icon: 'monitor_heart', route: '/system/health' },
   ];
 
-  currentUser = {
-    firstName: 'Platform',
-    lastName: 'Admin',
-    email: 'admin@projectlx.co.zw',
-    role: 'Platform Admin',
-    initials: 'PA',
-  };
+  shellUser: ShellUserView | null = null;
 
   notificationsOpen = false;
   profileOpen = false;
-  topNotifications: TopNotification[] = [
-    {
-      id: 'n1',
-      title: 'KYC application queued',
-      body: 'Org “Demo Logistics” submitted documents for review.',
-      time: '2m ago',
-    },
-    {
-      id: 'n2',
-      title: 'System health',
-      body: 'All services reported healthy in the last poll.',
-      time: '1h ago',
-    },
-    {
-      id: 'n3',
-      title: 'Locations import',
-      body: 'Bulk province update finished with 12 warnings.',
-      time: 'Yesterday',
-    },
-  ];
+  topNotifications: TopNotification[] = [];
+  sessionWarningVisible = false;
+  sessionSecondsRemaining = 0;
 
   constructor(
     readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
     private readonly storage: StorageService,
+    private readonly currentUser: CurrentUserService,
+    private readonly kycStats: KycQueueStatsService,
     readonly theme: ThemeService,
   ) {}
 
   ngOnInit(): void {
+    this.registerActivityListeners();
+    this.currentUser.user$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
+      this.shellUser = user;
+      this.syncChromeFromUrl();
+      this.cdr.markForCheck();
+    });
+    this.kycStats.summary$.pipe(takeUntil(this.destroy$)).subscribe((summary) => {
+      this.applyKycQueueSummary(summary);
+      this.cdr.markForCheck();
+    });
+    if (this.storage.getToken() && !this.storage.getToken()?.startsWith('mock-token-')) {
+      this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
+    }
     this.syncChromeFromUrl();
     this.rebuildBreadcrumbs();
     this.router.events
@@ -162,45 +230,266 @@ export class AppComponent implements OnInit {
       .subscribe();
   }
 
+  ngOnDestroy(): void {
+    this.clearSessionTimers();
+    this.unregisterActivityListeners();
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   trackByRoute(_index: number, item: NavItem): string {
     return item.route;
   }
 
-  trackByChildRoute(_index: number, item: NavChild): string {
-    return item.route;
+  trackByGroupEntry(_index: number, entry: NavGroupEntry): string {
+    return this.isGroupHeading(entry) ? `heading-${entry.label}` : entry.route;
+  }
+
+  trackBySubEntry(_index: number, entry: NavSubEntry): string {
+    return entry.type === 'heading' ? `heading-${entry.label}` : entry.route;
+  }
+
+  isGroupHeading(entry: NavGroupEntry): entry is { type: 'heading'; label: string } {
+    return 'type' in entry && entry.type === 'heading';
+  }
+
+  isNavChild(entry: NavGroupEntry): entry is NavChild {
+    return !this.isGroupHeading(entry);
+  }
+
+  isNavLink(entry: NavSubEntry): entry is { type?: 'link'; label: string; icon: string; route: string } {
+    return entry.type !== 'heading';
+  }
+
+  hasSubsection(child: NavChild): boolean {
+    return (child.children?.length ?? 0) > 0;
+  }
+
+  /** Drives sidebar child rendering (heading | nested subsection | flat link). */
+  navEntryKind(entry: NavGroupEntry): 'heading' | 'subsection' | 'link' {
+    if (this.isGroupHeading(entry)) {
+      return 'heading';
+    }
+    if (this.isNavChild(entry) && this.hasSubsection(entry)) {
+      return 'subsection';
+    }
+    return 'link';
+  }
+
+  navChild(entry: NavGroupEntry): NavChild {
+    return entry as NavChild;
+  }
+
+  /** First navigable child route when sidebar is collapsed (fallback: group route). */
+  defaultGroupRoute(item: NavItem): string {
+    if (!item.children?.length) {
+      return item.route;
+    }
+    const firstLink = item.children.find((e): e is NavChild => this.isNavChild(e));
+    return firstLink?.route ?? item.route;
+  }
+
+  /** True when the URL is the all-orgs list or a classification view (not branches/agents/industries). */
+  private isAllOrganisationsSubsectionUrl(url: string): boolean {
+    const path = url.split('?')[0];
+    return path === '/organizations' || path.startsWith('/organizations/classification/');
   }
 
   trackByNotifId(_index: number, n: TopNotification): string {
     return n.id;
   }
 
-  toggleGroup(route: string): void {
-    this.expandedGroups[route] = !this.expandedGroups[route];
-    this.cdr.markForCheck();
+  /** Expand-state key for a top-level sidebar group (e.g. `/organizations`). */
+  groupExpandKey(item: NavItem): string {
+    return item.route;
+  }
+
+  /** Expand-state key for a nested subsection — must not reuse the parent route. */
+  subsectionExpandKey(parent: NavItem, child: NavChild): string {
+    return `${parent.route}::${child.label}`;
+  }
+
+  toggleGroup(key: string, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    const expanding = !this.isGroupExpanded(key);
+    this.expandedGroups.update((groups) => ({ ...groups, [key]: expanding }));
+    if (expanding) {
+      this.scrollNavGroupIntoView(key);
+    }
+  }
+
+  private scrollNavGroupIntoView(groupKey: string): void {
+    requestAnimationFrame(() => {
+      const children = document.querySelector<HTMLElement>(
+        `.sb-children[data-nav-group="${CSS.escape(groupKey)}"]`,
+      );
+      children?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
   }
 
   isSectionActive(route: string, url: string): boolean {
     return url.startsWith(route);
   }
 
-  isGroupExpanded(route: string): boolean {
-    return Boolean(this.expandedGroups[route]);
+  isGroupExpanded(key: string): boolean {
+    return Boolean(this.expandedGroups()[key]);
   }
 
   private syncChromeFromUrl(): void {
     const url = this.router.url;
     this.currentUrl = url;
     this.showShell = !url.startsWith('/auth');
+
+    const nextExpanded = { ...this.expandedGroups() };
+    const activeGroupKeys = new Set<string>();
+
     for (const item of this.navItems) {
-      if (item.children?.length) {
-        this.expandedGroups[item.route] = url.startsWith(item.route);
+      if (!item.children?.length) {
+        continue;
+      }
+      const groupKey = this.groupExpandKey(item);
+      if (this.isRouteInNavGroup(url, item.route)) {
+        activeGroupKeys.add(groupKey);
+        nextExpanded[groupKey] = true;
+      }
+      for (const child of item.children) {
+        if (this.isNavChild(child) && child.children?.length) {
+          const subKey = this.subsectionExpandKey(item, child);
+          if (this.isAllOrganisationsSubsectionUrl(url)) {
+            nextExpanded[subKey] = true;
+          } else if (activeGroupKeys.has(groupKey)) {
+            nextExpanded[subKey] = false;
+          }
+        }
       }
     }
+
+    // When viewing a section, close other top-level groups; on neutral pages (e.g. dashboard) keep manual toggles.
+    if (activeGroupKeys.size > 0) {
+      for (const item of this.navItems) {
+        if (!item.children?.length) {
+          continue;
+        }
+        const groupKey = this.groupExpandKey(item);
+        if (!activeGroupKeys.has(groupKey)) {
+          nextExpanded[groupKey] = false;
+        }
+      }
+    }
+
+    this.expandedGroups.set(nextExpanded);
+
     this.pageTitle = this.resolvePageTitle(url);
+    this.syncSessionWatchState();
     this.cdr.markForCheck();
   }
 
+  private syncSessionWatchState(): void {
+    if (!this.showShell || !this.isAuthenticated()) {
+      this.sessionWarningVisible = false;
+      this.clearSessionTimers();
+      return;
+    }
+    this.armSessionTimers();
+  }
+
+  private registerActivityListeners(): void {
+    for (const evt of this.activityEvents) {
+      document.addEventListener(evt, this.onActivityBound, { passive: true });
+    }
+  }
+
+  private unregisterActivityListeners(): void {
+    for (const evt of this.activityEvents) {
+      document.removeEventListener(evt, this.onActivityBound);
+    }
+  }
+
+  private onUserActivity(): void {
+    if (!this.showShell || !this.isAuthenticated()) {
+      return;
+    }
+    this.armSessionTimers();
+  }
+
+  private armSessionTimers(): void {
+    this.clearSessionTimers();
+    this.sessionWarningVisible = false;
+    this.sessionSecondsRemaining = 0;
+    const warningDelayMs = this.idleTimeoutMs - this.idleWarningMs;
+    this.idleWarningTimerId = setTimeout(() => this.showSessionWarning(), warningDelayMs);
+    this.idleLogoutTimerId = setTimeout(() => this.handleInactivityTimeout(), this.idleTimeoutMs);
+  }
+
+  private showSessionWarning(): void {
+    this.sessionWarningVisible = true;
+    this.warningDeadlineMs = Date.now() + this.idleWarningMs;
+    this.updateSessionCountdown();
+    this.idleCountdownTimerId = setInterval(() => this.updateSessionCountdown(), 1000);
+    this.cdr.markForCheck();
+  }
+
+  private updateSessionCountdown(): void {
+    const remaining = Math.max(0, Math.ceil((this.warningDeadlineMs - Date.now()) / 1000));
+    this.sessionSecondsRemaining = remaining;
+    if (remaining <= 0) {
+      if (this.idleCountdownTimerId) {
+        clearInterval(this.idleCountdownTimerId);
+        this.idleCountdownTimerId = null;
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  stayLoggedIn(): void {
+    if (!this.isAuthenticated()) {
+      return;
+    }
+    this.armSessionTimers();
+    this.cdr.markForCheck();
+  }
+
+  private handleInactivityTimeout(): void {
+    this.logout(true);
+  }
+
+  get sessionCountdownLabel(): string {
+    const mins = Math.floor(this.sessionSecondsRemaining / 60);
+    const secs = this.sessionSecondsRemaining % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  }
+
+  private clearSessionTimers(): void {
+    if (this.idleWarningTimerId) {
+      clearTimeout(this.idleWarningTimerId);
+      this.idleWarningTimerId = null;
+    }
+    if (this.idleLogoutTimerId) {
+      clearTimeout(this.idleLogoutTimerId);
+      this.idleLogoutTimerId = null;
+    }
+    if (this.idleCountdownTimerId) {
+      clearInterval(this.idleCountdownTimerId);
+      this.idleCountdownTimerId = null;
+    }
+  }
+
+  private isAuthenticated(): boolean {
+    return !!this.storage.getToken();
+  }
+
+  /** True when the current URL is this nav group or one of its child routes. */
+  private isRouteInNavGroup(url: string, groupRoute: string): boolean {
+    const path = url.split('?')[0].split('#')[0];
+    return path === groupRoute || path.startsWith(groupRoute + '/');
+  }
+
   private resolvePageTitle(url: string): string {
+    const path = url.split('?')[0];
+    if (path === '/dashboard' || path.startsWith('/dashboard/')) {
+      return this.shellUser?.welcomeMessage ?? 'Dashboard';
+    }
     if (url.startsWith('/account')) {
       return 'My account';
     }
@@ -212,12 +501,24 @@ export class AppComponent implements OnInit {
     }
     for (const item of this.navItems) {
       if (item.children) {
-        const child = item.children.find((c) => url.startsWith(c.route));
-        if (child) {
-          return child.label;
+        for (const child of item.children) {
+          if (!this.isNavChild(child)) {
+            continue;
+          }
+          for (const entry of child.children ?? []) {
+            if (this.isNavLink(entry) && url.startsWith(entry.route)) {
+              return entry.label;
+            }
+          }
+          if (!child.children?.length && url.startsWith(child.route)) {
+            return child.label;
+          }
+        }
+        if (url === '/organizations' || url.startsWith('/organizations?')) {
+          return 'All organisations';
         }
         if (url.startsWith(item.route)) {
-          return item.children[0]?.label ?? item.label;
+          return item.label;
         }
       } else if (url.startsWith(item.route)) {
         return item.label;
@@ -258,11 +559,37 @@ export class AppComponent implements OnInit {
 
   toggle(): void {
     this.collapsed = !this.collapsed;
-    this.cdr.markForCheck();
+    this.cdr.detectChanges();
   }
 
   get notificationCount(): number {
     return this.topNotifications.length;
+  }
+
+  navBadge(item: NavItem): number | null {
+    if (item.route === '/kyc/applications') {
+      const count = this.kycStats.snapshot?.totalInQueue ?? 0;
+      return count > 0 ? count : null;
+    }
+    return item.badge ?? null;
+  }
+
+  private applyKycQueueSummary(summary: KycQueueSummary | null): void {
+    const kycNav = this.navItems.find((item) => item.route === '/kyc/applications');
+    if (kycNav) {
+      const count = summary?.totalInQueue ?? 0;
+      kycNav.badge = count > 0 ? count : undefined;
+    }
+    if (!summary?.recentApplications?.length) {
+      this.topNotifications = [];
+      return;
+    }
+    this.topNotifications = summary.recentApplications.map((row) => ({
+      id: `kyc-${row.id}`,
+      title: 'KYC application in queue',
+      body: `${row.applicant} — ${row.statusLabel}`,
+      time: row.submitted?.trim() || 'Pending review',
+    }));
   }
 
   toggleNotifications(): void {
@@ -299,6 +626,10 @@ export class AppComponent implements OnInit {
     });
   }
 
+  get myAccountRoute(): string[] {
+    return ['/account'];
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(ev: MouseEvent): void {
     const el = ev.target as HTMLElement;
@@ -312,11 +643,24 @@ export class AppComponent implements OnInit {
     }
   }
 
-  logout(): void {
+  logout(fromTimeout = false): void {
+    this.clearSessionTimers();
+    this.sessionWarningVisible = false;
     this.profileOpen = false;
     this.notificationsOpen = false;
     this.storage.clearSession();
-    void this.router.navigate(['/auth/login']);
+    this.currentUser.clear();
+    void this.router.navigate(['/auth/login'], { replaceUrl: true });
+    if (fromTimeout) {
+      this.topNotifications = [
+        {
+          id: `session-timeout-${Date.now()}`,
+          title: 'Session expired',
+          body: 'You were signed out after inactivity. Please sign in again.',
+          time: 'Just now',
+        },
+      ];
+    }
     this.cdr.markForCheck();
   }
 }
