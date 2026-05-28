@@ -55,6 +55,20 @@
   min-width: 0;
 }
 
+.up-hero__resend-verify {
+  flex-shrink: 0;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 999px;
+
+  mat-icon {
+    margin-right: 4px;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
 .up-hero__edit {
   flex-shrink: 0;
   color: var(--gray-700);

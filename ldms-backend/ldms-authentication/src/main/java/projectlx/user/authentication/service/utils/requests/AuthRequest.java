@@ -8,6 +8,10 @@ import lombok.ToString;
 @Setter
 @ToString
 public class AuthRequest {
+
+    /**
+     * Sign-in identifier: LDMS username or registered email address (same field for both).
+     */
     private String username;
     private String password;
 }

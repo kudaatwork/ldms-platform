@@ -46,7 +46,11 @@ public class AgentDto {
     // Organization Relations
     private Long representedOrganizationId;
     private Long organizationId;
+    private String organizationName;
     private Long branchId;
+    private String agentKind;
+    private String agentType;
+    private boolean active;
 
     // Additional Metadata
     private String assignedRegion;

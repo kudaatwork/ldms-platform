@@ -29,6 +29,8 @@ public class BranchDto {
 
     // Linked Organization ID (to avoid circular references)
     private Long organizationId;
+    private String organizationName;
+    private String branchCode;
 
     // Branch Manager Information
     private String managerFirstName;
@@ -48,6 +50,9 @@ public class BranchDto {
     // Operational Metadata
     private String businessHours;
     private String region;
+
+    /** Operational active flag ({@code organization_branch.is_active}), distinct from {@link #entityStatus}. */
+    private boolean active;
 
     // Branch Status
     private EntityStatus entityStatus;

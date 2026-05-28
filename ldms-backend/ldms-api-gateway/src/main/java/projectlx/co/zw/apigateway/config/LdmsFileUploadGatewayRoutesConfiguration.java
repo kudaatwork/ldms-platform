@@ -30,6 +30,9 @@ public class LdmsFileUploadGatewayRoutesConfiguration {
                 .route(
                         "ldms-file-upload-service-frontend",
                         r -> r.path("/ldms-file-upload-service/v1/frontend/**").uri(uri))
+                .route(
+                        "ldms-file-upload-service-backoffice",
+                        r -> r.path("/ldms-file-upload-service/v1/backoffice/**").uri(uri))
                 .build();
     }
 }

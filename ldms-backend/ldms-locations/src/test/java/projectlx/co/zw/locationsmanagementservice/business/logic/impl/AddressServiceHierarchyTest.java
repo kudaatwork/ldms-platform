@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.AddressServiceAuditable;
 import projectlx.co.zw.locationsmanagementservice.business.validation.api.AddressServiceValidator;
 import projectlx.co.zw.locationsmanagementservice.model.Address;
+import projectlx.co.zw.locationsmanagementservice.model.City;
 import projectlx.co.zw.locationsmanagementservice.model.District;
 import projectlx.co.zw.locationsmanagementservice.model.LocationNode;
 import projectlx.co.zw.locationsmanagementservice.model.Suburb;
@@ -37,22 +38,24 @@ class AddressServiceHierarchyTest {
     private AddressServiceImpl service;
     private SuburbRepository suburbRepository;
     private LocationNodeRepository locationNodeRepository;
+    private CityRepository cityRepository;
+    private AddressServiceAuditable addressServiceAuditable;
 
     @BeforeEach
     void setUp() {
         AddressServiceValidator validator = mock(AddressServiceValidator.class);
         AddressRepository addressRepository = mock(AddressRepository.class);
-        CityRepository cityRepository = mock(CityRepository.class);
+        cityRepository = mock(CityRepository.class);
         suburbRepository = mock(SuburbRepository.class);
         locationNodeRepository = mock(LocationNodeRepository.class);
         GeoCoordinatesRepository geoCoordinatesRepository = mock(GeoCoordinatesRepository.class);
-        AddressServiceAuditable auditable = mock(AddressServiceAuditable.class);
+        addressServiceAuditable = mock(AddressServiceAuditable.class);
         MessageService messageService = mock(MessageService.class);
 
         when(validator.isCreateAddressRequestValid(any(), any())).thenReturn(new ValidatorDto(true, null, null));
         when(addressRepository.findAll()).thenReturn(List.of());
         when(messageService.getMessage(any(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
-        when(auditable.create(any(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
+        when(addressServiceAuditable.create(any(), any(), any())).thenAnswer(inv -> inv.getArgument(0));
 
         service = new AddressServiceImpl(
                 validator,
@@ -61,7 +64,7 @@ class AddressServiceHierarchyTest {
                 suburbRepository,
                 locationNodeRepository,
                 geoCoordinatesRepository,
-                auditable,
+                addressServiceAuditable,
                 messageService
         );
     }
@@ -70,7 +73,7 @@ class AddressServiceHierarchyTest {
     void createWithSuburbSettlementSucceeds() {
         Suburb suburb = new Suburb();
         suburb.setId(10L);
-        when(suburbRepository.findByIdAndEntityStatusNot(10L, EntityStatus.DELETED)).thenReturn(Optional.of(suburb));
+        when(suburbRepository.findByIdFetchingCityContext(10L, EntityStatus.DELETED)).thenReturn(Optional.of(suburb));
 
         CreateAddressRequest request = new CreateAddressRequest();
         request.setLine1("12 Main Road");
@@ -82,6 +85,46 @@ class AddressServiceHierarchyTest {
         assertTrue(response.isSuccess());
         assertEquals(SettlementType.SUBURB, response.getAddressDto().getSettlementType());
         assertEquals(10L, response.getAddressDto().getSuburbId());
+    }
+
+    @Test
+    void createWithSuburbSettlementSetsCityFromLegacyCityLocationNode() {
+        District district = new District();
+        district.setId(5L);
+
+        LocationNode cityNode = new LocationNode();
+        cityNode.setId(99L);
+        cityNode.setName("Harare");
+
+        Suburb suburb = new Suburb();
+        suburb.setId(10L);
+        suburb.setDistrict(district);
+        suburb.setCityLocationNode(cityNode);
+
+        City city = new City();
+        city.setId(99L);
+        city.setName("Harare");
+        city.setDistrict(district);
+        city.setEntityStatus(EntityStatus.ACTIVE);
+
+        when(suburbRepository.findByIdFetchingCityContext(10L, EntityStatus.DELETED)).thenReturn(Optional.of(suburb));
+        when(cityRepository.findByIdAndEntityStatusNot(99L, EntityStatus.DELETED)).thenReturn(Optional.of(city));
+        when(addressServiceAuditable.create(any(), any(), any())).thenAnswer(inv -> {
+            Address saved = inv.getArgument(0);
+            assertEquals(99L, saved.getCity().getId());
+            return saved;
+        });
+
+        CreateAddressRequest request = new CreateAddressRequest();
+        request.setLine1("12 Main Road");
+        request.setPostalCode("0000");
+        request.setSettlementType(SettlementType.SUBURB);
+        request.setSettlementId(10L);
+
+        AddressResponse response = service.create(request, Locale.ENGLISH, "tester");
+        assertTrue(response.isSuccess());
+        assertEquals(99L, response.getAddressDto().getCityId());
+        assertEquals("Harare", response.getAddressDto().getCityName());
     }
 
     @Test

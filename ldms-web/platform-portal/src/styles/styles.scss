@@ -1,4 +1,5 @@
 @use 'tokens' as *;
+@use 'shared-ui/styles/lx-premium';
 
 /* Platform portal uses the same design tokens + utilities as the admin portal (no Angular Material bundle). */
 html.theme-dark {
@@ -794,27 +795,6 @@ button,
   outline: none;
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
-}
-
-/* Main scroll area: dot texture over existing gradients + page background (colour unchanged) */
-.shell .main .content {
-  background-image:
-    radial-gradient(circle, rgba(0, 0, 0, 0.07) 1px, transparent 1px),
-    radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--primary) 12%, transparent) 0%, transparent 30%),
-    radial-gradient(circle at 90% -10%, color-mix(in srgb, var(--analytics) 10%, transparent) 0%, transparent 34%),
-    linear-gradient(var(--page-bg), var(--page-bg));
-  background-size: 24px 24px, auto, auto, auto, 100% 100%;
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-}
-
-html.theme-dark .shell .main .content {
-  background-image:
-    radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--primary) 12%, transparent) 0%, transparent 30%),
-    radial-gradient(circle at 90% -10%, color-mix(in srgb, var(--analytics) 10%, transparent) 0%, transparent 34%),
-    linear-gradient(var(--page-bg), var(--page-bg));
-  background-size: 24px 24px, auto, auto, auto, 100% 100%;
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
 }
 
 @media (prefers-reduced-motion: reduce) {

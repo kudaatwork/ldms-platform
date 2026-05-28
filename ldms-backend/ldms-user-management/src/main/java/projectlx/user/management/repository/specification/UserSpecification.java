@@ -80,6 +80,18 @@ public class UserSpecification {
         };
     }
 
+    public static Specification<User> entityStatusEquals(final EntityStatus entityStatus) {
+        return (root, query, cb) -> cb.equal(root.get(User_.entityStatus), entityStatus);
+    }
+
+    public static Specification<User> organizationIdEquals(final Long organizationId) {
+        return (root, query, cb) -> cb.equal(root.get(User_.organizationId), organizationId);
+    }
+
+    public static Specification<User> branchIdEquals(final Long branchId) {
+        return (root, query, cb) -> cb.equal(root.get(User_.branchId), branchId);
+    }
+
     public static Specification<User> any(final String search) {
 
         return (root, query, cb) -> {

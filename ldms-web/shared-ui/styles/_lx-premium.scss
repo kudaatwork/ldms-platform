@@ -1,0 +1,339 @@
+/* Project LX — shared premium UI layer (admin + platform portals) */
+
+:root {
+  --gradient-brand: linear-gradient(135deg, #2563eb 0%, #3b82f6 45%, #6366f1 100%);
+  --gradient-accent: linear-gradient(135deg, #ea580c 0%, #f97316 55%, #fb923c 100%);
+  --gradient-sidebar: linear-gradient(185deg, #070d1a 0%, #0f172a 38%, #121f3d 72%, #0a1020 100%);
+  --gradient-mesh-light:
+    radial-gradient(ellipse 90% 60% at 0% -10%, rgba(59, 130, 246, 0.14), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 0%, rgba(139, 92, 246, 0.1), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(249, 115, 22, 0.06), transparent 45%);
+  --glass-surface: rgba(255, 255, 255, 0.78);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.65);
+  --glow-primary: 0 0 0 1px rgba(59, 130, 246, 0.12), 0 12px 40px rgba(37, 99, 235, 0.14);
+  --radius-xl: 22px;
+  --radius-lg: 16px;
+}
+
+html.theme-dark {
+  --glass-surface: rgba(30, 41, 59, 0.82);
+  --glass-border: 1px solid rgba(148, 163, 184, 0.22);
+  --gradient-mesh-light:
+    radial-gradient(ellipse 90% 60% at 0% -10%, rgba(59, 130, 246, 0.22), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 0%, rgba(139, 92, 246, 0.16), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(249, 115, 22, 0.08), transparent 45%);
+}
+
+/* ── Page canvas ───────────────────────────────────────────── */
+body {
+  background: var(--page-bg);
+}
+
+.shell .main .content {
+  background-image:
+    var(--gradient-mesh-light),
+    radial-gradient(circle, rgba(15, 23, 42, 0.045) 1px, transparent 1px),
+    linear-gradient(180deg, color-mix(in srgb, var(--page-bg) 92%, #fff) 0%, var(--page-bg) 100%);
+  background-size: 100% 100%, 22px 22px, 100% 100%;
+  background-repeat: no-repeat, repeat, no-repeat;
+}
+
+html.theme-dark .shell .main .content {
+  background-image:
+    var(--gradient-mesh-light),
+    radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(180deg, #0b1220 0%, var(--page-bg) 100%);
+}
+
+/* ── Sidebar ───────────────────────────────────────────────── */
+.shell .sidebar {
+  position: relative;
+  background: var(--gradient-sidebar);
+  border-right: 1px solid rgba(96, 165, 250, 0.12);
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.04),
+    12px 0 40px rgba(2, 6, 23, 0.35);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 120% 80% at 100% 0%, rgba(59, 130, 246, 0.18), transparent 50%),
+      radial-gradient(ellipse 80% 60% at 0% 100%, rgba(124, 58, 237, 0.14), transparent 55%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.shell .sb-logo .sb-logo-brand {
+  border-radius: 12px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 24px rgba(37, 99, 235, 0.35);
+}
+
+.shell .sb-item.active,
+.shell .sb-subitem.active {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 0.28) 0%, rgba(59, 130, 246, 0.08) 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.shell .sb-icon {
+  transition: transform 220ms ease, background 220ms ease;
+}
+
+.shell .sb-item:hover .sb-icon,
+.shell .sb-subitem:hover .sb-subicon {
+  transform: scale(1.05);
+}
+
+/* ── Topbar (glass) ────────────────────────────────────────── */
+.shell .topbar {
+  height: 68px;
+  background: var(--glass-surface);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border-bottom: var(--glass-border);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.04);
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+.lx-card {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glow-primary);
+  background: linear-gradient(180deg, #ffffff 0%, color-mix(in srgb, var(--surface) 96%, var(--gray-50)) 100%);
+  transition:
+    box-shadow 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    transform 280ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 280ms ease;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow:
+      0 0 0 1px rgba(59, 130, 246, 0.1),
+      0 20px 48px rgba(15, 23, 42, 0.12);
+  }
+}
+
+.lx-card--flat,
+.lx-card--flat:hover,
+.lx-table-wrap .lx-card,
+.lx-table-wrap .lx-card:hover,
+.nt-panel.lx-card:hover,
+.kyc-table-card,
+.kyc-table-card:hover,
+.lx-card:has(.mat-mdc-table):hover,
+.lx-card:has(.lx-mat-table):hover {
+  transform: none;
+  box-shadow: var(--glow-primary);
+}
+
+html.theme-dark .lx-card {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(23, 35, 56, 0.98) 100%);
+}
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.lx-btn-primary {
+  background: var(--gradient-brand) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.15) inset, 0 10px 28px rgba(37, 99, 235, 0.35) !important;
+}
+
+.lx-btn-secondary {
+  background: var(--gradient-accent) !important;
+  box-shadow: 0 10px 24px rgba(234, 88, 12, 0.28) !important;
+}
+
+/* ── Page headers (feature pages) ──────────────────────────── */
+.lc-title,
+.dashboard-title,
+.lx-page-hero__title {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--gray-900);
+  background: linear-gradient(120deg, var(--gray-900) 0%, var(--primary-dark) 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+html.theme-dark .lc-title,
+html.theme-dark .dashboard-title,
+html.theme-dark .lx-page-hero__title {
+  background: linear-gradient(120deg, #f8fafc 0%, #93c5fd 120%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.lc-lead,
+.dashboard-sub,
+.lx-page-hero__lead {
+  color: var(--gray-500);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+/* ── Auth screens ──────────────────────────────────────────── */
+.login-left {
+  background:
+    radial-gradient(ellipse 100% 80% at 80% 10%, rgba(59, 130, 246, 0.35), transparent 50%),
+    radial-gradient(ellipse 80% 60% at 10% 90%, rgba(124, 58, 237, 0.28), transparent 55%),
+    linear-gradient(165deg, #060b16 0%, #0f1c3d 42%, #0a1228 100%) !important;
+
+  &::before {
+    width: 420px !important;
+    height: 420px !important;
+    background: radial-gradient(circle, rgba(56, 189, 248, 0.25) 0%, transparent 68%) !important;
+  }
+
+  &::after {
+    width: 320px !important;
+    height: 320px !important;
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.22) 0%, transparent 70%) !important;
+  }
+}
+
+.login-right {
+  background:
+    var(--gradient-mesh-light),
+    var(--page-bg) !important;
+}
+
+.login-card {
+  border-radius: var(--radius-xl) !important;
+  border: var(--glass-border) !important;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.04),
+    0 24px 64px rgba(15, 23, 42, 0.12),
+    0 8px 20px rgba(59, 130, 246, 0.06) !important;
+  backdrop-filter: blur(8px);
+}
+
+.login-theme-toggle {
+  backdrop-filter: blur(10px);
+  border-radius: 14px !important;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* ── Tables ────────────────────────────────────────────────── */
+.mat-mdc-table .mat-mdc-header-cell {
+  background: color-mix(in srgb, var(--gray-50) 80%, transparent);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.mat-mdc-table .mat-mdc-row {
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+.mat-mdc-table .mat-mdc-row:hover {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+
+/* ── Dialogs ───────────────────────────────────────────────── */
+.cdk-overlay-pane.lx-location-dialog-panel .mat-mdc-dialog-container .mdc-dialog__surface,
+.mat-mdc-dialog-container .mdc-dialog__surface {
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.06),
+    0 32px 80px rgba(15, 23, 42, 0.18) !important;
+}
+
+/* ── KPI / stat chips ──────────────────────────────────────── */
+.lx-kpi-value {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, var(--gray-300), var(--primary-light));
+  border-radius: 8px;
+}
+
+html.theme-dark ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #334155, #3b82f6);
+}
+
+/* ── Selection ───────────────────────────────────────────────── */
+::selection {
+  background: color-mix(in srgb, var(--primary) 28%, transparent);
+  color: var(--gray-900);
+}
+
+/* ── Breadcrumbs ─────────────────────────────────────────────── */
+.lx-breadcrumbs {
+  background: color-mix(in srgb, var(--glass-surface) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+/* ── Dashboard tabs (platform) ─────────────────────────────── */
+.dash-tab {
+  border-radius: 999px;
+  transition:
+    background 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.dash-tab--on {
+  background: var(--gradient-brand) !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.28);
+}
+
+.dash-tab:not(.dash-tab--on):hover {
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary-light) 40%, var(--surface));
+}
+
+/* ── Form focus glow ───────────────────────────────────────── */
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+.mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+  border-color: var(--primary) !important;
+}
+
+.mat-mdc-form-field.mat-focused .mat-mdc-floating-label {
+  color: var(--primary) !important;
+}
+
+/* ── Badges & status chips ─────────────────────────────────── */
+.lx-badge,
+.lx-status {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+/* ── Snackbar ──────────────────────────────────────────────── */
+.mat-mdc-snack-bar-container {
+  border-radius: 14px !important;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16) !important;
+}
+
+/* ── Platform signup / auth cards ──────────────────────────── */
+.signup-card,
+.auth-card,
+.onboarding-card {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--glow-primary);
+  border: var(--glass-border);
+  background: linear-gradient(180deg, #fff 0%, color-mix(in srgb, var(--surface) 94%, var(--gray-50)) 100%);
+}
+
+html.theme-dark .signup-card,
+html.theme-dark .auth-card,
+html.theme-dark .onboarding-card {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(23, 35, 56, 0.98) 100%);
+}

@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { ScrollingModule } from '@angular/cdk/scrolling';
 import { CommonModule } from '@angular/common';
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { RouterModule } from '@angular/router';
+import { Subject, debounceTime } from 'rxjs';
 import { UsersAdminService, UserListRow } from '../../services/users-admin.service';
 
 export interface UserGroupMembersDialogResult {
@@ -49,7 +50,7 @@ interface SelectableCatalogRow extends UserListRow {
     MatProgressBarModule,
   ],
 })
-export class UserGroupMembersDialogComponent implements OnInit {
+export class UserGroupMembersDialogComponent implements OnInit, OnDestroy {
   private static readonly PAGE_SIZE = 500;
   private static readonly MAX_LOADED = 2000;
 
@@ -66,6 +67,7 @@ export class UserGroupMembersDialogComponent implements OnInit {
   catalogTruncated = false;
   searchQuery = '';
   activePanel: ManageUsersPanel = 'members';
+  private readonly searchReload$ = new Subject<void>();
   private membersChanged = false;
   private memberCounts: Record<number, { users: number; roles: number }> = {};
   private memberIds = new Set<number>();
@@ -73,11 +75,11 @@ export class UserGroupMembersDialogComponent implements OnInit {
   readonly title: string;
 
   get filteredMembers(): SelectableMemberRow[] {
-    return this.filterRows(this.members);
+    return this.members;
   }
 
   get filteredCatalog(): SelectableCatalogRow[] {
-    return this.filterRows(this.catalog);
+    return this.catalog;
   }
 
   get selectedMemberCount(): number {
@@ -103,14 +105,34 @@ export class UserGroupMembersDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.searchReload$.pipe(debounceTime(300)).subscribe(() => {
+      if (this.activePanel === 'members') {
+        this.loadMembers();
+      } else {
+        this.loadCatalog();
+      }
+    });
     this.loadMembers();
     this.loadCatalog();
+  }
+
+  ngOnDestroy(): void {
+    this.searchReload$.complete();
+  }
+
+  onSearchQueryChange(): void {
+    this.searchReload$.next();
   }
 
   setPanel(panel: ManageUsersPanel): void {
     this.activePanel = panel;
     this.searchQuery = '';
     this.error = '';
+    if (panel === 'members') {
+      this.loadMembers();
+    } else {
+      this.loadCatalog();
+    }
   }
 
   loadMembers(): void {
@@ -352,26 +374,12 @@ export class UserGroupMembersDialogComponent implements OnInit {
     this.catalog = this.catalog.filter((r) => !this.memberIds.has(r.id) && r.userGroupId !== gid);
   }
 
-  private filterRows<T extends UserListRow>(rows: T[]): T[] {
-    const q = this.searchQuery.trim().toLowerCase();
-    if (!q) {
-      return rows;
-    }
-    return rows.filter(
-      (m) =>
-        m.name.toLowerCase().includes(q) ||
-        m.username.toLowerCase().includes(q) ||
-        m.email.toLowerCase().includes(q) ||
-        m.phoneNumber.toLowerCase().includes(q),
-    );
-  }
-
   private fetchMemberPage(page: number, accumulated: UserListRow[]): void {
     this.usersService
       .queryUsers({
         page,
         size: UserGroupMembersDialogComponent.PAGE_SIZE,
-        searchQuery: '',
+        searchQuery: this.searchQuery.trim(),
         userGroupId: this.data.userGroupId,
         columnFilters: {
           email: '',
@@ -414,7 +422,7 @@ export class UserGroupMembersDialogComponent implements OnInit {
       .queryUsers({
         page,
         size: UserGroupMembersDialogComponent.PAGE_SIZE,
-        searchQuery: '',
+        searchQuery: this.searchQuery.trim(),
         columnFilters: {
           email: '',
           firstName: '',

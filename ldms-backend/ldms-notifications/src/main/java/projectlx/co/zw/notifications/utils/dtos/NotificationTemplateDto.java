@@ -8,6 +8,7 @@ import lombok.ToString;
 import projectlx.co.zw.notifications.model.Channel;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -18,6 +19,7 @@ public class NotificationTemplateDto {
     private String templateKey;
     private String description;
     private List<Channel> channels;
+    private Map<String, Boolean> channelDeliveryEnabled;
     private String emailSubject;
     private String emailBodyHtml;
     private String smsBody;

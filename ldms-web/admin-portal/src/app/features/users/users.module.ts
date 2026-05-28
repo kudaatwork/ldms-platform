@@ -14,6 +14,7 @@ import { UserEditAccountDialogComponent } from './components/user-edit-account-d
 import { UserEditSecurityDialogComponent } from './components/user-edit-security-dialog/user-edit-security-dialog.component';
 import { UserAssignUserGroupDialogComponent } from './components/user-assign-user-group-dialog/user-assign-user-group-dialog.component';
 import { UserGroupMembersDialogComponent } from './components/user-group-members-dialog/user-group-members-dialog.component';
+import { UserAddressCascadeFieldsComponent } from './components/user-address-cascade-fields/user-address-cascade-fields.component';
 import { SharedModule } from '../../shared/shared.module';
 
 @NgModule({
@@ -36,6 +37,12 @@ import { SharedModule } from '../../shared/shared.module';
     UsersRoutingModule,
     UserAssignUserGroupDialogComponent,
     UserGroupMembersDialogComponent,
+    UserAddressCascadeFieldsComponent,
+  ],
+  exports: [
+    UserEditProfileDialogComponent,
+    UserEditAddressDialogComponent,
+    UserEditAccountDialogComponent,
   ],
 })
 export class UsersModule {}

@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import projectlx.co.zw.organizationmanagement.utils.config.UserTypesProperties;
 import projectlx.co.zw.shared_library.utils.config.UtilsConfig;
+import projectlx.co.zw.shared_library.utils.security.config.LdmsMethodSecurityConfiguration;
 import projectlx.co.zw.shared_library.utils.security.config.SharedJwtSecurityConfig;
 
 @SpringBootApplication(exclude = { UserDetailsServiceAutoConfiguration.class }, scanBasePackages = {
@@ -20,7 +21,7 @@ import projectlx.co.zw.shared_library.utils.security.config.SharedJwtSecurityCon
 @EnableFeignClients(basePackages = "projectlx.co.zw.organizationmanagement.clients")
 @EnableMethodSecurity
 @EnableConfigurationProperties(UserTypesProperties.class)
-@Import({ SharedJwtSecurityConfig.class, UtilsConfig.class })
+@Import({ SharedJwtSecurityConfig.class, LdmsMethodSecurityConfiguration.class, UtilsConfig.class })
 public class OrganizationManagementApplication {
 
     public static void main(String[] args) {

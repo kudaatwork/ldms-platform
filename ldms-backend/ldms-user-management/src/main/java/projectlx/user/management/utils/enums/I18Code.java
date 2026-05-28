@@ -20,6 +20,8 @@ public enum I18Code {
     MESSAGE_USER_PAGE_OUT_OF_BOUNDS("message.user.page.out.of.bounds"),
     MESSAGE_CREATE_USER_REQUEST_IS_NULL("message.create.user.request.is.null"),
     MESSAGE_CREATE_USER_REQUIRED_FIELDS_MISSING("message.create.user.required.fields.missing"),
+    MESSAGE_CREATE_USER_KYC_APPROVER_REQUIRES_NO_ORG("message.create.user.kyc.approver.requires.no.org"),
+    MESSAGE_ORGANIZATION_KYC_APPROVERS_RETRIEVED("message.organization.kyc.approvers.retrieved"),
     MESSAGE_CREATE_USER_NO_IDENTIFICATION_PROVIDED("message.create.user.no.identification.provided"),
     MESSAGE_CREATE_USER_IDENTIFICATION_DOCUMENT_MISSING("message.create.user.identification.document.missing"),
     MESSAGE_CREATE_USER_IDENTIFICATION_UPLOAD_FAILED("message.create.user.identification.upload.failed"),
@@ -274,6 +276,7 @@ public enum I18Code {
     MESSAGE_EMAIL_VERIFIED_SUCCESSFULLY("message.email.verified.successfully"),
     MESSAGE_EMAIL_ALREADY_VERIFIED("message.email.already.verified"),
     MESSAGE_VERIFICATION_LINK_SENT_SUCCESSFULLY("message.verification.link.sent.successfully"),
+    MESSAGE_VERIFICATION_RESEND_TOO_EARLY("message.verification.resend.too.early"),
 
     MESSAGE_FORGOT_PASSWORD_INVALID_REQUEST("message.forgot.password.invalid.request"),
     MESSAGE_FORGOT_PASSWORD_EMAIL_SENT("message.forgot.password.email.sent"),

@@ -1,4 +1,5 @@
-# Bootstrap only — remote defaults: ldms-config-repo {profile}/ldms-organization-management.yml (LDMS_CONFIG_GIT_URI).
+# Bootstrap + offline fallbacks when Config Server is unavailable (optional:configserver import).
+# When the server is up, ldms-config-repo (dev/ldms-organization-management.yml) overrides these values.
 
 spring:
   application:
@@ -9,9 +10,11 @@ spring:
     import: optional:configserver:http://${CONFIG_SERVER_USERNAME:developer}:${CONFIG_SERVER_PASSWORD_ENCODED:Config098%28%29%21}@${CONFIG_SERVER_HOST:localhost}:${CONFIG_SERVER_PORT:8888}
   cloud:
     config:
+      # Config Server file: {profile}/ldms-organization-management.yml (must match name exactly).
       name: ldms-organization-management
-      send-all-labels: true
-      fail-fast: true
+      # Avoid empty-label config-data passes ("None of labels [] found") with fail-fast enabled.
+      send-all-labels: false
+      fail-fast: ${SPRING_CLOUD_CONFIG_FAIL_FAST:false}
       retry:
         max-attempts: 5
         initial-interval: 2000
@@ -19,6 +22,48 @@ spring:
         multiplier: 1.5
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/ldms_organization_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+    username: ${DB_USERNAME:${MYSQL_USER:developer}}
+    password: ${DB_PASSWORD:${MYSQL_DEVELOPER_PASSWORD:Password098()!}}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:developer}
+    password: ${RABBITMQ_PASSWORD:Password098()!}
+    virtual-host: /
+    connection-timeout: 5000
+
+server:
+  port: ${SERVER_PORT:8087}
+
+# Must match ldms-authentication / ldms-api-gateway (HS256, same JWT_SECRET).
+jwt:
+  secret: ${JWT_SECRET:LDMS-local-dev-jwt-secret-at-least-thirty-two-chars-long}
+  access-token-expiration-ms: ${JWT_ACCESS_MS:900000}
+  refresh-token-expiration-ms: ${JWT_REFRESH_MS:604800000}
+
+ldms:
+  dev:
+    # Resolve Feign clients to the API gateway (8091), not microservice ports or :4200.
+    force-local-feign-clients: true
+  api-gateway:
+    base-url: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+
+# Outbound HTTP from this service (Feign). Paths remain /ldms-{service}/v1/...
+CLIENTS_API_GATEWAY_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+CLIENTS_USER_MANAGEMENT_SERVICE_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+CLIENTS_FILE_UPLOAD_SERVICE_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+
+clients:
+  base-url:
+    apiGateway: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+    userManagementService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+    fileUploadService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
 
 eureka:
   client:

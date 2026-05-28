@@ -43,7 +43,7 @@
   </aside>
 
   <div class="su-right">
-    <div class="su-card lx-card" [class.su-card--wide]="currentStep === 0" *ngIf="!complete">
+    <div class="su-card lx-card" [class.su-card--wide]="currentStep === 0 || currentStep === 2" *ngIf="!complete">
       <div class="su-progress">
         <div class="su-progress-steps">
           <div
@@ -107,6 +107,18 @@
             >
           </div>
           <div class="su-field">
+            <div class="su-field-label">Organisation type</div>
+            <div class="su-infield su-infield--select">
+              <span class="material-icons" aria-hidden="true">corporate_fare</span>
+              <select formControlName="organizationType" aria-label="Organisation type">
+                <option *ngFor="let t of organizationTypes" [ngValue]="t.slug">{{ t.label }}</option>
+              </select>
+            </div>
+            <span class="su-field-error" *ngIf="orgForm.get('organizationType')?.touched && orgForm.get('organizationType')?.invalid"
+              >Organisation type is required</span
+            >
+          </div>
+          <div class="su-field">
             <div class="su-field-label">Phone</div>
             <div class="su-infield">
               <span class="material-icons" aria-hidden="true">phone</span>
@@ -114,46 +126,90 @@
             </div>
             <span class="su-field-error" *ngIf="orgForm.get('phone')?.touched && orgForm.get('phone')?.invalid">Required</span>
           </div>
-          <div class="su-field su-field--full">
-            <div class="su-field-label">Registration / tax reference</div>
+          <div class="su-field">
+            <div class="su-field-label">Company registration number</div>
             <div class="su-infield">
-              <span class="material-icons" aria-hidden="true">assignment_ind</span>
-              <input type="text" formControlName="registrationRef" placeholder="Business or tax registration number" />
+              <span class="material-icons" aria-hidden="true">description</span>
+              <input type="text" formControlName="registrationNumber" placeholder="e.g. 1234/2020" />
             </div>
-            <span class="su-field-error" *ngIf="orgForm.get('registrationRef')?.touched && orgForm.get('registrationRef')?.invalid"
-              >Required</span
+            <span class="su-field-hint">Optional — company registration with the registrar.</span>
+          </div>
+          <div class="su-field">
+            <div class="su-field-label">Tax / VAT number (ZIMRA) <span class="su-req">*</span></div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">receipt_long</span>
+              <input type="text" formControlName="taxNumber" placeholder="e.g. 1000123456" />
+            </div>
+            <span class="su-field-error" *ngIf="orgForm.get('taxNumber')?.touched && orgForm.get('taxNumber')?.invalid"
+              >Tax number is required for KYC review</span
             >
+          </div>
+          <div class="su-field su-field--full su-field--file">
+            <div class="su-field-label">Tax clearance certificate <span class="su-req">*</span></div>
+            <input
+              type="file"
+              class="su-file-input"
+              accept=".pdf,.jpg,.jpeg,.png"
+              (change)="onTaxClearanceUploadSelected($event)"
+            />
+            <span class="su-file-name" *ngIf="taxClearanceUploadLabel">{{ taxClearanceUploadLabel }}</span>
+            <span class="su-field-hint"
+              >Upload your ZIMRA tax clearance certificate (PDF, JPG, or PNG). Reviewers use this to approve or reject
+              your application.</span
+            >
+            <span class="su-field-error" *ngIf="taxDocumentError">{{ taxDocumentError }}</span>
           </div>
         </form>
       </section>
 
-      <!-- Step 2 -->
+      <!-- Step 2 — primary contact (same fields as Add user) -->
       <section *ngIf="currentStep === 2" class="su-panel">
         <h2 class="su-title">Primary contact</h2>
-        <p class="su-sub">This person becomes the first administrator for your organisation.</p>
+        <p class="su-sub">
+          This person becomes the first administrator. Enter the same profile and identification details as when adding a
+          user in the admin portal. A verification email is sent after registration — no password is set here.
+        </p>
         <form [formGroup]="contactForm" class="su-form">
+          <div class="su-form-section su-field--full">
+            <div class="su-form-section-title">Personal details</div>
+            <p class="su-form-section-lead">Name, contact channels, and date of birth (18+).</p>
+          </div>
+
           <div class="su-field">
-            <div class="su-field-label">First name</div>
+            <div class="su-field-label">First name <span class="su-req">*</span></div>
             <div class="su-infield">
               <span class="material-icons" aria-hidden="true">person_outline</span>
-              <input type="text" formControlName="firstName" placeholder="First name" autocomplete="given-name" />
+              <input type="text" formControlName="firstName" placeholder="e.g. Tendai" autocomplete="given-name" />
             </div>
             <span class="su-field-error" *ngIf="contactForm.get('firstName')?.touched && contactForm.get('firstName')?.invalid"
               >Required</span
             >
           </div>
           <div class="su-field">
-            <div class="su-field-label">Last name</div>
+            <div class="su-field-label">Last name <span class="su-req">*</span></div>
             <div class="su-infield">
               <span class="material-icons" aria-hidden="true">person_outline</span>
-              <input type="text" formControlName="lastName" placeholder="Last name" autocomplete="family-name" />
+              <input type="text" formControlName="lastName" placeholder="e.g. Moyo" autocomplete="family-name" />
             </div>
             <span class="su-field-error" *ngIf="contactForm.get('lastName')?.touched && contactForm.get('lastName')?.invalid"
               >Required</span
             >
           </div>
-          <div class="su-field su-field--full">
-            <div class="su-field-label">Work email</div>
+          <div class="su-field">
+            <div class="su-field-label">Gender <span class="su-req">*</span></div>
+            <div class="su-infield su-infield--select">
+              <span class="material-icons" aria-hidden="true">wc</span>
+              <select formControlName="gender" aria-label="Gender">
+                <option value="" disabled>Select gender</option>
+                <option *ngFor="let g of genderOptions" [value]="g">{{ g }}</option>
+              </select>
+            </div>
+            <span class="su-field-error" *ngIf="contactForm.get('gender')?.touched && contactForm.get('gender')?.invalid"
+              >Required</span
+            >
+          </div>
+          <div class="su-field">
+            <div class="su-field-label">Work email <span class="su-req">*</span></div>
             <div class="su-infield">
               <span class="material-icons" aria-hidden="true">alternate_email</span>
               <input type="email" formControlName="email" placeholder="you@company.com" autocomplete="email" />
@@ -163,54 +219,94 @@
             >
           </div>
           <div class="su-field">
-            <div class="su-field-label">Password</div>
+            <div class="su-field-label">Phone number <span class="su-req">*</span></div>
             <div class="su-infield">
-              <span class="material-icons" aria-hidden="true">lock_outline</span>
-              <input
-                [type]="showPassword ? 'text' : 'password'"
-                formControlName="password"
-                placeholder="At least 8 characters"
-                autocomplete="new-password"
-              />
-              <button
-                type="button"
-                class="su-pass-toggle"
-                (click)="togglePasswordVisibility()"
-                [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
-              >
-                <span class="material-icons" aria-hidden="true">{{ showPassword ? 'visibility_off' : 'visibility' }}</span>
-              </button>
+              <span class="material-icons" aria-hidden="true">phone</span>
+              <input type="tel" formControlName="phoneNumber" placeholder="e.g. +263771234567" autocomplete="tel" />
             </div>
-            <span class="su-field-error" *ngIf="contactForm.get('password')?.touched && contactForm.get('password')?.invalid"
-              >At least 8 characters</span
+            <span class="su-field-hint">International format (E.164) preferred.</span>
+            <span class="su-field-error" *ngIf="contactForm.get('phoneNumber')?.touched && contactForm.get('phoneNumber')?.invalid"
+              >Required</span
             >
           </div>
           <div class="su-field">
-            <div class="su-field-label">Confirm password</div>
+            <div class="su-field-label">Date of birth <span class="su-req">*</span></div>
             <div class="su-infield">
-              <span class="material-icons" aria-hidden="true">lock_outline</span>
-              <input
-                [type]="showConfirmPassword ? 'text' : 'password'"
-                formControlName="confirmPassword"
-                placeholder="Repeat password"
-                autocomplete="new-password"
-              />
-              <button
-                type="button"
-                class="su-pass-toggle"
-                (click)="toggleConfirmPasswordVisibility()"
-                [attr.aria-label]="showConfirmPassword ? 'Hide password' : 'Show password'"
-              >
-                <span class="material-icons" aria-hidden="true">{{ showConfirmPassword ? 'visibility_off' : 'visibility' }}</span>
-              </button>
+              <span class="material-icons" aria-hidden="true">event</span>
+              <input type="date" formControlName="dateOfBirth" [max]="maximumDateOfBirth" autocomplete="bday" />
             </div>
-            <span class="su-field-error" *ngIf="contactForm.get('confirmPassword')?.touched && contactForm.hasError('mismatch')"
-              >Passwords must match</span
+            <span class="su-field-hint">Must be at least 18 years old.</span>
+            <span class="su-field-error" *ngIf="contactForm.get('dateOfBirth')?.touched && contactForm.get('dateOfBirth')?.invalid"
+              >Required</span
             >
           </div>
+
+          <div class="su-form-section su-field--full">
+            <div class="su-form-section-title">Identification</div>
+            <p class="su-form-section-lead">
+              National ID or passport — enter at least one complete set (number plus document scan).
+            </p>
+          </div>
+
+          <div class="su-field">
+            <div class="su-field-label">National ID number</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">badge</span>
+              <input type="text" formControlName="nationalIdNumber" placeholder="If no passport below" />
+            </div>
+            <span class="su-field-hint">Together with passport: at least one is required.</span>
+          </div>
+          <div class="su-field">
+            <div class="su-field-label">National ID expiry (optional)</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">event_available</span>
+              <input type="date" formControlName="nationalIdExpiryDate" />
+            </div>
+            <span class="su-field-hint">Leave blank if your ID does not expire.</span>
+          </div>
+          <div class="su-field su-field--full su-field--file">
+            <div class="su-field-label">National ID upload</div>
+            <input
+              type="file"
+              class="su-file-input"
+              accept=".pdf,.jpg,.jpeg,.png"
+              (change)="onNationalIdUploadSelected($event)"
+            />
+            <span class="su-file-name" *ngIf="nationalIdUploadLabel">{{ nationalIdUploadLabel }}</span>
+            <span class="su-field-hint">PDF, JPG, or PNG. Required when a national ID number is entered.</span>
+          </div>
+          <div class="su-field">
+            <div class="su-field-label">Passport number</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">assignment_ind</span>
+              <input type="text" formControlName="passportNumber" placeholder="If no national ID above" />
+            </div>
+          </div>
+          <div class="su-field">
+            <div class="su-field-label">Passport expiry</div>
+            <div class="su-infield">
+              <span class="material-icons" aria-hidden="true">event_busy</span>
+              <input type="date" formControlName="passportExpiryDate" />
+            </div>
+          </div>
+          <div class="su-field su-field--full su-field--file">
+            <div class="su-field-label">Passport upload</div>
+            <input
+              type="file"
+              class="su-file-input"
+              accept=".pdf,.jpg,.jpeg,.png"
+              (change)="onPassportUploadSelected($event)"
+            />
+            <span class="su-file-name" *ngIf="passportUploadLabel">{{ passportUploadLabel }}</span>
+            <span class="su-field-hint">PDF, JPG, or PNG. Required when a passport number is entered.</span>
+          </div>
+
+          <p class="su-field-error su-field--full" *ngIf="identificationError">{{ identificationError }}</p>
+          <p class="su-field-error su-field--full" *ngIf="submitError && currentStep === 2">{{ submitError }}</p>
+
           <label class="su-terms su-field--full">
             <input type="checkbox" formControlName="acceptTerms" />
-            <span>I agree to the terms of use and privacy policy (demo registration).</span>
+            <span>I agree to the terms of use and privacy policy.</span>
           </label>
         </form>
       </section>
@@ -221,6 +317,7 @@
         <button type="button" class="lx-btn lx-btn-primary" (click)="next()" *ngIf="currentStep < 2" [disabled]="currentStep === 0 && !canAdvanceFromStep0()">
           Continue
         </button>
+        <p class="su-field-error su-field-error--block" *ngIf="submitError">{{ submitError }}</p>
         <button type="button" class="lx-btn lx-btn-primary" (click)="submit()" *ngIf="currentStep === 2" [disabled]="submitting">
           {{ submitting ? 'Submitting…' : 'Submit registration' }}
         </button>
@@ -236,12 +333,14 @@
       <div class="su-success-icon"><span class="material-icons" aria-hidden="true">mark_email_read</span></div>
       <h2 class="su-title">Registration received</h2>
       <p class="su-sub">
-        Thank you — your request is queued for review. When backend signup is connected, you will receive email
-        verification here. For now you can explore the portal with demo credentials.
+        Your organisation profile is created. Confirmation emails were sent to the organisation and contact inboxes (when
+        notifications are running). Complete KYC in the platform portal; after approval, the primary contact verifies email
+        before full access is enabled.
       </p>
       <div class="su-success-actions">
-        <button type="button" class="lx-btn lx-btn-primary" (click)="goLogin()">Go to sign in</button>
-        <button type="button" class="lx-btn lx-btn-secondary" (click)="goWelcome()">Back to home</button>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="goOnboardingStatus()">View onboarding steps</button>
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="goLogin()">Sign in</button>
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="goWelcome()">Back to home</button>
       </div>
     </div>
   </div>

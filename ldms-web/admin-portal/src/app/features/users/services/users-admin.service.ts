@@ -1,8 +1,8 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, catchError, forkJoin, from, map, of, switchMap, throwError } from 'rxjs';
-import { environment } from '../../../../environments/environment';
-import { ldmsApiUrl } from '../../../core/utils/api-url.util';
+import { extractFileUploadDtoFromResponse } from '../../../core/utils/file-upload-dto-extract.util';
+import { ldmsApiUrl, ldmsServiceUrl } from '../../../core/utils/api-url.util';
 import { collectUploadIdsFromJsonTree } from '../../../shared/utils/collect-upload-ids';
 import { resolveFilePreview } from '../../../shared/utils/file-upload-preview';
 import { LxExportFormat, exportFormatToApiParam } from '../../../shared/utils/lx-export.util';
@@ -14,6 +14,10 @@ export interface UsersQuery {
   columnFilters: Record<string, string>;
   /** When set, restricts results to users in this primary user group (ldms-user-management filter). */
   userGroupId?: number | null;
+  /** When set, restricts results to users linked to this organisation. */
+  organizationId?: number | null;
+  /** When set, restricts results to users linked to this branch. */
+  branchId?: number | null;
 }
 
 export interface UserListRow {
@@ -27,6 +31,8 @@ export interface UserListRow {
   /** ISO from API, formatted for display */
   dateOfBirthLabel: string;
   emailVerifiedLabel: string;
+  /** True when email is not verified and the account was created more than 24 hours ago. */
+  canResendVerificationEmail: boolean;
   role: string;
   /** When set, row actions can deep-link to this group's role assignment screen. */
   userGroupId: number | null;
@@ -35,6 +41,8 @@ export interface UserListRow {
   statusLabel: string;
   createdAtLabel: string;
   updatedAtLabel: string;
+  /** Organisation signup KYC approver eligibility (admin users without organisation only). */
+  kycApproverEligibleLabel: string;
 }
 
 export interface UserProfileBundle {
@@ -73,10 +81,9 @@ export interface IdLabelOption {
 export class UsersAdminService {
   private static readonly EXPORT_PAGE_SIZE = 10_000;
 
-  private readonly base = ldmsApiUrl(`/ldms-user-management/v1/${environment.apiSurface}`);
-  private readonly fileUploadBase = ldmsApiUrl(
-    `/ldms-file-upload-service/v1/${environment.apiSurface}/file-upload`,
-  );
+  /** Admin portal: {@code backoffice} (JWT only). {@code frontend} enforces per-endpoint {@code @PreAuthorize} roles. */
+  private readonly base = ldmsApiUrl('/ldms-user-management/v1/backoffice');
+  private readonly fileUploadBase = ldmsApiUrl('/ldms-file-upload-service/v1/backoffice/file-upload');
 
   constructor(private readonly http: HttpClient) {}
 
@@ -114,6 +121,30 @@ export class UsersAdminService {
       size: UsersAdminService.EXPORT_PAGE_SIZE,
     });
     return this.postExport('user-type', body, format);
+  }
+
+  /**
+   * Users linked to an organisation (`organization_id` on user row). Prefer this over paged filters for org detail.
+   */
+  queryUsersForOrganization(organizationId: number): Observable<{ rows: UserListRow[]; totalElements: number }> {
+    if (!Number.isFinite(organizationId) || organizationId < 1) {
+      return of({ rows: [], totalElements: 0 });
+    }
+    return this.http.get<unknown>(`${this.base}/user/find-by-organization-id/${organizationId}`).pipe(
+      map((resp) => {
+        const obj = this.toObj(this.parsePossiblyStringifiedJson(resp));
+        if (obj && obj['success'] === false) {
+          return { rows: [], totalElements: 0 };
+        }
+        const list = this.extractUserDtoList(resp);
+        const safeRows = list.filter(
+          (r): r is Record<string, unknown> => r !== null && typeof r === 'object' && !Array.isArray(r),
+        );
+        const rows = safeRows.map((r) => this.mapUserRow(r));
+        return { rows, totalElements: rows.length };
+      }),
+      catchError((err) => this.emptyUsersPageOnNotFound(err)),
+    );
   }
 
   queryUsers(q: UsersQuery): Observable<{ rows: UserListRow[]; totalElements: number }> {
@@ -583,42 +614,9 @@ export class UsersAdminService {
   /** Full metadata for one upload (may include base64 `fileContent` for previews). */
   getFileUploadById(id: number): Observable<Record<string, unknown> | null> {
     return this.http.get<unknown>(`${this.fileUploadBase}/find-by-id/${id}`).pipe(
-      map((resp) => this.extractFileUploadDtoFromResponse(resp)),
+      map((resp) => extractFileUploadDtoFromResponse(resp)),
       catchError(() => of(null)),
     );
-  }
-
-  /** Resolves `FileUploadDto` from file-upload service / gateway envelopes. */
-  private extractFileUploadDtoFromResponse(response: unknown): Record<string, unknown> | null {
-    for (const key of ['fileUploadDto', 'FileUploadDto'] as const) {
-      const hit = this.extractSingleDto(response, key);
-      if (hit) {
-        return hit;
-      }
-    }
-    const obj = this.toObj(this.parsePossiblyStringifiedJson(response));
-    if (!obj) {
-      return null;
-    }
-    const list = obj['fileUploadDtoList'];
-    if (Array.isArray(list) && list.length) {
-      const first = this.asRecord(list[0]);
-      if (first && first['id'] != null) {
-        return first;
-      }
-    }
-    const candidates = [obj, this.toObj(obj['data']), this.toObj(obj['body']), this.toObj(obj['payload'])].filter(
-      Boolean,
-    ) as Record<string, unknown>[];
-    for (const c of candidates) {
-      if (c['id'] == null) {
-        continue;
-      }
-      if (c['originalFileName'] != null || c['storedFileName'] != null || c['contentType'] != null || c['fileType'] != null) {
-        return c;
-      }
-    }
-    return null;
   }
 
   /**
@@ -642,6 +640,11 @@ export class UsersAdminService {
     passportExpiryDate?: string;
     passportUpload?: File;
     passportUploadId?: number;
+    addressLine1?: string;
+    addressLine2?: string;
+    postalCode?: string;
+    suburbId?: number;
+    geoCoordinatesId?: number;
   }): Observable<unknown> {
     const form = new FormData();
     this.appendFormValue(form, 'id', payload.id);
@@ -660,11 +663,128 @@ export class UsersAdminService {
     this.appendFormValue(form, 'passportExpiryDate', payload.passportExpiryDate);
     this.appendFormFile(form, 'passportUpload', payload.passportUpload);
     this.appendFormValue(form, 'passportUploadId', payload.passportUploadId);
+    this.appendFormValue(form, 'userAddressDetails.line1', payload.addressLine1);
+    this.appendFormValue(form, 'userAddressDetails.line2', payload.addressLine2);
+    this.appendFormValue(form, 'userAddressDetails.postalCode', payload.postalCode);
+    this.appendFormValue(form, 'userAddressDetails.suburbId', payload.suburbId);
+    this.appendFormValue(form, 'userAddressDetails.geoCoordinatesId', payload.geoCoordinatesId);
     return this.http.put(`${this.base}/user/update`, form);
+  }
+
+  /**
+   * After organisation overview contact fields change, push name/email/phone onto the linked portal user
+   * so org directory and user-management stay aligned.
+   */
+  syncOrganizationContactPersonUser(
+    userId: number,
+    fields: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phoneNumber?: string;
+    },
+  ): Observable<unknown> {
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return of(null);
+    }
+    return this.getUserProfileBundle(userId).pipe(
+      switchMap((bundle) => {
+        const u = bundle.user;
+        if (!u) {
+          return throwError(() => new Error('Contact person user not found.'));
+        }
+        const firstName = (fields.firstName ?? u['firstName'] ?? '').toString().trim();
+        const lastName = (fields.lastName ?? u['lastName'] ?? '').toString().trim();
+        const email = (fields.email ?? u['email'] ?? '').toString().trim();
+        const phoneNumber = (fields.phoneNumber ?? u['phoneNumber'] ?? '').toString().trim();
+        const username = String(u['username'] ?? email).trim();
+        let gender = String(u['gender'] ?? '').trim().toUpperCase();
+        if (!gender || gender === 'OTHER') {
+          gender = 'PREFER_NOT_TO_SAY';
+        }
+        const dateOfBirth = this.apiDateToInputString(u['dateOfBirth']) || '1990-01-01';
+        const nationalIdUploadId = Number(u['nationalIdUploadId'] ?? 0);
+        const passportUploadId = Number(u['passportUploadId'] ?? 0);
+        return this.updateUser({
+          id: userId,
+          username,
+          email,
+          firstName,
+          lastName,
+          gender,
+          phoneNumber,
+          dateOfBirth,
+          nationalIdNumber: String(u['nationalIdNumber'] ?? '').trim() || undefined,
+          nationalIdUploadId:
+            Number.isFinite(nationalIdUploadId) && nationalIdUploadId > 0 ? nationalIdUploadId : undefined,
+          passportNumber: String(u['passportNumber'] ?? '').trim() || undefined,
+          passportUploadId: Number.isFinite(passportUploadId) && passportUploadId > 0 ? passportUploadId : undefined,
+        });
+      }),
+    );
+  }
+
+  /** Sets organisation KYC approver eligibility (admin users without organisation only). */
+  setOrganizationKycApprover(userId: number, enabled: boolean): Observable<unknown> {
+    const params = new HttpParams().set('enabled', String(enabled));
+    return this.http.put(`${this.base}/user/${userId}/organization-kyc-approver`, null, { params });
   }
 
   deleteUser(id: number): Observable<unknown> {
     return this.http.delete(`${this.base}/user/delete-by-id/${id}`);
+  }
+
+  /** Resends the email verification link (unverified users created more than 24 hours ago). */
+  resendVerificationEmail(email: string): Observable<unknown> {
+    const trimmed = email.trim();
+    const params = new HttpParams().set('email', trimmed);
+    return this.http.post(`${this.base}/user/resend-verification-link`, null, { params });
+  }
+
+  /** Whether admin may resend verification for this user record. */
+  canResendVerificationEmail(emailVerified: unknown, createdAt: unknown): boolean {
+    if (emailVerified === true) {
+      return false;
+    }
+    const created = this.parseApiDateTime(createdAt);
+    if (!created) {
+      return false;
+    }
+    const hoursMs = 24 * 60 * 60 * 1000;
+    return Date.now() - created.getTime() >= hoursMs;
+  }
+
+  parseApiDateTime(value: unknown): Date | null {
+    if (value == null || value === '') {
+      return null;
+    }
+    if (typeof value === 'string') {
+      const d = new Date(value.trim());
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    if (Array.isArray(value) && value.length >= 3) {
+      const y = Number(value[0]);
+      const m = Number(value[1]);
+      const day = Number(value[2]);
+      const h = value.length > 3 ? Number(value[3]) : 0;
+      const min = value.length > 4 ? Number(value[4]) : 0;
+      const sec = value.length > 5 ? Number(value[5]) : 0;
+      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(day)) {
+        return null;
+      }
+      const d = new Date(y, m - 1, day, h, min, sec);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  }
+
+  /** `yyyy-MM-dd` for user update payloads. */
+  private apiDateToInputString(value: unknown): string {
+    const d = this.parseApiDateTime(value);
+    if (!d) {
+      return '';
+    }
+    return d.toISOString().slice(0, 10);
   }
 
   /** True when the API envelope reports failure (often HTTP 200 with success=false). */
@@ -828,6 +948,7 @@ export class UsersAdminService {
     password: string;
     organizationId?: number;
     branchId?: number;
+    organizationKycApprover?: boolean;
     /** Location-service address id — only when integrating with an existing address; do not send suburb id here. */
     locationId?: number;
     nationalIdNumber?: string;
@@ -869,6 +990,9 @@ export class UsersAdminService {
     this.appendFormValue(form, 'password', payload.password);
     this.appendFormValue(form, 'organizationId', payload.organizationId);
     this.appendFormValue(form, 'branchId', payload.branchId);
+    if (payload.organizationKycApprover) {
+      form.append('organizationKycApprover', 'true');
+    }
     this.appendFormValue(form, 'locationId', payload.locationId);
     this.appendFormValue(form, 'nationalIdNumber', payload.nationalIdNumber);
     this.appendFormValue(form, 'nationalIdExpiryDate', payload.nationalIdExpiryDate);
@@ -914,25 +1038,32 @@ export class UsersAdminService {
   }
 
   queryOrganizationsForSelect(): Observable<IdLabelOption[]> {
-    const url = ldmsApiUrl('/ldms-organization-management/v1/backoffice/organization/kyc/queue?page=0&size=500');
-    return this.http.get<unknown>(url).pipe(
-      map((resp) => {
-        const rows = this.extractOrganizationRows(resp);
-        return rows
-          .map((r) => {
-            const id = Number(r['id'] ?? 0);
-            const name = String(r['name'] ?? '').trim();
-            return Number.isFinite(id) && id > 0 && name ? { id, label: name } : null;
-          })
-          .filter((o): o is IdLabelOption => !!o);
-      }),
-      catchError(() => of([])),
-    );
+    const url = ldmsServiceUrl('organization-management', 'organization', 'find-by-multiple-filters', 'backoffice');
+    return this.http
+      .post<unknown>(url, {
+        page: 0,
+        size: 500,
+        searchValue: '',
+        name: '',
+      })
+      .pipe(
+        map((resp) => {
+          const rows = this.extractOrganizationRows(resp);
+          return rows
+            .map((r) => {
+              const id = Number(r['id'] ?? 0);
+              const name = String(r['name'] ?? '').trim();
+              return Number.isFinite(id) && id > 0 && name ? { id, label: name } : null;
+            })
+            .filter((o): o is IdLabelOption => !!o);
+        }),
+        catchError(() => of([])),
+      );
   }
 
   queryBranchesForOrganization(organizationId: number): Observable<IdLabelOption[]> {
     if (!Number.isFinite(organizationId) || organizationId < 1) return of([]);
-    const url = ldmsApiUrl(`/ldms-organization-management/v1/backoffice/organization/${organizationId}`);
+    const url = ldmsServiceUrl('organization-management', 'organization', String(organizationId), 'backoffice');
     return this.http.get<unknown>(url).pipe(
       map((resp) => {
         const org = this.extractSingleDto(resp, 'organizationDto');
@@ -950,6 +1081,11 @@ export class UsersAdminService {
     );
   }
 
+  /** Maps a raw user DTO (e.g. from find-by-id) to a table row. */
+  mapUserRowFromRecord(row: Record<string, unknown>): UserListRow {
+    return this.mapUserRow(row);
+  }
+
   private mapUserRow(row: Record<string, unknown>): UserListRow {
     if (!row) {
       return {
@@ -962,6 +1098,7 @@ export class UsersAdminService {
         nationalIdNumber: '',
         dateOfBirthLabel: '—',
         emailVerifiedLabel: '—',
+        canResendVerificationEmail: false,
         role: '—',
         userGroupId: null,
         accountType: '—',
@@ -969,6 +1106,7 @@ export class UsersAdminService {
         statusLabel: 'Unknown',
         createdAtLabel: '—',
         updatedAtLabel: '—',
+        kycApproverEligibleLabel: '—',
       };
     }
     const firstName = String(row['firstName'] ?? '').trim();
@@ -984,6 +1122,7 @@ export class UsersAdminService {
     const emailVerified = row['emailVerified'];
     const emailVerifiedLabel =
       emailVerified === true ? 'Yes' : emailVerified === false ? 'No' : '—';
+    const canResendVerificationEmail = this.canResendVerificationEmail(emailVerified, row['createdAt']);
     return {
       id: Number(row['id'] ?? 0),
       username: String(row['username'] ?? '').trim(),
@@ -994,6 +1133,7 @@ export class UsersAdminService {
       nationalIdNumber: String(row['nationalIdNumber'] ?? '').trim() || '—',
       dateOfBirthLabel: this.formatIsoDateForDisplay(row['dateOfBirth']),
       emailVerifiedLabel,
+      canResendVerificationEmail,
       role: String(role ?? '—'),
       userGroupId,
       accountType: String(accountType ?? '—'),
@@ -1001,7 +1141,26 @@ export class UsersAdminService {
       statusLabel: this.readableStatus(statusRaw),
       createdAtLabel: this.formatIsoDateTimeForDisplay(row['createdAt']),
       updatedAtLabel: this.formatIsoDateTimeForDisplay(row['updatedAt']),
+      kycApproverEligibleLabel: this.formatKycApproverEligibleLabel(row),
     };
+  }
+
+  private formatKycApproverEligibleLabel(row: Record<string, unknown>): string {
+    const orgId = Number(row['organizationId'] ?? 0);
+    if (Number.isFinite(orgId) && orgId > 0) {
+      return 'Org user';
+    }
+    return this.isTruthyOrganizationKycApprover(row['organizationKycApprover']) ? 'Eligible' : 'Not eligible';
+  }
+
+  private isTruthyOrganizationKycApprover(raw: unknown): boolean {
+    if (raw === true) {
+      return true;
+    }
+    if (typeof raw === 'string') {
+      return raw.trim().toLowerCase() === 'true';
+    }
+    return false;
   }
 
   private formatGenderLabel(raw: unknown): string {
@@ -1047,6 +1206,28 @@ export class UsersAdminService {
     }
     const one = this.asRecord(root['organizationDto']);
     return one ? [one] : [];
+  }
+
+  private extractUserDtoList(response: unknown): Record<string, unknown>[] {
+    const parsed = this.parsePossiblyStringifiedJson(response);
+    const obj = this.toObj(parsed);
+    if (!obj) {
+      return [];
+    }
+    const candidates = [
+      obj,
+      this.toObj(this.parsePossiblyStringifiedJson(obj['data'])),
+      this.toObj(this.parsePossiblyStringifiedJson(obj['body'])),
+    ].filter(Boolean) as Record<string, unknown>[];
+    for (const src of candidates) {
+      const list = src['userDtoList'];
+      if (Array.isArray(list)) {
+        return list.filter(
+          (r): r is Record<string, unknown> => r !== null && typeof r === 'object' && !Array.isArray(r),
+        );
+      }
+    }
+    return [];
   }
 
   private extractPagedResult(response: unknown, dtoPageKey: string): { rows: Record<string, unknown>[]; totalElements: number } {
@@ -1131,9 +1312,26 @@ export class UsersAdminService {
   }
 
   private statusToEntityStatus(raw: string | undefined): string {
-    const t = String(raw ?? '').trim().toUpperCase();
-    if (t === 'ACTIVE' || t === 'INACTIVE' || t === 'DELETED') {
-      return t;
+    const t = String(raw ?? '').trim();
+    if (!t) {
+      return '';
+    }
+    const upper = t.toUpperCase();
+    if (upper === 'ACTIVE' || upper === 'INACTIVE' || upper === 'DELETED' || upper === 'SUSPENDED') {
+      return upper;
+    }
+    const lower = t.toLowerCase();
+    if (lower === 'active') {
+      return 'ACTIVE';
+    }
+    if (lower === 'inactive') {
+      return 'INACTIVE';
+    }
+    if (lower === 'deleted') {
+      return 'DELETED';
+    }
+    if (lower === 'suspended') {
+      return 'SUSPENDED';
     }
     return '';
   }
@@ -1142,6 +1340,7 @@ export class UsersAdminService {
     if (raw === 'active') return 'Active';
     if (raw === 'inactive') return 'Inactive';
     if (raw === 'deleted') return 'Deleted';
+    if (raw === 'suspended') return 'Suspended';
     return 'Pending';
   }
 
@@ -1213,6 +1412,11 @@ export class UsersAdminService {
     const gid = q.userGroupId;
     const userGroupId =
       gid != null && Number.isFinite(gid) && gid > 0 ? Math.trunc(gid) : null;
+    const oid = q.organizationId;
+    const organizationId =
+      oid != null && Number.isFinite(oid) && oid > 0 ? Math.trunc(oid) : null;
+    const bid = q.branchId;
+    const branchId = bid != null && Number.isFinite(bid) && bid > 0 ? Math.trunc(bid) : null;
     return {
       page: q.page,
       size: q.size,
@@ -1226,7 +1430,8 @@ export class UsersAdminService {
       ...(passportNumber ? { passportNumber } : {}),
       ...(entityStatus ? { entityStatus } : {}),
       ...(userGroupId != null ? { userGroupId } : {}),
-      gender: [],
+      ...(organizationId != null ? { organizationId } : {}),
+      ...(branchId != null ? { branchId } : {}),
     };
   }
 

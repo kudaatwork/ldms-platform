@@ -1,0 +1,104 @@
+.ob-root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+  background: var(--lx-page-bg, var(--gray-50, #f8fafc));
+}
+
+.ob-card {
+  width: min(560px, 100%);
+  padding: 2rem;
+}
+
+.ob-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--lx-text-muted);
+  text-decoration: none;
+}
+
+.ob-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.ob-lead {
+  margin: 0 0 1.5rem;
+  color: var(--lx-text-muted);
+  line-height: 1.55;
+}
+
+.ob-error {
+  color: var(--lx-danger, #c62828);
+  margin-bottom: 1rem;
+}
+
+.ob-org {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 1rem;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary, #1565c0) 6%, transparent);
+  border: 1px solid var(--lx-border, #e5e7eb);
+  margin-bottom: 1.5rem;
+}
+
+.ob-org-icon {
+  color: var(--primary, #1565c0);
+}
+
+.ob-org-name {
+  font-weight: 600;
+}
+
+.ob-org-meta {
+  font-size: 0.8125rem;
+  color: var(--lx-text-muted);
+  margin-top: 0.15rem;
+}
+
+.ob-steps {
+  list-style: none;
+  margin: 0 0 1.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.ob-step {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.9375rem;
+
+  &--done .ob-step-marker {
+    color: var(--lx-success, #2e7d32);
+  }
+
+  &--active .ob-step-label {
+    font-weight: 600;
+    color: var(--primary, #1565c0);
+  }
+
+  &--pending {
+    opacity: 0.55;
+  }
+}
+
+.ob-step-marker .material-icons {
+  font-size: 22px;
+}
+
+.ob-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}

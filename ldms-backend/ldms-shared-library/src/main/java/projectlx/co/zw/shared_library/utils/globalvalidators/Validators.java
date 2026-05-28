@@ -66,16 +66,19 @@ public class Validators {
         return false;
     }
 
-    public static boolean isAtLeast16YearsOld(LocalDate dateOfBirth) {
-
+    public static boolean isAtLeast18YearsOld(LocalDate dateOfBirth) {
         if (dateOfBirth == null) {
             return false;
         }
-
         LocalDate today = LocalDate.now();
         Period age = Period.between(dateOfBirth, today);
+        return age.getYears() >= Constants.MINIMUM_USER_AGE_YEARS;
+    }
 
-        return age.getYears() >= 16;
+    /** @deprecated Use {@link #isAtLeast18YearsOld(LocalDate)} — minimum age is 18. */
+    @Deprecated
+    public static boolean isAtLeast16YearsOld(LocalDate dateOfBirth) {
+        return isAtLeast18YearsOld(dateOfBirth);
     }
 
     public static boolean isValidTimeZone(String timeZone) {

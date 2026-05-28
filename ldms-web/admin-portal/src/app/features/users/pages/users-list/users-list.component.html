@@ -1,4 +1,11 @@
 <div class="lx-page">
+  <div class="lx-card lx-card--subsection" *ngIf="hasScopeFilters" role="status">
+    <p class="lx-controls-subtitle" style="margin: 0">
+      Showing users scoped to <strong>{{ filterScopeSummary }}</strong>.
+      <button type="button" class="lx-link-btn" (click)="clearScopeFilters()">Clear organisation &amp; branch filters</button>
+    </p>
+  </div>
+
   <div class="lx-card lx-card--subsection links-strip">
     <a class="links-strip__item" routerLink="/users/groups" routerLinkActive="is-active"><mat-icon>groups</mat-icon>User Groups</a>
     <a class="links-strip__item" routerLink="/users/roles" routerLinkActive="is-active"><mat-icon>verified_user</mat-icon>User Roles</a>
@@ -57,7 +64,7 @@
           type="button"
           class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
           (click)="filterFieldsOpen = !filterFieldsOpen"
-          [class.lx-btn-filter--on]="filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen || hasScopeFilters"
         >
           <mat-icon>tune</mat-icon>
           Filters
@@ -80,6 +87,37 @@
     </mat-menu>
 
     <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+      <span class="lx-filter-panel__label">Scope</span>
+      <div class="lx-filter-fields lx-filter-fields--scope">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Organization</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">business</mat-icon>
+            <select
+              [ngModel]="filterOrganizationId"
+              (ngModelChange)="onFilterOrganizationChange($event)"
+              [disabled]="filterOrganizationsLoading"
+            >
+              <option value="">{{ filterOrganizationsLoading ? 'Loading…' : 'All organizations' }}</option>
+              <option *ngFor="let o of filterOrganizationOptions" [value]="selectOptionValue(o.id)">{{ o.label }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Branch</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">account_tree</mat-icon>
+            <select
+              [ngModel]="filterBranchId"
+              (ngModelChange)="onFilterBranchChange($event)"
+              [disabled]="!filterOrganizationId || filterBranchesLoading"
+            >
+              <option value="">{{ filterBranchesLoading ? 'Loading…' : 'All branches' }}</option>
+              <option *ngFor="let b of filterBranchOptions" [value]="selectOptionValue(b.id)">{{ b.label }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
       <span class="lx-filter-panel__label">Column filters</span>
       <div class="lx-filter-fields">
         <div class="lx-filter-field-wrap">
@@ -135,7 +173,13 @@
           <div class="lx-field-label">Status</div>
           <div class="lx-input-shell lx-filter-field">
           <mat-icon class="lx-input-shell__icon">label</mat-icon>
-          <input [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
+          <select [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()">
+            <option value="">All (excl. deleted)</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
+            <option value="SUSPENDED">Suspended</option>
+            <option value="DELETED">Deleted</option>
+          </select>
         </div>
         </div>
       </div>
@@ -146,7 +190,12 @@
     <div class="lx-table-header">
       <div>
         <h2 class="lc-title">All users</h2>
-        <p class="lc-lead">Directory of portal accounts.</p>
+        <p class="lc-lead" *ngIf="!hasScopeFilters">Directory of portal accounts.</p>
+        <p class="lc-lead" *ngIf="hasScopeFilters && !fetching">
+          <strong>{{ totalRecords }}</strong>
+          {{ totalRecords === 1 ? 'user' : 'users' }} linked to
+          <span *ngIf="filterScopeSummary">{{ filterScopeSummary }}</span>.
+        </p>
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
     </div>
@@ -186,18 +235,6 @@
             <th mat-header-cell *matHeaderCellDef>National ID</th>
             <td mat-cell *matCellDef="let row">{{ row.nationalIdNumber }}</td>
           </ng-container>
-          <ng-container matColumnDef="dateOfBirth">
-            <th mat-header-cell *matHeaderCellDef>Date of birth</th>
-            <td mat-cell *matCellDef="let row">{{ row.dateOfBirthLabel }}</td>
-          </ng-container>
-          <ng-container matColumnDef="accountType">
-            <th mat-header-cell *matHeaderCellDef>User type</th>
-            <td mat-cell *matCellDef="let row">{{ row.accountType }}</td>
-          </ng-container>
-          <ng-container matColumnDef="role">
-            <th mat-header-cell *matHeaderCellDef>Role</th>
-            <td mat-cell *matCellDef="let row">{{ row.role }}</td>
-          </ng-container>
           <ng-container matColumnDef="emailVerified">
             <th mat-header-cell *matHeaderCellDef>Email verified</th>
             <td mat-cell *matCellDef="let row">
@@ -210,19 +247,22 @@
               >
             </td>
           </ng-container>
+          <ng-container matColumnDef="kycApproverEligible">
+            <th mat-header-cell *matHeaderCellDef>KYC approver</th>
+            <td mat-cell *matCellDef="let row">
+              <span
+                class="lx-pill"
+                [class.lx-pill--success]="row.kycApproverEligibleLabel === 'Eligible'"
+                [class.lx-pill--muted]="row.kycApproverEligibleLabel !== 'Eligible'"
+                >{{ row.kycApproverEligibleLabel }}</span
+              >
+            </td>
+          </ng-container>
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>Status</th>
             <td mat-cell *matCellDef="let row">
               <span class="lx-status" [ngClass]="'lx-status-' + (row.status || 'active').toLowerCase()">{{ row.statusLabel }}</span>
             </td>
-          </ng-container>
-          <ng-container matColumnDef="createdAt">
-            <th mat-header-cell *matHeaderCellDef>Created</th>
-            <td mat-cell *matCellDef="let row">{{ row.createdAtLabel }}</td>
-          </ng-container>
-          <ng-container matColumnDef="updatedAt">
-            <th mat-header-cell *matHeaderCellDef>Updated</th>
-            <td mat-cell *matCellDef="let row">{{ row.updatedAtLabel }}</td>
           </ng-container>
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>Actions</th>
@@ -260,6 +300,17 @@
         </a>
         <button mat-menu-item type="button" class="lx-action-edit" (click)="openEditUserDialog(userRow)">
           <mat-icon>edit</mat-icon> Edit user
+        </button>
+        <button
+          mat-menu-item
+          type="button"
+          class="lx-action-edit"
+          *ngIf="userRow.canResendVerificationEmail"
+          [disabled]="resendingVerificationUserId === userRow.id"
+          (click)="resendVerificationEmail(userRow)"
+        >
+          <mat-icon>mark_email_read</mat-icon>
+          Resend verification email
         </button>
         <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteUserRow(userRow)">
           <mat-icon>delete</mat-icon> Delete user
@@ -362,6 +413,7 @@
     </button>
   </div>
 
+  <div class="lx-modal__scroll">
   <div class="lx-modal__body lx-modal__body--grid" *ngIf="createStep === 0">
     <label class="lx-modal__field">
       <span class="lx-field-label">Organization</span>
@@ -390,6 +442,14 @@
         </select>
       </div>
       <span class="lx-field-hint">Optional. Branch list updates from the selected organization.</span>
+    </label>
+    <label class="lx-modal__field lx-modal__field--full lx-modal__field--toggle" *ngIf="!createModel.organizationId">
+      <span class="lx-field-label">Organisation KYC approver</span>
+      <mat-slide-toggle [(ngModel)]="createModel.organizationKycApprover" color="primary">
+        Eligible to review signup organisations
+      </mat-slide-toggle>
+      <span class="lx-field-hint">Stage 1 or stage 2 — assigned automatically by workload.</span>
+      <span class="lx-field-hint">Only for admin portal users with no organisation. Approvers must not be linked to a tenant.</span>
     </label>
     <label class="lx-modal__field"><span class="lx-field-label">Username <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">alternate_email</mat-icon><input [(ngModel)]="createModel.username" placeholder="e.g. tinashe.moyo" /></div><span class="lx-field-hint">Unique sign-in username used for portal login.</span></label>
     <label class="lx-modal__field"><span class="lx-field-label">Email <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">mail_outline</mat-icon><input [(ngModel)]="createModel.email" placeholder="e.g. tinashe@example.com" /></div><span class="lx-field-hint">Primary email for notifications and recovery.</span></label>
@@ -426,7 +486,7 @@
         <mat-icon class="lx-input-shell__icon">event</mat-icon>
         <input type="date" [(ngModel)]="createModel.dateOfBirth" [max]="maximumDateOfBirth" />
       </div>
-      <span class="lx-field-hint">Only users aged 16 years and older are allowed.</span>
+      <span class="lx-field-hint">Only users aged 18 years and older are allowed.</span>
     </label>
     <label class="lx-modal__field"><span class="lx-field-label">Phone number <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">phone</mat-icon><input [(ngModel)]="createModel.phoneNumber" placeholder="e.g. +263771234567" /></div></label>
     <label class="lx-modal__field"><span class="lx-field-label">Password <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">lock</mat-icon><input type="password" [(ngModel)]="createModel.password" placeholder="Temporary password" /></div><ldms-password-requirements [password]="createModel.password"></ldms-password-requirements><span class="lx-field-hint">User changes this after first login.</span></label>
@@ -617,6 +677,8 @@
   </div>
 
   <p class="lx-modal__error" *ngIf="createError">{{ createError }}</p>
+  </div>
+
   <div class="lx-modal__actions">
     <button type="button" class="lx-btn lx-btn-ghost" (click)="closeCreateModal()">Cancel</button>
     <button type="button" class="lx-btn lx-btn-ghost" *ngIf="createStep > 0" (click)="prevCreateStep()">Back</button>

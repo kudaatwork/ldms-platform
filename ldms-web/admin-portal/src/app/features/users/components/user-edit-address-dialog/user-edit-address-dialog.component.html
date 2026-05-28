@@ -2,7 +2,9 @@
   <div class="lx-dialog-header">
     <div class="lx-header-text">
       <h2 class="lx-dialog-title">Edit address</h2>
-      <p class="lx-dialog-subtitle">Updates sync to the location service. Suburb id must match an existing suburb.</p>
+      <p class="lx-dialog-subtitle">
+        Update the physical address for this user. Select country through suburb (same as Edit user details).
+      </p>
     </div>
     <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()">
       <mat-icon>close</mat-icon>
@@ -11,48 +13,43 @@
 
   <div class="lx-step-content">
     <div class="lx-form-grid">
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Address</div>
+        <p class="lx-form-section-lead">
+          Address line 1, postal code, and suburb are required. Location service links are applied automatically on save.
+        </p>
+      </div>
+
       <div class="lx-field span-2">
-        <label class="lx-field-label">Line 1 <span class="req">*</span></label>
+        <label class="lx-field-label">Address line 1 <span class="req">*</span></label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">home</mat-icon>
-          <input [(ngModel)]="line1" placeholder="e.g. 12 Main Road" />
+          <input [(ngModel)]="line1" placeholder="Street address" />
         </div>
       </div>
+
       <div class="lx-field span-2">
-        <label class="lx-field-label">Line 2</label>
+        <label class="lx-field-label">Address line 2</label>
         <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">pin_drop</mat-icon>
-          <input [(ngModel)]="line2" placeholder="e.g. Apartment 6B" />
+          <mat-icon class="lx-input-shell__icon">home_work</mat-icon>
+          <input [(ngModel)]="line2" placeholder="Optional" />
         </div>
       </div>
+
       <div class="lx-field">
         <label class="lx-field-label">Postal code <span class="req">*</span></label>
         <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">local_post_office</mat-icon>
-          <input [(ngModel)]="postalCode" placeholder="e.g. 0000" />
+          <mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon>
+          <input [(ngModel)]="postalCode" placeholder="e.g. 00263" />
         </div>
       </div>
-      <div class="lx-field">
-        <label class="lx-field-label">Suburb id <span class="req">*</span></label>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">location_city</mat-icon>
-          <input inputmode="numeric" [(ngModel)]="suburbIdStr" placeholder="Existing suburb id" />
-        </div>
-      </div>
-      <div class="lx-field">
-        <label class="lx-field-label">Location address id</label>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">place</mat-icon>
-          <input inputmode="numeric" [(ngModel)]="locationAddressIdStr" placeholder="Optional" />
-        </div>
-      </div>
-      <div class="lx-field">
-        <label class="lx-field-label">Geo coordinates id</label>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">my_location</mat-icon>
-          <input inputmode="numeric" [(ngModel)]="geoCoordinatesIdStr" placeholder="Optional" />
-        </div>
-      </div>
+
+      <app-user-address-cascade-fields
+        class="span-2"
+        [(suburbId)]="suburbIdStr"
+        [seedSuburbId]="seedSuburbId"
+        [disabled]="saving"
+      ></app-user-address-cascade-fields>
     </div>
 
     <p class="lx-form-error" *ngIf="error">
@@ -63,7 +60,7 @@
     <div class="lx-step-actions">
       <button mat-stroked-button type="button" (click)="close()" [disabled]="saving">Cancel</button>
       <button mat-raised-button color="primary" type="button" (click)="save()" [disabled]="saving">
-        {{ saving ? 'Saving…' : 'Save address' }}
+        {{ saving ? 'Saving…' : 'Save changes' }}
       </button>
     </div>
   </div>

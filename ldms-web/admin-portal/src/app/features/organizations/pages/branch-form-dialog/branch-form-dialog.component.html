@@ -1,0 +1,119 @@
+<div class="lx-dialog-shell" [class.is-edit]="isEdit" [class.is-view]="isView">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
+    <div class="lx-form-grid">
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Organisation <span class="req" *ngIf="!isView">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('organizationId', 'required')">
+          <mat-icon class="lx-input-shell__icon">corporate_fare</mat-icon>
+          <select formControlName="organizationId" aria-label="Organisation">
+            <option [value]="null">— Select organisation —</option>
+            <option *ngFor="let o of organizations" [value]="o.id">{{ o.name }}</option>
+          </select>
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('organizationId', 'required')">Organisation is required</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Branch name <span class="req" *ngIf="!isView">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('branchName', 'required')">
+          <mat-icon class="lx-input-shell__icon">store</mat-icon>
+          <input formControlName="branchName" placeholder="e.g. Harare Head Office" maxlength="200" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('branchName', 'required')">Branch name is required</div>
+        <div class="lx-field-error" *ngIf="hasError('branchName', 'maxlength')">Maximum 200 characters</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Branch code</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+          <input formControlName="branchCode" placeholder="e.g. HRE-001" maxlength="50" />
+        </div>
+        <div class="lx-field-hint">Short identifier for this branch (optional).</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Region</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">map</mat-icon>
+          <input formControlName="region" placeholder="e.g. Mashonaland East" maxlength="200" />
+        </div>
+        <div class="lx-field-hint">Geographic region this branch serves (optional).</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Email</label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('email', 'email')">
+          <mat-icon class="lx-input-shell__icon">email</mat-icon>
+          <input formControlName="email" placeholder="branch@example.co.zw" type="email" maxlength="200" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('email', 'email')">Enter a valid email address</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Phone number</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+          <input formControlName="phoneNumber" placeholder="+263771234567" maxlength="50" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Business hours</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+          <input formControlName="businessHours" placeholder="Mon–Fri 08:00–17:00" maxlength="200" />
+        </div>
+        <div class="lx-field-hint">Optional operating hours for this branch.</div>
+      </div>
+
+      <div class="lx-field lx-field--toggle">
+        <label class="lx-field-label">Head office</label>
+        <mat-slide-toggle formControlName="headOffice" color="primary">Head office</mat-slide-toggle>
+        <div class="lx-field-hint">Mark this branch as the primary head office.</div>
+      </div>
+
+      <div class="lx-field lx-field--toggle">
+        <label class="lx-field-label">Status</label>
+        <mat-slide-toggle formControlName="active" color="primary">Active</mat-slide-toggle>
+        <div class="lx-field-hint">Inactive branches are hidden from operational views.</div>
+      </div>
+
+    </div>
+
+    <p class="lx-form-error" *ngIf="saveError">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ saveError }}</span>
+    </p>
+
+    <div class="lx-step-actions">
+      <button mat-stroked-button type="button" (click)="cancel()" [disabled]="submitting">
+        {{ isView ? 'Close' : 'Cancel' }}
+      </button>
+      <button
+        *ngIf="!isView"
+        mat-raised-button
+        color="primary"
+        type="submit"
+        [disabled]="form.invalid || submitting"
+      >
+        <span *ngIf="!submitting" class="lx-cta-content">{{ primaryActionLabel }}</span>
+        <span *ngIf="submitting" class="lx-cta-content lx-cta-loading">
+          <span class="lx-btn-loader"></span>
+          {{ primaryActionLoadingLabel }}
+        </span>
+      </button>
+    </div>
+  </form>
+</div>

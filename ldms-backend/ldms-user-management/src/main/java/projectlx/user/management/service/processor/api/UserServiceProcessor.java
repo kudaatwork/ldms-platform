@@ -5,6 +5,7 @@ import projectlx.user.management.utils.dtos.ImportSummary;
 import projectlx.user.management.utils.requests.CreateUserRequest;
 import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
+import projectlx.user.management.utils.requests.ProvisionOrganizationContactPersonRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserResponse;
 
@@ -32,6 +33,14 @@ public interface UserServiceProcessor {
     UserResponse forgotPassword(ForgotPasswordRequest forgotPasswordRequest, Locale locale);
     UserResponse validateResetToken(String token, String email, Locale locale);
     UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale);
+
+    UserResponse listOrganizationKycApprovers(Locale locale);
+
+    UserResponse setOrganizationKycApprover(Long id, boolean enabled, Locale locale, String username);
+
     UserResponse resendVerificationLink(String email, Locale locale, String username);
+
+    UserResponse provisionOrganizationContactPerson(ProvisionOrganizationContactPersonRequest request, Locale locale,
+            String username);
 
 }

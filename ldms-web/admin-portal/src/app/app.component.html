@@ -29,7 +29,7 @@
           >
             <div class="sb-icon">
               <mat-icon>{{ item.icon }}</mat-icon>
-              <span class="sb-badge" *ngIf="item.badge">{{ item.badge }}</span>
+              <span class="sb-badge" *ngIf="navBadge(item)">{{ navBadge(item) }}</span>
             </div>
             <span class="sb-label">{{ item.label }}</span>
           </a>
@@ -39,7 +39,7 @@
           <a
             *ngIf="collapsed"
             class="sb-item"
-            [routerLink]="item.children[0].route"
+            [routerLink]="defaultGroupRoute(item)"
             [class.active]="currentUrl.startsWith(item.route)"
             [matTooltip]="item.label"
             matTooltipPosition="right"
@@ -54,28 +54,89 @@
               type="button"
               class="sb-item sb-item--parent"
               [class.active]="isSectionActive(item.route, currentUrl)"
-              (click)="toggleGroup(item.route)"
+              (click)="toggleGroup(groupExpandKey(item), $event)"
             >
               <div class="sb-icon">
                 <mat-icon>{{ item.icon }}</mat-icon>
               </div>
               <span class="sb-label">{{ item.label }}</span>
-              <mat-icon class="sb-chevron">{{ isGroupExpanded(item.route) ? 'expand_less' : 'expand_more' }}</mat-icon>
+              <mat-icon class="sb-chevron">{{ isGroupExpanded(groupExpandKey(item)) ? 'expand_less' : 'expand_more' }}</mat-icon>
             </button>
-            <div class="sb-children" *ngIf="isGroupExpanded(item.route)">
-              <a
-                *ngFor="let c of item.children; trackBy: trackByChildRoute"
-                class="sb-subitem"
-                [routerLink]="c.route"
-                routerLinkActive="active"
-                [routerLinkActiveOptions]="{ exact: false }"
-              >
-                <div class="sb-subicon">
-                  <mat-icon>{{ c.icon }}</mat-icon>
-                </div>
-                <span class="sb-sublabel">{{ c.label }}</span>
-              </a>
-            </div>
+            @if (isGroupExpanded(groupExpandKey(item))) {
+              <div class="sb-children" [attr.data-nav-group]="groupExpandKey(item)">
+                @for (c of item.children; track trackByGroupEntry($index, c)) {
+                  @switch (navEntryKind(c)) {
+                    @case ('heading') {
+                      <div class="sb-subheading sb-subheading--group">{{ c.label }}</div>
+                    }
+                    @case ('subsection') {
+                      <div class="sb-subgroup">
+                        <div class="sb-subgroup-head">
+                          <a
+                            class="sb-subitem sb-subitem--subsection"
+                            [routerLink]="navChild(c).route"
+                            routerLinkActive="active"
+                            [routerLinkActiveOptions]="{ exact: true }"
+                          >
+                            <div class="sb-subicon">
+                              <mat-icon>{{ navChild(c).icon }}</mat-icon>
+                            </div>
+                            <span class="sb-sublabel">{{ navChild(c).label }}</span>
+                          </a>
+                          <button
+                            type="button"
+                            class="sb-subgroup-toggle"
+                            [attr.aria-expanded]="isGroupExpanded(subsectionExpandKey(item, navChild(c)))"
+                            [attr.aria-label]="'Toggle ' + navChild(c).label"
+                            (click)="toggleGroup(subsectionExpandKey(item, navChild(c)), $event)"
+                          >
+                            <mat-icon>{{
+                              isGroupExpanded(subsectionExpandKey(item, navChild(c)))
+                                ? 'expand_less'
+                                : 'expand_more'
+                            }}</mat-icon>
+                          </button>
+                        </div>
+                        @if (isGroupExpanded(subsectionExpandKey(item, navChild(c)))) {
+                          <div class="sb-subchildren">
+                            @for (entry of navChild(c).children; track trackBySubEntry($index, entry)) {
+                              @if (!isNavLink(entry)) {
+                                <div class="sb-subheading">{{ entry.label }}</div>
+                              } @else {
+                                <a
+                                  class="sb-subitem sb-subitem--nested"
+                                  [routerLink]="entry.route"
+                                  routerLinkActive="active"
+                                  [routerLinkActiveOptions]="{ exact: false }"
+                                >
+                                  <div class="sb-subicon">
+                                    <mat-icon>{{ entry.icon }}</mat-icon>
+                                  </div>
+                                  <span class="sb-sublabel">{{ entry.label }}</span>
+                                </a>
+                              }
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                    @default {
+                      <a
+                        class="sb-subitem"
+                        [routerLink]="navChild(c).route"
+                        routerLinkActive="active"
+                        [routerLinkActiveOptions]="{ exact: false }"
+                      >
+                        <div class="sb-subicon">
+                          <mat-icon>{{ navChild(c).icon }}</mat-icon>
+                        </div>
+                        <span class="sb-sublabel">{{ navChild(c).label }}</span>
+                      </a>
+                    }
+                  }
+                }
+              </div>
+            }
           </ng-container>
         </div>
       </ng-container>
@@ -98,7 +159,7 @@
         </a>
         <a
           class="sb-item"
-          routerLink="/account"
+          [routerLink]="myAccountRoute"
           routerLinkActive="active"
           [matTooltip]="collapsed ? 'My account' : ''"
           matTooltipPosition="right"
@@ -125,10 +186,10 @@
       <!-- Footer -->
       <div class="sb-footer">
         <div class="sb-user">
-          <div class="sb-avatar">{{ currentUser.initials }}</div>
+          <div class="sb-avatar">{{ shellUser?.initials ?? 'U' }}</div>
           <div class="sb-user-info">
-            <div class="sb-user-name">{{ currentUser.firstName }}</div>
-            <div class="sb-user-role">{{ currentUser.role }}</div>
+            <div class="sb-user-name">{{ shellUser?.displayName ?? shellUser?.firstName ?? 'User' }}</div>
+            <div class="sb-user-role">{{ shellUser?.role ?? '—' }}</div>
           </div>
           <button type="button" class="sb-logout-footer" (click)="logout()" matTooltip="Sign out" aria-label="Sign out">
             <mat-icon>logout</mat-icon>
@@ -220,13 +281,14 @@
             aria-haspopup="true"
             aria-label="Account menu"
           >
-            <div class="tb-avatar">{{ currentUser.initials }}</div>
+            <div class="tb-avatar">{{ shellUser?.initials ?? 'U' }}</div>
+            <span class="tb-profile-name">{{ shellUser?.displayName ?? shellUser?.firstName ?? 'User' }}</span>
             <mat-icon class="tb-profile-chevron">{{ profileOpen ? 'expand_less' : 'expand_more' }}</mat-icon>
           </button>
           <div class="tb-flyout tb-flyout--profile" *ngIf="profileOpen" (click)="$event.stopPropagation()" role="menu" aria-label="Account">
             <div class="tb-flyout__profile-meta">
-              <div class="tb-flyout__profile-name">{{ currentUser.firstName }} {{ currentUser.lastName }}</div>
-              <div class="tb-flyout__profile-email">{{ currentUser.email }}</div>
+              <div class="tb-flyout__profile-name">{{ shellUser?.firstName }} {{ shellUser?.lastName }}</div>
+              <div class="tb-flyout__profile-email">{{ shellUser?.email }}</div>
             </div>
             <button type="button" class="tb-flyout__menu-item" (click)="goMyAccount(); $event.stopPropagation()">
               <mat-icon>person</mat-icon>
@@ -240,6 +302,14 @@
         </div>
       </div>
     </header>
+
+    <section class="tb-session-warning" *ngIf="sessionWarningVisible" role="alert" aria-live="assertive">
+      <mat-icon aria-hidden="true">schedule</mat-icon>
+      <span>
+        Your session will expire in <strong>{{ sessionCountdownLabel }}</strong> due to inactivity.
+      </span>
+      <button type="button" class="lx-btn lx-btn-sm lx-btn-primary" (click)="stayLoggedIn()">Stay logged in</button>
+    </section>
 
     <nav class="lx-breadcrumbs" aria-label="Breadcrumb" *ngIf="breadcrumbs.length">
       <ol class="lx-breadcrumbs__list">
