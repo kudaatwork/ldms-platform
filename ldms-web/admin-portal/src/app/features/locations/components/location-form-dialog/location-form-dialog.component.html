@@ -728,6 +728,7 @@
                 <mat-icon class="lx-input-shell__icon">map</mat-icon>
                 <select
                   formControlName="cityId"
+                  (change)="onAddressCityChange()"
                   aria-label="City"
                   [disabled]="isReadonly || !hasAddressDistrict() || addressCitySettlementLoading"
                 >
@@ -764,6 +765,7 @@
                 <mat-icon class="lx-input-shell__icon">domain</mat-icon>
                 <select
                   formControlName="settlementId"
+                  (change)="onAddressSettlementChange()"
                   aria-label="Settlement"
                   [disabled]="isReadonly || !hasAddressDistrict() || addressCitySettlementLoading || addressSettlementRefreshing"
                 >

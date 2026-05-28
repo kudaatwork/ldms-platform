@@ -3,6 +3,12 @@ import { Injectable } from '@angular/core';
 import { Observable, ReplaySubject, catchError, forkJoin, from, map, mergeMap, of, share, throwError } from 'rxjs';
 import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
 import { environment } from '../../../../environments/environment';
+import {
+  extractPagedResult,
+  isApiFailureEnvelope,
+  readApiFailureMessage,
+  readInBodyStatusCode,
+} from '../../../core/utils/api-paged-response.util';
 import { apiBaseUrl, ldmsApiUrl } from '../../../core/utils/api-url.util';
 import {
   MOCK_ADMIN_LEVELS,
@@ -392,17 +398,36 @@ export class LocationsService {
     const body = this.buildTableFilterBody(kind, q);
     const pageKey = this.dtoPageKeyForTable(kind);
     return this.http.post<unknown>(this.url(kind, 'find-by-multiple-filters'), body).pipe(
-      map((r) => {
-        const { rows, totalElements } = this.extractPagedResult(r, pageKey);
-        return { rows, totalElements };
-      }),
+      map((r) => this.mapTablePageResponse(r, pageKey)),
       catchError((err) => {
         if (err instanceof HttpErrorResponse && err.status === 404) {
           return of({ rows: [], totalElements: 0 });
         }
-        return throwError(() => err);
+        return throwError(() => this.toTableError(err, 'Failed to load location data.'));
       }),
     );
+  }
+
+  private toTableError(err: unknown, fallback: string): Error {
+    if (err instanceof Error) {
+      return err;
+    }
+    if (err instanceof HttpErrorResponse) {
+      const body = err.error as { message?: string } | undefined;
+      if (body?.message?.trim()) {
+        return new Error(body.message.trim());
+      }
+      if (err.status === 401) {
+        return new Error('Not signed in. Log in again to continue.');
+      }
+      if (err.status === 0) {
+        return new Error(
+          'Request failed before the server responded. Check that the API gateway and location-management service are running.',
+        );
+      }
+      return new Error(err.message || fallback);
+    }
+    return new Error(fallback);
   }
 
   fetchCountriesForSelect(): Observable<LocationSelectOption[]> {
@@ -954,7 +979,7 @@ export class LocationsService {
     if (environment.useMocks) {
       return of(null);
     }
-    const geoUrl = `${this.base}/ldms-locations/v1/${environment.apiSurface}/geo-coordinates/find-by-id/${id}`;
+    const geoUrl = `${this.base}/ldms-locations/v1/backoffice/geo-coordinates/find-by-id/${id}`;
     return this.http.get<Record<string, unknown>>(geoUrl).pipe(
       map((response) => this.extractGeoCoordinatesEntity(response)),
       catchError((err: HttpErrorResponse) => {
@@ -1170,12 +1195,11 @@ export class LocationsService {
 
 
   /**
-   * Build a fully-qualified API URL for the given entity + operation. The location-management
-   * service exposes its routes under `/ldms-locations/v1/{system|frontend}/<resource>/<op>`.
-   * The surface is picked per environment configuration.
+   * Admin portal uses {@code backoffice} (JWT only), same as organizations — not {@code frontend}
+   * which enforces per-endpoint {@code @PreAuthorize} location roles.
    */
   private url(kind: LocationEntityKind, operation: string): string {
-    return `${this.base}/ldms-locations/v1/${environment.apiSurface}/${RESOURCE_SEGMENT[kind]}/${operation}`;
+    return `${this.base}/ldms-locations/v1/backoffice/${RESOURCE_SEGMENT[kind]}/${operation}`;
   }
 
   /** location-node has no export/import endpoints today. */
@@ -1302,6 +1326,21 @@ export class LocationsService {
       default:
         return [];
     }
+  }
+
+  /** Same envelope rules as {@link OrganizationsAdminService.mapPaged}. */
+  private mapTablePageResponse(
+    response: unknown,
+    pageKey: string,
+  ): { rows: unknown[]; totalElements: number } {
+    const inBodyStatus = readInBodyStatusCode(response);
+    if (inBodyStatus === 404) {
+      return { rows: [], totalElements: 0 };
+    }
+    if (isApiFailureEnvelope(response)) {
+      throw new Error(readApiFailureMessage(response, 'Failed to load location data.'));
+    }
+    return extractPagedResult(response, pageKey);
   }
 
   private dtoPageKeyForTable(kind: LocationEntityKind): string {

@@ -642,10 +642,31 @@ public class AddressServiceImpl implements AddressService {
                         new String[]{}, locale));
             }
             resolved = city;
-        } else if (sr.suburb != null && sr.suburb.getCity() != null) {
-            resolved = sr.suburb.getCity();
+        } else if (sr.suburb != null) {
+            resolved = resolveCityFromSuburb(sr.suburb).orElse(null);
+        } else if (sr.village != null && sr.village.getParent() != null) {
+            resolved = cityRepository.findByIdAndEntityStatusNot(sr.village.getParent().getId(), EntityStatus.DELETED)
+                    .orElse(null);
         }
         address.setCity(resolved);
+        return Optional.empty();
+    }
+
+    /**
+     * Prefer first-class {@link Suburb#getCity()}; fall back to legacy {@link Suburb#getCityLocationNode()} id
+     * (backfilled to match {@code city.id} during V7 migration).
+     */
+    private Optional<City> resolveCityFromSuburb(Suburb suburb) {
+        if (suburb == null) {
+            return Optional.empty();
+        }
+        City linked = suburb.getCity();
+        if (linked != null && linked.getEntityStatus() != EntityStatus.DELETED) {
+            return Optional.of(linked);
+        }
+        if (suburb.getCityLocationNode() != null && suburb.getCityLocationNode().getId() != null) {
+            return cityRepository.findByIdAndEntityStatusNot(suburb.getCityLocationNode().getId(), EntityStatus.DELETED);
+        }
         return Optional.empty();
     }
 
@@ -867,7 +888,7 @@ public class AddressServiceImpl implements AddressService {
         }
 
         if (type == SettlementType.SUBURB) {
-            Optional<Suburb> suburbOptional = suburbRepository.findByIdAndEntityStatusNot(resolvedId, EntityStatus.DELETED);
+            Optional<Suburb> suburbOptional = suburbRepository.findByIdFetchingCityContext(resolvedId, EntityStatus.DELETED);
             if (suburbOptional.isEmpty()) {
                 return SettlementResolution.error(
                         messageService.getMessage(I18Code.MESSAGE_SUBURB_NOT_FOUND.getCode(), new String[]{}, locale));

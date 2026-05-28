@@ -14,11 +14,18 @@ import {
 } from '@shared/utils/lx-export.util';
 import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import {
+  LdmsRoleModuleGroup,
+  groupRolesByModule,
+  moduleSectionFromApi,
+} from '@shared/utils/ldms-role-module.util';
 
 export interface RoleRow {
   id: number;
   role: string;
   description: string;
+  moduleKey: string;
+  moduleLabel: string;
   status: string;
   statusLabel: string;
 }
@@ -30,6 +37,8 @@ export interface RoleRow {
   standalone: false,
 })
 export class UsersRolesComponent implements OnInit, OnDestroy {
+  private static readonly CATALOG_FETCH_SIZE = 1000;
+
   fetching = false;
   exporting = false;
   groupId: string | null = null;
@@ -43,7 +52,13 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
   private pendingGroupBannerFromNav: { id: number; name: string; description: string } | null = null;
   private routeParamsSub?: Subscription;
 
-  displayedColumns = ['role', 'description', 'status', 'actions'];
+  /** Group catalog / group-scoped roles by LDMS module in the UI. */
+  groupByModule = false;
+  expandedModuleKeys = new Set<string>();
+  /** `all` or a {@link RoleRow.moduleKey} value. */
+  moduleFilterKey = 'all';
+  /** Row targeted by the shared actions menu (avoids brittle {@code matMenuTriggerData}). */
+  activeRoleRow: RoleRow | null = null;
 
   dataSource: RoleRow[] = [];
 
@@ -103,6 +118,110 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
     return this.createMode === 'view';
   }
 
+  get displayedColumns(): string[] {
+    const cols = ['module', 'role', 'description', 'status'];
+    if (!this.groupId) {
+      cols.push('actions');
+    }
+    return cols;
+  }
+
+  get roleModuleGroups(): LdmsRoleModuleGroup<RoleRow>[] {
+    return groupRolesByModule(this.moduleViewRows, (row) => row.moduleKey as never);
+  }
+
+  get moduleFilterOptions(): { key: string; label: string; count: number }[] {
+    const buckets = new Map<string, { label: string; count: number }>();
+    for (const row of this.dataSource) {
+      const key = row.moduleKey || 'other';
+      const hit = buckets.get(key);
+      if (hit) {
+        hit.count += 1;
+      } else {
+        buckets.set(key, { label: row.moduleLabel || key, count: 1 });
+      }
+    }
+    return [...buckets.entries()]
+      .map(([key, meta]) => ({ key, label: meta.label, count: meta.count }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  }
+
+  get filteredRows(): RoleRow[] {
+    const q = this.searchQuery.trim().toLowerCase();
+    const roleFilter = this.columnFilters.role.trim().toLowerCase();
+    const descFilter = this.columnFilters.description.trim().toLowerCase();
+    return this.dataSource.filter((row) => {
+      if (this.moduleFilterKey !== 'all' && row.moduleKey !== this.moduleFilterKey) {
+        return false;
+      }
+      if (roleFilter && !row.role.toLowerCase().includes(roleFilter)) {
+        return false;
+      }
+      if (descFilter && !row.description.toLowerCase().includes(descFilter)) {
+        return false;
+      }
+      if (!q) {
+        return true;
+      }
+      return (
+        row.role.toLowerCase().includes(q) ||
+        row.description.toLowerCase().includes(q) ||
+        row.moduleLabel.toLowerCase().includes(q)
+      );
+    });
+  }
+
+  get tableRows(): RoleRow[] {
+    if (this.shouldUseLocalPaging()) {
+      return this.slicePage(this.filteredRows);
+    }
+    return this.dataSource;
+  }
+
+  get moduleViewRows(): RoleRow[] {
+    if (this.groupByModule) {
+      return this.slicePage(this.filteredRows);
+    }
+    return this.filteredRows;
+  }
+
+  get paginationLength(): number {
+    if (this.shouldUseLocalPaging()) {
+      return this.filteredRows.length;
+    }
+    return this.totalRecords;
+  }
+
+  isModuleExpanded(moduleKey: string): boolean {
+    return this.expandedModuleKeys.has(moduleKey);
+  }
+
+  toggleModuleExpanded(moduleKey: string, expanded: boolean): void {
+    const next = new Set(this.expandedModuleKeys);
+    if (expanded) {
+      next.add(moduleKey);
+    } else {
+      next.delete(moduleKey);
+    }
+    this.expandedModuleKeys = next;
+  }
+
+  expandAllModules(): void {
+    this.expandedModuleKeys = new Set(this.roleModuleGroups.map((g) => g.section.key));
+  }
+
+  collapseAllModules(): void {
+    this.expandedModuleKeys = new Set();
+  }
+
+  private syncExpandedModules(): void {
+    if (this.moduleFilterKey !== 'all') {
+      this.expandedModuleKeys = new Set([this.moduleFilterKey]);
+      return;
+    }
+    this.expandedModuleKeys = new Set(this.roleModuleGroups.map((g) => g.section.key));
+  }
+
   /**
    * Lets {@link UsersGroupsComponent} re-fetch this group by id when the paged list is stale.
    */
@@ -121,7 +240,30 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
 
   resetPaging(): void {
     this.pageIndex = 0;
-    this.reload$.next();
+    if (!this.shouldUseLocalPaging()) {
+      this.reload$.next();
+    }
+    this.syncExpandedModules();
+  }
+
+  selectModuleFilter(key: string): void {
+    if (this.moduleFilterKey === key) {
+      return;
+    }
+    this.moduleFilterKey = key;
+    this.pageIndex = 0;
+    this.syncExpandedModules();
+    this.cdr.markForCheck();
+  }
+
+  prepareRowActions(event: Event, row: RoleRow): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.activeRoleRow = row;
+  }
+
+  clearRowActions(): void {
+    this.activeRoleRow = null;
   }
 
   onPage(e: PageEvent): void {
@@ -130,6 +272,21 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
     }
     this.pageIndex = e.pageIndex;
     this.pageSize = e.pageSize;
+    if (!this.shouldUseLocalPaging()) {
+      this.reload$.next();
+    }
+  }
+
+  setViewMode(groupByModule: boolean): void {
+    if (this.groupByModule === groupByModule) {
+      return;
+    }
+    this.groupByModule = groupByModule;
+    this.pageIndex = 0;
+    if (this.isEmbeddedGroupRolesView()) {
+      this.syncExpandedModules();
+      return;
+    }
     this.reload$.next();
   }
 
@@ -144,6 +301,7 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routeParamsSub?.unsubscribe();
+    this.syncPageModalScrollLock(false);
   }
 
   refresh(): void {
@@ -221,25 +379,40 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
   openCreateModal(): void {
     this.createMode = 'create';
     this.showCreateModal = true;
+    this.syncPageModalScrollLock(true);
     this.createError = '';
     this.createModel = { id: 0, role: '', description: '' };
   }
 
-  viewRow(row: RoleRow): void {
+  viewRow(row: RoleRow | null): void {
+    if (!row) {
+      return;
+    }
+    this.clearRowActions();
     this.createMode = 'view';
     this.showCreateModal = true;
+    this.syncPageModalScrollLock(true);
     this.createError = '';
     this.createModel = { id: row.id, role: row.role, description: row.description };
   }
 
-  editRow(row: RoleRow): void {
+  editRow(row: RoleRow | null): void {
+    if (!row) {
+      return;
+    }
+    this.clearRowActions();
     this.createMode = 'edit';
     this.showCreateModal = true;
+    this.syncPageModalScrollLock(true);
     this.createError = '';
     this.createModel = { id: row.id, role: row.role, description: row.description };
   }
 
-  deleteRow(row: RoleRow): void {
+  deleteRow(row: RoleRow | null): void {
+    if (!row) {
+      return;
+    }
+    this.clearRowActions();
     this.dialog
       .open(DeleteConfirmDialogComponent, {
         width: '420px',
@@ -296,6 +469,7 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
   closeCreateModal(): void {
     if (this.pendingRoleMutation) return;
     this.showCreateModal = false;
+    this.syncPageModalScrollLock(false);
   }
 
   submitCreate(): void {
@@ -324,6 +498,7 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
         : undefined;
 
     this.showCreateModal = false;
+    this.syncPageModalScrollLock(false);
     this.pendingRoleMutation = true;
     if (submittedMode === 'edit') {
       this.applySuccessfulSaveToVisibleRows('edit', submittedModel, null);
@@ -378,6 +553,7 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
             this.createMode = submittedMode;
             this.createModel = submittedModel;
             this.showCreateModal = true;
+            this.syncPageModalScrollLock(true);
             this.createError = 'Failed to create user role.';
             this.snackBar.open(this.createError, 'Close', {
               duration: 5000,
@@ -435,6 +611,7 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
         this.createMode = submittedMode;
         this.createModel = submittedModel;
         this.showCreateModal = true;
+        this.syncPageModalScrollLock(true);
         this.createError = submittedMode === 'edit' ? 'Failed to update user role.' : 'Failed to create user role.';
         this.snackBar.open(this.createError, 'Close', {
           duration: 5000,
@@ -486,6 +663,7 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
           const roles = (src['userRoleDtoSet'] as Record<string, unknown>[] | undefined) ?? [];
           this.dataSource = roles.map((r) => this.mapRecordToRoleRow(r));
           this.totalRecords = this.dataSource.length;
+          this.syncExpandedModules();
           this.fetching = false;
           this.title.setTitle(`${this.contextGroupName} — Roles | LX Admin`);
           this.cdr.markForCheck();
@@ -511,10 +689,11 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
     }
     this.contextGroupName = '';
     this.contextGroupDescription = '';
+    const catalogPageSize = this.groupByModule ? UsersRolesComponent.CATALOG_FETCH_SIZE : this.pageSize;
     this.usersService
       .queryUserRoles({
-        page: this.pageIndex,
-        size: this.pageSize,
+        page: this.groupByModule ? 0 : this.pageIndex,
+        size: catalogPageSize,
         searchQuery: this.searchQuery,
         columnFilters: this.columnFilters,
       })
@@ -528,6 +707,7 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
           }
           this.dataSource = rows.map((r) => this.mapRecordToRoleRow(r));
           this.totalRecords = totalElements;
+          this.syncExpandedModules();
           this.fetching = false;
           this.title.setTitle('Roles | LX Admin');
           this.cdr.markForCheck();
@@ -554,12 +734,36 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
   }
 
   private mapRecordToRoleRow(r: Record<string, unknown>): RoleRow {
+    const role = String(r['role'] ?? '');
+    return this.buildRoleRow(
+      Number(r['id'] ?? 0),
+      role,
+      String(r['description'] ?? '—'),
+      String(r['entityStatus'] ?? 'active').toLowerCase(),
+      String(r['entityStatus'] ?? 'Active'),
+      String(r['moduleKey'] ?? r['module_key'] ?? ''),
+      String(r['moduleLabel'] ?? r['module_label'] ?? ''),
+    );
+  }
+
+  private buildRoleRow(
+    id: number,
+    role: string,
+    description: string,
+    status: string,
+    statusLabel: string,
+    moduleKey = '',
+    moduleLabel = '',
+  ): RoleRow {
+    const module = moduleSectionFromApi(role, moduleKey, moduleLabel);
     return {
-      id: Number(r['id'] ?? 0),
-      role: String(r['role'] ?? ''),
-      description: String(r['description'] ?? '—'),
-      status: String(r['entityStatus'] ?? 'active').toLowerCase(),
-      statusLabel: String(r['entityStatus'] ?? 'Active'),
+      id,
+      role,
+      description,
+      moduleKey: module.key,
+      moduleLabel: module.label,
+      status,
+      statusLabel,
     };
   }
 
@@ -597,24 +801,18 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
     if (!createdId) {
       return;
     }
-    const nextRow: RoleRow = {
-      id: createdId,
-      role: model.role.trim(),
-      description: model.description.trim(),
-      status: 'active',
-      statusLabel: 'Active',
-    };
+    const nextRow = this.buildRoleRow(
+      createdId,
+      model.role.trim(),
+      model.description.trim(),
+      'active',
+      'Active',
+    );
     this.appendRoleRowBottom(nextRow);
   }
 
   private applyOptimisticCreateRow(tempId: number, role: string, description: string): void {
-    const nextRow: RoleRow = {
-      id: tempId,
-      role,
-      description,
-      status: 'active',
-      statusLabel: 'Active',
-    };
+    const nextRow = this.buildRoleRow(tempId, role, description, 'active', 'Active');
     this.appendRoleRowBottom(nextRow);
     this.cdr.detectChanges();
   }
@@ -644,19 +842,13 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
     const idx = this.dataSource.findIndex((r) => r.id === temp);
     if (idx >= 0) {
       const next = [...this.dataSource];
-      next[idx] = {
-        id: createdId,
-        role,
-        description,
-        status: 'active',
-        statusLabel: 'Active',
-      };
+      next[idx] = this.buildRoleRow(createdId, role, description, 'active', 'Active');
       this.dataSource = next;
       if (this.isEmbeddedGroupRolesView()) {
         this.totalRecords = this.dataSource.length;
       }
     } else {
-      const row: RoleRow = { id: createdId, role, description, status: 'active', statusLabel: 'Active' };
+      const row = this.buildRoleRow(createdId, role, description, 'active', 'Active');
       const noTemp = this.dataSource.filter((r) => r.id !== temp && r.id !== createdId);
       if (this.isEmbeddedGroupRolesView()) {
         this.dataSource = [...noTemp, row];
@@ -769,5 +961,21 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
     return value !== null && typeof value === 'object' && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : null;
+  }
+
+  private shouldUseLocalPaging(): boolean {
+    return this.groupByModule || this.isEmbeddedGroupRolesView();
+  }
+
+  private slicePage(rows: RoleRow[]): RoleRow[] {
+    const start = this.pageIndex * this.pageSize;
+    return rows.slice(start, start + this.pageSize);
+  }
+
+  private syncPageModalScrollLock(open: boolean): void {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    document.body.classList.toggle('lx-page-modal-open', open);
   }
 }

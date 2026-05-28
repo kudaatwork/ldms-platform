@@ -1,0 +1,693 @@
+<div class="lx-page ods-shell">
+  <div class="lx-card ods-shell__card">
+    <header class="ods-hero" *ngIf="!loading || orgIdParam">
+      <button type="button" mat-button class="ods-hero__back" routerLink="/organizations">
+        <mat-icon aria-hidden="true">arrow_back</mat-icon>
+        Organisation directory
+      </button>
+      <div class="ods-hero__row">
+        <div class="ods-hero__avatar" aria-hidden="true">{{ avatarLetter() }}</div>
+        <div class="ods-hero__text">
+          <h2 class="ods-hero__title lc-title">
+            <ng-container *ngIf="profile?.name?.trim(); else titleFallback">{{ profile!.name }}</ng-container>
+          </h2>
+          <ng-template #titleFallback>
+            <span>Organisation <span class="ods-mono">{{ orgIdParam || '—' }}</span></span>
+          </ng-template>
+          <p class="ods-hero__subtitle lc-lead" *ngIf="secondarySubtitle()">{{ secondarySubtitle() }}</p>
+          <div class="ods-hero__chips" *ngIf="profile as p">
+            <span class="ods-chip">
+              <mat-icon inline aria-hidden="true">category</mat-icon>
+              {{ classificationLabelFn(p.organizationClassification) }}
+            </span>
+            <span [class]="kycChipClass(p.kycStatusCss)">
+              <mat-icon inline aria-hidden="true">fact_check</mat-icon>
+              {{ p.kycStatusLabel }}
+            </span>
+            <span class="ods-chip ods-chip--verified" *ngIf="verifiedBadgeVisible()">
+              <mat-icon inline aria-hidden="true">verified</mat-icon>
+              Verified
+            </span>
+            <span class="ods-chip ods-chip--muted" *ngIf="p.entityStatus">
+              <mat-icon inline aria-hidden="true">label</mat-icon>
+              {{ p.entityStatus }}
+            </span>
+          </div>
+        </div>
+        <div class="ods-hero__actions">
+          <mat-slide-toggle
+            *ngIf="profile && loadError !== 'missingOrg'"
+            color="primary"
+            [checked]="editMode"
+            [disabled]="saving || loading"
+            (change)="toggleEdit($event.checked)"
+            class="ods-hero__toggle"
+          >
+            Edit organisation
+          </mat-slide-toggle>
+          <button
+            *ngIf="editMode && profile"
+            mat-stroked-button
+            type="button"
+            color="primary"
+            (click)="cancelEdit()"
+            [disabled]="saving"
+          >
+            Cancel
+          </button>
+          <button
+            *ngIf="editMode && profile"
+            mat-flat-button
+            color="primary"
+            type="button"
+            (click)="saveOverview()"
+            [disabled]="saving || overviewForm.invalid"
+          >
+            {{ saving ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <lx-table-loading [busy]="loading" message="Loading organisation profile…"></lx-table-loading>
+
+    <div class="lx-profile-error" *ngIf="!loading && loadError === 'invalidId'" role="alert">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <span>The organisation id in the URL is not valid (use a positive number). Go back and open again.</span>
+    </div>
+
+    <div class="lx-profile-error lx-profile-error--warn" *ngIf="!loading && loadError === 'missingOrg'" role="alert">
+      <mat-icon aria-hidden="true">info</mat-icon>
+      <span>No organisation record matched this lookup. Confirm the gateway and ldms-organization-management response.</span>
+    </div>
+
+    <div class="lx-profile-error" *ngIf="!loading && loadError === 'requestFailed'" role="alert">
+      <mat-icon aria-hidden="true">cloud_off</mat-icon>
+      <div class="lx-profile-error__body">
+        <span>Could not load this organisation.</span>
+        <button mat-stroked-button type="button" color="primary" (click)="retryLoad()">Retry</button>
+      </div>
+    </div>
+
+    <ng-container *ngIf="!loading && profile && !loadError">
+      <mat-tab-group
+        class="ods-tabs mat-elevation-z0"
+        animationDuration="280ms"
+        [(selectedIndex)]="selectedTabIndex"
+        (selectedTabChange)="onOrgTabSelected($event)"
+      >
+        <mat-tab label="Overview">
+          <section class="ods-tab-pane">
+            <form [formGroup]="overviewForm" class="ods-overview" novalidate>
+              <ng-container *ngIf="!editMode; else overviewEditTpl">
+                <div class="section-grid">
+                  <div class="section-row section-row--wide">
+                    <span>Legal name</span>
+                    <strong>{{ formatDisplay(profile!.name) }}</strong>
+                  </div>
+                  <div class="section-row">
+                    <span>Organisation email</span>
+                    <strong>{{ formatDisplay(profile!.email) }}</strong>
+                  </div>
+                  <div class="section-row">
+                    <span>Phone</span>
+                    <strong>{{ formatDisplay(profile!.phoneNumber) }}</strong>
+                  </div>
+                  <div class="section-row">
+                    <span>Organisation type</span>
+                    <strong>{{ profile!.organizationTypeLabel }}</strong>
+                  </div>
+                  <div class="section-row">
+                    <span>Industry</span>
+                    <strong>
+                      {{ profile!.industryName?.trim() || (profile!.industryId ? '#' + profile!.industryId : '—') }}
+                    </strong>
+                  </div>
+                  <div class="section-row">
+                    <span>Registration number</span>
+                    <strong>{{ formatDisplay(profile!.registrationNumber) }}</strong>
+                  </div>
+                  <div class="section-row">
+                    <span>Tax number</span>
+                    <strong>{{ formatDisplay(profile!.taxNumber) }}</strong>
+                  </div>
+                  <div class="section-row section-row--wide">
+                    <span>Contact person</span>
+                    <strong>{{ formatDisplay(contactPersonName()) }}</strong>
+                    <div class="ods-contact-lines">{{ contactPersonChannels() }}</div>
+                    <button
+                      *ngIf="profile!.contactPersonUserId"
+                      type="button"
+                      mat-button
+                      color="primary"
+                      class="ods-contact-manage-link"
+                      (click)="goToContactPersonTab()"
+                    >
+                      Manage profile, address &amp; account
+                    </button>
+                  </div>
+                  <div class="section-row">
+                    <span>Website</span>
+                    <strong>{{ formatDisplay(profile!.websiteUrl) }}</strong>
+                  </div>
+                  <div class="section-row section-row--full">
+                    <span>Description</span>
+                    <strong class="ods-multiline">{{ formatDisplay(profile!.organizationDescription) }}</strong>
+                  </div>
+                </div>
+              </ng-container>
+
+              <ng-template #overviewEditTpl>
+                <div class="lx-form-grid ods-edit-form">
+                  <div class="lx-form-section span-2">
+                    <div class="lx-form-section-title">Legal entity</div>
+                    <p class="lx-form-section-lead">Core identity shown in the organisations directory.</p>
+                  </div>
+
+                  <div class="lx-field span-2">
+                    <label class="lx-field-label">Legal name <span class="req">*</span></label>
+                    <div
+                      class="lx-input-shell"
+                      [class.lx-input-shell--invalid]="hasError('name', 'required') || hasError('name', 'minlength')"
+                    >
+                      <mat-icon class="lx-input-shell__icon">domain</mat-icon>
+                      <input formControlName="name" placeholder="e.g. Acme Logistics (Pvt) Ltd" autocomplete="organization" />
+                    </div>
+                    <div class="lx-field-error" *ngIf="hasError('name', 'required')">Legal name is required</div>
+                    <div class="lx-field-error" *ngIf="hasError('name', 'minlength')">Enter at least 2 characters</div>
+                  </div>
+
+                  <div class="lx-field">
+                    <label class="lx-field-label">Organisation email <span class="req">*</span></label>
+                    <div
+                      class="lx-input-shell"
+                      [class.lx-input-shell--invalid]="hasError('email', 'required') || hasError('email', 'email')"
+                    >
+                      <mat-icon class="lx-input-shell__icon">mail</mat-icon>
+                      <input type="email" formControlName="email" placeholder="accounts@example.co.zw" autocomplete="email" />
+                    </div>
+                    <div class="lx-field-error" *ngIf="hasError('email', 'required')">Email is required</div>
+                    <div class="lx-field-error" *ngIf="hasError('email', 'email')">Enter a valid email address</div>
+                  </div>
+
+                  <div class="lx-field">
+                    <label class="lx-field-label">Phone</label>
+                    <div class="lx-input-shell">
+                      <mat-icon class="lx-input-shell__icon">call</mat-icon>
+                      <input formControlName="phoneNumber" placeholder="e.g. +263 77 123 4567" />
+                    </div>
+                  </div>
+
+                  <div class="lx-field">
+                    <label class="lx-field-label">Organisation type <span class="req">*</span></label>
+                    <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('organizationType', 'required')">
+                      <mat-icon class="lx-input-shell__icon">business</mat-icon>
+                      <select formControlName="organizationType" aria-label="Organisation type">
+                        <option *ngFor="let t of orgTypes" [ngValue]="t.slug">{{ t.label }}</option>
+                      </select>
+                    </div>
+                    <div class="lx-field-error" *ngIf="hasError('organizationType', 'required')">Organisation type is required</div>
+                  </div>
+
+                  <div class="lx-field">
+                    <label class="lx-field-label">Industry sector</label>
+                    <div class="lx-input-shell" [class.lx-input-shell--muted]="!industriesLoaded">
+                      <mat-icon class="lx-input-shell__icon">factory</mat-icon>
+                      <select formControlName="industryId" aria-label="Industry" [disabled]="!industriesLoaded">
+                        <option [ngValue]="null">None — not assigned</option>
+                        <option *ngFor="let ind of industries; trackBy: industriesTrackBy" [ngValue]="ind.id">
+                          {{ industryOptionLabel(ind) }}
+                        </option>
+                      </select>
+                    </div>
+                    <div class="lx-field-hint" *ngIf="!industriesLoaded">Loading industries…</div>
+                  </div>
+
+                  <div class="lx-field">
+                    <label class="lx-field-label">Registration number</label>
+                    <div class="lx-input-shell">
+                      <mat-icon class="lx-input-shell__icon">description</mat-icon>
+                      <input formControlName="registrationNumber" placeholder="e.g. 1234/2020" />
+                    </div>
+                  </div>
+
+                  <div class="lx-field">
+                    <label class="lx-field-label">Tax / VAT (ZIMRA)</label>
+                    <div class="lx-input-shell">
+                      <mat-icon class="lx-input-shell__icon">receipt_long</mat-icon>
+                      <input formControlName="taxNumber" placeholder="e.g. 1000123456" />
+                    </div>
+                  </div>
+
+                  <div class="lx-form-section span-2">
+                    <div class="lx-form-section-title">Primary contact</div>
+                    <p class="lx-form-section-lead">
+                      <ng-container *ngIf="contactIdentityLocked(); else contactEditable">
+                        Contact person account is provisioned — name, email, and ID details are locked. Update phone, address,
+                        and online presence below; use the <strong>Contact person</strong> tab for the user profile.
+                      </ng-container>
+                      <ng-template #contactEditable>
+                        Directory contact on the organisation record. For gender, date of birth, national ID, address, and
+                        login account, use the <strong>Contact person</strong> tab after saving.
+                      </ng-template>
+                    </p>
+                  </div>
+
+                  <div class="lx-field">
+                    <label class="lx-field-label">First name</label>
+                    <div class="lx-input-shell">
+                      <mat-icon class="lx-input-shell__icon">person</mat-icon>
+                      <input formControlName="contactPersonFirstName" placeholder="e.g. Tendai" />
+                    </div>
+                  </div>
+
+                  <div class="lx-field">
+                    <label class="lx-field-label">Last name</label>
+                    <div class="lx-input-shell">
+                      <mat-icon class="lx-input-shell__icon">person</mat-icon>
+                      <input formControlName="contactPersonLastName" placeholder="e.g. Moyo" />
+                    </div>
+                  </div>
+
+                  <div class="lx-field">
+                    <label class="lx-field-label">Contact email</label>
+                    <div
+                      class="lx-input-shell"
+                      [class.lx-input-shell--invalid]="hasError('contactPersonEmail', 'email')"
+                    >
+                      <mat-icon class="lx-input-shell__icon">alternate_email</mat-icon>
+                      <input type="email" formControlName="contactPersonEmail" placeholder="contact@example.co.zw" />
+                    </div>
+                    <div class="lx-field-error" *ngIf="hasError('contactPersonEmail', 'email')">Enter a valid email address</div>
+                  </div>
+
+                  <div class="lx-field">
+                    <label class="lx-field-label">Contact phone</label>
+                    <div class="lx-input-shell">
+                      <mat-icon class="lx-input-shell__icon">phone_iphone</mat-icon>
+                      <input formControlName="contactPersonPhoneNumber" placeholder="e.g. +263 71 000 0000" />
+                    </div>
+                  </div>
+
+                  <div class="lx-form-section span-2">
+                    <div class="lx-form-section-title">Online presence</div>
+                    <p class="lx-form-section-lead">Optional public-facing details.</p>
+                  </div>
+
+                  <div class="lx-field span-2">
+                    <label class="lx-field-label">Website URL</label>
+                    <div class="lx-input-shell">
+                      <mat-icon class="lx-input-shell__icon">language</mat-icon>
+                      <input type="url" formControlName="websiteUrl" placeholder="https://example.co.zw" />
+                    </div>
+                  </div>
+
+                  <div class="lx-field span-2">
+                    <label class="lx-field-label">Description</label>
+                    <div class="lx-input-shell lx-input-shell--textarea">
+                      <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+                      <textarea formControlName="organizationDescription" rows="4" placeholder="Brief summary of services or operations"></textarea>
+                    </div>
+                  </div>
+                </div>
+              </ng-template>
+            </form>
+          </section>
+        </mat-tab>
+
+        <mat-tab>
+          <ng-template mat-tab-label>
+            <span>Documents</span>
+            <span class="ods-tab-badge" *ngIf="verificationDocuments.length">{{ verificationDocuments.length }}</span>
+          </ng-template>
+          <section class="ods-tab-pane" (click)="onDocumentsTabActivated()">
+            <p class="lx-form-section-lead">
+              ZIMRA tax clearance, registration certificate, licences, and identification uploaded during onboarding or KYC.
+            </p>
+            <mat-progress-bar *ngIf="documentsLoading" mode="indeterminate" aria-label="Loading documents"></mat-progress-bar>
+            <app-organization-documents-panel
+              *ngIf="!documentsLoading"
+              [documents]="verificationDocuments"
+            ></app-organization-documents-panel>
+          </section>
+        </mat-tab>
+
+        <mat-tab label="Contact person">
+          <section class="ods-tab-pane">
+            <p class="lx-form-section-lead">
+              Portal account for the primary contact — same profile, address, and account fields as Users management.
+              Overview contact fields sync to this user when you save the organisation.
+            </p>
+            <app-organization-contact-person-panel
+              [userId]="profile!.contactPersonUserId ?? null"
+              [organizationId]="profile!.id"
+              (userProfileUpdated)="onContactPersonUserUpdated()"
+            ></app-organization-contact-person-panel>
+          </section>
+        </mat-tab>
+
+        <mat-tab>
+          <ng-template mat-tab-label>
+            Users
+            <span class="ods-tab-badge" *ngIf="orgUsersCount !== null">{{ orgUsersCount }}</span>
+          </ng-template>
+          <section class="ods-tab-pane">
+            <p class="lx-form-section-lead">
+              Portal users linked to this organisation
+              <strong *ngIf="orgUsersCount !== null">({{ orgUsersCountLabel() }})</strong>.
+              The contact person is provisioned on registration and must verify email before signing in.
+            </p>
+            <div class="ods-manage-footer" style="margin-bottom: 1rem">
+              <button
+                mat-stroked-button
+                color="primary"
+                type="button"
+                (click)="provisionContactUser()"
+                [disabled]="orgUsersProvisioning || !profile.contactPersonEmail"
+              >
+                {{ orgUsersProvisioning ? 'Provisioning…' : 'Create / refresh contact person account' }}
+              </button>
+              <a
+                mat-stroked-button
+                color="primary"
+                routerLink="/users"
+                [queryParams]="{ organizationId: orgIdForQuery() }"
+              >
+                Open in users directory
+              </a>
+            </div>
+            <mat-progress-bar *ngIf="orgUsersLoading" mode="indeterminate" aria-label="Loading users"></mat-progress-bar>
+            <div class="lx-profile-error" *ngIf="orgUsersError" role="alert">{{ orgUsersError }}</div>
+            <ng-container *ngIf="!orgUsersLoading && orgUsersDataSource.data.length; else orgUsersEmptyTpl">
+              <div class="lx-table-wrap ods-mini-table">
+                <table mat-table [dataSource]="orgUsersDataSource" class="lx-mat-table">
+                  <ng-container matColumnDef="name">
+                    <th mat-header-cell *matHeaderCellDef>Name</th>
+                    <td mat-cell *matCellDef="let row">{{ row.name || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="email">
+                    <th mat-header-cell *matHeaderCellDef>Email</th>
+                    <td mat-cell *matCellDef="let row">{{ row.email || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="emailVerified">
+                    <th mat-header-cell *matHeaderCellDef>Email verified</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span
+                        class="lx-pill"
+                        [class.lx-pill--success]="row.emailVerifiedLabel === 'Yes'"
+                        [class.lx-pill--warn]="row.emailVerifiedLabel === 'No'"
+                        [class.lx-pill--muted]="row.emailVerifiedLabel === '—'"
+                        >{{ row.emailVerifiedLabel }}</span
+                      >
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="status">
+                    <th mat-header-cell *matHeaderCellDef>Status</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="lx-status" [ngClass]="'lx-status-' + (row.status || 'active').toLowerCase()">{{
+                        row.statusLabel
+                      }}</span>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="createdAt">
+                    <th mat-header-cell *matHeaderCellDef>Date created</th>
+                    <td mat-cell *matCellDef="let row">{{ row.createdAtLabel || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="actions">
+                    <th mat-header-cell *matHeaderCellDef>Actions</th>
+                    <td mat-cell *matCellDef="let row" class="ods-org-user-actions">
+                      <a mat-button [routerLink]="userProfileLink(row.id)">View profile</a>
+                      <button
+                        *ngIf="isOrgUserEmailUnverified(row)"
+                        type="button"
+                        mat-button
+                        color="primary"
+                        class="ods-resend-verify-link"
+                        [disabled]="resendingVerificationUserId === row.id"
+                        [attr.title]="
+                          row.canResendVerificationEmail
+                            ? 'Send a new verification email'
+                            : 'Resend is allowed 24 hours after account creation. Until then, use Create / refresh contact person account.'
+                        "
+                        (click)="resendOrgUserVerificationEmail(row)"
+                      >
+                        <mat-icon aria-hidden="true">mark_email_read</mat-icon>
+                        {{ resendingVerificationUserId === row.id ? 'Sending…' : 'Resend verification' }}
+                      </button>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="orgUserColumns; sticky: true"></tr>
+                  <tr mat-row *matRowDef="let row; columns: orgUserColumns"></tr>
+                </table>
+              </div>
+            </ng-container>
+            <ng-template #orgUsersEmptyTpl>
+              <div class="lx-empty lx-empty--compact" *ngIf="!orgUsersLoading">
+                <mat-icon class="lx-empty-icon">person_off</mat-icon>
+                <div class="lx-empty-title">No users linked yet</div>
+                <div class="lx-empty-sub">
+                  Use “Create / refresh contact person account” if registration did not create the contact user (check user-management is running).
+                </div>
+              </div>
+            </ng-template>
+          </section>
+        </mat-tab>
+
+        <mat-tab label="Branches">
+          <section class="ods-tab-pane">
+            <ng-container *ngIf="profile!.branches.length; else branchesEmptyTpl">
+              <div class="lx-table-wrap ods-mini-table">
+                <table mat-table [dataSource]="profile!.branches" class="lx-mat-table">
+                  <ng-container matColumnDef="branchName">
+                    <th mat-header-cell *matHeaderCellDef>Branch</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="branch-name">{{ row.branchName }}</span>
+                      <span class="branch-code lx-mono" *ngIf="row.branchCode">{{ row.branchCode }}</span>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="region">
+                    <th mat-header-cell *matHeaderCellDef>Region</th>
+                    <td mat-cell *matCellDef="let row">{{ row.region || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="contact">
+                    <th mat-header-cell *matHeaderCellDef>Contact</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="contact-line">{{ row.email || '—' }}</span>
+                      <span class="contact-line contact-line--muted" *ngIf="row.phoneNumber">{{ row.phoneNumber }}</span>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="flags">
+                    <th mat-header-cell *matHeaderCellDef>Type</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="lx-pill lx-pill--primary" *ngIf="row.headOffice">Head office</span>
+                      <span *ngIf="!row.headOffice">—</span>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="status">
+                    <th mat-header-cell *matHeaderCellDef>Status</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="lx-status" [class.lx-status-active]="row.active" [class.lx-status-inactive]="!row.active">
+                        {{ row.active ? 'Active' : 'Inactive' }}
+                      </span>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="branchColumns; sticky: true"></tr>
+                  <tr mat-row *matRowDef="let row; columns: branchColumns"></tr>
+                </table>
+              </div>
+              <div class="ods-manage-footer">
+                <a
+                  mat-stroked-button
+                  color="primary"
+                  routerLink="/organizations/branches"
+                  [queryParams]="{ organizationId: orgIdForQuery() }"
+                >
+                  Manage all branches
+                </a>
+              </div>
+            </ng-container>
+            <ng-template #branchesEmptyTpl>
+              <div class="lx-empty lx-empty--compact">
+                <mat-icon class="lx-empty-icon">account_tree</mat-icon>
+                <div class="lx-empty-title">No branches attached</div>
+                <div class="lx-empty-sub">Create branches from the branches directory screen.</div>
+              </div>
+              <div class="ods-manage-footer">
+                <a
+                  mat-stroked-button
+                  color="primary"
+                  routerLink="/organizations/branches"
+                  [queryParams]="{ organizationId: orgIdForQuery() }"
+                >
+                  Manage all branches
+                </a>
+              </div>
+            </ng-template>
+          </section>
+        </mat-tab>
+
+        <mat-tab label="Agents">
+          <section class="ods-tab-pane">
+            <ng-container *ngIf="profile!.agents.length; else agentsEmptyTpl">
+              <div class="lx-table-wrap ods-mini-table">
+                <table mat-table [dataSource]="profile!.agents" class="lx-mat-table">
+                  <ng-container matColumnDef="agent">
+                    <th mat-header-cell *matHeaderCellDef>Agent</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="agent-name">{{ row.displayName }}</span>
+                      <span class="agent-type" *ngIf="row.agentType">{{ row.agentType }}</span>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="kind">
+                    <th mat-header-cell *matHeaderCellDef>Kind</th>
+                    <td mat-cell *matCellDef="let row"><span class="lx-pill">{{ kindLabel(row.agentKind) }}</span></td>
+                  </ng-container>
+                  <ng-container matColumnDef="role">
+                    <th mat-header-cell *matHeaderCellDef>Role</th>
+                    <td mat-cell *matCellDef="let row">{{ row.role || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="contact">
+                    <th mat-header-cell *matHeaderCellDef>Contact</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="contact-line">{{ row.email || '—' }}</span>
+                      <span class="contact-line contact-line--muted" *ngIf="row.phoneNumber">{{ row.phoneNumber }}</span>
+                    </td>
+                  </ng-container>
+                  <ng-container matColumnDef="status">
+                    <th mat-header-cell *matHeaderCellDef>Status</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="lx-status" [class.lx-status-active]="row.active" [class.lx-status-inactive]="!row.active">
+                        {{ row.active ? 'Active' : 'Inactive' }}
+                      </span>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="agentColumns; sticky: true"></tr>
+                  <tr mat-row *matRowDef="let row; columns: agentColumns"></tr>
+                </table>
+              </div>
+              <div class="ods-manage-footer">
+                <a
+                  mat-stroked-button
+                  color="primary"
+                  routerLink="/organizations/agents"
+                  [queryParams]="{ organizationId: orgIdForQuery() }"
+                >
+                  Manage all agents
+                </a>
+              </div>
+            </ng-container>
+            <ng-template #agentsEmptyTpl>
+              <div class="lx-empty lx-empty--compact">
+                <mat-icon class="lx-empty-icon">groups</mat-icon>
+                <div class="lx-empty-title">No agents recorded</div>
+                <div class="lx-empty-sub">Add agents from the agents directory screen.</div>
+              </div>
+              <div class="ods-manage-footer">
+                <a
+                  mat-stroked-button
+                  color="primary"
+                  routerLink="/organizations/agents"
+                  [queryParams]="{ organizationId: orgIdForQuery() }"
+                >
+                  Manage all agents
+                </a>
+              </div>
+            </ng-template>
+          </section>
+        </mat-tab>
+
+        <mat-tab label="Customers" *ngIf="showCustomersTab()">
+          <section class="ods-tab-pane">
+            <ng-container *ngIf="profile!.customers.length; else customersEmptyTpl">
+              <div class="lx-table-wrap ods-mini-table">
+                <table mat-table [dataSource]="profile!.customers" class="lx-mat-table">
+                  <ng-container matColumnDef="name">
+                    <th mat-header-cell *matHeaderCellDef>Customer organisation</th>
+                    <td mat-cell *matCellDef="let row">{{ row.name || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="classification">
+                    <th mat-header-cell *matHeaderCellDef>Classification</th>
+                    <td mat-cell *matCellDef="let row">{{ row.classificationLabel || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="email">
+                    <th mat-header-cell *matHeaderCellDef>Email</th>
+                    <td mat-cell *matCellDef="let row">{{ row.email || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="kycStatus">
+                    <th mat-header-cell *matHeaderCellDef>KYC</th>
+                    <td mat-cell *matCellDef="let row">{{ row.kycStatusLabel || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="verified">
+                    <th mat-header-cell *matHeaderCellDef>Verified</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="lx-status" [class.lx-status-active]="row.verified" [class.lx-status-inactive]="!row.verified">
+                        {{ row.verified ? 'Yes' : 'No' }}
+                      </span>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="linkColumns; sticky: true"></tr>
+                  <tr mat-row *matRowDef="let row; columns: linkColumns"></tr>
+                </table>
+              </div>
+            </ng-container>
+            <ng-template #customersEmptyTpl>
+              <div class="lx-empty lx-empty--compact">
+                <mat-icon class="lx-empty-icon">storefront</mat-icon>
+                <div class="lx-empty-title">No linked customers yet</div>
+                <div class="lx-empty-sub">
+                  Suppliers can link onboarded customers once relationship records exist in backend.
+                </div>
+              </div>
+            </ng-template>
+          </section>
+        </mat-tab>
+
+        <mat-tab label="Transporters">
+          <section class="ods-tab-pane">
+            <ng-container *ngIf="profile!.transporters.length; else transportersEmptyTpl">
+              <div class="lx-table-wrap ods-mini-table">
+                <table mat-table [dataSource]="profile!.transporters" class="lx-mat-table">
+                  <ng-container matColumnDef="name">
+                    <th mat-header-cell *matHeaderCellDef>Transporter</th>
+                    <td mat-cell *matCellDef="let row">{{ row.name || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="classification">
+                    <th mat-header-cell *matHeaderCellDef>Classification</th>
+                    <td mat-cell *matCellDef="let row">{{ row.classificationLabel || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="email">
+                    <th mat-header-cell *matHeaderCellDef>Email</th>
+                    <td mat-cell *matCellDef="let row">{{ row.email || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="kycStatus">
+                    <th mat-header-cell *matHeaderCellDef>KYC</th>
+                    <td mat-cell *matCellDef="let row">{{ row.kycStatusLabel || '—' }}</td>
+                  </ng-container>
+                  <ng-container matColumnDef="verified">
+                    <th mat-header-cell *matHeaderCellDef>Verified</th>
+                    <td mat-cell *matCellDef="let row">
+                      <span class="lx-status" [class.lx-status-active]="row.verified" [class.lx-status-inactive]="!row.verified">
+                        {{ row.verified ? 'Yes' : 'No' }}
+                      </span>
+                    </td>
+                  </ng-container>
+                  <tr mat-header-row *matHeaderRowDef="linkColumns; sticky: true"></tr>
+                  <tr mat-row *matRowDef="let row; columns: linkColumns"></tr>
+                </table>
+              </div>
+            </ng-container>
+            <ng-template #transportersEmptyTpl>
+              <div class="lx-empty lx-empty--compact">
+                <mat-icon class="lx-empty-icon">local_shipping</mat-icon>
+                <div class="lx-empty-title">No contracted transporters</div>
+                <div class="lx-empty-sub">
+                  Contracts appear here once transporter linkage is persisted for this organisation.
+                </div>
+              </div>
+            </ng-template>
+          </section>
+        </mat-tab>
+      </mat-tab-group>
+    </ng-container>
+  </div>
+</div>

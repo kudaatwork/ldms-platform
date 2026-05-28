@@ -3,10 +3,12 @@ import {
   ChangeDetectorRef,
   Component,
   HostListener,
+  OnDestroy,
   OnInit,
 } from '@angular/core';
 import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
-import { filter } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { filter, takeUntil } from 'rxjs/operators';
 import { CurrentUser } from '../../core/models/auth.model';
 import { AuthService } from '../../core/services/auth.service';
 import { AuthStateService } from '../../core/services/auth-state.service';
@@ -32,7 +34,8 @@ interface ShellNotification {
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: false,
 })
-export class ShellLayoutComponent implements OnInit {
+export class ShellLayoutComponent implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
   currentUser: CurrentUser | null = null;
   navItems: NavItem[] = [];
 
@@ -77,13 +80,22 @@ export class ShellLayoutComponent implements OnInit {
     this.currentUser = this.authState.currentUser;
     if (!this.currentUser) {
       this.authService.bootstrapFromStorage();
-      this.currentUser = this.authState.currentUser;
     }
     this.navItems = this.currentUser ? NAV_CONFIG[this.currentUser.orgClassification] : [];
 
+    this.authState.currentUser$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
+      this.currentUser = user;
+      this.navItems = user ? NAV_CONFIG[user.orgClassification] : [];
+      this.syncChromeFromUrl();
+      this.cdr.markForCheck();
+    });
+
     this.syncChromeFromUrl();
     this.router.events
-      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        takeUntil(this.destroy$),
+      )
       .subscribe(() => {
         this.syncChromeFromUrl();
         this.closeMobileSidebar();
@@ -93,10 +105,23 @@ export class ShellLayoutComponent implements OnInit {
       });
   }
 
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
   get userInitials(): string {
     const u = this.currentUser;
     if (!u) {
       return 'LX';
+    }
+    const first = (u.firstName ?? '').trim();
+    const last = (u.lastName ?? '').trim();
+    if (first && last) {
+      return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
+    }
+    if (first.length >= 2) {
+      return first.slice(0, 2).toUpperCase();
     }
     const fromOrg = u.orgName
       .split(/\s+/)
@@ -235,6 +260,10 @@ export class ShellLayoutComponent implements OnInit {
   }
 
   private resolvePageTitle(url: string): string {
+    const path = url.split('?')[0];
+    if (path === '/dashboard' || path.startsWith('/dashboard/')) {
+      return this.currentUser?.welcomeMessage ?? 'Dashboard';
+    }
     if (url.startsWith('/account')) {
       return 'My account';
     }

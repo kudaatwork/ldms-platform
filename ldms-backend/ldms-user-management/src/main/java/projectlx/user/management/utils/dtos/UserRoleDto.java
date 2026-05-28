@@ -19,4 +19,8 @@ public class UserRoleDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private EntityStatus entityStatus;
+    /** Module key for admin UI grouping (derived from role code, not stored in DB). */
+    private String moduleKey;
+    /** Human-readable module label for admin UI grouping. */
+    private String moduleLabel;
 }

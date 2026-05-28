@@ -16,7 +16,7 @@ spring:
   cloud:
     config:
       name: ldms-api-gateway
-      send-all-labels: true
+      send-all-labels: false
       fail-fast: ${SPRING_CLOUD_CONFIG_FAIL_FAST:false}
       retry:
         max-attempts: 5
@@ -27,25 +27,60 @@ spring:
       cache:
         enabled: false
     gateway:
-      # Microservices with @CrossOrigin echo Access-Control-* as well as the gateway CorsWebFilter.
-      # Duplicate Allow-Origin values break browser CORS (locations has no @CrossOrigin and works).
+      # CORS for browsers calling the gateway directly (e.g. :4200 → :8091). add-to-simple-url-handler-mapping
+      # ensures OPTIONS preflight succeeds even when a route is missing or downstream is down.
+      globalcors:
+        add-to-simple-url-handler-mapping: true
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns:
+              - "http://localhost:*"
+              - "http://127.0.0.1:*"
+              - "https://localhost:*"
+              - "https://127.0.0.1:*"
+              - "${LDMS_CORS_ADMIN_ORIGIN:https://admin.projectlx.co.zw}"
+              - "${LDMS_CORS_PLATFORM_ORIGIN:https://portal.projectlx.co.zw}"
+            allowedMethods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - OPTIONS
+              - HEAD
+            allowedHeaders: "*"
+            exposedHeaders:
+              - Authorization
+              - Content-Disposition
+            allowCredentials: true
+            maxAge: 3600
+      # Downstream @CrossOrigin headers are stripped in StripDownstreamCorsGlobalFilter so globalcors
+      # remains the single browser policy when clients call the gateway directly (e.g. mobile / Postman).
       default-filters:
-        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Allow-Methods Access-Control-Allow-Headers Access-Control-Max-Age Vary, RETAIN_FIRST
+        - DedupeResponseHeader=Access-Control-Allow-Origin Access-Control-Allow-Credentials Access-Control-Allow-Methods Access-Control-Allow-Headers Access-Control-Expose-Headers Access-Control-Max-Age Vary, RETAIN_FIRST
       # Local fallback routes so the gateway still works when Config Server
       # is unavailable (import above is optional).
       routes:
+        # Fallback when Config Server is down. Live routes use LdmsAuditTrailGatewayRoutesConfiguration
+        # (Config Server may use lb://audit-trail — wrong Eureka id).
         - id: local-audit-trail
-          uri: lb://ldms-audit-trail
+          uri: http://${AUDIT_TRAIL_HOST:127.0.0.1}:${AUDIT_TRAIL_PORT:8099}
           predicates:
             - Path=/ldms-audit-trail/**
+        # Fallback when Config Server is down. Live routes use LdmsLocationsGatewayRoutesConfiguration
+        # (Config Server may use lb://ldms-location-management — wrong when Eureka is down).
         - id: local-system-locations
-          uri: lb://ldms-location-management
+          uri: http://${LOCATIONS_HOST:127.0.0.1}:${LOCATIONS_PORT:8084}
           predicates:
             - Path=/ldms-locations/v1/system/**
         - id: local-frontend-locations
-          uri: lb://ldms-location-management
+          uri: http://${LOCATIONS_HOST:127.0.0.1}:${LOCATIONS_PORT:8084}
           predicates:
             - Path=/ldms-locations/v1/frontend/**
+        - id: local-backoffice-locations
+          uri: http://${LOCATIONS_HOST:127.0.0.1}:${LOCATIONS_PORT:8084}
+          predicates:
+            - Path=/ldms-locations/v1/backoffice/**
         # Fallback when Config Server is down. Live routes use LdmsNotificationsGatewayRoutesConfiguration
         # (Config Server still has lb://notifications — wrong Eureka id; programmatic routes win via order).
         - id: local-system-notifications
@@ -56,6 +91,10 @@ spring:
           uri: http://${NOTIFICATIONS_HOST:127.0.0.1}:${NOTIFICATIONS_PORT:8094}
           predicates:
             - Path=/ldms-notifications/v1/frontend/**
+        - id: local-backoffice-notifications
+          uri: http://${NOTIFICATIONS_HOST:127.0.0.1}:${NOTIFICATIONS_PORT:8094}
+          predicates:
+            - Path=/ldms-notifications/v1/backoffice/**
         - id: local-system-user-management
           uri: http://${USER_MANAGEMENT_HOST:127.0.0.1}:${USER_MANAGEMENT_PORT:8086}
           predicates:
@@ -68,6 +107,26 @@ spring:
           uri: http://${USER_MANAGEMENT_HOST:127.0.0.1}:${USER_MANAGEMENT_PORT:8086}
           predicates:
             - Path=/ldms-user-management/v1/backoffice/**
+        # Fallback when Config Server is down. Live routes use LdmsOrganizationManagementGatewayRoutesConfiguration
+        # (Config Server may use lb://organization-management-service — wrong Eureka id or localhost mismatch).
+        - id: local-system-organization-management
+          uri: http://${ORGANIZATION_MANAGEMENT_HOST:127.0.0.1}:${ORGANIZATION_MANAGEMENT_PORT:8087}
+          predicates:
+            - Path=/ldms-organization-management/v1/system/**
+        - id: local-frontend-organization-management
+          uri: http://${ORGANIZATION_MANAGEMENT_HOST:127.0.0.1}:${ORGANIZATION_MANAGEMENT_PORT:8087}
+          predicates:
+            - Path=/ldms-organization-management/v1/frontend/**
+        - id: local-backoffice-organization-management
+          uri: http://${ORGANIZATION_MANAGEMENT_HOST:127.0.0.1}:${ORGANIZATION_MANAGEMENT_PORT:8087}
+          predicates:
+            - Path=/ldms-organization-management/v1/backoffice/**
+        # ldms-authentication (login, refresh, Google) — see LdmsAuthenticationGatewayRoutesConfiguration (order -100).
+        - id: local-authentication
+          uri: http://${AUTHENTICATION_HOST:127.0.0.1}:${AUTHENTICATION_PORT:8083}
+          predicates:
+            - Path=/ldms-authentication/**
+        # Programmatic routes in LdmsAuthenticationGatewayRoutesConfiguration take precedence when enabled.
         # File upload routes are registered in code (LdmsFileUploadGatewayRoutesConfiguration) so they survive
         # Config Server replacing spring.cloud.gateway.routes. Override host/port with FILE_UPLOAD_HOST / FILE_UPLOAD_PORT.
         # To disable: ldms.gateway.file-upload.routes-enabled=false
@@ -85,6 +144,34 @@ eureka:
   instance:
     prefer-ip-address: true
     lease-renewal-interval-in-seconds: 30
+
+# Service routing overrides (programmatic RouteLocator beans use order -100).
+ldms:
+  gateway:
+    locations:
+      routes-enabled: true
+      host: ${LOCATIONS_HOST:127.0.0.1}
+      port: ${LOCATIONS_PORT:8084}
+    notifications:
+      routes-enabled: true
+      host: ${NOTIFICATIONS_HOST:127.0.0.1}
+      port: ${NOTIFICATIONS_PORT:8094}
+    audit-trail:
+      routes-enabled: true
+      host: ${AUDIT_TRAIL_HOST:127.0.0.1}
+      port: ${AUDIT_TRAIL_PORT:8099}
+    authentication:
+      routes-enabled: true
+      # Downstream ldms-authentication (default 8083). Gateway listens on 8091.
+      # Clients: POST http://localhost:8091/ldms-authentication/v1/auth/request-access-token
+      host: ${AUTHENTICATION_HOST:127.0.0.1}
+      port: ${AUTHENTICATION_PORT:8083}
+
+# Must match ldms-authentication `jwt.secret` (same JWT_SECRET in every run configuration).
+gateway:
+  jwt:
+    secret: ${JWT_SECRET:LDMS-local-dev-jwt-secret-at-least-thirty-two-chars-long}
+    roles-claim: roles
 
 logging:
   level:

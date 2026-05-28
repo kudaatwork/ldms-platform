@@ -10,6 +10,22 @@ To start a local development server, run:
 ng serve
 ```
 
+API calls use relative `/ldms-*` URLs on the dev server (`http://localhost:4200`); `proxy.conf.json` forwards them to the **API Gateway** (`http://localhost:8091`) so the browser does not hit CORS.
+
+### Local backend startup order (sign-in)
+
+| Order | Service | Port | Required for login |
+|------|---------|------|-------------------|
+| 1 | MySQL | 3306 | Yes |
+| 2 | ldms-user-management | 8086 | Yes (user + roles) |
+| 3 | ldms-authentication | **8083** | Yes (issues JWT) |
+| 4 | ldms-api-gateway | **8091** | Yes (proxied from :4200) |
+| 5 | ng serve (admin portal) | 4200 | UI only |
+
+Login endpoint (via dev proxy → gateway): `POST http://localhost:4200/ldms-authentication/v1/auth/request-access-token`
+
+If the gateway logs `Connection refused: /127.0.0.1:8083`, **ldms-authentication is not running** (or the gateway is pointed at the wrong port) — start auth in IntelliJ, restart the gateway, then retry login.
+
 Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
 
 ## Code scaffolding

@@ -93,12 +93,21 @@ public class UserAccountServiceImpl implements UserAccountService {
                 normalizedPhoneNumber, EntityStatus.DELETED);
 
         if (userAccountRetrieved.isPresent()) {
+            UserAccount existingAccount = userAccountRetrieved.get();
+            if (existingAccount.getUser() != null
+                    && createUserAccountRequest.getUserId() != null
+                    && createUserAccountRequest.getUserId().equals(existingAccount.getUser().getId())) {
+                UserAccountDto existingDto = modelMapper.map(existingAccount, UserAccountDto.class);
+                message = messageService.getMessage(I18Code.MESSAGE_USER_ACCOUNT_RETRIEVED_SUCCESSFULLY.getCode(),
+                        new String[] {}, locale);
+                return buildUserAccountResponse(200, true, message, existingDto, null, null);
+            }
 
             message = messageService.getMessage(I18Code.MESSAGE_USER_ACCOUNT_ALREADY_EXISTS.getCode(), new String[]{},
                     locale);
 
             return buildUserAccountResponse(400, false, message, null, null,
-                    null);
+                    null, List.of(message));
         }
 
         Optional<User> userRetrieved = userRepository.findByIdAndEntityStatusNot(createUserAccountRequest.getUserId(),

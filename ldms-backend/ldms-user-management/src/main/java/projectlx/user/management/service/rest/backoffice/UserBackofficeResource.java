@@ -34,6 +34,8 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
@@ -67,7 +69,8 @@ public class UserBackofficeResource {
     }
 
     @Auditable(action = "UPDATE_USER")
-    @PutMapping("/update")
+    @PutMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Update user details", description = "Updates an existing user's details by ID.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "User updated successfully"),
@@ -75,10 +78,27 @@ public class UserBackofficeResource {
             @ApiResponse(responseCode = "400", description = "Invalid request data")
     })
     public UserResponse update(@Valid @ModelAttribute final EditUserRequest editUserRequest,
+                               @RequestParam(value = "organizationKycApprover", required = false)
+                               final String organizationKycApprover,
                                @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                    @RequestHeader(value = Constants.LOCALE_LANGUAGE,
-                                           defaultValue = Constants.DEFAULT_LOCALE) final Locale locale){
+                                           defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        if (organizationKycApprover != null) {
+            editUserRequest.setOrganizationKycApprover(organizationKycApprover);
+        }
         return userServiceProcessor.update(editUserRequest, "BACKOFFICE", locale);
+    }
+
+    @Auditable(action = "SET_ORGANIZATION_KYC_APPROVER")
+    @PutMapping("/{id}/organization-kyc-approver")
+    @Operation(summary = "Set organisation KYC approver eligibility",
+            description = "Toggles whether an admin user (no organisation) may be assigned signup KYC reviews.")
+    public UserResponse setOrganizationKycApprover(
+            @PathVariable("id") final Long id,
+            @RequestParam("enabled") final boolean enabled,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.setOrganizationKycApprover(id, enabled, locale, "BACKOFFICE");
     }
 
     @Auditable(action = "FIND_USER_BY_ID")
@@ -95,6 +115,21 @@ public class UserBackofficeResource {
                                             defaultValue = Constants.DEFAULT_LOCALE) final Locale locale)
     {
         return userServiceProcessor.findById(id, locale, "BACKOFFICE");
+    }
+
+    @Auditable(action = "FIND_CURRENT_USER")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping(value = "/me")
+    @Operation(summary = "Current user profile", description = "Returns the signed-in user's profile.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User found successfully"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public UserResponse findCurrentUser(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.findByUsername(username, locale);
     }
 
     @Auditable(action = "FIND_USER_BY_USERNAME")

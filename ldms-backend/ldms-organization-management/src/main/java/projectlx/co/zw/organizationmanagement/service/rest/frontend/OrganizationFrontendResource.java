@@ -7,10 +7,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,7 +27,6 @@ import projectlx.co.zw.shared_library.utils.responses.OrganizationResponse;
 
 import java.util.Locale;
 
-@CrossOrigin
 @RestController
 @RequestMapping("/ldms-organization-management/v1/frontend/organization")
 @Tag(name = "Organization (frontend)", description = "Organization self-service and relationships")
@@ -40,7 +39,7 @@ public class OrganizationFrontendResource {
     @PostMapping("/register")
     @Operation(summary = "Public signup — create organization (KYC DRAFT)")
     public OrganizationResponse register(
-            @Valid @RequestBody RegisterOrganizationRequest request,
+            @Valid @ModelAttribute RegisterOrganizationRequest request,
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         String createdBy = request.getEmail() != null ? request.getEmail().trim() : "anonymous";
@@ -58,7 +57,7 @@ public class OrganizationFrontendResource {
     }
 
     @Auditable(action = "ORG_GET_MY")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).VIEW_MY_ORG.toString())")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).VIEW_MY_ORGAN.toString())")
     @GetMapping("/my")
     public OrganizationResponse getMy(
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
@@ -68,7 +67,7 @@ public class OrganizationFrontendResource {
     }
 
     @Auditable(action = "ORG_UPDATE_MY")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).UPDATE_MY_ORG.toString())")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).UPDATE_MY_ORGAN.toString())")
     @PutMapping("/my/update")
     public OrganizationResponse updateMy(
             @RequestBody UpdateMyOrganizationRequest request,

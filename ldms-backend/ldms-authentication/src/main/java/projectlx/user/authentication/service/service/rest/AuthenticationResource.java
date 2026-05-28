@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -21,7 +20,6 @@ import projectlx.user.authentication.service.utils.requests.RefreshTokenRequest;
 import projectlx.user.authentication.service.utils.responses.AuthResponse;
 import java.util.Locale;
 
-@CrossOrigin
 @RestController
 @RequestMapping("/ldms-authentication/v1/auth")
 @Tag(name = "Auth Resource", description = "Operations related to managing authentication")
@@ -32,7 +30,8 @@ public class AuthenticationResource {
 
     @Auditable(action = "USER_AUTHENTICATION")
     @PostMapping("/request-access-token")
-    @Operation(summary = "User Authentication", description = "Authenticates user")
+    @Operation(summary = "User Authentication",
+            description = "Authenticates with password. Request body field `username` accepts either the LDMS username or the user's registered email.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "User authenticated successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid request data"),

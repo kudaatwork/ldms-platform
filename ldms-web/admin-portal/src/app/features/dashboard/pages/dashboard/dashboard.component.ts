@@ -7,6 +7,10 @@ import {
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { CurrentUserService } from '@core/services/current-user.service';
+import { StorageService } from '@core/services/storage.service';
+import { KycQueueStatsService } from '@core/services/kyc-queue-stats.service';
+import { formatWelcomeMessage } from '@core/utils/welcome-message.util';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
@@ -68,6 +72,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private liveTick = 0;
 
   loading = true;
+  welcomeMessage = 'Welcome';
+  greetingFirstName = '';
   activePeriod = '1M';
   searchTerm = '';
   selectedRegion = 'All Hubs';
@@ -240,6 +246,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly title: Title,
     private readonly snackBar: MatSnackBar,
+    private readonly currentUser: CurrentUserService,
+    private readonly kycStats: KycQueueStatsService,
+    private readonly storage: StorageService,
   ) {}
 
   get filteredShipments(): ShipmentRow[] {
@@ -262,6 +271,32 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.title.setTitle('Dashboard | LX Admin');
+    const token = this.storage.getToken();
+    if (token && !token.startsWith('mock-token-')) {
+      this.currentUser.refreshFromApi().pipe(takeUntil(this.destroy$)).subscribe();
+    }
+    this.currentUser.user$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
+      const firstName = this.resolveFirstName(user?.firstName);
+      this.greetingFirstName = firstName;
+      this.welcomeMessage = formatWelcomeMessage({
+        firstName,
+        displayName: user?.displayName,
+        email: user?.email,
+      });
+      this.cdr.markForCheck();
+    });
+    this.kycStats.summary$.pipe(takeUntil(this.destroy$)).subscribe((summary) => {
+      const pending = summary?.totalInQueue ?? 0;
+      this.kpiCards = this.kpiCards.map((card) =>
+        card.label === 'KYC Pending' ? { ...card, value: String(pending) } : card,
+      );
+      const kycAction = this.quickActions.find((a) => a.route === '/kyc/applications');
+      if (kycAction) {
+        kycAction.count = pending > 0 ? String(pending) : '0';
+      }
+      this.cdr.markForCheck();
+    });
+    this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
     this.loading = false;
     this.cdr.markForCheck();
 
@@ -340,5 +375,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
         panelClass: ['app-snackbar-success'],
       });
     }
+  }
+
+  private resolveFirstName(firstName?: string | null): string {
+    const direct = String(firstName ?? '').trim();
+    if (direct && direct.toLowerCase() !== 'user') {
+      return direct;
+    }
+    return '';
   }
 }

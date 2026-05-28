@@ -2,8 +2,8 @@
   <mat-progress-bar *ngIf="loading" class="lx-page-progress" mode="indeterminate" aria-label="Loading dashboard"></mat-progress-bar>
   <div class="dashboard-topbar mb-lg">
     <div>
-      <h2 class="dashboard-title">Operations Dashboard</h2>
-      <p class="dashboard-subtitle">Real-time logistics visibility across route planning, KYC, fulfillment and compliance.</p>
+      <h2 class="dashboard-title">{{ greetingFirstName ? ('Welcome ' + greetingFirstName) : welcomeMessage }}</h2>
+      <p class="dashboard-subtitle">Operations dashboard — route planning, KYC, fulfillment and compliance.</p>
     </div>
     <div class="dashboard-top-actions">
       <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="dashboardExportMenu">

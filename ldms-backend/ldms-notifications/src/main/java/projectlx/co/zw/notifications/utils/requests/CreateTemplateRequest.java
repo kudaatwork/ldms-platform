@@ -9,6 +9,7 @@ import lombok.ToString;
 import projectlx.co.zw.notifications.model.Channel;
 
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -29,6 +30,9 @@ public class CreateTemplateRequest {
     @NotNull(message = "Channels list cannot be null")
     @Schema(description = "Delivery channels for this template. At least one required. Content fields below are validated only for selected channels.", requiredMode = Schema.RequiredMode.REQUIRED)
     private List<Channel> channels;
+
+    @Schema(description = "Per-channel delivery flags. When omitted, all entries in channels are delivered. Organisation templates use EMAIL=true, SMS/WHATSAPP=false.")
+    private Map<String, Boolean> channelDeliveryEnabled;
 
     // === SECTION: Email content (shown when EMAIL is in channels) ===
     @Schema(description = "Email subject line. Required when EMAIL is selected in channels.")

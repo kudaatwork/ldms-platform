@@ -1,3 +1,12 @@
+server:
+  port: ${SERVER_PORT:8099}
+
+# Fallback when Spring Cloud Config is unavailable. Must match ldms-authentication / ldms-api-gateway.
+jwt:
+  secret: ${JWT_SECRET:LDMS-local-dev-jwt-secret-at-least-thirty-two-chars-long}
+  access-token-expiration-ms: ${JWT_ACCESS_MS:3600000}
+  refresh-token-expiration-ms: ${JWT_REFRESH_MS:86400000}
+
 spring:
   batch:
     jdbc:

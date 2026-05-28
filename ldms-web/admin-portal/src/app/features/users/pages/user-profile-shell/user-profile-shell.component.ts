@@ -46,6 +46,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
   confirmPassword = '';
   passwordSaving = false;
   passwordError = '';
+  resendingVerificationEmail = false;
 
   readonly documentColumns: string[] = ['preview', 'originalFileName', 'fileType', 'fileSizeInBytes', 'createdAt', 'entityStatus'];
 
@@ -186,6 +187,53 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     return null;
   }
 
+  canResendVerificationEmail(): boolean {
+    const u = this.bundle.user;
+    if (!u) {
+      return false;
+    }
+    return this.usersService.canResendVerificationEmail(u['emailVerified'], u['createdAt']);
+  }
+
+  resendVerificationEmail(): void {
+    const u = this.bundle.user;
+    const email = String(u?.['email'] ?? '').trim();
+    if (!email || !this.canResendVerificationEmail()) {
+      return;
+    }
+    this.resendingVerificationEmail = true;
+    this.usersService
+      .resendVerificationEmail(email)
+      .pipe(
+        finalize(() => {
+          this.resendingVerificationEmail = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (resp) => {
+          if (this.usersService.isUserMutationFailure(resp)) {
+            this.snackBar.open(
+              this.usersService.formatUserMutationError(resp, 'Could not resend verification email.'),
+              'Close',
+              { duration: 5000, panelClass: ['app-snackbar-error'] },
+            );
+            return;
+          }
+          this.snackBar.open(`Verification email sent to ${email}.`, 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-success'],
+          });
+        },
+        error: () => {
+          this.snackBar.open('Failed to resend verification email.', 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-error'],
+          });
+        },
+      });
+  }
+
   openEditProfile(): void {
     const u = this.bundle.user;
     if (!u) {
@@ -214,8 +262,9 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     }
     this.dialog
       .open(UserEditAddressDialogComponent, {
-        width: '560px',
+        width: '640px',
         maxWidth: '95vw',
+        autoFocus: 'first-tabbable',
         panelClass: 'lx-location-dialog-panel',
         data: { address: ad },
       })

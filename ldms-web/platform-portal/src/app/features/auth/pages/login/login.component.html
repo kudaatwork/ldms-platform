@@ -55,19 +55,20 @@
       </div>
 
       <form [formGroup]="form" (ngSubmit)="submit()">
-        <div class="lc-field-label">Email address</div>
+        <div class="lc-field-label">Email or username</div>
         <div class="lc-field">
-          <span class="material-icons" aria-hidden="true">mail_outline</span>
+          <span class="material-icons" aria-hidden="true">person_outline</span>
           <input
-            type="email"
-            formControlName="email"
-            placeholder="you@organisation.com"
-            autocomplete="email"
-            [attr.aria-invalid]="emailCtrl?.invalid && emailCtrl?.touched"
+            type="text"
+            formControlName="usernameOrEmail"
+            placeholder="you@organisation.com or your username"
+            autocomplete="username"
+            [attr.aria-invalid]="usernameOrEmailCtrl?.invalid && usernameOrEmailCtrl?.touched"
           />
         </div>
-        <p class="lc-field-hint" *ngIf="emailCtrl?.hasError('required') && emailCtrl?.touched">Email is required</p>
-        <p class="lc-field-hint" *ngIf="emailCtrl?.hasError('email') && emailCtrl?.touched">Enter a valid email</p>
+        <p class="lc-field-hint" *ngIf="usernameOrEmailCtrl?.hasError('required') && usernameOrEmailCtrl?.touched">
+          Email or username is required
+        </p>
 
         <div class="lc-field-label">Password</div>
         <div class="lc-field">
@@ -109,7 +110,7 @@
         </div>
       </div>
 
-      <div class="lc-mock">
+      <div class="lc-mock" *ngIf="showMockCredentials">
         <div class="lc-mock-title">
           <span class="material-icons" aria-hidden="true">person_search</span>
           Sample sign-in (demo)

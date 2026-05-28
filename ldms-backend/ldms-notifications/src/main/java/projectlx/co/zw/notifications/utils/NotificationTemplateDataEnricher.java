@@ -27,7 +27,8 @@ public final class NotificationTemplateDataEnricher {
 
         String rawFirstName = firstNonBlank(
                 asTrimmedString(enriched.get("firstName")),
-                asTrimmedString(enriched.get("FirstName")));
+                asTrimmedString(enriched.get("FirstName")),
+                asTrimmedString(enriched.get("contactName")));
 
         String displayFirstName = StringUtils.hasText(rawFirstName) ? rawFirstName : username;
 

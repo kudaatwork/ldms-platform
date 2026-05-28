@@ -19,6 +19,7 @@ import projectlx.user.management.repository.UserRepository;
 import projectlx.user.management.repository.specification.UserRoleSpecification;
 import projectlx.user.management.utils.dtos.UserRoleDto;
 import projectlx.user.management.utils.enums.I18Code;
+import projectlx.user.management.utils.security.UserRoleDtoModuleEnricher;
 import projectlx.user.management.utils.requests.CreateUserRoleRequest;
 import projectlx.user.management.utils.requests.EditUserRoleRequest;
 import projectlx.user.management.utils.requests.UserRoleMultipleFiltersRequest;
@@ -111,6 +112,7 @@ public class UserRoleServiceImpl implements UserRoleService {
         }
 
         UserRoleDto useRoleDtoReturned = modelMapper.map(userRoleSaved, UserRoleDto.class);
+        UserRoleDtoModuleEnricher.enrich(useRoleDtoReturned);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_ROLE_CREATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -439,6 +441,7 @@ public class UserRoleServiceImpl implements UserRoleService {
 
         for (UserRole userRole : userRolePage) {
             UserRoleDto userRoleDto = modelMapper.map(userRole, UserRoleDto.class);
+            UserRoleDtoModuleEnricher.enrich(userRoleDto);
             userRoleDtoList.add(userRoleDto);
         }
 
@@ -461,6 +464,11 @@ public class UserRoleServiceImpl implements UserRoleService {
         userRoleResponse.setStatusCode(statusCode);
         userRoleResponse.setSuccess(isSuccess);
         userRoleResponse.setMessage(message);
+        UserRoleDtoModuleEnricher.enrich(userRoleDto);
+        UserRoleDtoModuleEnricher.enrichAll(userRoleDtoList);
+        if (userRoleDtoPage != null) {
+            UserRoleDtoModuleEnricher.enrichAll(userRoleDtoPage.getContent());
+        }
         userRoleResponse.setUserRoleDto(userRoleDto);
         userRoleResponse.setUserRoleDtoList(userRoleDtoList);
         userRoleResponse.setUserRoleDtoPage(userRoleDtoPage);

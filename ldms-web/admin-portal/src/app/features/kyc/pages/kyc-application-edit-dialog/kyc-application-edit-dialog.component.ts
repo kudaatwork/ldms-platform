@@ -53,7 +53,7 @@ export class KycApplicationEditDialogComponent {
     const row = data.row;
     this.form = this.fb.group({
       applicant: [row.applicant, [Validators.required, Validators.maxLength(200)]],
-      status: [row.status, Validators.required],
+      status: [row.kycStatus, Validators.required],
     });
   }
 

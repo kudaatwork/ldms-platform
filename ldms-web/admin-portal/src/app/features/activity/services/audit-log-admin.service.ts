@@ -1,6 +1,11 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, catchError, map, of, throwError } from 'rxjs';
+import {
+  extractPagedResult,
+  isApiFailureEnvelope,
+  readApiFailureMessage,
+} from '../../../core/utils/api-paged-response.util';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
 
 /** POST body for `find-by-multiple-filters` (ldms-audit-trail). */
@@ -110,22 +115,43 @@ export interface ChurnOutHistoryFilters {
   to?: string;
 }
 
-/** Audit HTTP request log — all calls go through the API gateway (`ldmsServiceUrl`). */
+/** Audit HTTP request log — admin portal uses {@code backoffice} (JWT only), like organizations. */
 @Injectable({
   providedIn: 'root',
 })
 export class AuditLogAdminService {
   constructor(private readonly http: HttpClient) {}
 
+  /** Admin portal: {@code backoffice} (JWT only). {@code frontend} enforces audit {@code @PreAuthorize} roles. */
+  private url(operation: string): string {
+    return ldmsServiceUrl('audit-trail', 'audit-log', operation, 'backoffice');
+  }
+
+  /**
+   * Server-paged request log (same transport as organizations {@code queryTablePage}).
+   */
+  queryRequestLogPage(request: AuditLogMultipleFiltersRequest): Observable<{
+    rows: AuditLogDto[];
+    totalElements: number;
+  }> {
+    return this.http.post<AuditLogResponse>(this.url('find-by-multiple-filters'), request).pipe(
+      map((resp) => this.mapRequestLogPage(resp)),
+      catchError((err) => {
+        if (err instanceof HttpErrorResponse && err.status === 404) {
+          return of({ rows: [], totalElements: 0 });
+        }
+        return throwError(() => this.toRequestLogError(err));
+      }),
+    );
+  }
+
   findByMultipleFilters(request: AuditLogMultipleFiltersRequest): Observable<AuditLogResponse> {
-    const url = ldmsServiceUrl('audit-trail', 'audit-log', 'find-by-multiple-filters');
-    return this.http.post<AuditLogResponse>(url, request);
+    return this.http.post<AuditLogResponse>(this.url('find-by-multiple-filters'), request);
   }
 
   /** Full row including payloads and curl (backend uses `includeLargePayloads` for this path). */
   findById(id: number): Observable<AuditLogResponse> {
-    const url = ldmsServiceUrl('audit-trail', 'audit-log', `find-by-id/${id}`);
-    return this.http.get<AuditLogResponse>(url);
+    return this.http.get<AuditLogResponse>(this.url(`find-by-id/${id}`));
   }
 
   /**
@@ -133,7 +159,7 @@ export class AuditLogAdminService {
    * (gateway maps to audit-trail `/export?format=`).
    */
   exportAuditLogs(request: AuditLogMultipleFiltersRequest, format: 'csv' | 'xlsx' | 'pdf'): Observable<Blob> {
-    const url = ldmsServiceUrl('audit-trail', 'audit-log', 'export');
+    const url = this.url('export');
     const apiFormat = format === 'xlsx' ? 'xlsx' : format;
     const params = new HttpParams().set('format', apiFormat);
     return this.http.post(url, request, {
@@ -143,12 +169,11 @@ export class AuditLogAdminService {
   }
 
   churnOutRequestLogs(): Observable<AuditLogResponse> {
-    const url = ldmsServiceUrl('audit-trail', 'audit-log', 'churn-out');
-    return this.http.post<AuditLogResponse>(url, {});
+    return this.http.post<AuditLogResponse>(this.url('churn-out'), {});
   }
 
   getChurnOutHistory(page = 0, size = 20, filters?: ChurnOutHistoryFilters): Observable<AuditLogResponse> {
-    const url = ldmsServiceUrl('audit-trail', 'audit-log', 'churn-history/find-by-multiple-filters');
+    const url = this.url('churn-history/find-by-multiple-filters');
     const body: ChurnOutHistoryFilters = {
       page,
       size,
@@ -164,9 +189,37 @@ export class AuditLogAdminService {
   }
 
   exportChurnOutHistory(filters: ChurnOutHistoryFilters, format: 'csv' | 'xlsx' | 'pdf'): Observable<Blob> {
-    const url = ldmsServiceUrl('audit-trail', 'audit-log', 'churn-history/export');
+    const url = this.url('churn-history/export');
     const apiFormat = format === 'xlsx' ? 'xlsx' : format;
     const params = new HttpParams().set('format', apiFormat);
     return this.http.post(url, filters, { params, responseType: 'blob' });
+  }
+
+  private mapRequestLogPage(resp: AuditLogResponse): { rows: AuditLogDto[]; totalElements: number } {
+    if (isApiFailureEnvelope(resp)) {
+      throw new Error(readApiFailureMessage(resp, 'Failed to load request logs.'));
+    }
+    const { rows, totalElements } = extractPagedResult(resp, 'auditLogPage');
+    return { rows: rows as AuditLogDto[], totalElements };
+  }
+
+  private toRequestLogError(err: unknown): Error {
+    if (err instanceof Error) {
+      return err;
+    }
+    if (err instanceof HttpErrorResponse) {
+      const body = err.error as AuditLogResponse | undefined;
+      if (body?.message?.trim()) {
+        return new Error(body.message.trim());
+      }
+      if (err.status === 401) {
+        return new Error('Not signed in. Log in again to continue.');
+      }
+      if (err.status === 0) {
+        return new Error('Request failed before the server responded. Check that the API gateway and audit-trail service are running.');
+      }
+      return new Error(err.message || 'Failed to load request logs.');
+    }
+    return new Error('Failed to load request logs.');
   }
 }

@@ -2,73 +2,66 @@ package projectlx.co.zw.shared_library.business.logic.impl;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
-import io.jsonwebtoken.security.Keys;
-import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.env.Environment;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.stereotype.Service;
-import projectlx.co.zw.shared_library.business.logic.api.JwtService;
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Base64;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.util.StringUtils;
+import javax.crypto.SecretKey;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+import projectlx.co.zw.shared_library.business.logic.api.JwtService;
+import projectlx.co.zw.shared_library.utils.config.JwtProperties;
+import projectlx.co.zw.shared_library.utils.security.JwtSigningKeys;
 
 @Service
 @RequiredArgsConstructor
 public class JwtServiceImpl implements JwtService {
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
-
-    @Value("${jwt.access-token-expiration-ms}")
-    private Long jwtAccessTokenExpirationMs;
-
-    @Value("${jwt.refresh-token-expiration-ms}")
-    private Long jwtRefreshTokenExpirationMs;
-
-    public JwtServiceImpl(Environment environment) {
-        this.jwtSecret = environment.getProperty("jwt.secret");
-        if (this.jwtSecret == null) {
-            throw new IllegalStateException("JWT Secret is not provided. Please define 'jwt.secret' in your configuration.");
-        }
-    }
-
-    public String getSecret() {
-        return jwtSecret;
-    }
+    private final JwtProperties jwtProperties;
 
     @Override
     public String generateToken(UserDetails userDetails) {
-        return buildToken(userDetails, jwtAccessTokenExpirationMs);
+        return generateToken(userDetails, Map.of());
+    }
+
+    @Override
+    public String generateToken(UserDetails userDetails, Map<String, Object> additionalClaims) {
+        return buildToken(userDetails, jwtProperties.getAccessTokenExpirationMs(), additionalClaims);
     }
 
     @Override
     public String generateRefreshToken(UserDetails userDetails) {
-        return buildToken(userDetails, jwtRefreshTokenExpirationMs);
+        return buildToken(userDetails, jwtProperties.getRefreshTokenExpirationMs(), Map.of());
     }
 
-    private String buildToken(UserDetails userDetails, long expirationMillis) {
+    private String buildToken(UserDetails userDetails, long expirationMillis, Map<String, Object> additionalClaims) {
         Map<String, Object> claims = new HashMap<>();
-        claims.put("roles", userDetails.getAuthorities()
-                .stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList()));
+        if (additionalClaims != null) {
+            additionalClaims.forEach((key, value) -> {
+                if (key != null && value != null) {
+                    claims.put(key, value);
+                }
+            });
+        }
+        claims.put(
+                "roles",
+                userDetails.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toList()));
 
+        long now = System.currentTimeMillis();
         return Jwts.builder()
-                .setClaims(claims)
-                .setSubject(userDetails.getUsername())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + expirationMillis))
-                .signWith(getSignKey(), SignatureAlgorithm.HS256)
+                .claims(claims)
+                .subject(userDetails.getUsername())
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + expirationMillis))
+                .signWith(getSignKey())
                 .compact();
     }
 
@@ -91,7 +84,44 @@ public class JwtServiceImpl implements JwtService {
     @Override
     public List<String> extractRoles(String token) {
         Claims claims = extractAllClaims(token);
-        return claims.get("roles", List.class);
+        return normalizeRoleCodes(claims.get("roles"));
+    }
+
+    private static List<String> normalizeRoleCodes(Object rolesClaim) {
+        if (rolesClaim == null) {
+            return List.of();
+        }
+        if (rolesClaim instanceof String rolesString) {
+            if (!StringUtils.hasText(rolesString)) {
+                return List.of();
+            }
+            return java.util.Arrays.stream(rolesString.split(","))
+                    .map(String::trim)
+                    .filter(StringUtils::hasText)
+                    .map(JwtServiceImpl::stripRolePrefix)
+                    .toList();
+        }
+        if (rolesClaim instanceof Collection<?> collection) {
+            List<String> roles = new ArrayList<>();
+            for (Object item : collection) {
+                if (item == null) {
+                    continue;
+                }
+                String role = stripRolePrefix(item.toString().trim());
+                if (StringUtils.hasText(role)) {
+                    roles.add(role);
+                }
+            }
+            return roles;
+        }
+        return List.of();
+    }
+
+    private static String stripRolePrefix(String role) {
+        if (role.regionMatches(true, 0, "ROLE_", 0, 5)) {
+            return role.substring(5);
+        }
+        return role;
     }
 
     private Claims extractAllClaims(String token) {
@@ -103,31 +133,6 @@ public class JwtServiceImpl implements JwtService {
     }
 
     private SecretKey getSignKey() {
-        byte[] keyBytes = decodeSecret(jwtSecret);
-        return Keys.hmacShaKeyFor(keyBytes);
-    }
-
-    private byte[] decodeSecret(String secret) {
-        if (secret == null || secret.isBlank()) {
-            throw new IllegalStateException("JWT secret is blank.");
-        }
-        try {
-            return Base64.getDecoder().decode(secret);
-        } catch (IllegalArgumentException ignored) {
-            try {
-                return Base64.getUrlDecoder().decode(secret);
-            } catch (IllegalArgumentException ignoredAgain) {
-                // Fallback for plain-text secrets used in some environments.
-                byte[] raw = secret.getBytes(StandardCharsets.UTF_8);
-                if (raw.length >= 32) {
-                    return raw;
-                }
-                try {
-                    return MessageDigest.getInstance("SHA-256").digest(raw);
-                } catch (NoSuchAlgorithmException e) {
-                    throw new IllegalStateException("SHA-256 algorithm unavailable for JWT key derivation.", e);
-                }
-            }
-        }
+        return JwtSigningKeys.hmacSha256Key(jwtProperties.getSecret());
     }
 }

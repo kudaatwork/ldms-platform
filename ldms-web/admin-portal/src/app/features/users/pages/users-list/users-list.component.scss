@@ -1,3 +1,18 @@
+.lx-link-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  margin-left: 8px;
+  color: var(--primary, #2563eb);
+  cursor: pointer;
+  text-decoration: underline;
+  font: inherit;
+}
+
+.lx-filter-fields--scope {
+  margin-bottom: 12px;
+}
+
 .lx-users-table-wrap {
   max-width: 100%;
 }
@@ -238,31 +253,41 @@
 }
 
 .lx-modal-backdrop {
-  position: fixed;
-  inset: 0;
+  /* position + z-index: global styles.scss (above app topbar) */
   background: rgba(15, 23, 42, 0.45);
-  z-index: 1000;
 }
 
 .lx-modal {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  /* position + z-index: global styles.scss */
   width: min(560px, 92vw);
   background: var(--surface, #ffffff);
   color: var(--gray-800);
   border-radius: 20px;
   overflow: hidden;
-  z-index: 1001;
-  max-height: 88vh;
-  overflow: auto;
   border: var(--card-border);
   box-shadow: var(--card-shadow);
 }
 
 .lx-modal--lg {
   width: min(900px, 95vw);
+  display: flex;
+  flex-direction: column;
+  max-height: min(88vh, 920px);
+  overflow: hidden;
+
+  .lx-modal__header,
+  .lx-stepper,
+  .lx-modal__actions {
+    flex-shrink: 0;
+  }
+
+  .lx-modal__scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 .lx-modal__header {
@@ -388,10 +413,15 @@
   color: var(--gray-400);
 }
 
-.lx-modal__field--checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.lx-modal__field--toggle {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  min-height: auto;
+}
+
+.lx-modal--lg .lx-modal__field--full.lx-modal__field--toggle {
+  min-height: auto;
 }
 
 .lx-modal__actions {

@@ -1,0 +1,262 @@
+<div class="lx-page">
+  <div class="lx-card lx-card--subsection">
+    <div class="lx-controls-head">
+      <div class="lx-controls-head__text">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">Search, filter, and manage industry records.</p>
+      </div>
+      <button
+        type="button"
+        mat-icon-button
+        class="lx-controls-head__info-btn"
+        [class.is-on]="showSampleCsvInfo"
+        (click)="showSampleCsvInfo = !showSampleCsvInfo"
+        [attr.aria-pressed]="showSampleCsvInfo"
+        aria-label="Toggle sample CSV information"
+        [matTooltip]="showSampleCsvInfo ? 'Hide sample CSV info' : 'About the sample CSV'"
+        matTooltipPosition="left"
+      >
+        <mat-icon>info_outline</mat-icon>
+      </button>
+    </div>
+    <p class="lx-controls-hint" *ngIf="showSampleCsvInfo">
+      <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+      <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }} The download includes the header row and 2 example rows you can copy or replace.</span>
+    </p>
+    <p class="lx-controls-hint lx-import-disclaimer">
+      <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+      <span>{{ importCsvDisclaimer }}</span>
+    </p>
+    <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()" [disabled]="actionInProgress">
+          Refresh
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost"
+          (click)="importCsv(csvInput)"
+          [disabled]="actionInProgress"
+          [matTooltip]="importCsvTooltip"
+          matTooltipClass="lx-import-tooltip"
+          matTooltipPosition="above"
+        >
+          Import
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost"
+          (click)="downloadSampleCsv()"
+          [disabled]="actionInProgress"
+          matTooltip="Download a sample CSV with the correct column headers."
+          matTooltipPosition="above"
+        >
+          Sample CSV
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-export-trigger"
+          [matMenuTriggerFor]="exportMenu"
+          [disabled]="actionInProgress || exporting"
+        >
+          Export{{ exporting ? '…' : '' }}
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-primary"
+          (click)="openCreate()"
+          [disabled]="actionInProgress"
+        >
+          Add New
+        </button>
+      </div>
+      <div class="lx-data-toolbar__search">
+        <div class="lx-input-shell lx-search-field">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input [(ngModel)]="searchQuery" (ngModelChange)="applyFilters()" placeholder="Search…" />
+        </div>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+          (click)="filterFieldsOpen = !filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen"
+        >
+          <mat-icon>tune</mat-icon>
+          Filters
+        </button>
+      </div>
+    </div>
+    <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')">
+        <mat-icon>picture_as_pdf</mat-icon>
+        <span>Export PDF</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')">
+        <mat-icon>table_view</mat-icon>
+        <span>Export CSV</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')">
+        <mat-icon>grid_on</mat-icon>
+        <span>Export XLSX</span>
+      </button>
+    </mat-menu>
+    <input #csvInput type="file" accept=".csv,text/csv" hidden (change)="onImportFileSelected($event)" />
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Name</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
+            <input [(ngModel)]="columnFilters.name" (ngModelChange)="applyFilters()" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Code</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
+            <input [(ngModel)]="columnFilters.industryCode" (ngModelChange)="applyFilters()" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="lx-card">
+    <div class="lx-table-header">
+      <div>
+        <h2 class="lc-title">Industries</h2>
+        <p class="lc-lead">{{ pageLead }}</p>
+        <p class="lc-lead lc-lead--error" *ngIf="loadError">{{ loadError }}</p>
+      </div>
+      <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
+    </div>
+
+    <lx-table-loading [busy]="fetching && dataSource.data.length === 0" message="Loading industries…"></lx-table-loading>
+
+    <ng-container *ngIf="totalRecords > 0 || dataSource.data.length > 0">
+      <ng-container *ngIf="dataSource.data.length > 0; else noSearchHits">
+        <div class="lx-table-wrap lx-table-wrap--host">
+          <lx-table-loading
+            [busy]="fetching && dataSource.data.length > 0"
+            [hasData]="true"
+            message="Refreshing industries…"
+          ></lx-table-loading>
+          <table mat-table [dataSource]="dataSource" class="lx-mat-table">
+            <ng-container matColumnDef="name">
+              <th mat-header-cell *matHeaderCellDef>Name</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="industry-name">{{ row.name }}</span>
+                <span class="industry-desc" *ngIf="row.description">{{ row.description }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="industryCode">
+              <th mat-header-cell *matHeaderCellDef>Code</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="lx-mono">{{ row.industryCode || '—' }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="usage">
+              <th mat-header-cell *matHeaderCellDef>Usage</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="usage-count">{{ row.organizationCount }}</span>
+                <span class="usage-label">
+                  organisation{{ row.organizationCount === 1 ? '' : 's' }}
+                  <span *ngIf="row.verifiedOrganizationCount > 0">
+                    · {{ row.verifiedOrganizationCount }} verified
+                  </span>
+                </span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="linked">
+              <th mat-header-cell *matHeaderCellDef>Linked organisations</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="linked-names" *ngIf="row.linkedOrganizationNames.length > 0">
+                  {{ row.linkedOrganizationNames.join(', ') }}
+                </span>
+                <span class="linked-empty" *ngIf="row.linkedOrganizationNames.length === 0">—</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="lx-status" [ngClass]="'lx-status-' + row.statusCss">{{ row.statusLabel }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+                <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+                <mat-menu #rowMenu="matMenu" panelClass="lx-row-actions-menu">
+                  <button mat-menu-item type="button" class="lx-action-view" (click)="viewRow(row)">
+                    <mat-icon>visibility</mat-icon>
+                    <span>View</span>
+                  </button>
+                  <button
+                    mat-menu-item
+                    type="button"
+                    class="lx-action-orgs"
+                    (click)="viewOrganizations(row)"
+                  >
+                    <mat-icon>corporate_fare</mat-icon>
+                    <span>View organisations</span>
+                  </button>
+                  <button mat-menu-item type="button" class="lx-action-edit" (click)="openEdit(row)">
+                    <mat-icon>edit</mat-icon>
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    mat-menu-item
+                    type="button"
+                    class="lx-action-delete"
+                    (click)="confirmDelete(row)"
+                    [disabled]="row.organizationCount > 0"
+                  >
+                    <mat-icon>delete</mat-icon>
+                    <span>Delete</span>
+                  </button>
+                </mat-menu>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        </div>
+        <mat-paginator
+          class="lx-table-paginator"
+          [length]="totalRecords"
+          [pageIndex]="pageIndex"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="[10, 20, 25, 50]"
+          [showFirstLastButtons]="true"
+          (page)="onPage($event)"
+        ></mat-paginator>
+      </ng-container>
+    </ng-container>
+
+    <ng-container *ngIf="!fetching && totalRecords === 0">
+      <ng-container *ngIf="hasActiveFilters(); else emptyState">
+        <ng-container *ngTemplateOutlet="noSearchHits"></ng-container>
+      </ng-container>
+    </ng-container>
+
+    <ng-template #noSearchHits>
+      <div class="lx-empty lx-empty--compact">
+        <mat-icon class="lx-empty-icon">search_off</mat-icon>
+        <div class="lx-empty-title">No matching rows</div>
+        <div class="lx-empty-sub">Adjust search or column filters.</div>
+      </div>
+    </ng-template>
+
+    <ng-template #emptyState>
+      <div class="lx-empty">
+        <mat-icon class="lx-empty-icon">factory</mat-icon>
+        <div class="lx-empty-title">No records to display</div>
+        <div class="lx-empty-sub">Use “Add New” to create the first industry record.</div>
+      </div>
+    </ng-template>
+  </div>
+</div>

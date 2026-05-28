@@ -4,9 +4,17 @@ const TOKEN_KEY = 'ldms_admin_token';
 const USER_KEY = 'ldms_admin_user';
 
 export interface StoredUser {
+  id?: number;
+  username?: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email?: string;
   roles?: string[];
+  /** Primary group or user-type label for shell chrome. */
+  roleLabel?: string;
+  /** Admin-portal KYC reviewer pool (from JWT claim). */
+  organizationKycApprover?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })

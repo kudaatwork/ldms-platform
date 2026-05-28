@@ -11,6 +11,7 @@ import java.util.Optional;
 
 public interface UserSecurityRepository extends JpaRepository<UserSecurity, Long>, JpaSpecificationExecutor<UserSecurity> {
     Optional<UserSecurity> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
+    Optional<UserSecurity> findByUser_IdAndEntityStatusNot(Long userId, EntityStatus entityStatus);
     List<UserSecurity> findByEntityStatusNot(EntityStatus entityStatus);
     @Query("SELECT COUNT(u) FROM UserSecurity u WHERE u.securityQuestion_1 = :q1 AND u.securityAnswer_1 = :a1 AND " +
             "u.securityQuestion_2 = :q2 AND u.securityAnswer_2 = :a2 AND u.entityStatus <> :status")

@@ -1,7 +1,9 @@
 package projectlx.co.zw.organizationmanagement.utils.dtos;
 
+import projectlx.co.zw.organizationmanagement.model.Agent;
 import projectlx.co.zw.organizationmanagement.model.Branch;
 import projectlx.co.zw.organizationmanagement.model.Organization;
+import projectlx.co.zw.shared_library.utils.dtos.AgentDto;
 import projectlx.co.zw.shared_library.utils.dtos.BranchDto;
 import projectlx.co.zw.shared_library.utils.dtos.OrganizationDto;
 
@@ -24,15 +26,30 @@ public final class OrganizationMapping {
         dto.setEmail(o.getEmail());
         dto.setPhoneNumber(o.getPhoneNumber());
         if (o.getOrganizationType() != null) {
-            dto.setOrganizationType(projectlx.co.zw.shared_library.model.OrganizationType.valueOf(o.getOrganizationType().name()));
+            try {
+                dto.setOrganizationType(
+                        projectlx.co.zw.shared_library.model.OrganizationType.valueOf(o.getOrganizationType().name()));
+            } catch (IllegalArgumentException ignored) {
+                dto.setOrganizationType(projectlx.co.zw.shared_library.model.OrganizationType.OTHER);
+            }
         }
         if (o.getOrganizationClassification() != null) {
-            dto.setOrganizationClassification(
-                    projectlx.co.zw.shared_library.model.OrganizationClassification.valueOf(
-                            o.getOrganizationClassification().name()));
+            try {
+                dto.setOrganizationClassification(
+                        projectlx.co.zw.shared_library.model.OrganizationClassification.valueOf(
+                                o.getOrganizationClassification().name()));
+            } catch (IllegalArgumentException ignored) {
+                // Leave classification unset when legacy/unknown value is stored.
+            }
         }
         if (o.getIndustry() != null) {
-            dto.setIndustryId(o.getIndustry().getId());
+            try {
+                dto.setIndustryId(o.getIndustry().getId());
+                dto.setIndustryName(o.getIndustry().getName());
+                dto.setIndustryCode(o.getIndustry().getIndustryCode());
+            } catch (RuntimeException ignored) {
+                // Industry association not initialized — skip denormalized industry fields.
+            }
         }
         dto.setContactPersonFirstName(o.getContactPersonFirstName());
         dto.setContactPersonLastName(o.getContactPersonLastName());
@@ -45,6 +62,7 @@ public final class OrganizationMapping {
         dto.setContactPersonPassportNumber(o.getContactPersonPassportNumber());
         dto.setContactPersonPassportUploadId(o.getContactPersonPassportUploadId());
         dto.setContactPersonDateOfBirth(o.getContactPersonDateOfBirth());
+        dto.setContactPersonUserId(o.getContactPersonUserId());
         dto.setLogoUploadId(o.getLogoUploadId());
         dto.setRegistrationNumber(o.getRegistrationNumber());
         dto.setTaxNumber(o.getTaxNumber());
@@ -79,6 +97,12 @@ public final class OrganizationMapping {
             dto.setLongitude(o.getLongitude().doubleValue());
         }
         dto.setAssignedAccountManagerUserId(o.getAssignedAccountManagerUserId());
+        dto.setAssignedStage1ApproverUserId(o.getAssignedStage1ApproverUserId());
+        dto.setAssignedStage1ApproverUsername(o.getAssignedStage1ApproverUsername());
+        dto.setAssignedStage1ApproverDisplayName(o.getAssignedStage1ApproverUsername());
+        dto.setAssignedStage2ApproverUserId(o.getAssignedStage2ApproverUserId());
+        dto.setAssignedStage2ApproverUsername(o.getAssignedStage2ApproverUsername());
+        dto.setAssignedStage2ApproverDisplayName(o.getAssignedStage2ApproverUsername());
         if (o.getKycStatus() != null) {
             dto.setKycStatus(o.getKycStatus().name());
         }
@@ -102,12 +126,15 @@ public final class OrganizationMapping {
         BranchDto dto = new BranchDto();
         dto.setId(b.getId());
         dto.setBranchName(b.getBranchName());
+        dto.setBranchCode(b.getBranchCode());
         dto.setLocationId(b.getLocationId());
         dto.setPhoneNumber(b.getPhoneNumber());
         dto.setEmail(b.getEmail());
         dto.setHeadOffice(b.isHeadOffice());
+        dto.setActive(b.isActive());
         if (b.getOrganization() != null) {
             dto.setOrganizationId(b.getOrganization().getId());
+            dto.setOrganizationName(b.getOrganization().getName());
         }
         dto.setManagerUserId(b.getManagerUserId());
         if (b.getLatitude() != null) {
@@ -131,6 +158,53 @@ public final class OrganizationMapping {
         }
         for (Branch b : branches) {
             list.add(toBranchDto(b));
+        }
+        return list;
+    }
+
+    public static AgentDto toAgentDto(Agent agent) {
+        if (agent == null) {
+            return null;
+        }
+        AgentDto dto = new AgentDto();
+        dto.setId(agent.getId());
+        dto.setFirstName(agent.getFirstName());
+        dto.setLastName(agent.getLastName());
+        dto.setEmail(agent.getEmail());
+        dto.setPhoneNumber(agent.getPhoneNumber());
+        dto.setAgentUserId(agent.getUserId());
+        dto.setLocationId(agent.getLocationId());
+        dto.setAssignedRegion(agent.getAssignedRegion());
+        dto.setRole(agent.getRole());
+        dto.setActive(agent.isActive());
+        if (agent.getAgentKind() != null) {
+            dto.setAgentKind(agent.getAgentKind().name());
+        }
+        dto.setAgentType(agent.getAgentType());
+        if (agent.getOrganization() != null) {
+            dto.setOrganizationId(agent.getOrganization().getId());
+            dto.setOrganizationName(agent.getOrganization().getName());
+        }
+        if (agent.getRepresentedOrganization() != null) {
+            dto.setRepresentedOrganizationId(agent.getRepresentedOrganization().getId());
+        }
+        if (agent.getBranch() != null) {
+            dto.setBranchId(agent.getBranch().getId());
+        }
+        dto.setEntityStatus(agent.getEntityStatus());
+        dto.setCreatedAt(agent.getCreatedAt());
+        dto.setUpdatedAt(agent.getModifiedAt());
+        AgentDto.populateContact(agent, dto);
+        return dto;
+    }
+
+    public static List<AgentDto> toAgentDtos(List<Agent> agents) {
+        List<AgentDto> list = new ArrayList<>();
+        if (agents == null) {
+            return list;
+        }
+        for (Agent a : agents) {
+            list.add(toAgentDto(a));
         }
         return list;
     }

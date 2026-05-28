@@ -28,6 +28,7 @@ import projectlx.co.zw.notifications.utils.requests.CreateTemplateRequest;
 import projectlx.co.zw.notifications.utils.requests.TemplateMultipleFiltersRequest;
 import projectlx.co.zw.notifications.utils.requests.UpdateTemplateRequest;
 import projectlx.co.zw.notifications.utils.responses.TemplateResponse;
+import projectlx.co.zw.notifications.utils.support.TemplateChannelDeliverySupport;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
@@ -38,7 +39,9 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Function;
@@ -109,11 +112,14 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
             templateToBeReactivated.setInAppBody(createTemplateRequest.getInAppBody());
             templateToBeReactivated.setWhatsappTemplateName(createTemplateRequest.getWhatsappTemplateName());
             templateToBeReactivated.setWhatsappBody(createTemplateRequest.getWhatsappBody());
+            templateToBeReactivated.setChannelDeliveryEnabled(createTemplateRequest.getChannelDeliveryEnabled());
+            applyOrganizationTemplateDefaults(templateToBeReactivated);
             templateToBeReactivated.setActive(true);
             templateToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
             templateSaved = notificationTemplateServiceAuditable.update(templateToBeReactivated, locale, username);
         } else {
             NotificationTemplate templateToBeSaved = modelMapper.map(createTemplateRequest, NotificationTemplate.class);
+            applyOrganizationTemplateDefaults(templateToBeSaved);
             // New templates should default to active unless explicitly deactivated later by admin action.
             templateToBeSaved.setActive(true);
             templateToBeSaved.setEntityStatus(EntityStatus.ACTIVE);
@@ -219,6 +225,17 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
             return buildTemplateResponse(200, true, message, templateDtoReturned, null, null);
         }
 
+        if (updateTemplateRequest.isChannelDeliveryOnlyUpdate()) {
+            templateToBeUpdated.setChannelDeliveryEnabled(
+                    mergeChannelDeliveryFlags(templateToBeUpdated, updateTemplateRequest.getChannelDeliveryEnabled()));
+            applyOrganizationTemplateDefaults(templateToBeUpdated);
+            NotificationTemplate templateUpdated =
+                    notificationTemplateServiceAuditable.update(templateToBeUpdated, locale, username);
+            NotificationTemplateDto templateDtoReturned = modelMapper.map(templateUpdated, NotificationTemplateDto.class);
+            message = messageService.getMessage(I18Code.TEMPLATE_UPDATED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+            return buildTemplateResponse(200, true, message, templateDtoReturned, null, null);
+        }
+
         String normalizedTemplateKey = updateTemplateRequest.getTemplateKey() != null
                 ? updateTemplateRequest.getTemplateKey().trim()
                 : null;
@@ -240,6 +257,8 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
         templateToBeUpdated.setInAppBody(updateTemplateRequest.getInAppBody());
         templateToBeUpdated.setWhatsappTemplateName(updateTemplateRequest.getWhatsappTemplateName());
         templateToBeUpdated.setWhatsappBody(updateTemplateRequest.getWhatsappBody());
+        templateToBeUpdated.setChannelDeliveryEnabled(updateTemplateRequest.getChannelDeliveryEnabled());
+        applyOrganizationTemplateDefaults(templateToBeUpdated);
         if (updateTemplateRequest.getActive() != null) {
             templateToBeUpdated.setActive(updateTemplateRequest.getActive());
         }
@@ -656,5 +675,34 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
                 : "Import failed. No templates were imported.";
 
         return new ImportSummary(statusCode, isSuccess, message, total, success, failed, errors);
+    }
+
+    /**
+     * Organisation templates list SMS and WhatsApp for admin visibility; only email delivers until those flags are enabled.
+     */
+    private void applyOrganizationTemplateDefaults(NotificationTemplate template) {
+        if (template == null || !TemplateChannelDeliverySupport.isOrganizationTemplateKey(template.getTemplateKey())) {
+            return;
+        }
+        template.setChannels(TemplateChannelDeliverySupport.defaultOrganizationChannels());
+        if (template.getChannelDeliveryEnabled() == null || template.getChannelDeliveryEnabled().isEmpty()) {
+            template.setChannelDeliveryEnabled(TemplateChannelDeliverySupport.defaultOrganizationDeliveryFlags());
+        }
+    }
+
+    private Map<String, Boolean> mergeChannelDeliveryFlags(NotificationTemplate template, Map<String, Boolean> patch) {
+        Map<String, Boolean> merged = new LinkedHashMap<>();
+        if (template.getChannelDeliveryEnabled() != null) {
+            merged.putAll(template.getChannelDeliveryEnabled());
+        }
+        if (template.getChannels() != null) {
+            for (var channel : template.getChannels()) {
+                merged.putIfAbsent(channel.name(), true);
+            }
+        }
+        if (patch != null) {
+            merged.putAll(patch);
+        }
+        return merged;
     }
 }

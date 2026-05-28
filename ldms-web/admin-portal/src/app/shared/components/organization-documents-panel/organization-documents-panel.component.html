@@ -1,0 +1,67 @@
+<div class="odp" [class.odp--compact]="compact">
+  <div class="odp-empty" *ngIf="!documents.length">
+    <mat-icon aria-hidden="true">folder_off</mat-icon>
+    <p>No verification documents were uploaded for this organisation.</p>
+  </div>
+
+  <div class="odp-layout" *ngIf="documents.length">
+    <aside class="odp-list" role="listbox" aria-label="Verification documents">
+      <button
+        type="button"
+        class="odp-list-item"
+        *ngFor="let doc of documents"
+        [class.odp-list-item--active]="selected?.uploadId === doc.uploadId"
+        (click)="select(doc)"
+        role="option"
+        [attr.aria-selected]="selected?.uploadId === doc.uploadId"
+      >
+        <mat-icon class="odp-list-item__icon" [class.odp-list-item__icon--pdf]="doc.fileType === 'PDF'">
+          {{ docIcon(doc) }}
+        </mat-icon>
+        <span class="odp-list-item__text">
+          <span class="odp-list-item__name">{{ doc.fileName }}</span>
+          <span class="odp-list-item__meta">{{ doc.category }}</span>
+        </span>
+      </button>
+    </aside>
+
+    <section class="odp-preview" aria-live="polite">
+      <div class="odp-preview__toolbar" *ngIf="selected">
+        <div>
+          <h4 class="odp-preview__title">{{ selected.fileName }}</h4>
+          <p class="odp-preview__sub">{{ selected.category }} · Upload #{{ selected.uploadId }}</p>
+        </div>
+        <button
+          *ngIf="isPdf() && !loading && meta"
+          type="button"
+          mat-stroked-button
+          color="primary"
+          (click)="openPdfInNewTab()"
+        >
+          <mat-icon>open_in_new</mat-icon>
+          Open PDF
+        </button>
+      </div>
+
+      <div class="odp-preview__loading" *ngIf="loading">
+        <mat-progress-spinner mode="indeterminate" diameter="36"></mat-progress-spinner>
+        <span>Loading preview…</span>
+      </div>
+
+      <p class="odp-preview__error" *ngIf="!loading && loadError">{{ loadError }}</p>
+
+      <div class="odp-preview__frame" *ngIf="!loading && !loadError && previewImageUrl">
+        <img [src]="previewImageUrl" [alt]="selected?.fileName ?? 'Document preview'" />
+      </div>
+
+      <div class="odp-preview__frame odp-preview__frame--pdf" *ngIf="!loading && !loadError && previewPdfUrl">
+        <iframe [src]="previewPdfUrl" [title]="selected?.fileName ?? 'PDF preview'"></iframe>
+      </div>
+
+      <div class="odp-preview__placeholder" *ngIf="!loading && !previewImageUrl && !previewPdfUrl && !loadError && !meta">
+        <mat-icon>touch_app</mat-icon>
+        <p>Select a document from the list to preview it here.</p>
+      </div>
+    </section>
+  </div>
+</div>

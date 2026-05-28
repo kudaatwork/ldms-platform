@@ -1,14 +1,15 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit } from '@angular/core';
 import {
   AbstractControl,
   FormBuilder,
+  FormControl,
   FormGroup,
   ValidationErrors,
   Validators,
 } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { forkJoin, of } from 'rxjs';
+import { Subscription, forkJoin, of } from 'rxjs';
 import { catchError, finalize } from 'rxjs/operators';
 import type {
   CreateTemplateRequest,
@@ -18,6 +19,14 @@ import type {
   UpdateTemplateRequest,
 } from '../../models/notification-admin.models';
 import { NotificationAdminService } from '../../services/notification-admin.service';
+import {
+  type ChannelDeliveryToggleRow,
+  buildChannelDeliveryToggleRows,
+  hasPerChannelDeliveryConfig,
+  isChannelDeliveryActive,
+  isOrganizationNotificationTemplateKey,
+  normalizeChannelDeliveryFlags,
+} from '../../utils/notification-channel.util';
 
 type PlaceholderUseArea = 'EMAIL_SUBJECT' | 'EMAIL_HTML' | 'SMS' | 'IN_APP' | 'WHATSAPP';
 
@@ -34,17 +43,25 @@ interface PlaceholderCatalogItem {
   styleUrl: './notification-template-form-dialog.component.scss',
   standalone: false,
 })
-export class NotificationTemplateFormDialogComponent implements OnInit {
+export class NotificationTemplateFormDialogComponent implements OnInit, OnDestroy {
   form!: FormGroup;
+  /** Per-channel delivery toggles (bound with formControlName). */
+  channelDeliveryForm!: FormGroup;
   submitting = false;
-  /** Initial shell load (metadata + full row for edit), same pattern as locations form dialog. */
   loadingShell = true;
   listLoadError: string | null = null;
   readonly isEditMode: boolean;
   private readonly editTemplateId: number | null;
   private editTemplateActive = true;
+  private channelDeliverySub: Subscription | null = null;
 
   channelOptions: { value: NotificationChannel; label: string; description?: string | undefined }[] = [];
+  channelDeliveryEnabled: Record<string, boolean> | null = null;
+  /** Stable list for *ngFor (avoids toggle flicker from getter re-runs). */
+  deliveryRows: ChannelDeliveryToggleRow[] = [];
+  channelDeliverySaving = false;
+  private suppressChannelDeliverySync = false;
+  private lastSavedDeliveryFlags: Record<string, boolean> | null = null;
   showPlaceholderCatalog = false;
   readonly placeholderCatalog: PlaceholderCatalogItem[] = [
     { key: 'firstName', label: 'Recipient first name', example: 'Tariro', useIn: ['EMAIL_SUBJECT', 'EMAIL_HTML', 'SMS', 'IN_APP', 'WHATSAPP'] },
@@ -68,6 +85,7 @@ export class NotificationTemplateFormDialogComponent implements OnInit {
 
   constructor(
     private readonly fb: FormBuilder,
+    private readonly cdr: ChangeDetectorRef,
     private readonly dialogRef: MatDialogRef<NotificationTemplateFormDialogComponent, boolean>,
     private readonly notificationAdmin: NotificationAdminService,
     private readonly snackBar: MatSnackBar,
@@ -89,7 +107,25 @@ export class NotificationTemplateFormDialogComponent implements OnInit {
       : 'Define a unique key, pick channels, then add the content required for each channel.';
   }
 
+  get isOrganizationNotificationTemplate(): boolean {
+    const key = String(this.form?.get('templateKey')?.value ?? '').trim();
+    return isOrganizationNotificationTemplateKey(key);
+  }
+
+  get hasPerChannelDeliveryControls(): boolean {
+    const key = String(this.form?.get('templateKey')?.value ?? '').trim();
+    if (isOrganizationNotificationTemplateKey(key)) {
+      return true;
+    }
+    return Object.keys(this.channelDeliveryForm.controls).length > 0;
+  }
+
+  trackDeliveryRow(_index: number, row: ChannelDeliveryToggleRow): string {
+    return row.channel;
+  }
+
   ngOnInit(): void {
+    this.channelDeliveryForm = this.fb.group({});
     this.form = this.fb.group({
       templateKey: ['', [Validators.required, Validators.maxLength(100)]],
       description: ['', Validators.required],
@@ -101,6 +137,15 @@ export class NotificationTemplateFormDialogComponent implements OnInit {
       inAppBody: [''],
       whatsappTemplateName: [''],
       whatsappBody: [''],
+    });
+
+    this.form.get('channels')?.valueChanges.subscribe((channels) => {
+      this.syncChannelDeliveryWithChannels((channels as NotificationChannel[]) ?? []);
+    });
+
+    this.form.get('templateKey')?.valueChanges.subscribe(() => {
+      const channels = (this.form.get('channels')?.value as NotificationChannel[]) ?? [];
+      this.syncChannelDeliveryWithChannels(channels);
     });
 
     if (this.isEditMode && this.editTemplateId) {
@@ -146,6 +191,10 @@ export class NotificationTemplateFormDialogComponent implements OnInit {
       });
   }
 
+  ngOnDestroy(): void {
+    this.channelDeliverySub?.unsubscribe();
+  }
+
   private applyChannelOptions(opts: { value: string; label: string; description?: string }[]): void {
     let mapped = (opts ?? []).map((o) => ({
       value: o.value as NotificationChannel,
@@ -163,18 +212,60 @@ export class NotificationTemplateFormDialogComponent implements OnInit {
   }
 
   private patchFormFromTemplate(t: NotificationTemplateRow): void {
-    this.form.patchValue({
-      templateKey: t.templateKey ?? '',
-      description: t.description ?? '',
-      channels: t.channels ?? [],
-      emailSubject: t.emailSubject ?? '',
-      emailBodyHtml: t.emailBodyHtml ?? '',
-      smsBody: t.smsBody ?? '',
-      inAppTitle: t.inAppTitle ?? '',
-      inAppBody: t.inAppBody ?? '',
-      whatsappTemplateName: t.whatsappTemplateName ?? '',
-      whatsappBody: t.whatsappBody ?? '',
+    const channels = (t.channels ?? []) as NotificationChannel[];
+    const flags = normalizeChannelDeliveryFlags(channels, t.channelDeliveryEnabled, t.templateKey ?? '');
+    this.channelDeliveryEnabled = flags;
+    this.suppressChannelDeliverySync = true;
+    this.form.patchValue(
+      {
+        templateKey: t.templateKey ?? '',
+        description: t.description ?? '',
+        channels: t.channels ?? [],
+        emailSubject: t.emailSubject ?? '',
+        emailBodyHtml: t.emailBodyHtml ?? '',
+        smsBody: t.smsBody ?? '',
+        inAppTitle: t.inAppTitle ?? '',
+        inAppBody: t.inAppBody ?? '',
+        whatsappTemplateName: t.whatsappTemplateName ?? '',
+        whatsappBody: t.whatsappBody ?? '',
+      },
+      { emitEvent: false },
+    );
+    this.suppressChannelDeliverySync = false;
+    this.lastSavedDeliveryFlags = { ...flags };
+    this.initChannelDeliveryForm(channels, flags);
+    this.cdr.markForCheck();
+  }
+
+  private initChannelDeliveryForm(
+    channels: NotificationChannel[],
+    flags: Record<string, boolean>,
+  ): void {
+    this.channelDeliverySub?.unsubscribe();
+    const controls: Record<string, FormControl<boolean>> = {};
+    for (const ch of channels) {
+      controls[ch] = this.fb.nonNullable.control(flags[ch] === true);
+    }
+    this.channelDeliveryForm = this.fb.group(controls);
+    this.channelDeliveryEnabled = { ...flags };
+    this.refreshDeliveryRows();
+    this.channelDeliverySub = this.channelDeliveryForm.valueChanges.subscribe(() => {
+      this.channelDeliveryEnabled = this.channelDeliveryForm.getRawValue() as Record<string, boolean>;
+      this.refreshDeliveryRows();
+      this.cdr.markForCheck();
     });
+  }
+
+  private refreshDeliveryRows(): void {
+    const channels = (this.form?.get('channels')?.value as NotificationChannel[] | undefined) ?? [];
+    const flags = this.readChannelDeliveryFlags(channels);
+    this.deliveryRows = buildChannelDeliveryToggleRows(channels, flags);
+  }
+
+  private readChannelDeliveryFlags(channels: NotificationChannel[]): Record<string, boolean> {
+    const fromForm = this.channelDeliveryForm.getRawValue() as Record<string, boolean>;
+    const templateKey = String(this.form.get('templateKey')?.value ?? '').trim();
+    return normalizeChannelDeliveryFlags(channels, fromForm ?? this.channelDeliveryEnabled, templateKey);
   }
 
   hasChannel(ch: NotificationChannel): boolean {
@@ -182,12 +273,103 @@ export class NotificationTemplateFormDialogComponent implements OnInit {
     return Array.isArray(v) && v.includes(ch);
   }
 
+  isChannelDeliveryActive(ch: NotificationChannel): boolean {
+    const ctrl = this.channelDeliveryForm.get(ch);
+    if (ctrl) {
+      return ctrl.value === true;
+    }
+    return isChannelDeliveryActive(ch, this.channelDeliveryEnabled);
+  }
+
+  isInactiveChannelSection(ch: NotificationChannel): boolean {
+    return this.hasChannel(ch) && !this.isChannelDeliveryActive(ch);
+  }
+
+  onChannelDeliveryToggle(channel: NotificationChannel, active: boolean): void {
+    const channels = (this.form.get('channels')?.value as NotificationChannel[]) ?? [];
+    const flags = this.readChannelDeliveryFlags(channels);
+    flags[channel] = active;
+
+    const anyActive = channels.some((ch) => flags[ch] === true);
+    if (!anyActive) {
+      this.channelDeliveryForm.get(channel)?.setValue(false, { emitEvent: false });
+      this.refreshDeliveryRows();
+      this.snackBar.open('At least one channel must stay on for delivery.', 'Close', {
+        duration: 4000,
+        panelClass: ['app-snackbar-error'],
+      });
+      this.cdr.detectChanges();
+      return;
+    }
+
+    this.channelDeliveryEnabled = { ...flags };
+    this.refreshDeliveryRows();
+
+    if (this.isEditMode && this.editTemplateId) {
+      this.persistChannelDelivery(flags);
+    } else {
+      this.cdr.markForCheck();
+    }
+  }
+
+  private persistChannelDelivery(flags: Record<string, boolean>): void {
+    if (!this.editTemplateId || this.channelDeliverySaving) {
+      return;
+    }
+    this.channelDeliverySaving = true;
+    this.notificationAdmin
+      .setTemplateChannelDelivery(this.editTemplateId, flags)
+      .pipe(finalize(() => (this.channelDeliverySaving = false)))
+      .subscribe({
+        next: () => {
+          this.lastSavedDeliveryFlags = { ...flags };
+          this.snackBar.open('Channel delivery updated', 'Close', {
+            duration: 2500,
+            panelClass: ['app-snackbar-success'],
+          });
+          this.cdr.markForCheck();
+        },
+        error: (e) => {
+          this.snackBar.open(this.errorMessage(e, 'Could not save channel delivery.'), 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-error'],
+          });
+          const channels = (this.form.get('channels')?.value as NotificationChannel[]) ?? [];
+          const templateKey = String(this.form.get('templateKey')?.value ?? '').trim();
+          const restored = normalizeChannelDeliveryFlags(
+            channels,
+            this.lastSavedDeliveryFlags,
+            templateKey,
+          );
+          this.initChannelDeliveryForm(channels, restored);
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private syncChannelDeliveryWithChannels(channels: NotificationChannel[]): void {
+    if (this.suppressChannelDeliverySync || !channels.length) {
+      return;
+    }
+    const templateKey = String(this.form.get('templateKey')?.value ?? '').trim();
+    if (!hasPerChannelDeliveryConfig(templateKey, this.channelDeliveryEnabled)) {
+      return;
+    }
+    const flags = normalizeChannelDeliveryFlags(
+      channels,
+      this.readChannelDeliveryFlags(channels),
+      templateKey,
+    );
+    this.initChannelDeliveryForm(channels, flags);
+    this.cdr.markForCheck();
+  }
+
   cancel(): void {
     this.dialogRef.close(false);
   }
 
   submit(): void {
-    if (this.form.invalid) {
+    if (this.form.invalid || this.channelDeliveryForm.invalid) {
       this.form.markAllAsTouched();
       this.snackBar.open('Please complete required fields', 'Close', { duration: 4000 });
       return;
@@ -200,13 +382,23 @@ export class NotificationTemplateFormDialogComponent implements OnInit {
       return;
     }
 
-    const err = this.validateChannelContent(channels, raw);
+    const deliveryFlags = this.channelDeliveryEnabledForPayload(
+      String(raw['templateKey'] ?? '').trim(),
+      channels,
+    );
+    const deliveryErr = this.validateChannelDelivery(channels, deliveryFlags);
+    if (deliveryErr) {
+      this.snackBar.open(deliveryErr, 'Close', { duration: 6000 });
+      return;
+    }
+
+    const err = this.validateChannelContent(channels, raw, deliveryFlags ?? null);
     if (err) {
       this.snackBar.open(err, 'Close', { duration: 6000 });
       return;
     }
 
-    const body = this.buildCreatePayload(raw);
+    const body = this.buildCreatePayload(raw, channels);
 
     this.submitting = true;
     if (this.isEditMode && this.editTemplateId) {
@@ -256,17 +448,16 @@ export class NotificationTemplateFormDialogComponent implements OnInit {
       });
   }
 
-  /**
-   * Matches API body shape:
-   * `templateKey`, `description`, `channels`, plus every content field as a string (`''` when unused).
-   * `emailBodyHtml` comes from the CodeMirror HTML pad (embedded CSS in `<style>`).
-   */
-  private buildCreatePayload(raw: Record<string, unknown>): CreateTemplateRequest {
-    const channels = (raw['channels'] as NotificationChannel[]) ?? [];
+  private buildCreatePayload(
+    raw: Record<string, unknown>,
+    channels: NotificationChannel[],
+  ): CreateTemplateRequest {
+    const templateKey = String(raw['templateKey'] ?? '').trim();
     return {
-      templateKey: String(raw['templateKey'] ?? '').trim(),
+      templateKey,
       description: String(raw['description'] ?? '').trim(),
       channels,
+      channelDeliveryEnabled: this.channelDeliveryEnabledForPayload(templateKey, channels),
       emailSubject: String(raw['emailSubject'] ?? '').trim(),
       emailBodyHtml: String(raw['emailBodyHtml'] ?? '').trim(),
       smsBody: String(raw['smsBody'] ?? '').trim(),
@@ -284,11 +475,39 @@ export class NotificationTemplateFormDialogComponent implements OnInit {
     return Array.isArray(v) && v.length > 0 ? null : { channels: true };
   };
 
+  private channelDeliveryEnabledForPayload(
+    templateKey: string,
+    channels: NotificationChannel[],
+  ): Record<string, boolean> | null | undefined {
+    if (!hasPerChannelDeliveryConfig(templateKey, this.channelDeliveryEnabled)) {
+      return undefined;
+    }
+    return this.readChannelDeliveryFlags(channels);
+  }
+
+  private validateChannelDelivery(
+    channels: NotificationChannel[],
+    deliveryFlags: Record<string, boolean> | null | undefined,
+  ): string | null {
+    if (!deliveryFlags || !channels.length) {
+      return null;
+    }
+    const anyActive = channels.some((ch) => isChannelDeliveryActive(ch, deliveryFlags));
+    if (!anyActive) {
+      return 'Turn on delivery for at least one channel.';
+    }
+    return null;
+  }
+
   private validateChannelContent(
     channels: NotificationChannel[],
     raw: Record<string, unknown>,
+    deliveryFlags: Record<string, boolean> | null,
   ): string | null {
     for (const ch of channels) {
+      if (!isChannelDeliveryActive(ch, deliveryFlags)) {
+        continue;
+      }
       switch (ch) {
         case 'EMAIL': {
           if (!String(raw['emailSubject'] ?? '').trim() || !String(raw['emailBodyHtml'] ?? '').trim()) {

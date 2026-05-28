@@ -43,7 +43,7 @@ import org.springframework.web.multipart.MultipartFile;
 @CrossOrigin
 @RestController
 @RequestMapping("/ldms-notifications/v1/backoffice/notification-template")
-@Tag(name = "Notification Template Backoffice Resource", description = "System operations related to managing notification templates")
+@Tag(name = "Notification Template Backoffice Resource", description = "Admin console template management (JWT only, no per-endpoint roles)")
 @RequiredArgsConstructor
 public class NotificationTemplateBackofficeResource {
 

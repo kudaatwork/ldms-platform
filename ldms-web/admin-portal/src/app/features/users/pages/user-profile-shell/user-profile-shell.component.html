@@ -37,6 +37,18 @@
               {{ formatDisplay(u['gender']) }}
             </span>
           </div>
+          <button
+            type="button"
+            mat-stroked-button
+            color="primary"
+            class="up-hero__resend-verify"
+            *ngIf="canResendVerificationEmail()"
+            [disabled]="resendingVerificationEmail"
+            (click)="resendVerificationEmail()"
+          >
+            <mat-icon aria-hidden="true">mark_email_read</mat-icon>
+            Resend verification email
+          </button>
           <button type="button" mat-button class="up-hero__edit" (click)="openEditProfile()" i18n="@@userProfileEditDetails">
             <mat-icon aria-hidden="true">edit</mat-icon>
             Edit profile

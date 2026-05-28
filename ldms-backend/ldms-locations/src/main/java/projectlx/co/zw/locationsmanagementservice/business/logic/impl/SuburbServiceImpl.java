@@ -712,10 +712,12 @@ public class SuburbServiceImpl implements SuburbService {
                 }
             }
         }
-        City city = entity.getCity();
-        if (city != null) {
-            dto.setCityId(city.getId());
-            dto.setCityName(city.getName());
+        if (entity.getCity() != null) {
+            dto.setCityId(entity.getCity().getId());
+            dto.setCityName(entity.getCity().getName());
+        } else if (entity.getCityLocationNode() != null) {
+            dto.setCityId(entity.getCityLocationNode().getId());
+            dto.setCityName(entity.getCityLocationNode().getName());
         }
         if (entity.getAdministrativeLevel() != null) {
             dto.setAdministrativeLevelId(entity.getAdministrativeLevel().getId());

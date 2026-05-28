@@ -8,6 +8,27 @@
   color: var(--gray-900);
 }
 
+.su-file-input {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  font-size: 0.875rem;
+}
+
+.su-file-name {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--gray-600);
+}
+
+.su-field-hint {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--gray-500);
+}
+
 .su-theme {
   position: absolute;
   top: 16px;
@@ -421,6 +442,37 @@
   grid-column: 1 / -1;
 }
 
+.su-form-section {
+  margin-top: 8px;
+  padding-top: 4px;
+}
+
+.su-form-section-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+.su-form-section-lead {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--gray-600);
+  line-height: 1.45;
+}
+
+.su-req {
+  color: var(--error, #c62828);
+}
+
+.su-infield--select select {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  outline: none;
+}
+
 /* Match sign-in `.lc-field-label` */
 .su-field-label {
   font-size: 13px;
@@ -469,6 +521,19 @@
 
   input::placeholder {
     color: var(--gray-400);
+  }
+
+  select {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    padding: 11px 8px 11px 0;
+    font-family: var(--font);
+    font-size: 13px;
+    color: var(--gray-800);
+    outline: none;
+    cursor: pointer;
   }
 }
 
