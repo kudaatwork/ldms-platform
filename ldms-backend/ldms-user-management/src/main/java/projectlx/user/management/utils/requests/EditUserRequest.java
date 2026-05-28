@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import org.springframework.web.multipart.MultipartFile;
+import projectlx.user.management.model.UserAddressDetails;
 
 @Getter
 @Setter
@@ -30,4 +31,13 @@ public class EditUserRequest {
     private Long nationalIdUploadId;
     /** When set, persists the passport file-upload reference without re-uploading a file. */
     private Long passportUploadId;
+
+    /**
+     * When set ({@code true} / {@code false}), toggles organisation KYC approver eligibility.
+     * Bound as {@link String} for reliable multipart form binding. Omit to leave unchanged.
+     */
+    private String organizationKycApprover;
+
+    /** When provided, creates or updates the user's linked address (same as user create). */
+    private UserAddressDetails userAddressDetails;
 }

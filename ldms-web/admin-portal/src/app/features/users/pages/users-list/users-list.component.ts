@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { PageEvent } from '@angular/material/paginator';
 import { MatTableDataSource } from '@angular/material/table';
@@ -16,6 +17,11 @@ import { UserAssignUserGroupDialogComponent } from '../../components/user-assign
 import { UserEditProfileDialogComponent } from '../../components/user-edit-profile-dialog/user-edit-profile-dialog.component';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { isLdmsPasswordValid, LDMS_PASSWORD_INVALID_MESSAGE } from '@core/utils/ldms-password.util';
+import {
+  dateOfBirthMinimumAgeMessage,
+  isDateOfBirthAtLeastMinimumAge,
+  maximumDateOfBirthInput,
+} from '@core/utils/date-of-birth.util';
 import {
   LxExportFormat,
   downloadBlob,
@@ -38,10 +44,10 @@ interface UserTypeOption extends SelectOption {
   styleUrl: './users-list.component.scss',
   standalone: false,
 })
-export class UsersListComponent implements OnInit {
-  private static readonly MINIMUM_USER_AGE = 16;
+export class UsersListComponent implements OnInit, OnDestroy {
   fetching = true;
   exporting = false;
+  resendingVerificationUserId: number | null = null;
 
   displayedColumns = [
     'name',
@@ -50,13 +56,9 @@ export class UsersListComponent implements OnInit {
     'phoneNumber',
     'gender',
     'nationalId',
-    'dateOfBirth',
-    'accountType',
-    'role',
     'emailVerified',
+    'kycApproverEligible',
     'status',
-    'createdAt',
-    'updatedAt',
     'actions',
   ];
 
@@ -97,6 +99,7 @@ export class UsersListComponent implements OnInit {
   createModel = {
     organizationId: '',
     branchId: '',
+    organizationKycApprover: false,
     username: '',
     email: '',
     firstName: '',
@@ -152,11 +155,20 @@ export class UsersListComponent implements OnInit {
   suburbOptionsLoading = false;
   organizationsLoading = false;
   branchesLoading = false;
+  /** Table filter: organisation id as string for `<select>` binding (empty = all). */
+  filterOrganizationId = '';
+  filterBranchId = '';
+  filterOrganizationOptions: IdLabelOption[] = [];
+  filterBranchOptions: IdLabelOption[] = [];
+  filterOrganizationsLoading = false;
+  filterBranchesLoading = false;
 
   private pendingDeleteSnapshot: { row: UserListRow; index: number; didPageBack: boolean } | null = null;
 
   constructor(
     private readonly title: Title,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly usersService: UsersAdminService,
     private readonly locationsService: LocationsService,
     private readonly dialog: MatDialog,
@@ -187,8 +199,93 @@ export class UsersListComponent implements OnInit {
 
   ngOnInit(): void {
     this.title.setTitle('Users | LX Admin');
+    this.route.queryParamMap.subscribe((qm) => {
+      const raw = qm.get('organizationId');
+      const parsed = raw != null && /^[1-9]\d*$/.test(raw.trim()) ? Number(raw) : null;
+      const orgId =
+        parsed != null && Number.isFinite(parsed) && parsed > 0 ? String(Math.trunc(parsed)) : '';
+      if (orgId !== this.filterOrganizationId) {
+        this.filterOrganizationId = orgId;
+        this.filterBranchId = '';
+        this.filterBranchOptions = [];
+        if (orgId) {
+          this.loadFilterBranchesForOrganization(Number(orgId));
+        }
+      }
+      this.pageIndex = 0;
+      this.reload$.next();
+    });
     this.reload$.pipe(debounceTime(150)).subscribe(() => this.loadUsers());
+    this.loadFilterOrganizationOptions();
     this.reload$.next();
+  }
+
+  get hasScopeFilters(): boolean {
+    return !!this.parsedFilterOrganizationId() || !!this.parsedFilterBranchId();
+  }
+
+  get filterScopeSummary(): string {
+    const parts: string[] = [];
+    const orgLabel = this.filterOrganizationLabel;
+    if (orgLabel) {
+      parts.push(orgLabel);
+    }
+    const branchLabel = this.filterBranchLabel;
+    if (branchLabel) {
+      parts.push(branchLabel);
+    }
+    return parts.join(' · ');
+  }
+
+  get filterOrganizationLabel(): string {
+    const id = this.parsedFilterOrganizationId();
+    if (!id) {
+      return '';
+    }
+    return this.filterOrganizationOptions.find((o) => o.id === id)?.label ?? `Organisation #${id}`;
+  }
+
+  get filterBranchLabel(): string {
+    const id = this.parsedFilterBranchId();
+    if (!id) {
+      return '';
+    }
+    return this.filterBranchOptions.find((b) => b.id === id)?.label ?? `Branch #${id}`;
+  }
+
+  onFilterOrganizationChange(value: unknown): void {
+    const raw = String(value ?? '').trim();
+    this.filterOrganizationId = raw;
+    this.filterBranchId = '';
+    this.filterBranchOptions = [];
+    if (!raw) {
+      this.resetPaging();
+      return;
+    }
+    const organizationId = Number(raw);
+    if (!Number.isFinite(organizationId) || organizationId < 1) {
+      this.resetPaging();
+      return;
+    }
+    this.loadFilterBranchesForOrganization(organizationId);
+    this.resetPaging();
+  }
+
+  onFilterBranchChange(value: unknown): void {
+    this.filterBranchId = String(value ?? '').trim();
+    this.resetPaging();
+  }
+
+  clearScopeFilters(): void {
+    this.filterOrganizationId = '';
+    this.filterBranchId = '';
+    this.filterBranchOptions = [];
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {},
+      replaceUrl: true,
+    });
+    this.resetPaging();
   }
 
   userLink(
@@ -240,6 +337,36 @@ export class UsersListComponent implements OnInit {
         this.notifications.error('Could not load user profile for editing.');
       },
     });
+  }
+
+  resendVerificationEmail(row: UserListRow): void {
+    const email = row.email?.trim();
+    if (!email || !row.canResendVerificationEmail) {
+      return;
+    }
+    this.resendingVerificationUserId = row.id;
+    this.usersService
+      .resendVerificationEmail(email)
+      .pipe(
+        finalize(() => {
+          this.resendingVerificationUserId = null;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (resp) => {
+          if (this.usersService.isUserMutationFailure(resp)) {
+            this.notifications.error(
+              this.usersService.formatUserMutationError(resp, 'Could not resend verification email.'),
+            );
+            return;
+          }
+          this.notifications.success(`Verification email sent to ${email}.`);
+        },
+        error: (err: unknown) => {
+          this.notifications.error(this.formatResendVerificationHttpError(err));
+        },
+      });
   }
 
   deleteUserRow(row: UserListRow): void {
@@ -341,6 +468,8 @@ export class UsersListComponent implements OnInit {
           size: this.pageSize,
           searchQuery: this.searchQuery,
           columnFilters: this.columnFilters,
+          organizationId: this.parsedFilterOrganizationId(),
+          branchId: this.parsedFilterBranchId(),
         },
         format,
       )
@@ -379,12 +508,22 @@ export class UsersListComponent implements OnInit {
   openCreateModal(): void {
     this.resetCreateWizardForm();
     this.showCreateModal = true;
+    this.syncPageModalScrollLock(true);
     this.loadCreateOptions();
   }
 
   closeCreateModal(): void {
     if (this.creating) return;
     this.showCreateModal = false;
+    this.syncPageModalScrollLock(false);
+  }
+
+  ngOnDestroy(): void {
+    this.syncPageModalScrollLock(false);
+  }
+
+  private syncPageModalScrollLock(open: boolean): void {
+    document.body.classList.toggle('lx-page-modal-open', open);
   }
 
   submitCreate(): void {
@@ -429,6 +568,8 @@ export class UsersListComponent implements OnInit {
       .createUser({
         organizationId: this.parseLong(this.createModel.organizationId),
         branchId: this.parseLong(this.createModel.branchId),
+        organizationKycApprover:
+          !this.createModel.organizationId && this.createModel.organizationKycApprover,
         username: this.createModel.username.trim(),
         email: this.createModel.email.trim(),
         firstName: this.createModel.firstName.trim(),
@@ -476,6 +617,7 @@ export class UsersListComponent implements OnInit {
           }
           this.notifications.success('User created successfully.');
           this.showCreateModal = false;
+          this.syncPageModalScrollLock(false);
           this.resetPaging();
         },
         error: (err: unknown) => {
@@ -554,6 +696,9 @@ export class UsersListComponent implements OnInit {
     const raw = String(value ?? '').trim();
     this.createModel.organizationId = raw;
     this.createModel.branchId = '';
+    if (raw) {
+      this.createModel.organizationKycApprover = false;
+    }
     this.branchOptions = [];
     this.branchesLoading = false;
     const organizationId = Number(raw);
@@ -712,6 +857,64 @@ export class UsersListComponent implements OnInit {
     this.cdr.detectChanges();
   }
 
+  private loadFilterOrganizationOptions(): void {
+    this.filterOrganizationsLoading = true;
+    this.usersService
+      .queryOrganizationsForSelect()
+      .pipe(
+        finalize(() => {
+          this.filterOrganizationsLoading = false;
+          queueMicrotask(() => this.cdr.detectChanges());
+        }),
+      )
+      .subscribe({
+        next: (options) => {
+          this.filterOrganizationOptions = options;
+        },
+        error: () => {
+          this.filterOrganizationOptions = [];
+        },
+      });
+  }
+
+  private loadFilterBranchesForOrganization(organizationId: number): void {
+    this.filterBranchesLoading = true;
+    this.usersService
+      .queryBranchesForOrganization(organizationId)
+      .pipe(
+        finalize(() => {
+          this.filterBranchesLoading = false;
+          queueMicrotask(() => this.cdr.detectChanges());
+        }),
+      )
+      .subscribe({
+        next: (options) => {
+          this.filterBranchOptions = options;
+        },
+        error: () => {
+          this.filterBranchOptions = [];
+        },
+      });
+  }
+
+  private parsedFilterOrganizationId(): number | null {
+    const trimmed = this.filterOrganizationId.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const id = Number(trimmed);
+    return Number.isFinite(id) && id > 0 ? Math.trunc(id) : null;
+  }
+
+  private parsedFilterBranchId(): number | null {
+    const trimmed = this.filterBranchId.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const id = Number(trimmed);
+    return Number.isFinite(id) && id > 0 ? Math.trunc(id) : null;
+  }
+
   private loadUsers(): void {
     const loadToken = ++this.latestLoadToken;
     this.fetching = true;
@@ -721,6 +924,8 @@ export class UsersListComponent implements OnInit {
         size: this.pageSize,
         searchQuery: this.searchQuery,
         columnFilters: this.columnFilters,
+        organizationId: this.parsedFilterOrganizationId(),
+        branchId: this.parsedFilterBranchId(),
       })
       .pipe(
         finalize(() => {
@@ -803,9 +1008,9 @@ export class UsersListComponent implements OnInit {
         return false;
       }
 
-      const dateIsValid = this.isDateOfBirthAllowed(this.createModel.dateOfBirth);
+      const dateIsValid = isDateOfBirthAtLeastMinimumAge(this.createModel.dateOfBirth);
       if (!dateIsValid && showError) {
-        this.createError = `Date of birth must be at least ${UsersListComponent.MINIMUM_USER_AGE} years ago.`;
+        this.createError = dateOfBirthMinimumAgeMessage();
       }
       if (dateIsValid && showError) this.createError = '';
       return dateIsValid;
@@ -872,6 +1077,26 @@ export class UsersListComponent implements OnInit {
     return 'Could not create user. Check the form and try again.';
   }
 
+  private formatResendVerificationHttpError(err: unknown): string {
+    if (!(err instanceof HttpErrorResponse)) {
+      return 'Failed to resend verification email.';
+    }
+    const body = err.error;
+    if (body !== null && typeof body === 'object') {
+      const rec = body as Record<string, unknown>;
+      const messages = rec['errorMessages'];
+      if (Array.isArray(messages) && messages.length > 0) {
+        return messages.map((m) => String(m)).join(' ');
+      }
+      if (typeof rec['message'] === 'string' && rec['message'].trim()) {
+        return rec['message'].trim();
+      }
+    }
+    return err.status >= 400
+      ? `Failed to resend verification email (${err.status}).`
+      : 'Failed to resend verification email.';
+  }
+
   private formatCreateUserHttpError(err: unknown): string {
     if (!(err instanceof HttpErrorResponse)) {
       return 'Failed to create user.';
@@ -896,24 +1121,7 @@ export class UsersListComponent implements OnInit {
   }
 
   get maximumDateOfBirth(): string {
-    const maxDate = new Date();
-    maxDate.setFullYear(maxDate.getFullYear() - UsersListComponent.MINIMUM_USER_AGE);
-    return this.toDateInputValue(maxDate);
-  }
-
-  private isDateOfBirthAllowed(rawDate: string): boolean {
-    const trimmed = rawDate.trim();
-    if (!trimmed) return false;
-    const picked = new Date(trimmed);
-    if (Number.isNaN(picked.getTime())) return false;
-    return trimmed <= this.maximumDateOfBirth;
-  }
-
-  private toDateInputValue(date: Date): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return maximumDateOfBirthInput();
   }
 
   private clearSuburbSelection(): void {
@@ -928,6 +1136,7 @@ export class UsersListComponent implements OnInit {
     this.createModel = {
       organizationId: '',
       branchId: '',
+      organizationKycApprover: false,
       username: '',
       email: '',
       firstName: '',

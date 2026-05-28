@@ -109,6 +109,16 @@
         <div class="lx-field span-2" translate="no">
           <label class="lx-field-label">Channels <span class="req">*</span></label>
           <div
+            *ngIf="isOrganizationNotificationTemplate"
+            class="ntf-channel-chips ntf-channel-chips--readonly"
+          >
+            <span *ngFor="let chip of deliveryRows; trackBy: trackDeliveryRow" class="ntf-channel-chip">
+              <mat-icon class="ntf-channel-chip__icon">{{ chip.meta.icon }}</mat-icon>
+              {{ chip.label }}
+            </span>
+          </div>
+          <div
+            *ngIf="!isOrganizationNotificationTemplate"
             class="lx-input-shell ntf-channels-shell"
             [class.lx-input-shell--invalid]="form.get('channels')?.invalid && form.get('channels')?.touched"
           >
@@ -127,9 +137,53 @@
               </mat-option>
             </mat-select>
           </div>
-          <div class="lx-field-hint">Open the list and select one or more channels.</div>
+          <div class="lx-field-hint" *ngIf="isOrganizationNotificationTemplate">
+            Organisation templates always include Email, SMS, and WhatsApp. Use the toggles below to choose which channels actually send.
+          </div>
+          <div class="lx-field-hint" *ngIf="!isOrganizationNotificationTemplate">Open the list and select one or more channels.</div>
           <div class="lx-field-error" *ngIf="form.get('channels')?.hasError('channels') && form.get('channels')?.touched">
             Select at least one channel
+          </div>
+        </div>
+
+        <div class="lx-field span-2" *ngIf="hasPerChannelDeliveryControls">
+          <div class="ntf-delivery-header">
+            <div>
+              <label class="lx-field-label">Channel delivery</label>
+              <p class="lx-form-section-lead ntf-delivery-lead">
+                Turn channels on to send notifications when this template runs. Off channels keep draft content only.
+              </p>
+            </div>
+            <span class="ntf-delivery-saving" *ngIf="channelDeliverySaving">
+              <span class="lx-btn-loader"></span>
+              Saving…
+            </span>
+          </div>
+          <div class="ntf-channel-delivery-list" [formGroup]="channelDeliveryForm">
+            <div
+              *ngFor="let row of deliveryRows; trackBy: trackDeliveryRow"
+              class="ntf-channel-delivery-card"
+              [class.ntf-channel-delivery-card--active]="isChannelDeliveryActive(row.channel)"
+              [style.--ntf-accent]="row.meta.accent"
+              [style.--ntf-soft-bg]="row.meta.softBg"
+              [style.--ntf-border]="row.meta.border"
+            >
+              <div class="ntf-channel-delivery-card__icon-wrap">
+                <mat-icon>{{ row.meta.icon }}</mat-icon>
+              </div>
+              <div class="ntf-channel-delivery-card__body">
+                <div class="ntf-channel-delivery-card__title">{{ row.label }}</div>
+                <div class="ntf-channel-delivery-card__status">
+                  {{ isChannelDeliveryActive(row.channel) ? 'Live — will send' : 'Paused — will not send' }}
+                </div>
+              </div>
+              <mat-slide-toggle
+                [formControlName]="row.channel"
+                color="primary"
+                (change)="onChannelDeliveryToggle(row.channel, $event.checked)"
+                [attr.aria-label]="'Toggle delivery for ' + row.label"
+              ></mat-slide-toggle>
+            </div>
           </div>
         </div>
 
@@ -154,12 +208,15 @@
         <ng-container *ngIf="hasChannel('SMS')">
           <div class="lx-form-section span-2">
             <div class="lx-form-section-title">SMS content</div>
+            <p class="lx-form-section-lead ntf-inactive-channel-note" *ngIf="isInactiveChannelSection('SMS')">
+              SMS delivery is off — turn it on under Channel delivery to send and edit this content.
+            </p>
           </div>
-          <div class="lx-field span-2">
+          <div class="lx-field span-2" [class.ntf-inactive-channel-fields]="isInactiveChannelSection('SMS')">
             <label class="lx-field-label">SMS body</label>
             <div class="lx-input-shell lx-input-shell--textarea">
               <mat-icon class="lx-input-shell__icon">sms</mat-icon>
-              <textarea rows="3" formControlName="smsBody" maxlength="320"></textarea>
+              <textarea rows="3" formControlName="smsBody" maxlength="320" [readonly]="isInactiveChannelSection('SMS')"></textarea>
             </div>
             <div class="lx-field-hint lx-field-hint--end">{{ form.get('smsBody')?.value?.length || 0 }} / 320</div>
           </div>
@@ -197,19 +254,22 @@
         <ng-container *ngIf="hasChannel('WHATSAPP')">
           <div class="lx-form-section span-2">
             <div class="lx-form-section-title">WhatsApp</div>
+            <p class="lx-form-section-lead ntf-inactive-channel-note" *ngIf="isInactiveChannelSection('WHATSAPP')">
+              WhatsApp delivery is off — turn it on under Channel delivery to send and edit this content.
+            </p>
           </div>
-          <div class="lx-field span-2">
+          <div class="lx-field span-2" [class.ntf-inactive-channel-fields]="isInactiveChannelSection('WHATSAPP')">
             <label class="lx-field-label">WhatsApp template name (Content SID)</label>
             <div class="lx-input-shell">
               <mat-icon class="lx-input-shell__icon">chat</mat-icon>
-              <input formControlName="whatsappTemplateName" />
+              <input formControlName="whatsappTemplateName" [readonly]="isInactiveChannelSection('WHATSAPP')" />
             </div>
           </div>
-          <div class="lx-field span-2">
+          <div class="lx-field span-2" [class.ntf-inactive-channel-fields]="isInactiveChannelSection('WHATSAPP')">
             <label class="lx-field-label">WhatsApp message body</label>
             <div class="lx-input-shell lx-input-shell--textarea">
               <mat-icon class="lx-input-shell__icon">message</mat-icon>
-              <textarea rows="4" formControlName="whatsappBody"></textarea>
+              <textarea rows="4" formControlName="whatsappBody" [readonly]="isInactiveChannelSection('WHATSAPP')"></textarea>
             </div>
             <div class="lx-field-hint">Use placeholders like {{'{{firstName}}'}} if needed.</div>
           </div>

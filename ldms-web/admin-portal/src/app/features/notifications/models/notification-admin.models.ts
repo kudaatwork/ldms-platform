@@ -5,6 +5,8 @@ export interface NotificationTemplateRow {
   templateKey: string;
   description?: string;
   channels: NotificationChannel[];
+  /** When set, only channels mapped to true are dispatched (e.g. organisation templates: email only). */
+  channelDeliveryEnabled?: Record<string, boolean> | null;
   emailBodyHtml?: string | null;
   smsBody?: string | null;
   inAppTitle?: string | null;
@@ -107,6 +109,7 @@ export interface CreateTemplateRequest {
   templateKey: string;
   description: string;
   channels: NotificationChannel[];
+  channelDeliveryEnabled?: Record<string, boolean> | null;
   emailSubject: string;
   emailBodyHtml: string;
   smsBody: string;

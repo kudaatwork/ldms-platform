@@ -4,7 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import projectlx.co.zw.notifications.business.validation.api.NotificationTemplateServiceValidator;
+import projectlx.co.zw.notifications.model.Channel;
 import projectlx.co.zw.notifications.utils.enums.I18Code;
+import projectlx.co.zw.notifications.utils.support.TemplateChannelDeliverySupport;
 import projectlx.co.zw.notifications.utils.requests.CreateTemplateRequest;
 import projectlx.co.zw.notifications.utils.requests.TemplateMultipleFiltersRequest;
 import projectlx.co.zw.notifications.utils.requests.UpdateTemplateRequest;
@@ -14,6 +16,7 @@ import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isNullOrLessThanOne;
 
@@ -48,9 +51,12 @@ public class NotificationTemplateServiceValidatorImpl implements NotificationTem
             errors.add(messageService.getMessage(I18Code.CHANNEL_LIST_IS_EMPTY_OR_NULL.getCode(), new String[]{"null"}, locale));
         }
 
-        // Validate that appropriate content is provided for each channel
+        // Validate that appropriate content is provided for each channel that is configured to deliver
         if (request.getChannels() != null) {
             for (var channel : request.getChannels()) {
+                if (!isChannelDeliveryEnabled(request.getChannelDeliveryEnabled(), channel)) {
+                    continue;
+                }
                 switch (channel) {
                     case EMAIL:
                         if (request.getEmailSubject() == null || request.getEmailSubject().isEmpty() ||
@@ -127,7 +133,7 @@ public class NotificationTemplateServiceValidatorImpl implements NotificationTem
             errors.add(messageService.getMessage(I18Code.TEMPLATE_INVALID_ID.getCode(), new String[]{}, locale));
         }
 
-        if (request.isStatusOnlyUpdate()) {
+        if (request.isStatusOnlyUpdate() || request.isChannelDeliveryOnlyUpdate()) {
             if (errors.isEmpty()) {
                 return new ValidatorDto(true, null, null);
             }
@@ -151,6 +157,9 @@ public class NotificationTemplateServiceValidatorImpl implements NotificationTem
 
         if (request.getChannels() != null) {
             for (var channel : request.getChannels()) {
+                if (!isChannelDeliveryEnabled(request.getChannelDeliveryEnabled(), channel)) {
+                    continue;
+                }
                 switch (channel) {
                     case EMAIL:
                         if (request.getEmailSubject() == null || request.getEmailSubject().isEmpty() ||
@@ -197,6 +206,10 @@ public class NotificationTemplateServiceValidatorImpl implements NotificationTem
         } else {
             return new ValidatorDto(false, null, errors);
         }
+    }
+
+    private boolean isChannelDeliveryEnabled(Map<String, Boolean> channelDeliveryEnabled, Channel channel) {
+        return TemplateChannelDeliverySupport.isChannelDeliveryEnabled(channelDeliveryEnabled, channel);
     }
 
     @Override

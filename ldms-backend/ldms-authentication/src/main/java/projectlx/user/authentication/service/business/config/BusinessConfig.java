@@ -28,9 +28,8 @@ public class BusinessConfig {
 
     @Bean
     public CustomUserDetailsServiceImpl customUserDetailsService(UserManagementServiceClient userManagementServiceClient,
-                                                                 ModelMapper modelMapper,
                                                                  MessageService messageService) {
-        return new CustomUserDetailsServiceImpl(userManagementServiceClient, modelMapper, messageService);
+        return new CustomUserDetailsServiceImpl(userManagementServiceClient, messageService);
     }
 
     @Bean

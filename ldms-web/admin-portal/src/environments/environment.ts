@@ -1,21 +1,23 @@
+/**
+ * Local dev: empty = same-origin {@code /ldms-*} on the dev server; {@code proxy.conf.json} forwards to
+ * the API gateway ({@code :8091}) with no browser CORS. Do not set {@code http://localhost:8091} here —
+ * that triggers cross-origin calls from {@code :4200} and CORS failures when gateway headers are stripped.
+ */
+export const LDMS_API_GATEWAY_URL = '';
+
 export const environment = {
   production: false,
-  /**
-   * Dev: `/api` — same-origin via `ng serve` proxy (`proxy.conf.json` → gateway :8091), avoids browser CORS.
-   * Override with `http://localhost:8091` only when not using the dev proxy.
-   * Prod: absolute gateway URL in `environment.prod.ts`.
-   */
-  apiUrl: '/api',
+  apiUrl: LDMS_API_GATEWAY_URL,
+  gatewayUrl: LDMS_API_GATEWAY_URL,
   useMocks: false,
-  // Temporary dev bypass for authentication integration.
-  // Keeps login local/mock while locations continue using real backend endpoints.
-  authUseMocks: true,
-  // 'system'   -> hits /<service>/v1/system/...   (no auth required, dev convenience)
-  // 'frontend' -> hits /<service>/v1/frontend/... (requires JWT auth, prod default)
-  apiSurface: 'system' as 'system' | 'frontend',
+  authUseMocks: false,
+  /**
+   * Default LDMS surface for platform self-service. Admin portal modules use {@code backoffice}
+   * explicitly in their admin services (organizations, users, locations, notifications, audit).
+   */
+  apiSurface: 'frontend' as 'system' | 'frontend' | 'backoffice',
   googleAutocompleteEnabled: false,
   googlePlacesApiKey: '',
-  /** Web client ID from Google Cloud Console; empty hides “Continue with Google” on sign-in. */
   googleOAuthClientId: '',
 } as const;
 

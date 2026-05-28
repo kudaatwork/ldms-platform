@@ -20,7 +20,11 @@ public class EmailVerificationLinkProperties {
     }
 
     public String buildVerificationLink(String token, String email) {
-        String base = normalizedBase();
+        return buildVerificationLink(portalBaseUrl, token, email);
+    }
+
+    public String buildVerificationLink(String portalBaseUrl, String token, String email) {
+        String base = normalize(portalBaseUrl);
         return base
                 + "/auth/verify-email?token="
                 + URLEncoder.encode(token, StandardCharsets.UTF_8)
@@ -29,10 +33,21 @@ public class EmailVerificationLinkProperties {
     }
 
     public String buildSignInUrl() {
-        return normalizedBase() + "/auth/login";
+        return buildSignInUrl(portalBaseUrl);
+    }
+
+    public String buildSignInUrl(String portalBaseUrl) {
+        return normalize(portalBaseUrl) + "/auth/login";
     }
 
     private String normalizedBase() {
-        return portalBaseUrl.replaceAll("/+$", "");
+        return normalize(portalBaseUrl);
+    }
+
+    private static String normalize(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "http://localhost:4200";
+        }
+        return raw.trim().replaceAll("/+$", "");
     }
 }

@@ -21,6 +21,7 @@ public interface LocationNodeRepository extends JpaRepository<LocationNode, Long
     List<LocationNode> findByParentIdAndEntityStatusNot(Long parentId, EntityStatus entityStatus);
 
     List<LocationNode> findByLocationTypeAndEntityStatusNot(LocationType locationType, EntityStatus entityStatus);
+    @EntityGraph(attributePaths = {"parent", "district"})
     Optional<LocationNode> findByIdAndLocationTypeAndEntityStatusNot(Long id, LocationType locationType, EntityStatus entityStatus);
     Optional<LocationNode> findFirstByDistrictIdAndLocationTypeAndEntityStatusNot(Long districtId, LocationType locationType, EntityStatus entityStatus);
     Optional<LocationNode> findFirstBySuburbIdAndLocationTypeAndEntityStatusNot(Long suburbId, LocationType locationType, EntityStatus entityStatus);

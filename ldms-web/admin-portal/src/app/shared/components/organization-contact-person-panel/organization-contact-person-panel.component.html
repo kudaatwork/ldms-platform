@@ -1,0 +1,169 @@
+<div class="ocpp">
+  <p class="lx-form-section-lead" *ngIf="!hasLinkedUser">
+    No contact person user is linked yet. Use <strong>Create / refresh contact person account</strong> on the Users tab after
+    saving contact details on the Overview.
+  </p>
+
+  <ng-container *ngIf="hasLinkedUser">
+    <div class="ocpp__toolbar">
+      <a mat-stroked-button color="primary" [routerLink]="userProfileRoute()">
+        <mat-icon aria-hidden="true">open_in_new</mat-icon>
+        Open full user profile
+      </a>
+    </div>
+
+    <mat-progress-bar *ngIf="loading" mode="indeterminate" aria-label="Loading contact person"></mat-progress-bar>
+
+    <div class="lx-profile-error" *ngIf="!loading && loadError === 'missingUser'" role="alert">
+      Contact person user record could not be loaded. Check user-management and try again.
+    </div>
+    <div class="lx-profile-error" *ngIf="!loading && loadError === 'requestFailed'" role="alert">
+      Could not load contact person. Check the API gateway and user-management service.
+      <button mat-stroked-button type="button" color="primary" (click)="reload()">Retry</button>
+    </div>
+
+    <ng-container *ngIf="!loading && !loadError && bundle.user as u">
+      <header class="ocpp__hero">
+        <div class="ocpp__avatar" aria-hidden="true">{{ headingName().charAt(0).toUpperCase() || '?' }}</div>
+        <div>
+          <h3 class="ocpp__title">{{ headingName() }}</h3>
+          <p class="ocpp__subtitle">{{ formatDisplay(u['email']) }} · {{ formatDisplay(u['phoneNumber']) }}</p>
+          <div class="ocpp__chips">
+            <span
+              class="lx-status"
+              [ngClass]="'lx-status-' + (u['entityStatus'] || 'active').toString().toLowerCase()"
+              >{{ formatDisplay(u['entityStatus']) }}</span
+            >
+            <span class="ocpp__chip" [class.ocpp__chip--ok]="u['emailVerified'] === true">
+              {{ u['emailVerified'] === true ? 'Email verified' : 'Email not verified' }}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <section class="ocpp__block">
+        <div class="ocpp__block-head">
+          <h4>Profile</h4>
+          <button type="button" mat-button color="primary" (click)="openEditProfile()">
+            <mat-icon aria-hidden="true">edit</mat-icon>
+            Edit profile
+          </button>
+        </div>
+        <p class="ocpp__hint">Same fields as Users management: name, email, phone, gender, date of birth, national ID, passport.</p>
+        <div class="section-grid">
+          <div class="section-row">
+            <span>Username</span>
+            <strong>{{ formatDisplay(u['username']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>First name</span>
+            <strong>{{ formatDisplay(u['firstName']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Last name</span>
+            <strong>{{ formatDisplay(u['lastName']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Email</span>
+            <strong>{{ formatDisplay(u['email']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Phone</span>
+            <strong>{{ formatDisplay(u['phoneNumber']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Gender</span>
+            <strong>{{ formatDisplay(u['gender']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Date of birth</span>
+            <strong>{{ formatDisplay(u['dateOfBirth']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>National ID</span>
+            <strong>{{ formatDisplay(u['nationalIdNumber']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Passport</span>
+            <strong>{{ formatDisplay(u['passportNumber']) }}</strong>
+          </div>
+          <ng-container *ngIf="nestedUser('userTypeDto') as ut">
+            <div class="section-row">
+              <span>User type</span>
+              <strong>{{ formatDisplay(ut['userTypeName']) }}</strong>
+            </div>
+          </ng-container>
+        </div>
+      </section>
+
+      <section class="ocpp__block">
+        <div class="ocpp__block-head">
+          <h4>Address</h4>
+          <button type="button" mat-button color="primary" [disabled]="!bundle.address" (click)="openEditAddress()">
+            <mat-icon aria-hidden="true">edit</mat-icon>
+            Edit address
+          </button>
+        </div>
+        <div class="ocpp__empty" *ngIf="!bundle.address">
+          <mat-icon aria-hidden="true">home_work</mat-icon>
+          <p>No address on this user yet.</p>
+          <a mat-stroked-button color="primary" [routerLink]="userAddressRoute()">Manage in user profile</a>
+        </div>
+        <div *ngIf="bundle.address as ad" class="section-grid">
+          <div class="section-row section-row--wide">
+            <span>Address line 1</span>
+            <strong>{{ formatDisplay(ad['line1']) }}</strong>
+          </div>
+          <div class="section-row section-row--wide">
+            <span>Address line 2</span>
+            <strong>{{ formatDisplay(ad['line2']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Postal code</span>
+            <strong>{{ formatDisplay(ad['postalCode']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Suburb id</span>
+            <strong>{{ formatDisplay(ad['suburbId']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Status</span>
+            <strong>{{ formatDisplay(ad['entityStatus']) }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="ocpp__block">
+        <div class="ocpp__block-head">
+          <h4>Account</h4>
+        </div>
+        <p class="ocpp__hint ocpp__hint--readonly">
+          Login account details are read-only here. They are created and managed when the contact person is provisioned from the
+          Users tab — not edited on this screen.
+        </p>
+        <div class="ocpp__empty" *ngIf="!bundle.account">
+          <mat-icon aria-hidden="true">manage_accounts</mat-icon>
+          <p>No login account record yet. Provision the contact person from the Users tab.</p>
+        </div>
+        <div *ngIf="bundle.account as ac" class="section-grid">
+          <div class="section-row">
+            <span>Account phone</span>
+            <strong>{{ formatDisplay(ac['phoneNumber']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Account number</span>
+            <strong>{{ formatDisplay(ac['accountNumber']) }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Locked</span>
+            <strong>{{ ac['isAccountLocked'] === true ? 'Yes' : ac['isAccountLocked'] === false ? 'No' : '—' }}</strong>
+          </div>
+          <div class="section-row">
+            <span>Last login</span>
+            <strong>{{ formatDisplay(ac['lastLoginAt']) }}</strong>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+  </ng-container>
+</div>

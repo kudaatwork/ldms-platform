@@ -117,6 +117,25 @@
   }
 }
 
+.lx-html-pad__loading,
+.lx-html-pad__load-error {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+  color: var(--gray-600, #475569);
+}
+
+.lx-html-pad__load-error {
+  color: var(--error, #dc2626);
+}
+
+.lx-html-pad-host--hidden {
+  visibility: hidden;
+  min-height: 0;
+  height: 0 !important;
+  border: none;
+  overflow: hidden;
+}
+
 .lx-html-pad-host {
   width: 100%;
   min-height: 280px;

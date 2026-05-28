@@ -900,6 +900,61 @@ export class LocationFormDialogComponent implements OnInit, OnDestroy {
       });
   }
 
+  onAddressCityChange(): void {
+    if (this.data.mode !== 'address') {
+      return;
+    }
+    const cityId = this.toNumberOrNull(this.form.get('cityId')?.value);
+    const districtId = this.toNumberOrNull(this.form.get('districtId')?.value);
+    this.form.patchValue({ settlementId: null }, { emitEvent: false });
+    this.reloadAddressSettlementOptionsForCity(districtId, cityId);
+  }
+
+  onAddressSettlementChange(): void {
+    if (this.data.mode !== 'address') {
+      return;
+    }
+    const settlementId = this.toNumberOrNull(this.form.get('settlementId')?.value);
+    if (settlementId == null) {
+      return;
+    }
+    const settlementType = String(this.form.get('settlementType')?.value ?? 'SUBURB').toUpperCase();
+    const kind = settlementType === 'VILLAGE' ? 'village' : 'suburb';
+    this.locationsService
+      .findLocationById(kind, settlementId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((row) => {
+        if (!row) {
+          return;
+        }
+        const cityId = this.toNumberOrNull(row['cityId']);
+        if (cityId == null) {
+          return;
+        }
+        const currentCityId = this.toNumberOrNull(this.form.get('cityId')?.value);
+        if (currentCityId === cityId) {
+          return;
+        }
+        this.form.patchValue({ cityId }, { emitEvent: false });
+        if (!this.cityOptions.some((o) => o.id === cityId)) {
+          this.locationsService
+            .findLocationById('city', cityId)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe((city) => {
+              if (!city) {
+                return;
+              }
+              const label = String(city['name'] ?? city['label'] ?? `City #${cityId}`);
+              this.cityOptions = [...this.cityOptions, { id: cityId, label }].sort((a, b) =>
+                a.label.localeCompare(b.label),
+              );
+              this.cdr.markForCheck();
+            });
+        }
+        this.cdr.markForCheck();
+      });
+  }
+
   onAddressDistrictChange(): void {
     const gen = ++this.addressCascadeGen;
     const districtId = this.toNumberOrNull(this.form.get('districtId')?.value);
@@ -1253,12 +1308,26 @@ export class LocationFormDialogComponent implements OnInit, OnDestroy {
   }
 
   private reloadAddressSettlementOptions(): void {
+    const districtId = this.toNumberOrNull(this.form.get('districtId')?.value);
+    const cityId = this.toNumberOrNull(this.form.get('cityId')?.value);
+    this.reloadAddressSettlementOptionsForCity(districtId, cityId);
+  }
+
+  private reloadAddressSettlementOptionsForCity(
+    districtId: number | null,
+    cityId: number | null,
+  ): void {
     if (this.data.mode !== 'address') {
       return;
     }
     const gen = ++this.addressSettlementGen;
-    const districtId = this.toNumberOrNull(this.form.get('districtId')?.value);
-    const filter: Record<string, string> = districtId != null ? { districtId: String(districtId) } : {};
+    const filter: Record<string, string> = {};
+    if (districtId != null) {
+      filter['districtId'] = String(districtId);
+    }
+    if (cityId != null) {
+      filter['cityId'] = String(cityId);
+    }
     this.addressSettlementRefreshing = true;
     forkJoin({
       suburbs: this.locationsService.fetchSuburbsForSelect(filter),

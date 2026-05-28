@@ -64,10 +64,13 @@
     </div>
   </div>
 
+  <p class="lx-html-pad__load-error" *ngIf="editorLoadError">{{ editorLoadError }}</p>
+  <p class="lx-html-pad__loading" *ngIf="editorLoading && !editorLoadError">Loading editor…</p>
   <div
     #host
     class="lx-html-pad-host"
     role="textbox"
+    [class.lx-html-pad-host--hidden]="editorLoading || editorLoadError"
     [style.height.px]="editorHeightPx"
     [attr.aria-label]="'Email HTML body'"
   ></div>

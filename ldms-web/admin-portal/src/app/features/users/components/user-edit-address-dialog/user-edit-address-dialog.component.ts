@@ -22,11 +22,11 @@ export class UserEditAddressDialogComponent {
   line2 = '';
   postalCode = '';
   suburbIdStr = '';
-  locationAddressIdStr = '';
-  geoCoordinatesIdStr = '';
+  readonly seedSuburbId: number | null;
 
   private readonly addressId: number;
   private readonly locationAddressId: number;
+  private readonly existingGeoCoordinatesId?: number;
 
   constructor(
     private readonly dialogRef: MatDialogRef<UserEditAddressDialogComponent, boolean>,
@@ -40,9 +40,14 @@ export class UserEditAddressDialogComponent {
     this.line1 = String(a['line1'] ?? '').trim();
     this.line2 = String(a['line2'] ?? '').trim();
     this.postalCode = String(a['postalCode'] ?? '').trim();
-    this.suburbIdStr = a['suburbId'] != null ? String(a['suburbId']) : '';
-    this.locationAddressIdStr = this.locationAddressId > 0 ? String(this.locationAddressId) : '';
-    this.geoCoordinatesIdStr = a['geoCoordinatesId'] != null ? String(a['geoCoordinatesId']) : '';
+    const suburbRaw = a['suburbId'];
+    const suburbNum = Number(suburbRaw ?? 0);
+    this.seedSuburbId =
+      suburbRaw != null && Number.isFinite(suburbNum) && suburbNum > 0 ? suburbNum : null;
+    this.suburbIdStr = this.seedSuburbId != null ? String(this.seedSuburbId) : '';
+    const geoRaw = Number(a['geoCoordinatesId'] ?? 0);
+    this.existingGeoCoordinatesId =
+      Number.isFinite(geoRaw) && geoRaw > 0 ? geoRaw : undefined;
   }
 
   close(): void {
@@ -61,32 +66,20 @@ export class UserEditAddressDialogComponent {
     }
     const suburbId = Number(this.suburbIdStr.trim());
     if (!Number.isFinite(suburbId)) {
-      this.error = 'Suburb id must be a valid number.';
+      this.error = 'Select a suburb using country, province, district, and city.';
       return;
     }
-    const locId = this.locationAddressIdStr.trim()
-      ? Number(this.locationAddressIdStr.trim())
-      : this.locationAddressId > 0
-        ? this.locationAddressId
-        : undefined;
-    const geoRaw = this.geoCoordinatesIdStr.trim();
-    const geoCoordinatesId = geoRaw ? Number(geoRaw) : undefined;
-    if (geoRaw && !Number.isFinite(geoCoordinatesId)) {
-      this.error = 'Geo coordinates id must be a number or empty.';
-      return;
-    }
+    const locId = this.locationAddressId > 0 ? this.locationAddressId : undefined;
     this.saving = true;
     this.usersAdmin
       .updateUserAddress({
         id: this.addressId,
-        ...(locId != null && Number.isFinite(locId) && locId > 0 ? { locationAddressId: locId } : {}),
+        ...(locId != null ? { locationAddressId: locId } : {}),
         line1: this.line1.trim(),
         ...(this.line2.trim() ? { line2: this.line2.trim() } : {}),
         postalCode: this.postalCode.trim(),
         suburbId,
-        ...(geoCoordinatesId != null && Number.isFinite(geoCoordinatesId) && geoCoordinatesId > 0
-          ? { geoCoordinatesId }
-          : {}),
+        ...(this.existingGeoCoordinatesId != null ? { geoCoordinatesId: this.existingGeoCoordinatesId } : {}),
       })
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({

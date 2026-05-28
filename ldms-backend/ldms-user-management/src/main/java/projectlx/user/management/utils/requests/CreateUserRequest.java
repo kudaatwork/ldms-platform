@@ -21,6 +21,9 @@ public class CreateUserRequest {
     private Long organizationId; // Optional link to an organization (if applicable)
     private Long branchId;       // Optional link to a branch (if applicable)
 
+    /** When true, user is an admin-portal KYC reviewer candidate (requires no organisation/branch). */
+    private Boolean organizationKycApprover;
+
     private Long locationId;
 
     // ===========================

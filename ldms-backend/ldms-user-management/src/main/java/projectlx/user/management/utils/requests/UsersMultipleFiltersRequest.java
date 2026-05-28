@@ -22,4 +22,8 @@ public class UsersMultipleFiltersRequest extends MultipleFiltersRequest {
     private String entityStatus;
     /** When set, only users whose primary user group matches this id. */
     private Long userGroupId;
+    /** When set, only users linked to this organisation id. */
+    private Long organizationId;
+    /** When set, only users linked to this branch id. */
+    private Long branchId;
 }

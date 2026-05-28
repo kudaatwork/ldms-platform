@@ -23,6 +23,7 @@ import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
 import { environment } from '../../../../../environments/environment';
 import {
   AuditLogAdminService,
+  AuditLogDto,
   AuditLogMultipleFiltersRequest,
   AuditLogResponse,
 } from '../../services/audit-log-admin.service';
@@ -364,7 +365,7 @@ export class ActivityPageComponent implements OnInit, OnDestroy {
    * Callers that go through the filter-reload switchMap pipeline get automatic cancellation;
    * direct callers (page nav, Refresh) create an independent subscription guarded by the token.
    */
-  private runRequestTableQuery(opts?: { background?: boolean }): Observable<AuditLogResponse> {
+  private runRequestTableQuery(opts?: { background?: boolean }): Observable<unknown> {
     const loadToken = ++this.requestLatestLoadToken;
     const background = opts?.background === true;
     if (!background || this.requestTotalElements === 0) {
@@ -372,18 +373,26 @@ export class ActivityPageComponent implements OnInit, OnDestroy {
     }
     const payload = this.buildRequestFiltersPayload();
 
-    return this.auditLogAdmin.findByMultipleFilters(payload).pipe(
-      tap((response) => {
-        if (loadToken === this.requestLatestLoadToken) {
-          this.applyRequestLogResponse(response);
+    return this.auditLogAdmin.queryRequestLogPage(payload).pipe(
+      tap(({ rows, totalElements }) => {
+        if (loadToken !== this.requestLatestLoadToken) {
+          return;
         }
+        if (rows.length === 0 && totalElements > 0 && this.requestPageIndex > 0) {
+          this.requestPageIndex = 0;
+          this.runRequestTableQuery({ background: true }).pipe(takeUntil(this.destroy$)).subscribe();
+          return;
+        }
+        this.applyRequestLogRows(rows, totalElements);
       }),
-      catchError((_error: HttpErrorResponse) => {
+      catchError((error: unknown) => {
         if (loadToken !== this.requestLatestLoadToken) {
           return EMPTY;
         }
         this.applyRequestRows([], 0);
-        this.snackBar.open('Failed to load request logs. Please try again.', 'Dismiss', {
+        const message =
+          error instanceof Error ? error.message : 'Failed to load request logs. Please try again.';
+        this.snackBar.open(message, 'Dismiss', {
           duration: 5000,
           panelClass: ['app-snackbar-error'],
         });
@@ -531,11 +540,8 @@ export class ActivityPageComponent implements OnInit, OnDestroy {
     };
   }
 
-  private applyRequestLogResponse(response: AuditLogResponse): void {
-    const page = response.auditLogPage;
-    const rows = page?.content ?? [];
-    const total = page?.totalElements ?? rows.length;
-    const mapped = rows.map((log) => ({
+  private applyRequestLogRows(logs: AuditLogDto[], totalElements: number): void {
+    const mapped = logs.map((log) => ({
       id: log.id ?? 0,
       action: log.action ?? '-',
       eventType: log.eventType ?? '-',
@@ -553,7 +559,7 @@ export class ActivityPageComponent implements OnInit, OnDestroy {
       responseTimestamp: typeof log.responseTimestamp === 'string' ? log.responseTimestamp : undefined,
       requestHeaders: log.requestHeaders ?? undefined,
     }));
-    this.applyRequestRows(mapped, total);
+    this.applyRequestRows(mapped, totalElements);
   }
 
   private applyRequestRows(mapped: RequestLogRow[], totalElements: number): void {

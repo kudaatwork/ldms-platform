@@ -15,6 +15,7 @@ import projectlx.user.management.utils.dtos.ImportSummary;
 import projectlx.user.management.utils.requests.CreateUserRequest;
 import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
+import projectlx.user.management.utils.requests.ProvisionOrganizationContactPersonRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
 import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
 import projectlx.user.management.utils.responses.UserResponse;
@@ -70,7 +71,8 @@ public class UserSystemResource {
     }
 
     @Auditable(action = "UPDATE_USER")
-    @PutMapping("/update")
+    @PutMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Update user details", description = "Updates an existing user's details by ID.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "User updated successfully"),
@@ -78,10 +80,27 @@ public class UserSystemResource {
             @ApiResponse(responseCode = "400", description = "Invalid request data")
     })
     public UserResponse update(@Valid @ModelAttribute final EditUserRequest editUserRequest,
+                               @RequestParam(value = "organizationKycApprover", required = false)
+                               final String organizationKycApprover,
                                @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                    @RequestHeader(value = Constants.LOCALE_LANGUAGE,
-                                           defaultValue = Constants.DEFAULT_LOCALE) final Locale locale){
+                                           defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        if (organizationKycApprover != null) {
+            editUserRequest.setOrganizationKycApprover(organizationKycApprover);
+        }
         return userServiceProcessor.update(editUserRequest, "SYSTEM", locale);
+    }
+
+    @Auditable(action = "SET_ORGANIZATION_KYC_APPROVER")
+    @PutMapping("/{id}/organization-kyc-approver")
+    @Operation(summary = "Set organisation KYC approver eligibility",
+            description = "Toggles whether an admin user (no organisation) may be assigned signup KYC reviews.")
+    public UserResponse setOrganizationKycApprover(
+            @PathVariable("id") final Long id,
+            @RequestParam("enabled") final boolean enabled,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.setOrganizationKycApprover(id, enabled, locale, "SYSTEM");
     }
 
     @Auditable(action = "FIND_USER_BY_ID")
@@ -116,6 +135,34 @@ public class UserSystemResource {
         return userServiceProcessor.findByUsername(username, locale);
     }
     
+    @Auditable(action = "LIST_ORGANIZATION_KYC_APPROVERS")
+    @GetMapping(value = "/organization-kyc-approvers")
+    @Operation(summary = "List organisation KYC approver candidates",
+            description = "Returns active admin-portal users flagged as KYC approvers with no organisation assignment.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Approvers retrieved successfully")
+    })
+    public UserResponse listOrganizationKycApprovers(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.listOrganizationKycApprovers(locale);
+    }
+
+    @Auditable(action = "PROVISION_ORGANIZATION_CONTACT_PERSON")
+    @PostMapping(value = "/provision-organization-contact-person")
+    @Operation(summary = "Provision organisation contact person user",
+            description = "Creates a pending user for the organisation contact person and sends email verification.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Contact person user provisioned"),
+            @ApiResponse(responseCode = "400", description = "Invalid request")
+    })
+    public UserResponse provisionOrganizationContactPerson(
+            @Valid @RequestBody ProvisionOrganizationContactPersonRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.provisionOrganizationContactPerson(request, locale, "SYSTEM");
+    }
+
     @Auditable(action = "FIND_USER_BY_PHONE_NUMBER_OR_EMAIL")
     @GetMapping(value = "/find-by-phone-number-or-email/{phoneNumberOrEmail}")
     @Operation(summary = "Find user by phone number or email", description = "Retrieves a user by their phone number or email.")

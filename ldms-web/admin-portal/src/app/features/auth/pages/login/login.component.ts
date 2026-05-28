@@ -25,6 +25,7 @@ export class LoginComponent implements AfterViewInit {
   error = '';
 
   readonly mockCreds = [...MOCK_DEMO_CREDENTIALS];
+  readonly showMockCredentials = environment.authUseMocks || environment.useMocks;
   readonly googleClientId = (environment.googleOAuthClientId ?? '').trim();
 
   @ViewChild('googleSignInHost', { static: false }) googleSignInHost?: ElementRef<HTMLElement>;
@@ -40,7 +41,7 @@ export class LoginComponent implements AfterViewInit {
     private readonly googleGsi: GoogleGsiService,
   ) {
     this.form = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
+      usernameOrEmail: ['', Validators.required],
       password: ['', Validators.required],
     });
     this.title.setTitle('Sign in | LX Admin');
@@ -76,8 +77,7 @@ export class LoginComponent implements AfterViewInit {
       next: () => {
         this.loading = false;
         this.cdr.markForCheck();
-        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/dashboard';
-        void this.router.navigateByUrl(returnUrl);
+        void this.router.navigate(['/dashboard'], { replaceUrl: true });
       },
       error: (e: Error) => {
         this.error = e.message ?? 'Google sign-in failed';
@@ -93,7 +93,7 @@ export class LoginComponent implements AfterViewInit {
   }
 
   fillMock(cred: MockCredential): void {
-    this.form.patchValue({ email: cred.email, password: cred.pass });
+    this.form.patchValue({ usernameOrEmail: cred.email, password: cred.pass });
     this.cdr.markForCheck();
   }
 
@@ -111,13 +111,15 @@ export class LoginComponent implements AfterViewInit {
     this.loading = true;
     this.error = '';
     this.cdr.markForCheck();
-    const { email, password } = this.form.value as { email: string; password: string };
-    this.auth.login(email, password).subscribe({
+    const { usernameOrEmail, password } = this.form.value as {
+      usernameOrEmail: string;
+      password: string;
+    };
+    this.auth.login(usernameOrEmail, password).subscribe({
       next: () => {
         this.loading = false;
         this.cdr.markForCheck();
-        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl') ?? '/dashboard';
-        void this.router.navigateByUrl(returnUrl);
+        void this.router.navigate(['/dashboard'], { replaceUrl: true });
       },
       error: (e: Error) => {
         this.error = e.message || 'Invalid credentials';
@@ -127,8 +129,8 @@ export class LoginComponent implements AfterViewInit {
     });
   }
 
-  get emailCtrl() {
-    return this.form.get('email');
+  get usernameOrEmailCtrl() {
+    return this.form.get('usernameOrEmail');
   }
 
   get passCtrl() {

@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
+import { AuthGuard } from './core/guards/auth.guard';
 import { ClassificationGuard } from './core/guards/classification.guard';
 import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.component';
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
@@ -14,13 +15,17 @@ const routes: Routes = [
     loadChildren: () => import('./features/signup/signup.module').then((m) => m.SignupModule),
   },
   {
+    path: 'onboarding',
+    loadChildren: () => import('./features/onboarding/onboarding.module').then((m) => m.OnboardingModule),
+  },
+  {
     path: 'auth',
     loadChildren: () => import('./features/auth/auth.module').then((m) => m.AuthModule),
   },
   { path: '', pathMatch: 'full', redirectTo: 'welcome' },
   {
     path: '',
-    canActivate: [ClassificationGuard],
+    canActivate: [AuthGuard, ClassificationGuard],
     component: ShellLayoutComponent,
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },

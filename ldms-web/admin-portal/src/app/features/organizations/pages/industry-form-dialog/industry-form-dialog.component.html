@@ -1,0 +1,105 @@
+<div class="lx-dialog-shell" [class.is-edit]="isEdit" [class.is-view]="isView">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
+    <div class="lx-form-grid">
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Industry name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required')">
+          <mat-icon class="lx-input-shell__icon">factory</mat-icon>
+          <input formControlName="name" placeholder="e.g. Logistics &amp; freight" />
+        </div>
+        <div class="lx-field-hint">Display name as it appears in dropdowns and organisation lists.</div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Industry code</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+          <input formControlName="industryCode" placeholder="e.g. LOGISTICS" maxlength="50" />
+        </div>
+        <div class="lx-field-hint">Short reporting code (optional).</div>
+      </div>
+
+      <div class="lx-field lx-field--toggle">
+        <label class="lx-field-label">Status</label>
+        <mat-slide-toggle formControlName="active" color="primary">Active</mat-slide-toggle>
+        <div class="lx-field-hint">Inactive sectors are hidden from registration dropdowns.</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Description</label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="description" rows="2" placeholder="Short sector description"></textarea>
+        </div>
+        <div class="lx-field-hint">Optional summary for admins reviewing this sector.</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Regulatory body</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">account_balance</mat-icon>
+          <input formControlName="regulatoryBodyName" placeholder="e.g. Ministry of Transport" maxlength="200" />
+        </div>
+        <div class="lx-field-hint">Authority overseeing compliance for this sector (optional).</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Regulatory contact</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">contact_mail</mat-icon>
+          <input formControlName="regulatoryBodyContactInfo" placeholder="Email or phone" maxlength="300" />
+        </div>
+        <div class="lx-field-hint">How to reach the regulatory body (optional).</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Compliance requirements</label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">gavel</mat-icon>
+          <textarea
+            formControlName="complianceRequirements"
+            rows="3"
+            placeholder="Licences, permits, or filing obligations"
+            maxlength="1000"
+          ></textarea>
+        </div>
+        <div class="lx-field-hint">Licences, permits, or filing obligations (optional).</div>
+      </div>
+    </div>
+
+    <p class="lx-form-error" *ngIf="saveError">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ saveError }}</span>
+    </p>
+
+    <div class="lx-step-actions">
+      <button mat-stroked-button type="button" (click)="cancel()" [disabled]="submitting">
+        {{ isView ? 'Close' : 'Cancel' }}
+      </button>
+      <button
+        *ngIf="!isView"
+        mat-raised-button
+        color="primary"
+        type="submit"
+        [disabled]="form.invalid || submitting"
+      >
+        <span *ngIf="!submitting" class="lx-cta-content">{{ primaryActionLabel }}</span>
+        <span *ngIf="submitting" class="lx-cta-content lx-cta-loading">
+          <span class="lx-btn-loader"></span>
+          {{ primaryActionLoadingLabel }}
+        </span>
+      </button>
+    </div>
+  </form>
+</div>

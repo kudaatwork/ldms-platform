@@ -54,6 +54,8 @@ public class OrganizationDto {
 
     private OrganizationClassification organizationClassification;
     private Long industryId;
+    private String industryName;
+    private String industryCode;
 
     // Contact Person Details
     private String contactPersonFirstName;
@@ -67,6 +69,8 @@ public class OrganizationDto {
     private String contactPersonPassportNumber;
     private Long contactPersonPassportUploadId;
     private String contactPersonDateOfBirth;
+    /** User-management user id for the organisation contact person (portal login). */
+    private Long contactPersonUserId;
 
     // Verification Artifacts
     private String registrationNumber;
@@ -135,10 +139,25 @@ public class OrganizationDto {
     // Account Manager
     private Long assignedAccountManagerUserId;
 
+    /** Pre-assigned stage-1 KYC reviewer (signup organisations only). */
+    private Long assignedStage1ApproverUserId;
+    private String assignedStage1ApproverUsername;
+    private String assignedStage1ApproverDisplayName;
+    /** Pre-assigned stage-2 KYC reviewer (signup organisations only). */
+    private Long assignedStage2ApproverUserId;
+    private String assignedStage2ApproverUsername;
+    private String assignedStage2ApproverDisplayName;
+
     // System Metadata
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private EntityStatus entityStatus;
     private List<BranchDto> branchDtoList;
     private List<AgentDto> agentDtoList;
+
+    /** Linked customer organisations (e.g. supplier → customers); non-deleted only when populated server-side. */
+    private List<OrganizationDto> customerDtoList;
+
+    /** Contracted transporter organisations linked to this organisation. */
+    private List<OrganizationDto> contractedTransporterDtoList;
 }

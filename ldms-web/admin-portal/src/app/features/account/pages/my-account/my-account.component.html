@@ -1,0 +1,82 @@
+<div class="lx-page my-account-page">
+  <div class="my-account-hero lx-card">
+    <div class="my-account-hero__avatar">{{ initials() }}</div>
+    <div class="my-account-hero__meta">
+      <h2>{{ headingName() }}</h2>
+      <p>{{ formatDisplay(bundle.user?.['email']) }}</p>
+      <div class="my-account-hero__chips">
+        <span class="my-chip">{{ formatDisplay(bundle.user?.['username']) }}</span>
+        <span class="my-chip">{{ formatDisplay(bundle.user?.['entityStatus']) }}</span>
+      </div>
+    </div>
+    <div class="my-account-hero__actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()">Refresh</button>
+      <button type="button" class="lx-btn lx-btn-primary" (click)="openEditProfile()">Edit profile</button>
+    </div>
+  </div>
+
+  <lx-table-loading [busy]="loading" message="Loading your account..."></lx-table-loading>
+  <div class="lx-empty" *ngIf="!loading && loadError">
+    <mat-icon class="lx-empty-icon">error_outline</mat-icon>
+    <div class="lx-empty-title">Unable to load account</div>
+    <div class="lx-empty-sub">{{ loadError }}</div>
+  </div>
+
+  <ng-container *ngIf="!loading && !loadError && bundle.user">
+    <div class="my-grid">
+      <section class="lx-card my-card">
+        <header class="my-card__head">
+          <h3>Profile details</h3>
+          <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditProfile()">Edit</button>
+        </header>
+        <div class="my-fields">
+          <div><label>First name</label><span>{{ formatDisplay(bundle.user['firstName']) }}</span></div>
+          <div><label>Last name</label><span>{{ formatDisplay(bundle.user['lastName']) }}</span></div>
+          <div><label>Gender</label><span>{{ formatDisplay(bundle.user['gender']) }}</span></div>
+          <div><label>Date of birth</label><span>{{ formatDisplay(bundle.user['dateOfBirth']) }}</span></div>
+          <div><label>Phone number</label><span>{{ formatDisplay(bundle.user['phoneNumber']) }}</span></div>
+          <div><label>Email verified</label><span>{{ formatDisplay(bundle.user['emailVerified']) }}</span></div>
+        </div>
+      </section>
+
+      <section class="lx-card my-card">
+        <header class="my-card__head">
+          <h3>Account settings</h3>
+          <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditAccount()">Edit</button>
+        </header>
+        <div class="my-fields">
+          <div><label>Account number</label><span>{{ formatDisplay(bundle.account?.['accountNumber']) }}</span></div>
+          <div><label>Account status</label><span>{{ formatDisplay(bundle.account?.['accountStatus']) }}</span></div>
+          <div><label>Account locked</label><span>{{ formatDisplay(bundle.account?.['isAccountLocked']) }}</span></div>
+          <div><label>Phone (account)</label><span>{{ formatDisplay(bundle.account?.['phoneNumber']) }}</span></div>
+        </div>
+      </section>
+
+      <section class="lx-card my-card">
+        <header class="my-card__head">
+          <h3>Security & recovery</h3>
+          <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditSecurity()">Edit</button>
+        </header>
+        <div class="my-fields">
+          <div><label>2FA enabled</label><span>{{ formatDisplay(bundle.security?.['isTwoFactorEnabled']) }}</span></div>
+          <div><label>Security question 1</label><span>{{ formatDisplay(bundle.security?.['securityQuestion_1']) }}</span></div>
+          <div><label>Security question 2</label><span>{{ formatDisplay(bundle.security?.['securityQuestion_2']) }}</span></div>
+          <div><label>Last updated</label><span>{{ formatDisplay(bundle.security?.['updatedAt']) }}</span></div>
+        </div>
+      </section>
+
+      <section class="lx-card my-card">
+        <header class="my-card__head">
+          <h3>Address</h3>
+          <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditAddress()">Edit</button>
+        </header>
+        <div class="my-fields">
+          <div><label>Line 1</label><span>{{ formatDisplay(bundle.address?.['line1']) }}</span></div>
+          <div><label>Line 2</label><span>{{ formatDisplay(bundle.address?.['line2']) }}</span></div>
+          <div><label>Postal code</label><span>{{ formatDisplay(bundle.address?.['postalCode']) }}</span></div>
+          <div><label>Suburb ID</label><span>{{ formatDisplay(bundle.address?.['suburbId']) }}</span></div>
+        </div>
+      </section>
+    </div>
+  </ng-container>
+</div>

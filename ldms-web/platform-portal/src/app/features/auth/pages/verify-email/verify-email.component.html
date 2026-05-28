@@ -1,0 +1,11 @@
+<div class="ve-root">
+  <div class="ve-card lx-card">
+    <div class="ve-icon" [class.ve-icon--ok]="outcome !== 'error'">
+      <span class="material-icons" aria-hidden="true">{{ outcome === 'error' ? 'error_outline' : 'mark_email_read' }}</span>
+    </div>
+    <h1 class="ve-title">Email verification</h1>
+    <p class="ve-msg" *ngIf="!loading">{{ message }}</p>
+    <p class="ve-msg" *ngIf="loading">Verifying your email…</p>
+    <button type="button" class="lx-btn lx-btn-primary" (click)="goLogin()" [disabled]="loading">Continue to sign in</button>
+  </div>
+</div>

@@ -1,10 +1,15 @@
 package projectlx.co.zw.organizationmanagement.repository;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import projectlx.co.zw.organizationmanagement.model.Industry;
+import projectlx.co.zw.organizationmanagement.model.KycStatus;
 import projectlx.co.zw.organizationmanagement.model.Organization;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface OrganizationRepository extends JpaRepository<Organization, Long>, JpaSpecificationExecutor<Organization> {
@@ -13,4 +18,20 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
     Optional<Organization> findByEmail(String email);
 
     Optional<Organization> findByIdAndEntityStatusNot(Long id, EntityStatus deleted);
+
+    long countByIndustryAndEntityStatusNot(Industry industry, EntityStatus deleted);
+
+    long countByIndustryAndIsVerifiedTrueAndEntityStatusNot(Industry industry, EntityStatus deleted);
+
+    List<Organization> findByIndustryAndEntityStatusNotOrderByNameAsc(Industry industry, EntityStatus deleted, Pageable pageable);
+
+    long countByAssignedStage1ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
+            Long assignedStage1ApproverUserId,
+            Collection<KycStatus> kycStatuses,
+            EntityStatus entityStatus);
+
+    long countByAssignedStage2ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
+            Long assignedStage2ApproverUserId,
+            Collection<KycStatus> kycStatuses,
+            EntityStatus entityStatus);
 }

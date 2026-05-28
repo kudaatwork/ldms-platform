@@ -7,20 +7,17 @@ import {
   ViewChild,
 } from '@angular/core';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
+import type { Compartment } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {
   normalizeNotificationEmailMarkup,
   toNotificationEmailPreviewHtml,
 } from '../../utils/notification-email-preview.util';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { html } from '@codemirror/lang-html';
-import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
-import { Compartment, EditorState } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
-import { basicSetup } from 'codemirror';
-import { tags } from '@lezer/highlight';
-import * as prettier from 'prettier/standalone';
-import prettierHtml from 'prettier/plugins/html';
-import prettierPostcss from 'prettier/plugins/postcss';
+import {
+  loadNotificationEmailEditorDeps,
+  type NotificationEmailEditorDeps,
+} from './notification-email-editor-deps.loader';
 
 @Component({
   selector: 'app-notification-email-html-pad',
@@ -51,10 +48,13 @@ export class NotificationEmailHtmlPadComponent
   previewHeightPx = 420;
   syntaxState: 'unknown' | 'ok' | 'error' = 'unknown';
   syntaxMessage = 'Run validation';
+  editorLoading = true;
+  editorLoadError: string | null = null;
 
+  private deps: NotificationEmailEditorDeps | null = null;
   private view: EditorView | null = null;
-  private readonly editableCompartment = new Compartment();
-  private readonly wrapCompartment = new Compartment();
+  private editableCompartment: Compartment | null = null;
+  private wrapCompartment: Compartment | null = null;
   private value = '';
   isDisabled = false;
   editorHeightPx = 280;
@@ -68,7 +68,7 @@ export class NotificationEmailHtmlPadComponent
   constructor(private readonly sanitizer: DomSanitizer) {}
 
   ngAfterViewInit(): void {
-    this.createView();
+    void this.initEditor();
   }
 
   ngOnDestroy(): void {
@@ -109,11 +109,13 @@ export class NotificationEmailHtmlPadComponent
 
   setDisabledState(isDisabled: boolean): void {
     this.isDisabled = isDisabled;
-    if (!this.view) {
+    if (!this.view || !this.deps || !this.editableCompartment) {
       return;
     }
     this.view.dispatch({
-      effects: this.editableCompartment.reconfigure(EditorView.editable.of(!isDisabled)),
+      effects: this.editableCompartment.reconfigure(
+        this.deps.EditorView.editable.of(!isDisabled),
+      ),
     });
   }
 
@@ -134,12 +136,12 @@ export class NotificationEmailHtmlPadComponent
 
   toggleWrap(): void {
     this.wrapEnabled = !this.wrapEnabled;
-    if (!this.view) {
+    if (!this.view || !this.deps || !this.wrapCompartment) {
       return;
     }
     this.view.dispatch({
       effects: this.wrapCompartment.reconfigure(
-        this.wrapEnabled ? EditorView.lineWrapping : [],
+        this.wrapEnabled ? this.deps.EditorView.lineWrapping : [],
       ),
     });
   }
@@ -156,16 +158,16 @@ export class NotificationEmailHtmlPadComponent
 
   async formatAll(): Promise<void> {
     const source = this.view?.state.doc.toString() ?? this.value;
-    if (!source.trim()) {
+    if (!source.trim() || !this.deps) {
       return;
     }
     this.formatting = true;
     try {
       const normalized = this.normalizeMarkup(source);
       const withCss = await this.formatCssInSource(normalized);
-      const pretty = await prettier.format(withCss, {
+      const pretty = await this.deps.prettierFormat(withCss, {
         parser: 'html',
-        plugins: [prettierHtml, prettierPostcss],
+        plugins: [this.deps.prettierHtmlPlugin, this.deps.prettierPostcssPlugin],
         printWidth: 110,
         tabWidth: 2,
         useTabs: false,
@@ -181,15 +183,15 @@ export class NotificationEmailHtmlPadComponent
 
   async formatHtml(): Promise<void> {
     const source = this.view?.state.doc.toString() ?? this.value;
-    if (!source.trim()) {
+    if (!source.trim() || !this.deps) {
       return;
     }
 
     this.formatting = true;
     try {
-      const pretty = await prettier.format(this.normalizeMarkup(source), {
+      const pretty = await this.deps.prettierFormat(this.normalizeMarkup(source), {
         parser: 'html',
-        plugins: [prettierHtml, prettierPostcss],
+        plugins: [this.deps.prettierHtmlPlugin, this.deps.prettierPostcssPlugin],
         printWidth: 110,
         tabWidth: 2,
         useTabs: false,
@@ -197,7 +199,6 @@ export class NotificationEmailHtmlPadComponent
       this.replaceDoc(pretty.trim());
       await this.validateSyntax();
     } catch (error) {
-      // Keep this non-fatal so users can continue editing even with malformed snippets.
       console.warn('Failed to format HTML', error);
     } finally {
       this.formatting = false;
@@ -206,7 +207,7 @@ export class NotificationEmailHtmlPadComponent
 
   async formatCssBlocks(): Promise<void> {
     const source = this.view?.state.doc.toString() ?? this.value;
-    if (!source.trim()) {
+    if (!source.trim() || !this.deps) {
       return;
     }
 
@@ -229,6 +230,9 @@ export class NotificationEmailHtmlPadComponent
       this.syntaxMessage = 'Run validation';
       return;
     }
+    if (!this.deps) {
+      return;
+    }
 
     try {
       await this.validateHtmlTolerant(source);
@@ -241,24 +245,50 @@ export class NotificationEmailHtmlPadComponent
     }
   }
 
-  private async validateHtmlTolerant(source: string): Promise<void> {
+  onPreviewLoaded(): void {
+    this.attachPreviewWatchers();
+    this.adjustPreviewHeight();
+  }
+
+  private async initEditor(): Promise<void> {
+    this.editorLoading = true;
+    this.editorLoadError = null;
     try {
-      await prettier.format(source, {
+      this.deps = await loadNotificationEmailEditorDeps();
+      this.editableCompartment = new this.deps.Compartment();
+      this.wrapCompartment = new this.deps.Compartment();
+      this.createView();
+      this.editorLoading = false;
+    } catch (error) {
+      this.editorLoading = false;
+      this.editorLoadError = 'Could not load the HTML editor. Refresh the page and try again.';
+      console.error('Notification email editor failed to load', error);
+    }
+  }
+
+  private async validateHtmlTolerant(source: string): Promise<void> {
+    if (!this.deps) {
+      return;
+    }
+    try {
+      await this.deps.prettierFormat(source, {
         parser: 'html',
-        plugins: [prettierHtml, prettierPostcss],
+        plugins: [this.deps.prettierHtmlPlugin, this.deps.prettierPostcssPlugin],
       });
       return;
     } catch {
-      // Handlebars placeholders can confuse strict parsing in edge cases.
       const placeholderSafe = source.replace(/\{\{[\s\S]*?\}\}/g, 'TEMPLATE_VAR');
-      await prettier.format(placeholderSafe, {
+      await this.deps.prettierFormat(placeholderSafe, {
         parser: 'html',
-        plugins: [prettierHtml, prettierPostcss],
+        plugins: [this.deps.prettierHtmlPlugin, this.deps.prettierPostcssPlugin],
       });
     }
   }
 
   private async validateCssInSource(source: string): Promise<void> {
+    if (!this.deps) {
+      return;
+    }
     const re = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
     const matches = Array.from(source.matchAll(re));
     for (const m of matches) {
@@ -266,9 +296,9 @@ export class NotificationEmailHtmlPadComponent
       if (!cssSource) {
         continue;
       }
-      await prettier.format(cssSource, {
+      await this.deps.prettierFormat(cssSource, {
         parser: 'css',
-        plugins: [prettierPostcss],
+        plugins: [this.deps.prettierPostcssPlugin],
       });
     }
   }
@@ -282,6 +312,9 @@ export class NotificationEmailHtmlPadComponent
   }
 
   private async formatCssInSource(source: string): Promise<string> {
+    if (!this.deps) {
+      return source;
+    }
     const re = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
     const matches = Array.from(source.matchAll(re));
     if (!matches.length) {
@@ -292,9 +325,9 @@ export class NotificationEmailHtmlPadComponent
     for (const m of matches) {
       const full = m[0];
       const cssSource = m[1] ?? '';
-      const cssPretty = await prettier.format(cssSource, {
+      const cssPretty = await this.deps.prettierFormat(cssSource, {
         parser: 'css',
-        plugins: [prettierPostcss],
+        plugins: [this.deps.prettierPostcssPlugin],
         printWidth: 100,
         tabWidth: 2,
         useTabs: false,
@@ -337,11 +370,6 @@ export class NotificationEmailHtmlPadComponent
     return toNotificationEmailPreviewHtml(input);
   }
 
-  onPreviewLoaded(): void {
-    this.attachPreviewWatchers();
-    this.adjustPreviewHeight();
-  }
-
   private adjustPreviewHeight(): void {
     const frame = this.previewFrame?.nativeElement;
     if (!frame) {
@@ -363,7 +391,6 @@ export class NotificationEmailHtmlPadComponent
         docEl?.offsetHeight ?? 0,
         docEl?.clientHeight ?? 0,
       );
-      // Keep preview practical but show complete email layout by default.
       this.previewHeightPx = Math.min(1200, Math.max(420, contentHeight + 16));
     } catch {
       // Ignore cross-context iframe reads (shouldn't happen for srcdoc).
@@ -416,7 +443,14 @@ export class NotificationEmailHtmlPadComponent
   }
 
   private createView(): void {
-    const updateListener = EditorView.updateListener.of((u) => {
+    const deps = this.deps;
+    const editableCompartment = this.editableCompartment;
+    const wrapCompartment = this.wrapCompartment;
+    if (!deps || !editableCompartment || !wrapCompartment) {
+      return;
+    }
+
+    const updateListener = deps.EditorView.updateListener.of((u) => {
       if (u.docChanged) {
         const s = u.state.doc.toString();
         this.value = s;
@@ -429,7 +463,7 @@ export class NotificationEmailHtmlPadComponent
       }
     });
 
-    const polishedTheme = EditorView.theme({
+    const polishedTheme = deps.EditorView.theme({
       '&': {
         height: '100%',
         fontSize: '12.5px',
@@ -461,26 +495,26 @@ export class NotificationEmailHtmlPadComponent
       },
     });
 
-    const polishedHighlight = HighlightStyle.define([
-      { tag: tags.comment, color: '#64748b', fontStyle: 'italic' },
-      { tag: tags.string, color: '#16a34a' },
-      { tag: [tags.number, tags.bool], color: '#0ea5e9' },
-      { tag: [tags.keyword, tags.atom], color: '#8b5cf6' },
-      { tag: [tags.tagName, tags.className], color: '#2563eb' },
-      { tag: [tags.attributeName, tags.propertyName], color: '#f97316' },
-      { tag: [tags.operator, tags.punctuation], color: '#94a3b8' },
+    const polishedHighlight = deps.HighlightStyle.define([
+      { tag: deps.tags.comment, color: '#64748b', fontStyle: 'italic' },
+      { tag: deps.tags.string, color: '#16a34a' },
+      { tag: [deps.tags.number, deps.tags.bool], color: '#0ea5e9' },
+      { tag: [deps.tags.keyword, deps.tags.atom], color: '#8b5cf6' },
+      { tag: [deps.tags.tagName, deps.tags.className], color: '#2563eb' },
+      { tag: [deps.tags.attributeName, deps.tags.propertyName], color: '#f97316' },
+      { tag: [deps.tags.operator, deps.tags.punctuation], color: '#94a3b8' },
     ]);
 
-    this.view = new EditorView({
+    this.view = new deps.EditorView({
       parent: this.host.nativeElement,
-      state: EditorState.create({
+      state: deps.EditorState.create({
         doc: this.value,
         extensions: [
-          basicSetup,
-          html(),
-          syntaxHighlighting(polishedHighlight),
-          this.editableCompartment.of(EditorView.editable.of(!this.isDisabled)),
-          this.wrapCompartment.of(EditorView.lineWrapping),
+          deps.basicSetup,
+          deps.html(),
+          deps.syntaxHighlighting(polishedHighlight),
+          editableCompartment.of(deps.EditorView.editable.of(!this.isDisabled)),
+          wrapCompartment.of(deps.EditorView.lineWrapping),
           updateListener,
           polishedTheme,
         ],

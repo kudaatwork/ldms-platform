@@ -92,12 +92,14 @@ server:
 
 clients:
   base-url:
-    # With profile dev, ldms.dev.force-local-feign-clients=true (see second document below) makes the Locations
-    # and File Upload Feign clients use localhost ports instead of Docker-only hostnames from Config Server.
-    # Override with CLIENTS_LOCATION_SERVICE_URL / CLIENTS_FILE_UPLOAD_SERVICE_URL, or set ldms.dev.force-local-feign-clients=false.
-    locationService: ${CLIENTS_LOCATION_SERVICE_URL:http://${LOCATION_SERVICE_HOST:127.0.0.1}:${LOCATION_MANAGEMENT_SERVER_PORT:8084}}
-    # Host:port only; paths are on FileUploadServiceClient (/ldms-file-upload-service/v1/system/file-upload/…).
-    fileUploadService: ${CLIENTS_FILE_UPLOAD_SERVICE_URL:http://${DOCUMENTS_SERVICE_HOST:127.0.0.1}:${DOCUMENTS_FILE_UPLOAD_SERVER_PORT:8085}}
+    # Feign calls go through the API gateway (8091), not :4200 (UI) or bare microservice ports.
+    apiGateway: ${CLIENTS_API_GATEWAY_URL:http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}}
+    locationService: ${CLIENTS_LOCATION_SERVICE_URL:http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}}
+    fileUploadService: ${CLIENTS_FILE_UPLOAD_SERVICE_URL:http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}}
+
+CLIENTS_API_GATEWAY_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+CLIENTS_LOCATION_SERVICE_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+CLIENTS_FILE_UPLOAD_SERVICE_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
 
 constants:
   max-image-size: ${CONSTANTS_MAX_IMAGE_SIZE:15MB}
@@ -120,11 +122,15 @@ eureka:
     lease-expiration-duration-in-seconds: 30
 
 jwt:
-  secret: ${JWT_SECRET:dev-jwt-secret-change-me-please-override}
+  secret: ${JWT_SECRET:LDMS-local-dev-jwt-secret-at-least-thirty-two-chars-long}
   access-token-expiration-ms: 900000
   refresh-token-expiration-ms: 604800000
 
 ldms:
+  roles:
+    sync-on-startup: ${LDMS_ROLES_SYNC_ON_STARTUP:true}
+  api-gateway:
+    base-url: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
   audit:
     enabled: true
   audit-rabbitmq:
@@ -133,6 +139,9 @@ ldms:
   user:
     # Admin portal base URL (no trailing slash). Used in registration verification emails.
     portal-base-url: ${LDMS_USER_PORTAL_BASE_URL:http://localhost:4200}
+    admin-portal-base-url: ${LDMS_USER_ADMIN_PORTAL_BASE_URL:http://localhost:4200}
+    # Platform portal for organisation contact persons (signup / KYC self-service).
+    organization-contact-portal-base-url: ${LDMS_ORGANIZATION_CONTACT_PORTAL_BASE_URL:http://localhost:4201}
     password:
       expiry-days: 90
       history-count: 5

@@ -19,12 +19,13 @@ public final class LdmsFeignUrls {
             return trimTrailingSlash(explicit.trim());
         }
         if (Boolean.parseBoolean(env.getProperty("ldms.dev.force-local-feign-clients", "false"))) {
-            String host = env.getProperty("LOCATION_SERVICE_HOST", "127.0.0.1");
-            String port = env.getProperty("LOCATION_MANAGEMENT_SERVER_PORT", "8084");
-            return "http://" + host + ":" + port;
+            return resolveApiGatewayBaseUrl(env);
         }
-        String configured = env.getProperty("clients.base-url.locationService", "http://127.0.0.1:8084");
-        return trimTrailingSlash(configured);
+        String configured = env.getProperty("clients.base-url.locationService");
+        if (configured != null && !configured.isBlank()) {
+            return trimTrailingSlash(configured);
+        }
+        return resolveApiGatewayBaseUrl(env);
     }
 
     /**
@@ -37,12 +38,32 @@ public final class LdmsFeignUrls {
             return extractHttpOrigin(trimTrailingSlash(explicit.trim()));
         }
         if (Boolean.parseBoolean(env.getProperty("ldms.dev.force-local-feign-clients", "false"))) {
-            String host = env.getProperty("DOCUMENTS_SERVICE_HOST", "127.0.0.1");
-            String port = env.getProperty("DOCUMENTS_FILE_UPLOAD_SERVER_PORT", "8085");
-            return "http://" + host + ":" + port;
+            return resolveApiGatewayBaseUrl(env);
         }
-        String configured = env.getProperty("clients.base-url.fileUploadService", "http://127.0.0.1:8085");
-        return extractHttpOrigin(trimTrailingSlash(configured));
+        String configured = env.getProperty("clients.base-url.fileUploadService");
+        if (configured != null && !configured.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(configured));
+        }
+        return resolveApiGatewayBaseUrl(env);
+    }
+
+    /** API gateway origin (default {@code :8091}). Never the Angular dev server ({@code :4200}). */
+    public static String resolveApiGatewayBaseUrl(Environment env) {
+        String explicit = env.getProperty("CLIENTS_API_GATEWAY_URL");
+        if (explicit != null && !explicit.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(explicit.trim()));
+        }
+        String configured = env.getProperty("clients.base-url.apiGateway");
+        if (configured != null && !configured.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(configured));
+        }
+        String ldmsGateway = env.getProperty("ldms.api-gateway.base-url");
+        if (ldmsGateway != null && !ldmsGateway.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(ldmsGateway));
+        }
+        String host = env.getProperty("API_GATEWAY_HOST", "127.0.0.1");
+        String port = env.getProperty("GATEWAY_SERVER_PORT", "8091");
+        return "http://" + host + ":" + port;
     }
 
     private static String extractHttpOrigin(String url) {
