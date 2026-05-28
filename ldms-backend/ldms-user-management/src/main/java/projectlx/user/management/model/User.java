@@ -35,8 +35,15 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;                      // Unique identifier for the user
 
-    private Long organizationId;          // Organization ID for the user
-    private Long branchId;                // Branch ID for the user
+    @jakarta.persistence.Column(name = "organization_id")
+    private Long organizationId;
+
+    @jakarta.persistence.Column(name = "branch_id")
+    private Long branchId;
+
+    /** Admin-portal user eligible to review organisation KYC (must have no organisation assignment). */
+    @jakarta.persistence.Column(name = "organization_kyc_approver", nullable = false)
+    private boolean organizationKycApprover;
 
     private String username;              // Unique username for login
     private String email;                 // User's email address

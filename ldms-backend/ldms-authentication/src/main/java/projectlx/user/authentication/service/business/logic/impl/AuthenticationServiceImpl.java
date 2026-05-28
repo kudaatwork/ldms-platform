@@ -13,9 +13,12 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.jwt.JwtException;
 import projectlx.co.zw.shared_library.business.logic.api.JwtService;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import projectlx.co.zw.shared_library.utils.dtos.UserDto;
 import projectlx.co.zw.shared_library.utils.responses.UserResponse;
 import projectlx.user.authentication.service.business.auditable.api.AuthenticationServiceAuditable;
 import projectlx.user.authentication.service.business.logic.api.AuthenticationService;
+import projectlx.user.authentication.service.business.logic.support.LoginIdentifierResolver;
+import projectlx.user.authentication.service.business.logic.support.ResolvedLogin;
 import projectlx.user.authentication.service.business.validator.api.AuthenticationServiceValidator;
 import projectlx.user.authentication.service.clients.UserManagementServiceClient;
 import projectlx.user.authentication.service.model.Token;
@@ -28,9 +31,13 @@ import projectlx.user.authentication.service.utils.requests.AuthRequest;
 import projectlx.user.authentication.service.utils.requests.GoogleLoginRequest;
 import projectlx.user.authentication.service.utils.requests.RefreshTokenRequest;
 import projectlx.user.authentication.service.utils.responses.AuthResponse;
+import feign.FeignException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import org.springframework.util.StringUtils;
 
 @RequiredArgsConstructor
 public class AuthenticationServiceImpl implements AuthenticationService {
@@ -63,31 +70,49 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     null, null, null);
         }
 
+        final String loginId = authRequest.getUsername().trim();
+        final ResolvedLogin resolvedLogin;
         try {
-
-            Authentication auth = authManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(authRequest.getUsername(),
-                            authRequest.getPassword())
-            );
-
-        } catch (Exception ex) {
-            logger.error("Error occurred while authenticating user", ex);
+            resolvedLogin = LoginIdentifierResolver.resolve(userManagementServiceClient, loginId);
+        } catch (FeignException ex) {
+            logger.error("User management unavailable while resolving login id", ex);
+            message = "User management service is unavailable. Start ldms-user-management (port 8086) and retry.";
+            return buildAuthResponse(503, false, message, null, null, null, null, null);
+        }
+        if (resolvedLogin == null || !StringUtils.hasText(resolvedLogin.username())) {
+            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_INVALID_REQUEST.getCode(),
+                    new String[]{}, locale);
+            return buildAuthResponse(401, false, message, null, null, null, null, null);
         }
 
-        UserDetails user = userDetailsService.loadUserByUsername(authRequest.getUsername());
+        final String resolvedUsername = resolvedLogin.username();
+        try {
+            Authentication authentication = authManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(resolvedUsername, authRequest.getPassword()));
+            UserDetails user = (UserDetails) authentication.getPrincipal();
+            Map<String, Object> claims = buildTokenClaims(resolvedLogin.userDto(), resolvedUsername);
 
-        String accessToken = jwtService.generateToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
+            String accessToken = jwtService.generateToken(user, claims);
+            String refreshToken = jwtService.generateRefreshToken(user);
 
-        Token refreshTokenToBeSaved = buildToken(refreshToken, authRequest.getUsername());
-        Token tokenSaved = authenticationServiceAuditable.create(refreshTokenToBeSaved,
-                locale, username);
+            Token refreshTokenToBeSaved = buildToken(refreshToken, resolvedUsername);
+            authenticationServiceAuditable.create(refreshTokenToBeSaved, locale, username);
 
-        message = messageService.getMessage(I18Code.MESSAGE_USER_AUTHENTICATED_SUCCESSFULLY.getCode(),
-                new String[]{}, locale);
+            message = messageService.getMessage(I18Code.MESSAGE_USER_AUTHENTICATED_SUCCESSFULLY.getCode(),
+                    new String[]{}, locale);
 
-        return buildAuthResponse(200, true, message,null, null,
-                null, accessToken, refreshToken);
+            return buildAuthResponse(200, true, message, null, null,
+                    null, accessToken, refreshToken);
+        } catch (FeignException ex) {
+            logger.error("User management unavailable during login for {}", resolvedUsername, ex);
+            message = "User management service is unavailable. Start ldms-user-management (port 8086) and retry.";
+            return buildAuthResponse(503, false, message, null, null, null, null, null);
+        } catch (Exception ex) {
+            logger.warn("Authentication failed for {}: {}", resolvedUsername, ex.getMessage());
+            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_INVALID_REQUEST.getCode(),
+                    new String[]{}, locale);
+            return buildAuthResponse(401, false, message, null, null, null, null, null);
+        }
     }
 
     @Override
@@ -133,8 +158,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
 
         String usernameRetrieved = jwtService.extractUsername(refreshTokenRequest.getRefreshToken());
         UserDetails userDetails = userDetailsService.loadUserByUsername(usernameRetrieved);
+        Map<String, Object> claims = buildTokenClaims(null, usernameRetrieved);
 
-        String newAccessToken = jwtService.generateToken(userDetails);
+        String newAccessToken = jwtService.generateToken(userDetails, claims);
 
         message = messageService.getMessage(I18Code.MESSAGE_REFRESH_TOKEN_REFRESHED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -211,7 +237,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                     new String[] {}, locale);
             return buildAuthResponse(404, false, message, null, null, null, null, null);
         }
-        String accessToken = jwtService.generateToken(user);
+        Map<String, Object> claims = buildTokenClaims(userResponse.getUserDto(), ldmsUsername);
+        String accessToken = jwtService.generateToken(user, claims);
         String refreshToken = jwtService.generateRefreshToken(user);
 
         Token refreshTokenToBeSaved = buildToken(refreshToken, ldmsUsername);
@@ -221,6 +248,37 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 new String[] {}, locale);
 
         return buildAuthResponse(200, true, message, null, null, null, accessToken, refreshToken);
+    }
+
+    private Map<String, Object> buildTokenClaims(UserDto cachedUser, String username) {
+        Map<String, Object> claims = new HashMap<>();
+        UserDto dto = cachedUser;
+        if (dto == null) {
+            UserResponse userResponse = userManagementServiceClient.findByUsername(username);
+            if (userResponse == null || !userResponse.isSuccess() || userResponse.getUserDto() == null) {
+                return claims;
+            }
+            dto = userResponse.getUserDto();
+        }
+        if (dto.getId() != null) {
+            claims.put("userId", dto.getId());
+        }
+        if (StringUtils.hasText(dto.getEmail())) {
+            claims.put("email", dto.getEmail().trim());
+        }
+        if (StringUtils.hasText(dto.getFirstName())) {
+            claims.put("firstName", dto.getFirstName().trim());
+        }
+        if (StringUtils.hasText(dto.getLastName())) {
+            claims.put("lastName", dto.getLastName().trim());
+        }
+        if (dto.getOrganizationId() != null) {
+            claims.put("organizationId", dto.getOrganizationId());
+        }
+        if (Boolean.TRUE.equals(dto.getOrganizationKycApprover())) {
+            claims.put("organizationKycApprover", true);
+        }
+        return claims;
     }
 
     private UserResponse resolveLdmsUserByGoogleEmail(String email) {

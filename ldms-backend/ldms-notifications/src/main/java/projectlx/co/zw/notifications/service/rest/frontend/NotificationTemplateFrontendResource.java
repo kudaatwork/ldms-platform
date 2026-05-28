@@ -52,7 +52,7 @@ public class NotificationTemplateFrontendResource {
     private static final Logger logger = LoggerFactory.getLogger(NotificationTemplateFrontendResource.class);
 
     @Auditable(action = "GET_ADD_TEMPLATE_METADATA")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.notificationsmanagementservice.utils.security.NotificationTemplateRoles)." +
+    @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationTemplateRoles)." +
             "CREATE_TEMPLATE.toString())")
     @GetMapping("/add-template-metadata")
     @Operation(summary = "Get Add Template form metadata", description = "Returns sections and channel options for rendering the Add Template form in a stepped, intuitive way (like Add Organization). Use before showing the create form.")
@@ -68,7 +68,7 @@ public class NotificationTemplateFrontendResource {
     }
 
     @Auditable(action = "CREATE_TEMPLATE")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.notificationsmanagementservice.utils.security.NotificationTemplateRoles)." +
+    @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationTemplateRoles)." +
             "CREATE_TEMPLATE.toString())")
     @PostMapping("/create")
     @Operation(summary = "Create a new notification template", description = "Creates a new notification template and returns the created template details.")
@@ -85,7 +85,7 @@ public class NotificationTemplateFrontendResource {
     }
 
     @Auditable(action = "UPDATE_TEMPLATE")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.notificationsmanagementservice.utils.security.NotificationTemplateRoles)." +
+    @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationTemplateRoles)." +
             "UPDATE_TEMPLATE.toString())")
     @PutMapping("/update")
     @Operation(summary = "Update notification template details", description = "Updates an existing notification template's details by ID.")
@@ -102,7 +102,7 @@ public class NotificationTemplateFrontendResource {
     }
 
     @Auditable(action = "FIND_TEMPLATE_BY_ID")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.notificationsmanagementservice.utils.security.NotificationTemplateRoles)." +
+    @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationTemplateRoles)." +
             "VIEW_TEMPLATE_BY_ID.toString())")
     @GetMapping(value = "/find-by-id/{id}")
     @Operation(summary = "Find notification template by ID", description = "Retrieves a notification template by its unique ID.")
@@ -119,7 +119,7 @@ public class NotificationTemplateFrontendResource {
     }
 
     @Auditable(action = "DELETE_TEMPLATE")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.notificationsmanagementservice.utils.security.NotificationTemplateRoles)." +
+    @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationTemplateRoles)." +
             "DELETE_TEMPLATE.toString())")
     @DeleteMapping(value = "/delete-by-id/{id}")
     @Operation(summary = "Delete a notification template by ID")
@@ -136,7 +136,7 @@ public class NotificationTemplateFrontendResource {
     }
 
     @Auditable(action = "FIND_ALL_TEMPLATES_AS_A_LIST")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.notificationsmanagementservice.utils.security.NotificationTemplateRoles)." +
+    @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationTemplateRoles)." +
             "VIEW_ALL_TEMPLATES_AS_A_LIST.toString())")
     @GetMapping(value = "/find-all-as-a-list")
     @Operation(summary = "Find all notification templates as a list", description = "Retrieves all notification templates as a list.")
@@ -151,7 +151,7 @@ public class NotificationTemplateFrontendResource {
     }
 
     @Auditable(action = "FIND_TEMPLATES_BY_MULTIPLE_FILTERS")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.notificationsmanagementservice.utils.security.NotificationTemplateRoles)." +
+    @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationTemplateRoles)." +
             "VIEW_ALL_TEMPLATES_BY_MULTIPLE_FILTERS.toString())")
     @PostMapping(value = "/find-by-multiple-filters")
     @Operation(summary = "Find notification templates by multiple filters", description = "Retrieves notification templates based on multiple filter criteria.")
@@ -167,7 +167,7 @@ public class NotificationTemplateFrontendResource {
     }
 
     @Auditable(action = "EXPORT_TEMPLATES")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.notificationsmanagementservice.utils.security.NotificationTemplateRoles)." +
+    @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationTemplateRoles)." +
             "VIEW_ALL_TEMPLATES_BY_MULTIPLE_FILTERS.toString())")
     @PostMapping(value = "/export")
     @Operation(summary = "Export notification templates", description = "Exports notification templates based on filter criteria in the specified format.")
@@ -208,7 +208,7 @@ public class NotificationTemplateFrontendResource {
     }
 
     @Auditable(action = "IMPORT_TEMPLATES")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.notificationsmanagementservice.utils.security.NotificationTemplateRoles)." +
+    @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationTemplateRoles)." +
             "CREATE_TEMPLATE.toString())")
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Import notification templates from CSV", description = "Imports notification templates from a CSV file.")

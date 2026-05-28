@@ -6,16 +6,35 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
 import projectlx.co.zw.organizationmanagement.business.logic.api.OrganizationService;
 import projectlx.co.zw.organizationmanagement.service.processor.api.OrganizationServiceProcessor;
+import projectlx.co.zw.organizationmanagement.utils.dtos.ImportSummary;
+import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryDto;
 import projectlx.co.zw.organizationmanagement.utils.requests.AddBranchRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.CreateAgentRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.CreateBranchRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.CreateIndustryRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateAgentRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateBranchRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateIndustryRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.AgentMultipleFiltersRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.BranchMultipleFiltersRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.IndustryMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycActionRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycRejectRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationRequest;
 import projectlx.co.zw.shared_library.utils.responses.OrganizationResponse;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.List;
 import java.util.Locale;
+
+import projectlx.co.zw.shared_library.utils.dtos.AgentDto;
+import projectlx.co.zw.shared_library.utils.dtos.BranchDto;
 
 @RequiredArgsConstructor
 public class OrganizationServiceProcessorImpl implements OrganizationServiceProcessor {
@@ -104,10 +123,51 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     }
 
     @Override
+    public OrganizationResponse findByMultipleFilters(
+            OrganizationMultipleFiltersRequest request, String username, Locale locale) {
+        log.info("Incoming request: findByMultipleFilters user={}", username);
+        OrganizationResponse response = organizationService.findByMultipleFilters(request, username, locale);
+        log.info("Outgoing response: findByMultipleFilters success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
     public OrganizationResponse getById(Long id, Locale locale) {
         log.info("Incoming request: getById id={}", id);
         OrganizationResponse response = organizationService.getById(id, locale);
         log.info("Outgoing response: getById success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse getByIdForSystem(Long id, Locale locale) {
+        log.info("Incoming request: getByIdForSystem id={}", id);
+        OrganizationResponse response = organizationService.getByIdForSystem(id, locale);
+        log.info("Outgoing response: getByIdForSystem success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse delete(Long id, Locale locale, String modifiedBy) {
+        log.info("Incoming request: delete organization id={}", id);
+        OrganizationResponse response = organizationService.delete(id, locale, modifiedBy);
+        log.info("Outgoing response: delete organization success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse update(Long id, UpdateOrganizationRequest request, Locale locale, String modifiedBy) {
+        log.info("Incoming request: update organization id={}", id);
+        OrganizationResponse response = organizationService.update(id, request, locale, modifiedBy);
+        log.info("Outgoing response: update organization success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse provisionContactPerson(Long id, Locale locale, String modifiedBy) {
+        log.info("Incoming request: provision contact person for organisation id={}", id);
+        OrganizationResponse response = organizationService.provisionContactPerson(id, locale, modifiedBy);
+        log.info("Outgoing response: provision contact person success={}", response.isSuccess());
         return response;
     }
 
@@ -157,5 +217,145 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         OrganizationResponse response = organizationService.listKycReviews(id, locale);
         log.info("Outgoing response: listKycReviews success={}", response.isSuccess());
         return response;
+    }
+
+    @Override
+    public OrganizationResponse listIndustriesWithUsage(Locale locale) {
+        log.info("Incoming request: listIndustriesWithUsage");
+        OrganizationResponse response = organizationService.listIndustriesWithUsage(locale);
+        log.info("Outgoing response: listIndustriesWithUsage success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse getIndustryById(Long id, Locale locale) {
+        log.info("Incoming request: getIndustryById id={}", id);
+        OrganizationResponse response = organizationService.getIndustryById(id, locale);
+        log.info("Outgoing response: getIndustryById success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse createIndustry(CreateIndustryRequest request, Locale locale, String username) {
+        log.info("Incoming request: createIndustry name={}", request.getName());
+        OrganizationResponse response = organizationService.createIndustry(request, locale, username);
+        log.info("Outgoing response: createIndustry success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse updateIndustry(Long id, UpdateIndustryRequest request, Locale locale, String username) {
+        log.info("Incoming request: updateIndustry id={}", id);
+        OrganizationResponse response = organizationService.updateIndustry(id, request, locale, username);
+        log.info("Outgoing response: updateIndustry success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse deleteIndustry(Long id, Locale locale, String username) {
+        log.info("Incoming request: deleteIndustry id={}", id);
+        OrganizationResponse response = organizationService.deleteIndustry(id, locale, username);
+        log.info("Outgoing response: deleteIndustry success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse findBranchesByMultipleFilters(BranchMultipleFiltersRequest request, Locale locale) {
+        log.info("Incoming request: findBranchesByMultipleFilters page={}", request.getPage());
+        OrganizationResponse response = organizationService.findBranchesByMultipleFilters(request, locale);
+        log.info("Outgoing response: findBranchesByMultipleFilters success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse findAgentsByMultipleFilters(AgentMultipleFiltersRequest request, Locale locale) {
+        log.info("Incoming request: findAgentsByMultipleFilters page={}", request.getPage());
+        OrganizationResponse response = organizationService.findAgentsByMultipleFilters(request, locale);
+        log.info("Outgoing response: findAgentsByMultipleFilters success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse findIndustriesByMultipleFilters(IndustryMultipleFiltersRequest request, Locale locale) {
+        log.info("Incoming request: findIndustriesByMultipleFilters page={}", request.getPage());
+        OrganizationResponse response = organizationService.findIndustriesByMultipleFilters(request, locale);
+        log.info("Outgoing response: findIndustriesByMultipleFilters success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse createBranch(CreateBranchRequest request, Locale locale, String username) {
+        return organizationService.createBranch(request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse updateBranch(Long id, UpdateBranchRequest request, Locale locale, String username) {
+        return organizationService.updateBranch(id, request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse getBranchById(Long id, Locale locale) {
+        return organizationService.getBranchById(id, locale);
+    }
+
+    @Override
+    public OrganizationResponse deleteBranch(Long id, Locale locale, String username) {
+        return organizationService.deleteBranch(id, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse createAgent(CreateAgentRequest request, Locale locale, String username) {
+        return organizationService.createAgent(request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse updateAgent(Long id, UpdateAgentRequest request, Locale locale, String username) {
+        return organizationService.updateAgent(id, request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse getAgentById(Long id, Locale locale) {
+        return organizationService.getAgentById(id, locale);
+    }
+
+    @Override
+    public OrganizationResponse deleteAgent(Long id, Locale locale, String username) {
+        return organizationService.deleteAgent(id, locale, username);
+    }
+
+    @Override
+    public List<projectlx.co.zw.shared_library.utils.dtos.OrganizationDto> listOrganizationsForExport(
+            OrganizationMultipleFiltersRequest request, String username, Locale locale) {
+        return organizationService.listOrganizationsForExport(request, username, locale);
+    }
+
+    @Override
+    public List<BranchDto> listBranchesForExport(BranchMultipleFiltersRequest request, Locale locale) {
+        return organizationService.listBranchesForExport(request, locale);
+    }
+
+    @Override
+    public List<AgentDto> listAgentsForExport(AgentMultipleFiltersRequest request, Locale locale) {
+        return organizationService.listAgentsForExport(request, locale);
+    }
+
+    @Override
+    public List<IndustryDto> listIndustriesForExport(IndustryMultipleFiltersRequest request, Locale locale) {
+        return organizationService.listIndustriesForExport(request, locale);
+    }
+
+    @Override
+    public ImportSummary importBranchesFromCsv(InputStream inputStream, Locale locale, String username) throws IOException {
+        return organizationService.importBranchesFromCsv(inputStream, locale, username);
+    }
+
+    @Override
+    public ImportSummary importAgentsFromCsv(InputStream inputStream, Locale locale, String username) throws IOException {
+        return organizationService.importAgentsFromCsv(inputStream, locale, username);
+    }
+
+    @Override
+    public ImportSummary importIndustriesFromCsv(InputStream inputStream, Locale locale, String username) throws IOException {
+        return organizationService.importIndustriesFromCsv(inputStream, locale, username);
     }
 }

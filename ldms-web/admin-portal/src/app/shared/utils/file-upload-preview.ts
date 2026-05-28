@@ -86,9 +86,20 @@ export function resolveFilePreview(
 
   let ct = String(r['contentType'] ?? '').trim().toLowerCase();
   const name = String(r['originalFileName'] ?? '').toLowerCase();
+  const fileTypeEnum = String(r['fileType'] ?? '').toUpperCase();
 
   if (!ct || ct === 'application/octet-stream') {
     ct = inferMimeFromFileName(name) ?? ct;
+  }
+  if (
+    (!ct || ct === 'application/octet-stream') &&
+    (fileTypeEnum.includes('CERTIFICATE') ||
+      fileTypeEnum.includes('CLEARANCE') ||
+      fileTypeEnum.includes('LICENSE') ||
+      fileTypeEnum === 'PASSPORT' ||
+      fileTypeEnum === 'NATIONAL_ID')
+  ) {
+    ct = name.endsWith('.pdf') || !/\.(png|jpe?g|gif|webp)$/i.test(name) ? 'application/pdf' : ct;
   }
   if (ct === 'image/jpg') {
     ct = 'image/jpeg';

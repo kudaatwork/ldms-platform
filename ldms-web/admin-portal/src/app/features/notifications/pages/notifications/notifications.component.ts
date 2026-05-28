@@ -12,6 +12,7 @@ import { NotificationLogDetailDialogComponent } from '../../components/notificat
 import { NotificationTemplateDetailDialogComponent } from '../../components/notification-template-detail-dialog/notification-template-detail-dialog.component';
 import { NotificationTemplateFormDialogComponent } from '../../components/notification-template-form-dialog/notification-template-form-dialog.component';
 import type {
+  NotificationChannel,
   NotificationLogExportFormat,
   NotificationLogRow,
   NotificationLogFilters,
@@ -20,6 +21,13 @@ import type {
   TemplateMultipleFiltersRequest,
 } from '../../models/notification-admin.models';
 import { NotificationAdminService } from '../../services/notification-admin.service';
+import {
+  channelDeliveryToggleRows,
+  formatChannelsWithDelivery,
+  normalizeChannelDeliveryFlags,
+  rowChannelDeliveryActive,
+  supportsChannelDeliveryToggles,
+} from '../../utils/notification-channel.util';
 
 interface PlaceholderGuideItem {
   token: string;
@@ -28,7 +36,7 @@ interface PlaceholderGuideItem {
   where: string[];
 }
 
-/** Matches ldms-notifications {@code Channel} enum (system/backoffice APIs). */
+/** Matches ldms-notifications {@code Channel} enum (frontend APIs). */
 const NOTIFICATION_CHANNEL_FILTER_OPTIONS = ['EMAIL', 'SMS', 'WHATSAPP', 'IN_APP', 'SLACK', 'TEAMS'] as const;
 
 const NOTIFICATION_LOG_STATUS_OPTIONS = ['QUEUED', 'PENDING', 'SENT', 'FAILED', 'SKIPPED'] as const;
@@ -45,6 +53,8 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   actionInProgress = false;
   /** Template IDs with an in-flight active/inactive toggle (does not block the whole table). */
   private readonly tplStatusUpdatingIds = new Set<number>();
+  /** Keys `templateId:CHANNEL` while a channel delivery toggle is saving. */
+  private readonly tplChannelDeliveryUpdatingKeys = new Set<string>();
   tplError: string | null = null;
   logError: string | null = null;
   importingTpl = false;
@@ -57,11 +67,11 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     autoFocus: 'first-tabbable' as const,
   };
 
-  tplColumns = ['templateKey', 'emailSubject', 'channels', 'isActive', 'actions'];
+  tplColumns = ['templateKey', 'emailSubject', 'channelDelivery', 'isActive', 'actions'];
   tplLabels: Record<string, string> = {
     templateKey: 'Template code',
     emailSubject: 'Subject',
-    channels: 'Applicable channels',
+    channelDelivery: 'Channel delivery',
     isActive: 'Status',
     actions: 'Actions',
   };
@@ -221,7 +231,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
           if (loadToken !== this.latestTplLoadToken) {
             return;
           }
-          if (rows.length === 0 && this.tplPageIndex > 0) {
+          if (rows.length === 0 && totalElements > 0 && this.tplPageIndex > 0) {
             this.tplPageIndex = 0;
             this.loadTemplates();
             return;
@@ -316,7 +326,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
           if (loadToken !== this.latestLogLoadToken) {
             return;
           }
-          if (rows.length === 0 && this.logPageIndex > 0) {
+          if (rows.length === 0 && totalElements > 0 && this.logPageIndex > 0) {
             this.logPageIndex = 0;
             this.loadLog();
             return;
@@ -657,7 +667,104 @@ export class NotificationsComponent implements OnInit, OnDestroy {
   }
 
   channelsText(row: NotificationTemplateRow): string {
-    return row.channels.join(', ');
+    return formatChannelsWithDelivery(row);
+  }
+
+  showChannelDeliveryToggles(row: NotificationTemplateRow): boolean {
+    return supportsChannelDeliveryToggles(row);
+  }
+
+  channelDeliveryRows(row: NotificationTemplateRow) {
+    return channelDeliveryToggleRows(row);
+  }
+
+  tplChannelDeliveryKey(row: NotificationTemplateRow, channel: NotificationChannel): string {
+    return `${row.id}:${channel}`;
+  }
+
+  isTplChannelDeliveryUpdating(row: NotificationTemplateRow, channel: NotificationChannel): boolean {
+    return this.tplChannelDeliveryUpdatingKeys.has(this.tplChannelDeliveryKey(row, channel));
+  }
+
+  isRowChannelDeliveryActive(row: NotificationTemplateRow, channel: NotificationChannel): boolean {
+    return rowChannelDeliveryActive(row, channel);
+  }
+
+  onToggleChannelDelivery(
+    row: NotificationTemplateRow,
+    channel: NotificationChannel,
+    active: boolean,
+  ): void {
+    const updateKey = this.tplChannelDeliveryKey(row, channel);
+    if (this.tplChannelDeliveryUpdatingKeys.has(updateKey)) {
+      return;
+    }
+
+    const channels = (row.channels ?? []) as NotificationChannel[];
+    const previousFlags = normalizeChannelDeliveryFlags(
+      channels,
+      row.channelDeliveryEnabled,
+      row.templateKey,
+    );
+    const nextFlags = { ...previousFlags, [channel]: active };
+
+    const anyActive = channels.some((ch) => nextFlags[ch] === true);
+    if (!anyActive) {
+      this.snackBar.open('At least one channel must stay active for delivery.', 'Close', {
+        duration: 4000,
+        panelClass: ['app-snackbar-error'],
+      });
+      this.cdr.detectChanges();
+      return;
+    }
+
+    row.channelDeliveryEnabled = nextFlags;
+    this.cdr.markForCheck();
+
+    if (environment.useMocks) {
+      this.snackBar.open(this.tplChannelDeliverySnackMessage(channel, active), 'Close', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
+      return;
+    }
+
+    this.tplChannelDeliveryUpdatingKeys.add(updateKey);
+    this.cdr.markForCheck();
+    this.notificationAdmin
+      .setTemplateChannelDelivery(row.id, nextFlags)
+      .pipe(
+        finalize(() => {
+          this.tplChannelDeliveryUpdatingKeys.delete(updateKey);
+          this.cdr.markForCheck();
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (updated) => {
+          row.channelDeliveryEnabled = updated.channelDeliveryEnabled ?? nextFlags;
+          row.channels = updated.channels ?? row.channels;
+          this.snackBar.open(this.tplChannelDeliverySnackMessage(channel, active), 'Close', {
+            duration: 3500,
+            panelClass: ['app-snackbar-success'],
+          });
+          this.cdr.markForCheck();
+        },
+        error: (err) => {
+          row.channelDeliveryEnabled = previousFlags;
+          this.snackBar.open(
+            this.errorMessage(err, 'Could not update channel delivery.'),
+            'Close',
+            { duration: 5000, panelClass: ['app-snackbar-error'] },
+          );
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private tplChannelDeliverySnackMessage(channel: NotificationChannel, active: boolean): string {
+    const label = channel.replace(/_/g, ' ');
+    return active ? `${label} delivery is now on.` : `${label} delivery is now off.`;
   }
 
   private errorMessage(error: unknown, fallback: string): string {

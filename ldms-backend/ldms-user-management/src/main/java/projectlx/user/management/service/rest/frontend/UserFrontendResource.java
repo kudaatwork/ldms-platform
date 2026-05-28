@@ -74,7 +74,8 @@ public class UserFrontendResource {
 
     @Auditable(action = "UPDATE_USER")
     @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoles).UPDATE_USER.toString())")
-    @PutMapping("/update")
+    @PutMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Update user details", description = "Updates an existing user's details by ID.")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "User updated successfully"),
@@ -82,11 +83,30 @@ public class UserFrontendResource {
             @ApiResponse(responseCode = "400", description = "Invalid request data")
     })
     public UserResponse update(@Valid @ModelAttribute final EditUserRequest editUserRequest,
+                               @RequestParam(value = "organizationKycApprover", required = false)
+                               final String organizationKycApprover,
                                @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                    @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                            defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        if (organizationKycApprover != null) {
+            editUserRequest.setOrganizationKycApprover(organizationKycApprover);
+        }
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userServiceProcessor.update(editUserRequest, username, locale);
+    }
+
+    @Auditable(action = "SET_ORGANIZATION_KYC_APPROVER")
+    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoles).UPDATE_USER.toString())")
+    @PutMapping("/{id}/organization-kyc-approver")
+    @Operation(summary = "Set organisation KYC approver eligibility",
+            description = "Toggles whether an admin user (no organisation) may be assigned signup KYC reviews.")
+    public UserResponse setOrganizationKycApprover(
+            @PathVariable("id") final Long id,
+            @RequestParam("enabled") final boolean enabled,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.setOrganizationKycApprover(id, enabled, locale, username);
     }
 
     @Auditable(action = "FIND_USER_BY_ID")
@@ -104,6 +124,21 @@ public class UserFrontendResource {
                                             defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userServiceProcessor.findById(id, locale, username);
+    }
+
+    @Auditable(action = "FIND_CURRENT_USER")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping(value = "/me")
+    @Operation(summary = "Current user profile", description = "Returns the signed-in user's profile (no admin lookup role required).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User found successfully"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public UserResponse findCurrentUser(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.findByUsername(username, locale);
     }
 
     @Auditable(action = "FIND_USER_BY_USERNAME")

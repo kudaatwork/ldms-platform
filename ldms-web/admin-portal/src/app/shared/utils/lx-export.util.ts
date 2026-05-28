@@ -47,6 +47,26 @@ export function exportFilename(base: string, format: LxExportFormat): string {
   return `${base}-${stamp}.${exportFormatExtension(format)}`;
 }
 
+import { HttpErrorResponse } from '@angular/common/http';
+import { Observable, from, mergeMap, throwError } from 'rxjs';
+
+/** Maps blob error bodies from export POST failures into a thrown Error. */
+export function mapExportHttpError(err: HttpErrorResponse): Observable<never> {
+  const blob: Blob | null = err.error instanceof Blob ? err.error : null;
+  if (blob) {
+    return from(blob.text()).pipe(
+      mergeMap((text) =>
+        throwError(() => new Error(text || `Export failed with status ${err.status}.`)),
+      ),
+    );
+  }
+  const message =
+    typeof err.error === 'object' && err.error && 'message' in err.error
+      ? String((err.error as { message?: string }).message)
+      : err.message;
+  return throwError(() => new Error(message || `Export failed with status ${err.status}.`));
+}
+
 /** CSV download for mock/local tables; PDF/XLSX show a friendly message. Returns true when a file was saved. */
 export function exportClientTableAsCsv<T>(
   format: LxExportFormat,

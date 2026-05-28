@@ -1,0 +1,36 @@
+<div class="ob-root">
+  <div class="ob-card lx-card">
+    <a routerLink="/welcome" class="ob-back"><span class="material-icons" aria-hidden="true">arrow_back</span> Home</a>
+
+    <h1 class="ob-title">Onboarding progress</h1>
+    <p class="ob-lead" *ngIf="!errorMessage">
+      Your organisation is moving through our two-stage KYC review. After final approval, the primary contact receives an
+      email verification link before platform access is enabled.
+    </p>
+    <p class="ob-error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+    <div class="ob-org" *ngIf="org as o">
+      <span class="material-icons ob-org-icon" aria-hidden="true">domain</span>
+      <div>
+        <div class="ob-org-name">{{ o.name }}</div>
+        <div class="ob-org-meta">Reference #{{ o.id }} · {{ o.kycStatus }}</div>
+      </div>
+    </div>
+
+    <ol class="ob-steps" *ngIf="!loading">
+      <li *ngFor="let step of steps" class="ob-step" [class]="'ob-step--' + step.state">
+        <span class="ob-step-marker">
+          <span class="material-icons" *ngIf="step.state === 'done'" aria-hidden="true">check_circle</span>
+          <span class="material-icons" *ngIf="step.state === 'active'" aria-hidden="true">radio_button_checked</span>
+          <span class="material-icons" *ngIf="step.state === 'pending'" aria-hidden="true">radio_button_unchecked</span>
+        </span>
+        <span class="ob-step-label">{{ step.label }}</span>
+      </li>
+    </ol>
+
+    <div class="ob-actions">
+      <button type="button" class="lx-btn lx-btn-primary" (click)="goLogin()">Sign in</button>
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="goWelcome()">Back to home</button>
+    </div>
+  </div>
+</div>

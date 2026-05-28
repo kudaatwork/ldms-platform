@@ -32,6 +32,9 @@
             ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
+            "stylePreprocessorOptions": {
+              "includePaths": [".."]
+            },
             "assets": [
               {
                 "glob": "**/*",
@@ -70,7 +73,8 @@
         "serve": {
           "builder": "@angular-devkit/build-angular:dev-server",
           "options": {
-            "port": 4200
+            "port": 4201,
+            "proxyConfig": "proxy.conf.json"
           },
           "configurations": {
             "production": {

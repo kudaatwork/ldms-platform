@@ -1,6 +1,9 @@
 package projectlx.co.zw.shared_library.utils.constants;
 
 public class Constants {
+    /** Minimum age (years) for user and contact-person date-of-birth validation. */
+    public static final int MINIMUM_USER_AGE_YEARS = 18;
+
     /** RabbitMQ topic exchange for organization-management domain events. */
     public static final String EXCHANGE_ORG = "org.exchange";
 

@@ -93,6 +93,9 @@ public class Organization {
     @Column(name = "contact_person_date_of_birth", length = 20)
     private String contactPersonDateOfBirth;
 
+    @Column(name = "contact_person_user_id")
+    private Long contactPersonUserId;
+
     @Column(name = "logo_upload_id")
     private Long logoUploadId;
 
@@ -182,6 +185,18 @@ public class Organization {
 
     @Column(name = "assigned_account_manager_user_id")
     private Long assignedAccountManagerUserId;
+
+    @Column(name = "assigned_stage1_approver_user_id")
+    private Long assignedStage1ApproverUserId;
+
+    @Column(name = "assigned_stage1_approver_username", length = 150)
+    private String assignedStage1ApproverUsername;
+
+    @Column(name = "assigned_stage2_approver_user_id")
+    private Long assignedStage2ApproverUserId;
+
+    @Column(name = "assigned_stage2_approver_username", length = 150)
+    private String assignedStage2ApproverUsername;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "kyc_status", nullable = false, length = 50)

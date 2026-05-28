@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
 import { StaticShellPageComponent } from './shared/static-shell-page/static-shell-page.component';
+import { MyAccountComponent } from './features/account/pages/my-account/my-account.component';
 
 const routes: Routes = [
   {
@@ -63,11 +64,10 @@ const routes: Routes = [
       },
       {
         path: 'account',
-        component: StaticShellPageComponent,
+        component: MyAccountComponent,
         data: {
           title: 'My account',
           breadcrumb: 'My account',
-          lead: 'Profile, security, and session preferences will appear here when the account service is connected.',
         },
       },
       {

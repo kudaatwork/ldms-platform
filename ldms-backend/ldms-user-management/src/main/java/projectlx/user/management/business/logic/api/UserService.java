@@ -34,4 +34,9 @@ public interface UserService {
     UserResponse validateResetToken(String token, String email, Locale locale);
     UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale);
     UserResponse resendVerificationLink(String email, Locale locale, String username);
+
+    /** Admin-portal users flagged as organisation KYC approvers (no organisation assignment). */
+    UserResponse listOrganizationKycApprovers(Locale locale);
+
+    UserResponse setOrganizationKycApprover(Long id, boolean enabled, Locale locale, String username);
 }

@@ -130,6 +130,14 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
         appendIdentificationUploadErrors(createUserRequest.getNationalIdUpload(), locale, errors);
         appendIdentificationUploadErrors(createUserRequest.getPassportUpload(), locale, errors);
 
+        if (Boolean.TRUE.equals(createUserRequest.getOrganizationKycApprover())) {
+            if (createUserRequest.getOrganizationId() != null || createUserRequest.getBranchId() != null) {
+                logger.info("Validation failed: KYC approver cannot be linked to an organisation or branch");
+                errors.add(messageService.getMessage(
+                        I18Code.MESSAGE_CREATE_USER_KYC_APPROVER_REQUIRES_NO_ORG.getCode(), new String[]{}, locale));
+            }
+        }
+
         if (errors.isEmpty()) {
             return new ValidatorDto(true, null, null);
         } else {
@@ -218,7 +226,7 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_NAME_CONTAINS_DIGITS.getCode(), new String[]{}, locale));
         }
 
-        if (!isValidGender(editUserRequest.getGender())) {
+        if (!isValidUserManagementGender(editUserRequest.getGender())) {
             logger.info("Validation failed: Gender is invalid");
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_USER_INVALID_GENDER.getCode(), new String[]{}, locale));
         }
@@ -470,7 +478,23 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
         // Passport number plus a new upload or an existing file-upload reference.
         boolean hasValidPassport = hasPassportNumber && (hasPassportUpload || hasPassportUploadId);
 
-        return hasValidNationalId || hasValidPassport;
+        // Provisional org-contact IDs (e.g. PENDING-2) may exist before a scan is uploaded.
+        boolean provisionalNationalId = hasNationalIdNumber
+                && request.getNationalIdNumber().trim().toUpperCase(Locale.ROOT).startsWith("PENDING-");
+
+        return hasValidNationalId || hasValidPassport || provisionalNationalId;
+    }
+
+    private boolean isValidUserManagementGender(String gender) {
+        if (!StringUtils.hasText(gender)) {
+            return false;
+        }
+        try {
+            projectlx.user.management.model.Gender.valueOf(gender.trim().toUpperCase(Locale.ROOT));
+            return true;
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     private boolean isValidDateOfBirth(String dateOfBirth) {
@@ -478,7 +502,7 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
         try {
 
             LocalDate dob = LocalDate.parse(dateOfBirth);
-            return Validators.isAtLeast16YearsOld(dob);
+            return Validators.isAtLeast18YearsOld(dob);
 
         } catch (Exception ex) {
 

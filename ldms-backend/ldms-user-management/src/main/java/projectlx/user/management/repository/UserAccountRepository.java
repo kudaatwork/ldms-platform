@@ -10,6 +10,7 @@ import java.util.Optional;
 
 public interface UserAccountRepository extends JpaRepository<UserAccount, Long>, JpaSpecificationExecutor<UserAccount> {
     Optional<UserAccount> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
+    Optional<UserAccount> findByUser_IdAndEntityStatusNot(Long userId, EntityStatus entityStatus);
     Optional<UserAccount> findByPhoneNumberAndEntityStatusNot(String phoneNumber, EntityStatus entityStatus);
     Optional<UserAccount> findByPhoneNumber(String phoneNumber);
     Optional<UserAccount> findByAccountNumberAndEntityStatusNot(String accountNumber, EntityStatus entityStatus);

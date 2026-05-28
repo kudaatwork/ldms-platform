@@ -8,6 +8,7 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
@@ -61,11 +62,7 @@ public class AuditAspect {
             MethodSignature signature = (MethodSignature) joinPoint.getSignature();
             Auditable auditable = signature.getMethod().getAnnotation(Auditable.class);
 
-            String username = SecurityContextHolder.getContext().getAuthentication().getName();
-
-            if (username == null || username.isEmpty() || username.equals("anonymousUser")) {
-                username = "SYSTEM"; // Fallback for unauthenticated or anonymous users
-            }
+            String username = resolveAuditUsername();
 
             assert auditable != null;
 
@@ -125,5 +122,21 @@ public class AuditAspect {
                 log.warn("Could not queue audit task for action {}: {}", action, ex.getMessage());
             }
         }
+    }
+
+    /**
+     * System-surface requests skip JWT and may have no {@link Authentication} in the context yet.
+     * A null dereference here would turn a successful controller response into HTTP 500.
+     */
+    private static String resolveAuditUsername() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return "SYSTEM";
+        }
+        String username = authentication.getName();
+        if (username == null || username.isBlank() || "anonymousUser".equals(username)) {
+            return "SYSTEM";
+        }
+        return username;
     }
 }

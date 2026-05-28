@@ -1,11 +1,14 @@
 import { environment } from '../../../environments/environment';
 
-/** Trimmed {@link environment.apiUrl} (API gateway base, no trailing slash). */
+/**
+ * API base URL. Empty string = relative {@code /ldms-*} paths; dev-server proxy forwards to {@code :8091} (no CORS).
+ * Set {@code LDMS_API_GATEWAY_URL} to {@code http://localhost:8091} only for non-browser tooling.
+ */
 export function apiBaseUrl(): string {
-  return environment.apiUrl.replace(/\/$/, '');
+  return (environment.gatewayUrl ?? environment.apiUrl).replace(/\/$/, '');
 }
 
-/** Absolute URL for an LDMS path segment (must start with `/ldms-` or `/api/`). */
+/** Absolute or same-origin URL for an LDMS path segment (must start with `/ldms-`). */
 export function ldmsApiUrl(path: string): string {
   const normalized = path.startsWith('/') ? path : `/${path}`;
   return `${apiBaseUrl()}${normalized}`;
@@ -29,9 +32,9 @@ export function ldmsServiceUrl(
   return ldmsApiUrl(path);
 }
 
-/** True when the request targets the API gateway (or legacy `/api` dev proxy prefix). */
+/** True when the request targets the API gateway (relative {@code /ldms-*} or absolute gateway URL). */
 export function isLdmsApiRequest(url: string): boolean {
-  if (url.startsWith('/api')) {
+  if (url.startsWith('/ldms-') || url.startsWith('/api')) {
     return true;
   }
   const base = apiBaseUrl();

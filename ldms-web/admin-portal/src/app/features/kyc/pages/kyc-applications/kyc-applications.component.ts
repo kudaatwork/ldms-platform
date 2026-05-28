@@ -1,26 +1,40 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageEvent } from '@angular/material/paginator';
-import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
-import { MOCK_KYC_APPLICATION_ROWS, getKycApplicationDetail } from '../../data/kyc-applications.mock-data';
-import type {
-  KycApplicationDecisionResult,
-  KycApplicationDetail,
-  KycApplicationRow,
-} from '../../models/kyc-application.model';
-import { KycApplicationDeleteDialogComponent } from '../kyc-application-delete-dialog/kyc-application-delete-dialog.component';
-import { KycApplicationDetailDialogComponent } from '../kyc-application-detail-dialog/kyc-application-detail-dialog.component';
 import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
 } from '@shared/utils/lx-export.util';
+import type {
+  KycApplicationDecisionResult,
+  KycApplicationDetail,
+  KycQueueRow,
+} from '../../../organizations/models/organization.model';
+import { kycStatusPresentation } from '../../../organizations/models/organization.model';
 import {
-  KycApplicationEditDialogComponent,
-  type KycApplicationEditResult,
-} from '../kyc-application-edit-dialog/kyc-application-edit-dialog.component';
+  OrganizationsAdminService,
+  type OrganizationTableQuery,
+} from '../../../organizations/services/organizations-admin.service';
+import { KycQueueStatsService } from '../../../../core/services/kyc-queue-stats.service';
+import { StorageService } from '../../../../core/services/storage.service';
+import type { KycQueueSummary } from '../../../organizations/services/organizations-admin.service';
+import { KycApplicationDetailDialogComponent } from '../kyc-application-detail-dialog/kyc-application-detail-dialog.component';
+import {
+  EMPTY,
+  Observable,
+  Subject,
+  catchError,
+  debounceTime,
+  finalize,
+  merge,
+  of,
+  switchMap,
+  takeUntil,
+  tap,
+} from 'rxjs';
 
 @Component({
   selector: 'app-kyc-applications',
@@ -28,18 +42,25 @@ import {
   styleUrl: './kyc-applications.component.scss',
   standalone: false,
 })
-export class KycApplicationsComponent implements OnInit {
-  loading = true;
+export class KycApplicationsComponent implements OnInit, OnDestroy {
+  readonly pageLead =
+    'Platform signup organisations — includes new registrations in Draft (not yet submitted), the two-stage review pipeline, and rejected applications. Admin-registered organisations appear in the Organisations directory instead.';
 
-  displayedColumns = ['applicant', 'submitted', 'status', 'actions'];
+  fetching = true;
+  loadError = '';
 
-  dataSource: KycApplicationRow[] = [];
+  displayedColumns = ['applicant', 'classification', 'submitted', 'status', 'reviewers', 'actions'];
+
+  dataSource: KycQueueRow[] = [];
+  totalRecords = 0;
+  queueSummary: KycQueueSummary | null = null;
 
   searchQuery = '';
   filterFieldsOpen = false;
 
   columnFilters = {
     applicant: '',
+    classificationLabel: '',
     submitted: '',
     statusLabel: '',
   };
@@ -47,150 +68,101 @@ export class KycApplicationsComponent implements OnInit {
   pageIndex = 0;
   pageSize = DEFAULT_TABLE_PAGE_SIZE;
 
+  private readonly filterReload$ = new Subject<void>();
+  private readonly destroy$ = new Subject<void>();
+  private latestLoadToken = 0;
+  private lastFilterSignature = '';
+
   constructor(
     private readonly title: Title,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
+    private readonly orgService: OrganizationsAdminService,
+    private readonly kycStats: KycQueueStatsService,
+    private readonly storage: StorageService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
-
-  get filteredRows(): KycApplicationRow[] {
-    return filterByGlobalAndColumns(
-      this.dataSource,
-      this.searchQuery,
-      this.columnFilters,
-    );
-  }
-
-  get clampedPageIndex(): number {
-    const total = this.filteredRows.length;
-    if (total === 0) {
-      return 0;
-    }
-    const max = Math.max(0, Math.ceil(total / this.pageSize) - 1);
-    return Math.min(this.pageIndex, max);
-  }
-
-  get pagedRows(): KycApplicationRow[] {
-    const all = this.filteredRows;
-    const start = this.clampedPageIndex * this.pageSize;
-    return all.slice(start, start + this.pageSize);
-  }
-
-  resetPaging(): void {
-    this.pageIndex = 0;
-  }
-
-  onPage(e: PageEvent): void {
-    this.pageIndex = e.pageIndex;
-    this.pageSize = e.pageSize;
-  }
 
   ngOnInit(): void {
     this.title.setTitle('KYC Applications | LX Admin');
-    this.dataSource = MOCK_KYC_APPLICATION_ROWS.map((r) => ({ ...r }));
-    this.loading = false;
+    this.lastFilterSignature = this.currentFilterSignature();
+
+    merge(of(undefined as void), this.filterReload$.pipe(debounceTime(150)))
+      .pipe(
+        switchMap(() => this.runTableQuery({ background: false })),
+        takeUntil(this.destroy$),
+      )
+      .subscribe();
+
+    this.kycStats.summary$.pipe(takeUntil(this.destroy$)).subscribe((summary) => {
+      this.queueSummary = summary;
+      this.cdr.markForCheck();
+    });
+    this.refreshQueueSummary();
   }
 
-  openApplication(row: KycApplicationRow): void {
-    const base = getKycApplicationDetail(row.id);
-    if (!base) {
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  applyFilters(): void {
+    const next = this.currentFilterSignature();
+    if (next === this.lastFilterSignature) {
       return;
     }
-    const detail: KycApplicationDetail = {
-      ...base,
-      applicant: row.applicant,
-      submitted: row.submitted,
-      status: row.status,
-      statusLabel: row.statusLabel,
-    };
-    this.dialog
-      .open(KycApplicationDetailDialogComponent, {
-        width: 'min(760px, 96vw)',
-        maxHeight: '92vh',
-        autoFocus: 'first-tabbable',
-        data: { detail },
-      })
-      .afterClosed()
-      .subscribe((result: KycApplicationDecisionResult | undefined) => {
-        if (!result) {
-          return;
-        }
-        const idx = this.dataSource.findIndex((r) => r.id === row.id);
-        if (idx < 0) {
-          return;
-        }
-        const next = [...this.dataSource];
-        if (result.decision === 'approve') {
-          next[idx] = { ...next[idx], status: 'approved', statusLabel: 'Approved' };
-        } else {
-          next[idx] = { ...next[idx], status: 'rejected', statusLabel: 'Rejected' };
-        }
-        this.dataSource = next;
-        const msg =
-          result.decision === 'approve'
-            ? 'Application accepted and marked approved.'
-            : 'Application rejected.';
-        this.snackBar.open(msg, 'Dismiss', { duration: 6000 });
-      });
+    this.lastFilterSignature = next;
+    this.pageIndex = 0;
+    this.filterReload$.next();
   }
 
-  editApplication(row: KycApplicationRow): void {
-    this.dialog
-      .open(KycApplicationEditDialogComponent, {
-        width: 'min(480px, 92vw)',
-        autoFocus: 'first-tabbable',
-        data: { row },
-      })
-      .afterClosed()
-      .subscribe((result: KycApplicationEditResult | undefined) => {
-        if (!result) {
-          return;
-        }
-        const idx = this.dataSource.findIndex((r) => r.id === row.id);
-        if (idx < 0) {
-          return;
-        }
-        const next = [...this.dataSource];
-        next[idx] = {
-          ...next[idx],
-          applicant: result.applicant,
-          status: result.status,
-          statusLabel: result.statusLabel,
-        };
-        this.dataSource = next;
-        this.snackBar.open('Application updated.', 'Dismiss', { duration: 4000 });
-      });
+  onPage(e: PageEvent): void {
+    if (e.pageIndex === this.pageIndex && e.pageSize === this.pageSize) {
+      return;
+    }
+    this.pageIndex = e.pageIndex;
+    this.pageSize = e.pageSize;
+    this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
   }
 
-  deleteApplication(row: KycApplicationRow): void {
-    this.dialog
-      .open(KycApplicationDeleteDialogComponent, {
-        width: 'min(420px, 90vw)',
-        autoFocus: 'first-tabbable',
-        data: { applicant: row.applicant, id: row.id },
-      })
-      .afterClosed()
-      .subscribe((confirmed: boolean | undefined) => {
-        if (confirmed !== true) {
-          return;
-        }
-        this.dataSource = this.dataSource.filter((r) => r.id !== row.id);
-        this.snackBar.open('Application removed from queue.', 'Dismiss', { duration: 5000 });
-      });
+  refresh(): void {
+    this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
+  }
+
+  hasActiveFilters(): boolean {
+    return (
+      !!this.searchQuery.trim() ||
+      !!this.columnFilters.applicant.trim() ||
+      !!this.columnFilters.classificationLabel.trim() ||
+      !!this.columnFilters.submitted.trim() ||
+      !!this.columnFilters.statusLabel.trim()
+    );
+  }
+
+  openApplication(row: KycQueueRow): void {
+    this.orgService.getOrganization(row.id).subscribe({
+      next: (detail) => this.openDetailDialog(detail),
+      error: (err: Error) => {
+        this.snackBar.open(err.message ?? 'Could not load application', 'Dismiss', { duration: 6000 });
+      },
+    });
   }
 
   stubImport(): void {
-    /* Wire file picker / API */
+    this.snackBar.open('CSV import for KYC applications is not available yet.', 'Close', { duration: 4000 });
   }
 
   exportAs(format: LxExportFormat): void {
     const ok = exportClientTableAsCsv(
       format,
-      this.filteredRows,
+      this.dataSource,
       [
         { header: 'applicant', value: (r) => r.applicant },
+        { header: 'classification', value: (r) => r.classificationLabel },
         { header: 'submitted', value: (r) => r.submitted },
         { header: 'status', value: (r) => r.statusLabel },
+        { header: 'stage1', value: (r) => r.stage1ApproverLabel ?? '—' },
+        { header: 'stage2', value: (r) => r.stage2ApproverLabel ?? '—' },
       ],
       'kyc-applications',
       (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
@@ -201,5 +173,159 @@ export class KycApplicationsComponent implements OnInit {
         panelClass: ['app-snackbar-success'],
       });
     }
+  }
+
+  private runTableQuery(opts?: { background?: boolean }): Observable<{ rows: KycQueueRow[]; totalElements: number }> {
+    const loadToken = ++this.latestLoadToken;
+    if (!opts?.background || this.totalRecords === 0) {
+      this.fetching = true;
+    }
+    this.loadError = '';
+    const query: OrganizationTableQuery = {
+      page: this.pageIndex,
+      size: this.pageSize,
+      searchQuery: this.searchQuery,
+      columnFilters: {
+        name: this.columnFilters.applicant,
+        classificationLabel: this.columnFilters.classificationLabel,
+        statusLabel: this.columnFilters.statusLabel,
+      },
+      kycQueueOnly: true,
+    };
+    return this.orgService.queryTablePage(query).pipe(
+      tap(({ rows, totalElements }) => this.applyLoadedPage(loadToken, rows, totalElements)),
+      catchError((err: Error) => {
+        if (loadToken !== this.latestLoadToken) {
+          return EMPTY;
+        }
+        this.loadError = err.message ?? 'Failed to load KYC queue';
+        this.dataSource = [];
+        this.totalRecords = 0;
+        this.snackBar.open(this.loadError, 'Dismiss', { duration: 8000 });
+        return EMPTY;
+      }),
+      finalize(() => {
+        if (loadToken === this.latestLoadToken) {
+          this.fetching = false;
+          this.cdr.markForCheck();
+        }
+      }),
+    );
+  }
+
+  private applyLoadedPage(loadToken: number, rows: KycQueueRow[], totalElements: number): void {
+    if (loadToken !== this.latestLoadToken) {
+      return;
+    }
+    if (rows.length === 0 && totalElements > 0 && this.pageIndex > 0) {
+      this.pageIndex = 0;
+      this.runTableQuery({ background: true }).pipe(takeUntil(this.destroy$)).subscribe();
+      return;
+    }
+    this.totalRecords = totalElements > 0 ? totalElements : rows.length;
+    this.dataSource = rows;
+    this.cdr.markForCheck();
+  }
+
+  private openDetailDialog(detail: KycApplicationDetail): void {
+    this.dialog
+      .open(KycApplicationDetailDialogComponent, {
+        width: 'min(1080px, 98vw)',
+        maxWidth: '98vw',
+        maxHeight: '94vh',
+        panelClass: 'kyc-review-dialog-panel',
+        autoFocus: 'first-tabbable',
+        data: { detail },
+      })
+      .afterClosed()
+      .subscribe((result: KycApplicationDecisionResult | undefined) => {
+        if (!result) {
+          return;
+        }
+        this.applyDecision(detail.id, result);
+      });
+  }
+
+  private applyDecision(orgId: number, result: KycApplicationDecisionResult): void {
+    const notes = result.reason;
+    const reviewerUsername = this.resolveReviewerUsername();
+    const payload = { notes, reviewerUsername };
+    const rejectPayload = { ...payload, rejectionReason: notes };
+    let action$;
+    switch (result.action) {
+      case 'stage1-approve':
+        action$ = this.orgService.stage1Approve(orgId, payload);
+        break;
+      case 'stage1-reject':
+        action$ = this.orgService.stage1Reject(orgId, rejectPayload);
+        break;
+      case 'stage2-approve':
+        action$ = this.orgService.stage2Approve(orgId, payload);
+        break;
+      case 'stage2-reject':
+        action$ = this.orgService.stage2Reject(orgId, rejectPayload);
+        break;
+      case 'allow-resubmission':
+        action$ = this.orgService.allowResubmission(orgId, payload);
+        break;
+      default:
+        return;
+    }
+    action$.subscribe({
+      next: () => {
+        const pres = kycStatusPresentation(this.expectedStatusAfter(result.action));
+        this.snackBar.open(`Application updated — ${pres.label}.`, 'Dismiss', {
+          duration: 6000,
+          panelClass: ['app-snackbar-success'],
+        });
+        this.refresh();
+        this.refreshQueueSummary();
+      },
+      error: (err: Error) => {
+        this.snackBar.open(err.message ?? 'Action failed', 'Dismiss', { duration: 8000 });
+      },
+    });
+  }
+
+  private refreshQueueSummary(): void {
+    this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
+  }
+
+  private resolveReviewerUsername(): string {
+    const email = this.storage.getUser()?.email?.trim();
+    const username = this.storage.getUser()?.username?.trim();
+    return email || username || '';
+  }
+
+  private expectedStatusAfter(action: KycApplicationDecisionResult['action']): string {
+    switch (action) {
+      case 'stage1-approve':
+        return 'STAGE_2_REVIEW';
+      case 'stage1-reject':
+      case 'stage2-reject':
+        return 'REJECTED';
+      case 'stage2-approve':
+        return 'APPROVED';
+      case 'allow-resubmission':
+        return 'RESUBMITTED';
+      default:
+        return '';
+    }
+  }
+
+  private currentFilterSignature(): string {
+    return JSON.stringify({ q: this.searchQuery.trim(), filters: this.columnFilters });
+  }
+
+  queueStatPending(): number {
+    return this.queueSummary?.totalInQueue ?? this.totalRecords;
+  }
+
+  queueStatStage1(): number {
+    return this.queueSummary?.stage1Count ?? 0;
+  }
+
+  queueStatStage2(): number {
+    return this.queueSummary?.stage2Count ?? 0;
   }
 }

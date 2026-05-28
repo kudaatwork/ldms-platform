@@ -111,82 +111,233 @@
         </div>
       </div>
     </div>
+
+    <div class="roles-module-filter-panel" *ngIf="!groupId && dataSource.length > 0">
+      <div class="roles-module-filter-panel__head">
+        <span class="roles-module-filter-panel__label">Module filter</span>
+        <span class="roles-module-filter-panel__hint">Narrow the catalog to one LDMS service module</span>
+      </div>
+      <div class="roles-module-filters" role="tablist" aria-label="Filter roles by module">
+        <button
+          type="button"
+          class="roles-module-filter"
+          role="tab"
+          [class.is-active]="moduleFilterKey === 'all'"
+          [attr.aria-selected]="moduleFilterKey === 'all'"
+          (click)="selectModuleFilter('all')"
+        >
+          All modules
+          <span class="roles-module-filter__count">{{ dataSource.length }}</span>
+        </button>
+        <button
+          type="button"
+          class="roles-module-filter"
+          role="tab"
+          *ngFor="let option of moduleFilterOptions"
+          [class.is-active]="moduleFilterKey === option.key"
+          [attr.aria-selected]="moduleFilterKey === option.key"
+          (click)="selectModuleFilter(option.key)"
+        >
+          {{ option.label }}
+          <span class="roles-module-filter__count">{{ option.count }}</span>
+        </button>
+      </div>
+    </div>
   </div>
 
   <div class="lx-card" [class.lx-card--group-roles]="!!groupId">
     <div class="lx-table-header">
       <div>
         <h2 class="lc-title">{{ groupId ? 'Roles for this group' : 'Roles' }}</h2>
-        <p class="lc-lead" *ngIf="!groupId">Map capabilities to admin roles.</p>
+        <p class="lc-lead" *ngIf="!groupId">Full LDMS permission catalog, grouped by service module.</p>
         <p class="lc-lead lc-lead--group-scope" *ngIf="groupId">
           Every row below is a role currently linked to
           <strong>{{ contextGroupName || ('Group #' + groupId) }}</strong>
           (not the full catalog).
         </p>
       </div>
+      <div class="roles-view-toolbar" *ngIf="dataSource.length > 0">
+        <div class="roles-view-toolbar__modes" role="group" aria-label="Roles list layout">
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm roles-view-toggle"
+            [class.is-active]="groupByModule"
+            (click)="setViewMode(true)"
+          >
+            <mat-icon>view_module</mat-icon>
+            By module
+          </button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm roles-view-toggle"
+            [class.is-active]="!groupByModule"
+            (click)="setViewMode(false)"
+          >
+            <mat-icon>table_rows</mat-icon>
+            Table
+          </button>
+        </div>
+        <div class="roles-view-toolbar__module-actions" *ngIf="groupByModule">
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="expandAllModules()">Expand all</button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="collapseAllModules()">Collapse all</button>
+        </div>
+      </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
     </div>
     <lx-table-loading [busy]="fetching && dataSource.length === 0" message="Loading roles…"></lx-table-loading>
-<ng-container *ngIf="dataSource.length > 0; else noSearchHits">
-      <div class="lx-table-wrap" [class.lx-table-wrap--group-scoped]="!!groupId">
-        <table mat-table [dataSource]="dataSource" class="lx-mat-table">
-          <ng-container matColumnDef="role">
-            <th mat-header-cell *matHeaderCellDef>Role</th>
-            <td mat-cell *matCellDef="let row">{{ row.role }}</td>
-          </ng-container>
-          <ng-container matColumnDef="description">
-            <th mat-header-cell *matHeaderCellDef>Description</th>
-            <td mat-cell *matCellDef="let row">{{ row.description }}</td>
-          </ng-container>
-          <ng-container matColumnDef="status">
-            <th mat-header-cell *matHeaderCellDef>Status</th>
-            <td mat-cell *matCellDef="let row">
-              <span class="lx-status" [ngClass]="'lx-status-' + (row.status || 'active').toLowerCase()">{{
-                row.statusLabel
-              }}</span>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>Actions</th>
-            <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-              <button
-                type="button"
-                mat-icon-button
-                [matMenuTriggerFor]="userRolesRowActionsMenu"
-                [matMenuTriggerData]="{ roleRow: row }"
-                (click)="$event.stopPropagation()"
-                aria-label="Row actions"
-              >
-                <mat-icon>more_vert</mat-icon>
-              </button>
-            </td>
-          </ng-container>
-          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-        </table>
+    <ng-container *ngIf="filteredRows.length > 0; else noSearchHits">
+      <div class="roles-module-view" *ngIf="groupByModule">
+        <mat-accordion class="roles-module-accordion" multi displayMode="flat">
+          <mat-expansion-panel
+            *ngFor="let group of roleModuleGroups"
+            class="roles-module-panel"
+            [expanded]="isModuleExpanded(group.section.key)"
+            (expandedChange)="toggleModuleExpanded(group.section.key, $event)"
+          >
+            <mat-expansion-panel-header>
+              <mat-panel-title class="roles-module-title">
+                <mat-icon aria-hidden="true">{{ group.section.icon }}</mat-icon>
+                {{ group.section.label }}
+              </mat-panel-title>
+              <mat-panel-description>{{ group.roles.length }} permissions</mat-panel-description>
+            </mat-expansion-panel-header>
+            <div class="roles-module-table-wrap">
+              <table class="roles-module-table">
+                <thead>
+                  <tr>
+                    <th>Role</th>
+                    <th>Description</th>
+                    <th>Status</th>
+                    <th *ngIf="!groupId">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of group.roles">
+                    <td class="roles-module-table__role"><code>{{ row.role }}</code></td>
+                    <td>{{ row.description }}</td>
+                    <td>
+                      <span class="lx-status" [ngClass]="'lx-status-' + (row.status || 'active').toLowerCase()">{{
+                        row.statusLabel
+                      }}</span>
+                    </td>
+                    <td *ngIf="!groupId" class="lx-actions-cell">
+                      <button
+                        type="button"
+                        mat-icon-button
+                        class="roles-row-actions-trigger"
+                        [matMenuTriggerFor]="userRolesRowActionsMenu"
+                        (mousedown)="$event.preventDefault()"
+                        (click)="prepareRowActions($event, row)"
+                        aria-label="Row actions"
+                      >
+                        <mat-icon>more_vert</mat-icon>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </mat-expansion-panel>
+        </mat-accordion>
+        <mat-paginator
+          *ngIf="paginationLength > 0"
+          class="lx-table-paginator"
+          [length]="paginationLength"
+          [pageIndex]="pageIndex"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="[10, 20, 25, 50]"
+          [showFirstLastButtons]="true"
+          (page)="onPage($event)"
+        ></mat-paginator>
       </div>
-      <mat-paginator
-        class="lx-table-paginator"
-        [length]="totalRecords"
-        [pageIndex]="pageIndex"
-        [pageSize]="pageSize"
-        [pageSizeOptions]="[10, 20, 25, 50]"
-        [showFirstLastButtons]="true"
-        (page)="onPage($event)"
-      ></mat-paginator>
+
+      <ng-container *ngIf="!groupByModule">
+        <div class="lx-table-wrap" [class.lx-table-wrap--group-scoped]="!!groupId">
+          <table mat-table [dataSource]="tableRows" class="lx-mat-table">
+            <ng-container matColumnDef="module">
+              <th mat-header-cell *matHeaderCellDef>Module</th>
+              <td mat-cell *matCellDef="let row">{{ row.moduleLabel }}</td>
+            </ng-container>
+            <ng-container matColumnDef="role">
+              <th mat-header-cell *matHeaderCellDef>Role</th>
+              <td mat-cell *matCellDef="let row"><code class="roles-code">{{ row.role }}</code></td>
+            </ng-container>
+            <ng-container matColumnDef="description">
+              <th mat-header-cell *matHeaderCellDef>Description</th>
+              <td mat-cell *matCellDef="let row">{{ row.description }}</td>
+            </ng-container>
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="lx-status" [ngClass]="'lx-status-' + (row.status || 'active').toLowerCase()">{{
+                  row.statusLabel
+                }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+                <button
+                  type="button"
+                  mat-icon-button
+                  class="roles-row-actions-trigger"
+                  [matMenuTriggerFor]="userRolesRowActionsMenu"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="prepareRowActions($event, row)"
+                  aria-label="Row actions"
+                >
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        </div>
+        <mat-paginator
+          *ngIf="paginationLength > 0"
+          class="lx-table-paginator"
+          [length]="paginationLength"
+          [pageIndex]="pageIndex"
+          [pageSize]="pageSize"
+          [pageSizeOptions]="[10, 20, 25, 50]"
+          [showFirstLastButtons]="true"
+          (page)="onPage($event)"
+        ></mat-paginator>
+      </ng-container>
     </ng-container>
-    <mat-menu #userRolesRowActionsMenu="matMenu" panelClass="lx-row-actions-menu">
-      <ng-template matMenuContent let-roleRow="roleRow">
-        <button mat-menu-item type="button" class="lx-action-view" (click)="viewRow(roleRow)">
-          <mat-icon>visibility</mat-icon> View
-        </button>
-        <button mat-menu-item type="button" class="lx-action-edit" (click)="editRow(roleRow)">
-          <mat-icon>edit</mat-icon> Edit
-        </button>
-        <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteRow(roleRow)">
-          <mat-icon>delete</mat-icon> Delete
-        </button>
-      </ng-template>
+    <mat-menu
+      #userRolesRowActionsMenu="matMenu"
+      panelClass="lx-row-actions-menu"
+      (closed)="clearRowActions()"
+    >
+      <button
+        mat-menu-item
+        type="button"
+        class="lx-action-view"
+        [disabled]="!activeRoleRow"
+        (click)="viewRow(activeRoleRow)"
+      >
+        <mat-icon>visibility</mat-icon> View
+      </button>
+      <button
+        mat-menu-item
+        type="button"
+        class="lx-action-edit"
+        [disabled]="!activeRoleRow"
+        (click)="editRow(activeRoleRow)"
+      >
+        <mat-icon>edit</mat-icon> Edit
+      </button>
+      <button
+        mat-menu-item
+        type="button"
+        class="lx-action-delete"
+        [disabled]="!activeRoleRow"
+        (click)="deleteRow(activeRoleRow)"
+      >
+        <mat-icon>delete</mat-icon> Delete
+      </button>
     </mat-menu>
     <ng-template #noSearchHits>
       <div class="lx-empty lx-empty--compact" *ngIf="!groupId">

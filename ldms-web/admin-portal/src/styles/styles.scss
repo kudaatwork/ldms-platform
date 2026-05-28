@@ -1,5 +1,6 @@
 @use '@angular/material' as mat;
 @use 'tokens' as *;
+@use '../../../shared-ui/styles/lx-premium';
 @use '../app/shared/styles/lx-loading';
 
 @include mat.core();
@@ -398,6 +399,8 @@ button,
   &-rejected  { background:#FEF2F2; color:#DC2626; &::before{background:#EF4444;} }
   &-active    { background:#ECFDF5; color:#059669; &::before{background:#10B981;} }
   &-inactive  { background:#F3F4F6; color:#6B7280; &::before{background:#9CA3AF;} }
+  &-suspended { background:#FFF7ED; color:#C2410C; &::before{background:#F97316;} }
+  &-deleted   { background:#FEF2F2; color:#DC2626; &::before{background:#EF4444;} }
   &-pending   { background:#FFFBEB; color:#D97706; &::before{background:#F59E0B;} }
   &-transit   { background:var(--info-light); color:#2563EB; &::before{background:var(--info);} }
 }
@@ -1275,27 +1278,6 @@ html.theme-dark .lx-shell-error {
   color: #f87171;
 }
 
-/* Main scroll area: dot texture over existing gradients + page background (colour unchanged) */
-.shell .main .content {
-  background-image:
-    radial-gradient(circle, rgba(0, 0, 0, 0.07) 1px, transparent 1px),
-    radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--primary) 12%, transparent) 0%, transparent 30%),
-    radial-gradient(circle at 90% -10%, color-mix(in srgb, var(--analytics) 10%, transparent) 0%, transparent 34%),
-    linear-gradient(var(--page-bg), var(--page-bg));
-  background-size: 24px 24px, auto, auto, auto, 100% 100%;
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-}
-
-html.theme-dark .shell .main .content {
-  background-image:
-    radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
-    radial-gradient(circle at 10% 0%, color-mix(in srgb, var(--primary) 12%, transparent) 0%, transparent 30%),
-    radial-gradient(circle at 90% -10%, color-mix(in srgb, var(--analytics) 10%, transparent) 0%, transparent 34%),
-    linear-gradient(var(--page-bg), var(--page-bg));
-  background-size: 24px 24px, auto, auto, auto, 100% 100%;
-  background-repeat: repeat, no-repeat, no-repeat, no-repeat;
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1304,6 +1286,29 @@ html.theme-dark .shell .main .content {
     transition-duration: 1ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ── In-page modals (Create user, user groups, etc.) ─────────── */
+/* Rendered inside routed content; must sit above shell chrome (sidebar 100, topbar 30). */
+.lx-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1090;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.lx-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1100;
+  max-height: 88vh;
+  overflow: auto;
+}
+
+body.lx-page-modal-open {
+  overflow: hidden;
 }
 
 /* ── Dialog overrides ──────────────── */
@@ -1319,6 +1324,12 @@ html.theme-dark .shell .main .content {
   overflow: hidden;
   background: transparent !important;
   box-shadow: none !important;
+}
+
+.cdk-overlay-pane.kyc-review-dialog-panel .mat-mdc-dialog-container .mdc-dialog__surface {
+  padding: 0 !important;
+  border-radius: 16px !important;
+  overflow: hidden;
 }
 
 /* ── Dropdown contents: native <option> + Material mat-select panel ─── */

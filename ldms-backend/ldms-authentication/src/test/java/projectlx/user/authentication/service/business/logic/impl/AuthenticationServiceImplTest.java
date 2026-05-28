@@ -8,7 +8,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import projectlx.co.zw.shared_library.business.logic.api.JwtService;
+import projectlx.co.zw.shared_library.utils.dtos.UserDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import projectlx.co.zw.shared_library.utils.responses.UserResponse;
 import projectlx.user.authentication.service.business.auditable.api.AuthenticationServiceAuditable;
 import projectlx.user.authentication.service.business.logic.api.AuthenticationService;
 import projectlx.user.authentication.service.business.validator.api.AuthenticationServiceValidator;
@@ -122,9 +124,15 @@ class AuthenticationServiceImplTest {
     void authenticate_shouldReturnTrueAnd200ForValidRequest() {
         // Arrange
         when(authenticationServiceValidator.isAuthRequestValid(any(AuthRequest.class))).thenReturn(true);
+        UserDto userDto = new UserDto();
+        userDto.setUsername("testuser");
+        UserResponse userResponse = new UserResponse();
+        userResponse.setSuccess(true);
+        userResponse.setUserDto(userDto);
+        when(userManagementServiceClient.findByUsername("testuser")).thenReturn(userResponse);
         when(authManager.authenticate(any(UsernamePasswordAuthenticationToken.class))).thenReturn(authentication);
-        when(userDetailsService.loadUserByUsername(anyString())).thenReturn(userDetails);
-        when(jwtService.generateToken(any(UserDetails.class))).thenReturn("access-token-value");
+        when(authentication.getPrincipal()).thenReturn(userDetails);
+        when(jwtService.generateToken(any(UserDetails.class), anyMap())).thenReturn("access-token-value");
         when(jwtService.generateRefreshToken(any(UserDetails.class))).thenReturn("refresh-token-value");
         when(authenticationServiceAuditable.create(any(Token.class), eq(locale), eq(username))).thenReturn(token);
         when(messageService.getMessage(eq(I18Code.MESSAGE_USER_AUTHENTICATED_SUCCESSFULLY.getCode()), any(String[].class), eq(locale)))
@@ -209,7 +217,7 @@ class AuthenticationServiceImplTest {
         when(userDetailsService.loadUserByUsername(anyString())).thenReturn(userDetails);
         when(jwtService.isTokenValid(anyString(), any(UserDetails.class))).thenReturn(true);
         when(jwtService.extractUsername(anyString())).thenReturn("testuser");
-        when(jwtService.generateToken(any(UserDetails.class))).thenReturn("new-access-token-value");
+        when(jwtService.generateToken(any(UserDetails.class), anyMap())).thenReturn("new-access-token-value");
         when(messageService.getMessage(eq(I18Code.MESSAGE_REFRESH_TOKEN_REFRESHED_SUCCESSFULLY.getCode()), any(String[].class), eq(locale)))
                 .thenReturn("Token refreshed successfully");
 

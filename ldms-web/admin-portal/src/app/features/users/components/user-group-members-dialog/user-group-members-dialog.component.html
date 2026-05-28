@@ -58,6 +58,7 @@
           <input
             type="search"
             [(ngModel)]="searchQuery"
+            (ngModelChange)="onSearchQueryChange()"
             [placeholder]="activePanel === 'members' ? 'Search members…' : 'Search users to add…'"
             [attr.aria-label]="activePanel === 'members' ? 'Search members' : 'Search users to add'"
             [disabled]="mutating"

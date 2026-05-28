@@ -8,6 +8,7 @@ import lombok.ToString;
 import projectlx.co.zw.notifications.model.Channel;
 
 import java.util.List;
+import java.util.Map;
 
 @Getter
 @Setter
@@ -19,6 +20,7 @@ public class UpdateTemplateRequest {
     private String templateKey;
     private String description;
     private List<Channel> channels;
+    private Map<String, Boolean> channelDeliveryEnabled;
     private String emailSubject;
     private String emailBodyHtml;
     private String smsBody;
@@ -34,6 +36,23 @@ public class UpdateTemplateRequest {
         if (active == null) {
             return false;
         }
+        return hasNoTemplateBodyFields();
+    }
+
+    /** True when the client only updates per-channel delivery flags (e.g. table toggles). */
+    public boolean isChannelDeliveryOnlyUpdate() {
+        if (channelDeliveryEnabled == null || channelDeliveryEnabled.isEmpty()) {
+            return false;
+        }
+        return active == null && hasNoTemplateBodyFieldsExceptDelivery();
+    }
+
+    private boolean hasNoTemplateBodyFields() {
+        return hasNoTemplateBodyFieldsExceptDelivery()
+                && (channelDeliveryEnabled == null || channelDeliveryEnabled.isEmpty());
+    }
+
+    private boolean hasNoTemplateBodyFieldsExceptDelivery() {
         return isBlank(templateKey)
                 && isBlank(description)
                 && (channels == null || channels.isEmpty())

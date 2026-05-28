@@ -81,6 +81,7 @@ import projectlx.user.management.utils.requests.CreateUserPreferencesRequest;
 import projectlx.user.management.utils.requests.CreateUserRequest;
 import projectlx.user.management.utils.requests.CreateUserSecurityRequest;
 import projectlx.user.management.utils.requests.CreateUserTypeRequest;
+import projectlx.user.management.utils.requests.EditAddressRequest;
 import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
 import projectlx.user.management.utils.requests.NotificationRequest;
@@ -235,6 +236,7 @@ public class UserServiceImpl implements UserService {
 
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         User userToBeSaved = modelMapper.map(createUserRequest, User.class);
+        applyOrganizationKycApproverFlag(userToBeSaved, createUserRequest);
 
         if (createUserRequest.getUserTypeDetails() != null) {
 
@@ -535,35 +537,7 @@ public class UserServiceImpl implements UserService {
             user = userRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElse(user);
         }
 
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserDto userDto = modelMapper.map(user, UserDto.class);
-
-        if (user.getUserType() != null) {
-            userDto.setUserTypeDto(modelMapper.map(user.getUserType(), UserTypeDto.class));
-        }
-
-        UserAccount userAccount = user.getUserAccount();
-        userDto.setUserAccountDto(
-                userAccount != null ? modelMapper.map(userAccount, UserAccountDto.class) : null);
-
-        Address address = user.getAddress();
-        userDto.setAddressDto(address != null ? userAddressService.toAddressDto(address) : null);
-
-        UserGroup userGroup = user.getUserGroup();
-        userDto.setUserGroupDto(
-                userGroup != null ? modelMapper.map(userGroup, UserGroupDto.class) : null);
-
-        UserPassword userPassword = user.getUserPassword();
-        userDto.setUserPasswordDto(
-                userPassword != null ? modelMapper.map(userPassword, UserPasswordDto.class) : null);
-
-        UserPreferences userPreferences = user.getUserPreferences();
-        userDto.setUserPreferencesDto(
-                userPreferences != null ? modelMapper.map(userPreferences, UserPreferencesDto.class) : null);
-
-        UserSecurity userSecurity = user.getUserSecurity();
-        userDto.setUserSecurityDto(
-                userSecurity != null ? modelMapper.map(userSecurity, UserSecurityDto.class) : null);
+        UserDto userDto = toUserDtoWithRelations(user);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -573,6 +547,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse findByUsername(String username, Locale locale) {
 
         String message = "";
@@ -630,10 +605,10 @@ public class UserServiceImpl implements UserService {
         if (userGroup != null) {
             UserGroupDto userGroupDto = modelMapper.map(userGroup, UserGroupDto.class);
             if (userGroup.getUserRoles() != null) {
-                List<UserRoleDto> userRoleDtoList = modelMapper.map(
-                        userGroup.getUserRoles(),
-                        new TypeToken<List<UserRoleDto>>() {
-                        }.getType());
+                List<UserRoleDto> userRoleDtoList = userGroup.getUserRoles().stream()
+                        .filter(role -> role.getEntityStatus() != EntityStatus.DELETED)
+                        .map(role -> modelMapper.map(role, UserRoleDto.class))
+                        .toList();
                 userGroupDto.setUserRoleDtoSet(userRoleDtoList);
             }
             userDto.setUserGroupDto(userGroupDto);
@@ -684,6 +659,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserResponse update(EditUserRequest editUserRequest, String username, Locale locale) {
 
         String message = "";
@@ -711,15 +687,27 @@ public class UserServiceImpl implements UserService {
         }
 
         User userToBeEdited = userRetrieved.get();
+        if (Boolean.TRUE.equals(resolveOrganizationKycApproverFlag(editUserRequest.getOrganizationKycApprover()))
+                && (userToBeEdited.getOrganizationId() != null || userToBeEdited.getBranchId() != null)) {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_CREATE_USER_KYC_APPROVER_REQUIRES_NO_ORG.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null,
+                    List.of(message));
+        }
         userToBeEdited.setUsername(editUserRequest.getUsername());
         userToBeEdited.setEmail(editUserRequest.getEmail());
         userToBeEdited.setFirstName(editUserRequest.getFirstName());
         userToBeEdited.setLastName(editUserRequest.getLastName());
-        userToBeEdited.setGender(Gender.valueOf(editUserRequest.getGender()));
+        Gender gender = safeGender(editUserRequest.getGender()).orElse(userToBeEdited.getGender());
+        if (gender == null) {
+            gender = Gender.PREFER_NOT_TO_SAY;
+        }
+        userToBeEdited.setGender(gender);
         userToBeEdited.setNationalIdNumber(editUserRequest.getNationalIdNumber());
         userToBeEdited.setPassportNumber(editUserRequest.getPassportNumber());
         userToBeEdited.setPhoneNumber(editUserRequest.getPhoneNumber());
         userToBeEdited.setDateOfBirth(Date.valueOf(editUserRequest.getDateOfBirth()));
+        syncUserAccountPhoneNumber(userToBeEdited, editUserRequest.getPhoneNumber());
 
         if (editUserRequest.getNationalIdUploadId() != null) {
             userToBeEdited.setNationalIdUploadId(editUserRequest.getNationalIdUploadId());
@@ -727,8 +715,10 @@ public class UserServiceImpl implements UserService {
         if (editUserRequest.getPassportUploadId() != null) {
             userToBeEdited.setPassportUploadId(editUserRequest.getPassportUploadId());
         }
+        applyOrganizationKycApproverFlagOnUpdate(userToBeEdited, editUserRequest);
 
         User userEdited = userServiceAuditable.update(userToBeEdited, locale, username);
+        applyUserAddressOnUpdate(userEdited, editUserRequest, locale, username);
 
         boolean nationalMultipart = editUserRequest.getNationalIdUpload() != null
                 && !editUserRequest.getNationalIdUpload().isEmpty();
@@ -827,14 +817,80 @@ public class UserServiceImpl implements UserService {
                     .orElse(userForResponse);
         }
 
-        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        UserDto userDtoReturned = modelMapper.map(userForResponse, UserDto.class);
+        UserDto userDtoReturned = toUserDtoWithRelations(userForResponse);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_UPDATED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
 
         return buildUserResponse(201, true, message, userDtoReturned, null,
                 null);
+    }
+
+    private void syncUserAccountPhoneNumber(User user, String phoneNumber) {
+        if (user == null || user.getId() == null || !org.springframework.util.StringUtils.hasText(phoneNumber)) {
+            return;
+        }
+        userAccountRepository.findByUser_IdAndEntityStatusNot(user.getId(), EntityStatus.DELETED).ifPresent(account -> {
+            account.setPhoneNumber(phoneNumber.trim());
+            userAccountRepository.save(account);
+        });
+    }
+
+    private void applyUserAddressOnUpdate(User user, EditUserRequest editUserRequest, Locale locale, String username) {
+        UserAddressDetails details = editUserRequest.getUserAddressDetails();
+        if (details == null || user == null || user.getId() == null) {
+            return;
+        }
+        if (!org.springframework.util.StringUtils.hasText(details.getLine1())
+                || !org.springframework.util.StringUtils.hasText(details.getPostalCode())
+                || details.getSuburbId() == null) {
+            return;
+        }
+
+        Address existing = user.getAddress();
+        if (existing == null) {
+            existing = userRepository.findByIdAndEntityStatusNot(user.getId(), EntityStatus.DELETED)
+                    .map(User::getAddress)
+                    .orElse(null);
+        }
+
+        if (existing != null && existing.getId() != null) {
+            EditAddressRequest editAddressRequest = new EditAddressRequest();
+            editAddressRequest.setId(existing.getId());
+            if (existing.getLocationAddressId() != null) {
+                editAddressRequest.setLocationAddressId(existing.getLocationAddressId());
+            }
+            editAddressRequest.setLine1(details.getLine1().trim());
+            editAddressRequest.setLine2(details.getLine2());
+            editAddressRequest.setPostalCode(details.getPostalCode().trim());
+            editAddressRequest.setSuburbId(details.getSuburbId());
+            editAddressRequest.setGeoCoordinatesId(details.getGeoCoordinatesId());
+            AddressResponse addressResponse = userAddressService.update(editAddressRequest, username, locale);
+            if (!addressResponse.isSuccess()) {
+                logger.warn("Could not update address for user {}: {}", user.getId(), addressResponse.getMessage());
+            }
+            return;
+        }
+
+        CreateAddressRequest createAddressRequest = convertToLocationServiceRequest(details);
+        try {
+            AddressResponse addressResponse = userAddressService.create(createAddressRequest, locale, username);
+            if (!addressResponse.isSuccess() || addressResponse.getAddressDto() == null) {
+                logger.warn("Could not create address for user {}: {}", user.getId(), addressResponse.getMessage());
+                return;
+            }
+            Long locationAddressId = addressResponse.getAddressDto().getId();
+            Optional<Address> localAddress = userAddressRepository.findByLocationAddressIdAndEntityStatusNot(
+                    locationAddressId, EntityStatus.DELETED);
+            if (localAddress.isPresent()) {
+                user.setAddress(localAddress.get());
+                userRepository.save(user);
+            } else {
+                logger.warn("Address created in location service but local reference missing for user {}", user.getId());
+            }
+        } catch (Exception ex) {
+            logger.error("Error creating address during user update for user {}", user.getId(), ex);
+        }
     }
 
     @Override
@@ -917,8 +973,7 @@ public class UserServiceImpl implements UserService {
 
         String message = "";
 
-        Specification<User> spec = null;
-        spec = addToSpec(spec, UserSpecification::deleted);
+        Specification<User> spec = buildInitialUserFilterSpec(usersMultipleFiltersRequest);
 
         ValidatorDto validatorDto = userServiceValidator.isRequestValidToRetrieveUsersByMultipleFilters(
                 usersMultipleFiltersRequest, locale);
@@ -1011,6 +1066,17 @@ public class UserServiceImpl implements UserService {
         Long filterUserGroupId = usersMultipleFiltersRequest.getUserGroupId();
         if (filterUserGroupId != null && filterUserGroupId > 0) {
             spec = spec.and(UserSpecification.belongsToUserGroup(filterUserGroupId));
+        }
+
+        Long filterOrganizationId = usersMultipleFiltersRequest.getOrganizationId();
+        if (filterOrganizationId != null && filterOrganizationId > 0
+                && userServiceValidator.isIdValid(filterOrganizationId)) {
+            spec = spec.and(UserSpecification.organizationIdEquals(filterOrganizationId));
+        }
+
+        Long filterBranchId = usersMultipleFiltersRequest.getBranchId();
+        if (filterBranchId != null && filterBranchId > 0 && userServiceValidator.isIdValid(filterBranchId)) {
+            spec = spec.and(UserSpecification.branchIdEquals(filterBranchId));
         }
 
         long totalCount = userRepository.count(spec);
@@ -1452,6 +1518,44 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserResponse setOrganizationKycApprover(Long id, boolean enabled, Locale locale, String username) {
+        ValidatorDto validation = userServiceValidator.isIdValid(id, locale);
+        if (!validation.getSuccess()) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_ID_SUPPLIED_INVALID.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, validation.getErrorMessages());
+        }
+        User user = userRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED)
+                .orElse(null);
+        if (user == null) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(404, false, message, null, null, null);
+        }
+        if (enabled && (user.getOrganizationId() != null || user.getBranchId() != null)) {
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_CREATE_USER_KYC_APPROVER_REQUIRES_NO_ORG.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
+        }
+        user.setOrganizationKycApprover(enabled);
+        User saved = userServiceAuditable.update(user, locale, username);
+        String message = messageService.getMessage(I18Code.MESSAGE_USER_UPDATED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, toUserDto(saved), null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse listOrganizationKycApprovers(Locale locale) {
+        List<User> approvers = userRepository.findByOrganizationKycApproverTrueAndOrganizationIdIsNullAndEntityStatusNot(
+                EntityStatus.DELETED);
+        List<UserDto> dtos = new ArrayList<>();
+        for (User user : approvers) {
+            dtos.add(toUserDto(user));
+        }
+        String message = messageService.getMessage(
+                I18Code.MESSAGE_ORGANIZATION_KYC_APPROVERS_RETRIEVED.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, null, dtos, null);
+    }
+
+    @Override
     public UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale) {
 
         String message = "";
@@ -1486,14 +1590,14 @@ public class UserServiceImpl implements UserService {
 
         User userReturned = userRetrieved.get();
 
-        // Always map mandatory DTOs
-        UserAccountDto userAccountDto = modelMapper.map(userReturned.getUserAccount(), UserAccountDto.class);
-        UserPasswordDto userPasswordDto = modelMapper.map(userReturned.getUserPassword(), UserPasswordDto.class);
-
-        // Map main user
+        // Map main user (account/password may be absent for organisation contact rows)
         UserDto userDto = modelMapper.map(userReturned, UserDto.class);
-        userDto.setUserAccountDto(userAccountDto);
-        userDto.setUserPasswordDto(userPasswordDto);
+        if (userReturned.getUserAccount() != null) {
+            userDto.setUserAccountDto(modelMapper.map(userReturned.getUserAccount(), UserAccountDto.class));
+        }
+        if (userReturned.getUserPassword() != null) {
+            userDto.setUserPasswordDto(modelMapper.map(userReturned.getUserPassword(), UserPasswordDto.class));
+        }
 
         // Optionally map and set user security
         if (userReturned.getUserSecurity() != null) {
@@ -1566,6 +1670,13 @@ public class UserServiceImpl implements UserService {
                     null);
         }
 
+        LocalDateTime createdAt = user.getCreatedAt();
+        if (createdAt != null && !createdAt.isBefore(LocalDateTime.now().minusHours(24))) {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_VERIFICATION_RESEND_TOO_EARLY.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
+        }
+
         // 3. Generate a new verification token.
         String newVerificationToken = tokenService.generateEmailVerificationToken();
 
@@ -1583,6 +1694,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse findByOrganizationId(Long organizationId, Locale locale, String username) {
 
         String message = "";
@@ -1599,17 +1711,7 @@ public class UserServiceImpl implements UserService {
         }
 
         List<User> userList = userRepository.findByOrganizationIdAndEntityStatusNot(organizationId, EntityStatus.DELETED);
-
-        if(userList.isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]
-                    {}, locale);
-
-            return buildUserResponse(404, false, message, null,
-                    null, null);
-        }
-
-        List<UserDto> userDtoList = modelMapper.map(userList, new TypeToken<List<UserDto>>(){}.getType());
+        List<UserDto> userDtoList = mapUsersToDtoList(userList);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -1619,6 +1721,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse findByBranchId(Long branchId, Locale locale, String username) {
 
         String message = "";
@@ -1635,23 +1738,26 @@ public class UserServiceImpl implements UserService {
         }
 
         List<User> userList = userRepository.findByBranchIdAndEntityStatusNot(branchId, EntityStatus.DELETED);
-
-        if(userList.isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]
-                    {}, locale);
-
-            return buildUserResponse(404, false, message, null,
-                    null, null);
-        }
-
-        List<UserDto> userDtoList = modelMapper.map(userList, new TypeToken<List<UserDto>>(){}.getType());
+        List<UserDto> userDtoList = mapUsersToDtoList(userList);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
 
         return buildUserResponse(200, true, message, null, userDtoList,
                 null);
+    }
+
+    private Specification<User> buildInitialUserFilterSpec(UsersMultipleFiltersRequest request) {
+        String entityStatusRaw = request != null ? request.getEntityStatus() : null;
+        if (StringUtils.hasText(entityStatusRaw)) {
+            try {
+                EntityStatus filterStatus = EntityStatus.valueOf(entityStatusRaw.trim().toUpperCase());
+                return Specification.where(UserSpecification.entityStatusEquals(filterStatus));
+            } catch (IllegalArgumentException ignored) {
+                // Fall through to default: hide soft-deleted rows.
+            }
+        }
+        return addToSpec(null, UserSpecification::deleted);
     }
 
     private Specification<User> addToSpec(Specification<User> spec,
@@ -1687,8 +1793,7 @@ public class UserServiceImpl implements UserService {
         List<UserDto> userDtoList = new ArrayList<>();
 
         for (User user : userPage) {
-            UserDto userDto = modelMapper.map(user, UserDto.class);
-            userDtoList.add(userDto);
+            userDtoList.add(toUserDto(user));
         }
 
         int page = userPage.getNumber();
@@ -2294,5 +2399,73 @@ public class UserServiceImpl implements UserService {
         userResponse.setErrorMessages(errorMessages);
 
         return userResponse;
+    }
+
+    private void applyOrganizationKycApproverFlag(User user, CreateUserRequest request) {
+        boolean approver = Boolean.TRUE.equals(request.getOrganizationKycApprover())
+                && request.getOrganizationId() == null
+                && request.getBranchId() == null;
+        user.setOrganizationKycApprover(approver);
+    }
+
+    private void applyOrganizationKycApproverFlagOnUpdate(User user, EditUserRequest request) {
+        Boolean flag = resolveOrganizationKycApproverFlag(request.getOrganizationKycApprover());
+        if (flag == null) {
+            return;
+        }
+        boolean approver = Boolean.TRUE.equals(flag)
+                && user.getOrganizationId() == null
+                && user.getBranchId() == null;
+        user.setOrganizationKycApprover(approver);
+    }
+
+    private Boolean resolveOrganizationKycApproverFlag(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        return "true".equalsIgnoreCase(raw.trim());
+    }
+
+    private List<UserDto> mapUsersToDtoList(List<User> userList) {
+        List<UserDto> userDtoList = new ArrayList<>();
+        if (userList == null || userList.isEmpty()) {
+            return userDtoList;
+        }
+        for (User user : userList) {
+            userDtoList.add(toUserDto(user));
+        }
+        return userDtoList;
+    }
+
+    private UserDto toUserDto(User user) {
+        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        UserDto dto = modelMapper.map(user, UserDto.class);
+        dto.setOrganizationKycApprover(user.isOrganizationKycApprover());
+        return dto;
+    }
+
+    private UserDto toUserDtoWithRelations(User user) {
+        UserDto userDto = toUserDto(user);
+        if (user.getUserType() != null) {
+            userDto.setUserTypeDto(modelMapper.map(user.getUserType(), UserTypeDto.class));
+        }
+        UserAccount userAccount = user.getUserAccount();
+        userDto.setUserAccountDto(
+                userAccount != null ? modelMapper.map(userAccount, UserAccountDto.class) : null);
+        Address address = user.getAddress();
+        userDto.setAddressDto(address != null ? userAddressService.toAddressDto(address) : null);
+        UserGroup userGroup = user.getUserGroup();
+        userDto.setUserGroupDto(
+                userGroup != null ? modelMapper.map(userGroup, UserGroupDto.class) : null);
+        UserPassword userPassword = user.getUserPassword();
+        userDto.setUserPasswordDto(
+                userPassword != null ? modelMapper.map(userPassword, UserPasswordDto.class) : null);
+        UserPreferences userPreferences = user.getUserPreferences();
+        userDto.setUserPreferencesDto(
+                userPreferences != null ? modelMapper.map(userPreferences, UserPreferencesDto.class) : null);
+        UserSecurity userSecurity = user.getUserSecurity();
+        userDto.setUserSecurityDto(
+                userSecurity != null ? modelMapper.map(userSecurity, UserSecurityDto.class) : null);
+        return userDto;
     }
 }

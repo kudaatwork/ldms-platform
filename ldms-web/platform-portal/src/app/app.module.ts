@@ -1,6 +1,7 @@
 import { APP_INITIALIZER, NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { HttpClientModule } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
@@ -10,12 +11,21 @@ import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.compone
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
 import { LandingComponent } from './features/landing/pages/landing/landing.component';
 import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
+import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 
 export function initPlatformTheme(theme: ThemeService): () => void {
   return () => {
     theme.initFromStorage();
   };
+}
+
+export function initPlatformSession(auth: AuthService): () => Promise<void> {
+  return () =>
+    firstValueFrom(auth.initializeSession()).then(
+      () => undefined,
+      () => undefined,
+    );
 }
 
 @NgModule({
@@ -38,6 +48,12 @@ export function initPlatformTheme(theme: ThemeService): () => void {
       provide: APP_INITIALIZER,
       useFactory: initPlatformTheme,
       deps: [ThemeService],
+      multi: true,
+    },
+    {
+      provide: APP_INITIALIZER,
+      useFactory: initPlatformSession,
+      deps: [AuthService],
       multi: true,
     },
   ],
