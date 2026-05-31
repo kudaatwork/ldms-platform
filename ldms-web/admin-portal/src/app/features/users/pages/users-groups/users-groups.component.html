@@ -1,4 +1,12 @@
 <div class="lx-page">
+  <lx-page-hero
+    eyebrow="Identity &amp; access"
+    title="User groups"
+    [lead]="pageLead"
+    icon="groups"
+    variant="violet"
+  ></lx-page-hero>
+
   <div class="lx-card lx-card--subsection">
       <div class="lx-controls-head">
         <div class="lx-controls-head__text">
@@ -91,8 +99,7 @@
   <div class="lx-card">
     <div class="lx-table-header">
       <div>
-        <h2 class="lc-title">User Groups</h2>
-        <p class="lc-lead">Open any group to manage the roles assigned to that group.</p>
+        <p class="lx-table-meta">Open any group to manage roles assigned to that group</p>
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
     </div>

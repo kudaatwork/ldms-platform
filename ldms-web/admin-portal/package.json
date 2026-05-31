@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "scripts": {
     "ng": "ng",
-    "start": "ng serve",
+    "clear:vite-cache": "node scripts/clear-ng-vite-cache.mjs",
+    "start": "npm run clear:vite-cache && NODE_OPTIONS='--max-http-header-size=65536' ng serve --port 4200",
+    "serve": "npm run clear:vite-cache && ng serve --port 4200",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test"

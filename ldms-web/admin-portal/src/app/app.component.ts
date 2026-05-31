@@ -11,11 +11,13 @@ import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
 import { filter, takeUntil, tap } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { CurrentUserService, ShellUserView } from './core/services/current-user.service';
+import { KycNotificationDismissService } from './core/services/kyc-notification-dismiss.service';
 import { KycQueueStatsService } from './core/services/kyc-queue-stats.service';
 import { StorageService } from './core/services/storage.service';
 import type { KycQueueSummary } from './features/organizations/services/organizations-admin.service';
 import { ThemeService } from './core/services/theme.service';
 import { ORG_CLASSIFICATIONS } from './shared/models/org-classifications';
+import { isStoredSessionToken } from './core/utils/jwt.util';
 
 /** Leaf link or non-clickable section label inside a nav subsection. */
 type NavSubEntry =
@@ -51,6 +53,9 @@ interface TopNotification {
   title: string;
   body: string;
   time: string;
+  /** When set, clicking the notification navigates here. */
+  route?: string[];
+  queryParams?: Record<string, string | number>;
 }
 
 function classificationNavIcon(slug: string): string {
@@ -176,7 +181,7 @@ export class AppComponent implements OnInit, OnDestroy {
       route: '/activity',
       children: [
         { label: 'Request logs', icon: 'receipt', route: '/activity/request-logs' },
-        { label: 'Activity logs', icon: 'history', route: '/activity/activity-logs' },
+        { label: 'Login & activity', icon: 'history', route: '/activity/activity-logs' },
         { label: 'Churnout history', icon: 'restore', route: '/activity/churnout-history' },
       ],
     },
@@ -197,6 +202,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private readonly storage: StorageService,
     private readonly currentUser: CurrentUserService,
     private readonly kycStats: KycQueueStatsService,
+    private readonly kycNotificationDismiss: KycNotificationDismissService,
     readonly theme: ThemeService,
   ) {}
 
@@ -476,7 +482,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private isAuthenticated(): boolean {
-    return !!this.storage.getToken();
+    return isStoredSessionToken(this.storage.getToken());
   }
 
   /** True when the current URL is this nav group or one of its child routes. */
@@ -584,12 +590,17 @@ export class AppComponent implements OnInit, OnDestroy {
       this.topNotifications = [];
       return;
     }
-    this.topNotifications = summary.recentApplications.map((row) => ({
-      id: `kyc-${row.id}`,
-      title: 'KYC application in queue',
-      body: `${row.applicant} — ${row.statusLabel}`,
-      time: row.submitted?.trim() || 'Pending review',
-    }));
+    this.topNotifications = this.kycNotificationDismiss
+      .filterById(
+        summary.recentApplications.map((row) => ({
+          id: `kyc-${row.id}`,
+          title: 'KYC application in queue',
+          body: `${row.applicant} — ${row.statusLabel}`,
+          time: row.submitted?.trim() || 'Pending review',
+          route: ['/kyc/applications'],
+          queryParams: { applicationId: row.id },
+        })),
+      );
   }
 
   toggleNotifications(): void {
@@ -608,12 +619,29 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  dismissNotification(id: string): void {
+  openNotification(notification: TopNotification): void {
+    if (!notification.route?.length) {
+      return;
+    }
+    this.notificationsOpen = false;
+    void this.router.navigate(notification.route, {
+      queryParams: notification.queryParams,
+    });
+    this.dismissNotification(notification.id);
+    this.cdr.markForCheck();
+  }
+
+  dismissNotification(id: string, event?: Event): void {
+    event?.stopPropagation();
+    this.kycNotificationDismiss.dismiss(id);
     this.topNotifications = this.topNotifications.filter((n) => n.id !== id);
     this.cdr.markForCheck();
   }
 
   clearAllNotifications(): void {
+    for (const n of this.topNotifications) {
+      this.kycNotificationDismiss.dismiss(n.id);
+    }
     this.topNotifications = [];
     this.cdr.markForCheck();
   }

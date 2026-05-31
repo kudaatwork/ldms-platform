@@ -76,9 +76,14 @@ public class OrganizationDirectoryAdminService {
     private final IndustryServiceAuditable industryServiceAuditable;
     private final OrganizationServiceValidator organizationServiceValidator;
     private final MessageService messageService;
+    private final OrganizationDirectoryNotifier organizationDirectoryNotifier;
 
     @Transactional
     public OrganizationResponse createBranch(CreateBranchRequest request, Locale locale, String username) {
+        return createBranch(request, locale, username, true);
+    }
+
+    private OrganizationResponse createBranch(CreateBranchRequest request, Locale locale, String username, boolean notify) {
         ValidatorDto v = organizationServiceValidator.validateCreateBranch(request, locale);
         if (Boolean.FALSE.equals(v.getSuccess())) {
             return errors(v.getErrorMessages());
@@ -95,6 +100,9 @@ public class OrganizationDirectoryAdminService {
         branch.setCreatedAt(now);
         branch.setCreatedBy(username);
         Branch saved = branchServiceAuditable.save(branch);
+        if (notify) {
+            organizationDirectoryNotifier.sendBranchCreated(saved, username);
+        }
         return branchSuccess(saved, I18Code.BRANCH_CREATED, 201, locale);
     }
 
@@ -182,6 +190,10 @@ public class OrganizationDirectoryAdminService {
 
     @Transactional
     public OrganizationResponse createAgent(CreateAgentRequest request, Locale locale, String username) {
+        return createAgent(request, locale, username, true);
+    }
+
+    private OrganizationResponse createAgent(CreateAgentRequest request, Locale locale, String username, boolean notify) {
         ValidatorDto v = organizationServiceValidator.validateCreateAgent(request, locale);
         if (Boolean.FALSE.equals(v.getSuccess())) {
             return errors(v.getErrorMessages());
@@ -198,6 +210,9 @@ public class OrganizationDirectoryAdminService {
         agent.setCreatedAt(now);
         agent.setCreatedBy(username);
         Agent saved = agentServiceAuditable.save(agent);
+        if (notify) {
+            organizationDirectoryNotifier.sendAgentCreated(saved, username);
+        }
         return agentSuccess(saved, I18Code.AGENT_CREATED, 201, locale);
     }
 
@@ -344,7 +359,7 @@ public class OrganizationDirectoryAdminService {
                 }
                 req.setHeadOffice(parseBoolean(row.getHeadOffice()));
                 req.setActive(parseBoolean(row.getActive()));
-                OrganizationResponse resp = createBranch(req, locale, username);
+                OrganizationResponse resp = createBranch(req, locale, username, false);
                 if (resp.isSuccess()) {
                     imported++;
                 } else {
@@ -381,7 +396,7 @@ public class OrganizationDirectoryAdminService {
                     req.setBranchId(Long.parseLong(row.getBranchId().trim()));
                 }
                 req.setActive(parseBoolean(row.getActive()));
-                OrganizationResponse resp = createAgent(req, locale, username);
+                OrganizationResponse resp = createAgent(req, locale, username, false);
                 if (resp.isSuccess()) {
                     imported++;
                 } else {

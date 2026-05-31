@@ -147,6 +147,23 @@ public class OrganizationDto {
     private Long assignedStage2ApproverUserId;
     private String assignedStage2ApproverUsername;
     private String assignedStage2ApproverDisplayName;
+    /** Pre-assigned stage-3 KYC reviewer (signup organisations only). */
+    private Long assignedStage3ApproverUserId;
+    private String assignedStage3ApproverUsername;
+    private String assignedStage3ApproverDisplayName;
+    /** Pre-assigned stage-4 KYC reviewer (signup organisations only). */
+    private Long assignedStage4ApproverUserId;
+    private String assignedStage4ApproverUsername;
+    private String assignedStage4ApproverDisplayName;
+    /** Pre-assigned stage-5 KYC reviewer (signup organisations only). */
+    private Long assignedStage5ApproverUserId;
+    private String assignedStage5ApproverUsername;
+    private String assignedStage5ApproverDisplayName;
+
+    /** Per-organisation override; null inherits platform default. */
+    private Integer kycRequiredApprovalStages;
+    /** Resolved stage count (override or platform default). */
+    private Integer effectiveKycRequiredApprovalStages;
 
     // System Metadata
     private LocalDateTime createdAt;
@@ -160,4 +177,7 @@ public class OrganizationDto {
 
     /** Contracted transporter organisations linked to this organisation. */
     private List<OrganizationDto> contractedTransporterDtoList;
+
+    /** Contracted clearing agent organisations linked to this supplier. */
+    private List<OrganizationDto> contractedClearingAgentDtoList;
 }

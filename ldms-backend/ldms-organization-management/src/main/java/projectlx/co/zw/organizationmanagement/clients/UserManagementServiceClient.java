@@ -19,6 +19,9 @@ public interface UserManagementServiceClient {
     @PostMapping("/ldms-user-management/v1/system/user/provision-organization-contact-person")
     UserResponse provisionOrganizationContactPerson(@RequestBody ProvisionOrganizationContactPersonRequest request);
 
+    @PostMapping("/ldms-user-management/v1/system/user/issue-organization-contact-credentials")
+    UserResponse issueOrganizationContactCredentials(@RequestBody IssueOrganizationContactCredentialsRequest request);
+
     @PostMapping("/ldms-user-management/v1/system/user/find-by-multiple-filters")
     UserResponse findUsersByMultipleFilters(@RequestBody UsersMultipleFiltersFeignRequest request);
 

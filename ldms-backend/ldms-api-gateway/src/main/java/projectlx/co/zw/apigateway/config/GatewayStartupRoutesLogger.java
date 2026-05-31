@@ -34,6 +34,8 @@ public class GatewayStartupRoutesLogger {
         log.info(
                 "Login URL: POST http://localhost:8091/ldms-authentication/v1/auth/request-access-token "
                         + "(requires ldms-authentication on :" + authenticationPort + ")");
+        log.info(
+                "Platform health: GET http://localhost:8091/ldms-api-gateway/v1/backoffice/platform-health/snapshot");
     }
 
     private static boolean isLoggedRoute(String routeId) {

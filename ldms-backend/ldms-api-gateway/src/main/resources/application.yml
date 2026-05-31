@@ -4,6 +4,7 @@
 # (the import below is `optional:`, so missing config does not fail startup).
 server:
   port: ${GATEWAY_SERVER_PORT:8091}
+  max-http-request-header-size: 65536
 
 spring:
   application:
@@ -145,8 +146,53 @@ eureka:
     prefer-ip-address: true
     lease-renewal-interval-in-seconds: 30
 
-# Service routing overrides (programmatic RouteLocator beans use order -100).
 ldms:
+  platform-health:
+    probe-timeout-ms: ${LDMS_PLATFORM_HEALTH_PROBE_TIMEOUT_MS:5000}
+    default-host: ${API_GATEWAY_HOST:127.0.0.1}
+    services:
+      - id: api-gateway
+        display-name: API Gateway
+        eureka-name: ldms-api-gateway
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${GATEWAY_SERVER_PORT:8091}
+      - id: authentication
+        display-name: Authentication
+        eureka-name: auth-management
+        host: ${AUTHENTICATION_HOST:127.0.0.1}
+        port: ${AUTHENTICATION_PORT:8083}
+      - id: locations
+        display-name: Locations
+        eureka-name: ldms-location-management
+        host: ${LOCATIONS_HOST:127.0.0.1}
+        port: ${LOCATIONS_PORT:8084}
+      - id: user-management
+        display-name: User Management
+        eureka-name: user-management
+        host: ${USER_MANAGEMENT_HOST:127.0.0.1}
+        port: ${USER_MANAGEMENT_PORT:8086}
+        management-port: ${USER_MANAGEMENT_MANAGEMENT_PORT:9086}
+      - id: organization-management
+        display-name: Organization Management
+        eureka-name: organization-management-service
+        host: ${ORGANIZATION_MANAGEMENT_HOST:127.0.0.1}
+        port: ${ORGANIZATION_MANAGEMENT_PORT:8087}
+      - id: notifications
+        display-name: Notifications
+        eureka-name: ldms-notifications
+        host: ${NOTIFICATIONS_HOST:127.0.0.1}
+        port: ${NOTIFICATIONS_PORT:8094}
+      - id: audit-trail
+        display-name: Audit Trail
+        eureka-name: ldms-audit-trail
+        host: ${AUDIT_TRAIL_HOST:127.0.0.1}
+        port: ${AUDIT_TRAIL_PORT:8099}
+      - id: file-upload
+        display-name: File Upload
+        eureka-name: file-upload-service
+        host: ${FILE_UPLOAD_HOST:127.0.0.1}
+        port: ${FILE_UPLOAD_PORT:8085}
+        management-port: ${FILE_UPLOAD_MANAGEMENT_PORT:9085}
   gateway:
     locations:
       routes-enabled: true
@@ -172,6 +218,16 @@ gateway:
   jwt:
     secret: ${JWT_SECRET:LDMS-local-dev-jwt-secret-at-least-thirty-two-chars-long}
     roles-claim: roles
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
 
 logging:
   level:

@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -18,6 +19,7 @@ import {
   OrganizationsAdminService,
   type OrganizationTableQuery,
 } from '../../../organizations/services/organizations-admin.service';
+import { KycNotificationDismissService } from '../../../../core/services/kyc-notification-dismiss.service';
 import { KycQueueStatsService } from '../../../../core/services/kyc-queue-stats.service';
 import { StorageService } from '../../../../core/services/storage.service';
 import type { KycQueueSummary } from '../../../organizations/services/organizations-admin.service';
@@ -72,6 +74,7 @@ export class KycApplicationsComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   private latestLoadToken = 0;
   private lastFilterSignature = '';
+  private lastOpenedApplicationId: number | null = null;
 
   constructor(
     private readonly title: Title,
@@ -79,7 +82,10 @@ export class KycApplicationsComponent implements OnInit, OnDestroy {
     private readonly snackBar: MatSnackBar,
     private readonly orgService: OrganizationsAdminService,
     private readonly kycStats: KycQueueStatsService,
+    private readonly kycNotificationDismiss: KycNotificationDismissService,
     private readonly storage: StorageService,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -99,6 +105,25 @@ export class KycApplicationsComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     });
     this.refreshQueueSummary();
+
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
+      const statusFromRoute = params.get('status')?.trim() ?? '';
+      if (statusFromRoute && this.columnFilters.statusLabel !== statusFromRoute) {
+        this.columnFilters.statusLabel = statusFromRoute;
+        this.applyFilters();
+      }
+
+      const applicationId = Number(params.get('applicationId'));
+      if (!Number.isFinite(applicationId) || applicationId <= 0) {
+        this.lastOpenedApplicationId = null;
+        return;
+      }
+      if (this.lastOpenedApplicationId === applicationId) {
+        return;
+      }
+      this.lastOpenedApplicationId = applicationId;
+      this.openApplicationById(applicationId);
+    });
   }
 
   ngOnDestroy(): void {
@@ -140,11 +165,29 @@ export class KycApplicationsComponent implements OnInit, OnDestroy {
   }
 
   openApplication(row: KycQueueRow): void {
-    this.orgService.getOrganization(row.id).subscribe({
-      next: (detail) => this.openDetailDialog(detail),
+    this.openApplicationById(row.id);
+  }
+
+  private openApplicationById(applicationId: number): void {
+    this.orgService.getOrganization(applicationId).subscribe({
+      next: (detail) => {
+        this.clearApplicationQueryParam();
+        this.openDetailDialog(detail);
+      },
       error: (err: Error) => {
+        this.clearApplicationQueryParam();
+        this.lastOpenedApplicationId = null;
         this.snackBar.open(err.message ?? 'Could not load application', 'Dismiss', { duration: 6000 });
       },
+    });
+  }
+
+  private clearApplicationQueryParam(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { applicationId: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
     });
   }
 
@@ -248,31 +291,16 @@ export class KycApplicationsComponent implements OnInit, OnDestroy {
 
   private applyDecision(orgId: number, result: KycApplicationDecisionResult): void {
     const notes = result.reason;
-    const reviewerUsername = this.resolveReviewerUsername();
-    const payload = { notes, reviewerUsername };
+    const { reviewerUsername, reviewerUserId } = this.resolveReviewerIdentity();
+    const payload = { notes, reviewerUsername, reviewerUserId };
     const rejectPayload = { ...payload, rejectionReason: notes };
-    let action$;
-    switch (result.action) {
-      case 'stage1-approve':
-        action$ = this.orgService.stage1Approve(orgId, payload);
-        break;
-      case 'stage1-reject':
-        action$ = this.orgService.stage1Reject(orgId, rejectPayload);
-        break;
-      case 'stage2-approve':
-        action$ = this.orgService.stage2Approve(orgId, payload);
-        break;
-      case 'stage2-reject':
-        action$ = this.orgService.stage2Reject(orgId, rejectPayload);
-        break;
-      case 'allow-resubmission':
-        action$ = this.orgService.allowResubmission(orgId, payload);
-        break;
-      default:
-        return;
+    const action$ = this.resolveDecisionAction(orgId, result, payload, rejectPayload);
+    if (!action$) {
+      return;
     }
     action$.subscribe({
       next: () => {
+        this.kycNotificationDismiss.dismissOrganization(orgId);
         const pres = kycStatusPresentation(this.expectedStatusAfter(result.action));
         this.snackBar.open(`Application updated — ${pres.label}.`, 'Dismiss', {
           duration: 6000,
@@ -287,27 +315,94 @@ export class KycApplicationsComponent implements OnInit, OnDestroy {
     });
   }
 
+  reviewerChips(row: KycQueueRow): { stage: number; label: string }[] {
+    const count = row.effectiveKycRequiredApprovalStages ?? 2;
+    const chips: { stage: number; label: string }[] = [];
+    for (let stage = 1; stage <= count; stage++) {
+      const label =
+        stage === 1
+          ? row.stage1ApproverLabel
+          : stage === 2
+            ? row.stage2ApproverLabel
+            : stage === 3
+              ? row.stage3ApproverLabel
+              : stage === 4
+                ? row.stage4ApproverLabel
+                : row.stage5ApproverLabel;
+      chips.push({ stage, label: label ?? '—' });
+    }
+    return chips;
+  }
+
+  private resolveDecisionAction(
+    orgId: number,
+    result: KycApplicationDecisionResult,
+    payload: { notes: string; reviewerUsername: string; reviewerUserId?: number },
+    rejectPayload: {
+      notes: string;
+      reviewerUsername: string;
+      reviewerUserId?: number;
+      rejectionReason: string;
+    },
+  ) {
+    switch (result.action) {
+      case 'stage1-approve':
+        return this.orgService.stage1Approve(orgId, payload);
+      case 'stage1-reject':
+        return this.orgService.stage1Reject(orgId, rejectPayload);
+      case 'stage2-approve':
+        return this.orgService.stage2Approve(orgId, payload);
+      case 'stage2-reject':
+        return this.orgService.stage2Reject(orgId, rejectPayload);
+      case 'stage3-approve':
+        return this.orgService.stage3Approve(orgId, payload);
+      case 'stage3-reject':
+        return this.orgService.stage3Reject(orgId, rejectPayload);
+      case 'stage4-approve':
+        return this.orgService.stage4Approve(orgId, payload);
+      case 'stage4-reject':
+        return this.orgService.stage4Reject(orgId, rejectPayload);
+      case 'stage5-approve':
+        return this.orgService.stage5Approve(orgId, payload);
+      case 'stage5-reject':
+        return this.orgService.stage5Reject(orgId, rejectPayload);
+      case 'allow-resubmission':
+        return this.orgService.allowResubmission(orgId, payload);
+      default:
+        return null;
+    }
+  }
+
   private refreshQueueSummary(): void {
     this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
   }
 
-  private resolveReviewerUsername(): string {
-    const email = this.storage.getUser()?.email?.trim();
-    const username = this.storage.getUser()?.username?.trim();
-    return email || username || '';
+  /**
+   * KYC assignments store login {@code username}; email-only identity breaks backend approver checks.
+   */
+  private resolveReviewerIdentity(): { reviewerUsername: string; reviewerUserId?: number } {
+    const user = this.storage.getUser();
+    const username = user?.username?.trim() ?? '';
+    const email = user?.email?.trim() ?? '';
+    const reviewerUsername = username || email;
+    const id = user?.id;
+    const reviewerUserId = id != null && Number.isFinite(id) && id > 0 ? id : undefined;
+    return { reviewerUsername, reviewerUserId };
   }
 
   private expectedStatusAfter(action: KycApplicationDecisionResult['action']): string {
-    switch (action) {
-      case 'stage1-approve':
-        return 'STAGE_2_REVIEW';
-      case 'stage1-reject':
-      case 'stage2-reject':
+    const match = /^stage(\d+)-(approve|reject)$/.exec(action);
+    if (match) {
+      const stage = Number(match[1]);
+      const verb = match[2];
+      if (verb === 'reject') {
         return 'REJECTED';
-      case 'stage2-approve':
-        return 'APPROVED';
+      }
+      return stage >= 5 ? 'APPROVED' : `STAGE_${stage + 1}_REVIEW`;
+    }
+    switch (action) {
       case 'allow-resubmission':
-        return 'RESUBMITTED';
+        return 'DRAFT';
       default:
         return '';
     }
@@ -327,5 +422,9 @@ export class KycApplicationsComponent implements OnInit, OnDestroy {
 
   queueStatStage2(): number {
     return this.queueSummary?.stage2Count ?? 0;
+  }
+
+  queueStatRejected(): number {
+    return this.queueSummary?.rejectedCount ?? 0;
   }
 }

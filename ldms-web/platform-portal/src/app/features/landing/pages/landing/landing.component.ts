@@ -9,15 +9,43 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { gsap } from 'gsap';
-import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { environment } from '../../../../../environments/environment';
 import { ThemeService } from '../../../../core/services/theme.service';
 
-gsap.registerPlugin(ScrollTrigger);
-
-/** Pexels CDN — logistics & transport photography (pexels.com licence). */
+/** Pexels CDN — logistics, distribution & supply chain (pexels.com licence). */
 const px = (id: number, w = 800, h = 1000) =>
   `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&dpr=2&w=${w}&h=${h}&fit=crop`;
+
+/** Curated Pexels photo IDs — road freight, warehouses, containers, distribution. */
+const PEX = {
+  truckHighway: 1562324,
+  warehouseForklift: 979721,
+  warehousePallets: 1267979,
+  warehouseAisle: 7688460,
+  warehouseInterior: 7394214,
+  warehouseScanning: 6195126,
+  warehouseCartons: 6347793,
+  shippingPort: 906494,
+  containerStack: 4483616,
+  containerTerminal: 4480502,
+  containersAerial: 5668772,
+  truckHighwaySide: 4484079,
+  truckFleet: 4391473,
+  truckLoading: 4482144,
+  semiTruck: 4481923,
+  highwayInterchange: 267583,
+  distributionCenter: 6863332,
+  supplyChainCartons: 1095814,
+  intermodalYard: 974314,
+  yardForklifts: 5025514,
+  inventoryScan: 4480362,
+  freightDocuments: 3635874,
+  logisticsDashboard: 7688339,
+  packagingLine: 7658355,
+  loadingDock: 2802373,
+  truckConvoy: 6770619,
+  routePlanning: 4483775,
+} as const;
 
 @Component({
   selector: 'app-landing',
@@ -33,26 +61,23 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   /** Touch / keyboard flip: which purpose cards are flipped open. */
   private readonly flippedPurpose = signal<Set<number>>(new Set());
   private readonly flippedMore = signal<Set<number>>(new Set());
+  readonly mobileNavOpen = signal(false);
 
   readonly showcaseVideoSrc =
-    'https://videos.pexels.com/video-files/857195/857195-hd_1920_1080_30fps.mp4';
-  readonly showcaseVideoPoster = px(1562324, 1200, 675);
+    'https://videos.pexels.com/video-files/4482437/4482437-hd_1920_1080_25fps.mp4';
+  readonly showcaseVideoPoster = px(PEX.containerTerminal, 1200, 675);
 
-  /** Hero + section art — explicit Pexels logistics imagery (not bundled assets). */
-  readonly heroImage = px(1562324, 1600, 1067);
+  readonly heroImage = px(PEX.truckHighway, 1600, 1067);
 
-  /** Logistics photography (Pexels) — intro & automation side art. */
-  readonly introImage = px(3635874, 960, 1200);
-  readonly automationImage = px(974314, 960, 960);
+  readonly introImage = px(PEX.warehouseInterior, 960, 1200);
+  readonly automationImage = px(PEX.warehouseForklift, 960, 960);
 
-  /** Split “Notifications / Impact” panels. */
-  readonly splitNotifyImage = px(5025514, 960, 640);
-  readonly splitImpactImage = px(4484079, 960, 640);
+  readonly splitNotifyImage = px(PEX.warehouseScanning, 960, 640);
+  readonly splitImpactImage = px(PEX.truckConvoy, 960, 640);
 
-  /** Journey, KPI band, FAQ, CTA — corridor visuals. */
-  readonly journeyImage = px(267583, 900, 1100);
-  readonly faqAsideImage = px(4483616, 900, 1100);
-  readonly ctaBandImage = px(3184338, 1200, 800);
+  readonly journeyImage = px(PEX.highwayInterchange, 900, 1100);
+  readonly faqAsideImage = px(PEX.intermodalYard, 900, 1100);
+  readonly ctaBandImage = px(PEX.yardForklifts, 1200, 800);
 
   readonly heroChips = [
     'Orders through trips in one narrative',
@@ -69,6 +94,9 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     { icon: 'payment', label: 'Payments & settlement' },
     { icon: 'dashboard', label: 'Dashboards & KPIs' },
   ] as const;
+
+  /** Duplicated for seamless marquee loop. */
+  readonly pillarsMarquee = [...this.pillars, ...this.pillars, ...this.pillars];
 
   readonly introProof = [
     'Fewer detours through spreadsheets, calls, and “who has the latest version?”',
@@ -91,8 +119,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       tagline: 'Winning lanes start with relationships that feel effortless.',
       story:
         'Give commercial teams a confident workspace where accounts, commitments, and promises stay aligned—so every load feels personal, not procedural.',
-      image: px(3184292, 800, 1000),
-      imageAlt: 'Commercial partners collaborating over logistics plans',
+      image: px(PEX.logisticsDashboard, 800, 1000),
+      imageAlt: 'Logistics planners reviewing distribution schedules on screen',
     },
     {
       title: 'Confidence',
@@ -100,8 +128,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       tagline: 'Compliance becomes a quiet superpower—not a Sunday scramble.',
       story:
         'Turn filings, permits, and approvals into a polished narrative partners trust. LDMS keeps the backstage tidy so your front stage shines.',
-      image: px(4483616, 800, 1000),
-      imageAlt: 'Stacked shipping containers representing compliant cargo documentation',
+      image: px(PEX.containerStack, 800, 1000),
+      imageAlt: 'Stacked shipping containers at an intermodal freight yard',
     },
     {
       title: 'Fleet',
@@ -109,8 +137,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       tagline: 'Capacity that feels orchestrated, not improvised.',
       story:
         'Blend crews, assets, and timing into one graceful motion. The platform celebrates your operators while protecting the standards you cannot bend.',
-      image: px(5025514, 800, 1000),
-      imageAlt: 'Warehouse logistics and cargo handling',
+      image: px(PEX.truckFleet, 800, 1000),
+      imageAlt: 'Commercial freight truck ready for corridor dispatch',
     },
     {
       title: 'Live',
@@ -118,8 +146,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       tagline: 'Everyone watches the same horizon—not their own guesswork.',
       story:
         'Bring near-real awareness to every stakeholder without drowning them in noise. Calm maps, crisp moments, and human-readable progress.',
-      image: px(3861969, 800, 1000),
-      imageAlt: 'GPS and route planning on a digital map for fleet tracking',
+      image: px(PEX.routePlanning, 800, 1000),
+      imageAlt: 'Supply chain route planning and corridor visibility',
     },
     {
       title: 'Together',
@@ -127,8 +155,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       tagline: 'Agents, yards, and HQ finally speak the same language.',
       story:
         'Break silos with shared rituals: quick huddles, transparent handoffs, and celebrations when milestones land—because logistics is a team sport.',
-      image: px(6169862, 800, 1000),
-      imageAlt: 'Dispatch team monitoring freight operations on screens',
+      image: px(PEX.warehouseScanning, 800, 1000),
+      imageAlt: 'Warehouse team scanning outbound distribution orders',
     },
     {
       title: 'Capital',
@@ -136,8 +164,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       tagline: 'Money moves with the story—not against it.',
       story:
         'Match commercial creativity with guardrails finance loves. Flexible rhythms for how you collect, release, and reconcile—without losing the plot.',
-      image: px(3635874, 800, 1000),
-      imageAlt: 'Border and customs documentation alongside freight paperwork',
+      image: px(PEX.freightDocuments, 800, 1000),
+      imageAlt: 'Freight documentation and customs paperwork for settlement',
     },
   ];
 
@@ -145,44 +173,44 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     {
       role: 'Suppliers',
       detail: 'Shape demand, orchestrate promises, and look heroic to buyers.',
-      image: px(5025514, 640, 480),
-      imageAlt: 'Warehouse pallets staged for outbound supplier programmes',
+      image: px(PEX.warehousePallets, 640, 480),
+      imageAlt: 'Supplier pallets staged in a distribution warehouse',
     },
     {
       role: 'Customers',
       detail: 'Know what is coming, when it lands, and who stands behind it.',
-      image: px(4483616, 640, 480),
-      imageAlt: 'Intermodal containers ready for customer delivery windows',
+      image: px(PEX.supplyChainCartons, 640, 480),
+      imageAlt: 'Packaged goods prepared for customer delivery in the supply chain',
     },
     {
       role: 'Drivers',
       detail: 'Stay focused on the road with guidance that respects their day.',
-      image: px(4484079, 640, 480),
-      imageAlt: 'Commercial truck on the open road',
+      image: px(PEX.truckHighwaySide, 640, 480),
+      imageAlt: 'Heavy goods vehicle on a long-haul distribution route',
     },
     {
       role: 'Transport partners',
       detail: 'Show capacity as craft—not just commodity tonnage.',
-      image: px(267583, 640, 480),
-      imageAlt: 'Aerial view of highway freight corridors',
+      image: px(PEX.truckConvoy, 640, 480),
+      imageAlt: 'Fleet of freight trucks moving cargo along a corridor',
     },
     {
       role: 'Clearing allies',
       detail: 'Turn complexity into choreography everyone can follow.',
-      image: px(3635874, 640, 480),
-      imageAlt: 'Documentation and cargo checks at a logistics checkpoint',
+      image: px(PEX.containersAerial, 640, 480),
+      imageAlt: 'Aerial view of container yard and customs checkpoint activity',
     },
     {
       role: 'Roadside partners',
       detail: 'Be discoverable exactly when crews need you most.',
-      image: px(974314, 640, 480),
-      imageAlt: 'Service yard supporting trucks and roadside operations',
+      image: px(PEX.loadingDock, 640, 480),
+      imageAlt: 'Loading dock and yard operations supporting roadside logistics',
     },
     {
       role: 'Platform stewards',
       detail: 'Keep the ecosystem trustworthy without slowing innovators.',
-      image: px(6169862, 640, 480),
-      imageAlt: 'Control room monitoring network-wide logistics performance',
+      image: px(PEX.distributionCenter, 640, 480),
+      imageAlt: 'Distribution control hub monitoring network-wide freight flow',
     },
   ];
 
@@ -204,8 +232,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
         'Guardrails that feel helpful—not heavy—to busy desks',
         'Packaging of offers that mirrors how your best reps already sell',
       ],
-      image: px(6169862, 900, 1100),
-      imageAlt: 'Operations team reviewing logistics data',
+      image: px(PEX.warehouseCartons, 900, 1100),
+      imageAlt: 'Cartons queued in a warehouse for order fulfilment',
     },
     {
       kicker: 'Motion',
@@ -217,8 +245,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
         'Moments that celebrate progress—not just ping status',
         'Breathing room for partners to add colour when reality shifts',
       ],
-      image: px(5025514, 900, 1100),
-      imageAlt: 'Warehouse floor in motion with pallets and forklifts',
+      image: px(PEX.truckLoading, 900, 1100),
+      imageAlt: 'Cargo being loaded onto a distribution truck at the yard',
     },
     {
       kicker: 'Trust',
@@ -230,8 +258,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
         'Signals that reassure before anyone has to ask',
         'Archives that feel curated—not abandoned filing cabinets',
       ],
-      image: px(4483616, 900, 1100),
-      imageAlt: 'Shipping containers and logistics yard',
+      image: px(PEX.containerTerminal, 900, 1100),
+      imageAlt: 'Container terminal and port logistics for compliant freight handling',
     },
     {
       kicker: 'Flow',
@@ -243,8 +271,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
         'Language both CFOs and field leaders actually enjoy reading',
         'Continuity between what was promised and what was collected',
       ],
-      image: px(6169862, 900, 1100),
-      imageAlt: 'Operations desk reviewing freight and settlement workflows',
+      image: px(PEX.packagingLine, 900, 1100),
+      imageAlt: 'Distribution packaging line supporting invoicing and settlement workflows',
     },
   ];
 
@@ -320,20 +348,20 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     {
       title: 'Exception radar',
       body: 'Catch the whispers before they become headlines—delays, tension points, and hero opportunities.',
-      image: px(3861969, 720, 480),
-      imageAlt: 'Fleet map and exception alerts on a logistics dashboard',
+      image: px(PEX.routePlanning, 720, 480),
+      imageAlt: 'Route map and corridor planning for supply chain exceptions',
     },
     {
       title: 'Network analytics',
       body: 'Blend movement, margin, and momentum into boardroom-ready stories.',
-      image: px(6169862, 720, 480),
-      imageAlt: 'Operations analysts reviewing corridor KPIs',
+      image: px(PEX.distributionCenter, 720, 480),
+      imageAlt: 'Distribution centre overview for network-wide logistics KPIs',
     },
     {
       title: 'Operational search',
       body: 'Jump from spark to resolution with breadcrumbs everyone recognises.',
-      image: px(5025514, 720, 480),
-      imageAlt: 'Supervisor searching shipment records on a warehouse floor',
+      image: px(PEX.inventoryScan, 720, 480),
+      imageAlt: 'Warehouse supervisor scanning inventory on the distribution floor',
     },
   ];
 
@@ -367,57 +395,57 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       title: 'Roles & permissions',
       detail: 'Sculpt access like stage lighting—bright where needed, soft elsewhere.',
       pitch: 'Give each persona a spotlight without stealing the show from anyone else.',
-      image: px(5025514, 640, 720),
-      imageAlt: 'Forklift and pallets inside a distribution warehouse',
+      image: px(PEX.warehouseAisle, 640, 720),
+      imageAlt: 'Modern warehouse aisles in a distribution facility',
     },
     {
       title: 'Beautiful history',
       detail: 'Chronicles that read like a highlight reel—not a forensic dump.',
       pitch: 'Let every decisive moment leave an elegant footprint you are proud to share.',
-      image: px(6169862, 640, 720),
-      imageAlt: 'Logistics control room with shipment dashboards',
+      image: px(PEX.warehouseScanning, 640, 720),
+      imageAlt: 'Scanning and traceability on the warehouse floor',
     },
     {
       title: 'Geospatial canvas',
       detail: 'Maps that breathe with your operation—alive, layered, and legible.',
       pitch: 'Anchor intuition to geography so nobody argues about where reality lives.',
-      image: px(267583, 640, 720),
-      imageAlt: 'Aerial view of highway interchange',
+      image: px(PEX.highwayInterchange, 640, 720),
+      imageAlt: 'Aerial highway interchange for freight routing and corridors',
     },
     {
       title: 'Conversation glue',
       detail: 'Threads that cling to the work—not the void of a generic inbox.',
       pitch: 'Keep context cuddled close to orders, trips, and promises.',
-      image: px(3184292, 640, 720),
-      imageAlt: 'Operations team collaborating around shipment context',
+      image: px(PEX.yardForklifts, 640, 720),
+      imageAlt: 'Forklifts coordinating inbound and outbound yard movements',
     },
     {
       title: 'Commercial poetry',
       detail: 'Credit stories that still feel crisp when spreadsheets come calling.',
       pitch: 'Celebrate flexibility without letting discipline drift out of frame.',
-      image: px(4483616, 640, 720),
-      imageAlt: 'Container terminal and cargo handling equipment',
+      image: px(PEX.shippingPort, 640, 720),
+      imageAlt: 'Port logistics and cargo vessels in the supply chain',
     },
     {
       title: 'Partner constellations',
       detail: 'Surface the helpers crews crave—fuel, fix, or fortify—exactly when stars align.',
       pitch: 'Make roadside magic discoverable without breaking the narrative flow.',
-      image: px(4484079, 640, 720),
-      imageAlt: 'Commercial truck on the road for long-haul delivery',
+      image: px(PEX.semiTruck, 640, 720),
+      imageAlt: 'Semi-trailer truck on a long-distance distribution lane',
     },
     {
       title: 'Regulated vistas',
       detail: 'Views tuned for partners who need clarity without clutter.',
       pitch: 'Invite governance into the story as a respected guest—not a gatecrasher.',
-      image: px(3184338, 640, 720),
-      imageAlt: 'Compliance and operations review with logistics documentation',
+      image: px(PEX.containersAerial, 640, 720),
+      imageAlt: 'Aerial container terminal for regulated freight oversight',
     },
     {
       title: 'Story-ready exports',
       detail: 'Spreadsheets and decks that feel designed—not dumped.',
       pitch: 'Arm analysts with artefacts they actually want to present upstairs.',
-      image: px(6169862, 640, 720),
-      imageAlt: 'Operations analyst reviewing logistics KPI charts',
+      image: px(PEX.logisticsDashboard, 640, 720),
+      imageAlt: 'Logistics dashboards prepared for executive supply chain reporting',
     },
   ];
 
@@ -425,20 +453,20 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     {
       title: 'Compose your debut',
       detail: 'Introduce your organisation with the same polish you show customers at the door.',
-      image: px(5025514, 720, 480),
-      imageAlt: 'Distribution centre ready for go-live configuration',
+      image: px(PEX.warehouseInterior, 720, 480),
+      imageAlt: 'Distribution warehouse interior ready for platform go-live',
     },
     {
       title: 'Fill the canvas',
       detail: 'Bring master data in like brush strokes—deliberate, vibrant, ready for motion.',
-      image: px(6169862, 720, 480),
-      imageAlt: 'Team loading master data and routes into the platform',
+      image: px(PEX.inventoryScan, 720, 480),
+      imageAlt: 'Inventory scanning and master data capture in the warehouse',
     },
     {
       title: 'Premiere a corridor',
       detail: 'Launch a pilot that feels exclusive, learn fast, then widen the aperture with swagger.',
-      image: px(4484079, 720, 480),
-      imageAlt: 'Convoy of trucks launching a pilot corridor',
+      image: px(PEX.truckHighway, 720, 480),
+      imageAlt: 'Freight trucks launching a pilot distribution corridor',
     },
   ];
 
@@ -456,8 +484,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     { title: 'Margin protected', detail: 'Friction fades; the expensive surprises shrink.' },
   ] as const;
 
-  readonly accessPortalCardImage = px(5025514, 800, 520);
-  readonly accessAdminCardImage = px(6169862, 800, 520);
+  readonly accessPortalCardImage = px(PEX.warehousePallets, 800, 520);
+  readonly accessAdminCardImage = px(PEX.distributionCenter, 800, 520);
 
   readonly faqs = [
     {
@@ -482,13 +510,35 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     },
   ] as const;
 
-  /** Passive window scroll: toggles sticky nav surface. Removed in ngOnDestroy. */
-  private readonly onWindowScrollForNav = (): void => {
-    const nav = this.el.nativeElement.querySelector('.ldms-landing__nav');
-    if (!nav) return;
-    const y = window.scrollY || document.documentElement.scrollTop || 0;
-    nav.classList.toggle('ldms-landing__nav--scrolled', y > 72);
+  /** Avoid nav class thrashing at the scroll threshold (reduces sticky-bar flicker). */
+  private navScrolled = false;
+  private navScrollRaf = 0;
+  private scrollBarEl: HTMLElement | null = null;
+  private readonly onWindowScroll = (): void => {
+    if (this.navScrollRaf) {
+      return;
+    }
+    this.navScrollRaf = requestAnimationFrame(() => {
+      this.navScrollRaf = 0;
+      this.updateScrollChrome();
+    });
   };
+
+  /** Passive window scroll: nav surface + top progress bar (single rAF path). */
+  private updateScrollChrome(): void {
+    const y = window.scrollY || document.documentElement.scrollTop || 0;
+    const shell = this.el.nativeElement.querySelector('.ldms-landing__nav-shell');
+    const nextNavScrolled = this.navScrolled ? y > 48 : y > 96;
+    if (shell && nextNavScrolled !== this.navScrolled) {
+      this.navScrolled = nextNavScrolled;
+      shell.classList.toggle('ldms-landing__nav-shell--scrolled', nextNavScrolled);
+    }
+
+    if (this.scrollBarEl) {
+      const max = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+      this.scrollBarEl.style.transform = `scaleX(${Math.min(Math.max(y / max, 0), 1)})`;
+    }
+  }
 
   constructor(
     private readonly router: Router,
@@ -502,7 +552,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       this.initScrollBar();
       this.initHeroReveal();
       this.initSectionReveals();
-      this.initParallax();
       this.initCounters();
       this.initNavScrollState();
       this.initCardTilt();
@@ -510,18 +559,14 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    ScrollTrigger.getAll().forEach((t) => t.kill());
-    window.removeEventListener('scroll', this.onWindowScrollForNav);
+    window.removeEventListener('scroll', this.onWindowScroll);
+    if (this.navScrollRaf) {
+      cancelAnimationFrame(this.navScrollRaf);
+    }
   }
 
   private initScrollBar(): void {
-    const bar = this.el.nativeElement.querySelector('.ldms-scroll-bar');
-    if (!bar) return;
-    gsap.to(bar, {
-      scaleX: 1,
-      ease: 'none',
-      scrollTrigger: { start: 'top top', end: 'bottom bottom', scrub: 0 },
-    });
+    this.scrollBarEl = this.el.nativeElement.querySelector('.ldms-scroll-bar');
   }
 
   private initHeroReveal(): void {
@@ -534,7 +579,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       );
     }
     const heroSubs = this.el.nativeElement.querySelectorAll(
-      '.ldms-landing__eyebrow, .ldms-landing__lead, .ldms-landing__hero-cta, .ldms-landing__chips, .ldms-landing__stats, .ldms-landing__meta',
+      '.ldms-landing__hero-topline, .ldms-landing__lead, .ldms-landing__hero-cta, .ldms-landing__chips, .ldms-landing__stats',
     );
     if (heroSubs.length) {
       gsap.fromTo(
@@ -552,14 +597,16 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     };
     const io = new IntersectionObserver(
       (entries) => {
-        entries.forEach((e) => {
-          if (e.isIntersecting) {
-            revealIn(e.target);
-            io.unobserve(e.target);
-          }
+        requestAnimationFrame(() => {
+          entries.forEach((e) => {
+            if (e.isIntersecting) {
+              revealIn(e.target);
+              io.unobserve(e.target);
+            }
+          });
         });
       },
-      { threshold: 0.08, rootMargin: '0px 0px -36px 0px' },
+      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
     );
 
     reveals.forEach((element: Element) => {
@@ -571,38 +618,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       } else {
         io.observe(element);
       }
-    });
-  }
-
-  private initParallax(): void {
-    const hero = this.el.nativeElement.querySelector('.ldms-landing__hero');
-    const heroImg = this.el.nativeElement.querySelector('.ldms-landing__hero-img');
-    if (heroImg && hero) {
-      gsap.to(heroImg, {
-        yPercent: -12,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: hero,
-          start: 'top top',
-          end: 'bottom top',
-          scrub: true,
-        },
-      });
-    }
-    const divePhotos = this.el.nativeElement.querySelectorAll('.ldms-landing__dive-photo');
-    divePhotos.forEach((img: Element) => {
-      const section = img.closest('.ldms-landing__dive');
-      if (!section) return;
-      gsap.to(img, {
-        yPercent: -8,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: section,
-          start: 'top bottom',
-          end: 'bottom top',
-          scrub: true,
-        },
-      });
     });
   }
 
@@ -634,8 +649,8 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   }
 
   private initNavScrollState(): void {
-    this.onWindowScrollForNav();
-    window.addEventListener('scroll', this.onWindowScrollForNav, { passive: true });
+    this.updateScrollChrome();
+    window.addEventListener('scroll', this.onWindowScroll, { passive: true });
   }
 
   private initCardTilt(): void {
@@ -688,6 +703,14 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
 
   toggleTheme(): void {
     this.theme.toggle();
+  }
+
+  toggleMobileNav(): void {
+    this.mobileNavOpen.update((open) => !open);
+  }
+
+  closeMobileNav(): void {
+    this.mobileNavOpen.set(false);
   }
 
   goSignup(): void {

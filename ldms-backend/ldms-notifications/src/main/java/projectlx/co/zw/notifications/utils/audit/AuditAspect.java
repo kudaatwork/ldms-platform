@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import projectlx.co.zw.notifications.business.logic.api.AuditTrailService;
+import projectlx.co.zw.shared_library.utils.audit.AuditClientPlatformSupport;
 import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
@@ -68,6 +69,7 @@ public class AuditAspect {
                     .requestTimestamp(requestStart)
                     .responseTimestamp(responseEnd)
                     .username(username)
+                    .clientPlatform(AuditClientPlatformSupport.fromCurrentRequest())
                     .action(auditable.action())
                     .eventType(AuditEventType.SERVICE_METHOD)
                     .requestPayload(Arrays.toString(joinPoint.getArgs()))

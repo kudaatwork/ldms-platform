@@ -8,6 +8,7 @@ export interface AuthTokenResponse {
   accessToken?: string;
   refreshToken?: string;
   token?: string;
+  mustChangeCredentials?: boolean;
 }
 
 export function isAuthSuccess(res: AuthTokenResponse): boolean {

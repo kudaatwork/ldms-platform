@@ -1,4 +1,13 @@
 <div class="lx-page">
+  <lx-page-hero
+    *ngIf="!groupId"
+    eyebrow="Identity &amp; access"
+    title="User roles"
+    [lead]="pageLead"
+    icon="verified_user"
+    variant="violet"
+  ></lx-page-hero>
+
   <div class="group-context-banner" *ngIf="groupId" role="region" [attr.aria-label]="'Roles for user group ' + (contextGroupName || groupId)">
     <div class="group-context-banner__accent" aria-hidden="true"></div>
     <div class="group-context-banner__inner">
@@ -148,7 +157,7 @@
   <div class="lx-card" [class.lx-card--group-roles]="!!groupId">
     <div class="lx-table-header">
       <div>
-        <h2 class="lc-title">{{ groupId ? 'Roles for this group' : 'Roles' }}</h2>
+        <p class="lx-table-meta">{{ groupId ? 'Roles assigned to this group' : 'Full role catalog' }}</p>
         <p class="lc-lead" *ngIf="!groupId">Full LDMS permission catalog, grouped by service module.</p>
         <p class="lc-lead lc-lead--group-scope" *ngIf="groupId">
           Every row below is a role currently linked to

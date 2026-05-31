@@ -1,18 +1,32 @@
 <div class="lx-page">
-  <mat-progress-bar *ngIf="loading" class="lx-page-progress" mode="indeterminate" aria-label="Loading KYC documents"></mat-progress-bar>
-  <ng-container *ngIf="!loading; else skel">
-    <ng-container *ngIf="dataSource.length > 0; else tableCardEmpty">
+  <lx-page-hero
+    eyebrow="Compliance"
+    title="Compliance documents"
+    [lead]="pageLead"
+    icon="folder_open"
+    variant="brand"
+  ></lx-page-hero>
+
+  <div class="lx-card lx-card--subsection kyc-docs-alert" *ngIf="loadError && !loading" role="alert">
+    <mat-icon>info</mat-icon>
+    <span>{{ loadError }}</span>
+    <button type="button" class="lx-btn lx-btn-sm lx-btn-primary" (click)="reload()">Retry</button>
+  </div>
+
+  <mat-progress-bar *ngIf="loading" class="lx-page-progress" mode="indeterminate" aria-label="Loading compliance documents"></mat-progress-bar>
+
+  <ng-container *ngIf="dataSource.length > 0 || loading; else tableCardEmpty">
       <div class="lx-card lx-card--subsection">
         <h3 class="lx-controls-title">Table controls</h3>
         <p class="lx-controls-subtitle">Manage upload actions, search terms, and column filters.</p>
         <div class="lx-data-toolbar">
           <div class="lx-data-toolbar__actions">
-            <button type="button" class="lx-btn lx-btn-ghost">Refresh</button>
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="reload()" [disabled]="loading">Refresh</button>
             <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
             <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
               Export
             </button>
-            <button type="button" class="lx-btn lx-btn-primary">Upload</button>
+            <button type="button" class="lx-btn lx-btn-primary" (click)="uploadHint()">How to upload</button>
           </div>
           <div class="lx-data-toolbar__search">
             <div class="lx-input-shell lx-search-field">
@@ -63,7 +77,21 @@
             </div>
             </div>
             <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Status</div>
+              <div class="lx-field-label">Organisation</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">business</mat-icon>
+                <input [(ngModel)]="columnFilters.organizationName" (ngModelChange)="resetPaging()" />
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Org compliance</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">verified</mat-icon>
+                <input [(ngModel)]="columnFilters.kycStatusLabel" (ngModelChange)="resetPaging()" />
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">File status</div>
               <div class="lx-input-shell lx-filter-field">
               <mat-icon class="lx-input-shell__icon">label</mat-icon>
               <input [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="resetPaging()" />
@@ -74,31 +102,57 @@
       </div>
 
       <div class="lx-card">
-        <h2 class="lc-title">KYC documents</h2>
-        <p class="lc-lead">Uploaded evidence and verification files.</p>
-        <ng-container *ngIf="filteredRows.length > 0; else noSearchHits">
+        <p class="lx-table-meta">
+          <ng-container *ngIf="!loading">{{ filteredRows.length }} document{{ filteredRows.length === 1 ? '' : 's' }}</ng-container>
+          <ng-container *ngIf="loading">Loading document registry…</ng-container>
+        </p>
+        <div class="lx-table-loading-panel" *ngIf="loading && !dataSource.length" role="status" aria-live="polite">
+          <lx-table-loading [busy]="true" message="Loading compliance documents…"></lx-table-loading>
+        </div>
+        <ng-container *ngIf="!loading && filteredRows.length > 0; else tableReadyEmpty">
           <div class="lx-table-wrap">
             <table mat-table [dataSource]="pagedRows">
               <ng-container matColumnDef="fileName">
                 <th mat-header-cell *matHeaderCellDef>File</th>
-                <td mat-cell *matCellDef="let row">{{ row.fileName }}</td>
+                <td mat-cell *matCellDef="let row">
+                  <span class="kyc-doc-name">{{ row.fileName }}</span>
+                  <span class="kyc-doc-id">#{{ row.uploadId }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="organizationName">
+                <th mat-header-cell *matHeaderCellDef>Organisation</th>
+                <td mat-cell *matCellDef="let row">{{ row.organizationName }}</td>
               </ng-container>
               <ng-container matColumnDef="type">
-                <th mat-header-cell *matHeaderCellDef>Type</th>
+                <th mat-header-cell *matHeaderCellDef>Category</th>
                 <td mat-cell *matCellDef="let row">{{ row.type }}</td>
               </ng-container>
+              <ng-container matColumnDef="kycStatusLabel">
+                <th mat-header-cell *matHeaderCellDef>Org compliance</th>
+                <td mat-cell *matCellDef="let row">{{ row.kycStatusLabel }}</td>
+              </ng-container>
               <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef>Status</th>
+                <th mat-header-cell *matHeaderCellDef>File status</th>
                 <td mat-cell *matCellDef="let row">
-                  <span class="lx-status" [ngClass]="'lx-status-' + row.status.toLowerCase()">{{ row.statusLabel }}</span>
+                  <span class="lx-status" [ngClass]="'lx-status-' + row.status">{{ row.statusLabel }}</span>
                 </td>
+              </ng-container>
+              <ng-container matColumnDef="uploadedAt">
+                <th mat-header-cell *matHeaderCellDef>Uploaded</th>
+                <td mat-cell *matCellDef="let row">{{ row.uploadedAt || '—' }}</td>
               </ng-container>
               <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef>Actions</th>
                 <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">View</button>
-                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">Edit</button>
-                  <button type="button" class="lx-btn lx-btn-danger lx-btn-sm">Delete</button>
+                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="viewDocument(row)">View</button>
+                  <button
+                    type="button"
+                    class="lx-btn lx-btn-danger lx-btn-sm"
+                    (click)="deleteDocument(row)"
+                    [disabled]="deletingId === row.uploadId"
+                  >
+                    {{ deletingId === row.uploadId ? 'Deleting…' : 'Delete' }}
+                  </button>
                 </td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
@@ -115,35 +169,27 @@
             (page)="onPage($event)"
           ></mat-paginator>
         </ng-container>
-        <ng-template #noSearchHits>
-          <div class="lx-empty lx-empty--compact">
-            <mat-icon class="lx-empty-icon">search_off</mat-icon>
-            <div class="lx-empty-title">No matching rows</div>
-            <div class="lx-empty-sub">Adjust search or column filters.</div>
-          </div>
+        <ng-template #tableReadyEmpty>
+          <ng-container *ngIf="dataSource.length > 0; else noSearchHits">
+            <div class="lx-empty lx-empty--compact">
+              <mat-icon class="lx-empty-icon">search_off</mat-icon>
+              <div class="lx-empty-title">No matching rows</div>
+              <div class="lx-empty-sub">Adjust search or column filters.</div>
+            </div>
+          </ng-container>
+          <ng-template #noSearchHits></ng-template>
         </ng-template>
       </div>
-    </ng-container>
-    <ng-template #tableCardEmpty>
+  </ng-container>
+
+  <ng-template #tableCardEmpty>
       <div class="lx-card">
-        <h2 class="lc-title">KYC documents</h2>
-        <p class="lc-lead">Uploaded evidence and verification files.</p>
+        <p class="lx-table-meta">Compliance uploads</p>
         <div class="lx-empty">
           <mat-icon class="lx-empty-icon">inbox</mat-icon>
-          <div class="lx-empty-title">No items found</div>
-          <div class="lx-empty-sub">Adjust filters or check back later</div>
+          <div class="lx-empty-title">No documents yet</div>
+          <div class="lx-empty-sub">Files appear here once uploaded to the LDMS file registry.</div>
         </div>
       </div>
-    </ng-template>
-  </ng-container>
+  </ng-template>
 </div>
-
-<ng-template #skel>
-  <div class="lx-page">
-    <div class="lx-card skel-card">
-      <div class="skeleton skel-line skel-line--lg"></div>
-      <div class="skeleton skel-line skel-line--md"></div>
-      <div class="skeleton skel-block" style="margin-top: 20px; height: 120px"></div>
-    </div>
-  </div>
-</ng-template>

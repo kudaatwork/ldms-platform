@@ -10,11 +10,16 @@ import type {
   KycApplicationDecisionResult,
   KycApplicationDetail,
   KycApproverAssignment,
+  KycDecisionAction,
+  KycStageKey,
 } from '../../../organizations/models/organization.model';
+import { kycStageNumber } from '../../../organizations/models/organization.model';
 
 export interface KycApplicationDetailDialogData {
   detail: KycApplicationDetail;
 }
+
+type DecisionStep = 'choose' | 'reject' | 'resubmit';
 
 @Component({
   selector: 'app-kyc-application-detail-dialog',
@@ -32,7 +37,16 @@ export interface KycApplicationDetailDialogData {
 })
 export class KycApplicationDetailDialogComponent {
   readonly form: FormGroup;
+  readonly rejectionSuggestions = [
+    'Incomplete or missing supporting documents.',
+    'Registration or tax details could not be verified.',
+    'Contact identification does not match submitted records.',
+    'Organisation details require correction before approval.',
+  ] as const;
 
+  readonly minReasonLength = 8;
+
+  decisionStep: DecisionStep = 'choose';
   reasonError = '';
 
   constructor(
@@ -53,46 +67,76 @@ export class KycApplicationDetailDialogComponent {
     return this.data.detail;
   }
 
-  get canStage1(): boolean {
-    return this.detail.kycStage === 'stage1' && this.isAssignedForStage(1);
+  get requiredApprovalStages(): number {
+    return this.detail.effectiveKycRequiredApprovalStages ?? 2;
   }
 
-  get canStage2(): boolean {
-    return this.detail.kycStage === 'stage2' && this.isAssignedForStage(2);
+  get usesSingleStageApproval(): boolean {
+    return this.requiredApprovalStages <= 1;
+  }
+
+  get activeStageNumber(): number {
+    if (this.detail.kycStage === 'none') {
+      return 0;
+    }
+    return kycStageNumber(this.detail.kycStage);
+  }
+
+  get canCurrentStage(): boolean {
+    const stage = this.activeStageNumber;
+    return stage > 0 && this.detail.kycStage !== 'none' && this.isAssignedForStage(stage);
+  }
+
+  get isFinalStage(): boolean {
+    return this.activeStageNumber > 0 && this.activeStageNumber >= this.requiredApprovalStages;
   }
 
   get acceptButtonLabel(): string {
-    if (this.canStage2) {
+    if (this.canCurrentStage && this.isFinalStage) {
       return 'Accept & verify';
     }
-    return 'Accept';
+    return 'Accept application';
+  }
+
+  get acceptSummary(): string {
+    if (this.isFinalStage) {
+      return 'Approve this application and send the verification email to the primary contact.';
+    }
+    if (this.usesSingleStageApproval) {
+      return 'Approve organisation and contact details to complete verification.';
+    }
+    return `Advance to stage ${this.activeStageNumber + 1} after your review.`;
+  }
+
+  get rejectSummary(): string {
+    return 'Decline this application. The applicant will receive your reason and can fix issues before resubmitting.';
   }
 
   get showApproverAssignments(): boolean {
     return this.detail.requiresKycApproval;
   }
 
-  get stage1ApproverLabel(): string {
-    return this.formatApprover(this.detail.stage1Approver);
-  }
-
-  get stage2ApproverLabel(): string {
-    return this.formatApprover(this.detail.stage2Approver);
+  get assignedReviewerRows(): { stage: number; label: string }[] {
+    const rows: { stage: number; label: string }[] = [];
+    for (let stage = 1; stage <= this.requiredApprovalStages; stage++) {
+      rows.push({
+        stage,
+        label: this.approverLabelForStage(stage),
+      });
+    }
+    return rows;
   }
 
   get assignmentHint(): string {
     if (!this.showApproverAssignments) {
       return '';
     }
-    if (this.canStage1 || this.canStage2) {
+    if (this.canCurrentStage) {
       return 'You are the assigned reviewer for the current stage.';
     }
-    const stage = this.detail.kycStage;
-    if (stage === 'stage1') {
-      return `Waiting for ${this.stage1ApproverLabel} (stage 1).`;
-    }
-    if (stage === 'stage2') {
-      return `Waiting for ${this.stage2ApproverLabel} (stage 2).`;
+    const stage = this.activeStageNumber;
+    if (stage > 0) {
+      return `Waiting for ${this.approverLabelForStage(stage)} (stage ${stage}).`;
     }
     return '';
   }
@@ -104,37 +148,87 @@ export class KycApplicationDetailDialogComponent {
   }
 
   get canDecide(): boolean {
-    return this.canStage1 || this.canStage2 || this.canAllowResubmission;
+    return this.canCurrentStage || this.canAllowResubmission;
+  }
+
+  get reasonLength(): number {
+    return (this.form.value.reason ?? '').trim().length;
+  }
+
+  get reasonMeetsMinimum(): boolean {
+    return this.reasonLength >= this.minReasonLength;
   }
 
   get stageBanner(): string {
-    if (this.canStage1 && this.detail.kycStatus === 'DRAFT') {
-      return 'Draft signup — stage 1 review (accept advances to stage 2; reject requires a reason)';
+    if (this.canCurrentStage && this.detail.kycStatus === 'DRAFT') {
+      return this.usesSingleStageApproval
+        ? 'Draft signup — single approver review (accept completes verification; reject requires a reason)'
+        : `Draft signup — stage ${this.activeStageNumber} review (accept advances pipeline; reject requires a reason)`;
     }
-    if (this.canStage1) {
-      return 'Stage 1 — compliance & identity review';
-    }
-    if (this.canStage2) {
-      return 'Stage 2 — final approval (verification email on accept)';
+    if (this.canCurrentStage) {
+      if (this.isFinalStage) {
+        return `Stage ${this.activeStageNumber} — final approval (verification email on accept)`;
+      }
+      return `Stage ${this.activeStageNumber} — review in progress`;
     }
     if (this.canAllowResubmission) {
-      return 'Rejected — allow applicant to resubmit KYC';
+      return 'Rejected — open a new application cycle (applicant returns to Draft)';
     }
     return '';
+  }
+
+  get decisionHint(): string {
+    if (this.canAllowResubmission && this.decisionStep === 'resubmit') {
+      return 'Opens a new application cycle in Draft. The applicant may reuse the same registration details on the platform.';
+    }
+    if (this.decisionStep === 'reject') {
+      return 'Be specific so the applicant knows exactly what to fix.';
+    }
+    if (this.canAllowResubmission && !this.canCurrentStage) {
+      return 'This application was rejected. You can allow the applicant to submit again.';
+    }
+    if (!this.canCurrentStage) {
+      return '';
+    }
+    if (this.isFinalStage) {
+      return `Stage ${this.activeStageNumber} — final decision on this application.`;
+    }
+    if (this.usesSingleStageApproval) {
+      return 'Review organisation and contact details, then choose accept or reject.';
+    }
+    return `Stage ${this.activeStageNumber} — review details, then accept to advance or reject with feedback.`;
   }
 
   cancel(): void {
     this.dialogRef.close(undefined);
   }
 
+  backToChoose(): void {
+    this.reasonError = '';
+    this.form.patchValue({ reason: '' });
+    this.decisionStep = 'choose';
+  }
+
+  startReject(): void {
+    this.reasonError = '';
+    this.decisionStep = 'reject';
+  }
+
+  startResubmission(): void {
+    this.reasonError = '';
+    this.decisionStep = 'resubmit';
+  }
+
+  applySuggestion(text: string): void {
+    this.form.patchValue({ reason: text });
+    this.reasonError = '';
+  }
+
   accept(): void {
     const notes = this.optionalNotes();
-    if (this.canStage1) {
-      this.dialogRef.close({ action: 'stage1-approve', reason: notes });
-      return;
-    }
-    if (this.canStage2) {
-      this.dialogRef.close({ action: 'stage2-approve', reason: notes });
+    const stage = this.activeStageNumber;
+    if (stage > 0 && this.canCurrentStage) {
+      this.dialogRef.close({ action: `stage${stage}-approve` as KycDecisionAction, reason: notes });
     }
   }
 
@@ -143,12 +237,9 @@ export class KycApplicationDetailDialogComponent {
     if (reason === null) {
       return;
     }
-    if (this.canStage1) {
-      this.dialogRef.close({ action: 'stage1-reject', reason });
-      return;
-    }
-    if (this.canStage2) {
-      this.dialogRef.close({ action: 'stage2-reject', reason });
+    const stage = this.activeStageNumber;
+    if (stage > 0 && this.canCurrentStage) {
+      this.dialogRef.close({ action: `stage${stage}-reject` as KycDecisionAction, reason });
     }
   }
 
@@ -160,6 +251,32 @@ export class KycApplicationDetailDialogComponent {
     this.dialogRef.close({ action: 'allow-resubmission', reason });
   }
 
+  isActiveReviewStage(stage: KycStageKey): boolean {
+    return this.detail.kycStage !== 'none' && this.detail.kycStage === stage;
+  }
+
+  private approverLabelForStage(stage: number): string {
+    const approver = this.approverForStage(stage);
+    return this.formatApprover(approver);
+  }
+
+  private approverForStage(stage: number): KycApproverAssignment | undefined {
+    switch (stage) {
+      case 1:
+        return this.detail.stage1Approver;
+      case 2:
+        return this.detail.stage2Approver;
+      case 3:
+        return this.detail.stage3Approver;
+      case 4:
+        return this.detail.stage4Approver;
+      case 5:
+        return this.detail.stage5Approver;
+      default:
+        return undefined;
+    }
+  }
+
   private formatApprover(approver?: KycApproverAssignment): string {
     if (!approver) {
       return 'Not assigned yet';
@@ -168,14 +285,14 @@ export class KycApplicationDetailDialogComponent {
     return name || 'Not assigned yet';
   }
 
-  private isAssignedForStage(stage: 1 | 2): boolean {
+  private isAssignedForStage(stage: number): boolean {
     if (!this.detail.requiresKycApproval) {
       return false;
     }
     if (this.storage.getUser()?.organizationKycApprover !== true) {
       return false;
     }
-    const approver = stage === 1 ? this.detail.stage1Approver : this.detail.stage2Approver;
+    const approver = this.approverForStage(stage);
     if (!approver?.username) {
       return false;
     }
@@ -193,9 +310,9 @@ export class KycApplicationDetailDialogComponent {
 
   private reviewerPrincipal(): string {
     const user = this.storage.getUser();
-    const email = (user?.email ?? '').trim().toLowerCase();
     const username = (user?.username ?? '').trim().toLowerCase();
-    return email || username;
+    const email = (user?.email ?? '').trim().toLowerCase();
+    return username || email;
   }
 
   private optionalNotes(): string {
@@ -206,8 +323,8 @@ export class KycApplicationDetailDialogComponent {
   private validateRejectReason(): string | null {
     this.reasonError = '';
     const reason = (this.form.value.reason ?? '').trim();
-    if (reason.length < 8) {
-      this.reasonError = 'Enter a rejection reason (at least 8 characters) so the applicant knows what to fix.';
+    if (reason.length < this.minReasonLength) {
+      this.reasonError = `Enter at least ${this.minReasonLength} characters so the applicant knows what to fix.`;
       this.form.get('reason')?.markAsTouched();
       return null;
     }

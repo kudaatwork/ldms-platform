@@ -33,6 +33,9 @@
             ],
             "tsConfig": "tsconfig.app.json",
             "inlineStyleLanguage": "scss",
+            "stylePreprocessorOptions": {
+              "includePaths": [".."]
+            },
             "assets": [
               {
                 "glob": "**/*",
@@ -60,8 +63,8 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "8kB",
-                  "maximumError": "12kB"
+                  "maximumWarning": "12kB",
+                  "maximumError": "18kB"
                 }
               ],
               "outputHashing": "all"
@@ -85,7 +88,27 @@
             },
             "development": {
               "buildTarget": "admin-portal:build:development",
-              "proxyConfig": "proxy.conf.json"
+              "proxyConfig": "proxy.conf.json",
+              "prebundle": {
+                "exclude": [
+                  "chart.js",
+                  "ng2-charts",
+                  "codemirror",
+                  "@codemirror/autocomplete",
+                  "@codemirror/commands",
+                  "@codemirror/lang-css",
+                  "@codemirror/lang-html",
+                  "@codemirror/language",
+                  "@codemirror/search",
+                  "@codemirror/state",
+                  "@codemirror/view",
+                  "@lezer/highlight",
+                  "prettier",
+                  "prettier/standalone",
+                  "prettier/plugins/html",
+                  "prettier/plugins/postcss"
+                ]
+              }
             }
           },
           "defaultConfiguration": "development"

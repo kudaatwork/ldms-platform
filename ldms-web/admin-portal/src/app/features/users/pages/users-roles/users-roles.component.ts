@@ -37,6 +37,9 @@ export interface RoleRow {
   standalone: false,
 })
 export class UsersRolesComponent implements OnInit, OnDestroy {
+  readonly pageLead =
+    'LDMS role catalog — assign capabilities to user groups and control what each persona can do in the portal.';
+
   private static readonly CATALOG_FETCH_SIZE = 1000;
 
   fetching = false;

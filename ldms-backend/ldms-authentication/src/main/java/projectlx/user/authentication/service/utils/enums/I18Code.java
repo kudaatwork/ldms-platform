@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 public enum I18Code {
 
     MESSAGE_AUTHENTICATION_INVALID_REQUEST("message.authentication.invalidRequest"),
+    MESSAGE_AUTHENTICATION_USER_NOT_FOUND("message.authentication.userNotFound"),
+    MESSAGE_AUTHENTICATION_BAD_CREDENTIALS("message.authentication.badCredentials"),
     MESSAGE_USER_AUTHENTICATED_SUCCESSFULLY("message.user.authenticated.successfully"),
     MESSAGE_REFRESH_TOKEN_REQUEST_INVALID("message.refresh.token.request.invalid"),
     MESSAGE_USER_NOT_FOUND("message.user.not.found"),

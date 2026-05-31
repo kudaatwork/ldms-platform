@@ -37,12 +37,18 @@ import projectlx.co.zw.organizationmanagement.utils.requests.CreateIndustryReque
 import projectlx.co.zw.organizationmanagement.utils.requests.IndustryMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycActionRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycRejectRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateIndustryRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateKycApprovalPolicyRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationKycStagesRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationRequest;
+import projectlx.co.zw.organizationmanagement.utils.responses.OrganizationManagementResponse;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
 import projectlx.co.zw.shared_library.utils.dtos.AgentDto;
@@ -127,13 +133,59 @@ public class OrganizationBackofficeResource {
         return organizationServiceProcessor.update(id, request, locale, BACKOFFICE);
     }
 
+    @Auditable(action = "ORG_BACKOFFICE_PROVISION_CONTACT_PERSON")
+    @PostMapping("/{id}/provision-contact-person")
+    @Operation(
+            summary = "Provision organisation contact person user",
+            description = "Creates (or refreshes) the contact person user linked to this organisation and sends verification email.")
+    public OrganizationResponse provisionContactPerson(
+            @PathVariable("id") Long id,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.provisionContactPerson(id, locale, BACKOFFICE);
+    }
+
     @Auditable(action = "ORG_SYSTEM_GET_BY_ID")
     @GetMapping("/{id}")
+    @Operation(summary = "Get organisation by id", description = "Includes branches, agents, linked customers, transporters, and clearing agents.")
     public OrganizationResponse getById(
             @PathVariable Long id,
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
-        return organizationServiceProcessor.getById(id, locale);
+        return organizationServiceProcessor.getByIdForSystem(id, locale);
+    }
+
+    @Auditable(action = "ORG_BACKOFFICE_LINK_CUSTOMER")
+    @PostMapping("/{supplierId}/customers/link")
+    @Operation(summary = "Link an existing customer organisation to a supplier")
+    public OrganizationResponse linkCustomer(
+            @PathVariable Long supplierId,
+            @RequestBody LinkCustomerRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.linkCustomerForOrganization(supplierId, request, locale, BACKOFFICE);
+    }
+
+    @Auditable(action = "ORG_BACKOFFICE_LINK_TRANSPORTER")
+    @PostMapping("/{organizationId}/transporters/link")
+    @Operation(summary = "Link a transport company to a supplier organisation")
+    public OrganizationResponse linkTransporter(
+            @PathVariable Long organizationId,
+            @RequestBody LinkTransporterRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.linkTransporterForOrganization(organizationId, request, locale, BACKOFFICE);
+    }
+
+    @Auditable(action = "ORG_BACKOFFICE_LINK_CLEARING_AGENT")
+    @PostMapping("/{supplierId}/clearing-agents/link")
+    @Operation(summary = "Link a clearing agent organisation to a supplier")
+    public OrganizationResponse linkClearingAgent(
+            @PathVariable Long supplierId,
+            @RequestBody LinkClearingAgentRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.linkClearingAgentForOrganization(supplierId, request, locale, BACKOFFICE);
     }
 
     @Auditable(action = "ORG_SYSTEM_KYC_QUEUE")
@@ -190,6 +242,66 @@ public class OrganizationBackofficeResource {
         return organizationServiceProcessor.stage2Reject(id, request, locale, BACKOFFICE);
     }
 
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE3_APPROVE")
+    @PostMapping("/{id}/kyc/stage3/approve")
+    public OrganizationResponse stage3Approve(
+            @PathVariable Long id,
+            @RequestBody(required = false) KycActionRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage3Approve(id, request != null ? request : new KycActionRequest(), locale, BACKOFFICE);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE3_REJECT")
+    @PostMapping("/{id}/kyc/stage3/reject")
+    public OrganizationResponse stage3Reject(
+            @PathVariable Long id,
+            @RequestBody KycRejectRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage3Reject(id, request, locale, BACKOFFICE);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE4_APPROVE")
+    @PostMapping("/{id}/kyc/stage4/approve")
+    public OrganizationResponse stage4Approve(
+            @PathVariable Long id,
+            @RequestBody(required = false) KycActionRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage4Approve(id, request != null ? request : new KycActionRequest(), locale, BACKOFFICE);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE4_REJECT")
+    @PostMapping("/{id}/kyc/stage4/reject")
+    public OrganizationResponse stage4Reject(
+            @PathVariable Long id,
+            @RequestBody KycRejectRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage4Reject(id, request, locale, BACKOFFICE);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE5_APPROVE")
+    @PostMapping("/{id}/kyc/stage5/approve")
+    public OrganizationResponse stage5Approve(
+            @PathVariable Long id,
+            @RequestBody(required = false) KycActionRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage5Approve(id, request != null ? request : new KycActionRequest(), locale, BACKOFFICE);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE5_REJECT")
+    @PostMapping("/{id}/kyc/stage5/reject")
+    public OrganizationResponse stage5Reject(
+            @PathVariable Long id,
+            @RequestBody KycRejectRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage5Reject(id, request, locale, BACKOFFICE);
+    }
+
     @Auditable(action = "ORG_SYSTEM_ALLOW_RESUBMISSION")
     @PostMapping("/{id}/allow-resubmission")
     public OrganizationResponse allowResubmission(
@@ -198,6 +310,36 @@ public class OrganizationBackofficeResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         return organizationServiceProcessor.allowResubmission(id, request != null ? request : new KycActionRequest(), locale, BACKOFFICE);
+    }
+
+    @Auditable(action = "ORG_BACKOFFICE_KYC_POLICY_GET")
+    @GetMapping("/kyc/policy")
+    @Operation(summary = "Platform default KYC approval stage count")
+    public OrganizationManagementResponse getKycApprovalPolicy(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.getKycApprovalPolicy(locale);
+    }
+
+    @Auditable(action = "ORG_BACKOFFICE_KYC_POLICY_UPDATE")
+    @PutMapping("/kyc/policy")
+    @Operation(summary = "Update platform default KYC approval stage count")
+    public OrganizationManagementResponse updateKycApprovalPolicy(
+            @RequestBody UpdateKycApprovalPolicyRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.updateKycApprovalPolicy(request, locale, BACKOFFICE);
+    }
+
+    @Auditable(action = "ORG_BACKOFFICE_ORG_KYC_STAGES_UPDATE")
+    @PutMapping("/{id}/kyc/required-stages")
+    @Operation(summary = "Set per-organisation KYC approval stage override")
+    public OrganizationResponse updateOrganizationKycStages(
+            @PathVariable Long id,
+            @RequestBody UpdateOrganizationKycStagesRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.updateOrganizationKycStages(id, request, locale, BACKOFFICE);
     }
 
     @Auditable(action = "ORG_SYSTEM_KYC_REVIEWS")

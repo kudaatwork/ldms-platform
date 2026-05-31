@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { ChurnoutHistoryPageComponent } from './pages/churnout-history-page/churnout-history-page.component';
 import { ActivityPageComponent } from './pages/activity-page/activity-page.component';
+import { LoginAnalyticsPageComponent } from './pages/login-analytics-page/login-analytics-page.component';
 
 const routes: Routes = [
   {
@@ -16,8 +17,8 @@ const routes: Routes = [
   },
   {
     path: 'activity-logs',
-    component: ActivityPageComponent,
-    data: { title: 'Activity Logs', breadcrumb: 'Activity Logs', activityView: 'activity' },
+    component: LoginAnalyticsPageComponent,
+    data: { title: 'Login & Activity', breadcrumb: 'Login & Activity' },
   },
   {
     path: 'churnout-history',

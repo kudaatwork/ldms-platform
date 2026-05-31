@@ -2,6 +2,7 @@ import { HttpErrorResponse, HttpEvent, HttpHandler, HttpInterceptor, HttpRequest
 import { Injectable } from '@angular/core';
 import { Observable, throwError } from 'rxjs';
 import { isLdmsApiRequest } from '../utils/api-url.util';
+import { isPublicLdmsApiRequest } from '../utils/public-api.util';
 import { StorageService } from '../services/storage.service';
 
 function normalizeAccessToken(raw: string | null | undefined): string | null {
@@ -26,8 +27,9 @@ export class AuthInterceptor implements HttpInterceptor {
     if (!isLdmsApiRequest(req.url)) {
       return next.handle(req);
     }
-    if (req.url.includes('/v1/system/') || req.url.includes('/v1/auth/')) {
-      return next.handle(req);
+    if (isPublicLdmsApiRequest(req.url)) {
+      const headers = req.headers.has('Authorization') ? req.headers.delete('Authorization') : req.headers;
+      return next.handle(req.clone({ headers }));
     }
 
     const token = normalizeAccessToken(this.storage.getToken());

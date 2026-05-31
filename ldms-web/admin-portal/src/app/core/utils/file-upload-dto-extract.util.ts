@@ -44,6 +44,28 @@ function extractSingleDto(response: unknown, dtoKey: string): Record<string, unk
   return null;
 }
 
+export function extractFileUploadDtoList(response: unknown): Record<string, unknown>[] {
+  const obj = asRecord(parseJson(response));
+  if (!obj) {
+    return [];
+  }
+  const candidates = [obj, asRecord(obj['data']), asRecord(obj['body']), asRecord(obj['payload'])].filter(
+    Boolean,
+  ) as Record<string, unknown>[];
+  for (const wrapped of candidates) {
+    for (const key of ['fileUploadDtoList', 'fileUploadDtos', 'fileUploads', 'documents'] as const) {
+      const list = wrapped[key];
+      if (Array.isArray(list)) {
+        return list
+          .map((item) => asRecord(item))
+          .filter((item): item is Record<string, unknown> => item != null && item['id'] != null);
+      }
+    }
+  }
+  const single = extractFileUploadDtoFromResponse(response);
+  return single ? [single] : [];
+}
+
 export function extractFileUploadDtoFromResponse(response: unknown): Record<string, unknown> | null {
   for (const key of ['fileUploadDto', 'FileUploadDto'] as const) {
     const hit = extractSingleDto(response, key);

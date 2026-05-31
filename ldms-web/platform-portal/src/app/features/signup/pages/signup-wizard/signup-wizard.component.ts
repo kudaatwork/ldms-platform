@@ -18,6 +18,7 @@ import {
   STORAGE_ORG_ID,
   STORAGE_ORG_KYC,
   STORAGE_ORG_NAME,
+  STORAGE_ORG_CLASSIFICATION,
 } from '../../../onboarding/pages/onboarding-status/onboarding-status.component';
 
 export interface ClassificationOption {
@@ -271,6 +272,7 @@ export class SignupWizardComponent {
         sessionStorage.setItem(STORAGE_ORG_ID, String(summary.id));
         sessionStorage.setItem(STORAGE_ORG_NAME, summary.name);
         sessionStorage.setItem(STORAGE_ORG_KYC, summary.kycStatus);
+        sessionStorage.setItem(STORAGE_ORG_CLASSIFICATION, summary.organizationClassification);
         this.currentStep = 3;
         this.cdr.markForCheck();
       },
@@ -288,7 +290,10 @@ export class SignupWizardComponent {
   }
 
   goLogin(): void {
-    void this.router.navigate(['/auth/login']);
+    const email = String(this.contactForm.get('email')?.value ?? '').trim();
+    void this.router.navigate(['/auth/login'], {
+      queryParams: { email: email || undefined, registered: '1' },
+    });
   }
 
   goWelcome(): void {

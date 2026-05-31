@@ -103,6 +103,16 @@ public final class OrganizationMapping {
         dto.setAssignedStage2ApproverUserId(o.getAssignedStage2ApproverUserId());
         dto.setAssignedStage2ApproverUsername(o.getAssignedStage2ApproverUsername());
         dto.setAssignedStage2ApproverDisplayName(o.getAssignedStage2ApproverUsername());
+        dto.setAssignedStage3ApproverUserId(o.getAssignedStage3ApproverUserId());
+        dto.setAssignedStage3ApproverUsername(o.getAssignedStage3ApproverUsername());
+        dto.setAssignedStage3ApproverDisplayName(o.getAssignedStage3ApproverUsername());
+        dto.setAssignedStage4ApproverUserId(o.getAssignedStage4ApproverUserId());
+        dto.setAssignedStage4ApproverUsername(o.getAssignedStage4ApproverUsername());
+        dto.setAssignedStage4ApproverDisplayName(o.getAssignedStage4ApproverUsername());
+        dto.setAssignedStage5ApproverUserId(o.getAssignedStage5ApproverUserId());
+        dto.setAssignedStage5ApproverUsername(o.getAssignedStage5ApproverUsername());
+        dto.setAssignedStage5ApproverDisplayName(o.getAssignedStage5ApproverUsername());
+        dto.setKycRequiredApprovalStages(o.getKycRequiredApprovalStages());
         if (o.getKycStatus() != null) {
             dto.setKycStatus(o.getKycStatus().name());
         }

@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -44,6 +45,16 @@ public class OrganizationFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         String createdBy = request.getEmail() != null ? request.getEmail().trim() : "anonymous";
         return organizationServiceProcessor.register(request, locale, createdBy);
+    }
+
+    @Auditable(action = "ORG_ONBOARDING_STATUS")
+    @GetMapping("/onboarding-status/{organizationId}")
+    @Operation(summary = "Public onboarding tracker — live KYC status for signup applicants")
+    public OrganizationResponse getOnboardingStatus(
+            @PathVariable Long organizationId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.getOnboardingStatus(organizationId, locale);
     }
 
     @Auditable(action = "ORG_SUBMIT_KYC")

@@ -9,6 +9,7 @@ import { StaticShellPageComponent } from './shared/static-shell-page/static-shel
 import { MyAccountComponent } from './features/account/pages/my-account/my-account.component';
 import { CoreModule } from './core/core.module';
 import { SharedModule } from './shared/shared.module';
+import { UsersDialogsModule } from './features/users/users-dialogs.module';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 
@@ -33,6 +34,7 @@ export function initAdminSession(auth: AuthService): () => Promise<void> {
     BrowserAnimationsModule,
     CoreModule,
     SharedModule,
+    UsersDialogsModule,
     AppRoutingModule,
   ],
   providers: [

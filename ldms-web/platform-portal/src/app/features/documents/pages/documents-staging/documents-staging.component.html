@@ -1,0 +1,372 @@
+<section class="vault lx-page">
+  <div class="vault__aurora" aria-hidden="true">
+    <span class="vault__orb vault__orb--1"></span>
+    <span class="vault__orb vault__orb--2"></span>
+    <span class="vault__orb vault__orb--3"></span>
+  </div>
+
+  <header class="vault-hero">
+    <div class="vault-hero__main">
+      <div class="vault-hero__badge">
+        <span class="material-icons" aria-hidden="true">inventory_2</span>
+        LDMS Document Vault
+      </div>
+      <h1 class="vault-hero__title">Every file. One vault.</h1>
+      <p class="vault-hero__lead">
+        The complete document library for <strong>{{ orgName }}</strong> — onboarding packs, compliance
+        certificates, profile IDs, branding assets, and every upload registered in LDMS, with full metadata
+        and instant preview.
+      </p>
+    </div>
+
+    <div class="vault-bento">
+      <article class="vault-bento__card vault-bento__card--primary">
+        <span class="vault-bento__value">{{ stats.total }}</span>
+        <span class="vault-bento__label">Total documents</span>
+        <span class="material-icons vault-bento__icon" aria-hidden="true">folder_special</span>
+      </article>
+      <article class="vault-bento__card">
+        <span class="vault-bento__value">{{ stats.org }}</span>
+        <span class="vault-bento__label">Organisation</span>
+      </article>
+      <article class="vault-bento__card">
+        <span class="vault-bento__value">{{ stats.user }}</span>
+        <span class="vault-bento__label">Profile</span>
+      </article>
+      <article class="vault-bento__card vault-bento__card--accent">
+        <span class="vault-bento__value">{{ stats.withPreview }}</span>
+        <span class="vault-bento__label">Preview ready</span>
+      </article>
+    </div>
+  </header>
+
+  <div class="vault-toolbar lx-card">
+    <label class="vault-search">
+      <span class="material-icons" aria-hidden="true">search</span>
+      <input
+        type="search"
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+        placeholder="Search title, filename, category, upload ID…"
+        autocomplete="off"
+      />
+    </label>
+
+    <div class="vault-toolbar__actions">
+      <label class="vault-sort">
+        <span class="material-icons" aria-hidden="true">sort</span>
+        <select [value]="sortBy()" (change)="sortBy.set($any($event.target).value)">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="name">Name A–Z</option>
+          <option value="size">Largest first</option>
+        </select>
+      </label>
+
+      <div class="vault-views" role="group" aria-label="View mode">
+        <button
+          type="button"
+          *ngFor="let v of viewModes"
+          class="vault-view"
+          [class.vault-view--on]="viewMode() === v.id"
+          [attr.aria-pressed]="viewMode() === v.id"
+          (click)="setViewMode(v.id)"
+          [title]="v.label"
+        >
+          <span class="material-icons" aria-hidden="true">{{ v.icon }}</span>
+        </button>
+      </div>
+
+      <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm" (click)="reload()" [disabled]="loading()">
+        <span class="material-icons" aria-hidden="true">refresh</span>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <nav class="vault-filters" aria-label="Document filters">
+    <button
+      type="button"
+      *ngFor="let f of filters"
+      class="vault-filter"
+      [class.vault-filter--on]="filter() === f.id"
+      (click)="setFilter(f.id)"
+    >
+      <span class="material-icons" aria-hidden="true">{{ f.icon }}</span>
+      {{ f.label }}
+      <span class="vault-filter__count">{{ filterCount(f.id) }}</span>
+    </button>
+  </nav>
+
+  <div class="vault-alert" *ngIf="loadError()" role="alert">
+    <span class="material-icons" aria-hidden="true">error_outline</span>
+    {{ loadError() }}
+    <button type="button" class="vault-alert__btn" (click)="reload()">Retry</button>
+  </div>
+
+  <div class="vault-loading" *ngIf="loading()">
+    <div class="vault-loading__ring" aria-hidden="true"></div>
+    <p>Syncing your document vault…</p>
+  </div>
+
+  <div class="vault-empty lx-card" *ngIf="!loading() && !loadError() && !filteredDocuments.length">
+    <div class="vault-empty__art" aria-hidden="true">
+      <span class="material-icons">cloud_off</span>
+    </div>
+    <h2>Your vault is empty</h2>
+    <p>
+      Uploads from registration, compliance workflows, profile updates, and direct file registry entries
+      will appear here automatically.
+    </p>
+  </div>
+
+  <!-- Gallery view -->
+  <div
+    class="vault-grid"
+    *ngIf="!loading() && filteredDocuments.length && viewMode() === 'grid'"
+    role="list"
+  >
+    <button
+      type="button"
+      class="vault-card"
+      role="listitem"
+      *ngFor="let doc of filteredDocuments; trackBy: trackDoc"
+      [class.vault-card--selected]="selectedId() === doc.id"
+      (click)="selectDocument(doc)"
+    >
+      <div class="vault-card__preview" [class]="'vault-card__preview--' + fileKindClass(doc)">
+        <img *ngIf="doc.previewImageUrl" [src]="doc.previewImageUrl" alt="" />
+        <span class="material-icons" *ngIf="!doc.previewImageUrl" aria-hidden="true">{{ fileKindIcon(doc) }}</span>
+        <span class="vault-card__verified" *ngIf="doc.autoVerified" title="Auto-verified">
+          <span class="material-icons" aria-hidden="true">verified</span>
+        </span>
+      </div>
+      <div class="vault-card__body">
+        <span class="vault-card__badge" [class]="'vault-card__badge--' + sourceTone(doc.sourceScope)">
+          {{ doc.sourceLabel }}
+        </span>
+        <h3 class="vault-card__title">{{ doc.displayTitle }}</h3>
+        <p class="vault-card__meta">
+          {{ doc.fileType }} · {{ formatBytes(doc.fileSizeInBytes) }} ·
+          {{ doc.createdAt | date : 'mediumDate' }}
+        </p>
+      </div>
+    </button>
+  </div>
+
+  <!-- List view -->
+  <div class="vault-list lx-card" *ngIf="!loading() && filteredDocuments.length && viewMode() === 'list'">
+    <button
+      type="button"
+      class="vault-row"
+      *ngFor="let doc of filteredDocuments; trackBy: trackDoc"
+      [class.vault-row--on]="selectedId() === doc.id"
+      (click)="selectDocument(doc)"
+    >
+      <span class="vault-row__icon" [class]="'vault-row__icon--' + fileKindClass(doc)">
+        <span class="material-icons" aria-hidden="true">{{ fileKindIcon(doc) }}</span>
+      </span>
+      <span class="vault-row__main">
+        <span class="vault-row__title">{{ doc.displayTitle }}</span>
+        <span class="vault-row__sub">{{ doc.fileName }}</span>
+      </span>
+      <span class="vault-row__source">{{ doc.sourceLabel }}</span>
+      <span class="vault-row__size">{{ formatBytes(doc.fileSizeInBytes) }}</span>
+      <span class="vault-row__date">{{ doc.createdAt | date : 'mediumDate' }}</span>
+      <span class="material-icons vault-row__chev" aria-hidden="true">chevron_right</span>
+    </button>
+  </div>
+
+  <!-- Focus split view -->
+  <div class="vault-focus" *ngIf="!loading() && filteredDocuments.length && viewMode() === 'focus'">
+    <aside class="vault-focus__list lx-card">
+      <button
+        type="button"
+        class="vault-row vault-row--compact"
+        *ngFor="let doc of filteredDocuments; trackBy: trackDoc"
+        [class.vault-row--on]="selectedId() === doc.id"
+        (click)="selectDocument(doc, false)"
+      >
+        <span class="vault-row__icon vault-row__icon--sm" [class]="'vault-row__icon--' + fileKindClass(doc)">
+          <span class="material-icons" aria-hidden="true">{{ fileKindIcon(doc) }}</span>
+        </span>
+        <span class="vault-row__main">
+          <span class="vault-row__title">{{ doc.displayTitle }}</span>
+          <span class="vault-row__sub">{{ doc.createdAt | date : 'shortDate' }}</span>
+        </span>
+      </button>
+    </aside>
+
+    <article class="vault-inspector lx-card" *ngIf="selected as doc">
+      <ng-container *ngTemplateOutlet="inspectorBody; context: { doc: doc }"></ng-container>
+    </article>
+  </div>
+
+  <!-- Slide-over inspector (grid + list) -->
+  <div
+    class="vault-drawer-backdrop"
+    *ngIf="inspectorOpen() && viewMode() !== 'focus'"
+    (click)="closeInspector()"
+    aria-hidden="true"
+  ></div>
+  <aside
+    class="vault-drawer"
+    *ngIf="inspectorOpen() && viewMode() !== 'focus' && selected as doc"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Document details"
+  >
+    <header class="vault-drawer__head">
+      <h2 class="vault-drawer__title">Document inspector</h2>
+      <button type="button" class="vault-drawer__close" (click)="closeInspector()" aria-label="Close">
+        <span class="material-icons" aria-hidden="true">close</span>
+      </button>
+    </header>
+    <div class="vault-drawer__body">
+      <ng-container *ngTemplateOutlet="inspectorBody; context: { doc: doc }"></ng-container>
+    </div>
+  </aside>
+
+  <ng-template #inspectorBody let-doc="doc">
+    <header class="vault-inspector__head">
+      <div>
+        <span class="vault-inspector__badge" [class]="'vault-inspector__badge--' + sourceTone(doc.sourceScope)">
+          <span class="material-icons" aria-hidden="true">{{ sourceIcon(doc.sourceChannel) }}</span>
+          {{ doc.sourceLabel }}
+        </span>
+        <h2 class="vault-inspector__title">{{ doc.displayTitle }}</h2>
+        <p class="vault-inspector__sub">
+          Upload #{{ doc.id }}
+          <ng-container *ngIf="doc.linkedFieldKey"> · {{ doc.linkedFieldKey }}</ng-container>
+        </p>
+      </div>
+      <div class="vault-inspector__actions">
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm"
+          (click)="copyUploadId(doc.id)"
+          title="Copy upload ID"
+        >
+          <span class="material-icons" aria-hidden="true">tag</span>
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-secondary lx-btn-sm"
+          *ngIf="doc.hasPreview"
+          (click)="downloadDocument(doc)"
+        >
+          <span class="material-icons" aria-hidden="true">download</span>
+          Download
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-secondary lx-btn-sm"
+          *ngIf="doc.hasPdfPreview && doc.previewPdfDataUrl"
+          (click)="openPdfInNewTab()"
+        >
+          <span class="material-icons" aria-hidden="true">open_in_new</span>
+          Open PDF
+        </button>
+      </div>
+    </header>
+
+    <nav class="vault-tabs" aria-label="Document sections">
+      <button
+        type="button"
+        class="vault-tab"
+        [class.vault-tab--on]="detailTab() === 'preview'"
+        (click)="setDetailTab('preview')"
+      >
+        Preview
+      </button>
+      <button
+        type="button"
+        class="vault-tab"
+        [class.vault-tab--on]="detailTab() === 'metadata'"
+        (click)="setDetailTab('metadata')"
+      >
+        Metadata
+      </button>
+      <button
+        type="button"
+        class="vault-tab"
+        [class.vault-tab--on]="detailTab() === 'verification'"
+        (click)="setDetailTab('verification')"
+      >
+        Verification
+      </button>
+    </nav>
+
+    <div class="vault-inspector__panel" *ngIf="detailTab() === 'preview'">
+      <div class="vault-stage" aria-live="polite">
+        <div class="vault-stage__loading" *ngIf="detailLoading()">
+          <div class="vault-loading__ring" aria-hidden="true"></div>
+          Loading preview…
+        </div>
+
+        <img
+          *ngIf="!detailLoading() && doc.previewImageUrl"
+          class="vault-stage__image"
+          [src]="doc.previewImageUrl"
+          [alt]="doc.displayTitle"
+        />
+
+        <iframe
+          *ngIf="!detailLoading() && selectedPdfUrl && !doc.previewImageUrl"
+          class="vault-stage__pdf"
+          [src]="selectedPdfUrl"
+          title="Document preview"
+        ></iframe>
+
+        <div class="vault-stage__empty" *ngIf="!detailLoading() && !doc.previewImageUrl && !selectedPdfUrl">
+          <span class="material-icons" aria-hidden="true">visibility_off</span>
+          <p>Preview unavailable for this file type or size. Metadata and download may still be available once content is loaded.</p>
+          <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm" (click)="selectDocument(doc)">
+            Retry load
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="vault-inspector__panel" *ngIf="detailTab() === 'metadata'">
+      <dl class="vault-meta-grid">
+        <div><dt>Original filename</dt><dd>{{ doc.fileName }}</dd></div>
+        <div><dt>Stored filename</dt><dd>{{ doc.storedFileName || '—' }}</dd></div>
+        <div><dt>Category</dt><dd>{{ doc.category }}</dd></div>
+        <div><dt>File type</dt><dd>{{ doc.fileType }}</dd></div>
+        <div><dt>MIME type</dt><dd>{{ doc.contentType || '—' }}</dd></div>
+        <div><dt>Size</dt><dd>{{ formatBytes(doc.fileSizeInBytes) }}</dd></div>
+        <div><dt>Owner</dt><dd>{{ doc.ownerType }} #{{ doc.ownerId || '—' }}</dd></div>
+        <div><dt>Status</dt><dd>{{ doc.entityStatus }}</dd></div>
+        <div><dt>Storage</dt><dd>{{ doc.storageProvider || '—' }}</dd></div>
+        <div><dt>File URL</dt><dd>{{ doc.fileUrl || '—' }}</dd></div>
+        <div><dt>Hash</dt><dd class="vault-meta-grid__mono">{{ doc.fileHash || '—' }}</dd></div>
+        <div><dt>Uploaded</dt><dd>{{ doc.createdAt | date : 'medium' }}</dd></div>
+        <div><dt>Created by</dt><dd>{{ doc.createdBy || '—' }}</dd></div>
+        <div><dt>Modified</dt><dd>{{ doc.modifiedAt | date : 'medium' }}</dd></div>
+        <div><dt>Modified by</dt><dd>{{ doc.modifiedBy || '—' }}</dd></div>
+        <div><dt>Expires</dt><dd>{{ doc.expiresAt ? (doc.expiresAt | date : 'medium') : '—' }}</dd></div>
+      </dl>
+    </div>
+
+    <div class="vault-inspector__panel" *ngIf="detailTab() === 'verification'">
+      <dl class="vault-meta-grid">
+        <div>
+          <dt>Auto-verified</dt>
+          <dd>
+            <span class="vault-pill" [class.vault-pill--ok]="doc.autoVerified" [class.vault-pill--muted]="!doc.autoVerified">
+              {{ doc.autoVerified ? 'Yes' : 'No' }}
+            </span>
+          </dd>
+        </div>
+        <div><dt>Verified at</dt><dd>{{ doc.autoVerifiedAt ? (doc.autoVerifiedAt | date : 'medium') : '—' }}</dd></div>
+        <div><dt>Method</dt><dd>{{ doc.autoVerificationMethod || '—' }}</dd></div>
+        <div><dt>Source</dt><dd>{{ doc.autoVerificationSource || '—' }}</dd></div>
+        <div class="vault-meta-grid__wide">
+          <dt>Notes</dt>
+          <dd>{{ doc.autoVerificationNotes || 'No verification notes recorded.' }}</dd>
+        </div>
+      </dl>
+    </div>
+  </ng-template>
+</section>

@@ -1,0 +1,19 @@
+<section class="lx-page-hero lx-card" [ngClass]="'lx-page-hero--' + variant" role="region" [attr.aria-label]="title || 'Page overview'">
+  <div class="lx-page-hero__glow" aria-hidden="true"></div>
+  <div class="lx-page-hero__main">
+    <div class="lx-page-hero__copy">
+      <p class="lx-page-hero__eyebrow" *ngIf="eyebrow">{{ eyebrow }}</p>
+      <h1 class="lx-page-hero__title">{{ title }}</h1>
+      <p class="lx-page-hero__lead" *ngIf="lead">{{ lead }}</p>
+      <div class="lx-page-hero__actions">
+        <ng-content select="[lxPageHeroActions]"></ng-content>
+      </div>
+    </div>
+    <div class="lx-page-hero__visual" *ngIf="icon" aria-hidden="true">
+      <mat-icon class="lx-page-hero__icon">{{ icon }}</mat-icon>
+    </div>
+  </div>
+  <div class="lx-page-hero__stats">
+    <ng-content select="[lxPageHeroStats]"></ng-content>
+  </div>
+</section>

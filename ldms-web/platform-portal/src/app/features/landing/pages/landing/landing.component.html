@@ -6,8 +6,10 @@
     <div class="ldms-orb-global ldms-orb-global--c"></div>
   </div>
   <div class="ldms-landing__grid-faint" aria-hidden="true"></div>
+  <div class="ldms-landing__noise" aria-hidden="true"></div>
 
   <header class="ldms-landing__nav">
+    <div class="ldms-landing__nav-shell">
     <div class="ldms-landing__nav-inner">
       <div class="ldms-landing__brand">
         <span class="ldms-landing__logo" aria-hidden="true">
@@ -26,7 +28,7 @@
         <a class="ldms-landing__nav-jump-link" href="#ldms-faq">FAQ</a>
       </nav>
 
-      <nav class="ldms-landing__nav-actions" aria-label="Primary">
+      <nav class="ldms-landing__nav-actions ldms-landing__nav-actions--desktop" aria-label="Primary">
         <button
           type="button"
           class="ldms-landing__theme-toggle"
@@ -36,45 +38,89 @@
         >
           <span class="material-icons" aria-hidden="true">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
         </button>
-        <a class="ldms-landing__link" [href]="adminUrl + '/auth/login'" rel="noopener">Administrator sign in</a>
-        <a class="ldms-landing__link" routerLink="/contact">Book a demo</a>
+        <a class="ldms-landing__link" [href]="adminUrl + '/auth/login'" rel="noopener">Admin</a>
+        <a class="ldms-landing__link" routerLink="/contact">Demo</a>
         <button type="button" class="lx-btn lx-btn-secondary ldms-landing__btn-ghost" (click)="goPlatformLogin()">
+          Sign in
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary ldms-landing__nav-cta" (click)="goSignup()">
+          Get started
+        </button>
+      </nav>
+
+      <button
+        type="button"
+        class="ldms-landing__menu-toggle"
+        (click)="toggleMobileNav()"
+        [attr.aria-expanded]="mobileNavOpen()"
+        aria-controls="ldms-landing-mobile-nav"
+        aria-label="Open menu"
+      >
+        <span class="material-icons" aria-hidden="true">{{ mobileNavOpen() ? 'close' : 'menu' }}</span>
+      </button>
+    </div>
+    </div>
+
+    <div
+      id="ldms-landing-mobile-nav"
+      class="ldms-landing__mobile-nav"
+      [class.ldms-landing__mobile-nav--open]="mobileNavOpen()"
+      [attr.aria-hidden]="!mobileNavOpen()"
+    >
+      <nav class="ldms-landing__mobile-nav-links" aria-label="Mobile">
+        <a class="ldms-landing__mobile-link" href="#ldms-capabilities" (click)="closeMobileNav()">Capabilities</a>
+        <a class="ldms-landing__mobile-link" href="#ldms-platform" (click)="closeMobileNav()">Platform</a>
+        <a class="ldms-landing__mobile-link" href="#ldms-journey" (click)="closeMobileNav()">Journey</a>
+        <a class="ldms-landing__mobile-link" href="#ldms-faq" (click)="closeMobileNav()">FAQ</a>
+        <a class="ldms-landing__mobile-link" routerLink="/contact" (click)="closeMobileNav()">Book a demo</a>
+        <button type="button" class="lx-btn lx-btn-secondary ldms-landing__mobile-btn" (click)="goPlatformLogin(); closeMobileNav()">
           Organisation sign in
         </button>
-        <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup()">Create organisation account</button>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup(); closeMobileNav()">Create account</button>
       </nav>
     </div>
   </header>
 
   <main class="ldms-landing__main">
     <section class="ldms-landing__hero ldms-landing__anchor" id="ldms-overview" aria-labelledby="ldms-landing-hero-title">
+      <div class="ldms-landing__hero-glow" aria-hidden="true"></div>
+      <div class="ldms-landing__hero-shell">
       <div class="ldms-landing__hero-copy">
-        <p class="ldms-landing__eyebrow">Logistics &amp; Distribution Management System</p>
+        <div class="ldms-landing__hero-topline">
+          <span class="ldms-landing__live-pill">
+            <span class="ldms-landing__live-dot" aria-hidden="true"></span>
+            Live corridor platform
+          </span>
+          <p class="ldms-landing__eyebrow">Logistics &amp; Distribution Management System</p>
+        </div>
         <h1 id="ldms-landing-hero-title" class="ldms-landing__title">
           <span class="ldms-word">Road-based</span>
           <span class="ldms-word">delivery,</span>
-          <span class="ldms-word">coordinated</span>
+          <span class="ldms-word ldms-word--accent">coordinated</span>
           <span class="ldms-word">from</span>
           <span class="ldms-word">first</span>
           <span class="ldms-word">mile</span>
           <span class="ldms-word">to</span>
-          <span class="ldms-word">proof</span>
+          <span class="ldms-word ldms-word--accent">proof</span>
           <span class="ldms-word">of</span>
-          <span class="ldms-word">delivery</span>
+          <span class="ldms-word ldms-word--accent">delivery</span>
         </h1>
         <p class="ldms-landing__lead">
-          LDMS is the workspace where suppliers, partners, and customers meet around road freight—orders, trips, compliance,
-          and money in one experience layer, with room for your brand to still feel premium.
+          One workspace for suppliers, partners, and customers—orders, trips, compliance, and settlements aligned from
+          dispatch to proof of delivery.
         </p>
         <div class="ldms-landing__hero-cta">
-          <button type="button" class="lx-btn lx-btn-primary ldms-landing__cta-primary" (click)="goSignup()">
-            Get started
+          <button type="button" class="lx-btn lx-btn-primary ldms-landing__cta-primary ldms-landing__cta-shine" (click)="goSignup()">
+            <span class="material-icons ldms-landing__cta-icon" aria-hidden="true">rocket_launch</span>
+            Get started free
           </button>
-          <button type="button" class="lx-btn lx-btn-secondary" (click)="goPlatformLogin()">Sign in to portal</button>
           <button type="button" class="lx-btn lx-btn-secondary ldms-landing__hero-book" (click)="goBookDemo()">
             Book a demo
           </button>
-          <a class="lx-btn lx-btn-ghost ldms-landing__hero-explore" href="#ldms-capabilities">Explore the platform</a>
+          <a class="ldms-landing__hero-link" href="#ldms-capabilities">
+            Explore capabilities
+            <span class="material-icons" aria-hidden="true">arrow_downward</span>
+          </a>
         </div>
         <ul class="ldms-landing__chips" aria-label="Highlights">
           <li *ngFor="let c of heroChips" class="ldms-landing__chip">{{ c }}</li>
@@ -95,13 +141,9 @@
             <span class="ldms-landing__stat-value"><span class="ldms-landing__kpi-num" data-count="2">2</span> apps</span>
           </li>
         </ul>
-        <p class="ldms-landing__meta">
-          Organisation portal on <strong>{{ platformOrigin }}</strong>
-          <span class="ldms-landing__meta-sep" aria-hidden="true">·</span>
-          Admin console on <strong>{{ adminUrl }}</strong>
-        </p>
       </div>
       <figure class="ldms-landing__hero-art">
+        <div class="ldms-landing__hero-frame" aria-hidden="true"></div>
         <img
           class="ldms-landing__hero-img"
           [src]="heroImage"
@@ -137,22 +179,34 @@
         </div>
         <figcaption class="ldms-landing__photo-credit">
           Photo:
-          <a href="https://unsplash.com/?utm_source=projectlx&utm_medium=referral" rel="noopener noreferrer" target="_blank"
-            >Unsplash</a
-          >
+          <a href="https://www.pexels.com" rel="noopener noreferrer" target="_blank">Pexels</a>
         </figcaption>
       </figure>
+      </div>
     </section>
 
-    <section class="ldms-landing__pillars-wrap ldms-landing__anchor ldms-reveal" id="ldms-capabilities" aria-labelledby="ldms-pillars-title">
-      <div class="ldms-landing__pillars-inner ldms-reveal ldms-reveal--stagger">
-        <h2 id="ldms-pillars-title" class="visually-hidden">Core capability areas</h2>
-        <ul class="ldms-landing__pillars">
-          <li *ngFor="let p of pillars" class="ldms-landing__pillar">
-            <span class="ldms-landing__pillar-icon material-icons" aria-hidden="true">{{ p.icon }}</span>
-            <span class="ldms-landing__pillar-label">{{ p.label }}</span>
-          </li>
-        </ul>
+    <section class="ldms-landing__marquee-wrap ldms-landing__anchor" id="ldms-capabilities" aria-labelledby="ldms-pillars-title">
+      <div class="ldms-landing__marquee-head ldms-reveal">
+        <h2 id="ldms-pillars-title" class="ldms-landing__marquee-title">Everything your corridor runs on</h2>
+        <p class="ldms-landing__marquee-sub">Orders to settlements — one connected stack</p>
+      </div>
+      <div class="ldms-landing__marquee ldms-reveal" aria-hidden="false">
+        <div class="ldms-landing__marquee-fade ldms-landing__marquee-fade--left" aria-hidden="true"></div>
+        <div class="ldms-landing__marquee-fade ldms-landing__marquee-fade--right" aria-hidden="true"></div>
+        <div class="ldms-landing__marquee-track">
+          <ul class="ldms-landing__pillars ldms-landing__pillars--marquee">
+            <li *ngFor="let p of pillarsMarquee" class="ldms-landing__pillar">
+              <span class="ldms-landing__pillar-icon material-icons" aria-hidden="true">{{ p.icon }}</span>
+              <span class="ldms-landing__pillar-label">{{ p.label }}</span>
+            </li>
+          </ul>
+          <ul class="ldms-landing__pillars ldms-landing__pillars--marquee" aria-hidden="true">
+            <li *ngFor="let p of pillarsMarquee" class="ldms-landing__pillar">
+              <span class="ldms-landing__pillar-icon material-icons" aria-hidden="true">{{ p.icon }}</span>
+              <span class="ldms-landing__pillar-label">{{ p.label }}</span>
+            </li>
+          </ul>
+        </div>
       </div>
     </section>
 

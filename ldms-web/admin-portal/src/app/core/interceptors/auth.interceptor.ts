@@ -29,6 +29,10 @@ export class AuthInterceptor implements HttpInterceptor {
     if (req.url.includes('/v1/system/') || req.url.includes('/v1/auth/')) {
       return next.handle(req);
     }
+    // Backoffice APIs are permitAll on services; omit Bearer to avoid 431 from oversized JWTs.
+    if (req.url.includes('/v1/backoffice/') && !req.url.includes('/me')) {
+      return next.handle(req);
+    }
 
     const token = normalizeAccessToken(this.storage.getToken());
     if (!token) {

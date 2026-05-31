@@ -1,4 +1,12 @@
 <div class="lx-page">
+  <lx-page-hero
+    eyebrow="Identity &amp; access"
+    title="User types"
+    [lead]="pageLead"
+    icon="category"
+    variant="violet"
+  ></lx-page-hero>
+
   <div class="lx-card lx-card--subsection">
       <div class="lx-controls-head">
         <div class="lx-controls-head__text">
@@ -91,7 +99,7 @@
   <div class="lx-card">
     <div class="lx-table-header">
       <div>
-        <h2 class="lc-title">User Types</h2>
+        <p class="lx-table-meta">Persona definitions for platform users</p>
         <p class="lc-lead">Define high-level account categories and their default role behavior.</p>
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>

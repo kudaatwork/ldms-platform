@@ -1,0 +1,193 @@
+<section class="lx-page hs-page">
+  <header class="hs-hero">
+    <div class="hs-hero__glow" aria-hidden="true"></div>
+    <div class="hs-hero__content">
+      <p class="hs-hero__eyebrow">Operations · Help desk</p>
+      <h1 class="hs-hero__title">Help &amp; Support</h1>
+      <p class="hs-hero__lead">
+        Every portal ticket lands here — triage requests, track SLAs, and jump to live platform health when users report outages.
+      </p>
+      <div class="hs-hero__actions">
+        <button type="button" class="lx-btn lx-btn-primary hs-hero__btn" (click)="goSystemHealth()">
+          <span class="material-icons" aria-hidden="true">monitor_heart</span>
+          System health
+        </button>
+        <button type="button" class="lx-btn lx-btn-secondary hs-hero__btn" (click)="reload()" [disabled]="loading">
+          <span class="material-icons" aria-hidden="true">refresh</span>
+          Refresh
+        </button>
+      </div>
+    </div>
+    <div class="hs-hero__visual" aria-hidden="true">
+      <span class="material-icons hs-hero__icon">support_agent</span>
+    </div>
+  </header>
+
+  <div class="hs-alert" *ngIf="error" role="alert">
+    <span class="material-icons" aria-hidden="true">error_outline</span>
+    {{ error }}
+    <button type="button" class="hs-alert__action" (click)="reload()">Retry</button>
+  </div>
+
+  <div class="hs-loading" *ngIf="loading">
+    <span class="hs-loading__spinner" aria-hidden="true"></span>
+    Loading support queue…
+  </div>
+
+  <ng-container *ngIf="!loading && !error">
+    <div class="hs-kpis">
+      <article class="hs-kpi lx-card">
+        <span class="material-icons hs-kpi__icon hs-kpi__icon--total" aria-hidden="true">inbox</span>
+        <div>
+          <span class="hs-kpi__value">{{ tickets.length }}</span>
+          <span class="hs-kpi__label">Total queue</span>
+        </div>
+      </article>
+      <article class="hs-kpi lx-card hs-kpi--open">
+        <span class="material-icons hs-kpi__icon" aria-hidden="true">fiber_new</span>
+        <div>
+          <span class="hs-kpi__value">{{ openTicketCount }}</span>
+          <span class="hs-kpi__label">New / open</span>
+        </div>
+      </article>
+      <article class="hs-kpi lx-card hs-kpi--progress">
+        <span class="material-icons hs-kpi__icon" aria-hidden="true">pending_actions</span>
+        <div>
+          <span class="hs-kpi__value">{{ inProgressCount }}</span>
+          <span class="hs-kpi__label">In progress</span>
+        </div>
+      </article>
+      <article class="hs-kpi lx-card hs-kpi--wait">
+        <span class="material-icons hs-kpi__icon" aria-hidden="true">hourglass_top</span>
+        <div>
+          <span class="hs-kpi__value">{{ waitingCount }}</span>
+          <span class="hs-kpi__label">Awaiting customer</span>
+        </div>
+      </article>
+    </div>
+
+    <div class="hs-toolbar">
+      <label class="hs-search">
+        <span class="material-icons" aria-hidden="true">search</span>
+        <input
+          type="search"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+          placeholder="Search ticket, subject, requester…"
+          autocomplete="off"
+        />
+      </label>
+      <nav class="hs-filters" aria-label="Filter by status">
+        <button
+          type="button"
+          *ngFor="let f of statusFilters"
+          class="hs-filter"
+          [class.hs-filter--on]="statusFilter() === f.id"
+          (click)="setStatusFilter(f.id)"
+        >
+          {{ f.label }}
+        </button>
+      </nav>
+    </div>
+
+    <div class="hs-empty lx-card" *ngIf="!tickets.length">
+      <div class="hs-empty__icon-wrap">
+        <span class="material-icons" aria-hidden="true">inbox</span>
+      </div>
+      <h2>No support tickets yet</h2>
+      <p>When portal users submit Help &amp; Support requests, they will appear in this queue.</p>
+    </div>
+
+    <div class="hs-empty lx-card" *ngIf="tickets.length && !filteredTickets.length">
+      <span class="material-icons" aria-hidden="true">search_off</span>
+      <h2>No matches</h2>
+      <p>Try a different search term or status filter.</p>
+    </div>
+
+    <div class="hs-layout" *ngIf="filteredTickets.length">
+      <aside class="hs-queue lx-card" aria-label="Support ticket queue">
+        <div class="hs-queue__head">
+          <h2 class="hs-queue__title">Queue</h2>
+          <span class="hs-queue__count">{{ filteredTickets.length }} shown</span>
+        </div>
+        <div class="hs-queue__list">
+          <button
+            type="button"
+            class="hs-ticket"
+            *ngFor="let t of filteredTickets; trackBy: trackTicket"
+            [class.hs-ticket--active]="selected?.ticketNumber === t.ticketNumber"
+            (click)="selectTicket(t)"
+          >
+            <div class="hs-ticket__top">
+              <span class="hs-ticket__number">{{ t.ticketNumber }}</span>
+              <span class="hs-pill" [attr.data-status]="t.status">{{ statusLabel(t.status) }}</span>
+            </div>
+            <h3 class="hs-ticket__subject">{{ t.subject }}</h3>
+            <div class="hs-ticket__meta">
+              <span class="hs-ticket__chip">
+                <span class="material-icons" aria-hidden="true">{{ categoryIcon(t.category) }}</span>
+                {{ t.category }}
+              </span>
+              <span>{{ t.createdAt | date : 'mediumDate' }}</span>
+            </div>
+            <div class="hs-ticket__requester">{{ t.requesterUsername }}</div>
+          </button>
+        </div>
+      </aside>
+
+      <article class="hs-detail lx-card" *ngIf="selected as t">
+        <header class="hs-detail__head">
+          <div>
+            <span class="hs-detail__number">{{ t.ticketNumber }}</span>
+            <h2 class="hs-detail__title">{{ t.subject }}</h2>
+            <p class="hs-detail__sub">
+              Opened {{ t.createdAt | date : 'medium' }}
+              <span *ngIf="t.organizationName"> · {{ t.organizationName }}</span>
+            </p>
+          </div>
+          <div class="hs-detail__badges">
+            <span class="hs-pill hs-pill--lg" [attr.data-status]="t.status">{{ statusLabel(t.status) }}</span>
+            <span class="hs-priority" [attr.data-priority]="priorityTone(t.priority)">{{ t.priority }}</span>
+          </div>
+        </header>
+
+        <dl class="hs-detail__grid">
+          <div>
+            <dt>Requester</dt>
+            <dd>{{ t.requesterUsername }}</dd>
+          </div>
+          <div>
+            <dt>Email</dt>
+            <dd>{{ t.requesterEmail }}</dd>
+          </div>
+          <div>
+            <dt>Category</dt>
+            <dd>{{ t.category }}</dd>
+          </div>
+          <div>
+            <dt>Priority</dt>
+            <dd>{{ t.priority }}</dd>
+          </div>
+          <div *ngIf="t.organizationId">
+            <dt>Organisation ID</dt>
+            <dd>#{{ t.organizationId }}</dd>
+          </div>
+        </dl>
+
+        <section class="hs-detail__body">
+          <h3 class="hs-detail__body-title">
+            <span class="material-icons" aria-hidden="true">description</span>
+            Description
+          </h3>
+          <p class="hs-detail__description">{{ t.description }}</p>
+        </section>
+
+        <footer class="hs-detail__foot">
+          <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm" (click)="goSystemHealth()">
+            Check platform health
+          </button>
+        </footer>
+      </article>
+    </div>
+  </ng-container>
+</section>

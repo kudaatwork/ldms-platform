@@ -7,6 +7,8 @@ import { UsersAdminService } from '../../services/users-admin.service';
 export interface UserEditAccountDialogData {
   account: Record<string, unknown>;
   userId: number;
+  /** Hides admin-only fields (e.g. account locked) on My Account. */
+  selfService?: boolean;
 }
 
 @Component({
@@ -25,6 +27,7 @@ export class UserEditAccountDialogComponent {
 
   private readonly accountId: number;
   private readonly userId: number;
+  readonly selfService: boolean;
 
   constructor(
     private readonly dialogRef: MatDialogRef<UserEditAccountDialogComponent, boolean>,
@@ -32,6 +35,7 @@ export class UserEditAccountDialogComponent {
     private readonly snackBar: MatSnackBar,
     @Inject(MAT_DIALOG_DATA) data: UserEditAccountDialogData,
   ) {
+    this.selfService = data.selfService === true;
     const a = data.account;
     this.accountId = Number(a['id'] ?? 0);
     this.userId = Number(data.userId ?? 0);
@@ -61,7 +65,7 @@ export class UserEditAccountDialogComponent {
         userId: this.userId,
         phoneNumber: this.phoneNumber.trim() || undefined,
         accountNumber: this.accountNumber.trim() || undefined,
-        isAccountLocked: this.isAccountLocked,
+        ...(this.selfService ? {} : { isAccountLocked: this.isAccountLocked }),
       })
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({

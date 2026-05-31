@@ -22,6 +22,9 @@ public final class OrganizationSpecifications {
             KycStatus.SUBMITTED,
             KycStatus.STAGE_1_REVIEW,
             KycStatus.STAGE_2_REVIEW,
+            KycStatus.STAGE_3_REVIEW,
+            KycStatus.STAGE_4_REVIEW,
+            KycStatus.STAGE_5_REVIEW,
             KycStatus.RESUBMITTED
     );
 
@@ -34,6 +37,9 @@ public final class OrganizationSpecifications {
             KycStatus.SUBMITTED,
             KycStatus.STAGE_1_REVIEW,
             KycStatus.STAGE_2_REVIEW,
+            KycStatus.STAGE_3_REVIEW,
+            KycStatus.STAGE_4_REVIEW,
+            KycStatus.STAGE_5_REVIEW,
             KycStatus.RESUBMITTED,
             KycStatus.REJECTED
     );
@@ -113,7 +119,16 @@ public final class OrganizationSpecifications {
             var stage2Match = cb.and(
                     cb.equal(root.get("kycStatus"), KycStatus.STAGE_2_REVIEW),
                     cb.equal(cb.lower(root.get("assignedStage2ApproverUsername")), normalized));
-            return cb.or(stage1Match, stage2Match);
+            var stage3Match = cb.and(
+                    cb.equal(root.get("kycStatus"), KycStatus.STAGE_3_REVIEW),
+                    cb.equal(cb.lower(root.get("assignedStage3ApproverUsername")), normalized));
+            var stage4Match = cb.and(
+                    cb.equal(root.get("kycStatus"), KycStatus.STAGE_4_REVIEW),
+                    cb.equal(cb.lower(root.get("assignedStage4ApproverUsername")), normalized));
+            var stage5Match = cb.and(
+                    cb.equal(root.get("kycStatus"), KycStatus.STAGE_5_REVIEW),
+                    cb.equal(cb.lower(root.get("assignedStage5ApproverUsername")), normalized));
+            return cb.or(stage1Match, stage2Match, stage3Match, stage4Match, stage5Match);
         };
     }
 

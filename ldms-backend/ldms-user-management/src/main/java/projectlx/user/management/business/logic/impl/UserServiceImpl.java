@@ -694,8 +694,29 @@ public class UserServiceImpl implements UserService {
             return buildUserResponseWithErrors(400, false, message, null, null,
                     List.of(message));
         }
-        userToBeEdited.setUsername(editUserRequest.getUsername());
-        userToBeEdited.setEmail(editUserRequest.getEmail());
+        String normalizedNewEmail = editUserRequest.getEmail() != null
+                ? editUserRequest.getEmail().trim().toLowerCase(Locale.ROOT)
+                : "";
+        String normalizedPreviousEmail = userToBeEdited.getEmail() != null
+                ? userToBeEdited.getEmail().trim().toLowerCase(Locale.ROOT)
+                : "";
+        boolean emailChanged = org.springframework.util.StringUtils.hasText(normalizedNewEmail)
+                && !normalizedNewEmail.equals(normalizedPreviousEmail);
+        if (emailChanged) {
+            Optional<User> emailOwner = userRepository.findByEmailAndEntityStatusNot(normalizedNewEmail, EntityStatus.DELETED);
+            if (emailOwner.isPresent() && !emailOwner.get().getId().equals(userToBeEdited.getId())) {
+                message = messageService.getMessage(I18Code.MESSAGE_USER_ALREADY_EXISTS.getCode(), new String[]{}, locale);
+                return buildUserResponse(400, false, message, null, null, null);
+            }
+        }
+        if (emailChanged) {
+            userToBeEdited.setEmail(normalizedNewEmail);
+            userToBeEdited.setUsername(normalizedNewEmail);
+            userToBeEdited.setEmailVerified(false);
+        } else {
+            userToBeEdited.setUsername(editUserRequest.getUsername());
+            userToBeEdited.setEmail(editUserRequest.getEmail());
+        }
         userToBeEdited.setFirstName(editUserRequest.getFirstName());
         userToBeEdited.setLastName(editUserRequest.getLastName());
         Gender gender = safeGender(editUserRequest.getGender()).orElse(userToBeEdited.getGender());
@@ -815,6 +836,16 @@ public class UserServiceImpl implements UserService {
             }
             userForResponse = userRepository.findByIdAndEntityStatusNot(userEdited.getId(), EntityStatus.DELETED)
                     .orElse(userForResponse);
+        }
+
+        if (emailChanged) {
+            String verificationToken = tokenService.generateEmailVerificationToken();
+            userForResponse.setVerificationToken(verificationToken);
+            userForResponse.setEmailVerified(false);
+            User userPendingVerification = userServiceAuditable.update(userForResponse, locale, username);
+            sendVerificationEmail(userPendingVerification, verificationToken);
+            userForResponse = userRepository.findByIdAndEntityStatusNot(userEdited.getId(), EntityStatus.DELETED)
+                    .orElse(userPendingVerification);
         }
 
         UserDto userDtoReturned = toUserDtoWithRelations(userForResponse);
