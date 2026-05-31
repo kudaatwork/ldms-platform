@@ -3,6 +3,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatTableDataSource } from '@angular/material/table';
 import { Title } from '@angular/platform-browser';
+import { ActivatedRoute, Router } from '@angular/router';
 import { PageEvent } from '@angular/material/paginator';
 import {
   EMPTY,
@@ -44,7 +45,11 @@ export class BranchesListComponent implements OnInit, OnDestroy {
   loadError = '';
   searchQuery = '';
   filterFieldsOpen = false;
-  columnFilters = { branchName: '', organizationName: '' };
+  columnFilters = { branchName: '' };
+  /** Scope filter: organisation id as string for `<select>` binding (empty = all). */
+  filterOrganizationId = '';
+  filterOrganizationOptions: Array<{ id: number; label: string }> = [];
+  filterOrganizationsLoading = false;
 
   showSampleCsvInfo = false;
   readonly sampleCsvDescription =
@@ -67,15 +72,53 @@ export class BranchesListComponent implements OnInit, OnDestroy {
 
   constructor(
     private readonly title: Title,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
     private readonly orgService: OrganizationsAdminService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
+  /** String `<option value>` so `ngModel` stays aligned with the DOM. */
+  selectOptionValue(id: number): string {
+    return String(id);
+  }
+
+  get hasScopeFilters(): boolean {
+    return !!this.parsedFilterOrganizationId();
+  }
+
+  get filterScopeSummary(): string {
+    const label = this.filterOrganizationLabel;
+    return label || '';
+  }
+
+  get filterOrganizationLabel(): string {
+    const id = this.parsedFilterOrganizationId();
+    if (!id) {
+      return '';
+    }
+    return (
+      this.filterOrganizationOptions.find((o) => o.id === id)?.label ?? `Organisation #${id}`
+    );
+  }
+
   ngOnInit(): void {
     this.title.setTitle('Branches | LX Admin');
     this.lastFilterSignature = this.currentFilterSignature();
+    this.loadFilterOrganizationOptions();
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((qm) => {
+      const raw = qm.get('organizationId');
+      const parsed = raw != null && /^[1-9]\d*$/.test(raw.trim()) ? Number(raw) : null;
+      const orgId =
+        parsed != null && Number.isFinite(parsed) && parsed > 0 ? String(Math.trunc(parsed)) : '';
+      if (orgId !== this.filterOrganizationId) {
+        this.filterOrganizationId = orgId;
+        this.lastFilterSignature = this.currentFilterSignature();
+        this.filterReload$.next();
+      }
+    });
     merge(of(undefined as void), this.filterReload$.pipe(debounceTime(150)))
       .pipe(
         switchMap(() => {
@@ -99,6 +142,21 @@ export class BranchesListComponent implements OnInit, OnDestroy {
     this.filterReload$.next();
   }
 
+  onFilterOrganizationChange(value: unknown): void {
+    this.filterOrganizationId = String(value ?? '').trim();
+    this.applyFilters();
+  }
+
+  clearScopeFilters(): void {
+    this.filterOrganizationId = '';
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {},
+      replaceUrl: true,
+    });
+    this.applyFilters();
+  }
+
   onPage(e: PageEvent): void {
     if (e.pageIndex === this.pageIndex && e.pageSize === this.pageSize) return;
     this.pageIndex = e.pageIndex;
@@ -114,7 +172,7 @@ export class BranchesListComponent implements OnInit, OnDestroy {
     return (
       !!this.searchQuery.trim() ||
       !!this.columnFilters.branchName.trim() ||
-      !!this.columnFilters.organizationName.trim()
+      !!this.parsedFilterOrganizationId()
     );
   }
 
@@ -215,7 +273,7 @@ export class BranchesListComponent implements OnInit, OnDestroy {
         size: this.pageSize,
         searchQuery: this.searchQuery.trim(),
         branchName: this.columnFilters.branchName,
-        organizationName: this.columnFilters.organizationName,
+        organizationId: this.parsedFilterOrganizationId() ?? '',
       })
       .pipe(
         takeUntil(this.destroy$),
@@ -264,7 +322,7 @@ export class BranchesListComponent implements OnInit, OnDestroy {
         size: this.pageSize,
         searchQuery: this.searchQuery.trim(),
         branchName: this.columnFilters.branchName,
-        organizationName: this.columnFilters.organizationName,
+        organizationId: this.parsedFilterOrganizationId() ?? '',
       })
       .pipe(
         tap(({ rows, totalElements }) => this.applyLoadedPage(loadToken, rows, totalElements)),
@@ -300,8 +358,42 @@ export class BranchesListComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  private parsedFilterOrganizationId(): number | null {
+    const trimmed = this.filterOrganizationId.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const id = Number(trimmed);
+    return Number.isFinite(id) && id > 0 ? Math.trunc(id) : null;
+  }
+
+  private loadFilterOrganizationOptions(): void {
+    this.filterOrganizationsLoading = true;
+    this.orgService
+      .fetchOrganizationsForSelect()
+      .pipe(
+        finalize(() => {
+          this.filterOrganizationsLoading = false;
+          this.cdr.markForCheck();
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.filterOrganizationOptions = rows.map((r) => ({ id: r.id, label: r.name }));
+        },
+        error: () => {
+          this.filterOrganizationOptions = [];
+        },
+      });
+  }
+
   private currentFilterSignature(): string {
-    return JSON.stringify({ q: this.searchQuery.trim(), filters: this.columnFilters });
+    return JSON.stringify({
+      q: this.searchQuery.trim(),
+      filters: this.columnFilters,
+      organizationId: this.filterOrganizationId,
+    });
   }
 
   private download(blob: Blob, filename: string): void {

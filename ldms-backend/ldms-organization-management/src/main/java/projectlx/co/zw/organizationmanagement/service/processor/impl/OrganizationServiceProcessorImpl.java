@@ -20,12 +20,17 @@ import projectlx.co.zw.organizationmanagement.utils.requests.BranchMultipleFilte
 import projectlx.co.zw.organizationmanagement.utils.requests.IndustryMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycActionRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycRejectRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationKycStagesRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateKycApprovalPolicyRequest;
+import projectlx.co.zw.organizationmanagement.utils.responses.OrganizationManagementResponse;
 import projectlx.co.zw.shared_library.utils.responses.OrganizationResponse;
 
 import java.io.IOException;
@@ -47,6 +52,14 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         log.info("Incoming request: register organization");
         OrganizationResponse response = organizationService.register(request, locale, createdBy);
         log.info("Outgoing response: register organization success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse getOnboardingStatus(Long organizationId, Locale locale) {
+        log.info("Incoming request: getOnboardingStatus orgId={}", organizationId);
+        OrganizationResponse response = organizationService.getOnboardingStatus(organizationId, locale);
+        log.info("Outgoing response: getOnboardingStatus success={}", response.isSuccess());
         return response;
     }
 
@@ -111,6 +124,33 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         log.info("Incoming request: linkTransporter user={}", username);
         OrganizationResponse response = organizationService.linkTransporter(request, locale, username);
         log.info("Outgoing response: linkTransporter success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse linkCustomerForOrganization(
+            Long supplierId, LinkCustomerRequest request, Locale locale, String username) {
+        log.info("Incoming request: linkCustomerForOrganization supplierId={} user={}", supplierId, username);
+        OrganizationResponse response = organizationService.linkCustomerForOrganization(supplierId, request, locale, username);
+        log.info("Outgoing response: linkCustomerForOrganization success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse linkTransporterForOrganization(
+            Long organizationId, LinkTransporterRequest request, Locale locale, String username) {
+        log.info("Incoming request: linkTransporterForOrganization organizationId={} user={}", organizationId, username);
+        OrganizationResponse response = organizationService.linkTransporterForOrganization(organizationId, request, locale, username);
+        log.info("Outgoing response: linkTransporterForOrganization success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse linkClearingAgentForOrganization(
+            Long supplierId, LinkClearingAgentRequest request, Locale locale, String username) {
+        log.info("Incoming request: linkClearingAgentForOrganization supplierId={} user={}", supplierId, username);
+        OrganizationResponse response = organizationService.linkClearingAgentForOrganization(supplierId, request, locale, username);
+        log.info("Outgoing response: linkClearingAgentForOrganization success={}", response.isSuccess());
         return response;
     }
 
@@ -200,6 +240,54 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         log.info("Incoming request: stage2Reject id={}", id);
         OrganizationResponse response = organizationService.stage2Reject(id, request, locale, username);
         log.info("Outgoing response: stage2Reject success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse stage3Approve(Long id, KycActionRequest request, Locale locale, String username) {
+        log.info("Incoming request: stage3Approve id={}", id);
+        OrganizationResponse response = organizationService.stage3Approve(id, request, locale, username);
+        log.info("Outgoing response: stage3Approve success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse stage3Reject(Long id, KycRejectRequest request, Locale locale, String username) {
+        log.info("Incoming request: stage3Reject id={}", id);
+        OrganizationResponse response = organizationService.stage3Reject(id, request, locale, username);
+        log.info("Outgoing response: stage3Reject success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse stage4Approve(Long id, KycActionRequest request, Locale locale, String username) {
+        log.info("Incoming request: stage4Approve id={}", id);
+        OrganizationResponse response = organizationService.stage4Approve(id, request, locale, username);
+        log.info("Outgoing response: stage4Approve success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse stage4Reject(Long id, KycRejectRequest request, Locale locale, String username) {
+        log.info("Incoming request: stage4Reject id={}", id);
+        OrganizationResponse response = organizationService.stage4Reject(id, request, locale, username);
+        log.info("Outgoing response: stage4Reject success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse stage5Approve(Long id, KycActionRequest request, Locale locale, String username) {
+        log.info("Incoming request: stage5Approve id={}", id);
+        OrganizationResponse response = organizationService.stage5Approve(id, request, locale, username);
+        log.info("Outgoing response: stage5Approve success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse stage5Reject(Long id, KycRejectRequest request, Locale locale, String username) {
+        log.info("Incoming request: stage5Reject id={}", id);
+        OrganizationResponse response = organizationService.stage5Reject(id, request, locale, username);
+        log.info("Outgoing response: stage5Reject success={}", response.isSuccess());
         return response;
     }
 
@@ -357,5 +445,31 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     @Override
     public ImportSummary importIndustriesFromCsv(InputStream inputStream, Locale locale, String username) throws IOException {
         return organizationService.importIndustriesFromCsv(inputStream, locale, username);
+    }
+
+    @Override
+    public OrganizationManagementResponse getKycApprovalPolicy(Locale locale) {
+        log.info("Incoming request: getKycApprovalPolicy");
+        OrganizationManagementResponse response = organizationService.getKycApprovalPolicy(locale);
+        log.info("Outgoing response: getKycApprovalPolicy success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationManagementResponse updateKycApprovalPolicy(
+            UpdateKycApprovalPolicyRequest request, Locale locale, String modifiedBy) {
+        log.info("Incoming request: updateKycApprovalPolicy");
+        OrganizationManagementResponse response = organizationService.updateKycApprovalPolicy(request, locale, modifiedBy);
+        log.info("Outgoing response: updateKycApprovalPolicy success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse updateOrganizationKycStages(
+            Long id, UpdateOrganizationKycStagesRequest request, Locale locale, String modifiedBy) {
+        log.info("Incoming request: updateOrganizationKycStages id={}", id);
+        OrganizationResponse response = organizationService.updateOrganizationKycStages(id, request, locale, modifiedBy);
+        log.info("Outgoing response: updateOrganizationKycStages success={}", response.isSuccess());
+        return response;
     }
 }

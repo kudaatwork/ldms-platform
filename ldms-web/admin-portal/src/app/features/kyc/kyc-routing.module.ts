@@ -13,7 +13,7 @@ const routes: Routes = [
   {
     path: 'documents',
     component: KycDocumentsComponent,
-    data: { title: 'KYC Documents', breadcrumb: 'Documents' },
+    data: { title: 'Compliance Documents', breadcrumb: 'Documents' },
   },
 ];
 

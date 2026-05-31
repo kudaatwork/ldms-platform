@@ -28,6 +28,9 @@ interface UserTypeRow {
   standalone: false,
 })
 export class UserTypesComponent implements OnInit {
+  readonly pageLead =
+    'Classify users by persona (admin, driver, receiver, etc.) to drive onboarding flows and default permissions.';
+
   private static readonly ROWS_CACHE_KEY = 'lx.admin.users.userTypes.rows.v2';
   fetching = false;
   exporting = false;

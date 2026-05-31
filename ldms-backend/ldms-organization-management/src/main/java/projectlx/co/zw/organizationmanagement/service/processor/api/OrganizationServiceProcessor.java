@@ -14,12 +14,17 @@ import projectlx.co.zw.organizationmanagement.utils.requests.BranchMultipleFilte
 import projectlx.co.zw.organizationmanagement.utils.requests.IndustryMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycActionRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycRejectRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationKycStagesRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateKycApprovalPolicyRequest;
+import projectlx.co.zw.organizationmanagement.utils.responses.OrganizationManagementResponse;
 import projectlx.co.zw.shared_library.utils.responses.OrganizationResponse;
 
 import java.io.IOException;
@@ -34,6 +39,8 @@ import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryDto;
 public interface OrganizationServiceProcessor {
 
     OrganizationResponse register(RegisterOrganizationRequest request, Locale locale, String createdBy);
+
+    OrganizationResponse getOnboardingStatus(Long organizationId, Locale locale);
 
     OrganizationResponse submitKyc(Locale locale, String username);
 
@@ -50,6 +57,15 @@ public interface OrganizationServiceProcessor {
     OrganizationResponse registerCustomer(RegisterCustomerOrganizationRequest request, Locale locale, String username);
 
     OrganizationResponse linkTransporter(LinkTransporterRequest request, Locale locale, String username);
+
+    OrganizationResponse linkCustomerForOrganization(
+            Long supplierId, LinkCustomerRequest request, Locale locale, String username);
+
+    OrganizationResponse linkTransporterForOrganization(
+            Long organizationId, LinkTransporterRequest request, Locale locale, String username);
+
+    OrganizationResponse linkClearingAgentForOrganization(
+            Long supplierId, LinkClearingAgentRequest request, Locale locale, String username);
 
     OrganizationResponse getKycQueue(String status, String classification, Pageable pageable, Locale locale);
 
@@ -76,7 +92,27 @@ public interface OrganizationServiceProcessor {
 
     OrganizationResponse stage2Reject(Long id, KycRejectRequest request, Locale locale, String username);
 
+    OrganizationResponse stage3Approve(Long id, KycActionRequest request, Locale locale, String username);
+
+    OrganizationResponse stage3Reject(Long id, KycRejectRequest request, Locale locale, String username);
+
+    OrganizationResponse stage4Approve(Long id, KycActionRequest request, Locale locale, String username);
+
+    OrganizationResponse stage4Reject(Long id, KycRejectRequest request, Locale locale, String username);
+
+    OrganizationResponse stage5Approve(Long id, KycActionRequest request, Locale locale, String username);
+
+    OrganizationResponse stage5Reject(Long id, KycRejectRequest request, Locale locale, String username);
+
     OrganizationResponse allowResubmission(Long id, KycActionRequest request, Locale locale, String username);
+
+    OrganizationManagementResponse getKycApprovalPolicy(Locale locale);
+
+    OrganizationManagementResponse updateKycApprovalPolicy(
+            UpdateKycApprovalPolicyRequest request, Locale locale, String modifiedBy);
+
+    OrganizationResponse updateOrganizationKycStages(
+            Long id, UpdateOrganizationKycStagesRequest request, Locale locale, String modifiedBy);
 
     OrganizationResponse listKycReviews(Long id, Locale locale);
 

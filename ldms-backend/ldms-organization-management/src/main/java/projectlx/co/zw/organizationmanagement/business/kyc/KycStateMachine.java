@@ -5,6 +5,7 @@ import projectlx.co.zw.organizationmanagement.utils.enums.I18Code;
 import projectlx.co.zw.organizationmanagement.utils.exceptions.BusinessRuleException;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
+import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -13,21 +14,31 @@ import java.util.Set;
  */
 public class KycStateMachine {
 
-    private static final Set<Transition> ALLOWED = Set.of(
-            new Transition(KycStatus.DRAFT, KycStatus.SUBMITTED),
-            new Transition(KycStatus.RESUBMITTED, KycStatus.SUBMITTED),
-            new Transition(KycStatus.SUBMITTED, KycStatus.STAGE_1_REVIEW),
-            new Transition(KycStatus.STAGE_1_REVIEW, KycStatus.STAGE_2_REVIEW),
-            new Transition(KycStatus.STAGE_1_REVIEW, KycStatus.REJECTED),
-            new Transition(KycStatus.STAGE_2_REVIEW, KycStatus.APPROVED),
-            new Transition(KycStatus.STAGE_2_REVIEW, KycStatus.REJECTED),
-            new Transition(KycStatus.REJECTED, KycStatus.RESUBMITTED)
-    );
+    private static final Set<Transition> ALLOWED = buildAllowed();
 
     private final MessageService messageService;
 
     public KycStateMachine(MessageService messageService) {
         this.messageService = messageService;
+    }
+
+    private static Set<Transition> buildAllowed() {
+        Set<Transition> allowed = new HashSet<>();
+        allowed.add(new Transition(KycStatus.DRAFT, KycStatus.SUBMITTED));
+        allowed.add(new Transition(KycStatus.RESUBMITTED, KycStatus.SUBMITTED));
+        allowed.add(new Transition(KycStatus.SUBMITTED, KycStatus.STAGE_1_REVIEW));
+        allowed.add(new Transition(KycStatus.REJECTED, KycStatus.RESUBMITTED));
+        allowed.add(new Transition(KycStatus.REJECTED, KycStatus.DRAFT));
+
+        for (int stage = KycStageSupport.MIN_STAGE; stage <= KycStageSupport.MAX_STAGE; stage++) {
+            KycStatus reviewStatus = KycStageSupport.reviewStatus(stage);
+            allowed.add(new Transition(reviewStatus, KycStatus.REJECTED));
+            allowed.add(new Transition(reviewStatus, KycStatus.APPROVED));
+            if (stage < KycStageSupport.MAX_STAGE) {
+                allowed.add(new Transition(reviewStatus, KycStageSupport.reviewStatus(stage + 1)));
+            }
+        }
+        return Set.copyOf(allowed);
     }
 
     public void assertCanTransition(KycStatus from, KycStatus to) {

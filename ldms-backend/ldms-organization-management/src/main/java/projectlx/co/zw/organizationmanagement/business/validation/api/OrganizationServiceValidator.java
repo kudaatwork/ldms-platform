@@ -10,6 +10,8 @@ import projectlx.co.zw.organizationmanagement.utils.requests.UpdateIndustryReque
 import projectlx.co.zw.organizationmanagement.utils.requests.AgentMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.BranchMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.IndustryMultipleFiltersRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
@@ -56,6 +58,18 @@ public interface OrganizationServiceValidator {
 
     default ValidatorDto validateLinkTransporter(LinkTransporterRequest request) {
         return validateLinkTransporter(request, Locale.getDefault());
+    }
+
+    ValidatorDto validateLinkCustomer(LinkCustomerRequest request, Locale locale);
+
+    default ValidatorDto validateLinkCustomer(LinkCustomerRequest request) {
+        return validateLinkCustomer(request, Locale.getDefault());
+    }
+
+    ValidatorDto validateLinkClearingAgent(LinkClearingAgentRequest request, Locale locale);
+
+    default ValidatorDto validateLinkClearingAgent(LinkClearingAgentRequest request) {
+        return validateLinkClearingAgent(request, Locale.getDefault());
     }
 
     ValidatorDto validateFindByMultipleFilters(OrganizationMultipleFiltersRequest request, Locale locale);

@@ -5,6 +5,9 @@ public enum KycStatus {
     SUBMITTED,
     STAGE_1_REVIEW,
     STAGE_2_REVIEW,
+    STAGE_3_REVIEW,
+    STAGE_4_REVIEW,
+    STAGE_5_REVIEW,
     APPROVED,
     REJECTED,
     RESUBMITTED

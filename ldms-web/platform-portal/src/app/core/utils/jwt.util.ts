@@ -10,6 +10,7 @@ export interface LdmsJwtPayload {
   orgClassification?: string;
   orgName?: string;
   roles?: string[];
+  mustChangeCredentials?: boolean;
 }
 
 export function decodeJwtPayload(token: string): LdmsJwtPayload | null {
@@ -53,5 +54,6 @@ export function currentUserFromJwt(token: string): CurrentUser | null {
     email: email || undefined,
     firstName: firstName || undefined,
     lastName: lastName || undefined,
+    mustChangeCredentials: payload.mustChangeCredentials === true,
   };
 }

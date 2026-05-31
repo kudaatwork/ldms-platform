@@ -10,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
+import projectlx.co.zw.shared_library.utils.audit.AuditClientPlatformSupport;
 import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
 import projectlx.co.zw.shared_library.utils.enums.AuditEventType;
@@ -88,6 +89,7 @@ public class AuditFilter extends OncePerRequestFilter {
                         .requestTimestamp(requestStart)
                         .responseTimestamp(responseEnd)
                         .username(username)
+                        .clientPlatform(AuditClientPlatformSupport.fromHttpRequest(request))
                         .clientIpAddress(request.getRemoteAddr())
                         .action("HTTP_REQUEST")
                         .eventType(AuditEventType.WEB_REQUEST)

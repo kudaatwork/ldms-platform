@@ -117,14 +117,12 @@
           Assigned reviewers
         </h3>
         <div class="kd-reviewers">
-          <div class="kd-reviewer">
-            <span class="kd-reviewer__stage">Stage 1</span>
-            <span class="kd-reviewer__name">{{ stage1ApproverLabel }}</span>
-          </div>
-          <div class="kd-reviewer">
-            <span class="kd-reviewer__stage">Stage 2</span>
-            <span class="kd-reviewer__name">{{ stage2ApproverLabel }}</span>
-          </div>
+          @for (row of assignedReviewerRows; track row.stage) {
+            <div class="kd-reviewer">
+              <span class="kd-reviewer__stage">{{ usesSingleStageApproval ? 'Approver' : ('Stage ' + row.stage) }}</span>
+              <span class="kd-reviewer__name">{{ row.label }}</span>
+            </div>
+          }
         </div>
         <p class="kd-hint kd-hint--assignment" *ngIf="assignmentHint">{{ assignmentHint }}</p>
       </section>
@@ -154,7 +152,7 @@
 
       <div class="kd-readonly-banner" *ngIf="!canDecide">
         This application is <strong>{{ detail.statusLabel }}</strong>. Review details are shown for reference.
-        <ng-container *ngIf="detail.kycStage === 'stage1' || detail.kycStage === 'stage2'">
+        <ng-container *ngIf="detail.kycStage !== 'none'">
           Accept and reject are only available to the assigned reviewer for the current stage (or an administrator).
         </ng-container>
         <ng-container *ngIf="detail.kycStage === 'none'">
@@ -164,50 +162,152 @@
     </div>
   </mat-dialog-content>
 
-  <footer class="kd-decision" *ngIf="canDecide" [formGroup]="form">
+  <footer class="kd-decision" *ngIf="canDecide">
     <div class="kd-decision__inner">
-      <div class="kd-decision__copy">
-        <h3 class="kd-decision__title">Your decision</h3>
-        <p class="kd-hint">
-          <ng-container *ngIf="canStage1">Stage 1 — verify organisation and contact details, then accept to send to stage 2 or reject with a reason.</ng-container>
-          <ng-container *ngIf="canStage2">Stage 2 — final decision. Accept sends the verification email to the contact; reject requires a reason.</ng-container>
-          <ng-container *ngIf="canAllowResubmission">Allow the applicant to resubmit after rejection. A short note is required.</ng-container>
-        </p>
-      </div>
-      <div class="kd-reason-field">
-        <span class="lx-dialog-field-label">Rejection reason / review notes</span>
-        <div class="lx-input-shell lx-input-shell--textarea">
-          <mat-icon class="lx-input-shell__icon">rate_review</mat-icon>
-          <textarea
-            rows="4"
-            formControlName="reason"
-            placeholder="Required when rejecting (min. 8 characters). Optional notes when accepting."
-          ></textarea>
+      <div class="kd-decision__header">
+        <div class="kd-decision__copy">
+          <h3 class="kd-decision__title">
+            <ng-container [ngSwitch]="decisionStep">
+              <span *ngSwitchCase="'choose'">Your decision</span>
+              <span *ngSwitchCase="'reject'">Reject application</span>
+              <span *ngSwitchCase="'resubmit'">Allow resubmission</span>
+            </ng-container>
+          </h3>
+          <p class="kd-hint">{{ decisionHint }}</p>
         </div>
-        <div class="kd-reason-err" *ngIf="reasonError">{{ reasonError }}</div>
-      </div>
-      <div class="kd-decision__actions">
-        <button type="button" mat-button (click)="cancel()">Cancel</button>
-        <span class="kd-decision__spacer"></span>
         <button
-          *ngIf="canAllowResubmission"
           type="button"
-          mat-stroked-button
-          color="primary"
-          (click)="allowResubmission()"
+          mat-button
+          class="kd-decision__back"
+          *ngIf="decisionStep !== 'choose'"
+          (click)="backToChoose()"
         >
-          Allow resubmission
+          <mat-icon aria-hidden="true">arrow_back</mat-icon>
+          Back
         </button>
-        <ng-container *ngIf="canStage1 || canStage2">
-          <button type="button" mat-stroked-button color="warn" (click)="reject()">
+      </div>
+
+      <ng-container *ngIf="decisionStep === 'choose'">
+        <div class="kd-action-cards" *ngIf="canCurrentStage">
+          <button type="button" class="kd-action-card kd-action-card--accept" (click)="accept()">
+            <span class="kd-action-card__icon" aria-hidden="true">
+              <mat-icon>check_circle</mat-icon>
+            </span>
+            <span class="kd-action-card__body">
+              <span class="kd-action-card__label">{{ acceptButtonLabel }}</span>
+              <span class="kd-action-card__desc">{{ acceptSummary }}</span>
+            </span>
+            <mat-icon class="kd-action-card__chevron" aria-hidden="true">east</mat-icon>
+          </button>
+
+          <button type="button" class="kd-action-card kd-action-card--reject" (click)="startReject()">
+            <span class="kd-action-card__icon" aria-hidden="true">
+              <mat-icon>cancel</mat-icon>
+            </span>
+            <span class="kd-action-card__body">
+              <span class="kd-action-card__label">Reject application</span>
+              <span class="kd-action-card__desc">{{ rejectSummary }}</span>
+            </span>
+            <mat-icon class="kd-action-card__chevron" aria-hidden="true">east</mat-icon>
+          </button>
+        </div>
+
+        <div class="kd-resubmit-card" *ngIf="canAllowResubmission">
+          <div class="kd-resubmit-card__copy">
+            <mat-icon aria-hidden="true">replay</mat-icon>
+            <div>
+              <strong>Open new application cycle</strong>
+              <p>Returns the organisation to Draft so they can update the same details and submit KYC again.</p>
+            </div>
+          </div>
+          <button type="button" mat-stroked-button color="primary" (click)="startResubmission()">
+            Allow resubmission
+          </button>
+        </div>
+      </ng-container>
+
+      <div
+        class="kd-reason-panel"
+        *ngIf="decisionStep === 'reject' || decisionStep === 'resubmit'"
+        [formGroup]="form"
+      >
+        <div class="kd-reason-panel__alert" [class.kd-reason-panel__alert--reject]="decisionStep === 'reject'">
+          <mat-icon aria-hidden="true">{{ decisionStep === 'reject' ? 'info' : 'edit_note' }}</mat-icon>
+          <span>
+            <ng-container *ngIf="decisionStep === 'reject'">
+              Rejection reason is required and will be shared with the applicant.
+            </ng-container>
+            <ng-container *ngIf="decisionStep === 'resubmit'">
+              Add guidance for the applicant before they resubmit.
+            </ng-container>
+          </span>
+        </div>
+
+        <div class="kd-suggestions" *ngIf="decisionStep === 'reject'">
+          <span class="kd-suggestions__label">Quick reasons</span>
+          <div class="kd-suggestions__chips">
+            @for (suggestion of rejectionSuggestions; track suggestion) {
+              <button type="button" class="kd-suggestion-chip" (click)="applySuggestion(suggestion)">
+                {{ suggestion }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div class="kd-reason-field">
+          <div class="kd-reason-field__head">
+            <span class="lx-dialog-field-label">
+              {{ decisionStep === 'reject' ? 'Rejection reason' : 'Resubmission notes' }}
+            </span>
+            <span class="kd-reason-field__count" [class.kd-reason-field__count--ok]="reasonMeetsMinimum">
+              {{ reasonLength }}/{{ minReasonLength }} min
+            </span>
+          </div>
+          <div class="lx-input-shell lx-input-shell--textarea kd-reason-field__input">
+            <mat-icon class="lx-input-shell__icon">rate_review</mat-icon>
+            <textarea
+              rows="4"
+              formControlName="reason"
+              [placeholder]="
+                decisionStep === 'reject'
+                  ? 'Describe what is missing or incorrect so the applicant can fix it…'
+                  : 'Optional guidance for the applicant before they resubmit…'
+              "
+            ></textarea>
+          </div>
+          <div class="kd-reason-err" *ngIf="reasonError">{{ reasonError }}</div>
+        </div>
+
+        <div class="kd-decision__actions">
+          <button type="button" mat-button (click)="cancel()">Cancel</button>
+          <span class="kd-decision__spacer"></span>
+          <button
+            *ngIf="decisionStep === 'reject'"
+            type="button"
+            mat-flat-button
+            color="warn"
+            [disabled]="!reasonMeetsMinimum"
+            (click)="reject()"
+          >
             <mat-icon aria-hidden="true">cancel</mat-icon>
-            Reject
+            Confirm rejection
           </button>
-          <button type="button" mat-flat-button color="primary" (click)="accept()">
-            <mat-icon aria-hidden="true">check_circle</mat-icon>
-            {{ acceptButtonLabel }}
+          <button
+            *ngIf="decisionStep === 'resubmit'"
+            type="button"
+            mat-flat-button
+            color="primary"
+            [disabled]="!reasonMeetsMinimum"
+            (click)="allowResubmission()"
+          >
+            <mat-icon aria-hidden="true">replay</mat-icon>
+            Confirm resubmission
           </button>
-        </ng-container>
+        </div>
+      </div>
+
+      <div class="kd-decision__actions kd-decision__actions--choose" *ngIf="decisionStep === 'choose'">
+        <button type="button" mat-button (click)="cancel()">Close</button>
       </div>
     </div>
   </footer>

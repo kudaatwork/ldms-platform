@@ -1,6 +1,7 @@
 package projectlx.co.zw.audittrail.business.logic.impl;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -30,7 +31,8 @@ public class AuditLogQueryServiceImpl implements AuditLogQueryService {
             "httpStatusCode",
             "eventType",
             "traceId",
-            "action");
+            "action",
+            "clientPlatform");
 
     private final AuditLogServiceAuditable auditLogServiceAuditable;
 
@@ -58,6 +60,9 @@ public class AuditLogQueryServiceImpl implements AuditLogQueryService {
                 blankToNull(filter.requestUrl()),
                 blankToNull(filter.httpMethod()),
                 blankToNull(filter.traceId()),
+                blankToNull(filter.clientPlatform()),
+                normalizeActionList(filter.actionsIn()),
+                normalizeActionList(filter.excludeActions()),
                 pageable);
     }
 
@@ -148,5 +153,18 @@ public class AuditLogQueryServiceImpl implements AuditLogQueryService {
             return null;
         }
         return s.trim();
+    }
+
+    private static List<String> normalizeActionList(List<String> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return null;
+        }
+        List<String> normalized = new ArrayList<>();
+        for (String item : raw) {
+            if (item != null && !item.isBlank()) {
+                normalized.add(item.trim());
+            }
+        }
+        return normalized.isEmpty() ? null : normalized;
     }
 }

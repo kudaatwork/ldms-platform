@@ -71,7 +71,7 @@ const MODULE_META: Record<LdmsRoleModuleKey, Omit<LdmsRoleModuleSection, 'key'>>
   other: { label: 'Other', icon: 'extension', sortOrder: 99 },
 };
 
-const PLATFORM = new Set(['ADMIN', 'KYC_STAGE1', 'KYC_STAGE2', 'READ_ONLY']);
+const PLATFORM = new Set(['ADMIN', 'KYC_STAGE1', 'KYC_STAGE2', 'KYC_STAGE3', 'KYC_STAGE4', 'KYC_STAGE5', 'READ_ONLY']);
 const ORGANIZATION = new Set([
   'SUBMIT_KYC',
   'VIEW_MY_ORGAN',

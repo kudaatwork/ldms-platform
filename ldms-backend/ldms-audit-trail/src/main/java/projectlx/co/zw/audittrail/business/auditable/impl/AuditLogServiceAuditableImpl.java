@@ -47,7 +47,12 @@ public class AuditLogServiceAuditableImpl implements AuditLogServiceAuditable {
             String requestUrl,
             String httpMethod,
             String traceId,
+            String clientPlatform,
+            List<String> actionsIn,
+            List<String> excludeActions,
             Pageable pageable) {
+        boolean actionsInEmpty = actionsIn == null || actionsIn.isEmpty();
+        boolean excludeActionsEmpty = excludeActions == null || excludeActions.isEmpty();
         return auditLogRepository.search(
                 serviceName,
                 username,
@@ -60,6 +65,11 @@ public class AuditLogServiceAuditableImpl implements AuditLogServiceAuditable {
                 requestUrl,
                 httpMethod,
                 traceId,
+                clientPlatform,
+                actionsInEmpty ? List.of("") : actionsIn,
+                actionsInEmpty,
+                excludeActionsEmpty ? List.of("") : excludeActions,
+                excludeActionsEmpty,
                 pageable);
     }
 

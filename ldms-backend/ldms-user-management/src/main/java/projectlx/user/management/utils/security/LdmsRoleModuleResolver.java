@@ -78,7 +78,7 @@ public final class LdmsRoleModuleResolver {
         RoleModule audit = MODULES.get("audit-trail");
         RoleModule notifications = MODULES.get("notifications");
         return List.of(
-                new ModuleRule(platform, Set.of("ADMIN", "KYC_STAGE1", "KYC_STAGE2", "READ_ONLY")),
+                new ModuleRule(platform, Set.of("ADMIN", "KYC_STAGE1", "KYC_STAGE2", "KYC_STAGE3", "KYC_STAGE4", "KYC_STAGE5", "READ_ONLY")),
                 new ModuleRule(org, Set.of(
                         "SUBMIT_KYC", "VIEW_MY_ORGAN", "UPDATE_MY_ORGAN", "MANAGE_BRANCHES",
                         "LIST_CUSTOMERS", "REGISTER_CUSTOMER", "LINK_TRANSPORTER")),

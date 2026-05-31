@@ -43,4 +43,5 @@ export interface CurrentUser {
   lastName?: string;
   displayName?: string;
   welcomeMessage?: string;
+  mustChangeCredentials?: boolean;
 }

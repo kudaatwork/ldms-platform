@@ -15,6 +15,9 @@ public class Constants {
     public static final String LOCALE_LANGUAGE_NARRATIVE = "Internationalisation language, supported ";
     public static final String LOCALE_LANGUAGE = "Language";
     public static final String DEFAULT_LOCALE = "en";
+
+    /** Identifies which LDMS client originated the request (admin portal, platform portal, mobile app, etc.). */
+    public static final String LDMS_CLIENT_PLATFORM = "X-LDMS-Client-Platform";
     public static final String USERNAME_REGEX = "^[a-zA-Z][a-zA-Z0-9._]{2,19}$|^[\\w.%+-]+@[\\w.-]+\\.[a-zA-Z]{2,}$";
     public static final String PASSWORD_REGEX = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&#])[A-Za-z\\d@$!%*?&#]{8,20}$";
     public static final String INTERNATIONAL_PHONE_REGEX = "^\\+\\d{1,3}\\d{6,14}$";

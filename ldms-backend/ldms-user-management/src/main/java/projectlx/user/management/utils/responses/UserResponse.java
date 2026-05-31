@@ -23,4 +23,8 @@ public class UserResponse extends CommonResponse {
     private List<String> errorMessages;
     /** Set by verify-email only: {@code VERIFIED} or {@code ALREADY_VERIFIED}. */
     private String emailVerificationOutcome;
+    /** Plain-text temporary username returned once when credentials are issued after KYC approval. */
+    private String temporaryUsername;
+    /** Plain-text temporary password returned once when credentials are issued after KYC approval. */
+    private String temporaryPassword;
 }

@@ -4,6 +4,8 @@ import { GuestGuard } from '../../core/guards/guest.guard';
 import { ForgotPasswordComponent } from './pages/forgot-password/forgot-password.component';
 import { LoginComponent } from './pages/login/login.component';
 import { ResetPasswordComponent } from './pages/reset-password/reset-password.component';
+import { SetupCredentialsComponent } from './pages/setup-credentials/setup-credentials.component';
+import { SetupCredentialsGuard } from '../../core/guards/setup-credentials.guard';
 import { VerifyEmailComponent } from './pages/verify-email/verify-email.component';
 
 const routes: Routes = [
@@ -11,6 +13,11 @@ const routes: Routes = [
   { path: 'verify-email', component: VerifyEmailComponent },
   { path: 'forgot-password', component: ForgotPasswordComponent },
   { path: 'reset-password', component: ResetPasswordComponent },
+  {
+    path: 'setup-credentials',
+    component: SetupCredentialsComponent,
+    canActivate: [SetupCredentialsGuard],
+  },
 ];
 
 @NgModule({

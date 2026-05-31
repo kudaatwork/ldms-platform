@@ -44,6 +44,7 @@ import { DeleteConfirmDialogComponent } from './components/delete-confirm-dialog
 import { LdmsPasswordRequirementsComponent } from './components/ldms-password-requirements/ldms-password-requirements.component';
 import { LxInlineBusyComponent } from './components/lx-inline-busy/lx-inline-busy.component';
 import { LxTableLoadingComponent } from './components/lx-table-loading/lx-table-loading.component';
+import { LxPageHeroComponent } from './components/lx-page-hero/lx-page-hero.component';
 
 const MATERIAL_MODULES = [
   MatAutocompleteModule,
@@ -98,6 +99,7 @@ const MATERIAL_MODULES = [
     LdmsPasswordRequirementsComponent,
     LxInlineBusyComponent,
     LxTableLoadingComponent,
+    LxPageHeroComponent,
   ],
   exports: [
     CommonModule,
@@ -109,6 +111,7 @@ const MATERIAL_MODULES = [
     LdmsPasswordRequirementsComponent,
     LxInlineBusyComponent,
     LxTableLoadingComponent,
+    LxPageHeroComponent,
     ...MATERIAL_MODULES,
   ],
 })

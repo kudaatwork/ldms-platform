@@ -1,4 +1,12 @@
 <div class="lx-page lx-page--audit">
+  <lx-page-hero
+    eyebrow="Audit &amp; compliance"
+    title="Request logs"
+    lead="HTTP request history across LDMS services — filter, export, and investigate API traffic and errors."
+    icon="receipt_long"
+    variant="slate"
+  ></lx-page-hero>
+
   <ng-container *ngIf="!loading; else skel">
     <section class="audit-section" aria-labelledby="activity-log-heading" *ngIf="showActivitySection">
       <div class="lx-card lx-card--subsection">

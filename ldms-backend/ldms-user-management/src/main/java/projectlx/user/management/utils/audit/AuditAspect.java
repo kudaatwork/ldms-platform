@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import projectlx.co.zw.shared_library.utils.audit.AuditClientPlatformSupport;
 import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
@@ -78,6 +79,7 @@ public class AuditAspect {
             final Instant capturedStart = requestStart;
             final Instant capturedEnd = responseEnd;
             final long capturedDuration = durationMs;
+            final String capturedClientPlatform = AuditClientPlatformSupport.fromCurrentRequest();
 
             try {
                 auditDispatchExecutor.execute(() -> {
@@ -105,6 +107,7 @@ public class AuditAspect {
                                 .requestTimestamp(capturedStart)
                                 .responseTimestamp(capturedEnd)
                                 .username(capturedUsername)
+                                .clientPlatform(capturedClientPlatform)
                                 .action(action)
                                 .eventType(AuditEventType.SERVICE_METHOD)
                                 .requestPayload(requestPayload)

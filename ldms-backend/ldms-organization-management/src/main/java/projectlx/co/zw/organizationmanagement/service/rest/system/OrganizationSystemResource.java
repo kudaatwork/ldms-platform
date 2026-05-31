@@ -72,6 +72,16 @@ public class OrganizationSystemResource {
     // Organization
     // =========================================================
 
+    @Auditable(action = "ORG_SYSTEM_ONBOARDING_STATUS")
+    @GetMapping("/onboarding-status/{organizationId}")
+    @Operation(summary = "Public onboarding tracker — live KYC status for signup applicants")
+    public OrganizationResponse getOnboardingStatus(
+            @PathVariable Long organizationId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.getOnboardingStatus(organizationId, locale);
+    }
+
     @Auditable(action = "ORG_SYSTEM_REGISTER")
     @PostMapping("/register")
     @Operation(summary = "Register organisation (admin / system)")
@@ -212,6 +222,66 @@ public class OrganizationSystemResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         return organizationServiceProcessor.stage2Reject(id, request, locale, SYSTEM);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE3_APPROVE")
+    @PostMapping("/{id}/kyc/stage3/approve")
+    public OrganizationResponse stage3Approve(
+            @PathVariable Long id,
+            @RequestBody(required = false) KycActionRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage3Approve(id, request != null ? request : new KycActionRequest(), locale, SYSTEM);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE3_REJECT")
+    @PostMapping("/{id}/kyc/stage3/reject")
+    public OrganizationResponse stage3Reject(
+            @PathVariable Long id,
+            @RequestBody KycRejectRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage3Reject(id, request, locale, SYSTEM);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE4_APPROVE")
+    @PostMapping("/{id}/kyc/stage4/approve")
+    public OrganizationResponse stage4Approve(
+            @PathVariable Long id,
+            @RequestBody(required = false) KycActionRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage4Approve(id, request != null ? request : new KycActionRequest(), locale, SYSTEM);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE4_REJECT")
+    @PostMapping("/{id}/kyc/stage4/reject")
+    public OrganizationResponse stage4Reject(
+            @PathVariable Long id,
+            @RequestBody KycRejectRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage4Reject(id, request, locale, SYSTEM);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE5_APPROVE")
+    @PostMapping("/{id}/kyc/stage5/approve")
+    public OrganizationResponse stage5Approve(
+            @PathVariable Long id,
+            @RequestBody(required = false) KycActionRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage5Approve(id, request != null ? request : new KycActionRequest(), locale, SYSTEM);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_KYC_STAGE5_REJECT")
+    @PostMapping("/{id}/kyc/stage5/reject")
+    public OrganizationResponse stage5Reject(
+            @PathVariable Long id,
+            @RequestBody KycRejectRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.stage5Reject(id, request, locale, SYSTEM);
     }
 
     @Auditable(action = "ORG_SYSTEM_ALLOW_RESUBMISSION")

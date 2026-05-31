@@ -7,12 +7,14 @@ import { StoredUser } from './storage.service';
 
 @Injectable({ providedIn: 'root' })
 export class UserProfileService {
-  /** Gateway → ldms-user-management backoffice (same surface as users admin APIs). */
+  /** Gateway → ldms-user-management backoffice (admin CRUD). */
   private readonly userBase = ldmsApiUrl('/ldms-user-management/v1/backoffice/user');
+  /** Self-service profile ({@code /me}) — frontend surface; only requires authentication. */
+  private readonly frontendUserBase = ldmsApiUrl('/ldms-user-management/v1/frontend/user');
 
   constructor(private readonly http: HttpClient) {}
 
-  /** Signed-in user profile (no admin lookup role required). */
+  /** Signed-in user profile — backoffice {@code /me} (requires authentication only). */
   fetchCurrentUser(): Observable<StoredUser | null> {
     return this.http.get<unknown>(`${this.userBase}/me`).pipe(
       map((resp) => this.mapToStoredUser(resp)),

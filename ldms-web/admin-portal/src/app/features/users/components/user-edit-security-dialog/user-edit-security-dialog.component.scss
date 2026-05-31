@@ -1,12 +1,5 @@
 @use '../user-edit-profile-dialog/dialog-form.shared' as *;
 
-.lx-field.ued-toggle-row {
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 4px;
-}
-
 .ued-mono {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: 12px;

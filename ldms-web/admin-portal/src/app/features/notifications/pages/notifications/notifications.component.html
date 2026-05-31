@@ -1,10 +1,11 @@
 <div class="lx-page nt-page">
-  <div class="lx-card lx-card--subsection nt-header">
-    <h2 class="lc-title">Notification Management</h2>
-    <p class="lc-lead">
-      Manage templates (add, export, enable/disable). Log entries are read-only.
-    </p>
-  </div>
+  <lx-page-hero
+    eyebrow="Communications"
+    title="Notifications"
+    lead="Manage templates (add, export, enable/disable). Delivery log entries are read-only."
+    icon="notifications_active"
+    variant="amber"
+  ></lx-page-hero>
 
   <mat-tab-group class="nt-tabs" animationDuration="200ms" (selectedIndexChange)="onTabChange($event)">
     <mat-tab label="Templates">

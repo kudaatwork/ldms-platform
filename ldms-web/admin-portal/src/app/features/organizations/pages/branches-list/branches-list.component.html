@@ -1,4 +1,19 @@
 <div class="lx-page">
+  <lx-page-hero
+    eyebrow="Directory"
+    title="Branches"
+    [lead]="pageLead"
+    icon="account_tree"
+    variant="brand"
+  ></lx-page-hero>
+
+  <div class="lx-card lx-card--subsection" *ngIf="hasScopeFilters" role="status">
+    <p class="lx-controls-subtitle" style="margin: 0">
+      Showing branches for <strong>{{ filterScopeSummary }}</strong>.
+      <button type="button" class="lx-link-btn" (click)="clearScopeFilters()">Clear organisation filter</button>
+    </p>
+  </div>
+
   <div class="lx-card lx-card--subsection">
     <div class="lx-controls-head">
       <div class="lx-controls-head__text">
@@ -79,7 +94,7 @@
           type="button"
           class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
           (click)="filterFieldsOpen = !filterFieldsOpen"
-          [class.lx-btn-filter--on]="filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen || hasScopeFilters"
         >
           <mat-icon>tune</mat-icon>
           Filters
@@ -103,6 +118,29 @@
     <input #csvInput type="file" accept=".csv,text/csv" hidden (change)="onImportFileSelected($event)" />
 
     <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+      <span class="lx-filter-panel__label">Scope</span>
+      <div class="lx-filter-fields lx-filter-fields--scope">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Organisation</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">business</mat-icon>
+            <select
+              [ngModel]="filterOrganizationId"
+              (ngModelChange)="onFilterOrganizationChange($event)"
+              [disabled]="filterOrganizationsLoading"
+              aria-label="Organisation"
+            >
+              <option value="">{{ filterOrganizationsLoading ? 'Loading…' : 'All organisations' }}</option>
+              <option
+                *ngFor="let o of filterOrganizationOptions"
+                [value]="selectOptionValue(o.id)"
+              >
+                {{ o.label }}
+              </option>
+            </select>
+          </div>
+        </div>
+      </div>
       <span class="lx-filter-panel__label">Column filters</span>
       <div class="lx-filter-fields">
         <div class="lx-filter-field-wrap">
@@ -112,13 +150,6 @@
             <input [(ngModel)]="columnFilters.branchName" (ngModelChange)="applyFilters()" />
           </div>
         </div>
-        <div class="lx-filter-field-wrap">
-          <div class="lx-field-label">Organisation</div>
-          <div class="lx-input-shell lx-filter-field">
-            <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
-            <input [(ngModel)]="columnFilters.organizationName" (ngModelChange)="applyFilters()" />
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -126,8 +157,7 @@
   <div class="lx-card">
     <div class="lx-table-header">
       <div>
-        <h2 class="lc-title">Branches</h2>
-        <p class="lc-lead">{{ pageLead }}</p>
+        <p class="lx-table-meta">Branch records across organisations</p>
         <p class="lc-lead lc-lead--error" *ngIf="loadError">{{ loadError }}</p>
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>

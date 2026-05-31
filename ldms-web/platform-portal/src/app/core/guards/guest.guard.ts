@@ -1,18 +1,34 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, Router, UrlTree } from '@angular/router';
+import { map, Observable, of } from 'rxjs';
+import { AuthService } from '../services/auth.service';
+import { AuthStateService } from '../services/auth-state.service';
 import { StorageService } from '../services/storage.service';
+import { portalHomeRoute } from '../utils/portal-navigation.util';
 
 @Injectable({ providedIn: 'root' })
 export class GuestGuard implements CanActivate {
   constructor(
     private readonly storage: StorageService,
+    private readonly authService: AuthService,
+    private readonly authState: AuthStateService,
     private readonly router: Router,
   ) {}
 
-  canActivate(): boolean | UrlTree {
-    if (this.storage.getToken()) {
-      return this.router.createUrlTree(['/dashboard']);
+  canActivate(): boolean | UrlTree | Observable<boolean | UrlTree> {
+    const token = this.storage.getToken();
+    if (!token || token.startsWith('mock.')) {
+      return true;
     }
-    return true;
+    if (this.authState.currentUser) {
+      return this.router.createUrlTree(portalHomeRoute(this.authState.currentUser));
+    }
+    return this.authService.initializeSession().pipe(
+      map(() =>
+        this.authState.currentUser
+          ? this.router.createUrlTree(portalHomeRoute(this.authState.currentUser))
+          : true,
+      ),
+    );
   }
 }

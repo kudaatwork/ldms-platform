@@ -1,0 +1,19 @@
+package projectlx.user.management.repository;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import projectlx.user.management.model.EntityStatus;
+import projectlx.user.management.model.SupportTicket;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface SupportTicketRepository extends JpaRepository<SupportTicket, Long> {
+
+    List<SupportTicket> findByRequesterUsernameAndEntityStatusNotOrderByCreatedAtDesc(
+            String requesterUsername, EntityStatus entityStatus);
+
+    Optional<SupportTicket> findByIdAndRequesterUsernameAndEntityStatusNot(
+            Long id, String requesterUsername, EntityStatus entityStatus);
+
+    List<SupportTicket> findByEntityStatusNotOrderByCreatedAtDesc(EntityStatus entityStatus);
+}

@@ -5,6 +5,8 @@ import projectlx.user.management.utils.dtos.ImportSummary;
 import projectlx.user.management.utils.requests.CreateUserRequest;
 import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
+import projectlx.user.management.utils.requests.CompleteCredentialsSetupRequest;
+import projectlx.user.management.utils.requests.IssueOrganizationContactCredentialsRequest;
 import projectlx.user.management.utils.requests.ProvisionOrganizationContactPersonRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserResponse;
@@ -42,5 +44,10 @@ public interface UserServiceProcessor {
 
     UserResponse provisionOrganizationContactPerson(ProvisionOrganizationContactPersonRequest request, Locale locale,
             String username);
+
+    UserResponse issueOrganizationContactCredentials(IssueOrganizationContactCredentialsRequest request, Locale locale,
+            String username);
+
+    UserResponse completeCredentialsSetup(CompleteCredentialsSetupRequest request, Locale locale, String username);
 
 }

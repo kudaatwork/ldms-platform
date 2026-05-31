@@ -198,6 +198,28 @@ public class Organization {
     @Column(name = "assigned_stage2_approver_username", length = 150)
     private String assignedStage2ApproverUsername;
 
+    @Column(name = "assigned_stage3_approver_user_id")
+    private Long assignedStage3ApproverUserId;
+
+    @Column(name = "assigned_stage3_approver_username", length = 150)
+    private String assignedStage3ApproverUsername;
+
+    @Column(name = "assigned_stage4_approver_user_id")
+    private Long assignedStage4ApproverUserId;
+
+    @Column(name = "assigned_stage4_approver_username", length = 150)
+    private String assignedStage4ApproverUsername;
+
+    @Column(name = "assigned_stage5_approver_user_id")
+    private Long assignedStage5ApproverUserId;
+
+    @Column(name = "assigned_stage5_approver_username", length = 150)
+    private String assignedStage5ApproverUsername;
+
+    /** Per-organisation override; null inherits platform default ({@link PlatformKycPolicy}). */
+    @Column(name = "kyc_required_approval_stages")
+    private Integer kycRequiredApprovalStages;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "kyc_status", nullable = false, length = 50)
     private KycStatus kycStatus = KycStatus.DRAFT;
@@ -219,6 +241,24 @@ public class Organization {
 
     @Column(name = "stage2_reviewed_at")
     private LocalDateTime stage2ReviewedAt;
+
+    @Column(name = "stage3_reviewed_by", length = 150)
+    private String stage3ReviewedBy;
+
+    @Column(name = "stage3_reviewed_at")
+    private LocalDateTime stage3ReviewedAt;
+
+    @Column(name = "stage4_reviewed_by", length = 150)
+    private String stage4ReviewedBy;
+
+    @Column(name = "stage4_reviewed_at")
+    private LocalDateTime stage4ReviewedAt;
+
+    @Column(name = "stage5_reviewed_by", length = 150)
+    private String stage5ReviewedBy;
+
+    @Column(name = "stage5_reviewed_at")
+    private LocalDateTime stage5ReviewedAt;
 
     @Column(name = "last_rejection_reason", length = 1000)
     private String lastRejectionReason;
@@ -272,4 +312,15 @@ public class Organization {
 
     @ManyToMany(mappedBy = "contractedTransporters")
     private List<Organization> contractingOrganizations = new ArrayList<>();
+
+    @ManyToMany(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
+    @JoinTable(
+            name = "organization_contracted_clearing_agents",
+            joinColumns = @JoinColumn(name = "supplier_id"),
+            inverseJoinColumns = @JoinColumn(name = "clearing_agent_id")
+    )
+    private List<Organization> contractedClearingAgents = new ArrayList<>();
+
+    @ManyToMany(mappedBy = "contractedClearingAgents")
+    private List<Organization> contractingSuppliersForClearing = new ArrayList<>();
 }

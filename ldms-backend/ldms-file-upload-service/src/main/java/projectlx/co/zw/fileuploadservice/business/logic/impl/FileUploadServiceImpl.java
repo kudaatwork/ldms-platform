@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.multipart.MultipartFile;
 import projectlx.co.zw.fileuploadservice.business.auditable.api.FileUploadServiceAuditable;
 import projectlx.co.zw.fileuploadservice.business.logic.api.FileUploadService;
@@ -298,6 +300,24 @@ public class FileUploadServiceImpl implements FileUploadService {
         return response;
     }
 
+    @Override
+    public FileUploadResponse findAllActiveMetadata(int page, int size, Locale locale, String username) {
+        int safePage = Math.max(0, page);
+        int safeSize = size <= 0 ? 50 : Math.min(size, 100);
+
+        Page<FileUpload> filePage = fileUploadRepository.findByEntityStatusNotOrderByCreatedAtDesc(
+                EntityStatus.DELETED, PageRequest.of(safePage, safeSize));
+        Page<FileUploadDto> dtoPage = filePage.map(this::toDtoMetadataOnly);
+
+        String message = messageService.getMessage(I18Code.FILE_UPLOAD_SUCCESS.getCode(), new String[]{}, locale);
+        FileUploadResponse response = new FileUploadResponse();
+        response.setStatusCode(200);
+        response.setSuccess(true);
+        response.setMessage(message);
+        response.setFileUploadDtoPage(dtoPage);
+        return response;
+    }
+
     /**
      * Reads file bytes using the appropriate storage backend based on the record's storageProvider.
      * LOCAL records (pre-migration) read from local disk.
@@ -323,6 +343,14 @@ public class FileUploadServiceImpl implements FileUploadService {
             log.warn("Could not read file content for id {}: {}", fileUpload.getId(), e.getMessage());
             dto.setFileContent(null);
         }
+        return dto;
+    }
+
+    private FileUploadDto toDtoMetadataOnly(FileUpload fileUpload) {
+        FileUploadDto dto = modelMapper.map(fileUpload, FileUploadDto.class);
+        String fileUrl = "/files/" + fileUpload.getStoredFileName();
+        dto.setFileUrl(fileUrl);
+        dto.setUpdatedAt(fileUpload.getModifiedAt());
         return dto;
     }
 

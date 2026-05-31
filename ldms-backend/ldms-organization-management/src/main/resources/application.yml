@@ -40,6 +40,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8087}
+  max-http-request-header-size: 65536
 
 # Must match ldms-authentication / ldms-api-gateway (HS256, same JWT_SECRET).
 jwt:
@@ -73,3 +74,16 @@ eureka:
     fetch-registry: true
   instance:
     prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+  health:
+    rabbit:
+      enabled: false

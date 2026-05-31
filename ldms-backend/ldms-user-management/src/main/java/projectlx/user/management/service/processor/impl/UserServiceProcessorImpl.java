@@ -3,6 +3,7 @@ package projectlx.user.management.service.processor.impl;
 import com.lowagie.text.DocumentException;
 import org.springframework.data.domain.Page;
 import projectlx.user.management.business.logic.api.UserService;
+import projectlx.user.management.business.logic.support.OrganizationContactCredentialsIssuer;
 import projectlx.user.management.business.logic.support.OrganizationContactPersonProvisioner;
 import projectlx.user.management.service.processor.api.UserServiceProcessor;
 import projectlx.user.management.utils.dtos.ImportSummary;
@@ -10,6 +11,8 @@ import projectlx.user.management.utils.dtos.UserDto;
 import projectlx.user.management.utils.requests.CreateUserRequest;
 import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
+import projectlx.user.management.utils.requests.CompleteCredentialsSetupRequest;
+import projectlx.user.management.utils.requests.IssueOrganizationContactCredentialsRequest;
 import projectlx.user.management.utils.requests.ProvisionOrganizationContactPersonRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserResponse;
@@ -29,6 +32,7 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
 
     private final UserService userService;
     private final OrganizationContactPersonProvisioner organizationContactPersonProvisioner;
+    private final OrganizationContactCredentialsIssuer organizationContactCredentialsIssuer;
     private static final Logger logger = LoggerFactory.getLogger(UserServiceProcessorImpl.class);
 
     @Override
@@ -323,6 +327,37 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
         if (userResponse != null) {
             logger.info(
                     "Outgoing response after provisioning organisation contact person. Status Code: {}. Message: {}",
+                    userResponse.getStatusCode(),
+                    userResponse.getMessage());
+        }
+        return userResponse;
+    }
+
+    @Override
+    public UserResponse issueOrganizationContactCredentials(IssueOrganizationContactCredentialsRequest request,
+            Locale locale, String username) {
+        logger.info("Incoming request to issue organisation contact credentials for organisation {}",
+                request != null ? request.getOrganizationId() : null);
+        UserResponse userResponse =
+                organizationContactCredentialsIssuer.issueTemporaryCredentials(request, locale, username);
+        if (userResponse != null) {
+            logger.info(
+                    "Outgoing response after issuing organisation contact credentials. Status Code: {}. Message: {}",
+                    userResponse.getStatusCode(),
+                    userResponse.getMessage());
+        }
+        return userResponse;
+    }
+
+    @Override
+    public UserResponse completeCredentialsSetup(CompleteCredentialsSetupRequest request, Locale locale,
+            String username) {
+        logger.info("Incoming request to complete credential setup for {}", username);
+        UserResponse userResponse =
+                organizationContactCredentialsIssuer.completeCredentialsSetup(request, username, locale, username);
+        if (userResponse != null) {
+            logger.info(
+                    "Outgoing response after completing credential setup. Status Code: {}. Message: {}",
                     userResponse.getStatusCode(),
                     userResponse.getMessage());
         }

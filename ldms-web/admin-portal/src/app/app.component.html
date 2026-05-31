@@ -1,7 +1,7 @@
-<div class="shell" [class.collapsed]="collapsed" *ngIf="showShell; else noShell">
+<div class="shell" [class.collapsed]="collapsed" [class.shell--auth]="!showShell">
 
   <!-- ═══ SIDEBAR ═══════════════════════════════════════════════════════ -->
-  <aside class="sidebar">
+  <aside class="sidebar" *ngIf="showShell">
 
     <!-- Logo -->
     <div class="sb-logo">
@@ -200,10 +200,10 @@
   </aside>
 
   <!-- ═══ MAIN ══════════════════════════════════════════════════════════ -->
-  <div class="main">
+  <div class="main" [class.main--auth]="!showShell">
 
     <!-- Topbar -->
-    <header class="topbar">
+    <header class="topbar" *ngIf="showShell">
       <div class="tb-left">
         <button
           type="button"
@@ -259,13 +259,27 @@
             </div>
             <div class="tb-flyout__empty" *ngIf="!topNotifications.length">You&apos;re all caught up.</div>
             <ul class="tb-flyout__list" *ngIf="topNotifications.length">
-              <li *ngFor="let n of topNotifications; trackBy: trackByNotifId" class="tb-flyout__item">
-                <div class="tb-flyout__item-body">
+              <li
+                *ngFor="let n of topNotifications; trackBy: trackByNotifId"
+                class="tb-flyout__item"
+                [class.tb-flyout__item--actionable]="n.route?.length"
+              >
+                <button
+                  type="button"
+                  class="tb-flyout__item-body"
+                  [disabled]="!n.route?.length"
+                  (click)="openNotification(n)"
+                >
                   <div class="tb-flyout__item-title">{{ n.title }}</div>
                   <p class="tb-flyout__item-text">{{ n.body }}</p>
                   <span class="tb-flyout__item-time">{{ n.time }}</span>
-                </div>
-                <button type="button" class="tb-flyout__dismiss" (click)="dismissNotification(n.id)" aria-label="Dismiss notification">
+                </button>
+                <button
+                  type="button"
+                  class="tb-flyout__dismiss"
+                  (click)="dismissNotification(n.id, $event)"
+                  aria-label="Dismiss notification"
+                >
                   <mat-icon>close</mat-icon>
                 </button>
               </li>
@@ -303,7 +317,7 @@
       </div>
     </header>
 
-    <section class="tb-session-warning" *ngIf="sessionWarningVisible" role="alert" aria-live="assertive">
+    <section class="tb-session-warning" *ngIf="showShell && sessionWarningVisible" role="alert" aria-live="assertive">
       <mat-icon aria-hidden="true">schedule</mat-icon>
       <span>
         Your session will expire in <strong>{{ sessionCountdownLabel }}</strong> due to inactivity.
@@ -311,7 +325,7 @@
       <button type="button" class="lx-btn lx-btn-sm lx-btn-primary" (click)="stayLoggedIn()">Stay logged in</button>
     </section>
 
-    <nav class="lx-breadcrumbs" aria-label="Breadcrumb" *ngIf="breadcrumbs.length">
+    <nav class="lx-breadcrumbs" aria-label="Breadcrumb" *ngIf="showShell && breadcrumbs.length">
       <ol class="lx-breadcrumbs__list">
         <li *ngFor="let c of breadcrumbs; let last = last" class="lx-breadcrumbs__item">
           <a *ngIf="!last" [routerLink]="c.url" class="lx-breadcrumbs__link">{{ c.label }}</a>
@@ -321,13 +335,9 @@
       </ol>
     </nav>
 
-    <!-- Content -->
-    <main class="content">
+    <!-- Content — single outlet so login → dashboard navigation is not lost when chrome toggles -->
+    <main class="content" [class.content--auth]="!showShell">
       <router-outlet></router-outlet>
     </main>
   </div>
 </div>
-
-<ng-template #noShell>
-  <router-outlet></router-outlet>
-</ng-template>

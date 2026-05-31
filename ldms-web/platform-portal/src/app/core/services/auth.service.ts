@@ -10,11 +10,12 @@ import {
   isAuthSuccess,
 } from '../models/auth-api.model';
 import { ldmsApiUrl } from '../utils/api-url.util';
-import { currentUserFromJwt } from '../utils/jwt.util';
+import { currentUserFromJwt, decodeJwtPayload } from '../utils/jwt.util';
 import type { UserProfileSummary } from './user-profile.service';
 import { AuthStateService } from './auth-state.service';
 import { OrganizationService, OrganizationSummary } from './organization.service';
 import { StorageService } from './storage.service';
+import { portalHomeRoute } from '../utils/portal-navigation.util';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -57,7 +58,9 @@ export class AuthService {
         password,
       })
       .pipe(
-        switchMap((res) => this.completeLogin(this.requireAccessToken(res))),
+        switchMap((res) =>
+          this.completeLogin(this.requireAccessToken(res), res.mustChangeCredentials === true),
+        ),
         catchError((err: HttpErrorResponse) =>
           throwError(() => new Error(this.messageFromHttp(err))),
         ),
@@ -70,7 +73,7 @@ export class AuthService {
       this.authState.setCurrentUser(null);
       return of(undefined);
     }
-    return this.loadSessionUser(token).pipe(
+    return this.loadSessionUser(token, decodeJwtPayload(token)?.mustChangeCredentials === true).pipe(
       tap((user) => this.authState.setCurrentUser(user)),
       map(() => undefined),
     );
@@ -80,24 +83,34 @@ export class AuthService {
     void this.initializeSession().subscribe();
   }
 
+  /** Route commands for the signed-in workspace (classification-aware sidebar + dashboard). */
+  postLoginRoute(): string[] {
+    if (this.authState.currentUser?.mustChangeCredentials) {
+      return ['/auth/setup-credentials'];
+    }
+    return portalHomeRoute(this.authState.currentUser);
+  }
+
   logout(): void {
     this.storage.clearSession();
     this.authState.setCurrentUser(null);
   }
 
-  private completeLogin(token: string): Observable<void> {
+  private completeLogin(token: string, mustChangeCredentials = false): Observable<void> {
     this.storage.setToken(token);
-    return this.loadSessionUser(token).pipe(
+    return this.loadSessionUser(token, mustChangeCredentials).pipe(
       tap((user) => this.authState.setCurrentUser(user)),
       map(() => void 0),
     );
   }
 
-  private loadSessionUser(token: string): Observable<CurrentUser> {
+  private loadSessionUser(token: string, mustChangeCredentials = false): Observable<CurrentUser> {
     const profile$ = this.userProfile.fetchCurrentUser();
     const org$ = this.organizationService.getMy().pipe(catchError(() => of(null)));
     return forkJoin({ profile: profile$, org: org$ }).pipe(
-      map(({ profile, org }) => this.mergeSession(token, org, profile)),
+      map(({ profile, org }) =>
+        this.mergeSession(token, org, profile, mustChangeCredentials),
+      ),
     );
   }
 
@@ -124,8 +137,12 @@ export class AuthService {
     token: string,
     org: OrganizationSummary | null,
     profile: UserProfileSummary | null,
+    mustChangeCredentials = false,
   ): CurrentUser {
     let user = this.mergeOrgContext(token, org);
+    if (mustChangeCredentials || user.mustChangeCredentials) {
+      user = { ...user, mustChangeCredentials: true };
+    }
     if (profile) {
       const firstName =
         profile.firstName ||
@@ -139,6 +156,8 @@ export class AuthService {
         lastName: profile.lastName,
         displayName: this.buildDisplayName(firstName, profile.lastName, profile.displayName),
         welcomeMessage: this.buildWelcomeMessage(firstName, profile.lastName, profile.displayName),
+        mustChangeCredentials:
+          mustChangeCredentials || profile.mustChangeCredentials === true || user.mustChangeCredentials === true,
       };
     } else {
       const local = (user.email ?? '').split('@')[0];
