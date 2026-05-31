@@ -1,4 +1,4 @@
-<div class="lx-dialog-shell">
+<div class="lx-dialog-shell lx-dialog-shell--wide">
   <div class="lx-dialog-header">
     <div class="lx-header-text">
       <h2 class="lx-dialog-title">{{ dialogTitle }}</h2>
@@ -78,9 +78,9 @@
         </div>
       </div>
 
-      <div class="lx-field span-2 ued-toggle-row">
+      <div class="lx-field span-2 lx-field--toggle">
         <span class="lx-field-label" i18n="@@userEditSecurity2faEnabled">Two-factor sign-in enabled</span>
-        <mat-slide-toggle [(ngModel)]="isTwoFactorEnabled" name="twoFaEnabled"></mat-slide-toggle>
+        <mat-slide-toggle [(ngModel)]="isTwoFactorEnabled" name="twoFaEnabled" color="primary"></mat-slide-toggle>
       </div>
     </div>
 

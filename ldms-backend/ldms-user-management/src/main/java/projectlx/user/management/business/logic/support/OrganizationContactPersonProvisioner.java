@@ -1,6 +1,5 @@
 package projectlx.user.management.business.logic.support;
 
-import java.security.SecureRandom;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import projectlx.co.zw.shared_library.business.logic.impl.TokenService;
-import projectlx.co.zw.shared_library.utils.constants.Constants;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.globalvalidators.Validators;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
@@ -64,7 +62,6 @@ public class OrganizationContactPersonProvisioner {
     private static final String ROUTING_KEY = "notifications.send";
     private static final String TEMPLATE_CONTACT_VERIFICATION = "ORG_CONTACT_PERSON_VERIFICATION";
     private static final String USER_TYPE_ORGANIZATION_CONTACT = "ORGANIZATION_CONTACT";
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
     private final UserAccountRepository userAccountRepository;
@@ -151,7 +148,7 @@ public class OrganizationContactPersonProvisioner {
             return buildError(400, resolveErrorMessages(accountResponse.getErrorMessages(), accountResponse.getMessage()));
         }
 
-        String temporaryPassword = generateCompliantPassword();
+        String temporaryPassword = OrganizationContactCredentialsIssuer.generateCompliantPassword();
         CreateUserPasswordRequest passwordRequest = new CreateUserPasswordRequest();
         passwordRequest.setUserId(saved.getId());
         passwordRequest.setPassword(temporaryPassword);
@@ -235,7 +232,7 @@ public class OrganizationContactPersonProvisioner {
         if (!hasActiveUserPassword(userId)) {
             CreateUserPasswordRequest passwordRequest = new CreateUserPasswordRequest();
             passwordRequest.setUserId(userId);
-            passwordRequest.setPassword(generateCompliantPassword());
+            passwordRequest.setPassword(OrganizationContactCredentialsIssuer.generateCompliantPassword());
             var passwordResponse = userPasswordService.create(passwordRequest, locale, actor);
             if (!passwordResponse.isSuccess()) {
                 return buildError(400, resolveErrorMessages(passwordResponse.getErrorMessages(), passwordResponse.getMessage()));
@@ -472,27 +469,6 @@ public class OrganizationContactPersonProvisioner {
             return request.getNationalIdNumber().trim();
         }
         return "PENDING-" + request.getOrganizationId();
-    }
-
-    private static String generateCompliantPassword() {
-        String upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-        String lower = "abcdefghjkmnpqrstuvwxyz";
-        String digits = "23456789";
-        String special = "@$!%*?&#";
-        String all = upper + lower + digits + special;
-        StringBuilder password = new StringBuilder();
-        password.append(upper.charAt(SECURE_RANDOM.nextInt(upper.length())));
-        password.append(lower.charAt(SECURE_RANDOM.nextInt(lower.length())));
-        password.append(digits.charAt(SECURE_RANDOM.nextInt(digits.length())));
-        password.append(special.charAt(SECURE_RANDOM.nextInt(special.length())));
-        for (int i = 4; i < 16; i++) {
-            password.append(all.charAt(SECURE_RANDOM.nextInt(all.length())));
-        }
-        String candidate = password.toString();
-        if (candidate.matches(Constants.PASSWORD_REGEX)) {
-            return candidate;
-        }
-        return "Aa1@" + UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
 
     private static UserResponse buildError(int status, List<String> errors) {

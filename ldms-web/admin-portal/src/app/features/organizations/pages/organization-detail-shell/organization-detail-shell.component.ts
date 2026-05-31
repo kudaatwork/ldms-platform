@@ -18,6 +18,11 @@ import { OrganizationsAdminService } from '../../services/organizations-admin.se
 import { UsersAdminService, type UserListRow } from '../../../users/services/users-admin.service';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatTabChangeEvent } from '@angular/material/tabs';
+import { MatDialog } from '@angular/material/dialog';
+import {
+  LinkOrganizationDialogComponent,
+  type LinkOrganizationKind,
+} from '../link-organization-dialog/link-organization-dialog.component';
 
 type OrgShellLoadError = '' | 'invalidId' | 'missingOrg' | 'requestFailed';
 
@@ -75,6 +80,7 @@ export class OrganizationDetailShellComponent implements OnInit, OnDestroy {
     private readonly snackBar: MatSnackBar,
     private readonly fb: FormBuilder,
     private readonly cdr: ChangeDetectorRef,
+    private readonly dialog: MatDialog,
   ) {
     this.overviewForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
@@ -154,6 +160,42 @@ export class OrganizationDetailShellComponent implements OnInit, OnDestroy {
     return this.profile?.organizationClassification === 'SUPPLIER';
   }
 
+  canManageSupplierLinks(): boolean {
+    return this.profile?.organizationClassification === 'SUPPLIER';
+  }
+
+  openLinkDialog(linkKind: LinkOrganizationKind): void {
+    const profile = this.profile;
+    if (!profile || !this.canManageSupplierLinks()) {
+      return;
+    }
+    let excludeIds: number[] = [];
+    if (linkKind === 'CUSTOMER') {
+      excludeIds = profile.customers.map((c) => c.id);
+    } else if (linkKind === 'TRANSPORT_COMPANY') {
+      excludeIds = profile.transporters.map((t) => t.id);
+    } else if (linkKind === 'CLEARING_AGENT') {
+      excludeIds = profile.clearingAgents.map((c) => c.id);
+    }
+    const ref = this.dialog.open(LinkOrganizationDialogComponent, {
+      width: '640px',
+      maxWidth: '96vw',
+      panelClass: 'link-org-dialog-panel',
+      autoFocus: 'first-tabbable',
+      data: {
+        supplierId: profile.id,
+        supplierName: profile.name,
+        linkKind,
+        excludeIds,
+      },
+    });
+    ref.afterClosed().subscribe((result) => {
+      if (result?.linked) {
+        this.loadProfile();
+      }
+    });
+  }
+
   avatarLetter(): string {
     const n = String(this.profile?.name ?? '').trim();
     if (n) {
@@ -182,12 +224,6 @@ export class OrganizationDetailShellComponent implements OnInit, OnDestroy {
 
   verifiedBadgeVisible(): boolean {
     return Boolean(this.profile?.isVerified === true);
-  }
-
-  /** Contact person user exists — identity fields are fixed; only profile/address-style fields may change. */
-  contactIdentityLocked(): boolean {
-    const id = this.profile?.contactPersonUserId;
-    return id != null && id > 0;
   }
 
   toggleEdit(enabled: boolean): void {
@@ -220,10 +256,14 @@ export class OrganizationDetailShellComponent implements OnInit, OnDestroy {
       return;
     }
     const payload = this.buildUpdatePayloadFromForm(this.overviewForm.getRawValue());
+    const previousContactEmail = (this.profile.contactPersonEmail ?? '').trim().toLowerCase();
+    const nextContactEmail = (payload.contactPersonEmail ?? '').trim().toLowerCase();
+    const contactEmailChanged =
+      previousContactEmail !== nextContactEmail && !!nextContactEmail;
     this.saving = true;
     const contactUserId = this.profile.contactPersonUserId;
     const syncContact$ =
-      contactUserId && contactUserId > 0 && !this.contactIdentityLocked()
+      contactUserId && contactUserId > 0
         ? this.usersService.syncOrganizationContactPersonUser(contactUserId, {
             firstName: payload.contactPersonFirstName,
             lastName: payload.contactPersonLastName,
@@ -244,6 +284,9 @@ export class OrganizationDetailShellComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (syncResp) => {
           let message = 'Organisation saved.';
+          if (contactEmailChanged && contactUserId && contactUserId > 0) {
+            message += ' A verification email was sent to the updated contact address.';
+          }
           if (syncResp != null && this.usersService.isUserMutationFailure(syncResp)) {
             message += ` Contact person user was not updated: ${this.usersService.formatUserMutationError(syncResp, 'sync failed')}`;
           }
@@ -623,35 +666,7 @@ export class OrganizationDetailShellComponent implements OnInit, OnDestroy {
       websiteUrl: p.websiteUrl ?? '',
       organizationDescription: p.organizationDescription ?? '',
     });
-    this.applyContactIdentityLockState();
     this.cdr.markForCheck();
-  }
-
-  private applyContactIdentityLockState(): void {
-    const lockedFields = [
-      'name',
-      'email',
-      'organizationType',
-      'industryId',
-      'registrationNumber',
-      'taxNumber',
-      'contactPersonFirstName',
-      'contactPersonLastName',
-      'contactPersonEmail',
-      'contactPersonPhoneNumber',
-    ];
-    const locked = this.contactIdentityLocked();
-    for (const field of lockedFields) {
-      const control = this.overviewForm.get(field);
-      if (!control) {
-        continue;
-      }
-      if (locked) {
-        control.disable({ emitEvent: false });
-      } else {
-        control.enable({ emitEvent: false });
-      }
-    }
   }
 
   private buildUpdatePayloadFromForm(v: Record<string, unknown>): UpdateOrganizationPayload {

@@ -32,6 +32,9 @@ export function ldmsServiceUrl(
   return ldmsApiUrl(path);
 }
 
+/** HTTP header sent on every LDMS API call to record originating client in audit logs. */
+export const LDMS_CLIENT_PLATFORM_HEADER = 'X-LDMS-Client-Platform';
+
 /** True when the request targets the API gateway (relative {@code /ldms-*} or absolute gateway URL). */
 export function isLdmsApiRequest(url: string): boolean {
   if (url.startsWith('/ldms-') || url.startsWith('/api')) {

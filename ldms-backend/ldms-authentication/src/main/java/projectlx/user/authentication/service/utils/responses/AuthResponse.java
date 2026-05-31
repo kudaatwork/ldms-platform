@@ -19,4 +19,6 @@ public class AuthResponse extends CommonResponse {
     private Page<AuthDto> authDtoPage;
     private String accessToken;
     private String refreshToken;
+    /** When true, the client must redirect to credential setup before using the portal. */
+    private Boolean mustChangeCredentials;
 }

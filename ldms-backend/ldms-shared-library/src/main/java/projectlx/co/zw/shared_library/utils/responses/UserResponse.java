@@ -18,4 +18,8 @@ public class UserResponse extends CommonResponse {
     Page<UserDto> userDtoPage;
     private String accessToken;
     private String refreshToken;
+    /** Plain-text temporary username returned once when credentials are issued after KYC approval. */
+    private String temporaryUsername;
+    /** Plain-text temporary password returned once when credentials are issued after KYC approval. */
+    private String temporaryPassword;
 }

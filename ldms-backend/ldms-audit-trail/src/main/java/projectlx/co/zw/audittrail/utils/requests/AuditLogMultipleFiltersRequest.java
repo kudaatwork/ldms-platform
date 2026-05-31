@@ -1,6 +1,7 @@
 package projectlx.co.zw.audittrail.utils.requests;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -26,4 +27,13 @@ public class AuditLogMultipleFiltersRequest extends MultipleFiltersRequest {
     private String requestUrl;
     private String httpMethod;
     private String traceId;
+
+    /** Exact match on originating client (e.g. ADMIN_PORTAL). */
+    private String clientPlatform;
+
+    /** When non-empty, {@code action} must be one of these values. */
+    private List<String> actionsIn;
+
+    /** When non-empty, rows whose {@code action} is in this list are excluded. */
+    private List<String> excludeActions;
 }

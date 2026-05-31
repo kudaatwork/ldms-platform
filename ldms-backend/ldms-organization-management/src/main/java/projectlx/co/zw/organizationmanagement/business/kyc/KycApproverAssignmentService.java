@@ -13,8 +13,8 @@ import projectlx.co.zw.shared_library.utils.responses.UserResponse;
 
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -22,78 +22,60 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Assigns stage-1 and stage-2 KYC reviewers to signup organisations using a least-load algorithm.
+ * Assigns KYC reviewers (1–5 stages) to signup organisations using a least-load algorithm.
  * Approver candidates are admin-portal users ({@code organizationKycApprover=true}, no organisation).
- * Stage 1 and stage 2 must always be different individuals when two or more candidates exist.
+ * Each stage must be a different individual when enough candidates exist.
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class KycApproverAssignmentService {
 
-    private static final Set<KycStatus> STAGE1_WORKLOAD_STATUSES = EnumSet.of(
-            KycStatus.DRAFT,
-            KycStatus.SUBMITTED,
-            KycStatus.STAGE_1_REVIEW,
-            KycStatus.RESUBMITTED);
-
-    private static final Set<KycStatus> STAGE2_WORKLOAD_STATUSES = EnumSet.of(KycStatus.STAGE_2_REVIEW);
-
     private final UserManagementServiceClient userManagementServiceClient;
     private final OrganizationRepository organizationRepository;
+    private final KycApprovalStageResolver kycApprovalStageResolver;
 
     /**
-     * Picks and persists stage-1 and stage-2 approvers on the organisation (different users when possible).
+     * Picks and persists KYC reviewers on the organisation based on the required stage count.
      */
     public void assignApprovers(Organization organization) {
         if (organization == null || !Boolean.TRUE.equals(organization.getCreatedViaSignup())) {
             return;
         }
+        int requiredStages = kycApprovalStageResolver.resolveRequiredStages(organization);
         List<ApproverCandidate> candidates = loadApproverCandidates();
         if (candidates.isEmpty()) {
             log.warn("No organisation KYC approver candidates available; organisation id={} left unassigned",
                     organization.getId());
-            clearAssignments(organization);
+            KycStageSupport.clearAllAssignedApprovers(organization);
             return;
         }
-        Map<Long, Long> stage1Loads = loadStage1Loads(candidates);
-        Map<Long, Long> stage2Loads = loadStage2Loads(candidates);
 
-        Optional<ApproverCandidate> stage1Opt = pickLeastLoaded(candidates, stage1Loads, null);
-        if (stage1Opt.isEmpty()) {
-            clearAssignments(organization);
-            return;
-        }
-        ApproverCandidate stage1 = stage1Opt.get();
-        organization.setAssignedStage1ApproverUserId(stage1.userId());
-        organization.setAssignedStage1ApproverUsername(stage1.username());
-
-        Optional<ApproverCandidate> stage2Opt = pickLeastLoaded(candidates, stage2Loads, stage1.userId());
-        if (stage2Opt.isEmpty()) {
-            organization.setAssignedStage2ApproverUserId(null);
-            organization.setAssignedStage2ApproverUsername(null);
-            log.warn(
-                    "Only one KYC approver candidate available; stage-2 left unassigned for organisation id={} (stage1={})",
+        Set<Long> alreadyAssigned = new HashSet<>();
+        for (int stage = KycStageSupport.MIN_STAGE; stage <= KycStageSupport.MAX_STAGE; stage++) {
+            if (stage > requiredStages) {
+                KycStageSupport.clearAssignedApprover(organization, stage);
+                continue;
+            }
+            Map<Long, Long> loads = loadStageLoads(candidates, stage);
+            Optional<ApproverCandidate> picked = pickLeastLoaded(candidates, loads, alreadyAssigned);
+            if (picked.isEmpty()) {
+                KycStageSupport.clearAssignedApprover(organization, stage);
+                log.warn(
+                        "Insufficient distinct KYC approver candidates; stage {} left unassigned for organisation id={}",
+                        stage,
+                        organization.getId());
+                continue;
+            }
+            ApproverCandidate approver = picked.get();
+            KycStageSupport.setAssignedApprover(organization, stage, approver.userId(), approver.username());
+            alreadyAssigned.add(approver.userId());
+            log.info("Assigned KYC stage {} approver for organisation id={}: {} (load {})",
+                    stage,
                     organization.getId(),
-                    stage1.username());
-        } else {
-            ApproverCandidate stage2 = stage2Opt.get();
-            organization.setAssignedStage2ApproverUserId(stage2.userId());
-            organization.setAssignedStage2ApproverUsername(stage2.username());
-            log.info("Assigned KYC approvers for organisation id={}: stage1={} (load {}), stage2={} (load {})",
-                    organization.getId(),
-                    stage1.username(),
-                    stage1Loads.getOrDefault(stage1.userId(), 0L),
-                    stage2.username(),
-                    stage2Loads.getOrDefault(stage2.userId(), 0L));
+                    approver.username(),
+                    loads.getOrDefault(approver.userId(), 0L));
         }
-    }
-
-    private void clearAssignments(Organization organization) {
-        organization.setAssignedStage1ApproverUserId(null);
-        organization.setAssignedStage1ApproverUsername(null);
-        organization.setAssignedStage2ApproverUserId(null);
-        organization.setAssignedStage2ApproverUsername(null);
     }
 
     private List<ApproverCandidate> loadApproverCandidates() {
@@ -119,34 +101,43 @@ public class KycApproverAssignmentService {
         return result;
     }
 
-    private Map<Long, Long> loadStage1Loads(List<ApproverCandidate> candidates) {
+    private Map<Long, Long> loadStageLoads(List<ApproverCandidate> candidates, int stage) {
         Map<Long, Long> loads = new HashMap<>();
+        Set<KycStatus> statuses = KycStageSupport.workloadStatuses(stage);
         for (ApproverCandidate candidate : candidates) {
-            long count = organizationRepository
-                    .countByAssignedStage1ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
-                            candidate.userId(), STAGE1_WORKLOAD_STATUSES, EntityStatus.DELETED);
+            long count = countAssignedLoad(candidate.userId(), stage, statuses);
             loads.put(candidate.userId(), count);
         }
         return loads;
     }
 
-    private Map<Long, Long> loadStage2Loads(List<ApproverCandidate> candidates) {
-        Map<Long, Long> loads = new HashMap<>();
-        for (ApproverCandidate candidate : candidates) {
-            long count = organizationRepository
+    private long countAssignedLoad(Long userId, int stage, Set<KycStatus> statuses) {
+        return switch (stage) {
+            case 1 -> organizationRepository
+                    .countByAssignedStage1ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
+                            userId, statuses, EntityStatus.DELETED);
+            case 2 -> organizationRepository
                     .countByAssignedStage2ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
-                            candidate.userId(), STAGE2_WORKLOAD_STATUSES, EntityStatus.DELETED);
-            loads.put(candidate.userId(), count);
-        }
-        return loads;
+                            userId, statuses, EntityStatus.DELETED);
+            case 3 -> organizationRepository
+                    .countByAssignedStage3ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
+                            userId, statuses, EntityStatus.DELETED);
+            case 4 -> organizationRepository
+                    .countByAssignedStage4ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
+                            userId, statuses, EntityStatus.DELETED);
+            case 5 -> organizationRepository
+                    .countByAssignedStage5ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
+                            userId, statuses, EntityStatus.DELETED);
+            default -> 0L;
+        };
     }
 
     private Optional<ApproverCandidate> pickLeastLoaded(
             List<ApproverCandidate> candidates,
             Map<Long, Long> loads,
-            Long excludeUserId) {
+            Set<Long> excludeUserIds) {
         return candidates.stream()
-                .filter(c -> !Objects.equals(c.userId(), excludeUserId))
+                .filter(c -> !excludeUserIds.contains(c.userId()))
                 .min(Comparator
                         .comparingLong((ApproverCandidate c) -> loads.getOrDefault(c.userId(), 0L))
                         .thenComparing(ApproverCandidate::userId));

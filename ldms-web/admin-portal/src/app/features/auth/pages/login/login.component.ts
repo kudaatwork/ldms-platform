@@ -77,7 +77,7 @@ export class LoginComponent implements AfterViewInit {
       next: () => {
         this.loading = false;
         this.cdr.markForCheck();
-        void this.router.navigate(['/dashboard'], { replaceUrl: true });
+        void this.router.navigateByUrl('/dashboard', { replaceUrl: true });
       },
       error: (e: Error) => {
         this.error = e.message ?? 'Google sign-in failed';
@@ -119,7 +119,7 @@ export class LoginComponent implements AfterViewInit {
       next: () => {
         this.loading = false;
         this.cdr.markForCheck();
-        void this.router.navigate(['/dashboard'], { replaceUrl: true });
+        void this.router.navigateByUrl('/dashboard', { replaceUrl: true });
       },
       error: (e: Error) => {
         this.error = e.message || 'Invalid credentials';

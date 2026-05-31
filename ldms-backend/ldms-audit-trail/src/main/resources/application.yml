@@ -40,3 +40,16 @@ ldms:
       scheduler-enabled: true
       chunk-size: 10000
       job-pool-size: 4
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+  health:
+    rabbit:
+      enabled: false

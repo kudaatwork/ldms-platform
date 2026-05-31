@@ -1,22 +1,153 @@
-<div class="lx-page">
+<div class="lx-page sh-page">
   <ng-container *ngIf="!loading; else skel">
+    <header class="sh-hero lx-card" [ngClass]="'sh-hero--' + overallTone">
+      <div class="sh-hero__pulse" aria-hidden="true">
+        <span class="sh-hero__ring sh-hero__ring--1"></span>
+        <span class="sh-hero__ring sh-hero__ring--2"></span>
+        <mat-icon class="sh-hero__heart">monitor_heart</mat-icon>
+      </div>
+      <div class="sh-hero__copy">
+        <p class="sh-hero__eyebrow">
+          <mat-icon aria-hidden="true">radar</mat-icon>
+          Live platform telemetry
+        </p>
+        <h1 class="sh-hero__title">System health</h1>
+        <p class="sh-hero__lead">
+          Parallel actuator probes across every LDMS microservice — latency, dependency components, and Eureka
+          registration in one snapshot.
+        </p>
+        <div class="sh-hero__meta">
+          <span class="sh-hero__checked">
+            Last checked {{ formatCheckedAt(snapshot?.checkedAt) }}
+            <span class="sh-hero__refresh-dot" *ngIf="refreshing" aria-label="Refreshing"></span>
+          </span>
+          <button
+            type="button"
+            class="sh-auto-btn"
+            [class.sh-auto-btn--on]="autoRefresh"
+            (click)="toggleAutoRefresh()"
+          >
+            <mat-icon>{{ autoRefresh ? 'sync' : 'sync_disabled' }}</mat-icon>
+            Auto-refresh {{ autoRefresh ? '30s' : 'off' }}
+          </button>
+        </div>
+      </div>
+      <div class="sh-hero__status-panel" *ngIf="showErrorHero">
+        <div class="sh-overall-badge sh-overall-badge--outage">Snapshot unavailable</div>
+        <div class="sh-error-panel">
+          <mat-icon>cloud_off</mat-icon>
+          <p>{{ loadError }}</p>
+          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="refresh()">Retry probe</button>
+        </div>
+      </div>
+      <div class="sh-hero__status-panel" *ngIf="snapshot as snap">
+        <div class="sh-overall-badge" [ngClass]="'sh-overall-badge--' + overallTone">
+          {{ overallLabel(snap.overallStatus) }}
+        </div>
+        <div class="sh-kpi-grid">
+          <div class="sh-kpi">
+            <span class="sh-kpi__value">{{ snap.summary.upCount }}</span>
+            <span class="sh-kpi__label">Services up</span>
+          </div>
+          <div class="sh-kpi sh-kpi--warn" *ngIf="snap.summary.unknownCount > 0">
+            <span class="sh-kpi__value">{{ snap.summary.unknownCount }}</span>
+            <span class="sh-kpi__label">Unknown</span>
+          </div>
+          <div class="sh-kpi sh-kpi--down" *ngIf="snap.summary.downCount > 0">
+            <span class="sh-kpi__value">{{ snap.summary.downCount }}</span>
+            <span class="sh-kpi__label">Down</span>
+          </div>
+          <div class="sh-kpi">
+            <span class="sh-kpi__value">{{ snap.summary.totalServices }}</span>
+            <span class="sh-kpi__label">Monitored</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="sh-alert lx-card" *ngIf="loadError && snapshot">
+      <mat-icon>error_outline</mat-icon>
+      <div>
+        <strong>Could not refresh health snapshot</strong>
+        <p>{{ loadError }}</p>
+      </div>
+      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="refresh()">Retry</button>
+    </div>
+
+    <section class="sh-constellation" *ngIf="snapshot?.services?.length" aria-label="Service mesh">
+      <button
+        type="button"
+        *ngFor="let row of snapshot!.services; trackBy: trackBySnapshotId"
+        class="sh-node lx-card"
+        [ngClass]="'sh-node--' + statusPresentation(row.status).css"
+        (click)="toggleExpanded(row.serviceId)"
+        [attr.aria-expanded]="isExpanded(row.serviceId)"
+      >
+        <div class="sh-node__top">
+          <div class="sh-node__icon">
+            <mat-icon>{{ serviceIcon(row.serviceId) }}</mat-icon>
+          </div>
+          <span class="lx-status" [ngClass]="'lx-status-' + statusPresentation(row.status).css">
+            {{ statusPresentation(row.status).label }}
+          </span>
+        </div>
+        <div class="sh-node__name">{{ row.displayName }}</div>
+        <div class="sh-node__latency" [ngClass]="latencyClass(row.latencyMs)">
+          <mat-icon>speed</mat-icon>
+          {{ row.latencyMs > 0 ? (row.latencyMs + ' ms') : '—' }}
+        </div>
+        <div class="sh-node__ring" aria-hidden="true" [style.--latency]="row.latencyMs"></div>
+      </button>
+    </section>
+
+    <section class="sh-infra-row" *ngIf="snapshot?.infrastructure?.length || snapshot?.eureka">
+      <article class="sh-infra lx-card" *ngIf="snapshot?.infrastructure?.length">
+        <h3 class="sh-infra__title">Shared infrastructure</h3>
+        <div class="sh-infra__chips">
+          <div
+            *ngFor="let infra of snapshot!.infrastructure"
+            class="sh-infra-chip"
+            [ngClass]="'sh-infra-chip--' + statusPresentation(infra.status).css"
+          >
+            <mat-icon>{{ infraIcon(infra.component) }}</mat-icon>
+            <span class="sh-infra-chip__name">{{ infra.component }}</span>
+            <span class="sh-infra-chip__stat">{{ infra.servicesUp }}/{{ infra.servicesReporting }} up</span>
+          </div>
+        </div>
+      </article>
+      <article class="sh-eureka lx-card" *ngIf="snapshot?.eureka as eureka">
+        <h3 class="sh-eureka__title">Service discovery</h3>
+        <div class="sh-eureka__stats">
+          <span class="lx-status" [ngClass]="eureka.available ? 'lx-status-active' : 'lx-status-rejected'">
+            {{ eureka.available ? 'Eureka reachable' : 'Eureka unavailable' }}
+          </span>
+          <span class="sh-eureka__count">{{ eureka.registeredServiceCount }} apps · {{ eureka.instanceCount }} instances</span>
+        </div>
+        <div class="sh-eureka__list" *ngIf="eureka.services.length">
+          <span *ngFor="let svc of eureka.services" class="sh-eureka-pill">
+            {{ svc.serviceName }} <em>({{ svc.instanceCount }})</em>
+          </span>
+        </div>
+      </article>
+    </section>
+
     <div class="lx-card lx-card--subsection">
-      <h3 class="lx-controls-title">Table controls</h3>
-      <p class="lx-controls-subtitle">Manage health checks, search terms, and column filters.</p>
+      <h3 class="lx-controls-title">Probe controls</h3>
+      <p class="lx-controls-subtitle">Filter the registry, export a compliance snapshot, or run a fresh probe cycle.</p>
       <div class="lx-data-toolbar">
         <div class="lx-data-toolbar__actions">
-          <button type="button" class="lx-btn lx-btn-ghost">Refresh</button>
-          <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
+          <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()" [disabled]="refreshing">
+            {{ refreshing ? 'Probing…' : 'Run checks' }}
+          </button>
           <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
             Export
           </button>
-          <button type="button" class="lx-btn lx-btn-primary">Run checks</button>
         </div>
         <div class="lx-data-toolbar__search">
           <div class="lx-input-shell lx-search-field">
-              <mat-icon class="lx-input-shell__icon">search</mat-icon>
-              <input [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search…" />
-            </div>
+            <mat-icon class="lx-input-shell__icon">search</mat-icon>
+            <input [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search service, host, component…" />
+          </div>
           <button
             type="button"
             class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
@@ -27,6 +158,18 @@
             Filters
           </button>
         </div>
+      </div>
+
+      <div class="sh-status-tabs">
+        <button
+          type="button"
+          *ngFor="let f of statusFilters"
+          class="sh-status-tab"
+          [class.sh-status-tab--active]="statusFilter === f"
+          (click)="setStatusFilter(f)"
+        >
+          {{ f === 'ALL' ? 'All services' : f }}
+        </button>
       </div>
 
       <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
@@ -71,43 +214,78 @@
       </mat-menu>
     </div>
 
-    <div class="lx-card">
-      <h2 class="lc-title">System health</h2>
-      <p class="lc-lead">High-level checks for core platform dependencies.</p>
-      <p class="status-line">
-        <span class="lx-status lx-status-active">All critical paths OK</span>
-      </p>
-      <h3 class="sh-table-title">Core services</h3>
+    <div class="lx-card sh-table-card">
+      <h3 class="sh-table-title">Microservice registry</h3>
       <ng-container *ngIf="dataSource.length > 0; else empty">
         <ng-container *ngIf="filteredRows.length > 0; else noSearchHits">
           <div class="lx-table-wrap">
             <table mat-table [dataSource]="pagedRows">
               <ng-container matColumnDef="service">
                 <th mat-header-cell *matHeaderCellDef>Service</th>
-                <td mat-cell *matCellDef="let row">{{ row.service }}</td>
+                <td mat-cell *matCellDef="let row">
+                  <div class="sh-service-cell">
+                    <mat-icon class="sh-service-cell__icon">{{ serviceIcon(row.serviceId) }}</mat-icon>
+                    <span>{{ row.service }}</span>
+                  </div>
+                </td>
               </ng-container>
               <ng-container matColumnDef="detail">
-                <th mat-header-cell *matHeaderCellDef>Detail</th>
+                <th mat-header-cell *matHeaderCellDef>Probe detail</th>
                 <td mat-cell *matCellDef="let row">{{ row.detail }}</td>
               </ng-container>
               <ng-container matColumnDef="status">
                 <th mat-header-cell *matHeaderCellDef>Status</th>
                 <td mat-cell *matCellDef="let row">
-                  <span class="lx-status" [ngClass]="'lx-status-' + row.status.toLowerCase()">{{ row.statusLabel }}</span>
+                  <span class="lx-status" [ngClass]="'lx-status-' + row.status">{{ row.statusLabel }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="latency">
+                <th mat-header-cell *matHeaderCellDef>Latency</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="sh-latency-pill" [ngClass]="latencyClass(row.latencyMs)">
+                    {{ row.latencyMs > 0 ? (row.latencyMs + ' ms') : '—' }}
+                  </span>
                 </td>
               </ng-container>
               <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef>Actions</th>
+                <th mat-header-cell *matHeaderCellDef></th>
                 <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">View</button>
-                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm">Edit</button>
-                  <button type="button" class="lx-btn lx-btn-danger lx-btn-sm">Delete</button>
+                  <button
+                    type="button"
+                    class="lx-btn lx-btn-ghost lx-btn-sm"
+                    (click)="toggleExpanded(row.serviceId)"
+                  >
+                    {{ isExpanded(row.serviceId) ? 'Hide' : 'Components' }}
+                  </button>
                 </td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+              <tr mat-row *matRowDef="let row; columns: displayedColumns" class="sh-table-row"></tr>
             </table>
           </div>
+
+          <div class="sh-expand-panels">
+            <ng-container *ngFor="let row of pagedRows">
+              <div class="sh-expand-panel lx-card" *ngIf="isExpanded(row.serviceId)">
+              <div class="sh-expand-panel__head">
+                <strong>{{ row.service }}</strong>
+                <span class="lx-mono">{{ row.snapshot.serviceId }}</span>
+              </div>
+              <div class="sh-component-grid" *ngIf="(row.snapshot.components | keyvalue)?.length; else noComponents">
+                <div *ngFor="let c of row.snapshot.components | keyvalue" class="sh-component">
+                  <span class="sh-component__name">{{ c.key }}</span>
+                  <span class="lx-status lx-status-sm" [ngClass]="'lx-status-' + statusPresentation(c.value).css">
+                    {{ c.value }}
+                  </span>
+                </div>
+              </div>
+              <ng-template #noComponents>
+                <p class="sh-expand-panel__empty">No component breakdown returned from actuator.</p>
+              </ng-template>
+              </div>
+            </ng-container>
+          </div>
+
           <mat-paginator
             class="lx-table-paginator"
             [length]="filteredRows.length"
@@ -121,16 +299,17 @@
         <ng-template #noSearchHits>
           <div class="lx-empty lx-empty--compact">
             <mat-icon class="lx-empty-icon">search_off</mat-icon>
-            <div class="lx-empty-title">No matching rows</div>
-            <div class="lx-empty-sub">Adjust search or column filters.</div>
+            <div class="lx-empty-title">No matching services</div>
+            <div class="lx-empty-sub">Adjust search or status filters.</div>
           </div>
         </ng-template>
       </ng-container>
       <ng-template #empty>
         <div class="lx-empty">
-          <mat-icon class="lx-empty-icon">inbox</mat-icon>
-          <div class="lx-empty-title">No services loaded</div>
-          <div class="lx-empty-sub">Try refreshing or run checks again.</div>
+          <mat-icon class="lx-empty-icon">{{ loadError ? 'cloud_off' : 'inbox' }}</mat-icon>
+          <div class="lx-empty-title">{{ loadError ? 'Health API unreachable' : 'No services probed' }}</div>
+          <div class="lx-empty-sub">{{ loadError || 'Run checks to probe the LDMS fleet.' }}</div>
+          <button *ngIf="loadError" type="button" class="lx-btn lx-btn-primary" (click)="refresh()">Retry</button>
         </div>
       </ng-template>
     </div>
@@ -138,11 +317,14 @@
 </div>
 
 <ng-template #skel>
-  <div class="lx-page">
-    <div class="lx-card skel-card">
-      <div class="skeleton skel-line skel-line--lg"></div>
-      <div class="skeleton skel-line skel-line--md"></div>
-      <div class="skeleton skel-block" style="margin-top: 20px; height: 48px; width: 120px"></div>
+  <div class="lx-page sh-page">
+    <div class="lx-card sh-hero sh-hero--skeleton">
+      <div class="skeleton" style="width: 40%; height: 16px; margin-bottom: 12px"></div>
+      <div class="skeleton" style="width: 55%; height: 32px; margin-bottom: 16px"></div>
+      <div class="skeleton" style="width: 70%; height: 14px"></div>
+    </div>
+    <div class="sh-constellation sh-constellation--skeleton">
+      <div class="skeleton lx-card" *ngFor="let i of [1,2,3,4,5,6]" style="height: 120px"></div>
     </div>
   </div>
 </ng-template>

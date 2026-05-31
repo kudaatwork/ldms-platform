@@ -105,6 +105,17 @@ public class FileUploadBackendResource {
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
+    @GetMapping("/find-all")
+    public ResponseEntity<FileUploadResponse> findAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        FileUploadResponse response =
+                fileUploadProcessor.findAllActiveMetadata(page, size, locale, currentUsername(authorization));
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
     private static String currentUsername(String authorization) {
         if (authorization == null || authorization.isBlank()) {
             return BACKEND_USER;

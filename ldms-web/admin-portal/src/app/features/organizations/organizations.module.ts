@@ -8,6 +8,7 @@ import { IndustriesListComponent } from './pages/industries-list/industries-list
 import { OrganizationDetailShellComponent } from './pages/organization-detail-shell/organization-detail-shell.component';
 import { BranchFormDialogComponent } from './pages/branch-form-dialog/branch-form-dialog.component';
 import { AgentFormDialogComponent } from './pages/agent-form-dialog/agent-form-dialog.component';
+import { LinkOrganizationDialogComponent } from './pages/link-organization-dialog/link-organization-dialog.component';
 import { SharedModule } from '../../shared/shared.module';
 import { OrganizationDocumentsPanelComponent } from '../../shared/components/organization-documents-panel/organization-documents-panel.component';
 import { OrganizationContactPersonPanelComponent } from '../../shared/components/organization-contact-person-panel/organization-contact-person-panel.component';
@@ -28,6 +29,7 @@ import { OrganizationContactPersonPanelComponent } from '../../shared/components
     OrganizationContactPersonPanelComponent,
     BranchFormDialogComponent,
     AgentFormDialogComponent,
+    LinkOrganizationDialogComponent,
   ],
 })
 export class OrganizationsModule {}

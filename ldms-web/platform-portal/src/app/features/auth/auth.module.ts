@@ -4,10 +4,17 @@ import { AuthRoutingModule } from './auth-routing.module';
 import { ForgotPasswordComponent } from './pages/forgot-password/forgot-password.component';
 import { LoginComponent } from './pages/login/login.component';
 import { ResetPasswordComponent } from './pages/reset-password/reset-password.component';
+import { SetupCredentialsComponent } from './pages/setup-credentials/setup-credentials.component';
 import { VerifyEmailComponent } from './pages/verify-email/verify-email.component';
 
 @NgModule({
-  declarations: [LoginComponent, ForgotPasswordComponent, ResetPasswordComponent, VerifyEmailComponent],
+  declarations: [
+    LoginComponent,
+    ForgotPasswordComponent,
+    ResetPasswordComponent,
+    SetupCredentialsComponent,
+    VerifyEmailComponent,
+  ],
   imports: [SharedModule, AuthRoutingModule],
 })
 export class AuthModule {}

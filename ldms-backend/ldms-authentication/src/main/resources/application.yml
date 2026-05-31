@@ -3,6 +3,7 @@
 
 server:
   port: ${AUTH_SERVER_PORT:${AUTHENTICATION_PORT:8083}}
+  max-http-request-header-size: 65536
 
 spring:
   application:
@@ -25,7 +26,7 @@ spring:
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/ldms_authentication?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/ldms_auth_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
     username: ${DB_USERNAME:${MYSQL_USER:developer}}
     password: ${DB_PASSWORD:${MYSQL_DEVELOPER_PASSWORD:Password098()!}}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -34,6 +35,17 @@ spring:
       ddl-auto: ${JPA_DDL_AUTO:update}
     show-sql: false
     open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Existing Hibernate-created schemas: baseline then apply V1+ migrations.
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+    out-of-order: false
+    ignore-migration-patterns:
+      - "*:missing"
+      - "*:future"
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
@@ -75,6 +87,9 @@ spring:
   config:
     activate:
       on-profile: dev
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0
 ldms:
   dev:
     force-local-feign-clients: true
@@ -91,3 +106,16 @@ eureka:
 logging:
   level:
     org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer: ERROR
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+  health:
+    rabbit:
+      enabled: false

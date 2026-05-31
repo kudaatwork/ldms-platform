@@ -46,4 +46,9 @@ public class FileUploadProcessorImpl implements FileUploadProcessor {
     public FileUploadResponse delete(Long id, Locale locale, String username) {
         return fileUploadService.delete(id, locale, username);
     }
+
+    @Override
+    public FileUploadResponse findAllActiveMetadata(int page, int size, Locale locale, String username) {
+        return fileUploadService.findAllActiveMetadata(page, size, locale, username);
+    }
 }

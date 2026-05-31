@@ -295,7 +295,15 @@ public enum I18Code {
     MESSAGE_CONFIRM_PASSWORD_MISSING("message.confirm.password.missing"),
 
     MESSAGE_EXPIRING_PASSWORDS_RETRIEVED_SUCCESSFULLY("message.user.password.expiring.retrieved.successfully"),
-    MESSAGE_EXPIRING_PASSWORDS_RETRIEVE_FAILED("message.user.password.expiring.retrieve.failed");
+    MESSAGE_EXPIRING_PASSWORDS_RETRIEVE_FAILED("message.user.password.expiring.retrieve.failed"),
+
+    MESSAGE_HELP_ARTICLES_RETRIEVED("message.help.articles.retrieved"),
+    MESSAGE_HELP_ARTICLE_RETRIEVED("message.help.article.retrieved"),
+    MESSAGE_HELP_ARTICLE_NOT_FOUND("message.help.article.not.found"),
+    MESSAGE_CREATE_SUPPORT_TICKET_INVALID_REQUEST("message.create.support.ticket.invalid.request"),
+    MESSAGE_SUPPORT_TICKET_CREATED("message.support.ticket.created"),
+    MESSAGE_SUPPORT_TICKETS_RETRIEVED("message.support.tickets.retrieved"),
+    MESSAGE_HELP_PLATFORM_STATUS_RETRIEVED("message.help.platform.status.retrieved");
 
     private final String code;
 }

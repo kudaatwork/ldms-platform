@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, Router, UrlTree } from '@angular/router';
 import { StorageService } from '../services/storage.service';
+import { isStoredSessionToken } from '../utils/jwt.util';
 
 /** Redirects authenticated users away from sign-in pages to the dashboard. */
 @Injectable({ providedIn: 'root' })
@@ -12,8 +13,11 @@ export class GuestGuard implements CanActivate {
 
   canActivate(): boolean | UrlTree {
     const token = this.storage.getToken();
-    if (token) {
+    if (isStoredSessionToken(token)) {
       return this.router.createUrlTree(['/dashboard']);
+    }
+    if (token) {
+      this.storage.clearSession();
     }
     return true;
   }

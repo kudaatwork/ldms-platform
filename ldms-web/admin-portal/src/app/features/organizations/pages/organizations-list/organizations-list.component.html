@@ -1,4 +1,12 @@
 <div class="lx-page">
+  <lx-page-hero
+    eyebrow="Directory"
+    title="Organizations"
+    [lead]="pageLead"
+    icon="corporate_fare"
+    variant="brand"
+  ></lx-page-hero>
+
   <div class="lx-card lx-card--subsection">
     <div class="lx-controls-head">
       <div class="lx-controls-head__text">
@@ -89,8 +97,6 @@
   <div class="lx-card">
     <div class="lx-table-header">
       <div>
-        <h2 class="lc-title">Organizations</h2>
-        <p class="lc-lead">{{ pageLead }}</p>
         <div class="org-industry-filter-banner" *ngIf="industryFilterId">
           <mat-icon>factory</mat-icon>
           <span>

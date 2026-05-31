@@ -14,6 +14,8 @@ import projectlx.co.zw.organizationmanagement.utils.requests.UpdateIndustryReque
 import projectlx.co.zw.organizationmanagement.utils.requests.AgentMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.BranchMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.IndustryMultipleFiltersRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
@@ -182,6 +184,30 @@ public class OrganizationServiceValidatorImpl implements OrganizationServiceVali
         List<String> errors = new ArrayList<>();
         if (request == null || request.getTransporterOrganizationId() == null) {
             errors.add(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(), new String[] { "transporterId" }, locale));
+        }
+        if (errors.isEmpty()) {
+            return new ValidatorDto(true, null, null);
+        }
+        return new ValidatorDto(false, null, errors);
+    }
+
+    @Override
+    public ValidatorDto validateLinkCustomer(LinkCustomerRequest request, Locale locale) {
+        List<String> errors = new ArrayList<>();
+        if (request == null || request.getCustomerOrganizationId() == null) {
+            errors.add(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(), new String[] { "customerId" }, locale));
+        }
+        if (errors.isEmpty()) {
+            return new ValidatorDto(true, null, null);
+        }
+        return new ValidatorDto(false, null, errors);
+    }
+
+    @Override
+    public ValidatorDto validateLinkClearingAgent(LinkClearingAgentRequest request, Locale locale) {
+        List<String> errors = new ArrayList<>();
+        if (request == null || request.getClearingAgentOrganizationId() == null) {
+            errors.add(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(), new String[] { "clearingAgentId" }, locale));
         }
         if (errors.isEmpty()) {
             return new ValidatorDto(true, null, null);

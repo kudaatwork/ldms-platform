@@ -54,6 +54,10 @@
         <span class="material-icons" aria-hidden="true">error_outline</span> {{ error }}
       </div>
 
+      <div class="lc-info" *ngIf="infoMessage && !error">
+        <span class="material-icons" aria-hidden="true">info</span> {{ infoMessage }}
+      </div>
+
       <form [formGroup]="form" (ngSubmit)="submit()">
         <div class="lc-field-label">Email or username</div>
         <div class="lc-field">

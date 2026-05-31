@@ -1,4 +1,12 @@
 <div class="lx-page">
+  <lx-page-hero
+    eyebrow="Directory"
+    [title]="pageTitle"
+    [lead]="pageLead"
+    icon="domain"
+    variant="brand"
+  ></lx-page-hero>
+
   <div class="lx-card lx-card--subsection">
     <div class="lx-controls-head">
       <div class="lx-controls-head__text">
@@ -73,8 +81,7 @@
   <div class="lx-card">
     <div class="lx-table-header">
       <div>
-        <h2 class="lc-title">{{ pageTitle }}</h2>
-        <p class="lc-lead">{{ pageLead }}</p>
+        <p class="lx-table-meta">Filtered organisation directory</p>
         <p class="lc-lead lc-lead--error" *ngIf="loadError">{{ loadError }}</p>
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>

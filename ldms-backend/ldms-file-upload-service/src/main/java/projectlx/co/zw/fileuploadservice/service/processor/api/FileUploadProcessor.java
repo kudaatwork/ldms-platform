@@ -20,4 +20,6 @@ public interface FileUploadProcessor {
     FileUploadResponse findByOwnerTypeAndId(OwnerType ownerType, Long ownerId, Locale locale, String username);
 
     FileUploadResponse delete(Long id, Locale locale, String username);
+
+    FileUploadResponse findAllActiveMetadata(int page, int size, Locale locale, String username);
 }

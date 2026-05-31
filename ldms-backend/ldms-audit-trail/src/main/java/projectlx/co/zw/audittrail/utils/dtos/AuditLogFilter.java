@@ -1,6 +1,7 @@
 package projectlx.co.zw.audittrail.utils.dtos;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record AuditLogFilter(
         String serviceName,
@@ -15,6 +16,9 @@ public record AuditLogFilter(
         String requestUrl,
         String httpMethod,
         String traceId,
+        String clientPlatform,
+        List<String> actionsIn,
+        List<String> excludeActions,
         int page,
         int size,
         String sortBy,

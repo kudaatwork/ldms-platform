@@ -1,0 +1,121 @@
+<div class="link-org-dialog lx-dialog-shell lx-dialog-shell--wide">
+  <div class="link-org-dialog__accent" aria-hidden="true"></div>
+
+  <div class="lx-dialog-header link-org-dialog__header">
+    <div class="link-org-dialog__title-row">
+      <div class="link-org-dialog__kind-icon" aria-hidden="true">
+        <mat-icon>{{ kindIcon }}</mat-icon>
+      </div>
+      <div class="lx-header-text">
+        <h2 class="lx-dialog-title">{{ title }}</h2>
+        <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+      </div>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="link-org-dialog__supplier" aria-label="Supplier context">
+    <mat-icon aria-hidden="true">hub</mat-icon>
+    <div class="link-org-dialog__supplier-text">
+      <span class="link-org-dialog__supplier-label">Linking to supplier</span>
+      <strong>{{ supplierDisplayName() }}</strong>
+    </div>
+  </div>
+
+  <form [formGroup]="form" class="link-org-dialog__body" (ngSubmit)="save()">
+    <div class="link-org-dialog__loading" *ngIf="loadingOrgs">
+      <mat-progress-bar mode="indeterminate" aria-label="Loading organisations"></mat-progress-bar>
+      <p>Loading eligible {{ targetLabel | lowercase }}s…</p>
+    </div>
+
+    <ng-container *ngIf="!loadingOrgs">
+      <div class="link-org-dialog__controls">
+        <div class="link-org-search lx-input-shell">
+          <mat-icon class="lx-input-shell__icon" aria-hidden="true">search</mat-icon>
+          <input
+            type="search"
+            [(ngModel)]="searchQuery"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="onSearchQueryChange()"
+            [placeholder]="'Search by name or email…'"
+            [attr.aria-label]="'Search ' + targetLabel"
+            [disabled]="submitting"
+          />
+          <button
+            *ngIf="searchQuery"
+            type="button"
+            class="link-org-search__clear"
+            aria-label="Clear search"
+            (click)="clearSearch()"
+          >
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+
+        <div class="link-org-dialog__meta">
+          <span class="link-org-stat link-org-stat--muted">
+            {{ filteredOrganizations.length }} of {{ organizations.length }} available
+          </span>
+          <span class="link-org-stat link-org-stat--selected" *ngIf="selectedOrganization as sel">
+            Selected: {{ sel.name }}
+          </span>
+        </div>
+      </div>
+
+      <p class="link-org-dialog__empty" *ngIf="!organizations.length">
+        No eligible organisations found. Register them in the directory first.
+      </p>
+
+      <p class="link-org-dialog__empty" *ngIf="organizations.length && !filteredOrganizations.length">
+        No matches for “{{ searchQuery }}”. Try a different search term.
+      </p>
+
+      <div
+        class="link-org-list"
+        role="listbox"
+        [attr.aria-label]="targetLabel + ' picker'"
+        *ngIf="filteredOrganizations.length"
+      >
+        <button
+          type="button"
+          class="link-org-card"
+          role="option"
+          *ngFor="let org of filteredOrganizations"
+          [class.is-selected]="isSelected(org.id)"
+          [attr.aria-selected]="isSelected(org.id)"
+          (click)="selectOrganization(org)"
+        >
+          <span class="link-org-card__avatar" aria-hidden="true">{{ avatarLetter(org.name) }}</span>
+          <span class="link-org-card__body">
+            <span class="link-org-card__name">{{ org.name }}</span>
+            <span class="link-org-card__email" *ngIf="org.email">{{ org.email }}</span>
+            <span class="link-org-card__email link-org-card__email--muted" *ngIf="!org.email">No email on file</span>
+          </span>
+          <span class="link-org-card__check" aria-hidden="true">
+            <mat-icon>{{ isSelected(org.id) ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+          </span>
+        </button>
+      </div>
+    </ng-container>
+
+    <div class="link-org-dialog__error" *ngIf="saveError" role="alert">
+      <mat-icon aria-hidden="true">error_outline</mat-icon>
+      <span>{{ saveError }}</span>
+    </div>
+
+    <div class="link-org-dialog__footer">
+      <button mat-stroked-button type="button" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button
+        mat-flat-button
+        color="primary"
+        type="submit"
+        [disabled]="submitting || form.invalid || !organizations.length"
+      >
+        <mat-icon aria-hidden="true">link</mat-icon>
+        {{ submitting ? 'Linking…' : 'Confirm link' }}
+      </button>
+    </div>
+  </form>
+</div>

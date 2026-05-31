@@ -14,7 +14,7 @@ import projectlx.co.zw.organizationmanagement.utils.config.OrganizationPortalLin
 import projectlx.co.zw.organizationmanagement.utils.requests.NotificationRequest;
 
 /**
- * Sends organisation KYC stage emails to the organisation email and contact person email.
+ * Sends organisation KYC lifecycle emails (submission, per-stage approval, rejection, resubmission).
  */
 @Component
 @RequiredArgsConstructor
@@ -24,39 +24,148 @@ public class OrganizationKycNotifier {
 
     private static final String EXCHANGE = "notifications.direct";
     private static final String ROUTING_KEY = "notifications.send";
+    private static final String TEMPLATE_SUBMITTED = "ORG_KYC_SUBMITTED";
     private static final String TEMPLATE_STAGE1_APPROVED = "ORG_KYC_STAGE1_APPROVED";
-    private static final String TEMPLATE_STAGE2_APPROVED = "ORG_KYC_STAGE2_APPROVED";
+    private static final String TEMPLATE_STAGE_APPROVED = "ORG_KYC_STAGE_APPROVED";
+    private static final String TEMPLATE_FULLY_APPROVED = "ORG_KYC_STAGE2_APPROVED";
+    private static final String TEMPLATE_APPROVED_CREDENTIALS = "ORG_KYC_APPROVED_CREDENTIALS";
+    private static final String TEMPLATE_REJECTED = "ORG_KYC_REJECTED";
+    private static final String TEMPLATE_RESUBMISSION_ALLOWED = "ORG_KYC_RESUBMISSION_ALLOWED";
 
     private final RabbitTemplate rabbitTemplate;
     private final OrganizationPortalLinkProperties portalLinks;
 
-    public void sendStage1Approved(Organization org) {
-        sendKycEmails(org, TEMPLATE_STAGE1_APPROVED, true);
-    }
-
-    public void sendStage2Approved(Organization org) {
-        sendKycEmails(org, TEMPLATE_STAGE2_APPROVED, true);
-    }
-
-    private void sendKycEmails(Organization org, String templateKey, boolean viaSignup) {
+    public void sendKycSubmitted(Organization org) {
         if (org == null) {
             return;
         }
-        Map<String, Object> baseData = buildTemplateData(org, viaSignup);
-        String organizationEmail = OrganizationNotificationEmailSupport.normalizeEmail(org.getEmail());
-        if (StringUtils.hasText(organizationEmail)) {
-            sendToEmail(org.getId(), organizationEmail, templateKey, baseData, "organization");
-        }
-        String contactEmail = OrganizationNotificationEmailSupport.normalizeEmail(org.getContactPersonEmail());
-        if (StringUtils.hasText(contactEmail)
-                && !OrganizationNotificationEmailSupport.isSameEmail(organizationEmail, contactEmail)) {
-            sendToEmail(org.getId(), contactEmail, templateKey, baseData, "contact-person");
-        }
+        Map<String, Object> data = buildTemplateData(org);
+        data.put("statusHeadline", "Application submitted");
+        data.put(
+                "statusDetail",
+                "Thank you — your KYC application for "
+                        + safe(org.getName())
+                        + " is in our review queue. Track live progress on your onboarding page; we will email you after each approval stage.");
+        sendKycEmailsWithData(org, TEMPLATE_SUBMITTED, data);
     }
 
-    private Map<String, Object> buildTemplateData(Organization org, boolean viaSignup) {
+    public void sendStageApproved(Organization org, int approvedStage, int totalStages) {
+        if (org == null || approvedStage < 1 || totalStages < 1) {
+            return;
+        }
+        if (approvedStage >= totalStages) {
+            sendFullyApproved(org);
+            return;
+        }
+        Map<String, Object> data = buildTemplateData(org);
+        enrichStageApprovalData(data, approvedStage, totalStages, false);
+        String template = approvedStage == 1 ? TEMPLATE_STAGE1_APPROVED : TEMPLATE_STAGE_APPROVED;
+        sendKycEmailsWithData(org, template, data);
+    }
+
+    public void sendFullyApproved(Organization org) {
+        if (org == null) {
+            return;
+        }
+        Map<String, Object> data = buildTemplateData(org);
+        data.put("statusHeadline", "Organisation verified");
+        data.put(
+                "statusDetail",
+                "Your organisation is fully approved on Project LX. Use the separate email with your temporary sign-in details to access the platform.");
+        sendKycEmailsWithData(org, TEMPLATE_FULLY_APPROVED, data);
+    }
+
+    public void sendApprovedCredentials(Organization org, String temporaryUsername, String temporaryPassword) {
+        if (org == null || !StringUtils.hasText(temporaryUsername) || !StringUtils.hasText(temporaryPassword)) {
+            return;
+        }
+        Map<String, Object> data = buildTemplateData(org);
+        data.put("statusHeadline", "Your portal access is ready");
+        data.put(
+                "statusDetail",
+                "Your organisation "
+                        + safe(org.getName())
+                        + " is approved. Sign in with the temporary username and password below, then choose your permanent credentials.");
+        data.put("temporaryUsername", temporaryUsername.trim());
+        data.put("temporaryPassword", temporaryPassword.trim());
+        sendKycEmailsWithData(org, TEMPLATE_APPROVED_CREDENTIALS, data);
+    }
+
+    public void sendRejected(Organization org, String rejectionReason) {
+        if (org == null || !StringUtils.hasText(rejectionReason)) {
+            return;
+        }
+        Map<String, Object> data = buildTemplateData(org);
+        data.put("rejectionReason", rejectionReason.trim());
+        data.put("statusHeadline", "Application not approved");
+        sendKycEmailsWithData(org, TEMPLATE_REJECTED, data);
+    }
+
+    public void sendResubmissionAllowed(Organization org, String resubmissionNotes) {
+        if (org == null) {
+            return;
+        }
+        Map<String, Object> data = buildTemplateData(org);
+        String notes = StringUtils.hasText(resubmissionNotes)
+                ? resubmissionNotes.trim()
+                : "You may update your organisation profile and submit KYC again.";
+        data.put("resubmissionNotes", notes);
+        sendKycEmailsWithData(org, TEMPLATE_RESUBMISSION_ALLOWED, data);
+    }
+
+    private void enrichStageApprovalData(Map<String, Object> data, int approvedStage, int totalStages, boolean isFinal) {
+        int nextStage = Math.min(approvedStage + 1, totalStages);
+        data.put("approvedStageNumber", approvedStage);
+        data.put("totalStages", totalStages);
+        data.put("nextStageNumber", isFinal ? "" : nextStage);
+        data.put("stageLabel", "Stage " + approvedStage);
+        data.put("nextStageLabel", isFinal ? "Complete" : "Stage " + nextStage + " review");
+        data.put("statusHeadline", "Stage " + approvedStage + " approved");
+        if (isFinal) {
+            data.put("statusDetail", "Your organisation has completed all required approval stages.");
+        } else {
+            data.put(
+                    "statusDetail",
+                    "Stage " + approvedStage + " of " + totalStages + " is complete. Your application is now in "
+                            + data.get("nextStageLabel") + ".");
+        }
+        data.put("isFinalApproval", isFinal);
+    }
+
+    private void sendKycEmailsWithData(Organization org, String templateKey, Map<String, Object> baseData) {
+        if (org == null || baseData == null) {
+            return;
+        }
+        String organizationEmail = OrganizationNotificationEmailSupport.normalizeEmail(org.getEmail());
+        String contactEmail = OrganizationNotificationEmailSupport.normalizeEmail(org.getContactPersonEmail());
+        boolean sentOrganization = false;
+        if (StringUtils.hasText(organizationEmail)) {
+            sendToEmail(org.getId(), organizationEmail, templateKey, baseData, "organization");
+            sentOrganization = true;
+        } else {
+            log.warn("Skipping organisation KYC email template={} for orgId={}: organisation email is blank",
+                    templateKey, org.getId());
+        }
+        if (!StringUtils.hasText(contactEmail)) {
+            log.warn("Skipping contact person KYC email template={} for orgId={}: contact email is blank",
+                    templateKey, org.getId());
+            return;
+        }
+        if (OrganizationNotificationEmailSupport.isSameEmail(organizationEmail, contactEmail)) {
+            if (sentOrganization) {
+                log.info(
+                        "Organisation and contact person share email {}; KYC notification already sent once",
+                        organizationEmail);
+            }
+            return;
+        }
+        sendToEmail(org.getId(), contactEmail, templateKey, baseData, "contact-person");
+    }
+
+    private Map<String, Object> buildTemplateData(Organization org) {
         Map<String, Object> data = new LinkedHashMap<>();
-        String contactName = String.join(" ",
+        String contactName = String.join(
+                        " ",
                         safe(org.getContactPersonFirstName()),
                         safe(org.getContactPersonLastName()))
                 .trim();
@@ -65,8 +174,9 @@ public class OrganizationKycNotifier {
         }
         data.put("organizationName", safe(org.getName()));
         data.put("contactName", contactName);
-        if (viaSignup) {
-            data.put("nextStepsLink", portalLinks.platformSignupUrl());
+        boolean viaSignup = Boolean.TRUE.equals(org.getCreatedViaSignup());
+        if (viaSignup && org.getId() != null) {
+            data.put("nextStepsLink", portalLinks.platformOnboardingStatusUrl(org.getId()));
             data.put("signInLink", portalLinks.platformSignInUrl());
         } else {
             data.put("nextStepsLink", portalLinks.adminSignInUrl());

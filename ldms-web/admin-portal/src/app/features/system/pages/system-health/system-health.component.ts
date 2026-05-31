@@ -1,36 +1,62 @@
-import { Component, OnInit } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { Title } from '@angular/platform-browser';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageEvent } from '@angular/material/paginator';
 import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
 import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
-import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
 } from '@shared/utils/lx-export.util';
+import {
+  PlatformHealthAdminService,
+  PlatformHealthSnapshot,
+  PlatformOverallStatus,
+  ServiceHealthSnapshot,
+} from '../../services/platform-health-admin.service';
+import { Subject, EMPTY, catchError, finalize, interval, startWith, switchMap, takeUntil } from 'rxjs';
 
-export interface HealthServiceRow {
+interface HealthTableRow {
   service: string;
+  serviceId: string;
   detail: string;
   status: string;
   statusLabel: string;
+  latencyMs: number;
+  snapshot: ServiceHealthSnapshot;
 }
 
 @Component({
   selector: 'app-system-health',
   templateUrl: './system-health.component.html',
   styleUrl: './system-health.component.scss',
+  changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: false,
 })
-export class SystemHealthComponent implements OnInit {
+export class SystemHealthComponent implements OnInit, OnDestroy {
+  private readonly destroy$ = new Subject<void>();
+  private readonly manualRefresh$ = new Subject<void>();
+
   loading = true;
+  refreshing = false;
+  loadError = '';
+  autoRefresh = true;
 
-  displayedColumns = ['service', 'detail', 'status', 'actions'];
+  snapshot: PlatformHealthSnapshot | null = null;
+  expandedServiceId: string | null = null;
 
-  dataSource: HealthServiceRow[] = [];
+  displayedColumns = ['service', 'detail', 'status', 'latency', 'actions'];
+  dataSource: HealthTableRow[] = [];
 
   searchQuery = '';
   filterFieldsOpen = false;
+  statusFilter = 'ALL';
 
   columnFilters = {
     service: '',
@@ -41,80 +67,21 @@ export class SystemHealthComponent implements OnInit {
   pageIndex = 0;
   pageSize = DEFAULT_TABLE_PAGE_SIZE;
 
-  private readonly mockRows: HealthServiceRow[] = [
-    {
-      service: 'Admin API',
-      detail: 'REST · last probe 12s ago',
-      status: 'active',
-      statusLabel: 'Operational',
-    },
-    {
-      service: 'Authentication',
-      detail: 'Token issuance · SSO hooks',
-      status: 'active',
-      statusLabel: 'Operational',
-    },
-    {
-      service: 'Document store',
-      detail: 'Upload pipeline · virus scan',
-      status: 'active',
-      statusLabel: 'Operational',
-    },
-    {
-      service: 'Background jobs',
-      detail: 'Queue workers · retries OK',
-      status: 'pending',
-      statusLabel: 'Degraded',
-    },
-    {
-      service: 'Notifications',
-      detail: 'Email · in-app',
-      status: 'active',
-      statusLabel: 'Operational',
-    },
-    {
-      service: 'Primary database',
-      detail: 'MySQL 8 · replication lag 0.4s',
-      status: 'active',
-      statusLabel: 'Operational',
-    },
-    {
-      service: 'Cache layer',
-      detail: 'Redis cluster · memory 62%',
-      status: 'active',
-      statusLabel: 'Operational',
-    },
-    {
-      service: 'Message bus',
-      detail: 'RabbitMQ · 1 node restarting',
-      status: 'pending',
-      statusLabel: 'Degraded',
-    },
-    {
-      service: 'Object storage',
-      detail: 'S3-compatible · multipart uploads',
-      status: 'active',
-      statusLabel: 'Operational',
-    },
-    {
-      service: 'Search index',
-      detail: 'OpenSearch · index lag 2m',
-      status: 'active',
-      statusLabel: 'Operational',
-    },
-  ];
+  readonly statusFilters = ['ALL', 'UP', 'DOWN', 'UNKNOWN'] as const;
 
   constructor(
     private readonly title: Title,
     private readonly snackBar: MatSnackBar,
+    private readonly healthApi: PlatformHealthAdminService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
-  get filteredRows(): HealthServiceRow[] {
-    return filterByGlobalAndColumns(
-      this.dataSource,
-      this.searchQuery,
-      this.columnFilters,
-    );
+  get filteredRows(): HealthTableRow[] {
+    let rows = filterByGlobalAndColumns(this.dataSource, this.searchQuery, this.columnFilters);
+    if (this.statusFilter !== 'ALL') {
+      rows = rows.filter((r) => r.snapshot.status.toUpperCase() === this.statusFilter);
+    }
+    return rows;
   }
 
   get clampedPageIndex(): number {
@@ -124,10 +91,77 @@ export class SystemHealthComponent implements OnInit {
     return Math.min(this.pageIndex, max);
   }
 
-  get pagedRows(): HealthServiceRow[] {
-    const all = this.filteredRows;
+  get pagedRows(): HealthTableRow[] {
     const start = this.clampedPageIndex * this.pageSize;
-    return all.slice(start, start + this.pageSize);
+    return this.filteredRows.slice(start, start + this.pageSize);
+  }
+
+  get overallTone(): string {
+    if (this.loadError && !this.snapshot) {
+      return 'outage';
+    }
+    return (this.snapshot?.overallStatus ?? 'DEGRADED').toLowerCase();
+  }
+
+  get showErrorHero(): boolean {
+    return !!this.loadError && !this.snapshot;
+  }
+
+  ngOnInit(): void {
+    this.title.setTitle('System Health | LX Admin');
+    interval(30_000)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (this.autoRefresh && !this.loading) {
+          this.refresh(true);
+        }
+      });
+
+    this.manualRefresh$
+      .pipe(
+        startWith(undefined),
+        switchMap(() =>
+          this.healthApi.fetchSnapshot().pipe(
+            catchError((err: Error) => {
+              this.applyError(err.message ?? 'Failed to load platform health');
+              return EMPTY;
+            }),
+            finalize(() => {
+              this.refreshing = false;
+              this.cdr.markForCheck();
+            }),
+          ),
+        ),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((snapshot) => this.applySnapshot(snapshot));
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  refresh(background = false): void {
+    if (background) {
+      this.refreshing = true;
+    } else {
+      this.loading = !this.snapshot;
+      this.loadError = '';
+    }
+    this.cdr.markForCheck();
+    this.manualRefresh$.next();
+  }
+
+  toggleAutoRefresh(): void {
+    this.autoRefresh = !this.autoRefresh;
+    this.cdr.markForCheck();
+  }
+
+  setStatusFilter(filter: (typeof this.statusFilters)[number]): void {
+    this.statusFilter = filter;
+    this.resetPaging();
+    this.cdr.markForCheck();
   }
 
   resetPaging(): void {
@@ -139,13 +173,83 @@ export class SystemHealthComponent implements OnInit {
     this.pageSize = e.pageSize;
   }
 
-  ngOnInit(): void {
-    this.title.setTitle('System Health | LX Admin');
-    this.dataSource = [...this.mockRows];
-    this.loading = false;
+  toggleExpanded(serviceId: string): void {
+    this.expandedServiceId = this.expandedServiceId === serviceId ? null : serviceId;
+    this.cdr.markForCheck();
   }
 
-  stubImport(): void {}
+  isExpanded(serviceId: string): boolean {
+    return this.expandedServiceId === serviceId;
+  }
+
+  overallLabel(status: PlatformOverallStatus | undefined): string {
+    switch (status) {
+      case 'OPERATIONAL':
+        return 'All systems operational';
+      case 'OUTAGE':
+        return 'Major outage detected';
+      default:
+        return 'Partial degradation';
+    }
+  }
+
+  statusPresentation(status: string): { css: string; label: string } {
+    const upper = status.toUpperCase();
+    if (upper === 'UP') {
+      return { css: 'active', label: 'Operational' };
+    }
+    if (upper === 'DOWN' || upper === 'OUT_OF_SERVICE') {
+      return { css: 'rejected', label: 'Down' };
+    }
+    return { css: 'pending', label: 'Unknown' };
+  }
+
+  latencyClass(ms: number): string {
+    if (ms <= 0) return 'latency--na';
+    if (ms < 120) return 'latency--fast';
+    if (ms < 400) return 'latency--ok';
+    return 'latency--slow';
+  }
+
+  serviceIcon(serviceId: string): string {
+    const id = serviceId.toLowerCase();
+    if (id.includes('gateway')) return 'hub';
+    if (id.includes('auth')) return 'lock';
+    if (id.includes('user')) return 'people';
+    if (id.includes('organization')) return 'corporate_fare';
+    if (id.includes('location')) return 'map';
+    if (id.includes('notification')) return 'notifications';
+    if (id.includes('audit')) return 'policy';
+    if (id.includes('file') || id.includes('upload')) return 'cloud_upload';
+    return 'dns';
+  }
+
+  infraIcon(component: string): string {
+    const c = component.toLowerCase();
+    if (c.includes('db') || c.includes('mysql') || c.includes('jdbc')) return 'storage';
+    if (c.includes('redis')) return 'memory';
+    if (c.includes('rabbit')) return 'sync_alt';
+    if (c.includes('disk')) return 'sd_storage';
+    if (c.includes('ping')) return 'network_check';
+    return 'settings';
+  }
+
+  formatCheckedAt(iso: string | undefined): string {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }
+
+  trackByServiceId = (_: number, row: HealthTableRow): string => row.serviceId;
+
+  trackBySnapshotId = (_: number, row: ServiceHealthSnapshot): string => row.serviceId;
 
   exportAs(format: LxExportFormat): void {
     const ok = exportClientTableAsCsv(
@@ -155,15 +259,49 @@ export class SystemHealthComponent implements OnInit {
         { header: 'service', value: (r) => r.service },
         { header: 'detail', value: (r) => r.detail },
         { header: 'status', value: (r) => r.statusLabel },
+        { header: 'latencyMs', value: (r) => String(r.latencyMs) },
       ],
       'system-health',
       (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
     );
     if (ok) {
-      this.snackBar.open('Exported system health as CSV.', 'Close', {
+      this.snackBar.open('Exported system health snapshot.', 'Close', {
         duration: 3500,
         panelClass: ['app-snackbar-success'],
       });
     }
+  }
+
+  private applySnapshot(snapshot: PlatformHealthSnapshot): void {
+    this.snapshot = snapshot;
+    this.dataSource = snapshot.services.map((s) => {
+      const presentation = this.statusPresentation(s.status);
+      const probe = s.managementPortUsed ? `${s.host}:${s.port} (mgmt)` : `${s.host}:${s.port}`;
+      const componentHint = Object.keys(s.components ?? {}).slice(0, 3).join(' · ');
+      const detailParts = [probe, s.message?.trim(), componentHint].filter(Boolean);
+      return {
+        service: s.displayName,
+        serviceId: s.serviceId,
+        detail: detailParts.join(' · ') || 'Actuator probe',
+        status: presentation.css,
+        statusLabel: presentation.label,
+        latencyMs: s.latencyMs,
+        snapshot: s,
+      };
+    });
+    this.loading = false;
+    this.refreshing = false;
+    this.loadError = '';
+    this.cdr.markForCheck();
+  }
+
+  private applyError(message: string): void {
+    this.loading = false;
+    this.refreshing = false;
+    this.loadError = message;
+    if (this.snapshot) {
+      this.snackBar.open(message, 'Close', { duration: 5000 });
+    }
+    this.cdr.markForCheck();
   }
 }

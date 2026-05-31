@@ -1,4 +1,12 @@
 <div class="lx-page">
+  <lx-page-hero
+    eyebrow="Identity &amp; access"
+    title="Users"
+    [lead]="pageLead"
+    icon="people"
+    variant="violet"
+  ></lx-page-hero>
+
   <div class="lx-card lx-card--subsection" *ngIf="hasScopeFilters" role="status">
     <p class="lx-controls-subtitle" style="margin: 0">
       Showing users scoped to <strong>{{ filterScopeSummary }}</strong>.
@@ -6,10 +14,10 @@
     </p>
   </div>
 
-  <div class="lx-card lx-card--subsection links-strip">
-    <a class="links-strip__item" routerLink="/users/groups" routerLinkActive="is-active"><mat-icon>groups</mat-icon>User Groups</a>
-    <a class="links-strip__item" routerLink="/users/roles" routerLinkActive="is-active"><mat-icon>verified_user</mat-icon>User Roles</a>
-    <a class="links-strip__item" routerLink="/users/types" routerLinkActive="is-active"><mat-icon>category</mat-icon>User Types</a>
+  <div class="lx-card lx-card--subsection lx-quick-nav">
+    <a class="lx-quick-nav__item" routerLink="/users/groups" routerLinkActive="is-active"><mat-icon>groups</mat-icon>User Groups</a>
+    <a class="lx-quick-nav__item" routerLink="/users/roles" routerLinkActive="is-active"><mat-icon>verified_user</mat-icon>User Roles</a>
+    <a class="lx-quick-nav__item" routerLink="/users/types" routerLinkActive="is-active"><mat-icon>category</mat-icon>User Types</a>
   </div>
 
   <div class="lx-card lx-card--subsection">
@@ -189,7 +197,7 @@
   <div class="lx-card">
     <div class="lx-table-header">
       <div>
-        <h2 class="lc-title">All users</h2>
+        <p class="lx-table-meta">Directory of user accounts</p>
         <p class="lc-lead" *ngIf="!hasScopeFilters">Directory of portal accounts.</p>
         <p class="lc-lead" *ngIf="hasScopeFilters && !fetching">
           <strong>{{ totalRecords }}</strong>

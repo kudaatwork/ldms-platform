@@ -8,6 +8,8 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContextHolder;
+import projectlx.co.zw.shared_library.utils.audit.AuditAspectEnrichmentSupport;
+import projectlx.co.zw.shared_library.utils.audit.AuditClientPlatformSupport;
 import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
@@ -53,6 +55,7 @@ public class AuditAspect {
             }
 
             assert auditable != null;
+            username = AuditAspectEnrichmentSupport.resolveUsername(joinPoint, auditable.action(), username);
             String traceId = AuditHttpTraceSupport.currentTraceIdFromMdcOrNew();
             AuditLogDto logDto = AuditLogDto.builder()
                     .serviceName(serviceName)
@@ -61,6 +64,7 @@ public class AuditAspect {
                     .requestTimestamp(requestStart)
                     .responseTimestamp(responseEnd)
                     .username(username)
+                    .clientPlatform(AuditClientPlatformSupport.fromCurrentRequest())
                     .action(auditable.action())
                     .eventType(AuditEventType.SERVICE_METHOD)
                     .requestPayload(Arrays.toString(joinPoint.getArgs()))

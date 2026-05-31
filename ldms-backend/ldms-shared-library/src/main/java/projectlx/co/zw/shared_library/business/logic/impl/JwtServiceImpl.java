@@ -8,7 +8,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.springframework.util.StringUtils;
 import javax.crypto.SecretKey;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +21,13 @@ import projectlx.co.zw.shared_library.utils.security.JwtSigningKeys;
 @Service
 @RequiredArgsConstructor
 public class JwtServiceImpl implements JwtService {
+
+    /**
+     * Access tokens with more roles are stored without a {@code roles} claim to keep the Authorization
+     * header under reverse-proxy limits. Microservices still authenticate via {@code sub} / profile claims;
+     * backoffice surfaces use {@code permitAll} at the HTTP layer.
+     */
+    private static final int MAX_ROLES_IN_ACCESS_TOKEN = 48;
 
     private final JwtProperties jwtProperties;
 
@@ -37,10 +43,21 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public String generateRefreshToken(UserDetails userDetails) {
-        return buildToken(userDetails, jwtProperties.getRefreshTokenExpirationMs(), Map.of());
+        return buildToken(userDetails, jwtProperties.getRefreshTokenExpirationMs(), Map.of(), false);
     }
 
-    private String buildToken(UserDetails userDetails, long expirationMillis, Map<String, Object> additionalClaims) {
+    private String buildToken(
+            UserDetails userDetails,
+            long expirationMillis,
+            Map<String, Object> additionalClaims) {
+        return buildToken(userDetails, expirationMillis, additionalClaims, true);
+    }
+
+    private String buildToken(
+            UserDetails userDetails,
+            long expirationMillis,
+            Map<String, Object> additionalClaims,
+            boolean includeRoles) {
         Map<String, Object> claims = new HashMap<>();
         if (additionalClaims != null) {
             additionalClaims.forEach((key, value) -> {
@@ -49,11 +66,16 @@ public class JwtServiceImpl implements JwtService {
                 }
             });
         }
-        claims.put(
-                "roles",
-                userDetails.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority)
-                        .collect(Collectors.toList()));
+        if (includeRoles) {
+            List<String> roleCodes = userDetails.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .map(JwtServiceImpl::stripRolePrefix)
+                    .filter(StringUtils::hasText)
+                    .toList();
+            if (!roleCodes.isEmpty() && roleCodes.size() <= MAX_ROLES_IN_ACCESS_TOKEN) {
+                claims.put("roles", String.join(",", roleCodes));
+            }
+        }
 
         long now = System.currentTimeMillis();
         return Jwts.builder()
