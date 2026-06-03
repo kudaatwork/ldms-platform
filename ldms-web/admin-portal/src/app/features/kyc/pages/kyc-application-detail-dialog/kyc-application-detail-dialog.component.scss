@@ -7,7 +7,8 @@
   flex-direction: column;
   min-height: 0;
   max-height: 94vh;
-  background: linear-gradient(165deg, #f8fafc 0%, #fff 42%);
+  background: linear-gradient(165deg, var(--gray-50) 0%, var(--raised) 42%);
+  color: var(--gray-800);
 }
 
 .kd-hero {
@@ -69,7 +70,7 @@
   margin: 0 24px 12px;
   padding: 12px 14px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--primary, #1565c0) 9%, #fff);
+  background: color-mix(in srgb, var(--primary, #1565c0) 9%, var(--raised));
   border: 1px solid color-mix(in srgb, var(--primary, #1565c0) 24%, transparent);
   font-size: 13px;
   font-weight: 500;
@@ -98,8 +99,8 @@
 .kd-block {
   padding: 16px 18px;
   border-radius: 14px;
-  border: 1px solid var(--gray-100);
-  background: #fff;
+  border: 1px solid var(--gray-200);
+  background: var(--raised);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
@@ -169,8 +170,8 @@
 .kd-reviewer {
   padding: 12px 14px;
   border-radius: 12px;
-  background: var(--gray-50);
-  border: 1px solid var(--gray-100);
+  background: var(--surface-2);
+  border: 1px solid var(--gray-200);
 }
 
 .kd-reviewer__stage {
@@ -195,9 +196,9 @@
   line-height: 1.55;
   color: var(--gray-700);
   padding: 12px 14px;
-  background: var(--gray-50);
+  background: var(--surface-2);
   border-radius: 10px;
-  border: 1px solid var(--gray-100);
+  border: 1px solid var(--gray-200);
 }
 
 .kd-hint {
@@ -223,15 +224,15 @@
   font-size: 13px;
   color: var(--gray-600);
   padding: 14px 16px;
-  background: var(--gray-50);
+  background: var(--surface-2);
   border-radius: 12px;
-  border: 1px solid var(--gray-100);
+  border: 1px solid var(--gray-200);
 }
 
 .kd-decision {
   flex-shrink: 0;
   border-top: 1px solid var(--gray-200);
-  background: linear-gradient(180deg, #f8fafc 0%, #fff 28%);
+  background: linear-gradient(180deg, var(--gray-50) 0%, var(--raised) 28%);
   box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.08);
 }
 
@@ -286,7 +287,7 @@
   padding: 16px 16px 16px 14px;
   border-radius: 14px;
   border: 1px solid transparent;
-  background: #fff;
+  background: var(--raised);
   text-align: left;
   cursor: pointer;
   transition:
@@ -307,10 +308,14 @@
 
 .kd-action-card--accept {
   border-color: color-mix(in srgb, #2e7d32 28%, var(--gray-200));
-  background: linear-gradient(135deg, #fff 0%, color-mix(in srgb, #2e7d32 6%, #fff) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--raised) 0%,
+    color-mix(in srgb, #2e7d32 6%, var(--raised)) 100%
+  );
 
   .kd-action-card__icon {
-    background: color-mix(in srgb, #2e7d32 14%, #fff);
+    background: color-mix(in srgb, #2e7d32 14%, var(--raised));
     color: #2e7d32;
   }
 
@@ -321,10 +326,14 @@
 
 .kd-action-card--reject {
   border-color: color-mix(in srgb, #c62828 22%, var(--gray-200));
-  background: linear-gradient(135deg, #fff 0%, color-mix(in srgb, #c62828 5%, #fff) 100%);
+  background: linear-gradient(
+    135deg,
+    var(--raised) 0%,
+    color-mix(in srgb, #c62828 5%, var(--raised)) 100%
+  );
 
   .kd-action-card__icon {
-    background: color-mix(in srgb, #c62828 12%, #fff);
+    background: color-mix(in srgb, #c62828 12%, var(--raised));
     color: #c62828;
   }
 
@@ -385,7 +394,7 @@
   padding: 14px 16px;
   border-radius: 14px;
   border: 1px dashed color-mix(in srgb, var(--primary, #1565c0) 35%, var(--gray-200));
-  background: color-mix(in srgb, var(--primary, #1565c0) 5%, #fff);
+  background: color-mix(in srgb, var(--primary, #1565c0) 5%, var(--raised));
 }
 
 .kd-resubmit-card__copy {
@@ -422,7 +431,7 @@
   padding: 16px;
   border-radius: 14px;
   border: 1px solid var(--gray-200);
-  background: #fff;
+  background: var(--raised);
   animation: kd-reason-in 0.22s ease-out;
 }
 
@@ -447,8 +456,8 @@
   font-size: 12px;
   line-height: 1.45;
   color: var(--gray-700);
-  background: var(--gray-50);
-  border: 1px solid var(--gray-100);
+  background: var(--surface-2);
+  border: 1px solid var(--gray-200);
 
   mat-icon {
     flex-shrink: 0;
@@ -460,7 +469,7 @@
   }
 
   &--reject {
-    background: color-mix(in srgb, #c62828 6%, #fff);
+    background: color-mix(in srgb, #c62828 6%, var(--raised));
     border-color: color-mix(in srgb, #c62828 18%, transparent);
 
     mat-icon {
@@ -493,7 +502,7 @@
   padding: 6px 12px;
   border-radius: 999px;
   border: 1px solid var(--gray-200);
-  background: var(--gray-50);
+  background: var(--surface-2);
   font-size: 12px;
   line-height: 1.35;
   color: var(--gray-700);
@@ -503,7 +512,7 @@
     border-color 0.15s ease;
 
   &:hover {
-    background: #fff;
+    background: var(--raised-hover);
     border-color: color-mix(in srgb, var(--primary, #1565c0) 35%, var(--gray-200));
     color: var(--gray-900);
   }
@@ -572,9 +581,27 @@
 
 .kd-actions {
   padding: 8px 20px 16px !important;
-  border-top: 1px solid var(--gray-100);
-  background: #fff;
+  border-top: 1px solid var(--gray-200);
+  background: var(--raised);
   flex-shrink: 0;
+}
+
+:host-context(html.theme-dark) {
+  .kd-block {
+    box-shadow: none;
+  }
+
+  .kd-decision {
+    box-shadow: 0 -8px 28px rgba(2, 8, 23, 0.42);
+  }
+
+  .kd-action-card--accept .kd-action-card__icon {
+    color: #6ee7b7;
+  }
+
+  .kd-action-card--reject .kd-action-card__icon {
+    color: #fca5a5;
+  }
 }
 
 @media (max-width: 720px) {
