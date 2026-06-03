@@ -40,7 +40,7 @@
   padding: 1rem 1.1rem;
   border: 1px solid var(--gray-200);
   border-radius: 16px;
-  background: linear-gradient(180deg, var(--surface-elevated, #fff) 0%, var(--gray-50) 100%);
+  background: linear-gradient(180deg, var(--surface-elevated) 0%, var(--gray-50) 100%);
   text-align: left;
   cursor: pointer;
   transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
@@ -52,12 +52,12 @@
   }
 
   &--active {
-    border-color: color-mix(in srgb, var(--primary-500, #2563eb) 55%, white);
+    border-color: color-mix(in srgb, var(--primary-500, #2563eb) 55%, var(--raised));
     box-shadow: 0 12px 32px rgba(37, 99, 235, 0.14);
     background: linear-gradient(
       135deg,
-      color-mix(in srgb, var(--primary-500, #2563eb) 8%, white),
-      color-mix(in srgb, var(--primary-500, #2563eb) 3%, white)
+      color-mix(in srgb, var(--primary-500, #2563eb) 8%, var(--raised)),
+      color-mix(in srgb, var(--primary-500, #2563eb) 3%, var(--raised))
     );
   }
 }
@@ -68,7 +68,7 @@
   width: 42px;
   height: 42px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--primary-500, #2563eb) 12%, white);
+  background: color-mix(in srgb, var(--primary-500, #2563eb) 12%, var(--raised));
   color: var(--primary-600, #1d4ed8);
 
   mat-icon {

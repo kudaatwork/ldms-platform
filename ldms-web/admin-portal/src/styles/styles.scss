@@ -87,6 +87,7 @@ html.theme-dark {
 
   --surface: #1e293b;
   --surface-2: #172338;
+  --surface-elevated: #25354d;
   --page-bg: #0f172a;
   --raised: #25354d;
   --raised-hover: #2d4360;
@@ -1365,6 +1366,12 @@ body.lx-page-modal-open {
   padding: 0 !important;
   border-radius: 16px !important;
   overflow: hidden;
+}
+
+html.theme-dark .cdk-overlay-pane.kyc-review-dialog-panel .mat-mdc-dialog-container .mdc-dialog__surface {
+  background: var(--surface) !important;
+  color: var(--gray-800);
+  box-shadow: var(--card-shadow);
 }
 
 /* ── Dropdown contents: native <option> + Material mat-select panel ─── */
