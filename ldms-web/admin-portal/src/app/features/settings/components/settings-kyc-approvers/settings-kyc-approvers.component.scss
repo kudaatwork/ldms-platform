@@ -10,7 +10,7 @@
   padding: 1.25rem 1.35rem 1.35rem;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--primary-500, #2563eb) 12%, transparent), transparent 55%),
-    linear-gradient(180deg, white, color-mix(in srgb, var(--gray-50) 70%, white));
+    linear-gradient(180deg, var(--raised), color-mix(in srgb, var(--gray-50) 70%, var(--raised)));
 }
 
 .ka-hero__eyebrow {
@@ -45,7 +45,7 @@
   border: 1px solid var(--gray-200);
   border-radius: 16px;
   padding: 0.95rem 1rem;
-  background: white;
+  background: var(--raised);
   text-align: left;
   cursor: pointer;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
@@ -56,7 +56,7 @@
   }
 
   &--active {
-    border-color: color-mix(in srgb, var(--primary-500, #2563eb) 55%, white);
+    border-color: color-mix(in srgb, var(--primary-500, #2563eb) 55%, var(--raised));
     box-shadow: 0 12px 28px rgba(37, 99, 235, 0.12);
   }
 }
@@ -197,11 +197,11 @@
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 700;
-  background: color-mix(in srgb, var(--primary-500, #2563eb) 12%, white);
+  background: color-mix(in srgb, var(--primary-500, #2563eb) 12%, var(--raised));
   color: var(--primary-700, #1e40af);
 
   &--single {
-    background: color-mix(in srgb, #059669 12%, white);
+    background: color-mix(in srgb, #059669 12%, var(--raised));
     color: #047857;
   }
 }
@@ -211,7 +211,7 @@
   padding: 0.45rem 0.55rem;
   border: 1px solid var(--gray-200);
   border-radius: 10px;
-  background: white;
+  background: var(--raised);
   color: var(--gray-800);
 }
 
@@ -250,7 +250,7 @@
   font-weight: 700;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--primary-500, #2563eb) 12%, white);
+  background: color-mix(in srgb, var(--primary-500, #2563eb) 12%, var(--raised));
   color: var(--primary-700, #1e40af);
 }
 
@@ -259,8 +259,8 @@
   gap: 0.65rem;
   padding: 0.85rem;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--primary-500, #2563eb) 6%, white);
-  border: 1px solid color-mix(in srgb, var(--primary-500, #2563eb) 16%, white);
+  background: color-mix(in srgb, var(--primary-500, #2563eb) 6%, var(--raised));
+  border: 1px solid color-mix(in srgb, var(--primary-500, #2563eb) 16%, var(--raised));
 
   mat-icon {
     color: var(--primary-600, #1d4ed8);
