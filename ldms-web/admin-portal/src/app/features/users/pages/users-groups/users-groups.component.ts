@@ -37,6 +37,9 @@ interface UserGroupRow {
   standalone: false,
 })
 export class UsersGroupsComponent implements OnInit, OnDestroy {
+  readonly pageLead =
+    'Bundle users and roles into groups for faster permission management across the platform.';
+
   /** Bumped when row shape changes (e.g. member counts) so stale localStorage does not keep `users: 0`. */
   private static readonly ROWS_CACHE_KEY = 'lx.admin.users.userGroups.rows.v3';
   private viewGroupQuerySub?: Subscription;

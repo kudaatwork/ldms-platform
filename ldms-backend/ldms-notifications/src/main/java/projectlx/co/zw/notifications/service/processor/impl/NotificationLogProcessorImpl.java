@@ -2,6 +2,7 @@ package projectlx.co.zw.notifications.service.processor.impl;
 
 import com.lowagie.text.DocumentException;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -46,5 +47,17 @@ public class NotificationLogProcessorImpl implements NotificationLogProcessor {
             throws DocumentException {
         logger.info("Incoming request to export notification log as PDF");
         return notificationLogService.exportToPdf(request, username, locale);
+    }
+
+    @Override
+    public NotificationLogResponse churnOutLogs(String username, Locale locale) {
+        logger.info("Incoming request to churn out notification logs");
+        return notificationLogService.churnOutLogs(username, locale);
+    }
+
+    @Override
+    public int churnOutLogsBefore(LocalDateTime cutoff, String username) {
+        logger.info("Incoming scheduled request to churn out notification logs before {}", cutoff);
+        return notificationLogService.churnOutLogsBefore(cutoff, username);
     }
 }

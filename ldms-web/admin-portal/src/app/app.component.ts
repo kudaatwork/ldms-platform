@@ -11,11 +11,14 @@ import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
 import { filter, takeUntil, tap } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { CurrentUserService, ShellUserView } from './core/services/current-user.service';
+import { NavAccessService } from './core/services/nav-access.service';
+import { KycNotificationDismissService } from './core/services/kyc-notification-dismiss.service';
 import { KycQueueStatsService } from './core/services/kyc-queue-stats.service';
 import { StorageService } from './core/services/storage.service';
 import type { KycQueueSummary } from './features/organizations/services/organizations-admin.service';
 import { ThemeService } from './core/services/theme.service';
 import { ORG_CLASSIFICATIONS } from './shared/models/org-classifications';
+import { isStoredSessionToken } from './core/utils/jwt.util';
 
 /** Leaf link or non-clickable section label inside a nav subsection. */
 type NavSubEntry =
@@ -51,6 +54,9 @@ interface TopNotification {
   title: string;
   body: string;
   time: string;
+  /** When set, clicking the notification navigates here. */
+  route?: string[];
+  queryParams?: Record<string, string | number>;
 }
 
 function classificationNavIcon(slug: string): string {
@@ -109,7 +115,9 @@ export class AppComponent implements OnInit, OnDestroy {
   /** Snapshot for templates (e.g. sidebar active states). */
   currentUrl = '';
 
-  navItems: NavItem[] = [
+  visibleNavItems: NavItem[] = [];
+
+  private readonly allNavItems: NavItem[] = [
     { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
     { label: 'KYC Queue', icon: 'verified_user', route: '/kyc/applications' },
     {
@@ -176,7 +184,7 @@ export class AppComponent implements OnInit, OnDestroy {
       route: '/activity',
       children: [
         { label: 'Request logs', icon: 'receipt', route: '/activity/request-logs' },
-        { label: 'Activity logs', icon: 'history', route: '/activity/activity-logs' },
+        { label: 'Login & activity', icon: 'history', route: '/activity/activity-logs' },
         { label: 'Churnout history', icon: 'restore', route: '/activity/churnout-history' },
       ],
     },
@@ -196,7 +204,9 @@ export class AppComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly storage: StorageService,
     private readonly currentUser: CurrentUserService,
+    readonly navAccess: NavAccessService,
     private readonly kycStats: KycQueueStatsService,
+    private readonly kycNotificationDismiss: KycNotificationDismissService,
     readonly theme: ThemeService,
   ) {}
 
@@ -204,6 +214,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.registerActivityListeners();
     this.currentUser.user$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
       this.shellUser = user;
+      this.rebuildVisibleNav();
       this.syncChromeFromUrl();
       this.cdr.markForCheck();
     });
@@ -214,6 +225,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.storage.getToken() && !this.storage.getToken()?.startsWith('mock-token-')) {
       this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
     }
+    this.rebuildVisibleNav();
     this.syncChromeFromUrl();
     this.rebuildBreadcrumbs();
     this.router.events
@@ -344,7 +356,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const nextExpanded = { ...this.expandedGroups() };
     const activeGroupKeys = new Set<string>();
 
-    for (const item of this.navItems) {
+    for (const item of this.visibleNavItems) {
       if (!item.children?.length) {
         continue;
       }
@@ -367,7 +379,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     // When viewing a section, close other top-level groups; on neutral pages (e.g. dashboard) keep manual toggles.
     if (activeGroupKeys.size > 0) {
-      for (const item of this.navItems) {
+      for (const item of this.visibleNavItems) {
         if (!item.children?.length) {
           continue;
         }
@@ -476,7 +488,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private isAuthenticated(): boolean {
-    return !!this.storage.getToken();
+    return isStoredSessionToken(this.storage.getToken());
   }
 
   /** True when the current URL is this nav group or one of its child routes. */
@@ -499,7 +511,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if (url.startsWith('/help')) {
       return 'Help & Support';
     }
-    for (const item of this.navItems) {
+    for (const item of this.visibleNavItems.length ? this.visibleNavItems : this.allNavItems) {
       if (item.children) {
         for (const child of item.children) {
           if (!this.isNavChild(child)) {
@@ -575,7 +587,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private applyKycQueueSummary(summary: KycQueueSummary | null): void {
-    const kycNav = this.navItems.find((item) => item.route === '/kyc/applications');
+    const kycNav = this.allNavItems.find((item) => item.route === '/kyc/applications');
     if (kycNav) {
       const count = summary?.totalInQueue ?? 0;
       kycNav.badge = count > 0 ? count : undefined;
@@ -584,12 +596,17 @@ export class AppComponent implements OnInit, OnDestroy {
       this.topNotifications = [];
       return;
     }
-    this.topNotifications = summary.recentApplications.map((row) => ({
-      id: `kyc-${row.id}`,
-      title: 'KYC application in queue',
-      body: `${row.applicant} — ${row.statusLabel}`,
-      time: row.submitted?.trim() || 'Pending review',
-    }));
+    this.topNotifications = this.kycNotificationDismiss
+      .filterById(
+        summary.recentApplications.map((row) => ({
+          id: `kyc-${row.id}`,
+          title: 'KYC application in queue',
+          body: `${row.applicant} — ${row.statusLabel}`,
+          time: row.submitted?.trim() || 'Pending review',
+          route: ['/kyc/applications'],
+          queryParams: { applicationId: row.id },
+        })),
+      );
   }
 
   toggleNotifications(): void {
@@ -608,12 +625,29 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  dismissNotification(id: string): void {
+  openNotification(notification: TopNotification): void {
+    if (!notification.route?.length) {
+      return;
+    }
+    this.notificationsOpen = false;
+    void this.router.navigate(notification.route, {
+      queryParams: notification.queryParams,
+    });
+    this.dismissNotification(notification.id);
+    this.cdr.markForCheck();
+  }
+
+  dismissNotification(id: string, event?: Event): void {
+    event?.stopPropagation();
+    this.kycNotificationDismiss.dismiss(id);
     this.topNotifications = this.topNotifications.filter((n) => n.id !== id);
     this.cdr.markForCheck();
   }
 
   clearAllNotifications(): void {
+    for (const n of this.topNotifications) {
+      this.kycNotificationDismiss.dismiss(n.id);
+    }
     this.topNotifications = [];
     this.cdr.markForCheck();
   }
@@ -641,6 +675,10 @@ export class AppComponent implements OnInit, OnDestroy {
       this.profileOpen = false;
       this.cdr.markForCheck();
     }
+  }
+
+  rebuildVisibleNav(): void {
+    this.visibleNavItems = this.navAccess.filterNavItems(this.allNavItems);
   }
 
   logout(fromTimeout = false): void {

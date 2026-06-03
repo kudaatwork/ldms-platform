@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
+import { RoleGuard } from './core/guards/role.guard';
 import { StaticShellPageComponent } from './shared/static-shell-page/static-shell-page.component';
 import { MyAccountComponent } from './features/account/pages/my-account/my-account.component';
 
@@ -11,7 +12,7 @@ const routes: Routes = [
   },
   {
     path: '',
-    canActivate: [AuthGuard],
+    canActivate: [AuthGuard, RoleGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {
@@ -72,21 +73,13 @@ const routes: Routes = [
       },
       {
         path: 'settings',
-        component: StaticShellPageComponent,
-        data: {
-          title: 'Settings',
-          breadcrumb: 'Settings',
-          lead: 'Theme, notifications, and workspace defaults will be configurable here.',
-        },
+        loadChildren: () => import('./features/settings/settings.module').then((m) => m.SettingsModule),
+        data: { breadcrumb: 'Settings' },
       },
       {
         path: 'help',
-        component: StaticShellPageComponent,
-        data: {
-          title: 'Help & Support',
-          breadcrumb: 'Help & Support',
-          lead: 'Documentation, status, and ways to reach LX operations will live here.',
-        },
+        loadChildren: () => import('./features/help/help.module').then((m) => m.HelpModule),
+        data: { breadcrumb: 'Help & Support' },
       },
     ],
   },

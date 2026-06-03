@@ -45,6 +45,9 @@ interface UserTypeOption extends SelectOption {
   standalone: false,
 })
 export class UsersListComponent implements OnInit, OnDestroy {
+  readonly pageLead =
+    'Search, filter, and manage platform users — accounts, verification, roles, and group membership.';
+
   fetching = true;
   exporting = false;
   resendingVerificationUserId: number | null = null;

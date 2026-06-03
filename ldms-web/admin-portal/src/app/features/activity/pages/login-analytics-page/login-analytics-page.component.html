@@ -1,0 +1,533 @@
+<div class="lx-page lx-page--audit lx-page--login-analytics">
+  <ng-container *ngIf="!loading; else skel">
+    <header class="lx-audit-hero lx-card">
+      <div class="lx-audit-hero__text">
+        <div class="lx-audit-hero__eyebrow">
+          <mat-icon aria-hidden="true">verified_user</mat-icon>
+          Security & compliance
+        </div>
+        <h1 class="lx-audit-hero__title">Login & user activity</h1>
+        <p class="lx-audit-hero__lead">
+          Immutable audit trail of sign-in events (who, when, which client, IP address) with drill-down into every
+          recorded business action for investigations and compliance reviews.
+        </p>
+      </div>
+      <div class="lx-audit-kpi-grid" aria-label="Summary">
+        <div class="lx-audit-kpi">
+          <span class="lx-audit-kpi__label">Sign-in events</span>
+          <span class="lx-audit-kpi__value">{{ loginTotalElements | number }}</span>
+          <span class="lx-audit-kpi__hint">Matching current filters</span>
+        </div>
+        <div class="lx-audit-kpi">
+          <span class="lx-audit-kpi__label">Platforms (this page)</span>
+          <span class="lx-audit-kpi__value">{{ platformsOnPage.length | number }}</span>
+          <span class="lx-audit-kpi__hint" *ngIf="platformsOnPage.length">{{ platformsOnPage.join(' · ') }}</span>
+          <span class="lx-audit-kpi__hint" *ngIf="!platformsOnPage.length">—</span>
+        </div>
+        <div class="lx-audit-kpi" [class.lx-audit-kpi--active]="!!selectedUsername">
+          <span class="lx-audit-kpi__label">Investigation subject</span>
+          <span class="lx-audit-kpi__value lx-audit-kpi__value--user">{{ selectedUsername || 'None selected' }}</span>
+          <span class="lx-audit-kpi__hint">Click a user row to drill down</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="audit-section" aria-labelledby="login-analytics-heading">
+      <div class="lx-card lx-card--subsection">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">Filter sign-in events, export for compliance packs, or open a user timeline.</p>
+        <div class="lx-data-toolbar">
+          <div class="lx-data-toolbar__actions">
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="refreshLoginEvents()" [disabled]="loginLoading">
+              Refresh
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-success lx-export-trigger"
+              [matMenuTriggerFor]="loginExportMenu"
+              [disabled]="loginLoading || loginExporting"
+            >
+              Export{{ loginExporting ? '…' : '' }}
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost"
+              (click)="resetLoginFilters()"
+              [disabled]="!loginFiltersActive()"
+            >
+              Reset filters
+            </button>
+          </div>
+          <div class="lx-data-toolbar__search">
+            <div class="lx-input-shell lx-search-field">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input
+                [(ngModel)]="loginSearchQuery"
+                (ngModelChange)="onLoginFiltersChanged()"
+                placeholder="Search user, trace ID, IP, platform…"
+              />
+            </div>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+              (click)="loginFilterFieldsOpen = !loginFilterFieldsOpen"
+              [class.lx-btn-filter--on]="loginFilterFieldsOpen || loginFiltersActive()"
+            >
+              <mat-icon>tune</mat-icon>
+              Filters
+              <span class="lx-filter-badge" *ngIf="loginFiltersActive()">•</span>
+            </button>
+          </div>
+        </div>
+
+        <mat-menu #loginExportMenu="matMenu" panelClass="lx-export-menu">
+          <button mat-menu-item class="lx-export-option--pdf" (click)="exportLoginLogs('pdf')">
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>Export PDF</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--csv" (click)="exportLoginLogs('csv')">
+            <mat-icon>table_view</mat-icon>
+            <span>Export CSV</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--xlsx" (click)="exportLoginLogs('xlsx')">
+            <mat-icon>grid_on</mat-icon>
+            <span>Export XLSX</span>
+          </button>
+        </mat-menu>
+
+        <div class="lx-filter-panel" *ngIf="loginFilterFieldsOpen">
+          <span class="lx-filter-panel__label">Column filters</span>
+          <div class="lx-filter-fields">
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Username</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">person</mat-icon>
+                <input
+                  [(ngModel)]="loginColumnFilters.username"
+                  (ngModelChange)="onLoginFiltersChanged()"
+                  placeholder="Exact or partial"
+                />
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Platform</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">devices</mat-icon>
+                <select [(ngModel)]="loginColumnFilters.platform" (ngModelChange)="onLoginFiltersChanged()">
+                  <option *ngFor="let opt of platformOptions" [value]="opt.value">{{ opt.label }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Sign-in method</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">login</mat-icon>
+                <select [(ngModel)]="loginColumnFilters.signInMethod" (ngModelChange)="onLoginFiltersChanged()">
+                  <option *ngFor="let opt of signInMethodOptions" [value]="opt.value">{{ opt.label }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Trace ID</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">fingerprint</mat-icon>
+                <input
+                  [(ngModel)]="loginColumnFilters.traceId"
+                  (ngModelChange)="onLoginFiltersChanged()"
+                  placeholder="Correlation id"
+                />
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Client IP</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">public</mat-icon>
+                <input
+                  [(ngModel)]="loginColumnFilters.clientIp"
+                  (ngModelChange)="onLoginFiltersChanged()"
+                  placeholder="e.g. 192.168."
+                />
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">From</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">calendar_month</mat-icon>
+                <input type="datetime-local" [(ngModel)]="loginColumnFilters.from" (ngModelChange)="onLoginFiltersChanged()" />
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">To</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">event</mat-icon>
+                <input type="datetime-local" [(ngModel)]="loginColumnFilters.to" (ngModelChange)="onLoginFiltersChanged()" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lx-card">
+        <div class="lx-table-header">
+          <div>
+            <h2 class="lc-title" id="login-analytics-heading">Sign-in history</h2>
+            <p class="lc-lead">
+              Each row is an audited authentication event. Select a user to load their full service-method activity
+              timeline below.
+            </p>
+          </div>
+          <span class="lx-fetch-hint" *ngIf="loginLoading">
+            <mat-icon class="lx-spin" aria-hidden="true">sync</mat-icon>
+            Refreshing…
+          </span>
+        </div>
+
+        <lx-table-loading
+          [busy]="loginLoading && loginTableDataSource.data.length === 0"
+          message="Loading sign-in history…"
+        ></lx-table-loading>
+
+        <ng-container *ngIf="loginTableDataSource.data.length > 0 || loginTotalElements > 0">
+          <div class="lx-table-wrap lx-table-wrap--host">
+            <lx-table-loading
+              [busy]="loginLoading && loginTableDataSource.data.length > 0"
+              [hasData]="true"
+              message="Refreshing sign-in history…"
+            ></lx-table-loading>
+            <table mat-table [dataSource]="loginTableDataSource" class="lx-mat-table lx-login-table">
+              <ng-container matColumnDef="id">
+                <th mat-header-cell *matHeaderCellDef>Audit ID</th>
+                <td mat-cell *matCellDef="let row" class="lx-mono lx-audit-id">#{{ row.id }}</td>
+              </ng-container>
+              <ng-container matColumnDef="time">
+                <th mat-header-cell *matHeaderCellDef>Timestamp</th>
+                <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.time }}</td>
+              </ng-container>
+              <ng-container matColumnDef="username">
+                <th mat-header-cell *matHeaderCellDef>User</th>
+                <td mat-cell *matCellDef="let row">
+                  <button type="button" class="lx-link-btn" (click)="selectUser(row, $event)">{{ row.username }}</button>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="platform">
+                <th mat-header-cell *matHeaderCellDef>Platform</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="lx-platform-pill" [ngClass]="platformPillClass(row.platform)">{{ row.platformLabel }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="action">
+                <th mat-header-cell *matHeaderCellDef>Method</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="lx-method-pill" [ngClass]="methodPillClass(row.action)">{{ row.actionLabel }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="clientIp">
+                <th mat-header-cell *matHeaderCellDef>Client IP</th>
+                <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.clientIp }}</td>
+              </ng-container>
+              <ng-container matColumnDef="traceId">
+                <th mat-header-cell *matHeaderCellDef>Trace ID</th>
+                <td mat-cell *matCellDef="let row">
+                  <button
+                    type="button"
+                    class="lx-trace-chip"
+                    [title]="row.traceId"
+                    (click)="copyTraceId(row.traceId, $event)"
+                  >
+                    {{ row.traceIdShort }}
+                    <mat-icon>content_copy</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef>Actions</th>
+                <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="selectUser(row, $event)">
+                    Activity
+                  </button>
+                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="viewLoginDetail(row, $event)">
+                    Details
+                  </button>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="loginDisplayedColumns; sticky: true"></tr>
+              <tr
+                mat-row
+                *matRowDef="let row; columns: loginDisplayedColumns"
+                [class.lx-row--selected]="selectedUsername === row.username"
+                (click)="selectUser(row)"
+              ></tr>
+            </table>
+          </div>
+          <mat-paginator
+            class="lx-table-paginator"
+            [length]="loginTotalElements"
+            [pageIndex]="loginPageIndex"
+            [pageSize]="loginPageSize"
+            [pageSizeOptions]="[10, 20, 25, 50, 100]"
+            [showFirstLastButtons]="true"
+            (page)="onLoginPage($event)"
+          ></mat-paginator>
+        </ng-container>
+
+        <div class="lx-empty lx-empty--compact" *ngIf="!loginLoading && loginTableDataSource.data.length === 0">
+          <mat-icon class="lx-empty-icon">login</mat-icon>
+          <div class="lx-empty-title">No sign-in events found</div>
+          <div class="lx-empty-sub">
+            Adjust filters or sign in again. Events are stored as action USER_AUTHENTICATION (service auth-management).
+            Ensure RabbitMQ and ldms-audit-trail are running.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="audit-section audit-section--drilldown"
+      *ngIf="selectedUsername"
+      aria-labelledby="user-activity-heading"
+    >
+      <div class="lx-card lx-card--drilldown">
+        <div class="lx-drilldown-header">
+          <div class="lx-drilldown-header__main">
+            <div class="lx-drilldown-avatar" aria-hidden="true">{{ (selectedUsername || '?').slice(0, 1).toUpperCase() }}</div>
+            <div>
+              <h2 class="lc-title" id="user-activity-heading">Activity timeline</h2>
+              <p class="lc-lead lx-drilldown-user">
+                <strong>{{ selectedUsername }}</strong> — audited service actions (excludes sign-in, refresh, raw HTTP).
+              </p>
+            </div>
+          </div>
+          <button type="button" class="lx-btn lx-btn-ghost" (click)="clearSelectedUser()">
+            <mat-icon>close</mat-icon>
+            Close
+          </button>
+        </div>
+
+        <div class="lx-card lx-card--subsection lx-card--nested">
+          <div class="lx-data-toolbar">
+            <div class="lx-data-toolbar__actions">
+              <button type="button" class="lx-btn lx-btn-ghost" (click)="refreshActivity()" [disabled]="activityLoading">
+                Refresh
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-success lx-export-trigger"
+                [matMenuTriggerFor]="activityExportMenu"
+                [disabled]="activityLoading || activityExporting"
+              >
+                Export{{ activityExporting ? '…' : '' }}
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost"
+                (click)="resetActivityFilters()"
+                [disabled]="!activityFiltersActive()"
+              >
+                Reset filters
+              </button>
+            </div>
+            <div class="lx-data-toolbar__search">
+              <div class="lx-input-shell lx-search-field">
+                <mat-icon class="lx-input-shell__icon">search</mat-icon>
+                <input
+                  [(ngModel)]="activitySearchQuery"
+                  (ngModelChange)="onActivityFiltersChanged()"
+                  placeholder="Search action, service, trace…"
+                />
+              </div>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+                (click)="activityFilterFieldsOpen = !activityFilterFieldsOpen"
+                [class.lx-btn-filter--on]="activityFilterFieldsOpen || activityFiltersActive()"
+              >
+                <mat-icon>tune</mat-icon>
+                Filters
+                <span class="lx-filter-badge" *ngIf="activityFiltersActive()">•</span>
+              </button>
+            </div>
+          </div>
+
+          <mat-menu #activityExportMenu="matMenu" panelClass="lx-export-menu">
+            <button mat-menu-item class="lx-export-option--pdf" (click)="exportActivityLogs('pdf')">
+              <mat-icon>picture_as_pdf</mat-icon>
+              <span>Export PDF</span>
+            </button>
+            <button mat-menu-item class="lx-export-option--csv" (click)="exportActivityLogs('csv')">
+              <mat-icon>table_view</mat-icon>
+              <span>Export CSV</span>
+            </button>
+            <button mat-menu-item class="lx-export-option--xlsx" (click)="exportActivityLogs('xlsx')">
+              <mat-icon>grid_on</mat-icon>
+              <span>Export XLSX</span>
+            </button>
+          </mat-menu>
+
+          <div class="lx-filter-panel" *ngIf="activityFilterFieldsOpen">
+            <span class="lx-filter-panel__label">Activity filters</span>
+            <div class="lx-filter-fields">
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Action</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">bolt</mat-icon>
+                  <input
+                    [(ngModel)]="activityColumnFilters.action"
+                    (ngModelChange)="onActivityFiltersChanged()"
+                    placeholder="e.g. CREATE_USER"
+                  />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Service</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">cloud</mat-icon>
+                  <input
+                    [(ngModel)]="activityColumnFilters.serviceName"
+                    (ngModelChange)="onActivityFiltersChanged()"
+                    placeholder="ldms-user-management"
+                  />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Platform</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">devices</mat-icon>
+                  <select [(ngModel)]="activityColumnFilters.platform" (ngModelChange)="onActivityFiltersChanged()">
+                    <option *ngFor="let opt of platformOptions" [value]="opt.value">{{ opt.label }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Trace ID</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">fingerprint</mat-icon>
+                  <input
+                    [(ngModel)]="activityColumnFilters.traceId"
+                    (ngModelChange)="onActivityFiltersChanged()"
+                    placeholder="Correlation id"
+                  />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">From</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">calendar_month</mat-icon>
+                  <input
+                    type="datetime-local"
+                    [(ngModel)]="activityColumnFilters.from"
+                    (ngModelChange)="onActivityFiltersChanged()"
+                  />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">To</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">event</mat-icon>
+                  <input
+                    type="datetime-local"
+                    [(ngModel)]="activityColumnFilters.to"
+                    (ngModelChange)="onActivityFiltersChanged()"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <lx-table-loading
+          [busy]="activityLoading && activityTableDataSource.data.length === 0"
+          message="Loading user activity…"
+        ></lx-table-loading>
+
+        <ng-container *ngIf="activityTableDataSource.data.length > 0 || activityTotalElements > 0">
+          <div class="lx-table-wrap lx-table-wrap--host">
+            <lx-table-loading
+              [busy]="activityLoading && activityTableDataSource.data.length > 0"
+              [hasData]="true"
+              message="Refreshing activity…"
+            ></lx-table-loading>
+            <table mat-table [dataSource]="activityTableDataSource" class="lx-mat-table">
+              <ng-container matColumnDef="id">
+                <th mat-header-cell *matHeaderCellDef>Audit ID</th>
+                <td mat-cell *matCellDef="let row" class="lx-mono lx-audit-id">#{{ row.id }}</td>
+              </ng-container>
+              <ng-container matColumnDef="time">
+                <th mat-header-cell *matHeaderCellDef>Timestamp</th>
+                <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.time }}</td>
+              </ng-container>
+              <ng-container matColumnDef="action">
+                <th mat-header-cell *matHeaderCellDef>Action</th>
+                <td mat-cell *matCellDef="let row">
+                  <span class="lx-action-code" [title]="row.action">{{ row.actionLabel }}</span>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="serviceName">
+                <th mat-header-cell *matHeaderCellDef>Service</th>
+                <td mat-cell *matCellDef="let row" class="lx-mono lx-cell-path">{{ row.serviceName }}</td>
+              </ng-container>
+              <ng-container matColumnDef="resource">
+                <th mat-header-cell *matHeaderCellDef>Resource / context</th>
+                <td mat-cell *matCellDef="let row" class="lx-mono lx-cell-path">{{ row.resource }}</td>
+              </ng-container>
+              <ng-container matColumnDef="platform">
+                <th mat-header-cell *matHeaderCellDef>Platform</th>
+                <td mat-cell *matCellDef="let row">{{ row.platform }}</td>
+              </ng-container>
+              <ng-container matColumnDef="clientIp">
+                <th mat-header-cell *matHeaderCellDef>Client IP</th>
+                <td mat-cell *matCellDef="let row" class="lx-mono">{{ row.clientIp }}</td>
+              </ng-container>
+              <ng-container matColumnDef="traceId">
+                <th mat-header-cell *matHeaderCellDef>Trace ID</th>
+                <td mat-cell *matCellDef="let row">
+                  <button
+                    type="button"
+                    class="lx-trace-chip"
+                    [title]="row.traceId"
+                    (click)="copyTraceId(row.traceId, $event)"
+                  >
+                    {{ row.traceIdShort }}
+                    <mat-icon>content_copy</mat-icon>
+                  </button>
+                </td>
+              </ng-container>
+              <ng-container matColumnDef="actions">
+                <th mat-header-cell *matHeaderCellDef>Actions</th>
+                <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="viewActivityDetail(row, $event)">
+                    Details
+                  </button>
+                </td>
+              </ng-container>
+              <tr mat-header-row *matHeaderRowDef="activityDisplayedColumns; sticky: true"></tr>
+              <tr mat-row *matRowDef="let row; columns: activityDisplayedColumns"></tr>
+            </table>
+          </div>
+          <mat-paginator
+            class="lx-table-paginator"
+            [length]="activityTotalElements"
+            [pageIndex]="activityPageIndex"
+            [pageSize]="activityPageSize"
+            [pageSizeOptions]="[10, 20, 25, 50, 100]"
+            [showFirstLastButtons]="true"
+            (page)="onActivityPage($event)"
+          ></mat-paginator>
+        </ng-container>
+
+        <div class="lx-empty lx-empty--compact" *ngIf="!activityLoading && activityTableDataSource.data.length === 0">
+          <mat-icon class="lx-empty-icon">history</mat-icon>
+          <div class="lx-empty-title">No audited actions</div>
+          <div class="lx-empty-sub">This user has no matching service actions in the retention window.</div>
+        </div>
+      </div>
+    </section>
+  </ng-container>
+
+  <ng-template #skel>
+    <div class="lx-card skel-card lx-audit-hero">
+      <div class="skel-line skel-line--lg"></div>
+      <div class="skel-line skel-line--md"></div>
+      <div class="skel-line skel-line--full"></div>
+    </div>
+  </ng-template>
+</div>

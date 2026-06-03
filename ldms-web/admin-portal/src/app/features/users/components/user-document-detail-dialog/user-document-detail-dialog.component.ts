@@ -2,7 +2,7 @@ import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { normalizeBase64, resolveFilePreview } from '../../../../shared/utils/file-upload-preview';
-import { UsersAdminService } from '../../services/users-admin.service';
+import { FileUploadAdminService } from '../../../../core/services/file-upload-admin.service';
 
 export interface UserDocumentDetailDialogData {
   id: number;
@@ -24,7 +24,7 @@ export class UserDocumentDetailDialogComponent implements OnInit {
   previewPdfUrl: SafeResourceUrl | null = null;
 
   constructor(
-    private readonly usersAdmin: UsersAdminService,
+    private readonly fileUpload: FileUploadAdminService,
     private readonly sanitizer: DomSanitizer,
     @Inject(MAT_DIALOG_DATA) public readonly data: UserDocumentDetailDialogData,
   ) {}
@@ -36,7 +36,7 @@ export class UserDocumentDetailDialogComponent implements OnInit {
       this.error = 'Invalid document id.';
       return;
     }
-    this.usersAdmin.getFileUploadById(id).subscribe({
+    this.fileUpload.getById(id).subscribe({
       next: (d) => {
         this.loading = false;
         if (!d) {

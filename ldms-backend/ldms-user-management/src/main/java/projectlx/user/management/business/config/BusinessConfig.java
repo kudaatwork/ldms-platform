@@ -40,7 +40,20 @@ import projectlx.user.management.business.logic.impl.UserSecurityServiceImpl;
 import projectlx.user.management.business.logic.impl.UserServiceImpl;
 import projectlx.user.management.business.logic.impl.UserTypeServiceImpl;
 import projectlx.co.zw.shared_library.business.logic.impl.TokenService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.cloud.client.discovery.DiscoveryClient;
+import projectlx.user.management.business.logic.api.PlatformHealthService;
+import projectlx.user.management.business.logic.impl.PlatformHealthServiceImpl;
+import projectlx.user.management.business.logic.api.HelpSupportService;
+import projectlx.user.management.business.logic.impl.HelpSupportServiceImpl;
+import projectlx.user.management.business.validator.api.HelpSupportServiceValidator;
+import projectlx.user.management.business.validator.impl.HelpSupportServiceValidatorImpl;
+import projectlx.user.management.repository.HelpArticleRepository;
+import projectlx.user.management.repository.SupportTicketRepository;
 import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
+import projectlx.user.management.utils.config.PasswordResetLinkProperties;
+import projectlx.user.management.utils.config.PlatformHealthProperties;
 import projectlx.user.management.business.validator.api.UserAccountServiceValidator;
 import projectlx.user.management.business.validator.api.UserAddressServiceValidator;
 import projectlx.user.management.business.validator.api.UserGroupServiceValidator;
@@ -71,6 +84,7 @@ import projectlx.user.management.repository.UserRoleRepository;
 import projectlx.user.management.repository.UserSecurityRepository;
 import projectlx.user.management.repository.UserTypeRepository;
 import org.modelmapper.ModelMapper;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -78,9 +92,34 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @Configuration
+@EnableConfigurationProperties(PlatformHealthProperties.class)
 // Skip SharedDataConfig: stale JARs used @EntityScan(shared model) and can collide with local persistence mappings.
 @Import({UtilsConfig.class})
 public class BusinessConfig {
+
+    @Bean
+    public PlatformHealthService platformHealthService(PlatformHealthProperties platformHealthProperties,
+                                                       ObjectProvider<DiscoveryClient> discoveryClientProvider,
+                                                       ObjectMapper objectMapper) {
+        return new PlatformHealthServiceImpl(platformHealthProperties, discoveryClientProvider, objectMapper);
+    }
+
+    @Bean
+    public HelpSupportServiceValidator helpSupportServiceValidator() {
+        return new HelpSupportServiceValidatorImpl();
+    }
+
+    @Bean
+    public HelpSupportService helpSupportService(HelpSupportServiceValidator helpSupportServiceValidator,
+                                                 MessageService messageService,
+                                                 HelpArticleRepository helpArticleRepository,
+                                                 SupportTicketRepository supportTicketRepository,
+                                                 UserRepository userRepository,
+                                                 PlatformHealthService platformHealthService,
+                                                 ModelMapper modelMapper) {
+        return new HelpSupportServiceImpl(helpSupportServiceValidator, messageService, helpArticleRepository,
+                supportTicketRepository, userRepository, platformHealthService, modelMapper);
+    }
 
     @Bean
     public UserServiceAuditable userServiceAuditable(UserRepository userRepository){
@@ -144,13 +183,14 @@ public class BusinessConfig {
             UserPasswordService userPasswordService, UserAddressService userAddressService,
             UserPreferencesService userPreferencesService, UserSecurityService userSecurityService, UserTypeService userTypeService,
             FileUploadServiceClient fileUploadServiceClient, RabbitTemplate rabbitTemplate, TokenService tokenService,
-            EmailVerificationLinkProperties emailVerificationLinkProperties) {
+            EmailVerificationLinkProperties emailVerificationLinkProperties,
+            PasswordResetLinkProperties passwordResetLinkProperties) {
         return new UserServiceImpl(userServiceValidator, messageService, userRepository, userAccountRepository,
                 userAddressRepository, userPasswordRepository, userPreferencesRepository, userSecurityRepository,
                 userTypeRepository, modelMapper, userServiceAuditable, userAccountServiceAuditable, userPasswordServiceAuditable,
                 userPreferencesServiceAuditable, userSecurityServiceAuditable, userAccountService, userPasswordService,
                 userAddressService, userPreferencesService, userSecurityService, userTypeService, fileUploadServiceClient,
-                rabbitTemplate, tokenService, emailVerificationLinkProperties
+                rabbitTemplate, tokenService, emailVerificationLinkProperties, passwordResetLinkProperties
         );
     }
 

@@ -7,12 +7,14 @@ import { StoredUser } from './storage.service';
 
 @Injectable({ providedIn: 'root' })
 export class UserProfileService {
-  /** Gateway → ldms-user-management backoffice (same surface as users admin APIs). */
+  /** Gateway → ldms-user-management backoffice (admin CRUD). */
   private readonly userBase = ldmsApiUrl('/ldms-user-management/v1/backoffice/user');
+  /** Self-service profile ({@code /me}) — frontend surface; only requires authentication. */
+  private readonly frontendUserBase = ldmsApiUrl('/ldms-user-management/v1/frontend/user');
 
   constructor(private readonly http: HttpClient) {}
 
-  /** Signed-in user profile (no admin lookup role required). */
+  /** Signed-in user profile — backoffice {@code /me} (requires authentication only). */
   fetchCurrentUser(): Observable<StoredUser | null> {
     return this.http.get<unknown>(`${this.userBase}/me`).pipe(
       map((resp) => this.mapToStoredUser(resp)),
@@ -63,9 +65,30 @@ export class UserProfileService {
       name: displayName,
       email: email || username,
       roleLabel,
-      roles: [],
+      roles: this.extractGroupRoles(user),
       organizationKycApprover: user['organizationKycApprover'] === true,
     };
+  }
+
+  /** Permission codes assigned to the user's group (authoritative for admin-portal menu RBAC). */
+  private extractGroupRoles(user: Record<string, unknown>): string[] {
+    const group = this.toRecord(user['userGroupDto']);
+    if (!group) {
+      return [];
+    }
+    const raw = group['userRoleDtoSet'] ?? group['userRoles'];
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    const codes: string[] = [];
+    for (const item of raw) {
+      const row = this.toRecord(item);
+      const role = String(row?.['role'] ?? '').trim();
+      if (role) {
+        codes.push(role);
+      }
+    }
+    return codes;
   }
 
   private extractUserDto(response: unknown): Record<string, unknown> | null {

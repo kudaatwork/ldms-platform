@@ -242,14 +242,9 @@
                   <div class="lx-form-section span-2">
                     <div class="lx-form-section-title">Primary contact</div>
                     <p class="lx-form-section-lead">
-                      <ng-container *ngIf="contactIdentityLocked(); else contactEditable">
-                        Contact person account is provisioned — name, email, and ID details are locked. Update phone, address,
-                        and online presence below; use the <strong>Contact person</strong> tab for the user profile.
-                      </ng-container>
-                      <ng-template #contactEditable>
-                        Directory contact on the organisation record. For gender, date of birth, national ID, address, and
-                        login account, use the <strong>Contact person</strong> tab after saving.
-                      </ng-template>
+                      Directory contact on the organisation record. Changing contact email updates the linked portal user and
+                      sends a verification email. For gender, date of birth, national ID, address, and account security, use
+                      the <strong>Contact person</strong> tab.
                     </p>
                   </div>
 
@@ -596,93 +591,130 @@
           </section>
         </mat-tab>
 
-        <mat-tab label="Customers" *ngIf="showCustomersTab()">
+        <mat-tab *ngIf="showCustomersTab()">
+          <ng-template mat-tab-label>
+            Customers
+            <span class="ods-tab-badge" *ngIf="profile">{{ profile.customers.length }}</span>
+          </ng-template>
           <section class="ods-tab-pane">
-            <ng-container *ngIf="profile!.customers.length; else customersEmptyTpl">
-              <div class="lx-table-wrap ods-mini-table">
-                <table mat-table [dataSource]="profile!.customers" class="lx-mat-table">
-                  <ng-container matColumnDef="name">
-                    <th mat-header-cell *matHeaderCellDef>Customer organisation</th>
-                    <td mat-cell *matCellDef="let row">{{ row.name || '—' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="classification">
-                    <th mat-header-cell *matHeaderCellDef>Classification</th>
-                    <td mat-cell *matCellDef="let row">{{ row.classificationLabel || '—' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="email">
-                    <th mat-header-cell *matHeaderCellDef>Email</th>
-                    <td mat-cell *matCellDef="let row">{{ row.email || '—' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="kycStatus">
-                    <th mat-header-cell *matHeaderCellDef>KYC</th>
-                    <td mat-cell *matCellDef="let row">{{ row.kycStatusLabel || '—' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="verified">
-                    <th mat-header-cell *matHeaderCellDef>Verified</th>
-                    <td mat-cell *matCellDef="let row">
-                      <span class="lx-status" [class.lx-status-active]="row.verified" [class.lx-status-inactive]="!row.verified">
-                        {{ row.verified ? 'Yes' : 'No' }}
-                      </span>
-                    </td>
-                  </ng-container>
-                  <tr mat-header-row *matHeaderRowDef="linkColumns; sticky: true"></tr>
-                  <tr mat-row *matRowDef="let row; columns: linkColumns"></tr>
-                </table>
+            <div class="ods-rel-bar">
+              <div class="ods-rel-bar__lead">
+                <mat-icon aria-hidden="true">storefront</mat-icon>
+                <div>
+                  <strong>Customer network</strong>
+                  <span>Buyers linked for orders and fulfilment</span>
+                </div>
               </div>
-            </ng-container>
+              <button *ngIf="canManageSupplierLinks()" mat-flat-button color="primary" type="button" (click)="openLinkDialog('CUSTOMER')">
+                <mat-icon aria-hidden="true">add_link</mat-icon>
+                Link customer
+              </button>
+            </div>
+            <div class="section-grid" *ngIf="profile!.customers.length; else customersEmptyTpl">
+              <div class="section-row ods-rel-card" *ngFor="let row of profile!.customers">
+                <span>{{ row.name || '—' }}</span>
+                <strong>{{ row.email || '—' }}</strong>
+                <div class="ods-rel-meta">
+                  <span class="ods-chip">{{ row.kycStatusLabel || 'KYC —' }}</span>
+                  <span class="ods-chip" [class.ods-chip--verified]="row.verified">{{ row.verified ? 'Verified' : 'Unverified' }}</span>
+                </div>
+              </div>
+            </div>
             <ng-template #customersEmptyTpl>
-              <div class="lx-empty lx-empty--compact">
+              <div class="lx-empty lx-empty--compact ods-rel-empty">
                 <mat-icon class="lx-empty-icon">storefront</mat-icon>
                 <div class="lx-empty-title">No linked customers yet</div>
-                <div class="lx-empty-sub">
-                  Suppliers can link onboarded customers once relationship records exist in backend.
-                </div>
+                <div class="lx-empty-sub">Search and link customer organisations to this supplier.</div>
+                <button *ngIf="canManageSupplierLinks()" mat-flat-button color="primary" type="button" (click)="openLinkDialog('CUSTOMER')">
+                  <mat-icon aria-hidden="true">add_link</mat-icon>
+                  Link customer
+                </button>
               </div>
             </ng-template>
           </section>
         </mat-tab>
 
-        <mat-tab label="Transporters">
+        <mat-tab *ngIf="showCustomersTab()">
+          <ng-template mat-tab-label>
+            Transporters
+            <span class="ods-tab-badge" *ngIf="profile">{{ profile.transporters.length }}</span>
+          </ng-template>
           <section class="ods-tab-pane">
-            <ng-container *ngIf="profile!.transporters.length; else transportersEmptyTpl">
-              <div class="lx-table-wrap ods-mini-table">
-                <table mat-table [dataSource]="profile!.transporters" class="lx-mat-table">
-                  <ng-container matColumnDef="name">
-                    <th mat-header-cell *matHeaderCellDef>Transporter</th>
-                    <td mat-cell *matCellDef="let row">{{ row.name || '—' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="classification">
-                    <th mat-header-cell *matHeaderCellDef>Classification</th>
-                    <td mat-cell *matCellDef="let row">{{ row.classificationLabel || '—' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="email">
-                    <th mat-header-cell *matHeaderCellDef>Email</th>
-                    <td mat-cell *matCellDef="let row">{{ row.email || '—' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="kycStatus">
-                    <th mat-header-cell *matHeaderCellDef>KYC</th>
-                    <td mat-cell *matCellDef="let row">{{ row.kycStatusLabel || '—' }}</td>
-                  </ng-container>
-                  <ng-container matColumnDef="verified">
-                    <th mat-header-cell *matHeaderCellDef>Verified</th>
-                    <td mat-cell *matCellDef="let row">
-                      <span class="lx-status" [class.lx-status-active]="row.verified" [class.lx-status-inactive]="!row.verified">
-                        {{ row.verified ? 'Yes' : 'No' }}
-                      </span>
-                    </td>
-                  </ng-container>
-                  <tr mat-header-row *matHeaderRowDef="linkColumns; sticky: true"></tr>
-                  <tr mat-row *matRowDef="let row; columns: linkColumns"></tr>
-                </table>
+            <div class="ods-rel-bar">
+              <div class="ods-rel-bar__lead">
+                <mat-icon aria-hidden="true">local_shipping</mat-icon>
+                <div>
+                  <strong>Contracted transporters</strong>
+                  <span>Transport partners for this supplier's loads</span>
+                </div>
               </div>
-            </ng-container>
+              <button *ngIf="canManageSupplierLinks()" mat-flat-button color="primary" type="button" (click)="openLinkDialog('TRANSPORT_COMPANY')">
+                <mat-icon aria-hidden="true">add_link</mat-icon>
+                Link transporter
+              </button>
+            </div>
+            <div class="section-grid" *ngIf="profile!.transporters.length; else transportersEmptyTpl">
+              <div class="section-row ods-rel-card" *ngFor="let row of profile!.transporters">
+                <span>{{ row.name || '—' }}</span>
+                <strong>{{ row.email || '—' }}</strong>
+                <div class="ods-rel-meta">
+                  <span class="ods-chip">{{ row.kycStatusLabel || 'KYC —' }}</span>
+                  <span class="ods-chip" [class.ods-chip--verified]="row.verified">{{ row.verified ? 'Verified' : 'Unverified' }}</span>
+                </div>
+              </div>
+            </div>
             <ng-template #transportersEmptyTpl>
-              <div class="lx-empty lx-empty--compact">
+              <div class="lx-empty lx-empty--compact ods-rel-empty">
                 <mat-icon class="lx-empty-icon">local_shipping</mat-icon>
                 <div class="lx-empty-title">No contracted transporters</div>
-                <div class="lx-empty-sub">
-                  Contracts appear here once transporter linkage is persisted for this organisation.
+                <div class="lx-empty-sub">Search and link transport companies for this supplier.</div>
+                <button *ngIf="canManageSupplierLinks()" mat-flat-button color="primary" type="button" (click)="openLinkDialog('TRANSPORT_COMPANY')">
+                  <mat-icon aria-hidden="true">add_link</mat-icon>
+                  Link transporter
+                </button>
+              </div>
+            </ng-template>
+          </section>
+        </mat-tab>
+
+        <mat-tab *ngIf="showCustomersTab()">
+          <ng-template mat-tab-label>
+            Clearing agents
+            <span class="ods-tab-badge" *ngIf="profile">{{ profile.clearingAgents.length }}</span>
+          </ng-template>
+          <section class="ods-tab-pane">
+            <div class="ods-rel-bar">
+              <div class="ods-rel-bar__lead">
+                <mat-icon aria-hidden="true">fact_check</mat-icon>
+                <div>
+                  <strong>Clearing agents</strong>
+                  <span>Border and customs partners</span>
                 </div>
+              </div>
+              <button *ngIf="canManageSupplierLinks()" mat-flat-button color="primary" type="button" (click)="openLinkDialog('CLEARING_AGENT')">
+                <mat-icon aria-hidden="true">add_link</mat-icon>
+                Link clearing agent
+              </button>
+            </div>
+            <div class="section-grid" *ngIf="profile!.clearingAgents.length; else clearingAgentsEmptyTpl">
+              <div class="section-row ods-rel-card" *ngFor="let row of profile!.clearingAgents">
+                <span>{{ row.name || '—' }}</span>
+                <strong>{{ row.email || '—' }}</strong>
+                <div class="ods-rel-meta">
+                  <span class="ods-chip">{{ row.kycStatusLabel || 'KYC —' }}</span>
+                  <span class="ods-chip" [class.ods-chip--verified]="row.verified">{{ row.verified ? 'Verified' : 'Unverified' }}</span>
+                </div>
+              </div>
+            </div>
+            <ng-template #clearingAgentsEmptyTpl>
+              <div class="lx-empty lx-empty--compact ods-rel-empty">
+                <mat-icon class="lx-empty-icon">fact_check</mat-icon>
+                <div class="lx-empty-title">No linked clearing agents</div>
+                <div class="lx-empty-sub">Search and link clearing agents for border workflows.</div>
+                <button *ngIf="canManageSupplierLinks()" mat-flat-button color="primary" type="button" (click)="openLinkDialog('CLEARING_AGENT')">
+                  <mat-icon aria-hidden="true">add_link</mat-icon>
+                  Link clearing agent
+                </button>
               </div>
             </ng-template>
           </section>

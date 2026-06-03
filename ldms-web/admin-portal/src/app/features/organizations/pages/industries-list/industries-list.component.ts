@@ -124,9 +124,11 @@ export class IndustriesListComponent implements OnInit, OnDestroy {
       return;
     }
     this.dialog.open(IndustryLinkedOrganizationsDialogComponent, {
-      width: '720px',
-      maxWidth: '95vw',
+      width: '840px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
       panelClass: 'lx-location-dialog-panel',
+      autoFocus: 'first-tabbable',
       data: { industryId: row.id, industryName: row.name },
     });
   }

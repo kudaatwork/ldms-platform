@@ -35,6 +35,9 @@ public class LdmsAuditProperties {
         /** Async batch JobLauncher thread pool size. */
         private int jobPoolSize = 4;
 
+        /** Scheduled retention period in days for automatic churn-out jobs. */
+        private int retentionDays = 90;
+
         public boolean isSchedulerEnabled() {
             return schedulerEnabled;
         }
@@ -57,6 +60,14 @@ public class LdmsAuditProperties {
 
         public void setJobPoolSize(int jobPoolSize) {
             this.jobPoolSize = jobPoolSize;
+        }
+
+        public int getRetentionDays() {
+            return retentionDays;
+        }
+
+        public void setRetentionDays(int retentionDays) {
+            this.retentionDays = retentionDays;
         }
     }
 }

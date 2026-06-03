@@ -1,7 +1,7 @@
-import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, ViewChild } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
 import { GoogleGsiService } from '../../../../core/services/google-gsi.service';
 import { ThemeService } from '../../../../core/services/theme.service';
@@ -21,11 +21,12 @@ interface MockCredRow {
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: false,
 })
-export class LoginComponent implements AfterViewInit {
+export class LoginComponent implements OnInit, AfterViewInit {
   form: FormGroup;
   loading = false;
   showPass = false;
   error = '';
+  infoMessage = '';
 
   readonly googleClientId = (environment.googleOAuthClientId ?? '').trim();
   @ViewChild('googleSignInHost', { static: false }) googleSignInHost?: ElementRef<HTMLElement>;
@@ -40,6 +41,7 @@ export class LoginComponent implements AfterViewInit {
   constructor(
     private readonly fb: FormBuilder,
     private readonly authService: AuthService,
+    private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
     private readonly title: Title,
@@ -51,6 +53,20 @@ export class LoginComponent implements AfterViewInit {
       password: ['', Validators.required],
     });
     this.title.setTitle('Sign in | LX Platform');
+  }
+
+  ngOnInit(): void {
+    const email = (this.route.snapshot.queryParamMap.get('email') ?? '').trim();
+    if (email) {
+      this.form.patchValue({ usernameOrEmail: email });
+    }
+    if (this.route.snapshot.queryParamMap.get('verified') === '1') {
+      this.infoMessage = 'Your email is verified. Sign in to open your organisation workspace.';
+    }
+    if (this.route.snapshot.queryParamMap.get('registered') === '1') {
+      this.infoMessage =
+        'Registration received. After KYC approval, sign in with the temporary username and password emailed to your organisation and contact addresses.';
+    }
   }
 
   ngAfterViewInit(): void {
@@ -83,7 +99,7 @@ export class LoginComponent implements AfterViewInit {
       next: () => {
         this.loading = false;
         this.cdr.markForCheck();
-        void this.router.navigate(['/dashboard']);
+        void this.router.navigate(this.authService.postLoginRoute());
       },
       error: (e: Error) => {
         this.error = e.message ?? 'Google sign-in failed';
@@ -125,11 +141,11 @@ export class LoginComponent implements AfterViewInit {
       next: () => {
         this.loading = false;
         this.cdr.markForCheck();
-        void this.router.navigate(['/dashboard']);
+        void this.router.navigate(this.authService.postLoginRoute());
       },
-      error: () => {
+      error: (e: Error) => {
         this.loading = false;
-        this.error = 'Invalid credentials';
+        this.error = e.message || 'Invalid credentials';
         this.cdr.markForCheck();
       },
     });

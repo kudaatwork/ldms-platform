@@ -1,9 +1,12 @@
 <div class="lx-page dashboard-page">
   <mat-progress-bar *ngIf="loading" class="lx-page-progress" mode="indeterminate" aria-label="Loading dashboard"></mat-progress-bar>
-  <div class="dashboard-topbar mb-lg">
+  <section class="dashboard-hero lx-card">
+    <div class="dashboard-hero__glow" aria-hidden="true"></div>
+    <div class="dashboard-topbar">
     <div>
-      <h2 class="dashboard-title">{{ greetingFirstName ? ('Welcome ' + greetingFirstName) : welcomeMessage }}</h2>
-      <p class="dashboard-subtitle">Operations dashboard — route planning, KYC, fulfillment and compliance.</p>
+      <p class="dashboard-hero__eyebrow">Operations</p>
+      <h1 class="dashboard-title">{{ greetingFirstName ? ('Welcome ' + greetingFirstName) : welcomeMessage }}</h1>
+      <p class="dashboard-subtitle">Route planning, KYC queue, fulfillment metrics, and compliance at a glance.</p>
     </div>
     <div class="dashboard-top-actions">
       <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="dashboardExportMenu">
@@ -11,7 +14,8 @@
       </button>
       <button type="button" class="lx-btn lx-btn-primary">Create Dispatch Plan</button>
     </div>
-  </div>
+    </div>
+  </section>
   <mat-menu #dashboardExportMenu="matMenu" panelClass="lx-export-menu">
     <button mat-menu-item class="lx-export-option--pdf" (click)="exportSnapshot('pdf')">
       <mat-icon>picture_as_pdf</mat-icon>
@@ -90,6 +94,93 @@
     </ng-template>
   </div>
 
+  <section class="dashboard-ops-row mb-lg" *ngIf="kycSnapshot as kyc">
+    <article class="dashboard-org-panel lx-card">
+      <div class="dashboard-org-panel__glow" aria-hidden="true"></div>
+      <div class="dashboard-org-panel__inner">
+        <div class="dashboard-org-panel__copy">
+          <p class="dashboard-org-panel__eyebrow">Organization directory</p>
+          <h3 class="dashboard-org-panel__title">Total organizations</h3>
+          <p class="dashboard-org-panel__lead">
+            Every registered organisation in LDMS — synced live from organization management.
+          </p>
+        </div>
+        <div class="dashboard-org-panel__metric">
+          <span class="dashboard-org-panel__value">{{ kyc.totalOrganizations }}</span>
+          <span class="dashboard-org-panel__label">On platform</span>
+        </div>
+      </div>
+      <div class="dashboard-org-panel__footer">
+        <div class="dashboard-org-chip">
+          <mat-icon>verified</mat-icon>
+          <span>{{ kyc.approvedCount }} approved</span>
+        </div>
+        <div class="dashboard-org-chip">
+          <mat-icon>pending_actions</mat-icon>
+          <span>{{ kyc.totalInQueue }} in KYC queue</span>
+        </div>
+        <a class="dashboard-org-panel__cta" routerLink="/organizations">Browse directory →</a>
+      </div>
+    </article>
+
+    <article class="dashboard-kyc-hero lx-card">
+      <div class="dashboard-kyc-hero__glow" aria-hidden="true"></div>
+      <div class="dashboard-kyc-hero__head">
+        <div class="dashboard-kyc-hero__copy">
+          <p class="dashboard-kyc-hero__eyebrow">Compliance pipeline</p>
+          <h3 class="dashboard-kyc-hero__title">KYC review queue</h3>
+          <p class="dashboard-kyc-hero__lead">Live stage counts — tap any tile to filter the full applications workspace.</p>
+        </div>
+        <a class="dashboard-kyc-hero__cta" routerLink="/kyc/applications">Open full queue →</a>
+      </div>
+      <div class="dashboard-kyc-hero__stats">
+        <a
+          *ngFor="let tile of kycStatTiles; trackBy: trackByStatKey"
+          class="dash-kyc-stat"
+          [ngClass]="'dash-kyc-stat--' + tile.tone"
+          [routerLink]="kycFilterLink(tile)"
+          [queryParams]="kycFilterQuery(tile)"
+        >
+          <mat-icon class="dash-kyc-stat__icon">{{ tile.icon }}</mat-icon>
+          <span class="dash-kyc-stat__value">{{ tile.value }}</span>
+          <span class="dash-kyc-stat__label">{{ tile.label }}</span>
+        </a>
+      </div>
+      <div class="dashboard-kyc-recent" *ngIf="kyc.recentApplications?.length">
+        <div class="dashboard-kyc-recent__head">
+          <span class="dashboard-kyc-recent__title">Latest in queue</span>
+          <a routerLink="/kyc/applications">View all</a>
+        </div>
+        <div class="dashboard-kyc-recent__list">
+          <a
+            *ngFor="let row of kyc.recentApplications; trackBy: trackByRecentId"
+            class="dashboard-kyc-recent__row"
+            [routerLink]="['/kyc/applications']"
+            [queryParams]="{ applicationId: row.id }"
+          >
+            <span class="dashboard-kyc-recent__name">{{ row.applicant }}</span>
+            <span class="dashboard-kyc-recent__status">{{ row.statusLabel }}</span>
+          </a>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section class="dashboard-ops-row dashboard-ops-row--skeleton mb-lg" *ngIf="kycLoading && !kycSnapshot">
+    <div class="lx-card dashboard-org-panel dashboard-org-panel--skeleton">
+      <div class="skeleton" style="width: 45%; height: 14px; margin-bottom: 12px"></div>
+      <div class="skeleton" style="width: 70%; height: 28px; margin-bottom: 16px"></div>
+      <div class="skeleton" style="width: 35%; height: 48px"></div>
+    </div>
+    <div class="lx-card dashboard-kyc-hero dashboard-kyc-hero--skeleton">
+      <div class="skeleton" style="width: 50%; height: 14px; margin-bottom: 12px"></div>
+      <div class="skeleton" style="width: 65%; height: 28px; margin-bottom: 20px"></div>
+      <div class="dashboard-kyc-skeleton-grid">
+        <div class="skeleton" *ngFor="let i of [1,2,3,4,5,6]" style="height: 72px; border-radius: 12px"></div>
+      </div>
+    </div>
+  </section>
+
   <div class="row2 mb-lg">
     <div class="lx-card">
       <div class="card-hd">
@@ -153,9 +244,9 @@
     <div class="lx-card">
       <div class="card-hd mb-md">
         <div>
-          <div class="card-hdtitle">KYC & Onboarding Throughput</div>
+          <div class="card-hdtitle">KYC pipeline snapshot</div>
           <div class="lx-kpi-value chart-value">{{ totalPipelineApplications }}</div>
-          <span class="lx-badge analytics">Analytics driven</span>
+          <span class="lx-badge analytics">Live queue counts</span>
         </div>
         <div class="period-wrap">
           <button type="button" *ngFor="let p of periods" class="period-btn"

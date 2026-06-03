@@ -10,7 +10,7 @@ import {
   isAuthSuccess,
 } from '../models/auth-api.model';
 import { ldmsApiUrl } from '../utils/api-url.util';
-import { decodeJwtPayload, normalizeJwtRoles } from '../utils/jwt.util';
+import { decodeJwtPayload, isStoredSessionToken, normalizeJwtRoles } from '../utils/jwt.util';
 import { StorageService, StoredUser } from './storage.service';
 
 export interface MockCredential {
@@ -83,10 +83,13 @@ export class AuthService {
   /** Restores JWT session and loads the user profile when the shell starts. */
   initializeSession(): Observable<void> {
     const token = this.storage.getToken();
-    if (!token || token.startsWith('mock-token-')) {
+    if (!isStoredSessionToken(token)) {
+      if (token) {
+        this.storage.clearSession();
+      }
       return of(undefined);
     }
-    this.persistJwtFallback(token);
+    this.persistJwtFallback(token!);
     return this.currentUser.refreshFromApi().pipe(map(() => undefined));
   }
 
@@ -113,7 +116,9 @@ export class AuthService {
     const jwtLast = String(payload?.lastName ?? '').trim();
     const firstName = jwtFirst;
     const name = [jwtFirst, jwtLast].filter(Boolean).join(' ').trim() || jwtFirst || username || email;
+    const jwtUserId = payload?.userId != null ? Number(payload.userId) : undefined;
     const user: StoredUser = {
+      id: jwtUserId != null && Number.isFinite(jwtUserId) && jwtUserId > 0 ? jwtUserId : undefined,
       username,
       name,
       firstName,
@@ -176,7 +181,10 @@ export class AuthService {
       return body.message;
     }
     if (err.status === 0) {
-      return 'Cannot reach the API gateway. Start ldms-api-gateway on port 8091.';
+      return (
+        'Cannot reach the API gateway. Start ldms-api-gateway on port 8091 (and ldms-authentication on 8083), ' +
+        'then sign in again from http://localhost:4200 using npm start in ldms-web/admin-portal.'
+      );
     }
     if (err.status === 503) {
       return (

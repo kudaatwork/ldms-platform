@@ -1,6 +1,9 @@
 package projectlx.co.zw.fileuploadservice.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -12,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface FileUploadRepository extends JpaRepository<FileUpload, Long> {
+public interface FileUploadRepository extends JpaRepository<FileUpload, Long>, JpaSpecificationExecutor<FileUpload> {
 
     Optional<FileUpload> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
 
@@ -25,4 +28,6 @@ public interface FileUploadRepository extends JpaRepository<FileUpload, Long> {
             @Param("ownerType") OwnerType ownerType,
             @Param("ownerId") Long ownerId,
             @Param("excludeStatus") EntityStatus entityStatus);
+
+    Page<FileUpload> findByEntityStatusNotOrderByCreatedAtDesc(EntityStatus excludeStatus, Pageable pageable);
 }

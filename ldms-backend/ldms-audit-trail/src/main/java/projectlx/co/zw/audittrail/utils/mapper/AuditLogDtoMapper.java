@@ -29,6 +29,7 @@ public final class AuditLogDtoMapper {
                 entity.getRequestTimestamp(),
                 entity.getResponseTimestamp(),
                 entity.getTraceId(),
-                entity.getUsername());
+                entity.getUsername(),
+                entity.getClientPlatform());
     }
 }

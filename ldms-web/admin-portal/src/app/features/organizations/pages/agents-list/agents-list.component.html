@@ -1,4 +1,12 @@
 <div class="lx-page">
+  <lx-page-hero
+    eyebrow="Directory"
+    title="Agents"
+    [lead]="pageLead"
+    icon="badge"
+    variant="brand"
+  ></lx-page-hero>
+
   <div class="lx-card lx-card--subsection">
     <div class="lx-controls-head">
       <div class="lx-controls-head__text">
@@ -135,8 +143,7 @@
   <div class="lx-card">
     <div class="lx-table-header">
       <div>
-        <h2 class="lc-title">Agents</h2>
-        <p class="lc-lead">{{ pageLead }}</p>
+        <p class="lx-table-meta">Delegates and clearing agents</p>
         <p class="lc-lead lc-lead--error" *ngIf="loadError">{{ loadError }}</p>
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>

@@ -1,8 +1,10 @@
-<div class="lx-dialog-shell lx-dialog-shell--compact">
+<div class="lx-dialog-shell lx-dialog-shell--wide">
   <div class="lx-dialog-header">
     <div class="lx-header-text">
-      <h2 class="lx-dialog-title">Edit account</h2>
-      <p class="lx-dialog-subtitle">Account flags and contact fields for this user.</p>
+      <h2 class="lx-dialog-title">{{ selfService ? 'Edit account settings' : 'Edit account' }}</h2>
+      <p class="lx-dialog-subtitle">
+        {{ selfService ? 'Update your account contact details.' : 'Account flags and contact fields for this user.' }}
+      </p>
     </div>
     <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()">
       <mat-icon>close</mat-icon>
@@ -25,9 +27,9 @@
           <input [(ngModel)]="accountNumber" placeholder="Account or reference number" />
         </div>
       </div>
-      <div class="lx-field span-2 ued-toggle-row">
+      <div class="lx-field span-2 lx-field--toggle" *ngIf="!selfService">
         <span class="lx-field-label">Account locked</span>
-        <mat-slide-toggle [(ngModel)]="isAccountLocked">Locked</mat-slide-toggle>
+        <mat-slide-toggle [(ngModel)]="isAccountLocked" color="primary">Locked</mat-slide-toggle>
       </div>
     </div>
 

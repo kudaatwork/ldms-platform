@@ -1,24 +1,38 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, Router, UrlTree } from '@angular/router';
+import { map, Observable, of } from 'rxjs';
 import { AuthStateService } from '../services/auth-state.service';
 import { AuthService } from '../services/auth.service';
+import { StorageService } from '../services/storage.service';
 
 @Injectable({ providedIn: 'root' })
 export class ClassificationGuard implements CanActivate {
   constructor(
     private readonly authState: AuthStateService,
     private readonly authService: AuthService,
+    private readonly storage: StorageService,
     private readonly router: Router,
   ) {}
 
-  canActivate(): boolean | UrlTree {
-    if (!this.authState.currentUser) {
-      this.authService.bootstrapFromStorage();
+  canActivate(): boolean | UrlTree | Observable<boolean | UrlTree> {
+    return this.ensureUserLoaded().pipe(
+      map((user) => {
+        if (!user?.orgClassification) {
+          return this.router.createUrlTree(['/welcome']);
+        }
+        return true;
+      }),
+    );
+  }
+
+  private ensureUserLoaded() {
+    if (this.authState.currentUser) {
+      return of(this.authState.currentUser);
     }
-    const user = this.authState.currentUser;
-    if (!user?.orgClassification) {
-      return this.router.createUrlTree(['/welcome']);
+    const token = this.storage.getToken();
+    if (!token || token.startsWith('mock.')) {
+      return of(null);
     }
-    return true;
+    return this.authService.initializeSession().pipe(map(() => this.authState.currentUser));
   }
 }

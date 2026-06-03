@@ -26,7 +26,21 @@ export interface AuditLogMultipleFiltersRequest {
   requestUrl?: string;
   httpMethod?: string;
   traceId?: string;
+  clientPlatform?: string;
+  actionsIn?: string[];
+  excludeActions?: string[];
 }
+
+export const LOGIN_AUDIT_ACTIONS = ['USER_AUTHENTICATION', 'USER_AUTHENTICATION_GOOGLE'] as const;
+
+/** {@code spring.application.name} on ldms-authentication (not the gateway path prefix). */
+export const AUTH_AUDIT_SERVICE_NAME = 'auth-management';
+
+export const USER_ACTIVITY_EXCLUDED_ACTIONS = [
+  ...LOGIN_AUDIT_ACTIONS,
+  'REFRESH_TOKEN',
+  'HTTP_REQUEST',
+] as const;
 
 export interface AuditLogDto {
   id?: number;
@@ -48,6 +62,7 @@ export interface AuditLogDto {
   requestPayload?: string | null;
   responsePayload?: string | null;
   curlCommand?: string | null;
+  clientPlatform?: string;
 }
 
 export interface AuditLogResponse {
@@ -131,6 +146,48 @@ export class AuditLogAdminService {
    * Server-paged request log (same transport as organizations {@code queryTablePage}).
    */
   queryRequestLogPage(request: AuditLogMultipleFiltersRequest): Observable<{
+    rows: AuditLogDto[];
+    totalElements: number;
+  }> {
+    return this.queryAuditLogPage(request);
+  }
+
+  /** Successful sign-in events (password or Google) with platform and timestamp. */
+  queryLoginEventsPage(
+    request: AuditLogMultipleFiltersRequest,
+  ): Observable<{ rows: AuditLogDto[]; totalElements: number }> {
+    const payload: AuditLogMultipleFiltersRequest = {
+      ...request,
+      eventType: 'SERVICE_METHOD',
+      // Omit service name unless caller set one — stored name is spring.application.name (auth-management), not ldms-authentication.
+      serviceName: request.serviceName?.trim() ?? '',
+      actionsIn:
+        request.actionsIn && request.actionsIn.length > 0
+          ? request.actionsIn
+          : [...LOGIN_AUDIT_ACTIONS],
+    };
+    return this.queryAuditLogPage(payload);
+  }
+
+  /** Business actions performed by a user (excludes login/refresh noise). */
+  queryUserActivityPage(
+    request: AuditLogMultipleFiltersRequest,
+    username: string,
+  ): Observable<{ rows: AuditLogDto[]; totalElements: number }> {
+    const payload: AuditLogMultipleFiltersRequest = {
+      ...request,
+      // Do not enforce actor scoping here: several services can persist SYSTEM for request-level
+      // audits, and strict user filtering hides cross-module activity in the Login & Activity view.
+      username: '',
+      // Include both SERVICE_METHOD and WEB_REQUEST events so endpoint activity is visible
+      // even when some services only emit request-level audits.
+      eventType: request.eventType?.trim() ?? '',
+      excludeActions: [...USER_ACTIVITY_EXCLUDED_ACTIONS],
+    };
+    return this.queryAuditLogPage(payload);
+  }
+
+  private queryAuditLogPage(request: AuditLogMultipleFiltersRequest): Observable<{
     rows: AuditLogDto[];
     totalElements: number;
   }> {

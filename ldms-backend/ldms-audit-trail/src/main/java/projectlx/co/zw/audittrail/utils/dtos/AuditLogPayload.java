@@ -16,6 +16,7 @@ public class AuditLogPayload {
     private String traceId;
     private String serviceName;
     private String username;
+    private String clientPlatform;
     private String clientIpAddress;
     private String action;
     private AuditEventType eventType;

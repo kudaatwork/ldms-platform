@@ -341,6 +341,26 @@
   }
 }
 
+.lc-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--gray-700);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  line-height: 1.45;
+
+  .material-icons {
+    font-size: 18px;
+    flex-shrink: 0;
+    color: #2563eb;
+  }
+}
+
 .lc-field-label {
   font-size: 13px;
   font-weight: 600;

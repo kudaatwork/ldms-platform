@@ -1,7 +1,8 @@
 import { APP_INITIALIZER, NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
+import { catchError, timeout } from 'rxjs/operators';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
@@ -9,6 +10,7 @@ import { StaticShellPageComponent } from './shared/static-shell-page/static-shel
 import { MyAccountComponent } from './features/account/pages/my-account/my-account.component';
 import { CoreModule } from './core/core.module';
 import { SharedModule } from './shared/shared.module';
+import { UsersDialogsModule } from './features/users/users-dialogs.module';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 
@@ -20,7 +22,12 @@ export function initAdminTheme(theme: ThemeService): () => void {
 
 export function initAdminSession(auth: AuthService): () => Promise<void> {
   return () =>
-    firstValueFrom(auth.initializeSession()).then(
+    firstValueFrom(
+      auth.initializeSession().pipe(
+        timeout(8000),
+        catchError(() => of(undefined)),
+      ),
+    ).then(
       () => undefined,
       () => undefined,
     );
@@ -33,6 +40,7 @@ export function initAdminSession(auth: AuthService): () => Promise<void> {
     BrowserAnimationsModule,
     CoreModule,
     SharedModule,
+    UsersDialogsModule,
     AppRoutingModule,
   ],
   providers: [

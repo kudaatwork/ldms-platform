@@ -1,0 +1,219 @@
+<section class="lx-page help-page">
+  <header class="help-hero">
+    <div class="help-hero__copy">
+      <p class="help-hero__eyebrow">Help &amp; Support</p>
+      <h1 class="help-hero__title">How can we help, {{ userDisplayName || 'there' }}?</h1>
+      <p class="help-hero__lead">
+        Browse guides, check platform status, or open a ticket — our operations team monitors every request.
+      </p>
+    </div>
+    <div class="help-hero__status" *ngIf="platformStatus as ps" [class]="'help-hero__status--' + statusTone(ps.overallStatus)">
+      <span class="material-icons help-hero__status-icon" aria-hidden="true">
+        {{ ps.overallStatus === 'OPERATIONAL' ? 'check_circle' : ps.overallStatus === 'OUTAGE' ? 'error' : 'warning' }}
+      </span>
+      <div>
+        <div class="help-hero__status-label">{{ ps.headline }}</div>
+        <div class="help-hero__status-meta">{{ ps.upCount }}/{{ ps.totalServices }} services healthy</div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="help-tabs" aria-label="Help sections">
+    <button type="button" class="help-tab" [class.help-tab--on]="activeTab() === 'overview'" (click)="setTab('overview')">
+      <span class="material-icons" aria-hidden="true">home</span> Overview
+    </button>
+    <button type="button" class="help-tab" [class.help-tab--on]="activeTab() === 'faq'" (click)="setTab('faq')">
+      <span class="material-icons" aria-hidden="true">menu_book</span> FAQ
+    </button>
+    <button type="button" class="help-tab" [class.help-tab--on]="activeTab() === 'ticket'" (click)="setTab('ticket')">
+      <span class="material-icons" aria-hidden="true">support_agent</span> New ticket
+    </button>
+    <button type="button" class="help-tab" [class.help-tab--on]="activeTab() === 'tickets'" (click)="setTab('tickets')">
+      <span class="material-icons" aria-hidden="true">confirmation_number</span> My tickets
+      <span class="help-tab__badge" *ngIf="tickets.length">{{ tickets.length }}</span>
+    </button>
+    <button type="button" class="help-tab" [class.help-tab--on]="activeTab() === 'status'" (click)="setTab('status')">
+      <span class="material-icons" aria-hidden="true">monitor_heart</span> Status
+    </button>
+  </nav>
+
+  <div class="help-alert help-alert--error" *ngIf="loadError()" role="alert">
+    <span class="material-icons" aria-hidden="true">info</span>
+    {{ loadError() }}
+    <button type="button" class="help-alert__action" (click)="reload()">Retry</button>
+  </div>
+
+  <div class="help-loading" *ngIf="loading()">
+    <span class="help-loading__spinner" aria-hidden="true"></span>
+    Loading help centre…
+  </div>
+
+  <ng-container *ngIf="!loading()">
+    <!-- Overview -->
+    <div class="help-grid" *ngIf="activeTab() === 'overview'">
+      <article class="help-card help-card--accent" (click)="setTab('faq')" tabindex="0" role="button">
+        <span class="material-icons help-card__icon" aria-hidden="true">auto_stories</span>
+        <h2 class="help-card__title">Knowledge base</h2>
+        <p class="help-card__text">{{ articles.length }} articles on onboarding, operations, billing, and more.</p>
+        <span class="help-card__cta">Browse FAQ →</span>
+      </article>
+      <article class="help-card" (click)="setTab('ticket')" tabindex="0" role="button">
+        <span class="material-icons help-card__icon" aria-hidden="true">edit_note</span>
+        <h2 class="help-card__title">Open a ticket</h2>
+        <p class="help-card__text">Describe your issue and we will route it to the right LX team.</p>
+        <span class="help-card__cta">Create ticket →</span>
+      </article>
+      <article class="help-card" (click)="setTab('tickets')" tabindex="0" role="button">
+        <span class="material-icons help-card__icon" aria-hidden="true">history</span>
+        <h2 class="help-card__title">Track requests</h2>
+        <p class="help-card__text">{{ tickets.length ? tickets.length + ' ticket(s) on file' : 'No tickets yet — we respond within one business day.' }}</p>
+        <span class="help-card__cta">View tickets →</span>
+      </article>
+      <article class="help-card help-card--status" (click)="setTab('status')" tabindex="0" role="button">
+        <span class="material-icons help-card__icon" aria-hidden="true">insights</span>
+        <h2 class="help-card__title">Platform pulse</h2>
+        <p class="help-card__text">{{ platformStatus?.detail || 'Live health snapshot from LDMS services.' }}</p>
+        <span class="help-card__cta">View status →</span>
+      </article>
+    </div>
+
+    <!-- FAQ -->
+    <div class="help-faq" *ngIf="activeTab() === 'faq'">
+      <aside class="help-faq__nav lx-card">
+        <label class="help-search">
+          <span class="material-icons" aria-hidden="true">search</span>
+          <input
+            type="search"
+            [value]="faqSearch()"
+            (input)="faqSearch.set($any($event.target).value)"
+            placeholder="Search articles…"
+            autocomplete="off"
+          />
+        </label>
+        <div class="help-faq__filters">
+          <button
+            type="button"
+            *ngFor="let f of categoryFilters"
+            class="help-faq__filter"
+            [class.help-faq__filter--on]="selectedCategory() === f.id"
+            (click)="setCategory(f.id)"
+          >
+            <span class="material-icons" aria-hidden="true">{{ f.icon }}</span>
+            {{ f.label }}
+          </button>
+        </div>
+        <ul class="help-faq__list">
+          <li *ngFor="let a of filteredArticles; trackBy: trackArticle">
+            <button
+              type="button"
+              class="help-faq__item"
+              [class.help-faq__item--on]="selectedArticle()?.slug === a.slug"
+              (click)="openArticle(a)"
+            >
+              <span class="help-faq__item-title">{{ a.title }}</span>
+              <span class="help-faq__item-summary">{{ a.summary }}</span>
+            </button>
+          </li>
+        </ul>
+      </aside>
+      <article class="help-faq__article lx-card" *ngIf="selectedArticle() as article">
+        <p class="help-faq__article-cat">{{ article.category.replace('_', ' ') }}</p>
+        <h2 class="help-faq__article-title">{{ article.title }}</h2>
+        <p class="help-faq__article-summary">{{ article.summary }}</p>
+        <div class="help-faq__body">
+          <ng-container *ngFor="let line of articleBodyLines(article)">
+            <h3 *ngIf="line.kind === 'h2'">{{ line.text }}</h3>
+            <p *ngIf="line.kind === 'text' && line.text.trim()">{{ line.text }}</p>
+          </ng-container>
+        </div>
+      </article>
+      <div class="help-faq__empty lx-card" *ngIf="!filteredArticles.length">
+        <span class="material-icons" aria-hidden="true">search_off</span>
+        <p>No articles match your search.</p>
+      </div>
+    </div>
+
+    <!-- New ticket -->
+    <div class="help-ticket lx-card" *ngIf="activeTab() === 'ticket'">
+      <div class="help-ticket__success" *ngIf="submitOk() && createdTicket() as t" role="status">
+        <span class="material-icons" aria-hidden="true">celebration</span>
+        <div>
+          <strong>Ticket {{ t.ticketNumber }} created.</strong>
+          <p>We emailed a confirmation to {{ t.requesterEmail }}. Track progress under <em>My tickets</em>.</p>
+        </div>
+        <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm" (click)="setTab('tickets')">View tickets</button>
+      </div>
+
+      <form *ngIf="!submitOk()" class="help-ticket__form" [formGroup]="ticketForm" (ngSubmit)="submitTicket()" novalidate>
+        <h2 class="help-ticket__heading">Tell us what you need</h2>
+        <p class="help-ticket__hint">Include PO numbers, shipment IDs, or screenshots in the description when relevant.</p>
+
+        <label class="help-field">
+          <span class="help-field__label">Subject</span>
+          <input class="lx-input" formControlName="subject" placeholder="Brief summary of the issue" />
+          <span class="help-field__error" *ngIf="fieldError('subject') as err">{{ err }}</span>
+        </label>
+
+        <label class="help-field">
+          <span class="help-field__label">Category</span>
+          <select class="lx-input" formControlName="category">
+            <option *ngFor="let c of ticketCategories" [value]="c.id">{{ c.label }}</option>
+          </select>
+        </label>
+
+        <label class="help-field">
+          <span class="help-field__label">Description</span>
+          <textarea
+            class="lx-input help-field__textarea"
+            rows="7"
+            formControlName="description"
+            placeholder="What happened? What did you expect? Steps to reproduce…"
+          ></textarea>
+          <span class="help-field__error" *ngIf="fieldError('description') as err">{{ err }}</span>
+        </label>
+
+        <div class="help-ticket__actions">
+          <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting()">
+            {{ submitting() ? 'Submitting…' : 'Submit ticket' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- My tickets -->
+    <div class="help-tickets" *ngIf="activeTab() === 'tickets'">
+      <div class="help-tickets__empty lx-card" *ngIf="!tickets.length">
+        <span class="material-icons" aria-hidden="true">inbox</span>
+        <p>No support tickets yet.</p>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="setTab('ticket')">Open your first ticket</button>
+      </div>
+      <article class="help-ticket-row lx-card" *ngFor="let t of tickets; trackBy: trackTicket">
+        <div class="help-ticket-row__head">
+          <span class="help-ticket-row__number">{{ t.ticketNumber }}</span>
+          <span class="help-ticket-row__status" [attr.data-status]="t.status">{{ ticketStatusLabel(t.status) }}</span>
+        </div>
+        <h3 class="help-ticket-row__subject">{{ t.subject }}</h3>
+        <p class="help-ticket-row__meta">{{ t.category }} · {{ t.createdAt | date : 'medium' }}</p>
+        <p class="help-ticket-row__desc">{{ t.description }}</p>
+      </article>
+    </div>
+
+    <!-- Status -->
+    <div class="help-status lx-card" *ngIf="activeTab() === 'status' && platformStatus as ps">
+      <div class="help-status__hero" [class]="'help-status__hero--' + statusTone(ps.overallStatus)">
+        <span class="material-icons help-status__icon" aria-hidden="true">monitor_heart</span>
+        <div>
+          <h2>{{ ps.headline }}</h2>
+          <p>{{ ps.detail }}</p>
+        </div>
+      </div>
+      <dl class="help-status__stats">
+        <div><dt>Checked</dt><dd>{{ ps.checkedAt | date : 'medium' }}</dd></div>
+        <div><dt>Overall</dt><dd>{{ ps.overallStatus }}</dd></div>
+        <div><dt>Healthy services</dt><dd>{{ ps.upCount }} / {{ ps.totalServices }}</dd></div>
+        <div><dt>Issues detected</dt><dd>{{ ps.downCount }}</dd></div>
+      </dl>
+      <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm" (click)="reload()">Refresh status</button>
+    </div>
+  </ng-container>
+</section>

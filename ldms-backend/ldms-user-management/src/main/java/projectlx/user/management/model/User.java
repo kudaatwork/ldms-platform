@@ -82,6 +82,11 @@ public class User {
     private UserSecurity userSecurity;    // User security settings (2FA, security questions)
     
     private Boolean emailVerified = false;  // Whether the user's email has been verified
+
+    /** When true, the user must choose a permanent username and password before using the portal. */
+    @jakarta.persistence.Column(name = "must_change_credentials", nullable = false)
+    private Boolean mustChangeCredentials = false;
+
     private String verificationToken;       // Token for email verification
     private String passwordResetToken;        // Token for password reset
     private LocalDateTime passwordResetTokenExpiry; // Token expiration time

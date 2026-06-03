@@ -1,36 +1,108 @@
-<div class="ob-root">
-  <div class="ob-card lx-card">
-    <a routerLink="/welcome" class="ob-back"><span class="material-icons" aria-hidden="true">arrow_back</span> Home</a>
+<div class="ob-scene">
+  <div class="ob-scene__glow ob-scene__glow--a" aria-hidden="true"></div>
+  <div class="ob-scene__glow ob-scene__glow--b" aria-hidden="true"></div>
+  <div class="ob-scene__grid" aria-hidden="true"></div>
 
-    <h1 class="ob-title">Onboarding progress</h1>
-    <p class="ob-lead" *ngIf="!errorMessage">
-      Your organisation is moving through our two-stage KYC review. After final approval, the primary contact receives an
-      email verification link before platform access is enabled.
-    </p>
-    <p class="ob-error" *ngIf="errorMessage">{{ errorMessage }}</p>
+  <div class="ob-shell">
+    <div class="ob-topbar">
+      <a routerLink="/welcome" class="ob-back">
+        <span class="material-icons" aria-hidden="true">arrow_back</span>
+        Home
+      </a>
+      <button
+        type="button"
+        class="ob-theme"
+        (click)="toggleTheme()"
+        [attr.title]="theme.dark() ? 'Light mode' : 'Dark mode'"
+        [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+      >
+        <span class="material-icons" aria-hidden="true">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+      </button>
+    </div>
 
-    <div class="ob-org" *ngIf="org as o">
-      <span class="material-icons ob-org-icon" aria-hidden="true">domain</span>
-      <div>
-        <div class="ob-org-name">{{ o.name }}</div>
-        <div class="ob-org-meta">Reference #{{ o.id }} · {{ o.kycStatus }}</div>
+    <header class="ob-hero" *ngIf="!loadError">
+      <div class="ob-hero__badge" [ngClass]="statusBadgeClass">
+        <span class="ob-hero__pulse" *ngIf="!status?.verified && status?.kycStatus !== 'REJECTED'"></span>
+        {{ kycStatusLabel }}
       </div>
-    </div>
+      <h1 class="ob-hero__title">{{ statusHeadline }}</h1>
+      <p class="ob-hero__lead" *ngIf="status as s">
+        Track <strong>{{ s.name }}</strong> through multi-stage compliance review — updates live as reviewers act.
+      </p>
+    </header>
 
-    <ol class="ob-steps" *ngIf="!loading">
-      <li *ngFor="let step of steps" class="ob-step" [class]="'ob-step--' + step.state">
-        <span class="ob-step-marker">
-          <span class="material-icons" *ngIf="step.state === 'done'" aria-hidden="true">check_circle</span>
-          <span class="material-icons" *ngIf="step.state === 'active'" aria-hidden="true">radio_button_checked</span>
-          <span class="material-icons" *ngIf="step.state === 'pending'" aria-hidden="true">radio_button_unchecked</span>
-        </span>
-        <span class="ob-step-label">{{ step.label }}</span>
-      </li>
-    </ol>
+    <p class="ob-error" *ngIf="loadError">{{ loadError }}</p>
+    <button type="button" class="lx-btn lx-btn-primary" *ngIf="loadError" (click)="goSignup()">Go to signup</button>
 
-    <div class="ob-actions">
-      <button type="button" class="lx-btn lx-btn-primary" (click)="goLogin()">Sign in</button>
+    <ng-container *ngIf="status as s">
+      <div class="ob-layout" *ngIf="!loadError">
+        <aside class="ob-ring-card">
+          <div class="ob-ring" [style.--ob-progress]="progressPercent + '%'">
+            <div class="ob-ring__inner">
+              <span class="ob-ring__value">{{ progressPercent }}%</span>
+              <span class="ob-ring__label">Complete</span>
+            </div>
+          </div>
+          <div class="ob-org-chip">
+            <span class="material-icons" aria-hidden="true">domain</span>
+            <div>
+              <div class="ob-org-chip__name">{{ s.name }}</div>
+              <div class="ob-org-chip__meta">Ref #{{ s.id }} · {{ s.requiredApprovalStages }} approval stage(s)</div>
+            </div>
+          </div>
+          <p class="ob-live" *ngIf="!loading">
+            <span class="ob-live__dot"></span>
+            Live · updated {{ lastRefreshed | date: 'shortTime' }}
+          </p>
+          <p class="ob-live ob-live--busy" *ngIf="loading">Refreshing…</p>
+          <button type="button" class="lx-btn lx-btn-ghost ob-refresh" (click)="refreshNow()" [disabled]="loading">
+            Refresh now
+          </button>
+        </aside>
+
+        <section class="ob-timeline-card">
+          <h2 class="ob-timeline-card__title">Your journey</h2>
+          <div class="ob-timeline-scroll">
+            <ol class="ob-timeline">
+              <li
+                *ngFor="let step of steps; let last = last"
+                class="ob-timeline__item"
+                [class]="'ob-timeline__item--' + step.state"
+                [class.ob-timeline__item--last]="last"
+              >
+                <div class="ob-timeline__rail">
+                  <span class="ob-timeline__node">
+                    <span class="material-icons" *ngIf="step.state === 'done'" aria-hidden="true">check</span>
+                    <span class="material-icons" *ngIf="step.state === 'active'" aria-hidden="true">{{ step.icon }}</span>
+                    <span class="material-icons" *ngIf="step.state === 'pending'" aria-hidden="true">schedule</span>
+                    <span class="material-icons" *ngIf="step.state === 'rejected'" aria-hidden="true">error_outline</span>
+                  </span>
+                  <span class="ob-timeline__connector" *ngIf="!last"></span>
+                </div>
+                <div class="ob-timeline__body">
+                  <div class="ob-timeline__label">{{ step.label }}</div>
+                  <div class="ob-timeline__hint">{{ step.hint }}</div>
+                </div>
+              </li>
+            </ol>
+
+            <div class="ob-rejection" *ngIf="s.kycStatus === 'REJECTED' && s.lastRejectionReason">
+              <span class="material-icons" aria-hidden="true">info</span>
+              <div>
+                <strong>Reviewer feedback</strong>
+                <p>{{ s.lastRejectionReason }}</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </ng-container>
+
+    <footer class="ob-actions" *ngIf="status && !loadError">
+      <button type="button" class="lx-btn lx-btn-primary ob-actions__primary" (click)="goLogin()">
+        Sign in
+      </button>
       <button type="button" class="lx-btn lx-btn-ghost" (click)="goWelcome()">Back to home</button>
-    </div>
+    </footer>
   </div>
 </div>

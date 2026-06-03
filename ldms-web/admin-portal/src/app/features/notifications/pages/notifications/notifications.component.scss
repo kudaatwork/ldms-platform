@@ -391,6 +391,14 @@
   margin: 12px 0 0;
 }
 
+.lx-action-danger {
+  color: #b91c1c;
+
+  mat-icon {
+    color: #b91c1c;
+  }
+}
+
 .lx-list-error {
   display: flex;
   align-items: flex-start;

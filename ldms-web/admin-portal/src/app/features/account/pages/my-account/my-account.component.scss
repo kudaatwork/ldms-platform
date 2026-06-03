@@ -1,34 +1,69 @@
 .my-account-page {
   display: grid;
-  gap: 14px;
+  gap: 18px;
+}
+
+.my-page-head {
+  &__eyebrow {
+    margin: 0 0 4px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--primary);
+  }
+
+  &__title {
+    margin: 0 0 6px;
+    font-size: 1.65rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    letter-spacing: -0.02em;
+  }
+
+  &__lead {
+    margin: 0;
+    max-width: 52rem;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--gray-600);
+  }
 }
 
 .my-account-hero {
   display: flex;
-  gap: 14px;
+  flex-wrap: wrap;
+  gap: 16px;
   align-items: center;
-  padding: 16px;
+  padding: 20px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--primary) 8%, var(--surface)), var(--surface)),
+    var(--surface);
+  border: 1px solid color-mix(in srgb, var(--primary) 14%, var(--gray-200));
 }
 
 .my-account-hero__avatar {
-  width: 58px;
-  height: 58px;
+  width: 64px;
+  height: 64px;
   border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: #fff;
   background: linear-gradient(135deg, var(--primary), var(--accent));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 28%, transparent);
 }
 
 .my-account-hero__meta {
   min-width: 0;
-  flex: 1;
+  flex: 1 1 220px;
 
   h2 {
-    margin: 0 0 3px;
+    margin: 0 0 4px;
+    font-size: 1.25rem;
+    font-weight: 700;
     color: var(--gray-900);
   }
 
@@ -42,8 +77,8 @@
 .my-account-hero__chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .my-chip {
@@ -56,21 +91,32 @@
   color: var(--primary);
   background: color-mix(in srgb, var(--primary) 10%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--primary) 18%, var(--gray-200));
+
+  &--role {
+    color: var(--accent-dark);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    border-color: color-mix(in srgb, var(--accent) 22%, var(--gray-200));
+  }
 }
 
 .my-account-hero__actions {
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 8px;
+  margin-left: auto;
 }
 
 .my-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 14px;
 }
 
 .my-card {
-  padding: 14px;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .my-card__head {
@@ -78,7 +124,9 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--gray-100);
+  background: color-mix(in srgb, var(--gray-50) 70%, var(--surface));
 
   h3 {
     margin: 0;
@@ -88,25 +136,90 @@
   }
 }
 
+.my-card__title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.my-card__icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  color: var(--primary);
+}
+
 .my-fields {
   display: grid;
-  gap: 8px;
+  gap: 0;
+  margin: 0;
+  padding: 8px 0;
 
   > div {
     display: grid;
-    grid-template-columns: 140px 1fr;
-    gap: 8px;
-    font-size: 13px;
+    grid-template-columns: minmax(120px, 38%) 1fr;
+    gap: 12px;
     align-items: start;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--gray-100);
+    font-size: 13px;
+
+    &:last-child {
+      border-bottom: none;
+    }
   }
 
-  label {
+  dt {
+    margin: 0;
     color: var(--gray-500);
     font-weight: 600;
   }
 
-  span {
+  dd {
+    margin: 0;
     color: var(--gray-800);
     word-break: break-word;
+  }
+}
+
+.my-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--gray-100);
+  color: var(--gray-600);
+
+  &--ok {
+    background: var(--success-light);
+    color: #15803d;
+  }
+
+  &--warn {
+    background: var(--warning-light);
+    color: #b45309;
+  }
+}
+
+.my-card__empty {
+  margin: 0;
+  padding: 18px 16px 20px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--gray-500);
+}
+
+@media (max-width: 640px) {
+  .my-account-hero__actions {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .my-fields > div {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }

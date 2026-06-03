@@ -15,6 +15,8 @@ import projectlx.user.management.utils.dtos.ImportSummary;
 import projectlx.user.management.utils.requests.CreateUserRequest;
 import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
+import projectlx.user.management.utils.requests.CompleteCredentialsSetupRequest;
+import projectlx.user.management.utils.requests.IssueOrganizationContactCredentialsRequest;
 import projectlx.user.management.utils.requests.ProvisionOrganizationContactPersonRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
 import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
@@ -161,6 +163,21 @@ public class UserSystemResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return userServiceProcessor.provisionOrganizationContactPerson(request, locale, "SYSTEM");
+    }
+
+    @Auditable(action = "ISSUE_ORGANIZATION_CONTACT_CREDENTIALS")
+    @PostMapping(value = "/issue-organization-contact-credentials")
+    @Operation(summary = "Issue temporary portal credentials for organisation contact person",
+            description = "Called after final KYC approval. Returns a one-time temporary username and password.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Temporary credentials issued"),
+            @ApiResponse(responseCode = "404", description = "Contact person user not found")
+    })
+    public UserResponse issueOrganizationContactCredentials(
+            @Valid @RequestBody IssueOrganizationContactCredentialsRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.issueOrganizationContactCredentials(request, locale, "SYSTEM");
     }
 
     @Auditable(action = "FIND_USER_BY_PHONE_NUMBER_OR_EMAIL")
@@ -408,10 +425,12 @@ public class UserSystemResource {
             @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public UserResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest forgotPasswordRequest,
+                                       @RequestHeader(value = Constants.LDMS_CLIENT_PLATFORM, required = false)
+                                       String clientPlatform,
                                        @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                        @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                                defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
-        return userServiceProcessor.forgotPassword(forgotPasswordRequest, locale);
+        return userServiceProcessor.forgotPassword(forgotPasswordRequest, clientPlatform, locale);
     }
 
     @Auditable(action = "VALIDATE_RESET_TOKEN")

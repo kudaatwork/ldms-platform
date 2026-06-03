@@ -6,7 +6,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -80,7 +82,8 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             return buildAuthResponse(503, false, message, null, null, null, null, null);
         }
         if (resolvedLogin == null || !StringUtils.hasText(resolvedLogin.username())) {
-            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_INVALID_REQUEST.getCode(),
+            logger.warn("Login identifier could not be resolved: {}", loginId);
+            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_USER_NOT_FOUND.getCode(),
                     new String[]{}, locale);
             return buildAuthResponse(401, false, message, null, null, null, null, null);
         }
@@ -101,14 +104,32 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             message = messageService.getMessage(I18Code.MESSAGE_USER_AUTHENTICATED_SUCCESSFULLY.getCode(),
                     new String[]{}, locale);
 
+            boolean mustChangeCredentials = resolvedLogin.userDto() != null
+                    && Boolean.TRUE.equals(resolvedLogin.userDto().getMustChangeCredentials());
+
             return buildAuthResponse(200, true, message, null, null,
-                    null, accessToken, refreshToken);
+                    null, accessToken, refreshToken, mustChangeCredentials);
         } catch (FeignException ex) {
             logger.error("User management unavailable during login for {}", resolvedUsername, ex);
             message = "User management service is unavailable. Start ldms-user-management (port 8086) and retry.";
             return buildAuthResponse(503, false, message, null, null, null, null, null);
-        } catch (Exception ex) {
+        } catch (BadCredentialsException ex) {
+            logger.warn("Bad credentials for {}", resolvedUsername);
+            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_BAD_CREDENTIALS.getCode(),
+                    new String[]{}, locale);
+            return buildAuthResponse(401, false, message, null, null, null, null, null);
+        } catch (UsernameNotFoundException ex) {
+            logger.warn("User profile unavailable for {}: {}", resolvedUsername, ex.getMessage());
+            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_USER_NOT_FOUND.getCode(),
+                    new String[]{}, locale);
+            return buildAuthResponse(401, false, message, null, null, null, null, null);
+        } catch (AuthenticationException ex) {
             logger.warn("Authentication failed for {}: {}", resolvedUsername, ex.getMessage());
+            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_INVALID_REQUEST.getCode(),
+                    new String[]{}, locale);
+            return buildAuthResponse(401, false, message, null, null, null, null, null);
+        } catch (Exception ex) {
+            logger.warn("Unexpected error during login for {}", resolvedUsername, ex);
             message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_INVALID_REQUEST.getCode(),
                     new String[]{}, locale);
             return buildAuthResponse(401, false, message, null, null, null, null, null);
@@ -278,6 +299,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         if (Boolean.TRUE.equals(dto.getOrganizationKycApprover())) {
             claims.put("organizationKycApprover", true);
         }
+        if (Boolean.TRUE.equals(dto.getMustChangeCredentials())) {
+            claims.put("mustChangeCredentials", true);
+        }
         return claims;
     }
 
@@ -305,6 +329,14 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                                            AuthDto authDto, List<AuthDto> authDtoList,
                                            Page<AuthDto> authDtoPage, String accessToken,
                                            String refreshToken){
+        return buildAuthResponse(statusCode, isSuccess, message, authDto, authDtoList, authDtoPage, accessToken,
+                refreshToken, null);
+    }
+
+    private AuthResponse buildAuthResponse(int statusCode, boolean isSuccess, String message,
+                                           AuthDto authDto, List<AuthDto> authDtoList,
+                                           Page<AuthDto> authDtoPage, String accessToken,
+                                           String refreshToken, Boolean mustChangeCredentials){
 
         AuthResponse authResponse = new AuthResponse();
         authResponse.setStatusCode(statusCode);
@@ -315,6 +347,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         authResponse.setAuthDtoPage(authDtoPage);
         authResponse.setAccessToken(accessToken);
         authResponse.setRefreshToken(refreshToken);
+        authResponse.setMustChangeCredentials(mustChangeCredentials);
 
         return authResponse;
     }

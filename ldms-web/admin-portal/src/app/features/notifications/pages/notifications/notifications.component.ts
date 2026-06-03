@@ -412,6 +412,47 @@ export class NotificationsComponent implements OnInit, OnDestroy {
       });
   }
 
+  onNotificationLogChurnOut(): void {
+    this.dialog
+      .open(DeleteConfirmDialogComponent, {
+        width: '420px',
+        maxWidth: '92vw',
+        data: { entityLabel: 'notification logs' },
+      })
+      .afterClosed()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((confirmed) => {
+        if (!confirmed) {
+          return;
+        }
+        this.fetchingLog = true;
+        this.notificationAdmin
+          .churnOutNotificationLog()
+          .pipe(
+            finalize(() => {
+              this.fetchingLog = false;
+            }),
+            takeUntil(this.destroy$),
+          )
+          .subscribe({
+            next: (response) => {
+              this.snackBar.open(response.message || 'Notification logs churned out successfully.', 'Close', {
+                duration: 5000,
+                panelClass: ['app-snackbar-success'],
+              });
+              this.logPageIndex = 0;
+              this.loadLog();
+            },
+            error: (err) => {
+              this.snackBar.open(this.errorMessage(err, 'Could not churn out notification logs.'), 'Close', {
+                duration: 5000,
+                panelClass: ['app-snackbar-error'],
+              });
+            },
+          });
+      });
+  }
+
   viewTemplate(t: NotificationTemplateRow): void {
     this.dialog.open(NotificationTemplateDetailDialogComponent, {
       ...this.dialogOpts,

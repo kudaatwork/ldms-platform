@@ -1,0 +1,108 @@
+<section class="gr-shell lx-card">
+  <header class="gr-head">
+    <div>
+      <h2>Group role mapping</h2>
+      <p>Select a user group, then toggle which permission roles belong to it. Changes apply immediately.</p>
+    </div>
+  </header>
+
+  <div class="gr-layout">
+    <aside class="gr-groups">
+      <div class="lx-input-shell gr-search">
+        <mat-icon class="lx-input-shell__icon">search</mat-icon>
+        <input
+          type="search"
+          placeholder="Search groups..."
+          [(ngModel)]="groupSearch"
+          (ngModelChange)="onGroupSearchChange()"
+        />
+      </div>
+
+      <lx-table-loading [busy]="loadingGroups" message="Loading groups..."></lx-table-loading>
+      <div class="lx-empty" *ngIf="!loadingGroups && error">
+        <mat-icon class="lx-empty-icon">error_outline</mat-icon>
+        <div class="lx-empty-title">{{ error }}</div>
+      </div>
+
+      <ul class="gr-group-list" *ngIf="!loadingGroups && !error">
+        <li *ngFor="let group of filteredGroups; trackBy: trackGroup">
+          <button
+            type="button"
+            class="gr-group-card"
+            [class.gr-group-card--active]="selectedGroupId === group.id"
+            (click)="selectGroup(group)"
+          >
+            <div class="gr-group-card__top">
+              <span class="gr-group-card__name">{{ group.name }}</span>
+              <span class="gr-group-card__badge">{{ group.roles }} roles</span>
+            </div>
+            <p class="gr-group-card__desc">{{ group.description || 'No description' }}</p>
+            <div class="gr-group-card__meta">
+              <mat-icon>people</mat-icon>
+              {{ group.users }} members
+            </div>
+          </button>
+        </li>
+      </ul>
+    </aside>
+
+    <div class="gr-roles">
+      <ng-container *ngIf="selectedGroup; else noGroup">
+        <header class="gr-roles-head">
+          <div>
+            <p class="gr-roles-head__eyebrow">Selected group</p>
+            <h3>{{ selectedGroup.name }}</h3>
+            <p>{{ assignedCount }} of {{ roleRows.length }} catalog roles assigned</p>
+          </div>
+          <div class="lx-input-shell gr-search gr-search--roles">
+            <mat-icon class="lx-input-shell__icon">filter_list</mat-icon>
+            <input
+              type="search"
+              placeholder="Filter roles..."
+              [(ngModel)]="roleSearch"
+              (ngModelChange)="onRoleSearchChange()"
+            />
+          </div>
+        </header>
+
+        <lx-table-loading [busy]="loadingRoles" message="Loading role catalog..."></lx-table-loading>
+
+        <div class="gr-modules" *ngIf="!loadingRoles">
+          @for (module of roleModuleGroups; track module.section.key) {
+            <section class="gr-module">
+              <header class="gr-module__head">
+                <mat-icon>layers</mat-icon>
+                <span>{{ module.section.label }}</span>
+                <span class="gr-module__count">{{ moduleAssignedCount(module) }}/{{ module.roles.length }}</span>
+              </header>
+              <div class="gr-role-grid">
+                @for (row of module.roles; track trackRole($index, row)) {
+                  <button
+                    type="button"
+                    class="gr-role-chip"
+                    [class.gr-role-chip--on]="row.assigned"
+                    [class.gr-role-chip--busy]="row.busy"
+                    [disabled]="row.busy || savingRoleId !== null"
+                    (click)="toggleRole(row)"
+                  >
+                    <span class="gr-role-chip__name">{{ row.role }}</span>
+                    <span class="gr-role-chip__desc">{{ row.description }}</span>
+                    <mat-icon class="gr-role-chip__icon">{{ row.assigned ? 'check_circle' : 'add_circle_outline' }}</mat-icon>
+                  </button>
+                }
+              </div>
+            </section>
+          }
+        </div>
+      </ng-container>
+
+      <ng-template #noGroup>
+        <div class="lx-empty gr-empty">
+          <mat-icon class="lx-empty-icon">groups</mat-icon>
+          <div class="lx-empty-title">Pick a user group</div>
+          <div class="lx-empty-sub">Role assignments appear here once you select a group on the left.</div>
+        </div>
+      </ng-template>
+    </div>
+  </div>
+</section>

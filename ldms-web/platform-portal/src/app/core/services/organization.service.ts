@@ -37,11 +37,39 @@ export interface OrganizationSummary {
   organizationClassification: OrganizationClassification;
 }
 
+/** Public onboarding tracker (limited fields from GET onboarding-status). */
+export interface OnboardingStatus {
+  id: number;
+  name: string;
+  kycStatus: string;
+  verified: boolean;
+  requiredApprovalStages: number;
+  lastRejectionReason?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OrganizationService {
   private readonly base = ldmsServiceUrl('organization-management', 'organization');
 
   constructor(private readonly http: HttpClient) {}
+
+  /**
+   * Public tracker — uses system surface (permitAll) so applicants without a JWT are not blocked.
+   */
+  getOnboardingStatus(organizationId: number): Observable<OnboardingStatus> {
+    const url = ldmsServiceUrl(
+      'organization-management',
+      'organization',
+      `onboarding-status/${organizationId}`,
+      'system',
+    );
+    return this.http
+      .get<unknown>(url)
+      .pipe(
+        map((resp) => this.mapOnboardingStatus(resp)),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
+  }
 
   register(payload: RegisterOrganizationPayload): Observable<OrganizationSummary> {
     const form = new FormData();
@@ -110,6 +138,24 @@ export class OrganizationService {
     if (file) {
       form.append(key, file, file.name);
     }
+  }
+
+  private mapOnboardingStatus(response: unknown): OnboardingStatus {
+    const root = this.toObj(response);
+    const data = this.toObj(root?.['data']) ?? root;
+    const dto =
+      this.toObj(data?.['onboardingStatusDto']) ??
+      this.toObj(data?.['organizationDto']) ??
+      data ??
+      {};
+    return {
+      id: Number(dto['id'] ?? 0),
+      name: String(dto['name'] ?? ''),
+      kycStatus: String(dto['kycStatus'] ?? 'DRAFT'),
+      verified: Boolean(dto['verified'] ?? dto['isVerified']),
+      requiredApprovalStages: Math.max(1, Number(dto['requiredApprovalStages'] ?? 2)),
+      lastRejectionReason: String(dto['lastRejectionReason'] ?? '').trim() || undefined,
+    };
   }
 
   private mapSummary(dto: Record<string, unknown>): OrganizationSummary {

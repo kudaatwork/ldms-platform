@@ -81,4 +81,7 @@ public class AuditLog {
 
     @Column(length = 255)
     private String username;
+
+    @Column(name = "client_platform", length = 50)
+    private String clientPlatform;
 }

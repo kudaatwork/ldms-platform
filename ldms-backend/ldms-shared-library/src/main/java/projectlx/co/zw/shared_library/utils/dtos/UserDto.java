@@ -46,6 +46,7 @@ public class UserDto {
 
     private EntityStatus entityStatus;
     private Boolean emailVerified;
+    private Boolean mustChangeCredentials;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
