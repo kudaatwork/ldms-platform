@@ -89,6 +89,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8086}
+  max-http-request-header-size: 65536
 
 clients:
   base-url:
@@ -127,6 +128,52 @@ jwt:
   refresh-token-expiration-ms: 604800000
 
 ldms:
+  platform-health:
+    probe-timeout-ms: ${LDMS_PLATFORM_HEALTH_PROBE_TIMEOUT_MS:5000}
+    default-host: ${API_GATEWAY_HOST:127.0.0.1}
+    services:
+      - id: api-gateway
+        display-name: API Gateway
+        eureka-name: ldms-api-gateway
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${GATEWAY_SERVER_PORT:8091}
+      - id: authentication
+        display-name: Authentication
+        eureka-name: auth-management
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${AUTH_SERVER_PORT:8083}
+      - id: locations
+        display-name: Locations
+        eureka-name: ldms-location-management
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${LOCATIONS_SERVER_PORT:8084}
+      - id: user-management
+        display-name: User Management
+        eureka-name: user-management
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${SERVER_PORT:8086}
+        management-port: ${MANAGEMENT_SERVER_PORT:9086}
+      - id: organization-management
+        display-name: Organization Management
+        eureka-name: organization-management-service
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${ORGANIZATION_SERVER_PORT:8087}
+      - id: notifications
+        display-name: Notifications
+        eureka-name: ldms-notifications
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${NOTIFICATIONS_SERVER_PORT:8094}
+      - id: audit-trail
+        display-name: Audit Trail
+        eureka-name: ldms-audit-trail
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${AUDIT_SERVER_PORT:8099}
+      - id: file-upload
+        display-name: File Upload
+        eureka-name: file-upload-service
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${FILE_UPLOAD_SERVER_PORT:8085}
+        management-port: ${FILE_UPLOAD_MANAGEMENT_SERVER_PORT:9085}
   roles:
     sync-on-startup: ${LDMS_ROLES_SYNC_ON_STARTUP:true}
   api-gateway:

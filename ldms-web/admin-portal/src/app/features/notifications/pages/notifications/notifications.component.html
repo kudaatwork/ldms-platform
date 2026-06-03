@@ -1,10 +1,11 @@
 <div class="lx-page nt-page">
-  <div class="lx-card lx-card--subsection nt-header">
-    <h2 class="lc-title">Notification Management</h2>
-    <p class="lc-lead">
-      Manage templates (add, export, enable/disable). Log entries are read-only.
-    </p>
-  </div>
+  <lx-page-hero
+    eyebrow="Communications"
+    title="Notifications"
+    lead="Manage templates (add, export, enable/disable). Delivery log entries are read-only."
+    icon="notifications_active"
+    variant="amber"
+  ></lx-page-hero>
 
   <mat-tab-group class="nt-tabs" animationDuration="200ms" (selectedIndexChange)="onTabChange($event)">
     <mat-tab label="Templates">
@@ -336,6 +337,15 @@
               >
                 Export
               </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm"
+                [matMenuTriggerFor]="logActionsMenu"
+                [disabled]="fetchingLog"
+                aria-label="More notification log actions"
+              >
+                <mat-icon>more_vert</mat-icon>
+              </button>
               <mat-menu #logExportMenu="matMenu" panelClass="lx-export-menu">
                 <button mat-menu-item type="button" (click)="exportLog('csv')">
                   <mat-icon>table_view</mat-icon>
@@ -348,6 +358,19 @@
                 <button mat-menu-item type="button" class="lx-export-option--pdf" (click)="exportLog('pdf')">
                   <mat-icon>picture_as_pdf</mat-icon>
                   <span>Export PDF</span>
+                </button>
+              </mat-menu>
+              <mat-menu #logActionsMenu="matMenu" panelClass="lx-row-actions-menu">
+                <button
+                  mat-menu-item
+                  type="button"
+                  class="lx-action-danger"
+                  (click)="onNotificationLogChurnOut()"
+                  matTooltip="Permanently purges all notification logs."
+                  matTooltipPosition="left"
+                >
+                  <mat-icon color="warn">delete_forever</mat-icon>
+                  <span>Churn Out Logs</span>
                 </button>
               </mat-menu>
             </div>

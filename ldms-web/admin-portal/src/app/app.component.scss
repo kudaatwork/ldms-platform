@@ -1,8 +1,34 @@
 /* ── Shell ──────────────────────────────────────────────────── */
+:host {
+  display: block;
+  height: 100%;
+  min-height: 100vh;
+}
+
 .shell {
   display: flex;
   height: 100vh;
   overflow: hidden;
+
+  &.shell--auth {
+    display: block;
+    height: 100vh;
+    overflow: hidden;
+
+    .main--auth {
+      width: 100%;
+      min-height: 100vh;
+      height: 100vh;
+    }
+
+    .content--auth {
+      flex: none;
+      height: 100%;
+      min-height: 100vh;
+      padding: 0;
+      overflow: hidden;
+    }
+  }
 
   &.collapsed .sidebar {
     width: var(--sidebar-collapsed);
@@ -835,11 +861,30 @@
   &:last-child {
     border-bottom: none;
   }
+
+  &--actionable:hover .tb-flyout__item-body:not(:disabled) {
+    background: var(--gray-50);
+  }
 }
 
 .tb-flyout__item-body {
   flex: 1;
   min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  border-radius: 8px;
+  cursor: default;
+
+  &:not(:disabled) {
+    cursor: pointer;
+  }
+
+  &:disabled {
+    opacity: 1;
+  }
 }
 
 .tb-flyout__item-title {
@@ -962,7 +1007,7 @@
   position: relative;
   flex: 1;
   overflow-y: auto;
-  padding: 24px;
+  padding: clamp(18px, 2.5vw, 28px);
   /* No z-index here — page modals (.lx-modal) must stack above topbar (30) / breadcrumbs (20). */
   /* Background layers (gradients + page colour + dot texture) live in styles.scss */
 }
@@ -988,4 +1033,11 @@
   .tb-search {
     display: none;
   }
+}
+
+/* Shell mat-icons — enforce ligature font inside sidebar/topbar (parent buttons set Plus Jakarta Sans). */
+:host mat-icon.mat-icon {
+  font-family: 'Material Icons', sans-serif !important;
+  font-feature-settings: 'liga' !important;
+  font-variation-settings: normal !important;
 }

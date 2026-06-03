@@ -1,17 +1,28 @@
 <div class="lx-page my-account-page">
+  <header class="my-page-head">
+    <div>
+      <p class="my-page-head__eyebrow">Self-service</p>
+      <h1 class="my-page-head__title">My Account</h1>
+      <p class="my-page-head__lead">View and update your profile, account settings, security, and address.</p>
+    </div>
+  </header>
+
   <div class="my-account-hero lx-card">
     <div class="my-account-hero__avatar">{{ initials() }}</div>
     <div class="my-account-hero__meta">
       <h2>{{ headingName() }}</h2>
-      <p>{{ formatDisplay(bundle.user?.['email']) }}</p>
+      <p>{{ formatDisplay(heroEmail()) }}</p>
       <div class="my-account-hero__chips">
+        <span class="my-chip my-chip--role">{{ heroRole() }}</span>
         <span class="my-chip">{{ formatDisplay(bundle.user?.['username']) }}</span>
-        <span class="my-chip">{{ formatDisplay(bundle.user?.['entityStatus']) }}</span>
+        <span class="my-chip" *ngIf="bundle.user?.['entityStatus']">{{ formatDisplay(bundle.user?.['entityStatus']) }}</span>
       </div>
     </div>
     <div class="my-account-hero__actions">
-      <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()">Refresh</button>
-      <button type="button" class="lx-btn lx-btn-primary" (click)="openEditProfile()">Edit profile</button>
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()" [disabled]="loading">Refresh</button>
+      <button type="button" class="lx-btn lx-btn-primary" (click)="openEditProfile()" [disabled]="loading || !bundle.user">
+        Edit profile
+      </button>
     </div>
   </div>
 
@@ -26,56 +37,104 @@
     <div class="my-grid">
       <section class="lx-card my-card">
         <header class="my-card__head">
-          <h3>Profile details</h3>
+          <div class="my-card__title-wrap">
+            <mat-icon class="my-card__icon">person</mat-icon>
+            <h3>Profile details</h3>
+          </div>
           <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditProfile()">Edit</button>
         </header>
-        <div class="my-fields">
-          <div><label>First name</label><span>{{ formatDisplay(bundle.user['firstName']) }}</span></div>
-          <div><label>Last name</label><span>{{ formatDisplay(bundle.user['lastName']) }}</span></div>
-          <div><label>Gender</label><span>{{ formatDisplay(bundle.user['gender']) }}</span></div>
-          <div><label>Date of birth</label><span>{{ formatDisplay(bundle.user['dateOfBirth']) }}</span></div>
-          <div><label>Phone number</label><span>{{ formatDisplay(bundle.user['phoneNumber']) }}</span></div>
-          <div><label>Email verified</label><span>{{ formatDisplay(bundle.user['emailVerified']) }}</span></div>
-        </div>
+        <dl class="my-fields">
+          <div><dt>First name</dt><dd>{{ formatDisplay(bundle.user['firstName']) }}</dd></div>
+          <div><dt>Last name</dt><dd>{{ formatDisplay(bundle.user['lastName']) }}</dd></div>
+          <div><dt>Gender</dt><dd>{{ formatDisplay(bundle.user['gender']) }}</dd></div>
+          <div><dt>Date of birth</dt><dd>{{ formatDisplay(bundle.user['dateOfBirth']) }}</dd></div>
+          <div><dt>Phone number</dt><dd>{{ formatDisplay(bundle.user['phoneNumber']) }}</dd></div>
+          <div>
+            <dt>Email verified</dt>
+            <dd>
+              <span class="my-pill" [class.my-pill--ok]="bundle.user['emailVerified'] === true">
+                {{ formatBoolean(bundle.user['emailVerified']) }}
+              </span>
+            </dd>
+          </div>
+        </dl>
       </section>
 
       <section class="lx-card my-card">
         <header class="my-card__head">
-          <h3>Account settings</h3>
-          <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditAccount()">Edit</button>
+          <div class="my-card__title-wrap">
+            <mat-icon class="my-card__icon">manage_accounts</mat-icon>
+            <h3>Account settings</h3>
+          </div>
+          <button
+            type="button"
+            class="lx-btn lx-btn-sm lx-btn-ghost"
+            (click)="openEditAccount()"
+            [disabled]="resolvingSection === 'account'"
+          >
+            {{ resolvingSection === 'account' ? 'Opening…' : 'Edit' }}
+          </button>
         </header>
-        <div class="my-fields">
-          <div><label>Account number</label><span>{{ formatDisplay(bundle.account?.['accountNumber']) }}</span></div>
-          <div><label>Account status</label><span>{{ formatDisplay(bundle.account?.['accountStatus']) }}</span></div>
-          <div><label>Account locked</label><span>{{ formatDisplay(bundle.account?.['isAccountLocked']) }}</span></div>
-          <div><label>Phone (account)</label><span>{{ formatDisplay(bundle.account?.['phoneNumber']) }}</span></div>
-        </div>
+        <dl class="my-fields" *ngIf="hasAccount(); else accountEmpty">
+          <div><dt>Account number</dt><dd>{{ formatDisplay(bundle.account?.['accountNumber']) }}</dd></div>
+          <div><dt>Account status</dt><dd>{{ formatDisplay(bundle.account?.['accountStatus']) }}</dd></div>
+          <div>
+            <dt>Account locked</dt>
+            <dd>
+              <span class="my-pill" [class.my-pill--warn]="bundle.account?.['isAccountLocked'] === true">
+                {{ formatBoolean(bundle.account?.['isAccountLocked']) }}
+              </span>
+            </dd>
+          </div>
+          <div><dt>Phone (account)</dt><dd>{{ formatDisplay(bundle.account?.['phoneNumber']) }}</dd></div>
+        </dl>
+        <ng-template #accountEmpty>
+          <p class="my-card__empty">Account details are not linked yet. Contact an administrator if this looks wrong.</p>
+        </ng-template>
       </section>
 
       <section class="lx-card my-card">
         <header class="my-card__head">
-          <h3>Security & recovery</h3>
+          <div class="my-card__title-wrap">
+            <mat-icon class="my-card__icon">shield</mat-icon>
+            <h3>Security & recovery</h3>
+          </div>
           <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditSecurity()">Edit</button>
         </header>
-        <div class="my-fields">
-          <div><label>2FA enabled</label><span>{{ formatDisplay(bundle.security?.['isTwoFactorEnabled']) }}</span></div>
-          <div><label>Security question 1</label><span>{{ formatDisplay(bundle.security?.['securityQuestion_1']) }}</span></div>
-          <div><label>Security question 2</label><span>{{ formatDisplay(bundle.security?.['securityQuestion_2']) }}</span></div>
-          <div><label>Last updated</label><span>{{ formatDisplay(bundle.security?.['updatedAt']) }}</span></div>
-        </div>
+        <dl class="my-fields">
+          <div>
+            <dt>2FA enabled</dt>
+            <dd>
+              <span class="my-pill" [class.my-pill--ok]="bundle.security?.['isTwoFactorEnabled'] === true">
+                {{ formatBoolean(bundle.security?.['isTwoFactorEnabled']) }}
+              </span>
+            </dd>
+          </div>
+          <div><dt>Security question 1</dt><dd>{{ formatDisplay(bundle.security?.['securityQuestion_1']) }}</dd></div>
+          <div><dt>Security question 2</dt><dd>{{ formatDisplay(bundle.security?.['securityQuestion_2']) }}</dd></div>
+          <div><dt>Last updated</dt><dd>{{ formatDisplay(bundle.security?.['updatedAt']) }}</dd></div>
+        </dl>
       </section>
 
       <section class="lx-card my-card">
         <header class="my-card__head">
-          <h3>Address</h3>
-          <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditAddress()">Edit</button>
+          <div class="my-card__title-wrap">
+            <mat-icon class="my-card__icon">home_work</mat-icon>
+            <h3>Address</h3>
+          </div>
+          <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditAddress()" [disabled]="!hasAddress()">
+            Edit
+          </button>
         </header>
-        <div class="my-fields">
-          <div><label>Line 1</label><span>{{ formatDisplay(bundle.address?.['line1']) }}</span></div>
-          <div><label>Line 2</label><span>{{ formatDisplay(bundle.address?.['line2']) }}</span></div>
-          <div><label>Postal code</label><span>{{ formatDisplay(bundle.address?.['postalCode']) }}</span></div>
-          <div><label>Suburb ID</label><span>{{ formatDisplay(bundle.address?.['suburbId']) }}</span></div>
-        </div>
+        <dl class="my-fields" *ngIf="hasAddress(); else addressEmpty">
+          <div><dt>Line 1</dt><dd>{{ formatDisplay(bundle.address?.['line1']) }}</dd></div>
+          <div><dt>Line 2</dt><dd>{{ formatDisplay(bundle.address?.['line2']) }}</dd></div>
+          <div><dt>Postal code</dt><dd>{{ formatDisplay(bundle.address?.['postalCode']) }}</dd></div>
+          <div><dt>Suburb ID</dt><dd>{{ formatDisplay(bundle.address?.['suburbId']) }}</dd></div>
+        </dl>
+        <ng-template #addressEmpty>
+          <p class="my-card__empty">No address on file yet.</p>
+        </ng-template>
       </section>
     </div>
   </ng-container>

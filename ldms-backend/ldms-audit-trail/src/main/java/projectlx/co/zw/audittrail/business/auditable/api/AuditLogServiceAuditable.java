@@ -28,6 +28,9 @@ public interface AuditLogServiceAuditable {
             String requestUrl,
             String httpMethod,
             String traceId,
+            String clientPlatform,
+            List<String> actionsIn,
+            List<String> excludeActions,
             Pageable pageable);
 
     Optional<AuditLog> findById(Long id);

@@ -1,4 +1,12 @@
 <div class="lx-page">
+  <lx-page-hero
+    eyebrow="Geography"
+    [title]="pageTitle"
+    [lead]="pageLead"
+    icon="public"
+    variant="emerald"
+  ></lx-page-hero>
+
   <div class="lx-card lx-card--subsection lx-address-i18n" *ngIf="entity === 'address'">
     <h3 class="lx-address-i18n__title">Languages and localized names</h3>
     <p class="lx-address-i18n__text">
@@ -154,8 +162,7 @@
   <div class="lx-card">
     <div class="lx-table-header">
       <div>
-        <h2 class="lc-title">{{ pageTitle }}</h2>
-        <p class="lc-lead">{{ pageLead }}</p>
+        <p class="lx-table-meta">Location master data</p>
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
     </div>

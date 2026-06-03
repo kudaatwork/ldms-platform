@@ -1,0 +1,154 @@
+<section class="ka-shell">
+  <lx-table-loading [busy]="loading" message="Loading KYC approver settings..."></lx-table-loading>
+
+  <div class="lx-empty" *ngIf="!loading && error">
+    <mat-icon class="lx-empty-icon">error_outline</mat-icon>
+    <div class="lx-empty-title">{{ error }}</div>
+  </div>
+
+  <ng-container *ngIf="!loading && !error">
+    <article class="ka-hero lx-card">
+      <div class="ka-hero__copy">
+        <p class="ka-hero__eyebrow">Platform default</p>
+        <h2>KYC approval pipeline</h2>
+        <p>
+          Choose how many sequential approvers new signup organisations require — from a single reviewer up to five.
+          Each stage must be a different person when enough approvers are available.
+        </p>
+      </div>
+
+      <div class="ka-stage-picker">
+        @for (option of stageOptions; track option.value) {
+          <button
+            type="button"
+            class="ka-stage-card"
+            [class.ka-stage-card--active]="draftDefaultStages === option.value"
+            (click)="selectDefaultStages(option.value)"
+          >
+            <div class="ka-stage-card__visual" [attr.data-stages]="option.value">
+              @for (step of stageDots(option.value); track step) {
+                <span class="ka-stage-card__dot">{{ step }}</span>
+              }
+            </div>
+            <div class="ka-stage-card__label">{{ option.label }}</div>
+            <div class="ka-stage-card__hint">{{ option.hint }}</div>
+          </button>
+        }
+      </div>
+
+      <div class="ka-hero__actions">
+        <button
+          type="button"
+          class="lx-btn lx-btn-primary"
+          (click)="saveDefaultPolicy()"
+          [disabled]="savingDefault || draftDefaultStages === policy.defaultRequiredApprovalStages"
+        >
+          {{ savingDefault ? 'Saving…' : 'Save platform default' }}
+        </button>
+        <span class="ka-hero__current">
+          Active default:
+          <strong>{{ policy.defaultRequiredApprovalStages }} approver{{ policy.defaultRequiredApprovalStages === 1 ? '' : 's' }}</strong>
+        </span>
+      </div>
+    </article>
+
+    <div class="ka-grid">
+      <section class="lx-card ka-card">
+        <header class="ka-card__head">
+          <mat-icon>corporate_fare</mat-icon>
+          <div>
+            <h3>Per-company overrides</h3>
+            <p>Override the platform default for individual signup organisations in the KYC queue.</p>
+          </div>
+        </header>
+
+        <div class="lx-input-shell ka-search">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input type="search" placeholder="Search companies..." [(ngModel)]="orgSearch" />
+        </div>
+
+        <div class="ka-table-wrap">
+          <table class="ka-table" *ngIf="filteredOrgRows.length; else noOrgs">
+            <thead>
+              <tr>
+                <th>Organisation</th>
+                <th>Classification</th>
+                <th>Effective approvers</th>
+                <th>Override</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of filteredOrgRows; trackBy: trackOrg">
+                <td>
+                  <div class="ka-org-name">{{ row.name }}</div>
+                  <div class="ka-org-meta">{{ orgStageLabel(row) }}</div>
+                </td>
+                <td>{{ row.classificationLabel }}</td>
+                <td>
+                  <span class="ka-pill" [class.ka-pill--single]="row.effectiveStages === 1">
+                    {{ row.effectiveStages }} approver{{ row.effectiveStages === 1 ? '' : 's' }}
+                  </span>
+                </td>
+                <td>
+                  <select
+                    class="ka-select"
+                    [disabled]="row.saving"
+                    [value]="row.overrideStages ?? 'inherit'"
+                    (change)="onOrgStagesChange(row, $any($event.target).value)"
+                  >
+                    <option value="inherit">Use platform default</option>
+                    @for (count of orgStageOverrideOptions; track count) {
+                      <option [value]="count">{{ count }} approver{{ count === 1 ? '' : 's' }}</option>
+                    }
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <ng-template #noOrgs>
+            <div class="lx-empty ka-empty-inline">
+              <div class="lx-empty-title">No signup organisations in queue</div>
+              <div class="lx-empty-sub">Per-company overrides appear when KYC applications exist.</div>
+            </div>
+          </ng-template>
+        </div>
+      </section>
+
+      <section class="lx-card ka-card ka-card--aside">
+        <header class="ka-card__head">
+          <mat-icon>verified_user</mat-icon>
+          <div>
+            <h3>Approver groups</h3>
+            <p>Groups carrying KYC reviewer roles. Assign roles in the Group roles tab.</p>
+          </div>
+        </header>
+
+        <ul class="ka-group-list" *ngIf="approverGroups.length; else noApproverGroups">
+          <li *ngFor="let group of approverGroups" class="ka-group-item">
+            <div class="ka-group-item__name">{{ group.name }}</div>
+            <div class="ka-group-item__tags">
+              @for (stage of group.stages; track stage) {
+                <span class="ka-tag">Stage {{ stage }}</span>
+              }
+            </div>
+          </li>
+        </ul>
+
+        <ng-template #noApproverGroups>
+          <div class="ka-aside-note">
+            <mat-icon>info</mat-icon>
+            <p>
+              Assign <strong>KYC_STAGE1</strong> through <strong>KYC_STAGE5</strong> roles to user groups under
+              <em>Group roles</em>. Users in those groups also need the organisation KYC approver flag enabled.
+            </p>
+          </div>
+        </ng-template>
+
+        <div class="ka-aside-foot">
+          <mat-icon>route</mat-icon>
+          <span>Organisations with fewer required stages skip later assignments; final approval happens at the last configured stage.</span>
+        </div>
+      </section>
+    </div>
+  </ng-container>
+</section>

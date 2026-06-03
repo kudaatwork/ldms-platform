@@ -1,4 +1,12 @@
 <div class="lx-page">
+  <lx-page-hero
+    eyebrow="Operations"
+    title="System monitoring"
+    lead="Operational signals, queue depth, and infrastructure alerts across LDMS services."
+    icon="insights"
+    variant="slate"
+  ></lx-page-hero>
+
   <ng-container *ngIf="!loading; else skel">
     <ng-container *ngIf="dataSource.length > 0; else tableCardEmpty">
       <div class="lx-card lx-card--subsection">
@@ -73,7 +81,7 @@
         </div>
 
       <div class="lx-card">
-        <h2 class="lc-title">Monitoring</h2>
+        <p class="lx-table-meta">Infrastructure signals</p>
         <p class="lc-lead">Metrics, queues, and traces.</p>
         <ng-container *ngIf="filteredRows.length > 0; else noSearchHits">
           <div class="lx-table-wrap">
@@ -125,7 +133,7 @@
     </ng-container>
     <ng-template #tableCardEmpty>
       <div class="lx-card">
-        <h2 class="lc-title">Monitoring</h2>
+        <p class="lx-table-meta">Infrastructure signals</p>
         <p class="lc-lead">Metrics, queues, and traces.</p>
         <div class="lx-empty">
           <mat-icon class="lx-empty-icon">inbox</mat-icon>

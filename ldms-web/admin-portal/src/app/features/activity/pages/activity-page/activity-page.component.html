@@ -1,4 +1,12 @@
 <div class="lx-page lx-page--audit">
+  <lx-page-hero
+    eyebrow="Audit &amp; compliance"
+    title="Request logs"
+    lead="HTTP request history across LDMS services — filter, export, and investigate API traffic and errors."
+    icon="receipt_long"
+    variant="slate"
+  ></lx-page-hero>
+
   <ng-container *ngIf="!loading; else skel">
     <section class="audit-section" aria-labelledby="activity-log-heading" *ngIf="showActivitySection">
       <div class="lx-card lx-card--subsection">
@@ -166,13 +174,12 @@
             </button>
             <button
               type="button"
-              class="lx-btn lx-btn-ghost lx-btn-churn-out"
-              (click)="onRequestLogChurnOut()"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              [matMenuTriggerFor]="requestActionsMenu"
               [disabled]="requestLoading"
-              matTooltip="Permanently purges all request logs and records a churn history entry."
-              matTooltipPosition="above"
+              aria-label="More request actions"
             >
-              Churn Out
+              <mat-icon>more_vert</mat-icon>
             </button>
           </div>
           <div class="lx-data-toolbar__search">
@@ -203,6 +210,19 @@
           <button mat-menu-item class="lx-export-option--xlsx" (click)="exportRequestLogs('xlsx')">
             <mat-icon>grid_on</mat-icon>
             <span>Export XLSX</span>
+          </button>
+        </mat-menu>
+        <mat-menu #requestActionsMenu="matMenu" panelClass="lx-row-actions-menu">
+          <button
+            mat-menu-item
+            type="button"
+            class="lx-action-danger"
+            (click)="onRequestLogChurnOut()"
+            matTooltip="Permanently purges all request logs and records a churn history entry."
+            matTooltipPosition="left"
+          >
+            <mat-icon color="warn">delete_forever</mat-icon>
+            <span>Churn Out Logs</span>
           </button>
         </mat-menu>
 

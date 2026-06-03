@@ -75,6 +75,7 @@ public class AuditLogConsumerImpl implements AuditLogConsumer {
                 .traceId(blankToNull(p.getTraceId()))
                 .serviceName(p.getServiceName())
                 .username(p.getUsername())
+                .clientPlatform(blankToNull(p.getClientPlatform()))
                 .clientIpAddress(p.getClientIpAddress())
                 .action(p.getAction())
                 .eventType(p.getEventType())

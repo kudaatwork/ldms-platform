@@ -10,6 +10,7 @@ export interface UserProfileSummary {
   email: string;
   username: string;
   displayName: string;
+  mustChangeCredentials?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -53,7 +54,8 @@ export class UserProfileService {
     const username = String(user['username'] ?? '').trim();
     const email = String(user['email'] ?? '').trim();
     const displayName = `${firstName} ${lastName}`.trim() || username || email;
-    return { firstName, lastName, email, username, displayName };
+    const mustChangeCredentials = user['mustChangeCredentials'] === true;
+    return { firstName, lastName, email, username, displayName, mustChangeCredentials };
   }
 
   private extractUserDto(response: unknown): Record<string, unknown> | null {

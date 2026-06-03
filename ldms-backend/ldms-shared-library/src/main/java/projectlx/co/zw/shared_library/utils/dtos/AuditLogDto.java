@@ -33,6 +33,8 @@ public class AuditLogDto implements Serializable {
     /** Wall-clock when the HTTP response was committed (or work finished). */
     private Instant responseTimestamp;
     private String username; // User who performed the action
+    /** Originating client, e.g. ADMIN_PORTAL, PLATFORM_PORTAL (see {@link projectlx.co.zw.shared_library.utils.constants.Constants#LDMS_CLIENT_PLATFORM}). */
+    private String clientPlatform;
     private String clientIpAddress;
 
     private AuditEventType eventType; // e.g., WEB_REQUEST, SERVICE_METHOD, FEIGN_CALL

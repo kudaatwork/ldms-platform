@@ -6,11 +6,13 @@ import { KycApplicationDetailDialogComponent } from './pages/kyc-application-det
 import { KycApplicationEditDialogComponent } from './pages/kyc-application-edit-dialog/kyc-application-edit-dialog.component';
 import { KycDocumentsComponent } from './pages/kyc-documents/kyc-documents.component';
 import { SharedModule } from '../../shared/shared.module';
+import { UsersModule } from '../users/users.module';
 
 @NgModule({
   declarations: [KycApplicationsComponent, KycDocumentsComponent],
   imports: [
     SharedModule,
+    UsersModule,
     KycRoutingModule,
     KycApplicationDeleteDialogComponent,
     KycApplicationDetailDialogComponent,

@@ -55,6 +55,9 @@ export class VerifyEmailComponent implements OnInit {
   }
 
   goLogin(): void {
-    void this.router.navigate(['/auth/login']);
+    const email = this.route.snapshot.queryParamMap.get('email') ?? '';
+    void this.router.navigate(['/auth/login'], {
+      queryParams: { verified: '1', email: email || undefined },
+    });
   }
 }

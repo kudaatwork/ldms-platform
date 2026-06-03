@@ -6,16 +6,22 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.util.ContentCachingRequestWrapper;
 import org.springframework.web.util.ContentCachingResponseWrapper;
 import projectlx.co.zw.notifications.business.logic.api.AuditTrailService;
+import projectlx.co.zw.shared_library.utils.audit.Auditable;
+import projectlx.co.zw.shared_library.utils.audit.AuditClientPlatformSupport;
 import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
 import projectlx.co.zw.shared_library.utils.enums.AuditEventType;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -87,8 +93,9 @@ public class AuditFilter extends OncePerRequestFilter {
                         .requestTimestamp(requestStart)
                         .responseTimestamp(responseEnd)
                         .username(username)
+                        .clientPlatform(AuditClientPlatformSupport.fromHttpRequest(request))
                         .clientIpAddress(request.getRemoteAddr())
-                        .action("HTTP_REQUEST")
+                        .action(resolveAuditAction(request))
                         .eventType(AuditEventType.WEB_REQUEST)
                         .requestUrl(request.getRequestURI())
                         .httpMethod(request.getMethod())
@@ -107,12 +114,35 @@ public class AuditFilter extends OncePerRequestFilter {
     }
 
     private String getBody(byte[] content, String encoding) {
+        if (content == null || content.length == 0) {
+            return "";
+        }
 
         try {
-            return new String(content, encoding);
-        } catch (UnsupportedEncodingException e) {
+            Charset charset = (encoding == null || encoding.isBlank())
+                    ? StandardCharsets.UTF_8
+                    : Charset.forName(encoding);
+            return new String(content, charset);
+        } catch (Exception e) {
             return "Failed to read body";
         }
+    }
+
+    private String resolveAuditAction(HttpServletRequest request) {
+        Object handler = request.getAttribute(HandlerMapping.BEST_MATCHING_HANDLER_ATTRIBUTE);
+        if (handler instanceof HandlerMethod handlerMethod) {
+            Auditable methodAuditable = AnnotatedElementUtils.findMergedAnnotation(handlerMethod.getMethod(), Auditable.class);
+            if (methodAuditable != null && methodAuditable.action() != null && !methodAuditable.action().isBlank()) {
+                return methodAuditable.action();
+            }
+
+            Auditable classAuditable = AnnotatedElementUtils.findMergedAnnotation(handlerMethod.getBeanType(), Auditable.class);
+            if (classAuditable != null && classAuditable.action() != null && !classAuditable.action().isBlank()) {
+                return classAuditable.action();
+            }
+        }
+
+        return request.getMethod() + " " + request.getRequestURI();
     }
 
     private Map<String, String> getRequestHeaders(HttpServletRequest request) {

@@ -1,8 +1,12 @@
 import { Injectable } from '@angular/core';
-import { CanActivate, ActivatedRouteSnapshot, Router, UrlTree } from '@angular/router';
+import { CanActivate, Router, UrlTree } from '@angular/router';
 import { StorageService } from '../services/storage.service';
+import { canAccessPath } from '../utils/nav-access.util';
 
-/** Expects `route.data['roles']` as `string[]` — user must have at least one. */
+/**
+ * Enforces admin-portal navigation access from the signed-in user's user-group roles.
+ * Optional {@code route.data['roles']} still supports explicit any-of role checks per route.
+ */
 @Injectable({ providedIn: 'root' })
 export class RoleGuard implements CanActivate {
   constructor(
@@ -10,16 +14,17 @@ export class RoleGuard implements CanActivate {
     private readonly router: Router,
   ) {}
 
-  canActivate(route: ActivatedRouteSnapshot): boolean | UrlTree {
-    const required = route.data['roles'] as string[] | undefined;
-    if (!required?.length) {
+  canActivate(): boolean | UrlTree {
+    const path = this.router.url.split('?')[0].split('#')[0];
+    const roles = this.storage.getRoles();
+
+    if (canAccessPath(path, roles)) {
       return true;
     }
-    const userRoles = this.storage.getRoles();
-    const allowed = required.some((r) => userRoles.includes(r));
-    if (allowed) {
-      return true;
+
+    if (canAccessPath('/dashboard', roles)) {
+      return this.router.createUrlTree(['/dashboard']);
     }
-    return this.router.createUrlTree(['/dashboard']);
+    return this.router.createUrlTree(['/account']);
   }
 }

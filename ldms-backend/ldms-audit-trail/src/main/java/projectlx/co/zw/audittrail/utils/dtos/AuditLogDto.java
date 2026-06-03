@@ -21,4 +21,5 @@ public record AuditLogDto(
         LocalDateTime requestTimestamp,
         LocalDateTime responseTimestamp,
         String traceId,
-        String username) {}
+        String username,
+        String clientPlatform) {}

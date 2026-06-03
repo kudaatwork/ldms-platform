@@ -33,6 +33,7 @@ import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
 import projectlx.user.management.service.processor.api.UserServiceProcessor;
 import projectlx.user.management.utils.dtos.ImportSummary;
+import projectlx.user.management.utils.requests.CompleteCredentialsSetupRequest;
 import projectlx.user.management.utils.requests.CreateUserRequest;
 import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
@@ -155,6 +156,23 @@ public class UserFrontendResource {
                                  @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                          defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return userServiceProcessor.findByUsername(username, locale);
+    }
+
+    @Auditable(action = "COMPLETE_CREDENTIALS_SETUP")
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/complete-credentials-setup")
+    @Operation(summary = "Complete mandatory credential setup",
+            description = "Organisation contact users choose a permanent username and password after first sign-in.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Credentials updated successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request data")
+    })
+    public UserResponse completeCredentialsSetup(
+            @Valid @RequestBody final CompleteCredentialsSetupRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.completeCredentialsSetup(request, locale, username);
     }
     
     @Auditable(action = "FIND_USER_BY_PHONE_NUMBER_OR_EMAIL")
@@ -402,10 +420,12 @@ public class UserFrontendResource {
             @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public UserResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest forgotPasswordRequest,
+                                       @RequestHeader(value = Constants.LDMS_CLIENT_PLATFORM, required = false)
+                                       String clientPlatform,
                                        @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                        @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                                defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
-        return userServiceProcessor.forgotPassword(forgotPasswordRequest, locale);
+        return userServiceProcessor.forgotPassword(forgotPasswordRequest, clientPlatform, locale);
     }
 
     @Auditable(action = "VALIDATE_RESET_TOKEN")

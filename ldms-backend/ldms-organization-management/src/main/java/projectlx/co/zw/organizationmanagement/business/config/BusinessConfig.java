@@ -12,15 +12,19 @@ import projectlx.co.zw.organizationmanagement.business.auditable.impl.BranchServ
 import projectlx.co.zw.organizationmanagement.business.auditable.impl.IndustryServiceAuditableImpl;
 import projectlx.co.zw.organizationmanagement.business.auditable.impl.OrganizationKycReviewServiceAuditableImpl;
 import projectlx.co.zw.organizationmanagement.business.auditable.impl.OrganizationServiceAuditableImpl;
+import projectlx.co.zw.organizationmanagement.business.kyc.KycApprovalStageResolver;
 import projectlx.co.zw.organizationmanagement.business.kyc.KycApproverAssignmentService;
 import projectlx.co.zw.organizationmanagement.business.kyc.KycStateMachine;
 import projectlx.co.zw.organizationmanagement.business.kyc.OrganizationEventPublisher;
+import projectlx.co.zw.organizationmanagement.repository.PlatformKycPolicyRepository;
 import projectlx.co.zw.organizationmanagement.clients.UserManagementServiceClient;
 import projectlx.co.zw.organizationmanagement.business.logic.api.OrganizationService;
 import projectlx.co.zw.organizationmanagement.business.logic.impl.OrganizationServiceImpl;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryAdminService;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationFileUploadHelper;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationApprovedCredentialsSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationContactPersonProvisioningSupport;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationKycNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationNotifier;
 import projectlx.co.zw.organizationmanagement.business.validation.api.OrganizationServiceValidator;
@@ -92,13 +96,17 @@ public class BusinessConfig {
             KycStateMachine kycStateMachine,
             OrganizationEventPublisher organizationEventPublisher,
             KycApproverAssignmentService kycApproverAssignmentService,
+            KycApprovalStageResolver kycApprovalStageResolver,
+            PlatformKycPolicyRepository platformKycPolicyRepository,
             UserManagementServiceClient userManagementServiceClient,
             MessageService messageService,
             OrganizationFileUploadHelper organizationFileUploadHelper,
             OrganizationDirectoryAdminService organizationDirectoryAdminService,
             OrganizationRegistrationNotifier organizationRegistrationNotifier,
             OrganizationContactPersonProvisioningSupport organizationContactPersonProvisioningSupport,
-            OrganizationKycNotifier organizationKycNotifier) {
+            OrganizationKycNotifier organizationKycNotifier,
+            OrganizationApprovedCredentialsSupport organizationApprovedCredentialsSupport,
+            OrganizationDirectoryNotifier organizationDirectoryNotifier) {
         return new OrganizationServiceImpl(
                 organizationRepository,
                 industryRepository,
@@ -113,12 +121,16 @@ public class BusinessConfig {
                 kycStateMachine,
                 organizationEventPublisher,
                 kycApproverAssignmentService,
+                kycApprovalStageResolver,
+                platformKycPolicyRepository,
                 userManagementServiceClient,
                 messageService,
                 organizationFileUploadHelper,
                 organizationDirectoryAdminService,
                 organizationRegistrationNotifier,
                 organizationContactPersonProvisioningSupport,
-                organizationKycNotifier);
+                organizationKycNotifier,
+                organizationApprovedCredentialsSupport,
+                organizationDirectoryNotifier);
     }
 }

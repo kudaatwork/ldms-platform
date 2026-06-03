@@ -48,7 +48,11 @@ const routes: Routes = [
       { path: 'shipments', component: PlaceholderPageComponent, data: { title: 'Shipments', breadcrumb: 'Shipments' } },
       { path: 'fleet', component: PlaceholderPageComponent, data: { title: 'Fleet', breadcrumb: 'Fleet' } },
       { path: 'customers', component: PlaceholderPageComponent, data: { title: 'Customers', breadcrumb: 'Customers' } },
-      { path: 'documents', component: PlaceholderPageComponent, data: { title: 'Documents', breadcrumb: 'Documents' } },
+      {
+        path: 'documents',
+        loadChildren: () => import('./features/documents/documents.module').then((m) => m.DocumentsModule),
+        data: { breadcrumb: 'Documents' },
+      },
       { path: 'billing', component: PlaceholderPageComponent, data: { title: 'Billing', breadcrumb: 'Billing' } },
       { path: 'reports', component: PlaceholderPageComponent, data: { title: 'Reports', breadcrumb: 'Reports' } },
       { path: 'my-orders', component: PlaceholderPageComponent, data: { title: 'My Orders', breadcrumb: 'My Orders' } },
@@ -87,8 +91,9 @@ const routes: Routes = [
       },
       {
         path: 'help',
-        component: PlaceholderPageComponent,
-        data: { title: 'Help & Support', breadcrumb: 'Help & Support' },
+        loadChildren: () =>
+          import('./features/help-support/help-support.module').then((m) => m.HelpSupportModule),
+        data: { breadcrumb: 'Help & Support' },
       },
     ],
   },

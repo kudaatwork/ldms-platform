@@ -18,6 +18,10 @@
         <span class="kyc-stat__value">{{ queueStatStage2() }}</span>
         <span class="kyc-stat__label">Stage 2</span>
       </div>
+      <div class="kyc-stat" *ngIf="queueStatRejected() > 0">
+        <span class="kyc-stat__value">{{ queueStatRejected() }}</span>
+        <span class="kyc-stat__label">Rejected</span>
+      </div>
       <div class="kyc-stat kyc-stat--total">
         <span class="kyc-stat__value">{{ totalRecords }}</span>
         <span class="kyc-stat__label">Matching filters</span>
@@ -145,8 +149,9 @@
             <ng-container matColumnDef="reviewers">
               <th mat-header-cell *matHeaderCellDef>Reviewers</th>
               <td mat-cell *matCellDef="let row" class="kyc-reviewers-cell">
-                <span class="kyc-reviewer-chip">S1: {{ row.stage1ApproverLabel }}</span>
-                <span class="kyc-reviewer-chip">S2: {{ row.stage2ApproverLabel }}</span>
+                @for (chip of reviewerChips(row); track chip.stage) {
+                  <span class="kyc-reviewer-chip">S{{ chip.stage }}: {{ chip.label }}</span>
+                }
               </td>
             </ng-container>
             <ng-container matColumnDef="actions">

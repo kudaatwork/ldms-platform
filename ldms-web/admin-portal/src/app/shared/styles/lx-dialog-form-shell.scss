@@ -1,13 +1,9 @@
 /* Shared “location / countries” modal chrome — use with `panelClass: 'lx-location-dialog-panel'`. */
 
-:host {
-  display: block;
-}
-
 .lx-dialog-shell {
   position: relative;
-  width: 640px;
-  max-width: 95vw;
+  width: 100%;
+  max-width: 100%;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -19,12 +15,9 @@
   background: var(--surface, #ffffff);
 }
 
-.lx-dialog-shell--wide {
-  width: 720px;
-}
-
+.lx-dialog-shell--wide,
 .lx-dialog-shell--compact {
-  width: 560px;
+  width: 100%;
 }
 
 .lx-dialog-header {
@@ -284,6 +277,25 @@
   }
 }
 
+.lx-field--toggle {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--gray-200, #e2e8f0);
+  border-radius: 12px;
+  background: var(--gray-50, #f8fafc);
+
+  .lx-field-label {
+    margin: 0;
+  }
+}
+
+.lx-field--toggle mat-slide-toggle {
+  flex-shrink: 0;
+}
+
 @media (max-width: 600px) {
   .lx-dialog-shell,
   .lx-dialog-shell--wide,
@@ -291,6 +303,11 @@
     width: 100vw;
     max-height: 100vh;
     border-radius: 0;
+  }
+
+  .lx-field--toggle {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .lx-dialog-header {

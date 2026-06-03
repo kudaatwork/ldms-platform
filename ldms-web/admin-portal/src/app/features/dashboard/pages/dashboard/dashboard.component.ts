@@ -10,6 +10,9 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { CurrentUserService } from '@core/services/current-user.service';
 import { StorageService } from '@core/services/storage.service';
 import { KycQueueStatsService } from '@core/services/kyc-queue-stats.service';
+import type { KycQueueSummary } from '../../../organizations/services/organizations-admin.service';
+import { UsersAdminService } from '../../../users/services/users-admin.service';
+import { KycDocumentsAdminService } from '../../../kyc/services/kyc-documents-admin.service';
 import { formatWelcomeMessage } from '@core/utils/welcome-message.util';
 import {
   LxExportFormat,
@@ -17,6 +20,7 @@ import {
 } from '@shared/utils/lx-export.util';
 import { ChartData, ChartOptions } from 'chart.js';
 import { Subject, takeUntil, timer } from 'rxjs';
+import { ensureChartJsRegistered } from '../../chartjs-register';
 
 interface KpiCard {
   label: string;
@@ -59,6 +63,15 @@ interface QuickAction {
   route: string;
 }
 
+interface DashboardStatTile {
+  key: string;
+  label: string;
+  value: number;
+  icon: string;
+  tone: string;
+  filterStatus?: string;
+}
+
 @Component({
   selector: 'app-dashboard',
   templateUrl: './dashboard.component.html',
@@ -72,6 +85,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private liveTick = 0;
 
   loading = true;
+  kycLoading = true;
+  kycSnapshot: KycQueueSummary | null = null;
+  kycStatTiles: DashboardStatTile[] = [];
   welcomeMessage = 'Welcome';
   greetingFirstName = '';
   activePeriod = '1M';
@@ -86,8 +102,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
   kpiCards: KpiCard[] = [
     {
       label: 'Total Organizations',
-      value: '247',
-      trend: '+12.4%',
+      value: '—',
+      trend: 'Live sync',
       up: true,
       icon: 'corporate_fare',
       iconBg: 'var(--primary-light)',
@@ -96,8 +112,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     },
     {
       label: 'KYC Pending',
-      value: '13',
-      trend: '-3.1%',
+      value: '—',
+      trend: 'In review queue',
       up: false,
       icon: 'pending_actions',
       iconBg: 'var(--warning-light)',
@@ -169,13 +185,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     },
   ];
 
-  pipeline: PipelineRow[] = [
-    { label: 'Submitted', color: '#F59E0B', count: 4, pct: 30 },
-    { label: 'Stage 1', color: '#3B82F6', count: 5, pct: 38 },
-    { label: 'Stage 2', color: '#8B5CF6', count: 4, pct: 30 },
-    { label: 'Approved', color: '#22C55E', count: 48, pct: 100 },
-    { label: 'Rejected', color: '#EF4444', count: 3, pct: 23 },
-  ];
+  pipeline: PipelineRow[] = [];
 
   private readonly mapPinOrigins: MapPin[] = [
     { x: 28, y: 38, type: 'primary', label: 'ZW-1234-A' },
@@ -190,10 +200,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   liveOnTimePct = 96.2;
 
   quickActions: QuickAction[] = [
-    { icon: 'verified_user', label: 'Review KYC', count: '13', route: '/kyc/applications' },
-    { icon: 'corporate_fare', label: 'Organizations', count: '247', route: '/organizations' },
-    { icon: 'folder_open', label: 'Documents', count: '8', route: '/kyc/documents' },
-    { icon: 'people_outline', label: 'Users', count: '42', route: '/users' },
+    { icon: 'verified_user', label: 'Review KYC', count: '—', route: '/kyc/applications' },
+    { icon: 'corporate_fare', label: 'Organizations', count: '—', route: '/organizations' },
+    { icon: 'folder_open', label: 'Documents', count: '—', route: '/kyc/documents' },
+    { icon: 'people_outline', label: 'Users', count: '—', route: '/users' },
   ];
 
   kycChartData: ChartData<'bar'> = {
@@ -248,6 +258,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly snackBar: MatSnackBar,
     private readonly currentUser: CurrentUserService,
     private readonly kycStats: KycQueueStatsService,
+    private readonly usersAdmin: UsersAdminService,
+    private readonly kycDocuments: KycDocumentsAdminService,
     private readonly storage: StorageService,
   ) {}
 
@@ -270,6 +282,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    ensureChartJsRegistered();
     this.title.setTitle('Dashboard | LX Admin');
     const token = this.storage.getToken();
     if (token && !token.startsWith('mock-token-')) {
@@ -286,17 +299,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     });
     this.kycStats.summary$.pipe(takeUntil(this.destroy$)).subscribe((summary) => {
-      const pending = summary?.totalInQueue ?? 0;
-      this.kpiCards = this.kpiCards.map((card) =>
-        card.label === 'KYC Pending' ? { ...card, value: String(pending) } : card,
-      );
-      const kycAction = this.quickActions.find((a) => a.route === '/kyc/applications');
-      if (kycAction) {
-        kycAction.count = pending > 0 ? String(pending) : '0';
-      }
+      this.kycSnapshot = summary;
+      this.kycLoading = summary == null;
+      this.applySummaryToShell(summary);
+      this.applyKycPipelineSummary(summary);
       this.cdr.markForCheck();
     });
-    this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
+    this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe({
+      next: () => {
+        this.kycLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.kycLoading = false;
+        this.cdr.markForCheck();
+      },
+    });
+    this.loadQuickActionCounts();
     this.loading = false;
     this.cdr.markForCheck();
 
@@ -310,25 +329,176 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private applyLiveTick(): void {
-    this.liveTick += 1;
-    const t = this.liveTick * 0.35;
+  private applySummaryToShell(summary: KycQueueSummary | null): void {
+    if (!summary) {
+      this.kycStatTiles = [];
+      return;
+    }
 
-    const ds0 = this.kycChartData.datasets[0];
-    const nextData = this.kycBaseData.map((v, i) => {
-      const wave = Math.sin(t + i * 0.55) * 4;
-      const noise = (Math.random() - 0.5) * 2.5;
-      return Math.max(3, Math.round(v + wave + noise));
+    const totalOrgs = summary.totalOrganizations ?? 0;
+    const pending = summary.totalInQueue ?? 0;
+    const approved = summary.approvedCount ?? 0;
+
+    this.kpiCards = this.kpiCards.map((card) => {
+      if (card.label === 'Total Organizations') {
+        return {
+          ...card,
+          value: String(totalOrgs),
+          trend: approved > 0 ? `${approved} approved` : 'All organisations',
+          up: true,
+        };
+      }
+      if (card.label === 'KYC Pending') {
+        return {
+          ...card,
+          value: String(pending),
+          trend: pending > 0 ? 'Awaiting review' : 'Queue clear',
+          up: pending === 0,
+        };
+      }
+      return card;
     });
+
+    this.setQuickActionCount('/kyc/applications', pending);
+    this.setQuickActionCount('/organizations', totalOrgs);
+
+    this.kycStatTiles = [
+      { key: 'queue', label: 'In queue', value: pending, icon: 'inbox', tone: 'queue' },
+      { key: 'draft', label: 'Draft', value: summary.draftCount ?? 0, icon: 'edit_note', tone: 'draft', filterStatus: 'DRAFT' },
+      {
+        key: 'submitted',
+        label: 'Submitted',
+        value: summary.submittedCount ?? 0,
+        icon: 'outgoing_mail',
+        tone: 'submitted',
+        filterStatus: 'SUBMITTED',
+      },
+      {
+        key: 'stage1',
+        label: 'Stage 1',
+        value: summary.stage1Count ?? 0,
+        icon: 'looks_one',
+        tone: 'stage1',
+        filterStatus: 'STAGE_1_REVIEW',
+      },
+      {
+        key: 'stage2',
+        label: 'Stage 2',
+        value: summary.stage2Count ?? 0,
+        icon: 'looks_two',
+        tone: 'stage2',
+        filterStatus: 'STAGE_2_REVIEW',
+      },
+      {
+        key: 'stage3',
+        label: 'Stage 3',
+        value: summary.stage3Count ?? 0,
+        icon: 'looks_3',
+        tone: 'stage3',
+        filterStatus: 'STAGE_3_REVIEW',
+      },
+      {
+        key: 'stage4',
+        label: 'Stage 4',
+        value: summary.stage4Count ?? 0,
+        icon: 'looks_4',
+        tone: 'stage4',
+        filterStatus: 'STAGE_4_REVIEW',
+      },
+      {
+        key: 'stage5',
+        label: 'Stage 5',
+        value: summary.stage5Count ?? 0,
+        icon: 'looks_5',
+        tone: 'stage5',
+        filterStatus: 'STAGE_5_REVIEW',
+      },
+      {
+        key: 'rejected',
+        label: 'Rejected',
+        value: summary.rejectedCount ?? 0,
+        icon: 'block',
+        tone: 'rejected',
+        filterStatus: 'REJECTED',
+      },
+      {
+        key: 'approved',
+        label: 'Approved',
+        value: approved,
+        icon: 'verified',
+        tone: 'approved',
+        filterStatus: 'APPROVED',
+      },
+    ];
+  }
+
+  private loadQuickActionCounts(): void {
+    this.usersAdmin
+      .queryUsers({ page: 0, size: 1, searchQuery: '', columnFilters: {} })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(({ totalElements }) => {
+        this.setQuickActionCount('/users', totalElements);
+        this.cdr.markForCheck();
+      });
+
+    this.kycDocuments
+      .countTotal()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((total) => {
+        this.setQuickActionCount('/kyc/documents', total);
+        this.cdr.markForCheck();
+      });
+  }
+
+  private setQuickActionCount(route: string, count: number | null | undefined): void {
+    this.quickActions = this.quickActions.map((action) =>
+      action.route === route
+        ? { ...action, count: count == null ? '—' : String(count) }
+        : action,
+    );
+  }
+
+  private applyKycPipelineSummary(summary: KycQueueSummary | null): void {
+    if (!summary) {
+      this.pipeline = [];
+      return;
+    }
+    const base = [
+      { label: 'Draft', color: '#94A3B8', count: summary.draftCount ?? 0 },
+      { label: 'Submitted', color: '#F59E0B', count: summary.submittedCount ?? 0 },
+      { label: 'Stage 1', color: '#3B82F6', count: summary.stage1Count ?? 0 },
+      { label: 'Stage 2', color: '#8B5CF6', count: summary.stage2Count ?? 0 },
+      { label: 'Stage 3', color: '#6366F1', count: summary.stage3Count ?? 0 },
+      { label: 'Stage 4', color: '#0EA5E9', count: summary.stage4Count ?? 0 },
+      { label: 'Stage 5', color: '#14B8A6', count: summary.stage5Count ?? 0 },
+      { label: 'Approved', color: '#22C55E', count: summary.approvedCount ?? 0 },
+      { label: 'Rejected', color: '#EF4444', count: summary.rejectedCount ?? 0 },
+    ].filter((row) => row.count > 0 || row.label === 'Draft' || row.label === 'Submitted');
+    const max = Math.max(1, ...base.map((r) => r.count));
+    this.pipeline = base.map((r) => ({
+      ...r,
+      pct: Math.round((r.count / max) * 100),
+    }));
+
+    const chartCounts = base.map((r) => r.count);
+    const chartColors = base.map((r) => r.color);
     this.kycChartData = {
-      labels: [...(this.kycChartData.labels ?? [])],
+      labels: base.map((r) => r.label),
       datasets: [
         {
-          ...ds0,
-          data: nextData,
+          label: 'Applications',
+          data: chartCounts,
+          backgroundColor: chartColors,
+          borderRadius: 6,
+          hoverBackgroundColor: '#1E3A8A',
         },
       ],
     };
+  }
+
+  private applyLiveTick(): void {
+    this.liveTick += 1;
+    const t = this.liveTick * 0.35;
 
     this.kpiCards = this.kpiCards.map((k) => ({
       ...k,
@@ -354,6 +524,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   trackByReg = (_: number, s: ShipmentRow): string => s.reg;
 
   trackByLabel = (_: number, p: PipelineRow): string => p.label;
+
+  trackByStatKey = (_: number, tile: DashboardStatTile): string => tile.key;
+
+  trackByRecentId = (_: number, row: { id: number }): number => row.id;
+
+  kycFilterLink(tile: DashboardStatTile): string[] {
+    return ['/kyc/applications'];
+  }
+
+  kycFilterQuery(tile: DashboardStatTile): Record<string, string> | null {
+    if (!tile.filterStatus) {
+      return null;
+    }
+    return { status: tile.filterStatus };
+  }
 
   exportSnapshot(format: LxExportFormat): void {
     const ok = exportClientTableAsCsv(

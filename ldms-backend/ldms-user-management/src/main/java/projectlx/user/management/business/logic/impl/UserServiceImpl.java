@@ -71,6 +71,7 @@ import projectlx.user.management.utils.dtos.UserRoleDto;
 import projectlx.user.management.utils.dtos.UserSecurityDto;
 import projectlx.user.management.utils.dtos.UserTypeDto;
 import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
+import projectlx.user.management.utils.config.PasswordResetLinkProperties;
 import projectlx.user.management.utils.notifications.UserNotificationTemplateData;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.co.zw.shared_library.utils.generators.SecureTokenGenerator;
@@ -163,6 +164,7 @@ public class UserServiceImpl implements UserService {
     private final RabbitTemplate rabbitTemplate;
     private final TokenService tokenService;
     private final EmailVerificationLinkProperties emailVerificationLinkProperties;
+    private final PasswordResetLinkProperties passwordResetLinkProperties;
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
     private static final String[] HEADERS = {
@@ -694,8 +696,29 @@ public class UserServiceImpl implements UserService {
             return buildUserResponseWithErrors(400, false, message, null, null,
                     List.of(message));
         }
-        userToBeEdited.setUsername(editUserRequest.getUsername());
-        userToBeEdited.setEmail(editUserRequest.getEmail());
+        String normalizedNewEmail = editUserRequest.getEmail() != null
+                ? editUserRequest.getEmail().trim().toLowerCase(Locale.ROOT)
+                : "";
+        String normalizedPreviousEmail = userToBeEdited.getEmail() != null
+                ? userToBeEdited.getEmail().trim().toLowerCase(Locale.ROOT)
+                : "";
+        boolean emailChanged = org.springframework.util.StringUtils.hasText(normalizedNewEmail)
+                && !normalizedNewEmail.equals(normalizedPreviousEmail);
+        if (emailChanged) {
+            Optional<User> emailOwner = userRepository.findByEmailAndEntityStatusNot(normalizedNewEmail, EntityStatus.DELETED);
+            if (emailOwner.isPresent() && !emailOwner.get().getId().equals(userToBeEdited.getId())) {
+                message = messageService.getMessage(I18Code.MESSAGE_USER_ALREADY_EXISTS.getCode(), new String[]{}, locale);
+                return buildUserResponse(400, false, message, null, null, null);
+            }
+        }
+        if (emailChanged) {
+            userToBeEdited.setEmail(normalizedNewEmail);
+            userToBeEdited.setUsername(normalizedNewEmail);
+            userToBeEdited.setEmailVerified(false);
+        } else {
+            userToBeEdited.setUsername(editUserRequest.getUsername());
+            userToBeEdited.setEmail(editUserRequest.getEmail());
+        }
         userToBeEdited.setFirstName(editUserRequest.getFirstName());
         userToBeEdited.setLastName(editUserRequest.getLastName());
         Gender gender = safeGender(editUserRequest.getGender()).orElse(userToBeEdited.getGender());
@@ -815,6 +838,16 @@ public class UserServiceImpl implements UserService {
             }
             userForResponse = userRepository.findByIdAndEntityStatusNot(userEdited.getId(), EntityStatus.DELETED)
                     .orElse(userForResponse);
+        }
+
+        if (emailChanged) {
+            String verificationToken = tokenService.generateEmailVerificationToken();
+            userForResponse.setVerificationToken(verificationToken);
+            userForResponse.setEmailVerified(false);
+            User userPendingVerification = userServiceAuditable.update(userForResponse, locale, username);
+            sendVerificationEmail(userPendingVerification, verificationToken);
+            userForResponse = userRepository.findByIdAndEntityStatusNot(userEdited.getId(), EntityStatus.DELETED)
+                    .orElse(userPendingVerification);
         }
 
         UserDto userDtoReturned = toUserDtoWithRelations(userForResponse);
@@ -1400,7 +1433,8 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse forgotPassword(ForgotPasswordRequest forgotPasswordRequest, Locale locale) {
+    public UserResponse forgotPassword(ForgotPasswordRequest forgotPasswordRequest, String clientPlatform,
+            Locale locale) {
 
         String message;
 
@@ -1441,11 +1475,11 @@ public class UserServiceImpl implements UserService {
         // Save user with reset token
         userServiceAuditable.update(user, locale, "SYSTEM");
 
-        // Send password reset email
-        sendPasswordResetEmail(user, resetToken);           // Email
-        sendPasswordResetSms(user, resetToken);             // SMS (new)
-        sendPasswordResetInAppNotification(user);           // In-App (new)
-        sendPasswordResetWhatsApp(user, resetToken);     // WhatsApp (optional)
+        // Send password reset notifications (link targets the originating portal when known)
+        sendPasswordResetEmail(user, resetToken, clientPlatform);
+        sendPasswordResetSms(user, resetToken, clientPlatform);
+        sendPasswordResetInAppNotification(user);
+        sendPasswordResetWhatsApp(user, resetToken, clientPlatform);
 
         message = messageService.getMessage(I18Code.MESSAGE_FORGOT_PASSWORD_EMAIL_SENT.getCode(),
                 new String[]{}, locale);
@@ -1942,13 +1976,14 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    public void sendPasswordResetEmail(User user, String resetToken) {
-        // Construct the reset link for your frontend
-        String resetLink = "https://localhost:9012/reset-password?token=" + resetToken + "&email=" + user.getEmail();
+    public void sendPasswordResetEmail(User user, String resetToken, String clientPlatform) {
+        String portalBase = passwordResetLinkProperties.resolvePortalBaseUrl(clientPlatform, user);
+        String resetLink = passwordResetLinkProperties.buildResetLink(portalBase, resetToken, user.getEmail());
+        String signInLink = passwordResetLinkProperties.buildSignInUrl(portalBase);
 
-        // Prepare the dynamic data
         Map<String, Object> data = UserNotificationTemplateData.forUser(user, Map.of(
-                "resetLink", resetLink
+                "resetLink", resetLink,
+                "signInLink", signInLink
         ));
 
         // Prepare the recipient details
@@ -1982,9 +2017,10 @@ public class UserServiceImpl implements UserService {
     /**
      * Send SMS notification for password reset request
      */
-    public void sendPasswordResetSms(User user, String resetToken) {
-        // Prepare the dynamic data
-        Map<String, Object> data = UserNotificationTemplateData.forUser(user);
+    public void sendPasswordResetSms(User user, String resetToken, String clientPlatform) {
+        String portalBase = passwordResetLinkProperties.resolvePortalBaseUrl(clientPlatform, user);
+        String resetLink = passwordResetLinkProperties.buildResetLink(portalBase, resetToken, user.getEmail());
+        Map<String, Object> data = UserNotificationTemplateData.forUser(user, Map.of("resetLink", resetLink));
 
         // Prepare the recipient details
         NotificationRequest.Recipient recipient = new NotificationRequest.Recipient(
@@ -2017,9 +2053,10 @@ public class UserServiceImpl implements UserService {
     /**
      * Send WhatsApp notification for password reset request
      */
-    public void sendPasswordResetWhatsApp(User user, String resetToken) {
-        // Prepare the dynamic data
-        Map<String, Object> data = UserNotificationTemplateData.forUser(user);
+    public void sendPasswordResetWhatsApp(User user, String resetToken, String clientPlatform) {
+        String portalBase = passwordResetLinkProperties.resolvePortalBaseUrl(clientPlatform, user);
+        String resetLink = passwordResetLinkProperties.buildResetLink(portalBase, resetToken, user.getEmail());
+        Map<String, Object> data = UserNotificationTemplateData.forUser(user, Map.of("resetLink", resetLink));
 
         // Prepare the recipient details
         NotificationRequest.Recipient recipient = new NotificationRequest.Recipient(

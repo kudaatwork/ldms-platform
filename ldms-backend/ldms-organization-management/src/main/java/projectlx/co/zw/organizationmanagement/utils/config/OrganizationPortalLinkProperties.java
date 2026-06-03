@@ -27,6 +27,14 @@ public class OrganizationPortalLinkProperties {
         return platformPortalBaseUrl + "/signup";
     }
 
+    /** Live onboarding progress page for signup applicants (public tracker). */
+    public String platformOnboardingStatusUrl(Long organizationId) {
+        if (organizationId == null || organizationId < 1) {
+            return platformPortalBaseUrl + "/onboarding/status";
+        }
+        return platformPortalBaseUrl + "/onboarding/status?orgId=" + organizationId;
+    }
+
     public String adminSignInUrl() {
         return adminPortalBaseUrl + "/auth/login";
     }

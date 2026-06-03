@@ -53,7 +53,8 @@ public class AuditLogServiceImpl implements AuditLogService {
         "requestTimestamp",
         "traceId",
         "responseTimeMs",
-        "clientIpAddress"
+        "clientIpAddress",
+        "clientPlatform"
     };
     private static final String[] CHURN_HISTORY_EXPORT_HEADERS = {
         "id",
@@ -308,7 +309,8 @@ public class AuditLogServiceImpl implements AuditLogService {
                     .append(log.requestTimestamp() != null ? log.requestTimestamp().toString() : "").append(",")
                     .append(safeCsv(log.traceId())).append(",")
                     .append(log.responseTimeMs() != null ? log.responseTimeMs() : "").append(",")
-                    .append(safeCsv(log.clientIpAddress()))
+                    .append(safeCsv(log.clientIpAddress())).append(",")
+                    .append(safeCsv(log.clientPlatform()))
                     .append("\n");
         }
 
@@ -340,6 +342,7 @@ public class AuditLogServiceImpl implements AuditLogService {
             row.createCell(8).setCellValue(safeCsv(log.traceId()));
             row.createCell(9).setCellValue(log.responseTimeMs() != null ? log.responseTimeMs() : 0L);
             row.createCell(10).setCellValue(safeCsv(log.clientIpAddress()));
+            row.createCell(11).setCellValue(safeCsv(log.clientPlatform()));
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -363,7 +366,8 @@ public class AuditLogServiceImpl implements AuditLogService {
                     log.requestTimestamp() != null ? log.requestTimestamp().toString() : "",
                     safeCsv(log.traceId()),
                     log.responseTimeMs() != null ? String.valueOf(log.responseTimeMs()) : "",
-                    safeCsv(log.clientIpAddress())
+                    safeCsv(log.clientIpAddress()),
+                    safeCsv(log.clientPlatform())
             });
         }
         return LdmsPdfReportWriter.write(LdmsExportReport.builder()
@@ -497,10 +501,26 @@ public class AuditLogServiceImpl implements AuditLogService {
                 trimToNull(searchRequest.getRequestUrl()),
                 trimToNull(searchRequest.getHttpMethod()),
                 trimToNull(searchRequest.getTraceId()),
+                trimToNull(searchRequest.getClientPlatform()),
+                normalizeActionList(searchRequest.getActionsIn()),
+                normalizeActionList(searchRequest.getExcludeActions()),
                 page,
                 size,
                 sortBy,
                 sortDir);
+    }
+
+    private static List<String> normalizeActionList(List<String> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return null;
+        }
+        List<String> normalized = new ArrayList<>();
+        for (String item : raw) {
+            if (item != null && !item.isBlank()) {
+                normalized.add(item.trim());
+            }
+        }
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private static String trimToNull(String s) {

@@ -12,6 +12,8 @@ import {
 
 export interface UserEditProfileDialogData {
   user: Record<string, unknown>;
+  /** When `profile-only`, hides address, security, documents, and admin-only sections. */
+  scope?: 'full' | 'profile-only';
 }
 
 @Component({
@@ -72,6 +74,7 @@ export class UserEditProfileDialogComponent {
   };
 
   private readonly userId: number;
+  readonly scope: 'full' | 'profile-only';
 
   get hasPreferences(): boolean {
     return this.preferencesId > 0;
@@ -92,6 +95,7 @@ export class UserEditProfileDialogComponent {
     private readonly snackBar: MatSnackBar,
     @Inject(MAT_DIALOG_DATA) data: UserEditProfileDialogData,
   ) {
+    this.scope = data.scope === 'profile-only' ? 'profile-only' : 'full';
     const u = data.user;
     this.userId = Number(u['id'] ?? 0);
     const orgId = Number(u['organizationId'] ?? 0);
@@ -193,7 +197,7 @@ export class UserEditProfileDialogComponent {
       this.error = dateOfBirthMinimumAgeMessage();
       return;
     }
-    if (this.preferencesId > 0) {
+    if (this.scope !== 'profile-only' && this.preferencesId > 0) {
       const lang = this.preferredLanguage.trim();
       const tz = this.timezone.trim();
       if (!lang || !tz) {
@@ -203,16 +207,17 @@ export class UserEditProfileDialogComponent {
     }
     const suburbId = this.suburbIdStr.trim() ? Number(this.suburbIdStr.trim()) : NaN;
     const hasAddressInput =
-      this.addressLine1.trim().length > 0 ||
-      this.postalCode.trim().length > 0 ||
-      this.suburbIdStr.trim().length > 0;
+      this.scope !== 'profile-only' &&
+      (this.addressLine1.trim().length > 0 ||
+        this.postalCode.trim().length > 0 ||
+        this.suburbIdStr.trim().length > 0);
     if (hasAddressInput) {
       if (!this.addressLine1.trim() || !this.postalCode.trim() || !Number.isFinite(suburbId)) {
         this.error = 'Address requires line 1, postal code, and a selected suburb.';
         return;
       }
     }
-    const securityPayload = this.buildSecuritySavePayload();
+    const securityPayload = this.scope === 'profile-only' ? null : this.buildSecuritySavePayload();
     if (securityPayload === 'invalid') {
       return;
     }
@@ -250,7 +255,7 @@ export class UserEditProfileDialogComponent {
           if (this.usersAdmin.isUserMutationFailure(userResp)) {
             return throwError(() => userResp);
           }
-          if (!this.canEditKycApprover) {
+          if (this.scope === 'profile-only' || !this.canEditKycApprover) {
             return of(userResp);
           }
           return this.usersAdmin.setOrganizationKycApprover(this.userId, this.organizationKycApprover).pipe(
@@ -263,7 +268,7 @@ export class UserEditProfileDialogComponent {
           );
         }),
         switchMap((userResp) => {
-          if (this.preferencesId <= 0) {
+          if (this.scope === 'profile-only' || this.preferencesId <= 0) {
             return of(userResp);
           }
           const lang = this.preferredLanguage.trim();

@@ -25,9 +25,14 @@ export type KycStatus =
   | 'SUBMITTED'
   | 'STAGE_1_REVIEW'
   | 'STAGE_2_REVIEW'
+  | 'STAGE_3_REVIEW'
+  | 'STAGE_4_REVIEW'
+  | 'STAGE_5_REVIEW'
   | 'APPROVED'
   | 'REJECTED'
   | 'RESUBMITTED';
+
+export type KycStageKey = 'stage1' | 'stage2' | 'stage3' | 'stage4' | 'stage5';
 
 export interface OrganizationListRow {
   id: number;
@@ -58,6 +63,11 @@ export interface KycQueueRow extends OrganizationListRow {
   submitted: string;
   stage1ApproverLabel?: string;
   stage2ApproverLabel?: string;
+  stage3ApproverLabel?: string;
+  stage4ApproverLabel?: string;
+  stage5ApproverLabel?: string;
+  kycRequiredApprovalStages?: number | null;
+  effectiveKycRequiredApprovalStages?: number;
 }
 
 export interface KycApplicationDocument {
@@ -95,10 +105,16 @@ export interface KycApplicationDetail extends KycQueueRow {
   bankAccountMasked: string;
   applicantNotes: string;
   documents: KycApplicationDocument[];
-  kycStage: 'stage1' | 'stage2' | 'none';
+  kycStage: KycStageKey | 'none';
   stage1Approver?: KycApproverAssignment;
   stage2Approver?: KycApproverAssignment;
+  stage3Approver?: KycApproverAssignment;
+  stage4Approver?: KycApproverAssignment;
+  stage5Approver?: KycApproverAssignment;
   requiresKycApproval: boolean;
+  /** Resolved approval stage count (platform default or company override). */
+  effectiveKycRequiredApprovalStages?: number;
+  kycRequiredApprovalStages?: number | null;
 }
 
 /** Linked organisation summary (supplier customers, contracted transporters, etc.). */
@@ -146,6 +162,7 @@ export interface OrganizationProfileDetail {
   agents: AgentListRow[];
   customers: OrganizationLinkRow[];
   transporters: OrganizationLinkRow[];
+  clearingAgents: OrganizationLinkRow[];
 }
 
 /**
@@ -195,7 +212,9 @@ export interface RegisterOrganizationPayload {
 }
 
 export interface KycDecisionPayload {
+  /** Login username (must match KYC assignment, not email). */
   reviewerUsername?: string;
+  reviewerUserId?: number;
   notes?: string;
 }
 
@@ -208,6 +227,12 @@ export type KycDecisionAction =
   | 'stage1-reject'
   | 'stage2-approve'
   | 'stage2-reject'
+  | 'stage3-approve'
+  | 'stage3-reject'
+  | 'stage4-approve'
+  | 'stage4-reject'
+  | 'stage5-approve'
+  | 'stage5-reject'
   | 'allow-resubmission';
 
 export interface KycApplicationDecisionResult {
@@ -264,6 +289,12 @@ export function kycStatusPresentation(status: KycStatus | string): { label: stri
       return { label: 'Stage 1 review', css: 'stage1' };
     case 'STAGE_2_REVIEW':
       return { label: 'Stage 2 review', css: 'stage2' };
+    case 'STAGE_3_REVIEW':
+      return { label: 'Stage 3 review', css: 'stage3' };
+    case 'STAGE_4_REVIEW':
+      return { label: 'Stage 4 review', css: 'stage4' };
+    case 'STAGE_5_REVIEW':
+      return { label: 'Stage 5 review', css: 'stage5' };
     case 'APPROVED':
       return { label: 'Approved', css: 'approved' };
     case 'REJECTED':
@@ -275,7 +306,7 @@ export function kycStatusPresentation(status: KycStatus | string): { label: stri
   }
 }
 
-export function resolveKycStage(status: KycStatus | string): 'stage1' | 'stage2' | 'none' {
+export function resolveKycStage(status: KycStatus | string): KycStageKey | 'none' {
   const s = String(status).toUpperCase();
   /** Platform signups start in DRAFT but appear in the KYC queue for stage-1 review. */
   if (s === 'DRAFT' || s === 'SUBMITTED' || s === 'STAGE_1_REVIEW' || s === 'RESUBMITTED') {
@@ -284,5 +315,22 @@ export function resolveKycStage(status: KycStatus | string): 'stage1' | 'stage2'
   if (s === 'STAGE_2_REVIEW') {
     return 'stage2';
   }
+  if (s === 'STAGE_3_REVIEW') {
+    return 'stage3';
+  }
+  if (s === 'STAGE_4_REVIEW') {
+    return 'stage4';
+  }
+  if (s === 'STAGE_5_REVIEW') {
+    return 'stage5';
+  }
   return 'none';
+}
+
+export function kycStageNumber(stage: KycStageKey): number {
+  return Number(stage.replace('stage', ''));
+}
+
+export function kycStageKey(stageNumber: number): KycStageKey {
+  return `stage${stageNumber}` as KycStageKey;
 }

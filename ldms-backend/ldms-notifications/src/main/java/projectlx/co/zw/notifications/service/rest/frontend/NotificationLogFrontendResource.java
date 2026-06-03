@@ -104,4 +104,20 @@ public class NotificationLogFrontendResource {
                     .body(("Export failed: " + e.getMessage()).getBytes(StandardCharsets.UTF_8));
         }
     }
+
+    @Auditable(action = "CHURN_OUT_NOTIFICATION_LOG")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationLogRoles)."
+            + "EXPORT_NOTIFICATION_LOGS.toString())")
+    @PostMapping("/churn-out")
+    @Operation(summary = "Churn out notification delivery log", description = "Marks all notification log entries as deleted.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Notification log churn out completed"),
+            @ApiResponse(responseCode = "403", description = "Forbidden")
+    })
+    public NotificationLogResponse churnOut(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return notificationLogProcessor.churnOutLogs(username, locale);
+    }
 }

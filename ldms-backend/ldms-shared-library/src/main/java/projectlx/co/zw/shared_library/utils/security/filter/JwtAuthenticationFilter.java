@@ -132,10 +132,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private boolean isPublicPath(String path) {
+        // Do not treat backoffice as public here: HttpSecurity may permitAll on that surface, but
+        // @PreAuthorize("isAuthenticated()") (e.g. GET …/user/me) still needs Bearer / gateway headers parsed.
         return path.startsWith("/actuator")
                 || path.contains("/v1/system/")
-                || path.contains("/v1/backoffice/")
                 || path.contains("/v1/auth/")
-                || path.endsWith("/v1/frontend/organization/register");
+                || path.endsWith("/v1/frontend/organization/register")
+                || path.contains("/organization/onboarding-status");
     }
 }

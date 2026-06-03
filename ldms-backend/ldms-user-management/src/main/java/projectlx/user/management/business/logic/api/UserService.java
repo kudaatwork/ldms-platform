@@ -30,7 +30,7 @@ public interface UserService {
     ImportSummary importUsersFromCsv(InputStream csvInputStream) throws IOException;
     ImportSummary importUsersFromExcel(InputStream excelInputStream) throws IOException;
     UserResponse verifyEmail(String email, String token, Locale locale, String username);
-    UserResponse forgotPassword(ForgotPasswordRequest forgotPasswordRequest, Locale locale);
+    UserResponse forgotPassword(ForgotPasswordRequest forgotPasswordRequest, String clientPlatform, Locale locale);
     UserResponse validateResetToken(String token, String email, Locale locale);
     UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale);
     UserResponse resendVerificationLink(String email, Locale locale, String username);

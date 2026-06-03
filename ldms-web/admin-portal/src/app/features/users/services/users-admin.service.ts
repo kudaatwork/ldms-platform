@@ -286,18 +286,103 @@ export class UsersAdminService {
 
   getUserProfileBundle(userId: number): Observable<UserProfileBundle> {
     return this.http.get<unknown>(`${this.base}/user/find-by-id/${userId}`).pipe(
-      map((resp) => {
-        const user = this.extractUserDtoFromFindByIdResponse(resp);
-        return {
-          user,
-          account: this.asRecord(user?.['userAccountDto']) ?? null,
-          security: this.asRecord(user?.['userSecurityDto']) ?? null,
-          address: this.asRecord(user?.['addressDto']) ?? null,
-          password: this.asRecord(user?.['userPasswordDto']) ?? null,
-        };
-      }),
+      map((resp) => this.mapUserResponseToProfileBundle(resp)),
       catchError((err) => this.emptyProfileBundleOnNotFound(err)),
     );
+  }
+
+  /** Signed-in user's full profile ({@code GET /backoffice/user/me}). */
+  getMyAccountProfileBundle(): Observable<UserProfileBundle> {
+    return this.http.get<unknown>(`${this.base}/user/me`).pipe(
+      map((resp) => this.mapUserResponseToProfileBundle(resp)),
+      catchError((err) => this.emptyProfileBundleOnNotFound(err)),
+    );
+  }
+
+  /** Backoffice lookup by login username (permitAll — no admin role required). */
+  getUserProfileBundleByUsername(username: string): Observable<UserProfileBundle> {
+    const trimmed = username.trim();
+    if (!trimmed) {
+      return of({
+        user: null,
+        account: null,
+        security: null,
+        address: null,
+        password: null,
+      });
+    }
+    return this.http
+      .get<unknown>(`${this.base}/user/find-by-username/${encodeURIComponent(trimmed)}`)
+      .pipe(
+        map((resp) => this.mapUserResponseToProfileBundle(resp)),
+        catchError((err) => this.emptyProfileBundleOnNotFound(err)),
+      );
+  }
+
+  /** Fills account/security when nested DTOs are absent on the user payload. */
+  enrichUserProfileBundle(bundle: UserProfileBundle, userId?: number): Observable<UserProfileBundle> {
+    const uid = Number(userId ?? bundle.user?.['id'] ?? 0);
+    if (!Number.isFinite(uid) || uid <= 0) {
+      return of(bundle);
+    }
+    const accountFromUser = this.extractNestedDto(bundle.user, ['userAccountDto', 'userAccount']);
+    const needAccount = !bundle.account && !accountFromUser;
+    const needSecurity = !bundle.security && !this.extractNestedDto(bundle.user, ['userSecurityDto', 'userSecurity']);
+    if (!needAccount && !needSecurity) {
+      return of({
+        ...bundle,
+        account: bundle.account ?? accountFromUser,
+        security:
+          bundle.security ?? this.extractNestedDto(bundle.user, ['userSecurityDto', 'userSecurity']),
+        address: bundle.address ?? this.extractNestedDto(bundle.user, ['addressDto', 'address']),
+      });
+    }
+    return forkJoin({
+      account: needAccount ? this.findUserAccountByUserId(uid) : of(accountFromUser ?? bundle.account),
+      security: needSecurity
+        ? this.findUserSecurityByUserId(uid)
+        : of(bundle.security ?? this.extractNestedDto(bundle.user, ['userSecurityDto', 'userSecurity'])),
+    }).pipe(
+      map(({ account, security }) => ({
+        ...bundle,
+        account: bundle.account ?? accountFromUser ?? account,
+        security: bundle.security ?? security,
+        address: bundle.address ?? this.extractNestedDto(bundle.user, ['addressDto', 'address']),
+      })),
+      catchError(() =>
+        of({
+          ...bundle,
+          account: bundle.account ?? accountFromUser,
+          security:
+            bundle.security ?? this.extractNestedDto(bundle.user, ['userSecurityDto', 'userSecurity']),
+          address: bundle.address ?? this.extractNestedDto(bundle.user, ['addressDto', 'address']),
+        }),
+      ),
+    );
+  }
+
+  /** Resolves the account row for My Account / profile edit (embedded DTO or lookup by user id). */
+  resolveAccountRecord(
+    user: Record<string, unknown> | null,
+    userId: number,
+  ): Observable<Record<string, unknown> | null> {
+    const embedded = this.extractNestedDto(user, ['userAccountDto', 'userAccount']);
+    if (embedded && Number(embedded['id'] ?? 0) > 0) {
+      return of(embedded);
+    }
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return of(null);
+    }
+    return this.findUserAccountByUserId(userId);
+  }
+
+  /** Resolves the address row from the profile bundle or nested user DTO. */
+  resolveAddressRecord(user: Record<string, unknown> | null, address: Record<string, unknown> | null): Record<string, unknown> | null {
+    if (address && Number(address['id'] ?? 0) > 0) {
+      return address;
+    }
+    const embedded = this.extractNestedDto(user, ['addressDto', 'address']);
+    return embedded && Number(embedded['id'] ?? 0) > 0 ? embedded : null;
   }
 
   /**
@@ -553,15 +638,71 @@ export class UsersAdminService {
     };
   }
 
+  private mapUserResponseToProfileBundle(response: unknown): UserProfileBundle {
+    const user = this.extractUserDtoFromFindByIdResponse(response);
+    return {
+      user,
+      account: this.extractNestedDto(user, ['userAccountDto', 'userAccount']),
+      security: this.extractNestedDto(user, ['userSecurityDto', 'userSecurity']),
+      address: this.extractNestedDto(user, ['addressDto', 'address']),
+      password: this.extractNestedDto(user, ['userPasswordDto', 'userPassword']),
+    };
+  }
+
+  private extractNestedDto(
+    parent: Record<string, unknown> | null | undefined,
+    keys: string[],
+  ): Record<string, unknown> | null {
+    if (!parent) {
+      return null;
+    }
+    for (const key of keys) {
+      const hit = this.asRecord(parent[key]);
+      if (hit) {
+        return hit;
+      }
+    }
+    return null;
+  }
+
   /** Resolves `UserDto` from `UserResponse` across common gateway / naming variants. */
   private extractUserDtoFromFindByIdResponse(response: unknown): Record<string, unknown> | null {
+    const parsed = this.parsePossiblyStringifiedJson(response);
+    const envelope = this.toObj(parsed);
+    if (envelope && envelope['success'] === false) {
+      return null;
+    }
     for (const key of ['userDto', 'user', 'UserDto'] as const) {
       const hit = this.extractSingleDto(response, key);
       if (hit) {
         return hit;
       }
     }
+    if (envelope && this.looksLikeUserRecord(envelope)) {
+      return envelope;
+    }
+    const candidates = [
+      envelope,
+      this.toObj(envelope?.['data']),
+      this.toObj(envelope?.['body']),
+      this.toObj(envelope?.['payload']),
+    ].filter(Boolean) as Record<string, unknown>[];
+    for (const wrapped of candidates) {
+      if (this.looksLikeUserRecord(wrapped)) {
+        return wrapped;
+      }
+    }
     return null;
+  }
+
+  private looksLikeUserRecord(value: Record<string, unknown>): boolean {
+    return (
+      value['id'] != null &&
+      (value['firstName'] != null ||
+        value['lastName'] != null ||
+        value['username'] != null ||
+        value['email'] != null)
+    );
   }
 
   findUserAccountByUserId(userId: number): Observable<Record<string, unknown> | null> {
@@ -695,9 +836,13 @@ export class UsersAdminService {
         }
         const firstName = (fields.firstName ?? u['firstName'] ?? '').toString().trim();
         const lastName = (fields.lastName ?? u['lastName'] ?? '').toString().trim();
+        const previousEmail = String(u['email'] ?? '').trim();
         const email = (fields.email ?? u['email'] ?? '').toString().trim();
         const phoneNumber = (fields.phoneNumber ?? u['phoneNumber'] ?? '').toString().trim();
-        const username = String(u['username'] ?? email).trim();
+        const username =
+          email && email.toLowerCase() !== previousEmail.toLowerCase()
+            ? email
+            : String(u['username'] ?? email).trim();
         let gender = String(u['gender'] ?? '').trim().toUpperCase();
         if (!gender || gender === 'OTHER') {
           gender = 'PREFER_NOT_TO_SAY';
@@ -1536,7 +1681,7 @@ export class UsersAdminService {
   }
 
   private emptyProfileBundleOnNotFound(err: unknown): Observable<UserProfileBundle> {
-    if (err instanceof HttpErrorResponse && err.status === 404) {
+    if (err instanceof HttpErrorResponse && [0, 401, 403, 404].includes(err.status)) {
       return of({
         user: null,
         account: null,

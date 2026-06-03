@@ -1,8 +1,11 @@
-<div class="lx-dialog-shell">
+<div class="lx-dialog-shell lx-dialog-shell--wide">
   <div class="lx-dialog-header">
     <div class="lx-header-text">
-      <h2 class="lx-dialog-title">Edit user details</h2>
-      <p class="lx-dialog-subtitle">
+      <h2 class="lx-dialog-title">{{ scope === 'profile-only' ? 'Edit profile' : 'Edit user details' }}</h2>
+      <p class="lx-dialog-subtitle" *ngIf="scope === 'profile-only'">
+        Update your personal details. Use the other My Account sections for address, account flags, and security.
+      </p>
+      <p class="lx-dialog-subtitle" *ngIf="scope !== 'profile-only'">
         Profile, address, and documents are saved together to user management. Leave file fields empty to keep existing uploads.
       </p>
     </div>
@@ -81,6 +84,7 @@
         </div>
         <small class="ued-hint">Leave blank if the national ID has no expiry date.</small>
       </div>
+      <ng-container *ngIf="scope !== 'profile-only'">
       <div class="lx-field span-2">
         <label class="lx-field-label">Replace national ID scan</label>
         <div class="lx-input-shell">
@@ -226,6 +230,7 @@
             <input [(ngModel)]="timezone" placeholder="e.g. Africa/Harare" />
           </div>
         </div>
+      </ng-container>
       </ng-container>
     </div>
 

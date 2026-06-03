@@ -134,6 +134,8 @@ class UserServiceImplTest {
         tokenService = mock(TokenService.class);
         var emailVerificationLinkProperties = new projectlx.user.management.utils.config.EmailVerificationLinkProperties(
                 "http://localhost:4200");
+        var passwordResetLinkProperties = new projectlx.user.management.utils.config.PasswordResetLinkProperties(
+                "http://localhost:4200", "http://localhost:4201");
 
         userService = new UserServiceImpl(
                 userServiceValidator,
@@ -160,7 +162,8 @@ class UserServiceImplTest {
                 fileUploadServiceClient,
                 rabbitTemplate,
                 tokenService,
-                emailVerificationLinkProperties
+                emailVerificationLinkProperties,
+                passwordResetLinkProperties
         );
 
         // Set the objectMapper field using reflection

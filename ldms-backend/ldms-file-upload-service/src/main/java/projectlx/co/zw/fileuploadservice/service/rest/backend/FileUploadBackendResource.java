@@ -12,13 +12,16 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import projectlx.co.zw.fileuploadservice.service.processor.api.FileUploadProcessor;
+import projectlx.co.zw.fileuploadservice.utils.requests.FileUploadMultipleFiltersRequest;
 import projectlx.co.zw.fileuploadservice.service.rest.support.FileUploadOwnerTypeParam;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
 import projectlx.co.zw.shared_library.utils.enums.OwnerType;
@@ -102,6 +105,27 @@ public class FileUploadBackendResource {
             @RequestHeader(value = "Authorization", required = false) String authorization,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         FileUploadResponse response = fileUploadProcessor.delete(id, locale, currentUsername(authorization));
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @PostMapping("/find-by-multiple-filters")
+    public ResponseEntity<FileUploadResponse> findByMultipleFilters(
+            @Valid @RequestBody FileUploadMultipleFiltersRequest request,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        FileUploadResponse response =
+                fileUploadProcessor.findByMultipleFilters(request, locale, currentUsername(authorization));
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @GetMapping("/find-all")
+    public ResponseEntity<FileUploadResponse> findAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestHeader(value = "Authorization", required = false) String authorization,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        FileUploadResponse response =
+                fileUploadProcessor.findAllActiveMetadata(page, size, locale, currentUsername(authorization));
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 

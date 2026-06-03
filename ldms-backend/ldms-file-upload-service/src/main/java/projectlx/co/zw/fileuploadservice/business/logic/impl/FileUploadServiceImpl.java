@@ -5,7 +5,15 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
+import projectlx.co.zw.fileuploadservice.repository.specification.FileUploadSpecification;
+import projectlx.co.zw.fileuploadservice.utils.requests.FileUploadMultipleFiltersRequest;
 import projectlx.co.zw.fileuploadservice.business.auditable.api.FileUploadServiceAuditable;
 import projectlx.co.zw.fileuploadservice.business.logic.api.FileUploadService;
 import projectlx.co.zw.fileuploadservice.business.validator.api.FileUploadServiceValidator;
@@ -35,6 +43,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.function.Function;
 
 @RequiredArgsConstructor
 public class FileUploadServiceImpl implements FileUploadService {
@@ -247,9 +256,10 @@ public class FileUploadServiceImpl implements FileUploadService {
             log.debug("findByOwner: no rows for ownerType={} ownerId={}", ownerType, ownerId);
         }
 
-        // Same mapping as find-by-id (includes base64 when RustFS/local read succeeds).
+        // Metadata only — listing many owner files must not read bytes from RustFS/local disk.
+        // Use find-by-id for a single file when preview or download content is required.
         List<FileUploadDto> fileUploadDtoList =
-                filesRetrieved.stream().map(file -> toDtoWithContent(file, locale)).toList();
+                filesRetrieved.stream().map(this::toDtoMetadataOnly).toList();
 
         FileUploadResponse response = new FileUploadResponse();
         response.setStatusCode(200);
@@ -298,6 +308,86 @@ public class FileUploadServiceImpl implements FileUploadService {
         return response;
     }
 
+    @Override
+    public FileUploadResponse findAllActiveMetadata(int page, int size, Locale locale, String username) {
+        int safePage = Math.max(0, page);
+        int safeSize = size <= 0 ? 50 : Math.min(size, 100);
+
+        Page<FileUpload> filePage = fileUploadRepository.findByEntityStatusNotOrderByCreatedAtDesc(
+                EntityStatus.DELETED, PageRequest.of(safePage, safeSize));
+        Page<FileUploadDto> dtoPage = filePage.map(this::toDtoMetadataOnly);
+
+        String message = messageService.getMessage(I18Code.FILE_UPLOAD_SUCCESS.getCode(), new String[]{}, locale);
+        FileUploadResponse response = new FileUploadResponse();
+        response.setStatusCode(200);
+        response.setSuccess(true);
+        response.setMessage(message);
+        response.setFileUploadDtoPage(dtoPage);
+        return response;
+    }
+
+    @Override
+    public FileUploadResponse findByMultipleFilters(
+            FileUploadMultipleFiltersRequest request, Locale locale, String username) {
+
+        int safePage = Math.max(0, request.getPage());
+        int safeSize = request.getSize() <= 0 ? 50 : Math.min(request.getSize(), 100);
+
+        if (request.getOrganizationOwnerIds() != null && request.getOrganizationOwnerIds().isEmpty()) {
+            Page<FileUploadDto> empty = Page.empty(PageRequest.of(safePage, safeSize));
+            return buildMetadataPageResponse(empty, locale);
+        }
+
+        Specification<FileUpload> spec = Specification.where(FileUploadSpecification.notDeleted());
+        spec = addToSpec(request.getOriginalFileName(), spec, FileUploadSpecification::originalFileNameLike);
+        spec = addToSpec(request.getFileType(), spec, FileUploadSpecification::fileTypeLike);
+        spec = addEntityStatusToSpec(request.getEntityStatus(), spec);
+        if (request.getOrganizationOwnerIds() != null) {
+            spec = spec.and(FileUploadSpecification.organizationOwnerIdsIn(request.getOrganizationOwnerIds()));
+        }
+        if (StringUtils.hasText(request.getSearchValue())) {
+            spec = addToSpec(request.getSearchValue(), spec, FileUploadSpecification::any);
+        }
+
+        Pageable pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<FileUpload> filePage = fileUploadRepository.findAll(spec, pageable);
+        Page<FileUploadDto> dtoPage = filePage.map(this::toDtoMetadataOnly);
+        return buildMetadataPageResponse(dtoPage, locale);
+    }
+
+    private FileUploadResponse buildMetadataPageResponse(Page<FileUploadDto> dtoPage, Locale locale) {
+        String message = messageService.getMessage(I18Code.FILE_UPLOAD_SUCCESS.getCode(), new String[]{}, locale);
+        FileUploadResponse response = new FileUploadResponse();
+        response.setStatusCode(200);
+        response.setSuccess(true);
+        response.setMessage(message);
+        response.setFileUploadDtoPage(dtoPage);
+        return response;
+    }
+
+    private Specification<FileUpload> addToSpec(
+            final String value,
+            Specification<FileUpload> spec,
+            Function<String, Specification<FileUpload>> predicateMethod) {
+        if (!StringUtils.hasText(value)) {
+            return spec;
+        }
+        Specification<FileUpload> localSpec = Specification.where(predicateMethod.apply(value));
+        return spec == null ? localSpec : spec.and(localSpec);
+    }
+
+    private Specification<FileUpload> addEntityStatusToSpec(String entityStatus, Specification<FileUpload> spec) {
+        if (!StringUtils.hasText(entityStatus)) {
+            return spec;
+        }
+        try {
+            EntityStatus.valueOf(entityStatus.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return spec;
+        }
+        return addToSpec(entityStatus, spec, FileUploadSpecification::entityStatusEquals);
+    }
+
     /**
      * Reads file bytes using the appropriate storage backend based on the record's storageProvider.
      * LOCAL records (pre-migration) read from local disk.
@@ -323,6 +413,14 @@ public class FileUploadServiceImpl implements FileUploadService {
             log.warn("Could not read file content for id {}: {}", fileUpload.getId(), e.getMessage());
             dto.setFileContent(null);
         }
+        return dto;
+    }
+
+    private FileUploadDto toDtoMetadataOnly(FileUpload fileUpload) {
+        FileUploadDto dto = modelMapper.map(fileUpload, FileUploadDto.class);
+        String fileUrl = "/files/" + fileUpload.getStoredFileName();
+        dto.setFileUrl(fileUrl);
+        dto.setUpdatedAt(fileUpload.getModifiedAt());
         return dto;
     }
 

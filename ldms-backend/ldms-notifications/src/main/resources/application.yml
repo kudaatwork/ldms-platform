@@ -83,3 +83,21 @@ notifications:
     exchange: ${NOTIFICATIONS_RABBITMQ_EXCHANGE:notifications.direct}
     queue: ${NOTIFICATIONS_RABBITMQ_QUEUE:notifications.queue}
     routing-key: ${NOTIFICATIONS_RABBITMQ_ROUTING_KEY:notifications.send}
+  log:
+    retention-days: ${NOTIFICATIONS_LOG_RETENTION_DAYS:90}
+    churn:
+      fixed-delay-ms: ${NOTIFICATIONS_LOG_CHURN_FIXED_DELAY_MS:7776000000}
+      initial-delay-ms: ${NOTIFICATIONS_LOG_CHURN_INITIAL_DELAY_MS:7776000000}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+  health:
+    rabbit:
+      enabled: false

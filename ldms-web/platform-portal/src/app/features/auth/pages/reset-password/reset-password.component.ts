@@ -4,6 +4,10 @@ import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators }
 import { ActivatedRoute } from '@angular/router';
 import { PasswordRecoveryService } from '../../../../core/services/password-recovery.service';
 import { ThemeService } from '../../../../core/services/theme.service';
+import {
+  LDMS_PASSWORD_INVALID_MESSAGE,
+  ldmsPasswordFormatValidator,
+} from '../../../../core/utils/ldms-password.util';
 
 function passwordsMatch(c: AbstractControl): ValidationErrors | null {
   const np = c.get('newPassword')?.value as string | undefined;
@@ -22,6 +26,8 @@ function passwordsMatch(c: AbstractControl): ValidationErrors | null {
   standalone: false,
 })
 export class ResetPasswordComponent implements OnInit {
+  readonly passwordFormatHint = LDMS_PASSWORD_INVALID_MESSAGE;
+
   form: FormGroup;
   loading = false;
   validating = true;
@@ -44,7 +50,7 @@ export class ResetPasswordComponent implements OnInit {
       {
         token: ['', Validators.required],
         email: [{ value: '', disabled: true }, [Validators.required, Validators.email]],
-        newPassword: ['', [Validators.required, Validators.minLength(8)]],
+        newPassword: ['', [Validators.required, ldmsPasswordFormatValidator()]],
         confirmPassword: ['', Validators.required],
       },
       { validators: passwordsMatch },

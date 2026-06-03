@@ -18,12 +18,16 @@ import projectlx.co.zw.organizationmanagement.business.auditable.api.IndustrySer
 import projectlx.co.zw.organizationmanagement.business.auditable.api.OrganizationKycReviewServiceAuditable;
 import projectlx.co.zw.organizationmanagement.business.auditable.api.OrganizationServiceAuditable;
 import projectlx.co.zw.organizationmanagement.business.kyc.KycApproverAssignmentService;
+import projectlx.co.zw.organizationmanagement.business.kyc.KycApprovalStageResolver;
+import projectlx.co.zw.organizationmanagement.business.kyc.KycStageSupport;
 import projectlx.co.zw.organizationmanagement.business.kyc.KycStateMachine;
 import projectlx.co.zw.organizationmanagement.business.kyc.OrganizationEventPublisher;
 import projectlx.co.zw.organizationmanagement.clients.UserManagementServiceClient;
 import projectlx.co.zw.organizationmanagement.business.logic.api.OrganizationService;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryAdminService;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationFileUploadHelper;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationApprovedCredentialsSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationContactPersonProvisioningSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationKycNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationNotifier;
@@ -40,17 +44,21 @@ import projectlx.co.zw.organizationmanagement.model.KycStatus;
 import projectlx.co.zw.organizationmanagement.model.Organization;
 import projectlx.co.zw.organizationmanagement.model.OrganizationClassification;
 import projectlx.co.zw.organizationmanagement.model.OrganizationKycReview;
+import projectlx.co.zw.organizationmanagement.model.PlatformKycPolicy;
 import projectlx.co.zw.organizationmanagement.repository.AgentRepository;
 import projectlx.co.zw.organizationmanagement.repository.BranchRepository;
 import projectlx.co.zw.organizationmanagement.repository.IndustryRepository;
 import projectlx.co.zw.organizationmanagement.repository.OrganizationKycReviewRepository;
 import projectlx.co.zw.organizationmanagement.repository.OrganizationRepository;
+import projectlx.co.zw.organizationmanagement.repository.PlatformKycPolicyRepository;
 import projectlx.co.zw.organizationmanagement.repository.specification.AgentSpecifications;
 import projectlx.co.zw.organizationmanagement.repository.specification.BranchSpecifications;
 import projectlx.co.zw.organizationmanagement.repository.specification.IndustrySpecifications;
 import projectlx.co.zw.organizationmanagement.repository.specification.OrganizationSpecifications;
+import projectlx.co.zw.organizationmanagement.utils.dtos.OnboardingStatusDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryMapping;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryUsageDto;
+import projectlx.co.zw.organizationmanagement.utils.dtos.KycApprovalPolicyDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OrganizationKycReviewDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OrganizationMapping;
 import projectlx.co.zw.organizationmanagement.utils.enums.I18Code;
@@ -69,12 +77,16 @@ import projectlx.co.zw.organizationmanagement.utils.requests.BranchMultipleFilte
 import projectlx.co.zw.organizationmanagement.utils.requests.IndustryMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycActionRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycRejectRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationKycStagesRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateKycApprovalPolicyRequest;
 import projectlx.co.zw.organizationmanagement.utils.responses.OrganizationManagementResponse;
 import projectlx.co.zw.shared_library.utils.dtos.AgentDto;
 import projectlx.co.zw.shared_library.utils.dtos.BranchDto;
@@ -120,6 +132,8 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final KycStateMachine kycStateMachine;
     private final OrganizationEventPublisher organizationEventPublisher;
     private final KycApproverAssignmentService kycApproverAssignmentService;
+    private final KycApprovalStageResolver kycApprovalStageResolver;
+    private final PlatformKycPolicyRepository platformKycPolicyRepository;
     private final UserManagementServiceClient userManagementServiceClient;
     private final MessageService messageService;
     private final OrganizationFileUploadHelper organizationFileUploadHelper;
@@ -127,6 +141,8 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final OrganizationRegistrationNotifier organizationRegistrationNotifier;
     private final OrganizationContactPersonProvisioningSupport organizationContactPersonProvisioningSupport;
     private final OrganizationKycNotifier organizationKycNotifier;
+    private final OrganizationApprovedCredentialsSupport organizationApprovedCredentialsSupport;
+    private final OrganizationDirectoryNotifier organizationDirectoryNotifier;
 
     @Override
     public OrganizationResponse register(RegisterOrganizationRequest request, Locale locale, String createdBy) {
@@ -135,7 +151,12 @@ public class OrganizationServiceImpl implements OrganizationService {
             return buildOrganizationResponseWithErrors(v.getErrorMessages());
         }
         String normalizedEmail = request.getEmail().trim().toLowerCase();
-        if (organizationRepository.findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED).isPresent()) {
+        Optional<Organization> existingByEmail = organizationRepository
+                .findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED);
+        if (existingByEmail.isPresent()) {
+            if (isSignupResubmissionRegistration(existingByEmail.get())) {
+                return applySignupResubmissionRegistration(existingByEmail.get(), request, locale, createdBy);
+            }
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
         }
@@ -312,6 +333,32 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse getOnboardingStatus(Long organizationId, Locale locale) {
+        if (organizationId == null || organizationId < 1) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(),
+                            new String[] { "organizationId" }, locale)));
+        }
+        Organization org = organizationRepository.findByIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+        OnboardingStatusDto dto = new OnboardingStatusDto();
+        dto.setId(org.getId());
+        dto.setName(org.getName());
+        dto.setKycStatus(org.getKycStatus() != null ? org.getKycStatus().name() : KycStatus.DRAFT.name());
+        dto.setVerified(org.isVerified());
+        dto.setRequiredApprovalStages(kycApprovalStageResolver.resolveRequiredStages(org));
+        dto.setLastRejectionReason(org.getLastRejectionReason());
+        dto.setSubmittedAt(org.getSubmittedAt());
+        dto.setModifiedAt(org.getModifiedAt());
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(200);
+        res.setOnboardingStatusDto(dto);
+        return res;
+    }
+
+    @Override
     public OrganizationResponse submitKyc(Locale locale, String username) {
         Organization org = loadForUser(username);
         KycStatus from = org.getKycStatus();
@@ -333,7 +380,10 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         Organization saved = organizationServiceAuditable.save(org);
         Organization snapshot = saved;
-        afterCommit(() -> organizationEventPublisher.publishSubmitted(snapshot));
+        afterCommit(() -> {
+            organizationEventPublisher.publishSubmitted(snapshot);
+            organizationKycNotifier.sendKycSubmitted(snapshot);
+        });
         return buildOrganizationResponse(OrganizationMapping.toDto(saved));
     }
 
@@ -453,7 +503,8 @@ public class OrganizationServiceImpl implements OrganizationService {
         b.setEntityStatus(EntityStatus.ACTIVE);
         b.setCreatedAt(LocalDateTime.now());
         b.setCreatedBy(username);
-        branchServiceAuditable.save(b);
+        Branch saved = branchServiceAuditable.save(b);
+        organizationDirectoryNotifier.sendBranchCreated(saved, username);
         return getMy(locale, username);
     }
 
@@ -545,8 +596,109 @@ public class OrganizationServiceImpl implements OrganizationService {
             transporter.getContractingOrganizations().add(org);
             organizationServiceAuditable.save(org);
             organizationServiceAuditable.save(transporter);
+            organizationDirectoryNotifier.sendTransporterLinked(org, transporter, username);
         }
         return buildOrganizationResponse(OrganizationMapping.toDto(org));
+    }
+
+    @Override
+    public OrganizationResponse linkCustomerForOrganization(
+            Long supplierId, LinkCustomerRequest request, Locale locale, String username) {
+        ValidatorDto v = organizationServiceValidator.validateOrganizationId(supplierId, locale);
+        if (Boolean.FALSE.equals(v.getSuccess())) {
+            return buildOrganizationResponseWithErrors(v.getErrorMessages());
+        }
+        v = organizationServiceValidator.validateLinkCustomer(request, locale);
+        if (Boolean.FALSE.equals(v.getSuccess())) {
+            return buildOrganizationResponseWithErrors(v.getErrorMessages());
+        }
+        Organization supplier = organizationRepository.findByIdAndEntityStatusNot(supplierId, EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_SUPPLIER_LINK.getCode(), new String[]{}, locale)));
+        }
+        Organization customer = organizationRepository.findByIdAndEntityStatusNot(request.getCustomerOrganizationId(), EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+        if (customer.getOrganizationClassification() != OrganizationClassification.CUSTOMER) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_CUSTOMER_LINK.getCode(), new String[]{}, locale)));
+        }
+        if (!supplier.getCustomers().contains(customer)) {
+            supplier.getCustomers().add(customer);
+            customer.getSuppliers().add(supplier);
+            organizationServiceAuditable.save(supplier);
+            organizationServiceAuditable.save(customer);
+            organizationDirectoryNotifier.sendCustomerLinked(supplier, customer, username);
+        }
+        return buildOrganizationResponseForSystem(supplier, locale);
+    }
+
+    @Override
+    public OrganizationResponse linkTransporterForOrganization(
+            Long organizationId, LinkTransporterRequest request, Locale locale, String username) {
+        ValidatorDto v = organizationServiceValidator.validateOrganizationId(organizationId, locale);
+        if (Boolean.FALSE.equals(v.getSuccess())) {
+            return buildOrganizationResponseWithErrors(v.getErrorMessages());
+        }
+        v = organizationServiceValidator.validateLinkTransporter(request, locale);
+        if (Boolean.FALSE.equals(v.getSuccess())) {
+            return buildOrganizationResponseWithErrors(v.getErrorMessages());
+        }
+        Organization org = organizationRepository.findByIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+        if (org.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_SUPPLIER_LINK.getCode(), new String[]{}, locale)));
+        }
+        Organization transporter = organizationRepository.findByIdAndEntityStatusNot(request.getTransporterOrganizationId(), EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+        if (transporter.getOrganizationClassification() != OrganizationClassification.TRANSPORT_COMPANY) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_TRANSPORTER_LINK.getCode(), new String[]{}, locale)));
+        }
+        if (!org.getContractedTransporters().contains(transporter)) {
+            org.getContractedTransporters().add(transporter);
+            transporter.getContractingOrganizations().add(org);
+            organizationServiceAuditable.save(org);
+            organizationServiceAuditable.save(transporter);
+            organizationDirectoryNotifier.sendTransporterLinked(org, transporter, username);
+        }
+        return buildOrganizationResponseForSystem(org, locale);
+    }
+
+    @Override
+    public OrganizationResponse linkClearingAgentForOrganization(
+            Long supplierId, LinkClearingAgentRequest request, Locale locale, String username) {
+        ValidatorDto v = organizationServiceValidator.validateOrganizationId(supplierId, locale);
+        if (Boolean.FALSE.equals(v.getSuccess())) {
+            return buildOrganizationResponseWithErrors(v.getErrorMessages());
+        }
+        v = organizationServiceValidator.validateLinkClearingAgent(request, locale);
+        if (Boolean.FALSE.equals(v.getSuccess())) {
+            return buildOrganizationResponseWithErrors(v.getErrorMessages());
+        }
+        Organization supplier = organizationRepository.findByIdAndEntityStatusNot(supplierId, EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_SUPPLIER_LINK.getCode(), new String[]{}, locale)));
+        }
+        Organization clearingAgent = organizationRepository.findByIdAndEntityStatusNot(
+                        request.getClearingAgentOrganizationId(), EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+        if (clearingAgent.getOrganizationClassification() != OrganizationClassification.CLEARING_AGENT) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_CLEARING_AGENT_LINK.getCode(), new String[]{}, locale)));
+        }
+        if (!supplier.getContractedClearingAgents().contains(clearingAgent)) {
+            supplier.getContractedClearingAgents().add(clearingAgent);
+            clearingAgent.getContractingSuppliersForClearing().add(supplier);
+            organizationServiceAuditable.save(supplier);
+            organizationServiceAuditable.save(clearingAgent);
+            organizationDirectoryNotifier.sendClearingAgentLinked(supplier, clearingAgent, username);
+        }
+        return buildOrganizationResponseForSystem(supplier, locale);
     }
 
     @Override
@@ -558,7 +710,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         Specification<Organization> spec = OrganizationSpecifications.kycQueue(status, oc);
         Page<Organization> page = organizationRepository.findAll(spec, pageable);
-        Page<OrganizationDto> dtoPage = page.map(OrganizationMapping::toDto);
+        Page<OrganizationDto> dtoPage = page.map(this::toDtoWithKycPolicy);
         OrganizationResponse res = buildOrganizationResponse(null);
         res.setOrganizationDtoPage(dtoPage);
         return res;
@@ -580,7 +732,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                 request.getSize(),
                 Sort.by(Sort.Direction.ASC, "id"));
         Page<Organization> page = organizationRepository.findAll(spec, pageable);
-        List<OrganizationDto> dtoList = page.getContent().stream().map(OrganizationMapping::toDto).toList();
+        List<OrganizationDto> dtoList = page.getContent().stream().map(this::toDtoWithKycPolicy).toList();
         Page<OrganizationDto> dtoPage = new PageImpl<>(dtoList, pageable, page.getTotalElements());
         OrganizationResponse res = buildOrganizationResponse(null);
         res.setOrganizationDtoPage(dtoPage);
@@ -647,7 +799,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     @Transactional(readOnly = true)
     public OrganizationResponse getById(Long id, Locale locale) {
         Organization org = organizationRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElseThrow(() -> notFound(locale));
-        return buildOrganizationResponse(OrganizationMapping.toDto(org));
+        return buildOrganizationResponse(toDtoWithKycPolicy(org));
     }
 
     @Override
@@ -662,6 +814,20 @@ public class OrganizationServiceImpl implements OrganizationService {
         dto.setAgentDtoList(OrganizationMapping.toAgentDtos(agentRepository.findAll(agentSpec)));
         dto.setCustomerDtoList(mapNonDeletedOrganizations(org.getCustomers()));
         dto.setContractedTransporterDtoList(mapNonDeletedOrganizations(org.getContractedTransporters()));
+        dto.setContractedClearingAgentDtoList(mapNonDeletedOrganizations(org.getContractedClearingAgents()));
+        return buildOrganizationResponse(dto);
+    }
+
+    private OrganizationResponse buildOrganizationResponseForSystem(Organization org, Locale locale) {
+        OrganizationDto dto = OrganizationMapping.toDto(org);
+        dto.setBranchDtoList(OrganizationMapping.toBranchDtos(
+                branchRepository.findByOrganizationAndEntityStatusNot(org, EntityStatus.DELETED)));
+        Specification<Agent> agentSpec = Specification.where(AgentSpecifications.notDeleted())
+                .and(AgentSpecifications.organizationIdEquals(org.getId()));
+        dto.setAgentDtoList(OrganizationMapping.toAgentDtos(agentRepository.findAll(agentSpec)));
+        dto.setCustomerDtoList(mapNonDeletedOrganizations(org.getCustomers()));
+        dto.setContractedTransporterDtoList(mapNonDeletedOrganizations(org.getContractedTransporters()));
+        dto.setContractedClearingAgentDtoList(mapNonDeletedOrganizations(org.getContractedClearingAgents()));
         return buildOrganizationResponse(dto);
     }
 
@@ -702,123 +868,174 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     @Override
     public OrganizationResponse stage1Approve(Long id, KycActionRequest request, Locale locale, String username) {
-        Organization org = organizationRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElseThrow(() -> notFound(locale));
-        assertAssignedKycApprover(org, KycReviewStage.STAGE_1, request, username, locale);
-        KycStatus s = prepareOrganizationForStage1Decision(org, locale);
-        if (s != KycStatus.STAGE_1_REVIEW) {
-            throw new BusinessRuleException(
-                    messageService.getMessage(I18Code.KYC_INVALID_TRANSITION.getCode(), new String[]{}, locale),
-                    I18Code.KYC_INVALID_TRANSITION);
-        }
-        kycStateMachine.assertCanTransition(KycStatus.STAGE_1_REVIEW, KycStatus.STAGE_2_REVIEW, locale);
-        String reviewer = resolveReviewer(request, username);
-        LocalDateTime reviewedAt = LocalDateTime.now();
-        OrganizationKycReview row = buildReviewRow(org, KycReviewStage.STAGE_1, KycDecision.APPROVED, request, reviewer, reviewedAt, null);
-        organizationKycReviewServiceAuditable.save(row);
-        org.setKycStatus(KycStatus.STAGE_2_REVIEW);
-        org.setStage1ReviewedBy(reviewer);
-        org.setStage1ReviewedAt(reviewedAt);
-        org.setModifiedAt(reviewedAt);
-        org.setModifiedBy(username);
-        Organization saved = organizationServiceAuditable.save(org);
-        afterCommit(() -> {
-            organizationEventPublisher.publishStage1Approved(saved, reviewer, reviewedAt);
-            organizationKycNotifier.sendStage1Approved(saved);
-        });
-        return buildOrganizationResponse(OrganizationMapping.toDto(saved));
+        return approveKycStage(1, id, request, locale, username);
     }
 
     @Override
     public OrganizationResponse stage1Reject(Long id, KycRejectRequest request, Locale locale, String username) {
-        Objects.requireNonNull(request.getRejectionReason(), "rejectionReason");
-        Organization org = organizationRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElseThrow(() -> notFound(locale));
-        assertAssignedKycApprover(org, KycReviewStage.STAGE_1, request, username, locale);
-        KycStatus s = prepareOrganizationForStage1Decision(org, locale);
-        if (s != KycStatus.STAGE_1_REVIEW) {
-            throw new BusinessRuleException(
-                    messageService.getMessage(I18Code.KYC_INVALID_TRANSITION.getCode(), new String[]{}, locale),
-                    I18Code.KYC_INVALID_TRANSITION);
-        }
-        kycStateMachine.assertCanTransition(KycStatus.STAGE_1_REVIEW, KycStatus.REJECTED, locale);
-        String reviewer = resolveReviewer(request, username);
-        LocalDateTime reviewedAt = LocalDateTime.now();
-        OrganizationKycReview row = buildReviewRow(
-                org, KycReviewStage.STAGE_1, KycDecision.REJECTED, request, reviewer, reviewedAt, request.getRejectionReason());
-        organizationKycReviewServiceAuditable.save(row);
-        org.setKycStatus(KycStatus.REJECTED);
-        org.setStage1ReviewedBy(reviewer);
-        org.setStage1ReviewedAt(reviewedAt);
-        org.setLastRejectionReason(request.getRejectionReason());
-        org.setModifiedAt(reviewedAt);
-        org.setModifiedBy(username);
-        Organization saved = organizationServiceAuditable.save(org);
-        afterCommit(() -> organizationEventPublisher.publishRejected(saved, KycReviewStage.STAGE_1, request.getRejectionReason(), reviewer, reviewedAt));
-        return buildOrganizationResponse(OrganizationMapping.toDto(saved));
+        return rejectKycStage(1, id, request, locale, username);
     }
 
     @Override
     public OrganizationResponse stage2Approve(Long id, KycActionRequest request, Locale locale, String username) {
-        Organization org = organizationRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElseThrow(() -> notFound(locale));
-        assertAssignedKycApprover(org, KycReviewStage.STAGE_2, request, username, locale);
-        kycStateMachine.assertCanTransition(KycStatus.STAGE_2_REVIEW, KycStatus.APPROVED, locale);
-        String reviewer = resolveReviewer(request, username);
-        LocalDateTime reviewedAt = LocalDateTime.now();
-        OrganizationKycReview row = buildReviewRow(org, KycReviewStage.STAGE_2, KycDecision.APPROVED, request, reviewer, reviewedAt, null);
-        organizationKycReviewServiceAuditable.save(row);
-        org.setKycStatus(KycStatus.APPROVED);
-        org.setVerified(true);
-        org.setStage2ReviewedBy(reviewer);
-        org.setStage2ReviewedAt(reviewedAt);
-        org.setModifiedAt(reviewedAt);
-        org.setModifiedBy(username);
-        Organization saved = organizationServiceAuditable.save(org);
-        afterCommit(() -> {
-            organizationEventPublisher.publishStage2Approved(saved, reviewer, reviewedAt);
-            organizationEventPublisher.publishVerified(saved, reviewedAt);
-            organizationKycNotifier.sendStage2Approved(saved);
-        });
-        return buildOrganizationResponse(OrganizationMapping.toDto(saved));
+        return approveKycStage(2, id, request, locale, username);
     }
 
     @Override
     public OrganizationResponse stage2Reject(Long id, KycRejectRequest request, Locale locale, String username) {
-        Objects.requireNonNull(request.getRejectionReason(), "rejectionReason");
+        return rejectKycStage(2, id, request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse stage3Approve(Long id, KycActionRequest request, Locale locale, String username) {
+        return approveKycStage(3, id, request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse stage3Reject(Long id, KycRejectRequest request, Locale locale, String username) {
+        return rejectKycStage(3, id, request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse stage4Approve(Long id, KycActionRequest request, Locale locale, String username) {
+        return approveKycStage(4, id, request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse stage4Reject(Long id, KycRejectRequest request, Locale locale, String username) {
+        return rejectKycStage(4, id, request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse stage5Approve(Long id, KycActionRequest request, Locale locale, String username) {
+        return approveKycStage(5, id, request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse stage5Reject(Long id, KycRejectRequest request, Locale locale, String username) {
+        return rejectKycStage(5, id, request, locale, username);
+    }
+
+    private OrganizationResponse approveKycStage(
+            int stage,
+            Long id,
+            KycActionRequest request,
+            Locale locale,
+            String username) {
         Organization org = organizationRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElseThrow(() -> notFound(locale));
-        assertAssignedKycApprover(org, KycReviewStage.STAGE_2, request, username, locale);
-        kycStateMachine.assertCanTransition(KycStatus.STAGE_2_REVIEW, KycStatus.REJECTED, locale);
+        KycReviewStage reviewStage = KycStageSupport.toReviewStage(stage);
+        assertAssignedKycApprover(org, reviewStage, request, username, locale);
+        KycStatus currentStatus = stage == 1
+                ? prepareOrganizationForStage1Decision(org, locale)
+                : org.getKycStatus();
+        KycStatus expectedStatus = KycStageSupport.reviewStatus(stage);
+        if (currentStatus != expectedStatus) {
+            throw new BusinessRuleException(
+                    messageService.getMessage(I18Code.KYC_INVALID_TRANSITION.getCode(), new String[]{}, locale),
+                    I18Code.KYC_INVALID_TRANSITION);
+        }
+        int requiredStages = kycApprovalStageResolver.resolveRequiredStages(org);
         String reviewer = resolveReviewer(request, username);
         LocalDateTime reviewedAt = LocalDateTime.now();
         OrganizationKycReview row = buildReviewRow(
-                org, KycReviewStage.STAGE_2, KycDecision.REJECTED, request, reviewer, reviewedAt, request.getRejectionReason());
+                org, reviewStage, KycDecision.APPROVED, request, reviewer, reviewedAt, null);
+        organizationKycReviewServiceAuditable.save(row);
+        KycStageSupport.setReviewed(org, stage, reviewer, reviewedAt);
+        org.setModifiedAt(reviewedAt);
+        org.setModifiedBy(username);
+
+        if (stage >= requiredStages) {
+            kycStateMachine.assertCanTransition(expectedStatus, KycStatus.APPROVED, locale);
+            org.setKycStatus(KycStatus.APPROVED);
+            org.setVerified(true);
+            Organization saved = organizationServiceAuditable.save(org);
+            afterCommit(() -> {
+                organizationEventPublisher.publishStage2Approved(saved, reviewer, reviewedAt);
+                organizationEventPublisher.publishVerified(saved, reviewedAt);
+                organizationKycNotifier.sendFullyApproved(saved);
+                organizationApprovedCredentialsSupport.issueAndEmailCredentials(saved);
+            });
+            return buildOrganizationResponse(toDtoWithKycPolicy(saved));
+        }
+
+        KycStatus nextStatus = KycStageSupport.reviewStatus(stage + 1);
+        kycStateMachine.assertCanTransition(expectedStatus, nextStatus, locale);
+        org.setKycStatus(nextStatus);
+        Organization saved = organizationServiceAuditable.save(org);
+        int approvedStage = stage;
+        int totalStages = requiredStages;
+        afterCommit(() -> {
+            organizationEventPublisher.publishStage1Approved(saved, reviewer, reviewedAt);
+            organizationKycNotifier.sendStageApproved(saved, approvedStage, totalStages);
+        });
+        return buildOrganizationResponse(toDtoWithKycPolicy(saved));
+    }
+
+    private OrganizationResponse rejectKycStage(
+            int stage,
+            Long id,
+            KycRejectRequest request,
+            Locale locale,
+            String username) {
+        Objects.requireNonNull(request.getRejectionReason(), "rejectionReason");
+        Organization org = organizationRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElseThrow(() -> notFound(locale));
+        KycReviewStage reviewStage = KycStageSupport.toReviewStage(stage);
+        assertAssignedKycApprover(org, reviewStage, request, username, locale);
+        if (stage == 1) {
+            prepareOrganizationForStage1Decision(org, locale);
+        }
+        KycStatus expectedStatus = KycStageSupport.reviewStatus(stage);
+        if (org.getKycStatus() != expectedStatus) {
+            throw new BusinessRuleException(
+                    messageService.getMessage(I18Code.KYC_INVALID_TRANSITION.getCode(), new String[]{}, locale),
+                    I18Code.KYC_INVALID_TRANSITION);
+        }
+        kycStateMachine.assertCanTransition(expectedStatus, KycStatus.REJECTED, locale);
+        String reviewer = resolveReviewer(request, username);
+        LocalDateTime reviewedAt = LocalDateTime.now();
+        OrganizationKycReview row = buildReviewRow(
+                org, reviewStage, KycDecision.REJECTED, request, reviewer, reviewedAt, request.getRejectionReason());
         organizationKycReviewServiceAuditable.save(row);
         org.setKycStatus(KycStatus.REJECTED);
-        org.setStage2ReviewedBy(reviewer);
-        org.setStage2ReviewedAt(reviewedAt);
+        KycStageSupport.setReviewed(org, stage, reviewer, reviewedAt);
         org.setLastRejectionReason(request.getRejectionReason());
         org.setModifiedAt(reviewedAt);
         org.setModifiedBy(username);
         Organization saved = organizationServiceAuditable.save(org);
-        afterCommit(() -> organizationEventPublisher.publishRejected(saved, KycReviewStage.STAGE_2, request.getRejectionReason(), reviewer, reviewedAt));
+        String rejectionReason = request.getRejectionReason();
+        afterCommit(() -> {
+            organizationEventPublisher.publishRejected(saved, reviewStage, rejectionReason, reviewer, reviewedAt);
+            organizationKycNotifier.sendRejected(saved, rejectionReason);
+        });
         return buildOrganizationResponse(OrganizationMapping.toDto(saved));
     }
 
     @Override
     public OrganizationResponse allowResubmission(Long id, KycActionRequest request, Locale locale, String username) {
         Organization org = organizationRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElseThrow(() -> notFound(locale));
-        kycStateMachine.assertCanTransition(KycStatus.REJECTED, KycStatus.RESUBMITTED, locale);
+        kycStateMachine.assertCanTransition(KycStatus.REJECTED, KycStatus.DRAFT, locale);
         LocalDateTime now = LocalDateTime.now();
-        org.setKycStatus(KycStatus.RESUBMITTED);
+        String resubmissionNotes = request != null && StringUtils.hasText(request.getNotes())
+                ? request.getNotes().trim()
+                : null;
+        org.setKycStatus(KycStatus.DRAFT);
+        org.setSubmittedAt(null);
+        org.setVerified(false);
         org.setResubmissionCount(org.getResubmissionCount() + 1);
         org.setCurrentResubmissionCycle(org.getCurrentResubmissionCycle() + 1);
-        org.setLastRejectionReason(null);
+        org.setLastRejectionReason(resubmissionNotes);
         org.setModifiedAt(now);
         org.setModifiedBy(username);
         if (Boolean.TRUE.equals(org.getCreatedViaSignup())) {
+            KycStageSupport.clearAllAssignedApprovers(org);
             kycApproverAssignmentService.assignApprovers(org);
         }
         Organization saved = organizationServiceAuditable.save(org);
         String allowedBy = resolveReviewer(request, username);
-        afterCommit(() -> organizationEventPublisher.publishResubmitted(saved, allowedBy, now));
+        afterCommit(() -> {
+            organizationEventPublisher.publishResubmitted(saved, allowedBy, now);
+            organizationKycNotifier.sendResubmissionAllowed(saved, resubmissionNotes);
+        });
         return buildOrganizationResponse(OrganizationMapping.toDto(saved));
     }
 
@@ -1098,10 +1315,111 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     private void clearApproverAssignments(Organization org) {
-        org.setAssignedStage1ApproverUserId(null);
-        org.setAssignedStage1ApproverUsername(null);
-        org.setAssignedStage2ApproverUserId(null);
-        org.setAssignedStage2ApproverUsername(null);
+        KycStageSupport.clearAllAssignedApprovers(org);
+    }
+
+    /**
+     * Platform signup re-registration for the same organisation email after an admin opened resubmission
+     * ({@link KycStatus#DRAFT} with {@code currentResubmissionCycle > 0}).
+     */
+    private boolean isSignupResubmissionRegistration(Organization org) {
+        return Boolean.TRUE.equals(org.getCreatedViaSignup())
+                && org.getKycStatus() == KycStatus.DRAFT
+                && org.getCurrentResubmissionCycle() > 0;
+    }
+
+    private OrganizationResponse applySignupResubmissionRegistration(
+            Organization org,
+            RegisterOrganizationRequest request,
+            Locale locale,
+            String createdBy) {
+        org.setName(request.getName().trim());
+        org.setPhoneNumber(request.getPhoneNumber());
+        org.setOrganizationClassification(request.getOrganizationClassification());
+        if (request.getOrganizationType() != null) {
+            org.setOrganizationType(request.getOrganizationType());
+        }
+        if (request.getIndustryId() != null) {
+            industryRepository.findByIdAndEntityStatusNot(request.getIndustryId(), EntityStatus.DELETED)
+                    .ifPresent(org::setIndustry);
+        }
+        org.setContactPersonFirstName(request.getContactPersonFirstName());
+        org.setContactPersonLastName(request.getContactPersonLastName());
+        org.setContactPersonEmail(StringUtils.hasText(request.getContactPersonEmail())
+                ? request.getContactPersonEmail().trim().toLowerCase()
+                : null);
+        org.setContactPersonPhoneNumber(request.getContactPersonPhoneNumber());
+        if (request.getContactPersonGender() != null) {
+            org.setContactPersonGender(request.getContactPersonGender());
+        }
+        if (StringUtils.hasText(request.getContactPersonDateOfBirth())) {
+            org.setContactPersonDateOfBirth(request.getContactPersonDateOfBirth().trim());
+        }
+        if (StringUtils.hasText(request.getContactPersonNationalIdNumber())) {
+            org.setContactPersonNationalIdNumber(request.getContactPersonNationalIdNumber().trim());
+        }
+        if (StringUtils.hasText(request.getContactPersonPassportNumber())) {
+            org.setContactPersonPassportNumber(request.getContactPersonPassportNumber().trim());
+        }
+        if (request.getRegistrationNumber() != null) {
+            org.setRegistrationNumber(request.getRegistrationNumber().trim());
+        }
+        if (request.getTaxNumber() != null) {
+            org.setTaxNumber(request.getTaxNumber().trim());
+        }
+        org.setKycStatus(KycStatus.DRAFT);
+        org.setVerified(false);
+        org.setSubmittedAt(null);
+        org.setModifiedAt(LocalDateTime.now());
+        org.setModifiedBy(createdBy);
+        KycStageSupport.clearAllAssignedApprovers(org);
+        kycApproverAssignmentService.assignApprovers(org);
+        organizationServiceAuditable.save(org);
+
+        UploadOutcome uploadOutcome = organizationFileUploadHelper.processUploads(
+                org,
+                List.of(new UploadPart(
+                        request.getTaxClearanceCertificateUpload(),
+                        request.getTaxClearanceCertificateUploadId(),
+                        FileType.TAX_CLEARANCE_CERTIFICATE,
+                        null,
+                        org::setTaxClearanceCertificateUploadId)),
+                locale,
+                false);
+        if (!uploadOutcome.success()) {
+            return buildOrganizationResponseWithErrors(uploadOutcome.errorMessages());
+        }
+        UploadOutcome contactIdOutcome = organizationFileUploadHelper.processUploads(
+                org,
+                List.of(
+                        contactUploadPart(
+                                request.getContactPersonNationalIdUpload(),
+                                request.getContactPersonNationalIdUploadId(),
+                                FileType.NATIONAL_ID,
+                                org,
+                                org::setContactPersonNationalIdUploadId,
+                                request.getContactPersonNationalIdExpiryDate()),
+                        contactUploadPart(
+                                request.getContactPersonPassportUpload(),
+                                request.getContactPersonPassportUploadId(),
+                                FileType.PASSPORT,
+                                org,
+                                org::setContactPersonPassportUploadId,
+                                request.getContactPersonPassportExpiryDate())),
+                locale,
+                false);
+        if (!contactIdOutcome.success()) {
+            return buildOrganizationResponseWithErrors(contactIdOutcome.errorMessages());
+        }
+        organizationServiceAuditable.save(org);
+
+        final Long orgId = org.getId();
+        afterCommit(() -> organizationRepository.findById(orgId).ifPresent(fresh -> {
+            provisionContactPersonUserIfNeeded(fresh, true);
+            organizationRepository.findById(orgId).ifPresent(afterProvision ->
+                    organizationRegistrationNotifier.sendRegistrationEmails(afterProvision, true));
+        }));
+        return buildOrganizationResponse(OrganizationMapping.toDto(org));
     }
 
     /**
@@ -1152,25 +1470,21 @@ public class OrganizationServiceImpl implements OrganizationService {
         if ("ADMIN".equals(normalized) || "SYSTEM".equals(normalized)) {
             return;
         }
-        Long assignedUserId = stage == KycReviewStage.STAGE_1
-                ? org.getAssignedStage1ApproverUserId()
-                : org.getAssignedStage2ApproverUserId();
-        String assignedUsername = stage == KycReviewStage.STAGE_1
-                ? org.getAssignedStage1ApproverUsername()
-                : org.getAssignedStage2ApproverUsername();
+        Long assignedUserId = KycStageSupport.getAssignedApproverUserId(org, KycStageSupport.toStageNumber(stage));
+        String assignedUsername = KycStageSupport.getAssignedApproverUsername(org, KycStageSupport.toStageNumber(stage));
         if (assignedUserId == null && (assignedUsername == null || assignedUsername.isBlank())) {
             return;
         }
-        Long actingUserId = request != null ? request.getReviewerUserId() : null;
+        Long actingUserId = resolveActingUserId(request, principal);
         if (assignedUserId != null && actingUserId != null && actingUserId.equals(assignedUserId)) {
             assertNotCrossStageApprover(org, stage, actingUserId, principal, locale);
             return;
         }
-        if (assignedUsername != null && principal.equalsIgnoreCase(assignedUsername.trim())) {
+        if (assignedUsername != null && principalsMatch(principal, assignedUsername)) {
             assertNotCrossStageApprover(org, stage, actingUserId, principal, locale);
             return;
         }
-        Long resolvedId = resolveUserIdByUsername(principal);
+        Long resolvedId = resolveUserIdByPrincipal(principal);
         if (resolvedId != null && resolvedId.equals(assignedUserId)) {
             assertNotCrossStageApprover(org, stage, resolvedId, principal, locale);
             return;
@@ -1186,17 +1500,23 @@ public class OrganizationServiceImpl implements OrganizationService {
             Long actingUserId,
             String actingUsername,
             Locale locale) {
-        if (stage != KycReviewStage.STAGE_2) {
+        int currentStage = KycStageSupport.toStageNumber(stage);
+        if (currentStage <= 1) {
             return;
         }
-        Long stage1UserId = org.getAssignedStage1ApproverUserId();
-        if (stage1UserId != null && actingUserId != null && stage1UserId.equals(actingUserId)) {
-            throw sameApproverException(locale);
+        if (kycApprovalStageResolver.resolveRequiredStages(org) <= 1) {
+            return;
         }
-        String stage1Username = org.getAssignedStage1ApproverUsername();
-        if (stage1Username != null && actingUsername != null
-                && stage1Username.equalsIgnoreCase(actingUsername.trim())) {
-            throw sameApproverException(locale);
+        for (int priorStage = KycStageSupport.MIN_STAGE; priorStage < currentStage; priorStage++) {
+            Long priorUserId = KycStageSupport.getAssignedApproverUserId(org, priorStage);
+            if (priorUserId != null && actingUserId != null && priorUserId.equals(actingUserId)) {
+                throw sameApproverException(locale);
+            }
+            String priorUsername = KycStageSupport.getAssignedApproverUsername(org, priorStage);
+            if (priorUsername != null && actingUsername != null
+                    && priorUsername.equalsIgnoreCase(actingUsername.trim())) {
+                throw sameApproverException(locale);
+            }
         }
     }
 
@@ -1206,9 +1526,43 @@ public class OrganizationServiceImpl implements OrganizationService {
                 I18Code.KYC_SAME_APPROVER);
     }
 
-    private Long resolveUserIdByUsername(String username) {
+    /**
+     * Returns the acting user-id for KYC approver checks.
+     * Prefers an explicit id from the request; falls back to a Feign lookup by principal.
+     */
+    private Long resolveActingUserId(KycActionRequest request, String principal) {
+        if (request != null && request.getReviewerUserId() != null) {
+            return request.getReviewerUserId();
+        }
+        return resolveUserIdByPrincipal(principal);
+    }
+
+    /**
+     * Matches {@code principal} against {@code assignedUsername} tolerating:
+     * <ul>
+     *   <li>Case-insensitive exact match (e.g. "kaydizz" vs "KAYDIZZ")</li>
+     *   <li>Email local-part match (e.g. "kaydizz@example.com" vs "kaydizz")</li>
+     * </ul>
+     */
+    private boolean principalsMatch(String principal, String assignedUsername) {
+        if (assignedUsername == null) {
+            return false;
+        }
+        String trimmedAssigned = assignedUsername.trim();
+        if (principal.equalsIgnoreCase(trimmedAssigned)) {
+            return true;
+        }
+        int atIndex = principal.indexOf('@');
+        if (atIndex > 0) {
+            String localPart = principal.substring(0, atIndex);
+            return localPart.equalsIgnoreCase(trimmedAssigned);
+        }
+        return false;
+    }
+
+    private Long resolveUserIdByPrincipal(String principal) {
         try {
-            UserResponse response = userManagementServiceClient.findByUsername(username);
+            UserResponse response = userManagementServiceClient.findByUsername(principal);
             if (response != null && response.isSuccess() && response.getUserDto() != null) {
                 return response.getUserDto().getId();
             }
@@ -1243,7 +1597,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                 org.setContactPersonLastName(request.getContactPersonLastName());
             }
             if (request.getContactPersonEmail() != null) {
-                org.setContactPersonEmail(request.getContactPersonEmail());
+                org.setContactPersonEmail(request.getContactPersonEmail().trim().toLowerCase(Locale.ROOT));
             }
             if (request.getContactPersonPhoneNumber() != null) {
                 org.setContactPersonPhoneNumber(request.getContactPersonPhoneNumber());
@@ -1420,7 +1774,7 @@ public class OrganizationServiceImpl implements OrganizationService {
                     try {
                         action.run();
                     } catch (RuntimeException ex) {
-                        // Publisher swallows failures; extra safety
+                        log.error("Post-commit action failed after organisation transaction: {}", ex.getMessage(), ex);
                     }
                 }
             });
@@ -1516,6 +1870,89 @@ public class OrganizationServiceImpl implements OrganizationService {
     @Override
     public ImportSummary importIndustriesFromCsv(InputStream inputStream, Locale locale, String username) throws IOException {
         return organizationDirectoryAdminService.importIndustriesFromCsv(inputStream, locale, username);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationManagementResponse getKycApprovalPolicy(Locale locale) {
+        KycApprovalPolicyDto policy = buildKycApprovalPolicyDto();
+        OrganizationManagementResponse response = new OrganizationManagementResponse();
+        response.setSuccess(true);
+        response.setStatusCode(200);
+        response.setKycApprovalPolicyDto(policy);
+        return response;
+    }
+
+    @Override
+    public OrganizationManagementResponse updateKycApprovalPolicy(
+            UpdateKycApprovalPolicyRequest request, Locale locale, String modifiedBy) {
+        if (request == null || request.getDefaultRequiredApprovalStages() == null) {
+            return buildPolicyErrorResponse(
+                    List.of(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(), new String[]{}, locale)));
+        }
+        int stages = kycApprovalStageResolver.clampStages(request.getDefaultRequiredApprovalStages());
+        PlatformKycPolicy policy = platformKycPolicyRepository
+                .findFirstByEntityStatusNotOrderByIdAsc(EntityStatus.DELETED)
+                .orElseGet(() -> {
+                    PlatformKycPolicy created = new PlatformKycPolicy();
+                    created.setEntityStatus(EntityStatus.ACTIVE);
+                    created.setCreatedAt(LocalDateTime.now());
+                    created.setCreatedBy(modifiedBy);
+                    return created;
+                });
+        policy.setDefaultRequiredApprovalStages(stages);
+        policy.setModifiedAt(LocalDateTime.now());
+        policy.setModifiedBy(modifiedBy);
+        platformKycPolicyRepository.save(policy);
+        OrganizationManagementResponse response = new OrganizationManagementResponse();
+        response.setSuccess(true);
+        response.setStatusCode(200);
+        response.setKycApprovalPolicyDto(buildKycApprovalPolicyDto());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse updateOrganizationKycStages(
+            Long id, UpdateOrganizationKycStagesRequest request, Locale locale, String modifiedBy) {
+        Organization org = organizationRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+        Integer stages = request != null ? request.getKycRequiredApprovalStages() : null;
+        if (stages != null) {
+            org.setKycRequiredApprovalStages(kycApprovalStageResolver.clampStages(stages));
+        } else {
+            org.setKycRequiredApprovalStages(null);
+        }
+        org.setModifiedAt(LocalDateTime.now());
+        org.setModifiedBy(modifiedBy);
+        if (Boolean.TRUE.equals(org.getCreatedViaSignup())) {
+            kycApproverAssignmentService.assignApprovers(org);
+        }
+        Organization saved = organizationServiceAuditable.save(org);
+        return buildOrganizationResponse(toDtoWithKycPolicy(saved));
+    }
+
+    private OrganizationDto toDtoWithKycPolicy(Organization org) {
+        OrganizationDto dto = OrganizationMapping.toDto(org);
+        if (dto != null) {
+            dto.setEffectiveKycRequiredApprovalStages(kycApprovalStageResolver.resolveRequiredStages(org));
+        }
+        return dto;
+    }
+
+    private KycApprovalPolicyDto buildKycApprovalPolicyDto() {
+        KycApprovalPolicyDto dto = new KycApprovalPolicyDto();
+        dto.setDefaultRequiredApprovalStages(kycApprovalStageResolver.loadPlatformDefault());
+        dto.setMinAllowedStages(KycApprovalStageResolver.MIN_STAGES);
+        dto.setMaxAllowedStages(KycApprovalStageResolver.MAX_STAGES);
+        return dto;
+    }
+
+    private OrganizationManagementResponse buildPolicyErrorResponse(List<String> errors) {
+        OrganizationManagementResponse response = new OrganizationManagementResponse();
+        response.setSuccess(false);
+        response.setStatusCode(400);
+        response.setErrorMessages(errors);
+        return response;
     }
 
     /**

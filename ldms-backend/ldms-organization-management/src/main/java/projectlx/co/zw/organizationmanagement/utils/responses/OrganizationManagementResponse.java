@@ -6,6 +6,8 @@ import lombok.Setter;
 import org.springframework.data.domain.Page;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryUsageDto;
+import projectlx.co.zw.organizationmanagement.utils.dtos.KycApprovalPolicyDto;
+import projectlx.co.zw.organizationmanagement.utils.dtos.OnboardingStatusDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OrganizationKycReviewDto;
 import projectlx.co.zw.shared_library.utils.dtos.AgentDto;
 import projectlx.co.zw.shared_library.utils.dtos.BranchDto;
@@ -26,4 +28,6 @@ public class OrganizationManagementResponse extends OrganizationResponse {
     private Page<AgentDto> agentDtoPage;
     private BranchDto branchDto;
     private AgentDto agentDto;
+    private KycApprovalPolicyDto kycApprovalPolicyDto;
+    private OnboardingStatusDto onboardingStatusDto;
 }

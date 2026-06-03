@@ -34,4 +34,19 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
             Long assignedStage2ApproverUserId,
             Collection<KycStatus> kycStatuses,
             EntityStatus entityStatus);
+
+    long countByAssignedStage3ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
+            Long assignedStage3ApproverUserId,
+            Collection<KycStatus> kycStatuses,
+            EntityStatus entityStatus);
+
+    long countByAssignedStage4ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
+            Long assignedStage4ApproverUserId,
+            Collection<KycStatus> kycStatuses,
+            EntityStatus entityStatus);
+
+    long countByAssignedStage5ApproverUserIdAndCreatedViaSignupTrueAndKycStatusInAndEntityStatusNot(
+            Long assignedStage5ApproverUserId,
+            Collection<KycStatus> kycStatuses,
+            EntityStatus entityStatus);
 }

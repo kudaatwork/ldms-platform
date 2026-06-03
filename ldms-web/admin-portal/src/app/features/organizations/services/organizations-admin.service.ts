@@ -45,9 +45,18 @@ export interface PagedOrganizations {
 
 /** Aggregated KYC pipeline counts for shell badges and dashboard KPIs. */
 export interface KycQueueSummary {
+  /** All organisations in the system (any KYC status). */
+  totalOrganizations: number;
   totalInQueue: number;
+  draftCount: number;
+  submittedCount: number;
   stage1Count: number;
   stage2Count: number;
+  stage3Count: number;
+  stage4Count: number;
+  stage5Count: number;
+  rejectedCount: number;
+  approvedCount: number;
   recentApplications: KycQueueRow[];
 }
 
@@ -211,6 +220,47 @@ export class OrganizationsAdminService {
     );
   }
 
+  /**
+   * Loads raw organisation DTOs (includes KYC upload id fields) for admin document catalogues.
+   */
+  fetchOrganizationDtoPages(maxRecords: number, pageSize: number): Observable<Record<string, unknown>[]> {
+    const size = Math.max(1, Math.min(pageSize, 100));
+    const query: OrganizationTableQuery = {
+      page: 0,
+      size,
+      searchQuery: '',
+      columnFilters: {},
+    };
+    return this.http.post<unknown>(this.url('find-by-multiple-filters'), this.buildFilterBody(query)).pipe(
+      switchMap((firstResp) => {
+        const firstDtos = this.extractRows(firstResp);
+        const pageMeta = this.unwrapPage(this.parseJson(firstResp));
+        const total = Number(pageMeta?.['totalElements'] ?? firstDtos.length);
+        const pagesNeeded = Math.min(Math.ceil(Math.min(total, maxRecords) / size), Math.ceil(maxRecords / size));
+        if (pagesNeeded <= 1) {
+          return of(firstDtos.slice(0, maxRecords));
+        }
+        const more = Array.from({ length: pagesNeeded - 1 }, (_, i) => i + 1);
+        return forkJoin(
+          more.map((page) =>
+            this.http
+              .post<unknown>(
+                this.url('find-by-multiple-filters'),
+                this.buildFilterBody({ ...query, page, size }),
+              )
+              .pipe(map((resp) => this.extractRows(resp))),
+          ),
+        ).pipe(map((rest) => [firstDtos, ...rest].flat().slice(0, maxRecords)));
+      }),
+      catchError(() => of([])),
+    );
+  }
+
+  /** KYC / compliance upload references on an organisation row. */
+  verificationDocumentsFromOrganizationDto(dto: Record<string, unknown>): KycApplicationDocument[] {
+    return this.mapVerificationDocuments(dto);
+  }
+
   /** Counts for nav badge, notification bell, and KYC queue hero stats. */
   fetchKycQueueSummary(): Observable<KycQueueSummary> {
     const base: OrganizationTableQuery = {
@@ -221,7 +271,15 @@ export class OrganizationsAdminService {
       kycQueueOnly: true,
     };
     return forkJoin({
+      allOrganizations: this.queryTablePage({
+        page: 0,
+        size: 1,
+        searchQuery: '',
+        columnFilters: {},
+      }),
       total: this.queryTablePage(base),
+      draft: this.queryTablePage({ ...base, columnFilters: { statusLabel: 'DRAFT' } }),
+      submitted: this.queryTablePage({ ...base, columnFilters: { statusLabel: 'SUBMITTED' } }),
       stage1: this.queryTablePage({
         ...base,
         columnFilters: { statusLabel: 'STAGE_1_REVIEW' },
@@ -230,14 +288,51 @@ export class OrganizationsAdminService {
         ...base,
         columnFilters: { statusLabel: 'STAGE_2_REVIEW' },
       }),
-      recent: this.queryTablePage({ ...base, size: 8 }),
+      stage3: this.queryTablePage({
+        ...base,
+        columnFilters: { statusLabel: 'STAGE_3_REVIEW' },
+      }),
+      stage4: this.queryTablePage({
+        ...base,
+        columnFilters: { statusLabel: 'STAGE_4_REVIEW' },
+      }),
+      stage5: this.queryTablePage({
+        ...base,
+        columnFilters: { statusLabel: 'STAGE_5_REVIEW' },
+      }),
+      rejected: this.queryTablePage({ ...base, columnFilters: { statusLabel: 'REJECTED' } }),
+      approved: this.queryTablePage({ ...base, columnFilters: { statusLabel: 'APPROVED' } }),
+      recent: this.queryTablePage({ ...base, size: 6 }),
     }).pipe(
-      map(({ total, stage1, stage2, recent }) => ({
-        totalInQueue: total.totalElements,
-        stage1Count: stage1.totalElements,
-        stage2Count: stage2.totalElements,
-        recentApplications: recent.rows,
-      })),
+      map(
+        ({
+          allOrganizations,
+          total,
+          draft,
+          submitted,
+          stage1,
+          stage2,
+          stage3,
+          stage4,
+          stage5,
+          rejected,
+          approved,
+          recent,
+        }) => ({
+          totalOrganizations: allOrganizations.totalElements,
+          totalInQueue: total.totalElements,
+          draftCount: draft.totalElements,
+          submittedCount: submitted.totalElements,
+          stage1Count: stage1.totalElements,
+          stage2Count: stage2.totalElements,
+          stage3Count: stage3.totalElements,
+          stage4Count: stage4.totalElements,
+          stage5Count: stage5.totalElements,
+          rejectedCount: rejected.totalElements,
+          approvedCount: approved.totalElements,
+          recentApplications: recent.rows,
+        }),
+      ),
     );
   }
 
@@ -628,6 +723,30 @@ export class OrganizationsAdminService {
     return this.kycPost(id, 'stage2/reject', payload);
   }
 
+  stage3Approve(id: number, payload: KycDecisionPayload): Observable<void> {
+    return this.kycPost(id, 'stage3/approve', payload);
+  }
+
+  stage3Reject(id: number, payload: KycRejectPayload): Observable<void> {
+    return this.kycPost(id, 'stage3/reject', payload);
+  }
+
+  stage4Approve(id: number, payload: KycDecisionPayload): Observable<void> {
+    return this.kycPost(id, 'stage4/approve', payload);
+  }
+
+  stage4Reject(id: number, payload: KycRejectPayload): Observable<void> {
+    return this.kycPost(id, 'stage4/reject', payload);
+  }
+
+  stage5Approve(id: number, payload: KycDecisionPayload): Observable<void> {
+    return this.kycPost(id, 'stage5/approve', payload);
+  }
+
+  stage5Reject(id: number, payload: KycRejectPayload): Observable<void> {
+    return this.kycPost(id, 'stage5/reject', payload);
+  }
+
   allowResubmission(id: number, payload: KycDecisionPayload): Observable<void> {
     return this.kycPost(id, 'allow-resubmission', payload);
   }
@@ -710,6 +829,9 @@ export class OrganizationsAdminService {
       'SUBMITTED',
       'STAGE_1_REVIEW',
       'STAGE_2_REVIEW',
+      'STAGE_3_REVIEW',
+      'STAGE_4_REVIEW',
+      'STAGE_5_REVIEW',
       'APPROVED',
       'REJECTED',
       'RESUBMITTED',
@@ -964,6 +1086,9 @@ export class OrganizationsAdminService {
     const createdAt = dto['createdAt'] as string | undefined;
     const stage1 = this.mapApproverAssignment(dto, 1);
     const stage2 = this.mapApproverAssignment(dto, 2);
+    const stage3 = this.mapApproverAssignment(dto, 3);
+    const stage4 = this.mapApproverAssignment(dto, 4);
+    const stage5 = this.mapApproverAssignment(dto, 5);
     const createdViaSignup = dto['createdViaSignup'] === true;
     const verified = Boolean(dto['isVerified']);
     return {
@@ -991,6 +1116,12 @@ export class OrganizationsAdminService {
       verifiedLabel: verified ? 'Verified' : 'Not verified',
       stage1ApproverLabel: stage1?.displayName ?? stage1?.username ?? '—',
       stage2ApproverLabel: stage2?.displayName ?? stage2?.username ?? '—',
+      stage3ApproverLabel: stage3?.displayName ?? stage3?.username ?? '—',
+      stage4ApproverLabel: stage4?.displayName ?? stage4?.username ?? '—',
+      stage5ApproverLabel: stage5?.displayName ?? stage5?.username ?? '—',
+      kycRequiredApprovalStages: this.readOptionalInt(dto, 'kycRequiredApprovalStages', 'kyc_required_approval_stages'),
+      effectiveKycRequiredApprovalStages:
+        this.readOptionalInt(dto, 'effectiveKycRequiredApprovalStages', 'effective_kyc_required_approval_stages') ?? undefined,
     };
   }
 
@@ -1040,6 +1171,13 @@ export class OrganizationsAdminService {
           .map((t) => this.mapOrganizationLinkRow(t))
       : [];
 
+    const clearingListRaw = dto['contractedClearingAgentDtoList'];
+    const clearingAgents = Array.isArray(clearingListRaw)
+      ? clearingListRaw
+          .filter((r): r is Record<string, unknown> => !!this.toObj(r))
+          .map((c) => this.mapOrganizationLinkRow(c))
+      : [];
+
     return {
       id,
       name: String(dto['name'] ?? row.name ?? '').trim() || row.name,
@@ -1069,6 +1207,7 @@ export class OrganizationsAdminService {
       agents,
       customers,
       transporters,
+      clearingAgents,
     };
   }
 
@@ -1126,14 +1265,29 @@ export class OrganizationsAdminService {
       requiresKycApproval: createdViaSignup,
       stage1Approver: this.mapApproverAssignment(dto, 1),
       stage2Approver: this.mapApproverAssignment(dto, 2),
+      stage3Approver: this.mapApproverAssignment(dto, 3),
+      stage4Approver: this.mapApproverAssignment(dto, 4),
+      stage5Approver: this.mapApproverAssignment(dto, 5),
+      kycRequiredApprovalStages: this.readOptionalInt(dto, 'kycRequiredApprovalStages', 'kyc_required_approval_stages'),
+      effectiveKycRequiredApprovalStages:
+        this.readOptionalInt(dto, 'effectiveKycRequiredApprovalStages', 'effective_kyc_required_approval_stages') ?? 2,
     };
+  }
+
+  private readOptionalInt(dto: Record<string, unknown>, camel: string, snake: string): number | null {
+    const raw = dto[camel] ?? dto[snake];
+    if (raw == null || raw === '') {
+      return null;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
   }
 
   private mapApproverAssignment(
     dto: Record<string, unknown>,
-    stage: 1 | 2,
+    stage: 1 | 2 | 3 | 4 | 5,
   ): KycApproverAssignment | undefined {
-    const prefix = stage === 1 ? 'assignedStage1' : 'assignedStage2';
+    const prefix = `assignedStage${stage}`;
     const userId = Number(dto[`${prefix}ApproverUserId`] ?? 0);
     const username = String(dto[`${prefix}ApproverUsername`] ?? '').trim();
     const displayName = String(dto[`${prefix}ApproverDisplayName`] ?? username).trim();
@@ -1311,6 +1465,55 @@ export class OrganizationsAdminService {
       map(({ rows }) => rows.map((r) => ({ id: r.id, name: r.name }))),
       catchError(() => of([])),
     );
+  }
+
+  fetchOrganizationsByClassification(
+    classification: OrganizationClassification,
+  ): Observable<Array<{ id: number; name: string; email?: string }>> {
+    return this.queryAllOrganizations(0, 500, {
+      searchQuery: '',
+      organizationClassification: classification,
+      organizationDirectoryOnly: true,
+    }).pipe(
+      map(({ rows }) =>
+        rows.map((r) => ({
+          id: r.id,
+          name: r.name,
+          email: r.email?.trim() || undefined,
+        })),
+      ),
+      catchError(() => of([])),
+    );
+  }
+
+  linkCustomer(supplierId: number, customerOrganizationId: number): Observable<void> {
+    return this.http
+      .post<unknown>(this.url(`${supplierId}/customers/link`), { customerOrganizationId })
+      .pipe(
+        map((resp) => this.assertOrganizationMutationSuccess(resp)),
+        map(() => void 0),
+        catchError((err: HttpErrorResponse) => throwError(() => this.toError(err))),
+      );
+  }
+
+  linkTransporter(supplierId: number, transporterOrganizationId: number): Observable<void> {
+    return this.http
+      .post<unknown>(this.url(`${supplierId}/transporters/link`), { transporterOrganizationId })
+      .pipe(
+        map((resp) => this.assertOrganizationMutationSuccess(resp)),
+        map(() => void 0),
+        catchError((err: HttpErrorResponse) => throwError(() => this.toError(err))),
+      );
+  }
+
+  linkClearingAgent(supplierId: number, clearingAgentOrganizationId: number): Observable<void> {
+    return this.http
+      .post<unknown>(this.url(`${supplierId}/clearing-agents/link`), { clearingAgentOrganizationId })
+      .pipe(
+        map((resp) => this.assertOrganizationMutationSuccess(resp)),
+        map(() => void 0),
+        catchError((err: HttpErrorResponse) => throwError(() => this.toError(err))),
+      );
   }
 
   // ─── Branch CRUD ──────────────────────────────────────────────────────────────
