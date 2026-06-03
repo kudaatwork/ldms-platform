@@ -2,6 +2,7 @@ package projectlx.co.zw.fileuploadservice.service.processor.api;
 
 import org.springframework.web.multipart.MultipartFile;
 import projectlx.co.zw.shared_library.utils.enums.OwnerType;
+import projectlx.co.zw.fileuploadservice.utils.requests.FileUploadMultipleFiltersRequest;
 import projectlx.co.zw.shared_library.utils.responses.FileUploadResponse;
 
 import java.util.List;
@@ -22,4 +23,6 @@ public interface FileUploadProcessor {
     FileUploadResponse delete(Long id, Locale locale, String username);
 
     FileUploadResponse findAllActiveMetadata(int page, int size, Locale locale, String username);
+
+    FileUploadResponse findByMultipleFilters(FileUploadMultipleFiltersRequest request, Locale locale, String username);
 }

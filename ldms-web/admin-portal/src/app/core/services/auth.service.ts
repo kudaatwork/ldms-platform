@@ -181,7 +181,10 @@ export class AuthService {
       return body.message;
     }
     if (err.status === 0) {
-      return 'Cannot reach the API gateway. Start ldms-api-gateway on port 8091.';
+      return (
+        'Cannot reach the API gateway. Start ldms-api-gateway on port 8091 (and ldms-authentication on 8083), ' +
+        'then sign in again from http://localhost:4200 using npm start in ldms-web/admin-portal.'
+      );
     }
     if (err.status === 503) {
       return (

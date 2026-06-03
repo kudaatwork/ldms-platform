@@ -40,6 +40,7 @@ ldms:
       scheduler-enabled: true
       chunk-size: 10000
       job-pool-size: 4
+      retention-days: 90
 
 management:
   endpoints:

@@ -123,8 +123,9 @@ export class DocumentsService {
               return of(this.mergeDocuments(linked, registryDocs));
             }
 
+            const cappedMissing = missingIds.slice(0, 24);
             return forkJoin(
-              missingIds.map((id) =>
+              cappedMissing.map((id) =>
                 this.fetchById(id).pipe(
                   catchError(() => of(null)),
                   map((dto) => ({ id, dto })),
@@ -135,7 +136,7 @@ export class DocumentsService {
                 const extraDocs = extras
                   .map(({ id, dto }) => {
                     const ref = linked.find((l) => l.uploadId === id);
-                    return dto && ref ? this.toStagedDocument(dto, ref) : null;
+                    return dto && ref ? this.toStagedDocument(dto, ref, { withPreview: false }) : null;
                   })
                   .filter((d): d is StagedDocument => d != null);
                 return this.mergeDocuments(linked, [...registryDocs, ...extraDocs]);
@@ -154,16 +155,20 @@ export class DocumentsService {
         if (!dto) {
           return null;
         }
-        return this.toStagedDocument(dto, {
-          uploadId: Number(dto['id']),
-          displayTitle: this.fileNameFromDto(dto),
-          category: this.fileTypeLabel(dto['fileType']),
-          sourceLabel: this.buildRegistrySourceLabel(dto),
-          sourceScope: String(dto['ownerType'] ?? '').includes('ORG') ? 'ORGANIZATION' : 'USER',
-          sourceChannel: 'FILE_UPLOAD_REGISTRY',
-          ownerType: String(dto['ownerType'] ?? '').includes('ORG') ? 'ORGANIZATION' : 'USER',
-          ownerId: Number(dto['ownerId'] ?? 0),
-        });
+        return this.toStagedDocument(
+          dto,
+          {
+            uploadId: Number(dto['id']),
+            displayTitle: this.fileNameFromDto(dto),
+            category: this.fileTypeLabel(dto['fileType']),
+            sourceLabel: this.buildRegistrySourceLabel(dto),
+            sourceScope: String(dto['ownerType'] ?? '').includes('ORG') ? 'ORGANIZATION' : 'USER',
+            sourceChannel: 'FILE_UPLOAD_REGISTRY',
+            ownerType: String(dto['ownerType'] ?? '').includes('ORG') ? 'ORGANIZATION' : 'USER',
+            ownerId: Number(dto['ownerId'] ?? 0),
+          },
+          { withPreview: true },
+        );
       }),
       catchError(() => of(null)),
     );
@@ -177,16 +182,20 @@ export class DocumentsService {
       .pipe(
         map((resp) =>
           extractFileUploadDtoList(resp).map((dto) =>
-            this.toStagedDocument(dto, {
-              uploadId: Number(dto['id']),
-              displayTitle: this.fileNameFromDto(dto),
-              category: this.fileTypeLabel(dto['fileType']),
-              sourceLabel: this.buildRegistrySourceLabel(dto),
-              sourceScope: ownerType === 'ORGANIZATION' ? 'ORGANIZATION' : 'USER',
-              sourceChannel: 'FILE_UPLOAD_REGISTRY',
-              ownerType,
-              ownerId,
-            }),
+            this.toStagedDocument(
+              dto,
+              {
+                uploadId: Number(dto['id']),
+                displayTitle: this.fileNameFromDto(dto),
+                category: this.fileTypeLabel(dto['fileType']),
+                sourceLabel: this.buildRegistrySourceLabel(dto),
+                sourceScope: ownerType === 'ORGANIZATION' ? 'ORGANIZATION' : 'USER',
+                sourceChannel: 'FILE_UPLOAD_REGISTRY',
+                ownerType,
+                ownerId,
+              },
+              { withPreview: false },
+            ),
           ),
         ),
         catchError(() => of([])),
@@ -339,8 +348,9 @@ export class DocumentsService {
     return 'FILE_UPLOAD_REGISTRY';
   }
 
-  private toStagedDocument(dto: Record<string, unknown>, ref: LinkedDocumentRef): StagedDocument {
-    const preview = resolveFilePreview(dto, { maxBase64Chars: 900_000 });
+  private toStagedDocument(dto: Record<string, unknown>, ref: LinkedDocumentRef, options?: { withPreview?: boolean }): StagedDocument {
+    const preview =
+      options?.withPreview === true ? resolveFilePreview(dto, { maxBase64Chars: 900_000 }) : null;
     const fileName = this.fileNameFromDto(dto);
     const contentType = String(dto['contentType'] ?? '').trim();
     const nameLower = fileName.toLowerCase();

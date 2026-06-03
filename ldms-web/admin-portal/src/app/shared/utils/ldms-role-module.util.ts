@@ -109,7 +109,7 @@ export function resolveLdmsRoleModule(role: string): LdmsRoleModuleSection {
     key = 'organization-management';
   } else if (contains(normalized, 'AUDIT_LOG')) {
     key = 'audit-trail';
-  } else if (contains(normalized, 'TEMPLATE')) {
+  } else if (contains(normalized, 'TEMPLATE') || contains(normalized, 'NOTIFICATION_LOG')) {
     key = 'notifications';
   } else if (PASSWORD.has(normalized)) {
     key = 'user-management.password';

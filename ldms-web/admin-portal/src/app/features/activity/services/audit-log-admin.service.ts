@@ -176,8 +176,12 @@ export class AuditLogAdminService {
   ): Observable<{ rows: AuditLogDto[]; totalElements: number }> {
     const payload: AuditLogMultipleFiltersRequest = {
       ...request,
-      username: username.trim(),
-      eventType: 'SERVICE_METHOD',
+      // Do not enforce actor scoping here: several services can persist SYSTEM for request-level
+      // audits, and strict user filtering hides cross-module activity in the Login & Activity view.
+      username: '',
+      // Include both SERVICE_METHOD and WEB_REQUEST events so endpoint activity is visible
+      // even when some services only emit request-level audits.
+      eventType: request.eventType?.trim() ?? '',
       excludeActions: [...USER_ACTIVITY_EXCLUDED_ACTIONS],
     };
     return this.queryAuditLogPage(payload);

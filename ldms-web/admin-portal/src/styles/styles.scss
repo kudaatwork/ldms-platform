@@ -1491,3 +1491,20 @@ html.theme-dark .brand-lx {
   color: #a5f3fc;
   text-shadow: 0 0 20px rgba(34, 211, 238, 0.28);
 }
+
+/* Material Icons — after mat.all-component-themes (typography must not win on mat-icon). */
+.mat-icon,
+mat-icon.mat-icon,
+.material-icons,
+.mat-icon.mat-ligature-font {
+  font-family: 'Material Icons', sans-serif !important;
+  font-weight: normal !important;
+  font-style: normal !important;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  font-feature-settings: 'liga' !important;
+  font-variation-settings: normal !important;
+  -webkit-font-smoothing: antialiased;
+}

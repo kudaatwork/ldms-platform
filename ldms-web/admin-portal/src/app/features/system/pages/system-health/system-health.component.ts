@@ -198,6 +198,9 @@ export class SystemHealthComponent implements OnInit, OnDestroy {
     if (upper === 'UP') {
       return { css: 'active', label: 'Operational' };
     }
+    if (upper === 'DEGRADED') {
+      return { css: 'pending', label: 'Degraded' };
+    }
     if (upper === 'DOWN' || upper === 'OUT_OF_SERVICE') {
       return { css: 'rejected', label: 'Down' };
     }

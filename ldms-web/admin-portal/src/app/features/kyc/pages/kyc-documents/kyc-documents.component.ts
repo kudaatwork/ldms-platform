@@ -1,15 +1,15 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { PageEvent } from '@angular/material/paginator';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Subject, takeUntil, timeout } from 'rxjs';
-import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
-import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import { EMPTY, Observable, Subject, merge, of } from 'rxjs';
+import { catchError, debounceTime, finalize, switchMap, takeUntil, tap } from 'rxjs/operators';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
 } from '@shared/utils/lx-export.util';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import {
   UserDocumentDetailDialogComponent,
@@ -31,7 +31,7 @@ export class KycDocumentsComponent implements OnInit, OnDestroy {
   readonly pageLead =
     'Every file registered in LDMS — organisation compliance packs, profile uploads, and registry entries. Open View to load the full file and metadata from file-upload.';
 
-  loading = true;
+  fetching = false;
   loadError = '';
   deletingId: number | null = null;
 
@@ -45,7 +45,8 @@ export class KycDocumentsComponent implements OnInit, OnDestroy {
     'actions',
   ];
 
-  dataSource: KycDocumentTableRow[] = [];
+  rows: KycDocumentTableRow[] = [];
+  totalRecords = 0;
 
   searchQuery = '';
   filterFieldsOpen = false;
@@ -62,6 +63,9 @@ export class KycDocumentsComponent implements OnInit, OnDestroy {
   pageSize = DEFAULT_TABLE_PAGE_SIZE;
 
   private readonly destroy$ = new Subject<void>();
+  private readonly filterReload$ = new Subject<void>();
+  private latestLoadToken = 0;
+  private lastFilterSignature = '';
 
   constructor(
     private readonly title: Title,
@@ -69,39 +73,28 @@ export class KycDocumentsComponent implements OnInit, OnDestroy {
     private readonly dialog: MatDialog,
     private readonly catalog: KycDocumentsAdminService,
     private readonly fileUpload: FileUploadAdminService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
-  get filteredRows(): KycDocumentTableRow[] {
-    return filterByGlobalAndColumns(this.dataSource, this.searchQuery, this.columnFilters);
-  }
-
-  get clampedPageIndex(): number {
-    const total = this.filteredRows.length;
-    if (total === 0) {
-      return 0;
+  get hasActiveFilters(): boolean {
+    if (this.searchQuery.trim()) {
+      return true;
     }
-    const max = Math.max(0, Math.ceil(total / this.pageSize) - 1);
-    return Math.min(this.pageIndex, max);
-  }
-
-  get pagedRows(): KycDocumentTableRow[] {
-    const all = this.filteredRows;
-    const start = this.clampedPageIndex * this.pageSize;
-    return all.slice(start, start + this.pageSize);
-  }
-
-  resetPaging(): void {
-    this.pageIndex = 0;
-  }
-
-  onPage(e: PageEvent): void {
-    this.pageIndex = e.pageIndex;
-    this.pageSize = e.pageSize;
+    return Object.values(this.columnFilters).some((v) => String(v ?? '').trim().length > 0);
   }
 
   ngOnInit(): void {
     this.title.setTitle('Compliance Documents | LX Admin');
-    this.reload();
+    this.lastFilterSignature = this.currentFilterSignature();
+    merge(of(undefined), this.filterReload$.pipe(debounceTime(150)))
+      .pipe(
+        switchMap(() => {
+          this.pageIndex = 0;
+          return this.runTableQuery({ background: false });
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe();
   }
 
   ngOnDestroy(): void {
@@ -109,25 +102,30 @@ export class KycDocumentsComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  applyFilters(): void {
+    const nextSignature = this.currentFilterSignature();
+    if (nextSignature === this.lastFilterSignature) {
+      return;
+    }
+    this.lastFilterSignature = nextSignature;
+    this.filterReload$.next();
+  }
+
+  onFiltersChanged(): void {
+    this.applyFilters();
+  }
+
+  onPage(e: PageEvent): void {
+    if (e.pageIndex === this.pageIndex && e.pageSize === this.pageSize) {
+      return;
+    }
+    this.pageIndex = e.pageIndex;
+    this.pageSize = e.pageSize;
+    this.runTableQuery({ background: false }).pipe(takeUntil(this.destroy$)).subscribe();
+  }
+
   reload(): void {
-    this.loading = true;
-    this.loadError = '';
-    this.catalog
-      .loadCatalog()
-      .pipe(timeout(45_000), takeUntil(this.destroy$))
-      .subscribe({
-        next: (rows) => {
-          this.dataSource = rows;
-          this.loading = false;
-          this.loadError = '';
-        },
-        error: () => {
-          this.loading = false;
-          this.dataSource = [];
-          this.loadError =
-            'Could not load the document catalogue in time. Check the API gateway and organisation-management service, then retry.';
-        },
-      });
+    this.filterReload$.next();
   }
 
   viewDocument(row: KycDocumentTableRow): void {
@@ -161,7 +159,7 @@ export class KycDocumentsComponent implements OnInit, OnDestroy {
             });
             return;
           }
-          this.dataSource = this.dataSource.filter((r) => r.uploadId !== row.uploadId);
+          this.filterReload$.next();
           this.snackBar.open('Document deleted.', 'Close', {
             duration: 3500,
             panelClass: ['app-snackbar-success'],
@@ -195,7 +193,7 @@ export class KycDocumentsComponent implements OnInit, OnDestroy {
   exportAs(format: LxExportFormat): void {
     const ok = exportClientTableAsCsv(
       format,
-      this.filteredRows,
+      this.rows,
       [
         { header: 'uploadId', value: (r) => r.uploadId },
         { header: 'fileName', value: (r) => r.fileName },
@@ -214,5 +212,63 @@ export class KycDocumentsComponent implements OnInit, OnDestroy {
         panelClass: ['app-snackbar-success'],
       });
     }
+  }
+
+  private runTableQuery(opts?: { background?: boolean }): Observable<KycDocumentTableRow[]> {
+    const loadToken = ++this.latestLoadToken;
+    const background = opts?.background === true;
+    if (!background || this.totalRecords === 0) {
+      this.fetching = true;
+      this.loadError = '';
+    }
+    return this.catalog
+      .queryTablePage({
+        page: this.pageIndex,
+        size: this.pageSize,
+        searchQuery: this.searchQuery,
+        columnFilters: this.columnFilters,
+      })
+      .pipe(
+        tap(({ rows, totalElements }) => this.applyLoadedPage(loadToken, rows, totalElements)),
+        catchError((err) => {
+          if (loadToken !== this.latestLoadToken) {
+            return EMPTY;
+          }
+          this.rows = [];
+          this.totalRecords = 0;
+          this.loadError =
+            err instanceof Error
+              ? err.message
+              : 'Could not load compliance documents. Check the API gateway and file-upload service, then retry.';
+          return EMPTY;
+        }),
+        finalize(() => {
+          if (loadToken === this.latestLoadToken) {
+            this.fetching = false;
+            this.cdr.markForCheck();
+          }
+        }),
+        switchMap(({ rows }) => of(rows)),
+      );
+  }
+
+  private applyLoadedPage(loadToken: number, rows: KycDocumentTableRow[], totalElements: number): void {
+    if (loadToken !== this.latestLoadToken) {
+      return;
+    }
+    if (rows.length === 0 && totalElements > 0 && this.pageIndex > 0) {
+      this.pageIndex = 0;
+      this.runTableQuery({ background: true }).pipe(takeUntil(this.destroy$)).subscribe();
+      return;
+    }
+    this.totalRecords = totalElements;
+    this.rows = rows;
+  }
+
+  private currentFilterSignature(): string {
+    return JSON.stringify({
+      q: this.searchQuery.trim(),
+      filters: this.columnFilters,
+    });
   }
 }

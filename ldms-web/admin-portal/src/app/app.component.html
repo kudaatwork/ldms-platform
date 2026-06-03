@@ -18,7 +18,7 @@
     <!-- Nav -->
     <div class="sb-section-label">Menu</div>
     <nav class="sb-nav">
-      <ng-container *ngFor="let item of navItems; trackBy: trackByRoute">
+      <ng-container *ngFor="let item of visibleNavItems; trackBy: trackByRoute">
         <ng-container *ngIf="!item.children">
           <a
             class="sb-item"
@@ -146,6 +146,7 @@
       <div class="sb-section-label">Account &amp; support</div>
       <nav class="sb-nav sb-nav--secondary" aria-label="Account and support">
         <a
+          *ngIf="navAccess.canAccessRoute('/settings')"
           class="sb-item"
           routerLink="/settings"
           routerLinkActive="active"

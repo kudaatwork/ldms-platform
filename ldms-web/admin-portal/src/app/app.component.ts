@@ -11,6 +11,7 @@ import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
 import { filter, takeUntil, tap } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { CurrentUserService, ShellUserView } from './core/services/current-user.service';
+import { NavAccessService } from './core/services/nav-access.service';
 import { KycNotificationDismissService } from './core/services/kyc-notification-dismiss.service';
 import { KycQueueStatsService } from './core/services/kyc-queue-stats.service';
 import { StorageService } from './core/services/storage.service';
@@ -114,7 +115,9 @@ export class AppComponent implements OnInit, OnDestroy {
   /** Snapshot for templates (e.g. sidebar active states). */
   currentUrl = '';
 
-  navItems: NavItem[] = [
+  visibleNavItems: NavItem[] = [];
+
+  private readonly allNavItems: NavItem[] = [
     { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
     { label: 'KYC Queue', icon: 'verified_user', route: '/kyc/applications' },
     {
@@ -201,6 +204,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly storage: StorageService,
     private readonly currentUser: CurrentUserService,
+    readonly navAccess: NavAccessService,
     private readonly kycStats: KycQueueStatsService,
     private readonly kycNotificationDismiss: KycNotificationDismissService,
     readonly theme: ThemeService,
@@ -210,6 +214,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.registerActivityListeners();
     this.currentUser.user$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
       this.shellUser = user;
+      this.rebuildVisibleNav();
       this.syncChromeFromUrl();
       this.cdr.markForCheck();
     });
@@ -220,6 +225,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.storage.getToken() && !this.storage.getToken()?.startsWith('mock-token-')) {
       this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
     }
+    this.rebuildVisibleNav();
     this.syncChromeFromUrl();
     this.rebuildBreadcrumbs();
     this.router.events
@@ -350,7 +356,7 @@ export class AppComponent implements OnInit, OnDestroy {
     const nextExpanded = { ...this.expandedGroups() };
     const activeGroupKeys = new Set<string>();
 
-    for (const item of this.navItems) {
+    for (const item of this.visibleNavItems) {
       if (!item.children?.length) {
         continue;
       }
@@ -373,7 +379,7 @@ export class AppComponent implements OnInit, OnDestroy {
 
     // When viewing a section, close other top-level groups; on neutral pages (e.g. dashboard) keep manual toggles.
     if (activeGroupKeys.size > 0) {
-      for (const item of this.navItems) {
+      for (const item of this.visibleNavItems) {
         if (!item.children?.length) {
           continue;
         }
@@ -505,7 +511,7 @@ export class AppComponent implements OnInit, OnDestroy {
     if (url.startsWith('/help')) {
       return 'Help & Support';
     }
-    for (const item of this.navItems) {
+    for (const item of this.visibleNavItems.length ? this.visibleNavItems : this.allNavItems) {
       if (item.children) {
         for (const child of item.children) {
           if (!this.isNavChild(child)) {
@@ -581,7 +587,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private applyKycQueueSummary(summary: KycQueueSummary | null): void {
-    const kycNav = this.navItems.find((item) => item.route === '/kyc/applications');
+    const kycNav = this.allNavItems.find((item) => item.route === '/kyc/applications');
     if (kycNav) {
       const count = summary?.totalInQueue ?? 0;
       kycNav.badge = count > 0 ? count : undefined;
@@ -669,6 +675,10 @@ export class AppComponent implements OnInit, OnDestroy {
       this.profileOpen = false;
       this.cdr.markForCheck();
     }
+  }
+
+  rebuildVisibleNav(): void {
+    this.visibleNavItems = this.navAccess.filterNavItems(this.allNavItems);
   }
 
   logout(fromTimeout = false): void {

@@ -1,4 +1,10 @@
 /* ── Shell ──────────────────────────────────────────────────── */
+:host {
+  display: block;
+  height: 100%;
+  min-height: 100vh;
+}
+
 .shell {
   display: flex;
   height: 100vh;
@@ -1027,4 +1033,11 @@
   .tb-search {
     display: none;
   }
+}
+
+/* Shell mat-icons — enforce ligature font inside sidebar/topbar (parent buttons set Plus Jakarta Sans). */
+:host mat-icon.mat-icon {
+  font-family: 'Material Icons', sans-serif !important;
+  font-feature-settings: 'liga' !important;
+  font-variation-settings: normal !important;
 }

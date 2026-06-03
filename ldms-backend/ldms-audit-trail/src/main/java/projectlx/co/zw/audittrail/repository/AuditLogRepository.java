@@ -122,6 +122,14 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
                     + "FROM AuditLog a")
     AuditLogRangeProjection findTimestampRange();
 
+    @Query("SELECT COUNT(a) FROM AuditLog a WHERE a.requestTimestamp < :cutoff")
+    long countBefore(@Param("cutoff") LocalDateTime cutoff);
+
+    @Query(
+            "SELECT MIN(a.requestTimestamp) AS oldestRequestTimestamp, MAX(a.requestTimestamp) AS newestRequestTimestamp "
+                    + "FROM AuditLog a WHERE a.requestTimestamp < :cutoff")
+    AuditLogRangeProjection findTimestampRangeBefore(@Param("cutoff") LocalDateTime cutoff);
+
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query(value = "DELETE FROM audit_log WHERE id IN (:ids)", nativeQuery = true)
     int deleteByIds(@Param("ids") Collection<Long> ids);

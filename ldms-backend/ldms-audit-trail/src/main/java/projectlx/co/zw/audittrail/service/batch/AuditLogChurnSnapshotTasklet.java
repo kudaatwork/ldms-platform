@@ -1,6 +1,7 @@
 package projectlx.co.zw.audittrail.service.batch;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
@@ -33,9 +34,11 @@ public class AuditLogChurnSnapshotTasklet implements Tasklet {
         String triggerType = params.getString("triggerType");
         String triggeredBy = params.getString("triggeredBy");
         String batchReference = params.getString("batchReference");
+        LocalDateTime purgeBefore = parsePurgeBefore(params.getString("purgeBefore"));
 
-        long total = auditLogRepository.count();
-        AuditLogRangeProjection range = auditLogRepository.findTimestampRange();
+        long total = purgeBefore == null ? auditLogRepository.count() : auditLogRepository.countBefore(purgeBefore);
+        AuditLogRangeProjection range =
+                purgeBefore == null ? auditLogRepository.findTimestampRange() : auditLogRepository.findTimestampRangeBefore(purgeBefore);
         LocalDateTime now = LocalDateTime.now();
 
         AuditLogChurnHistory history = churnHistoryRepository.save(AuditLogChurnHistory.builder()
@@ -61,5 +64,16 @@ public class AuditLogChurnSnapshotTasklet implements Tasklet {
         jobExecution.getExecutionContext().putLong(AuditLogChurnJobKeys.SNAPSHOT_TOTAL_ROWS, total);
 
         return RepeatStatus.FINISHED;
+    }
+
+    private static LocalDateTime parsePurgeBefore(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDateTime.parse(raw.trim());
+        } catch (DateTimeParseException ex) {
+            return null;
+        }
     }
 }

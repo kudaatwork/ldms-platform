@@ -285,6 +285,18 @@ export class NotificationAdminService {
       .pipe(switchMap((blob) => this.ensureExportBlob(blob)));
   }
 
+  churnOutNotificationLog(): Observable<NotificationLogListResponse> {
+    if (environment.useMocks) {
+      return of({
+        statusCode: 200,
+        success: true,
+        isSuccess: true,
+        message: 'Notification logs churn out completed.',
+      });
+    }
+    return this.http.post<NotificationLogListResponse>(this.url('notification-log', 'churn-out'), {});
+  }
+
   private ensureExportBlob(blob: Blob): Observable<Blob> {
     const type = (blob.type ?? '').toLowerCase();
     if (

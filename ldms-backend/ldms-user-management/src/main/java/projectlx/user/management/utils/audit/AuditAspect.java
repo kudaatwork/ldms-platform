@@ -7,6 +7,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +19,7 @@ import projectlx.co.zw.shared_library.utils.enums.AuditEventType;
 import projectlx.user.management.business.logic.api.AuditTrailService;
 import java.time.Duration;
 import java.time.Instant;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 
 /**
@@ -61,16 +63,16 @@ public class AuditAspect {
             Instant responseEnd = Instant.now();
             long durationMs = Duration.between(requestStart, responseEnd).toMillis();
             MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-            Auditable auditable = signature.getMethod().getAnnotation(Auditable.class);
+            Auditable auditable = resolveAuditableAnnotation(joinPoint, signature);
 
             String username = resolveAuditUsername();
-
-            assert auditable != null;
 
             Object[] argsCopy = joinPoint.getArgs() != null
                     ? Arrays.copyOf(joinPoint.getArgs(), joinPoint.getArgs().length)
                     : new Object[0];
-            String action = auditable.action();
+            String action = (auditable != null && auditable.action() != null && !auditable.action().isBlank())
+                    ? auditable.action()
+                    : signature.getMethod().getName();
             String traceId = AuditHttpTraceSupport.currentTraceIdFromMdcOrNew();
 
             final String capturedUsername = username;
@@ -141,5 +143,25 @@ public class AuditAspect {
             return "SYSTEM";
         }
         return username;
+    }
+
+    private static Auditable resolveAuditableAnnotation(ProceedingJoinPoint joinPoint, MethodSignature signature) {
+        Method method = signature.getMethod();
+        Auditable auditable = AnnotatedElementUtils.findMergedAnnotation(method, Auditable.class);
+        if (auditable != null) {
+            return auditable;
+        }
+
+        Object target = joinPoint.getTarget();
+        if (target == null) {
+            return null;
+        }
+
+        try {
+            Method targetMethod = target.getClass().getMethod(method.getName(), method.getParameterTypes());
+            return AnnotatedElementUtils.findMergedAnnotation(targetMethod, Auditable.class);
+        } catch (NoSuchMethodException ex) {
+            return null;
+        }
     }
 }

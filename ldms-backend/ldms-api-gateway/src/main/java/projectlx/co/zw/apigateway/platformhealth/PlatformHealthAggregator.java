@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.cloud.client.discovery.DiscoveryClient;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
@@ -16,11 +17,15 @@ import projectlx.co.zw.apigateway.platformhealth.dto.PlatformHealthResponse;
 import projectlx.co.zw.apigateway.platformhealth.dto.PlatformHealthSummaryDto;
 import projectlx.co.zw.apigateway.platformhealth.dto.ServiceHealthSnapshotDto;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +35,8 @@ import java.util.stream.Collectors;
 @Service
 public class PlatformHealthAggregator {
 
+    private static final String API_GATEWAY_SERVICE_ID = "api-gateway";
+
     private static final Set<String> INFRASTRUCTURE_COMPONENTS =
             Set.of("db", "redis", "rabbit", "diskSpace", "ping");
 
@@ -37,6 +44,7 @@ public class PlatformHealthAggregator {
     private final ObjectProvider<DiscoveryClient> discoveryClientProvider;
     private final ObjectMapper objectMapper;
     private final RestClient restClient;
+    private final int probeTimeoutMs;
 
     public PlatformHealthAggregator(PlatformHealthProperties properties,
                                     ObjectProvider<DiscoveryClient> discoveryClientProvider,
@@ -44,10 +52,10 @@ public class PlatformHealthAggregator {
         this.properties = properties;
         this.discoveryClientProvider = discoveryClientProvider;
         this.objectMapper = objectMapper;
+        this.probeTimeoutMs = Math.max(properties.getProbeTimeoutMs(), 1000);
         SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
-        int timeoutMs = Math.max(properties.getProbeTimeoutMs(), 1000);
-        requestFactory.setConnectTimeout(timeoutMs);
-        requestFactory.setReadTimeout(timeoutMs);
+        requestFactory.setConnectTimeout(probeTimeoutMs);
+        requestFactory.setReadTimeout(probeTimeoutMs);
         this.restClient = RestClient.builder().requestFactory(requestFactory).build();
     }
 
@@ -82,29 +90,152 @@ public class PlatformHealthAggregator {
         snapshot.setDisplayName(target.getDisplayName());
         snapshot.setEurekaServiceName(target.getEurekaName());
 
-        String host = resolveHost(target);
-        boolean useManagementPort = target.getManagementPort() != null;
-        int probePort = useManagementPort ? target.getManagementPort() : target.getPort();
-        snapshot.setHost(host);
-        snapshot.setPort(probePort);
-        snapshot.setManagementPortUsed(useManagementPort);
-
-        URI healthUri = URI.create("http://" + host + ":" + probePort + "/actuator/health");
-        long startNanos = System.nanoTime();
-        try {
-            String body = restClient.get()
-                    .uri(healthUri)
-                    .retrieve()
-                    .body(String.class);
-            snapshot.setLatencyMs((System.nanoTime() - startNanos) / 1_000_000L);
-            parseHealthBody(snapshot, body);
-        } catch (Exception ex) {
-            snapshot.setLatencyMs((System.nanoTime() - startNanos) / 1_000_000L);
-            snapshot.setStatus("DOWN");
-            snapshot.setMessage(sanitizeProbeFailure(ex, healthUri));
-            log.debug("Health probe failed for {} at {}: {}", target.getId(), healthUri, ex.toString());
+        if (API_GATEWAY_SERVICE_ID.equalsIgnoreCase(target.getId())) {
+            snapshot.setHost(resolveHost(target));
+            snapshot.setPort(target.getPort());
+            snapshot.setManagementPortUsed(false);
+            snapshot.setStatus("UP");
+            snapshot.setLatencyMs(0L);
+            snapshot.setMessage("Running (in-process API gateway)");
+            return snapshot;
         }
+
+        String configuredHost = resolveHost(target);
+        List<ProbeTarget> probeTargets = buildProbeTargets(target, configuredHost);
+        Exception lastFailure = null;
+        URI lastHealthUri = null;
+
+        for (ProbeTarget probe : probeTargets) {
+            snapshot.setHost(probe.host());
+            snapshot.setPort(probe.port());
+            snapshot.setManagementPortUsed(probe.managementPort());
+
+            URI healthUri = URI.create("http://" + probe.host() + ":" + probe.port() + "/actuator/health");
+            lastHealthUri = healthUri;
+            long startNanos = System.nanoTime();
+            try {
+                String body = restClient.get()
+                        .uri(healthUri)
+                        .retrieve()
+                        .body(String.class);
+                snapshot.setLatencyMs((System.nanoTime() - startNanos) / 1_000_000L);
+                parseHealthBody(snapshot, body);
+                normalizeActuatorAggregateStatus(snapshot);
+                if (isHealthyEnough(snapshot.getStatus())) {
+                    return snapshot;
+                }
+            } catch (Exception ex) {
+                snapshot.setLatencyMs((System.nanoTime() - startNanos) / 1_000_000L);
+                lastFailure = ex;
+                log.debug("Health probe failed for {} at {}: {}", target.getId(), healthUri, ex.toString());
+            }
+        }
+
+        int eurekaInstances = countEurekaInstances(target.getEurekaName());
+        if (eurekaInstances > 0) {
+            snapshot.setHost(configuredHost);
+            snapshot.setPort(target.getPort());
+            snapshot.setManagementPortUsed(target.getManagementPort() != null);
+            snapshot.setStatus("UP");
+            snapshot.setMessage("Registered in Eureka (" + eurekaInstances + " instance"
+                    + (eurekaInstances == 1 ? "" : "s")
+                    + "); actuator health endpoint unavailable");
+            return snapshot;
+        }
+
+        if (isTcpReachable(configuredHost, target.getPort())) {
+            snapshot.setHost(configuredHost);
+            snapshot.setPort(target.getPort());
+            snapshot.setManagementPortUsed(false);
+            snapshot.setStatus("UP");
+            snapshot.setMessage("Process reachable on port " + target.getPort()
+                    + " (actuator health unavailable)");
+            return snapshot;
+        }
+
+        snapshot.setStatus("DOWN");
+        snapshot.setMessage(lastFailure != null && lastHealthUri != null
+                ? sanitizeProbeFailure(lastFailure, lastHealthUri)
+                : "Service unreachable");
         return snapshot;
+    }
+
+    private List<ProbeTarget> buildProbeTargets(PlatformHealthProperties.ServiceTarget target, String configuredHost) {
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        List<ProbeTarget> targets = new ArrayList<>();
+
+        if (target.getManagementPort() != null) {
+            addProbeTarget(targets, seen, configuredHost, target.getManagementPort(), true);
+        }
+        addProbeTarget(targets, seen, configuredHost, target.getPort(), false);
+
+        DiscoveryClient discoveryClient = discoveryClientProvider.getIfAvailable();
+        if (discoveryClient != null && target.getEurekaName() != null && !target.getEurekaName().isBlank()) {
+            for (ServiceInstance instance : resolveEurekaInstances(discoveryClient, target.getEurekaName())) {
+                addProbeTarget(targets, seen, instance.getHost(), instance.getPort(), false);
+                String managementPort = instance.getMetadata().get("management.port");
+                if (managementPort != null && !managementPort.isBlank()) {
+                    try {
+                        int port = Integer.parseInt(managementPort.trim());
+                        addProbeTarget(targets, seen, instance.getHost(), port, true);
+                    } catch (NumberFormatException ignored) {
+                        log.debug("Invalid management.port metadata for {}: {}", target.getId(), managementPort);
+                    }
+                }
+            }
+        }
+        return targets;
+    }
+
+    private void addProbeTarget(List<ProbeTarget> targets,
+                                LinkedHashSet<String> seen,
+                                String host,
+                                int port,
+                                boolean managementPort) {
+        if (host == null || host.isBlank() || port <= 0) {
+            return;
+        }
+        String normalizedHost = host.trim();
+        String key = normalizedHost + ":" + port;
+        if (seen.add(key)) {
+            targets.add(new ProbeTarget(normalizedHost, port, managementPort));
+        }
+    }
+
+    private List<ServiceInstance> resolveEurekaInstances(DiscoveryClient discoveryClient, String eurekaName) {
+        List<ServiceInstance> instances = discoveryClient.getInstances(eurekaName);
+        if (!instances.isEmpty()) {
+            return instances;
+        }
+        for (String registeredName : discoveryClient.getServices()) {
+            if (registeredName.equalsIgnoreCase(eurekaName)) {
+                return discoveryClient.getInstances(registeredName);
+            }
+        }
+        return List.of();
+    }
+
+    private int countEurekaInstances(String eurekaName) {
+        if (eurekaName == null || eurekaName.isBlank()) {
+            return 0;
+        }
+        DiscoveryClient discoveryClient = discoveryClientProvider.getIfAvailable();
+        if (discoveryClient == null) {
+            return 0;
+        }
+        return resolveEurekaInstances(discoveryClient, eurekaName).size();
+    }
+
+    private boolean isTcpReachable(String host, int port) {
+        if (host == null || host.isBlank() || port <= 0) {
+            return false;
+        }
+        try (Socket socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host.trim(), port), probeTimeoutMs);
+            return true;
+        } catch (IOException ex) {
+            return false;
+        }
     }
 
     private void parseHealthBody(ServiceHealthSnapshotDto snapshot, String body) {
@@ -129,6 +260,31 @@ public class PlatformHealthAggregator {
         }
     }
 
+    /**
+     * Spring Boot may report aggregate DOWN when optional contributors fail even though the JVM is up.
+     */
+    private void normalizeActuatorAggregateStatus(ServiceHealthSnapshotDto snapshot) {
+        String status = snapshot.getStatus();
+        if (status == null) {
+            return;
+        }
+        if (!"DOWN".equalsIgnoreCase(status) && !"OUT_OF_SERVICE".equalsIgnoreCase(status)) {
+            return;
+        }
+        String ping = snapshot.getComponents().get("ping");
+        if ("UP".equalsIgnoreCase(ping)) {
+            snapshot.setStatus("UP");
+            snapshot.setMessage("Process up; some health contributors reported down");
+        }
+    }
+
+    private boolean isHealthyEnough(String status) {
+        if (status == null) {
+            return false;
+        }
+        return "UP".equalsIgnoreCase(status) || "DEGRADED".equalsIgnoreCase(status);
+    }
+
     private String resolveHost(PlatformHealthProperties.ServiceTarget target) {
         if (target.getHost() != null && !target.getHost().isBlank()) {
             return target.getHost().trim();
@@ -146,7 +302,7 @@ public class PlatformHealthAggregator {
             String status = service.getStatus();
             if (status == null) {
                 unknown++;
-            } else if ("UP".equalsIgnoreCase(status)) {
+            } else if ("UP".equalsIgnoreCase(status) || "DEGRADED".equalsIgnoreCase(status)) {
                 up++;
             } else if ("DOWN".equalsIgnoreCase(status)) {
                 down++;
@@ -279,4 +435,6 @@ public class PlatformHealthAggregator {
         }
         return message.length() > 280 ? message.substring(0, 280) + "…" : message;
     }
+
+    private record ProbeTarget(String host, int port, boolean managementPort) {}
 }

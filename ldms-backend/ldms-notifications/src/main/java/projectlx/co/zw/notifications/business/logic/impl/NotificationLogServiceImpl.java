@@ -20,6 +20,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import projectlx.co.zw.notifications.business.logic.api.NotificationLogService;
 import projectlx.co.zw.notifications.business.validation.api.NotificationLogServiceValidator;
@@ -34,6 +35,7 @@ import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.export.LdmsExcelReportWriter;
 import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
 import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
+import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 @RequiredArgsConstructor
 public class NotificationLogServiceImpl implements NotificationLogService {
@@ -113,6 +115,25 @@ public class NotificationLogServiceImpl implements NotificationLogService {
             throws DocumentException {
         List<NotificationLogDto> rows = loadExportRows(request, username, locale);
         return LdmsPdfReportWriter.write(buildExportReport(rows));
+    }
+
+    @Override
+    @Transactional
+    public NotificationLogResponse churnOutLogs(String username, Locale locale) {
+        int affected = notificationLogRepository.softDeleteAll(EntityStatus.DELETED, LocalDateTime.now());
+        String message = affected > 0
+                ? String.format("Notification logs churn out completed. %d records marked deleted.", affected)
+                : "Notification logs churn out completed. No records matched.";
+        return buildResponse(200, true, message, null, loadQueueSummary(), null);
+    }
+
+    @Override
+    @Transactional
+    public int churnOutLogsBefore(LocalDateTime cutoff, String username) {
+        if (cutoff == null) {
+            return 0;
+        }
+        return notificationLogRepository.softDeleteBefore(cutoff, EntityStatus.DELETED, LocalDateTime.now());
     }
 
     private List<NotificationLogDto> loadExportRows(

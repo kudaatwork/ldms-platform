@@ -442,10 +442,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
 
     this.kycDocuments
-      .loadCatalog()
+      .countTotal()
       .pipe(takeUntil(this.destroy$))
-      .subscribe((rows) => {
-        this.setQuickActionCount('/kyc/documents', rows.length);
+      .subscribe((total) => {
+        this.setQuickActionCount('/kyc/documents', total);
         this.cdr.markForCheck();
       });
   }

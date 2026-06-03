@@ -96,4 +96,16 @@ public class NotificationLogBackofficeResource {
                     .body(("Export failed: " + e.getMessage()).getBytes(StandardCharsets.UTF_8));
         }
     }
+
+    @Auditable(action = "CHURN_OUT_NOTIFICATION_LOG")
+    @PostMapping("/churn-out")
+    @Operation(summary = "Churn out notification delivery log", description = "Marks all notification log entries as deleted.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Notification log churn out completed")
+    })
+    public NotificationLogResponse churnOut(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return notificationLogProcessor.churnOutLogs(BACKOFFICE, locale);
+    }
 }

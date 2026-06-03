@@ -7,6 +7,7 @@ import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import projectlx.co.zw.locationsmanagementservice.business.logic.api.AuditTrailService;
@@ -17,6 +18,7 @@ import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
 import projectlx.co.zw.shared_library.utils.enums.AuditEventType;
 import java.time.Duration;
 import java.time.Instant;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 
@@ -47,7 +49,7 @@ public class AuditAspect {
             Instant responseEnd = Instant.now();
             long durationMs = Duration.between(requestStart, responseEnd).toMillis();
             MethodSignature signature = (MethodSignature) joinPoint.getSignature();
-            Auditable auditable = signature.getMethod().getAnnotation(Auditable.class);
+            Auditable auditable = resolveAuditableAnnotation(joinPoint, signature);
 
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             String username = (auth != null) ? auth.getName() : null;
@@ -56,7 +58,9 @@ public class AuditAspect {
                 username = "SYSTEM";
             }
 
-            assert auditable != null;
+            String action = (auditable != null && auditable.action() != null && !auditable.action().isBlank())
+                    ? auditable.action()
+                    : signature.getMethod().getName();
             String traceId = AuditHttpTraceSupport.currentTraceIdFromMdcOrNew();
             final String clientPlatform = AuditClientPlatformSupport.fromCurrentRequest();
             AuditLogDto logDto = AuditLogDto.builder()
@@ -67,7 +71,7 @@ public class AuditAspect {
                     .responseTimestamp(responseEnd)
                     .username(username)
                     .clientPlatform(clientPlatform)
-                    .action(auditable.action())
+                    .action(action)
                     .eventType(AuditEventType.SERVICE_METHOD)
                     .requestPayload(Arrays.toString(joinPoint.getArgs()))
                     .responsePayload(result != null ? result.toString() : null)
@@ -82,6 +86,26 @@ public class AuditAspect {
                     log.warn("Audit log failed: {}", e.getMessage());
                 }
             });
+        }
+    }
+
+    private static Auditable resolveAuditableAnnotation(ProceedingJoinPoint joinPoint, MethodSignature signature) {
+        Method method = signature.getMethod();
+        Auditable auditable = AnnotatedElementUtils.findMergedAnnotation(method, Auditable.class);
+        if (auditable != null) {
+            return auditable;
+        }
+
+        Object target = joinPoint.getTarget();
+        if (target == null) {
+            return null;
+        }
+
+        try {
+            Method targetMethod = target.getClass().getMethod(method.getName(), method.getParameterTypes());
+            return AnnotatedElementUtils.findMergedAnnotation(targetMethod, Auditable.class);
+        } catch (NoSuchMethodException ex) {
+            return null;
         }
     }
 }

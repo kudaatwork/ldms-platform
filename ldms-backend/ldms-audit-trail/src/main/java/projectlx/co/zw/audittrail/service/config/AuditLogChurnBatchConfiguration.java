@@ -1,6 +1,7 @@
 package projectlx.co.zw.audittrail.service.config;
 
 import javax.sql.DataSource;
+import java.sql.Timestamp;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.JobExecutionListener;
 import org.springframework.batch.core.Step;
@@ -11,6 +12,7 @@ import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.transaction.PlatformTransactionManager;
 import projectlx.co.zw.audittrail.service.batch.AuditLogChunkDeleteWriter;
 import projectlx.co.zw.audittrail.service.batch.AuditLogChurnFinalizeTasklet;
@@ -79,11 +81,18 @@ public class AuditLogChurnBatchConfiguration {
 
     @Bean
     @StepScope
-    public JdbcCursorItemReader<Long> auditLogIdReader(DataSource dataSource) {
+    public JdbcCursorItemReader<Long> auditLogIdReader(
+            DataSource dataSource,
+            @Value("#{jobParameters['purgeBefore']}") String purgeBefore) {
         int fetch = Math.max(1, ldmsAuditProperties.getChurn().getChunkSize());
         JdbcCursorItemReader<Long> reader = new JdbcCursorItemReader<>();
         reader.setDataSource(dataSource);
-        reader.setSql("SELECT id FROM audit_log ORDER BY id");
+        if (purgeBefore == null || purgeBefore.isBlank()) {
+            reader.setSql("SELECT id FROM audit_log ORDER BY id");
+        } else {
+            reader.setSql("SELECT id FROM audit_log WHERE request_timestamp < ? ORDER BY id");
+            reader.setPreparedStatementSetter(ps -> ps.setTimestamp(1, Timestamp.valueOf(purgeBefore.trim())));
+        }
         reader.setFetchSize(fetch);
         reader.setRowMapper((rs, rowNum) -> rs.getLong(1));
         return reader;

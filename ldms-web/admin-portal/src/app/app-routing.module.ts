@@ -1,6 +1,7 @@
 import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
+import { RoleGuard } from './core/guards/role.guard';
 import { StaticShellPageComponent } from './shared/static-shell-page/static-shell-page.component';
 import { MyAccountComponent } from './features/account/pages/my-account/my-account.component';
 
@@ -11,7 +12,7 @@ const routes: Routes = [
   },
   {
     path: '',
-    canActivate: [AuthGuard],
+    canActivate: [AuthGuard, RoleGuard],
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
       {

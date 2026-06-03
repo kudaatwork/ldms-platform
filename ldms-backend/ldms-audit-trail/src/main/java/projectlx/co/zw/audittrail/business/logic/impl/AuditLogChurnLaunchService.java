@@ -44,6 +44,21 @@ public class AuditLogChurnLaunchService {
     }
 
     public AuditLogResponse launch(Locale locale, String username, String triggerType) {
+        return launch(locale, username, triggerType, null, null);
+    }
+
+    public AuditLogResponse launchRetention(Locale locale, String username, String triggerType, int retentionDays) {
+        int safeDays = Math.max(1, retentionDays);
+        LocalDateTime purgeBefore = LocalDateTime.now().minusDays(safeDays);
+        return launch(locale, username, triggerType, safeDays, purgeBefore);
+    }
+
+    private AuditLogResponse launch(
+            Locale locale,
+            String username,
+            String triggerType,
+            Integer retentionDays,
+            LocalDateTime purgeBefore) {
         if (hasRunningChurnJob()) {
             String responseMessage =
                     messageService.getMessage(I18Code.AUDIT_LOG_CHURN_ALREADY_RUNNING.getCode(), new String[] {}, locale);
@@ -59,6 +74,8 @@ public class AuditLogChurnLaunchService {
                 .addString("triggerType", triggerType != null ? triggerType : "SYSTEM")
                 .addString("triggeredBy", username != null ? username : "SYSTEM")
                 .addString("batchReference", batchReference)
+                .addString("retentionDays", retentionDays != null ? String.valueOf(retentionDays) : "")
+                .addString("purgeBefore", purgeBefore != null ? purgeBefore.toString() : "")
                 .addLong("launchTime", System.currentTimeMillis())
                 .toJobParameters();
 

@@ -3,6 +3,7 @@ package projectlx.co.zw.fileuploadservice.service.processor.impl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.multipart.MultipartFile;
 import projectlx.co.zw.fileuploadservice.business.logic.api.FileUploadService;
+import projectlx.co.zw.fileuploadservice.utils.requests.FileUploadMultipleFiltersRequest;
 import projectlx.co.zw.fileuploadservice.service.processor.api.FileUploadProcessor;
 import projectlx.co.zw.shared_library.utils.enums.OwnerType;
 import projectlx.co.zw.shared_library.utils.responses.FileUploadResponse;
@@ -50,5 +51,11 @@ public class FileUploadProcessorImpl implements FileUploadProcessor {
     @Override
     public FileUploadResponse findAllActiveMetadata(int page, int size, Locale locale, String username) {
         return fileUploadService.findAllActiveMetadata(page, size, locale, username);
+    }
+
+    @Override
+    public FileUploadResponse findByMultipleFilters(
+            FileUploadMultipleFiltersRequest request, Locale locale, String username) {
+        return fileUploadService.findByMultipleFilters(request, locale, username);
     }
 }

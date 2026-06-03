@@ -425,10 +425,12 @@ public class UserSystemResource {
             @ApiResponse(responseCode = "400", description = "Invalid request")
     })
     public UserResponse forgotPassword(@Valid @RequestBody ForgotPasswordRequest forgotPasswordRequest,
+                                       @RequestHeader(value = Constants.LDMS_CLIENT_PLATFORM, required = false)
+                                       String clientPlatform,
                                        @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                        @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                                defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
-        return userServiceProcessor.forgotPassword(forgotPasswordRequest, locale);
+        return userServiceProcessor.forgotPassword(forgotPasswordRequest, clientPlatform, locale);
     }
 
     @Auditable(action = "VALIDATE_RESET_TOKEN")

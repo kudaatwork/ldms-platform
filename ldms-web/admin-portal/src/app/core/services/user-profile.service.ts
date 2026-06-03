@@ -65,9 +65,30 @@ export class UserProfileService {
       name: displayName,
       email: email || username,
       roleLabel,
-      roles: [],
+      roles: this.extractGroupRoles(user),
       organizationKycApprover: user['organizationKycApprover'] === true,
     };
+  }
+
+  /** Permission codes assigned to the user's group (authoritative for admin-portal menu RBAC). */
+  private extractGroupRoles(user: Record<string, unknown>): string[] {
+    const group = this.toRecord(user['userGroupDto']);
+    if (!group) {
+      return [];
+    }
+    const raw = group['userRoleDtoSet'] ?? group['userRoles'];
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    const codes: string[] = [];
+    for (const item of raw) {
+      const row = this.toRecord(item);
+      const role = String(row?.['role'] ?? '').trim();
+      if (role) {
+        codes.push(role);
+      }
+    }
+    return codes;
   }
 
   private extractUserDto(response: unknown): Record<string, unknown> | null {

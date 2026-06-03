@@ -262,11 +262,12 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
     }
 
     @Override
-    public UserResponse forgotPassword(ForgotPasswordRequest forgotPasswordRequest, Locale locale) {
+    public UserResponse forgotPassword(ForgotPasswordRequest forgotPasswordRequest, String clientPlatform,
+            Locale locale) {
 
         logger.info("Incoming request for forgot password: {}", forgotPasswordRequest);
 
-        UserResponse userResponse = userService.forgotPassword(forgotPasswordRequest, locale);
+        UserResponse userResponse = userService.forgotPassword(forgotPasswordRequest, clientPlatform, locale);
 
         logger.info("Outgoing response for forgot password: {}. Status Code: {}. Message: {}",
                 userResponse, userResponse.getStatusCode(), userResponse.getMessage());

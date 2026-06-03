@@ -59,10 +59,12 @@ export class CurrentUserService {
     const jwtRoles = normalizeJwtRoles(payload?.roles);
     return this.userProfile.fetchCurrentUser().pipe(
       map((profile) => {
+        const groupRoles = profile?.roles ?? [];
         const merged = profile
           ? {
               ...profile,
-              roles: jwtRoles.length ? jwtRoles : profile.roles,
+              // User-group roles from /me are authoritative; JWT is fallback when profile omits them.
+              roles: groupRoles.length > 0 ? groupRoles : jwtRoles,
             }
           : this.buildStoredFromJwt(token, jwtRoles);
         this.storage.setUser(merged);

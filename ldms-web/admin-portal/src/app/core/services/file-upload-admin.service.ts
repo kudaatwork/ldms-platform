@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
+import { Observable, catchError, forkJoin, map, of, switchMap, throwError } from 'rxjs';
 import { extractPagedResult } from '../utils/api-paged-response.util';
 import {
   extractFileUploadDtoFromResponse,
@@ -39,6 +39,32 @@ export class FileUploadAdminService {
     return this.http.get<unknown>(`${this.base}/find-by-id/${id}`).pipe(
       map((resp) => extractFileUploadDtoFromResponse(resp)),
       catchError(() => of(null)),
+    );
+  }
+
+  /**
+   * Server-paged catalogue with column/search filters (metadata only, no file bytes).
+   * Requires a running file-upload service build that exposes this endpoint.
+   */
+  findByMultipleFiltersPage(
+    body: Record<string, unknown>,
+  ): Observable<{ rows: FileUploadSummary[]; totalElements: number }> {
+    return this.http.post<unknown>(`${this.base}/find-by-multiple-filters`, body).pipe(
+      map((resp) => {
+        const { rows, totalElements } = extractPagedResult(resp, 'fileUploadDtoPage');
+        return {
+          rows: rows
+            .map((row) => this.dtoToSummary(row as Record<string, unknown>))
+            .filter((r): r is FileUploadSummary => r != null),
+          totalElements,
+        };
+      }),
+      catchError((err) => {
+        if (err instanceof HttpErrorResponse && err.status === 404) {
+          return throwError(() => err);
+        }
+        return of({ rows: [], totalElements: 0 });
+      }),
     );
   }
 

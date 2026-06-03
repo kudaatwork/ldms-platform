@@ -52,6 +52,7 @@ import projectlx.user.management.business.validator.impl.HelpSupportServiceValid
 import projectlx.user.management.repository.HelpArticleRepository;
 import projectlx.user.management.repository.SupportTicketRepository;
 import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
+import projectlx.user.management.utils.config.PasswordResetLinkProperties;
 import projectlx.user.management.utils.config.PlatformHealthProperties;
 import projectlx.user.management.business.validator.api.UserAccountServiceValidator;
 import projectlx.user.management.business.validator.api.UserAddressServiceValidator;
@@ -182,13 +183,14 @@ public class BusinessConfig {
             UserPasswordService userPasswordService, UserAddressService userAddressService,
             UserPreferencesService userPreferencesService, UserSecurityService userSecurityService, UserTypeService userTypeService,
             FileUploadServiceClient fileUploadServiceClient, RabbitTemplate rabbitTemplate, TokenService tokenService,
-            EmailVerificationLinkProperties emailVerificationLinkProperties) {
+            EmailVerificationLinkProperties emailVerificationLinkProperties,
+            PasswordResetLinkProperties passwordResetLinkProperties) {
         return new UserServiceImpl(userServiceValidator, messageService, userRepository, userAccountRepository,
                 userAddressRepository, userPasswordRepository, userPreferencesRepository, userSecurityRepository,
                 userTypeRepository, modelMapper, userServiceAuditable, userAccountServiceAuditable, userPasswordServiceAuditable,
                 userPreferencesServiceAuditable, userSecurityServiceAuditable, userAccountService, userPasswordService,
                 userAddressService, userPreferencesService, userSecurityService, userTypeService, fileUploadServiceClient,
-                rabbitTemplate, tokenService, emailVerificationLinkProperties
+                rabbitTemplate, tokenService, emailVerificationLinkProperties, passwordResetLinkProperties
         );
     }
 
