@@ -41,4 +41,8 @@ public class UserGroupSpecification {
             return p;
         };
     }
+
+    public static Specification<UserGroup> organizationIdEquals(final Long organizationId) {
+        return (root, query, cb) -> cb.equal(root.get("organizationId"), organizationId);
+    }
 }

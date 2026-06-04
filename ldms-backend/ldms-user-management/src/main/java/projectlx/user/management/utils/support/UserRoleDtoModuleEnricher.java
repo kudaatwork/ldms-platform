@@ -1,4 +1,4 @@
-package projectlx.user.management.utils.security;
+package projectlx.user.management.utils.support;
 
 import java.util.List;
 import projectlx.user.management.utils.dtos.UserRoleDto;

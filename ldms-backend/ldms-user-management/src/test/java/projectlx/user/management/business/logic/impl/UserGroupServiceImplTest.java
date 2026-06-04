@@ -125,7 +125,9 @@ class UserGroupServiceImplTest {
                 userRepository,
                 userGroupServiceAuditable,
                 userRoleRepository,
-                userServiceAuditable
+                userServiceAuditable,
+                mock(projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport.class),
+                mock(projectlx.user.management.business.logic.support.OrganizationWorkspaceProvisioner.class)
         );
 
         // Stub ModelMapper configuration

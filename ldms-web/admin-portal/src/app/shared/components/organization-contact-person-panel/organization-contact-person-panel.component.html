@@ -99,9 +99,9 @@
       <section class="ocpp__block">
         <div class="ocpp__block-head">
           <h4>Address</h4>
-          <button type="button" mat-button color="primary" [disabled]="!bundle.address" (click)="openEditAddress()">
+          <button type="button" mat-button color="primary" (click)="openEditAddress()">
             <mat-icon aria-hidden="true">edit</mat-icon>
-            Edit address
+            {{ bundle.address ? 'Edit address' : 'Add address' }}
           </button>
         </div>
         <div class="ocpp__empty" *ngIf="!bundle.address">

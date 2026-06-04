@@ -333,7 +333,7 @@ public class FileUploadServiceImpl implements FileUploadService {
         int safePage = Math.max(0, request.getPage());
         int safeSize = request.getSize() <= 0 ? 50 : Math.min(request.getSize(), 100);
 
-        if (request.getOrganizationOwnerIds() != null && request.getOrganizationOwnerIds().isEmpty()) {
+        if (hasEmptyOwnerScope(request)) {
             Page<FileUploadDto> empty = Page.empty(PageRequest.of(safePage, safeSize));
             return buildMetadataPageResponse(empty, locale);
         }
@@ -342,9 +342,7 @@ public class FileUploadServiceImpl implements FileUploadService {
         spec = addToSpec(request.getOriginalFileName(), spec, FileUploadSpecification::originalFileNameLike);
         spec = addToSpec(request.getFileType(), spec, FileUploadSpecification::fileTypeLike);
         spec = addEntityStatusToSpec(request.getEntityStatus(), spec);
-        if (request.getOrganizationOwnerIds() != null) {
-            spec = spec.and(FileUploadSpecification.organizationOwnerIdsIn(request.getOrganizationOwnerIds()));
-        }
+        spec = addOwnerScopeToSpec(request, spec);
         if (StringUtils.hasText(request.getSearchValue())) {
             spec = addToSpec(request.getSearchValue(), spec, FileUploadSpecification::any);
         }
@@ -363,6 +361,32 @@ public class FileUploadServiceImpl implements FileUploadService {
         response.setMessage(message);
         response.setFileUploadDtoPage(dtoPage);
         return response;
+    }
+
+    private boolean hasEmptyOwnerScope(FileUploadMultipleFiltersRequest request) {
+        List<Long> orgIds = request.getOrganizationOwnerIds();
+        List<Long> userIds = request.getUserOwnerIds();
+        if (orgIds != null && orgIds.isEmpty()) {
+            return true;
+        }
+        return userIds != null && userIds.isEmpty();
+    }
+
+    private Specification<FileUpload> addOwnerScopeToSpec(
+            FileUploadMultipleFiltersRequest request,
+            Specification<FileUpload> spec) {
+        Specification<FileUpload> ownerSpec = null;
+        if (request.getOrganizationOwnerIds() != null && !request.getOrganizationOwnerIds().isEmpty()) {
+            ownerSpec = FileUploadSpecification.organizationOwnerIdsIn(request.getOrganizationOwnerIds());
+        }
+        if (request.getUserOwnerIds() != null && !request.getUserOwnerIds().isEmpty()) {
+            Specification<FileUpload> userSpec = FileUploadSpecification.userOwnerIdsIn(request.getUserOwnerIds());
+            ownerSpec = ownerSpec == null ? userSpec : ownerSpec.or(userSpec);
+        }
+        if (ownerSpec == null) {
+            return spec;
+        }
+        return spec.and(ownerSpec);
     }
 
     private Specification<FileUpload> addToSpec(

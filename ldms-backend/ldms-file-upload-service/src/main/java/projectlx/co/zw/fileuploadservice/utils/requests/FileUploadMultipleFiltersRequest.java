@@ -22,4 +22,10 @@ public class FileUploadMultipleFiltersRequest extends MultipleFiltersRequest {
      * An empty list means the caller resolved organisation filters with no matches.
      */
     private List<Long> organizationOwnerIds;
+    /**
+     * When non-null, limits USER uploads to these owner ids.
+     * Combined with {@link #organizationOwnerIds} using OR when both are set.
+     * An empty list means the caller resolved user filters with no matches.
+     */
+    private List<Long> userOwnerIds;
 }

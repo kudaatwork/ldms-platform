@@ -162,6 +162,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return s.id;
   }
 
+  trackKpi(_i: number, card: KpiCard): string {
+    return card.label;
+  }
+
   private formatClassification(raw: string): string {
     if (!raw) {
       return '';

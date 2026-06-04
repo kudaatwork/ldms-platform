@@ -142,8 +142,7 @@ public class UserTypeFrontendResource {
     }
 
     @Auditable(action = "FIND_USER_TYPES_BY_MULTIPLE_FILTERS")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserTypeRoles)." +
-            "VIEW_ALL_USER_TYPES_BY_MULTIPLE_FILTERS.toString())")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping(value = "/find-by-multiple-filters")
     @Operation(summary = "Find user types by multiple filters",
             description = "Retrieves a list of user type that match the provided filters.")

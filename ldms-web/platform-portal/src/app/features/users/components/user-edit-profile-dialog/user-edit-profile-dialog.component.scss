@@ -1,0 +1,21 @@
+@use '../../../../shared/styles/lx-dialog-form-shell' as *;
+@use './dialog-form.shared' as *;
+
+.ued-hint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.ued-generate-btn {
+  flex-shrink: 0;
+
+  .mat-icon {
+    margin-right: 4px;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}

@@ -1,0 +1,19 @@
+<div class="lx-card lx-card--subsection lx-quick-nav users-hub-nav">
+  <a
+    class="lx-quick-nav__item"
+    routerLink="/users"
+    routerLinkActive="is-active"
+    [routerLinkActiveOptions]="{ exact: true }"
+  >
+    <mat-icon>people</mat-icon>All users
+  </a>
+  <a class="lx-quick-nav__item" routerLink="/users/groups" routerLinkActive="is-active">
+    <mat-icon>groups</mat-icon>User groups
+  </a>
+  <a class="lx-quick-nav__item" routerLink="/users/roles" routerLinkActive="is-active">
+    <mat-icon>verified_user</mat-icon>User roles
+  </a>
+  <a class="lx-quick-nav__item" routerLink="/users/types" routerLinkActive="is-active">
+    <mat-icon>category</mat-icon>User types
+  </a>
+</div>

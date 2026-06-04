@@ -19,6 +19,7 @@ public record AuditLogFilter(
         String clientPlatform,
         List<String> actionsIn,
         List<String> excludeActions,
+        List<String> usernamesIn,
         int page,
         int size,
         String sortBy,

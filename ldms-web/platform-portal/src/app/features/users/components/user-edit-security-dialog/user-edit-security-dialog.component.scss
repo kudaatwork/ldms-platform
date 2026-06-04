@@ -1,0 +1,39 @@
+@use '../../../../shared/styles/lx-dialog-form-shell' as *;
+@use '../user-edit-profile-dialog/dialog-form.shared' as *;
+
+.lx-step-content--dimmed {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.ued-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.ued-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.ued-hint-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.ued-generate-btn {
+  flex-shrink: 0;
+
+  .mat-icon {
+    margin-right: 4px;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}

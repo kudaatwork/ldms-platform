@@ -1,0 +1,78 @@
+.lx-table-loading {
+  margin: 6px 0 16px;
+}
+
+.lx-table-loading__text {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-500, #64748b);
+}
+
+.lx-table-loading-panel {
+  min-height: 140px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 0 20px;
+}
+
+.lx-table-wrap--host {
+  position: relative;
+  min-height: 120px;
+}
+
+.lx-table-busy-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--surface, #fff) 82%, transparent);
+  backdrop-filter: blur(1px);
+  pointer-events: none;
+}
+
+.lx-table-busy-overlay__text {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-600, #475569);
+  letter-spacing: 0.01em;
+}
+
+.lx-inline-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary, #2563eb);
+  white-space: nowrap;
+}
+
+.lx-page-progress {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  margin: 0 0 12px;
+  border-radius: 999px;
+}
+
+html.theme-dark {
+  .lx-table-busy-overlay {
+    background: color-mix(in srgb, var(--surface, #1e293b) 88%, transparent);
+  }
+
+  .lx-table-busy-overlay__text {
+    color: var(--gray-400, #94a3b8);
+  }
+
+  .lx-inline-busy {
+    color: var(--primary-dark, #60a5fa);
+  }
+}

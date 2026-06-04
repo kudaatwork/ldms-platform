@@ -7,6 +7,7 @@ import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.management.business.logic.api.HelpSupportService;
 import projectlx.user.management.business.logic.api.PlatformHealthService;
+import projectlx.user.management.business.logic.support.SupportTicketAssignmentService;
 import projectlx.user.management.business.validator.api.HelpSupportServiceValidator;
 import projectlx.user.management.model.EntityStatus;
 import projectlx.user.management.model.HelpArticle;
@@ -32,11 +33,17 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.UUID;
 
 @RequiredArgsConstructor
 public class HelpSupportServiceImpl implements HelpSupportService {
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+    /** Platform health probes every registered service; cache briefly for Help & Support page loads. */
+    private static final long PLATFORM_STATUS_CACHE_MS = 90_000L;
+
+    private volatile HelpPlatformStatusDto cachedPlatformStatus;
+    private volatile long cachedPlatformStatusAtMs;
 
     private final HelpSupportServiceValidator helpSupportServiceValidator;
     private final MessageService messageService;
@@ -44,6 +51,7 @@ public class HelpSupportServiceImpl implements HelpSupportService {
     private final SupportTicketRepository supportTicketRepository;
     private final UserRepository userRepository;
     private final PlatformHealthService platformHealthService;
+    private final SupportTicketAssignmentService supportTicketAssignmentService;
     private final ModelMapper modelMapper;
 
     @Override
@@ -90,19 +98,32 @@ public class HelpSupportServiceImpl implements HelpSupportService {
         }
 
         User user = userOpt.get();
+        String requesterEmail = user.getEmail();
+        if (requesterEmail == null || requesterEmail.isBlank()) {
+            requesterEmail = username.trim() + "@ldms.local";
+        }
+
         SupportTicket ticket = new SupportTicket();
         ticket.setSubject(request.getSubject().trim());
         ticket.setDescription(request.getDescription().trim());
         ticket.setCategory(request.getCategory());
         ticket.setPriority(request.getPriority() != null ? request.getPriority() : SupportTicketPriority.NORMAL);
         ticket.setRequesterUsername(username);
-        ticket.setRequesterEmail(user.getEmail());
+        ticket.setRequesterEmail(requesterEmail.trim());
         ticket.setOrganizationId(user.getOrganizationId());
         ticket.setCreatedBy(username);
         ticket.setModifiedBy(username);
+        // ticket_number is NOT NULL + UNIQUE — assign a provisional value before the first insert.
+        ticket.setTicketNumber("LX-PENDING-" + UUID.randomUUID());
 
         SupportTicket saved = supportTicketRepository.save(ticket);
         saved.setTicketNumber(formatTicketNumber(saved.getId()));
+        Optional<User> handler = supportTicketAssignmentService.pickHandler();
+        if (handler.isPresent()) {
+            User assigned = handler.get();
+            saved.setAssignedHandlerUserId(assigned.getId());
+            saved.setAssignedHandlerUsername(assigned.getUsername());
+        }
         saved = supportTicketRepository.save(saved);
 
         SupportTicketDto dto = modelMapper.map(saved, SupportTicketDto.class);
@@ -125,6 +146,16 @@ public class HelpSupportServiceImpl implements HelpSupportService {
 
     @Override
     public HelpSupportResponse platformStatus(Locale locale) {
+        long now = System.currentTimeMillis();
+        HelpPlatformStatusDto cached = cachedPlatformStatus;
+        if (cached != null && now - cachedPlatformStatusAtMs < PLATFORM_STATUS_CACHE_MS) {
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_HELP_PLATFORM_STATUS_RETRIEVED.getCode(), new String[]{}, locale);
+            HelpSupportResponse response = success(200, message, null, null, null, null);
+            response.setPlatformStatusDto(cached);
+            return response;
+        }
+
         PlatformHealthResponse health = platformHealthService.snapshot(locale);
         HelpPlatformStatusDto statusDto = new HelpPlatformStatusDto();
         statusDto.setCheckedAt(health.getCheckedAt() != null ? health.getCheckedAt().format(ISO) : LocalDateTime.now().format(ISO));
@@ -155,6 +186,9 @@ public class HelpSupportServiceImpl implements HelpSupportService {
                 statusDto.setDetail("One or more critical services are down. Our team is working on restoration.");
             }
         }
+
+        cachedPlatformStatus = statusDto;
+        cachedPlatformStatusAtMs = System.currentTimeMillis();
 
         String message = messageService.getMessage(I18Code.MESSAGE_HELP_PLATFORM_STATUS_RETRIEVED.getCode(), new String[]{}, locale);
         HelpSupportResponse response = success(200, message, null, null, null, null);

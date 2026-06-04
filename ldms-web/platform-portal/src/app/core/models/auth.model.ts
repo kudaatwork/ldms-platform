@@ -38,6 +38,8 @@ export interface CurrentUser {
   organizationId: string;
   orgName: string;
   roles: string[];
+  /** User group or user type name for display — not permission codes. */
+  roleLabel?: string;
   email?: string;
   firstName?: string;
   lastName?: string;

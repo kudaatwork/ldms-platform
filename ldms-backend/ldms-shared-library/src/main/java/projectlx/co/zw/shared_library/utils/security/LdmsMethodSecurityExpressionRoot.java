@@ -16,6 +16,8 @@ import org.springframework.security.core.Authentication;
 public class LdmsMethodSecurityExpressionRoot implements MethodSecurityExpressionOperations {
 
     private static final String ADMIN_ROLE = "ADMIN";
+    /** Organisation workspace {@code Administrator} group — satisfies frontend {@code hasRole} checks (audit, users). */
+    private static final String ORGANIZATION_ADMINISTRATOR_ROLE = "ORGANIZATION_ADMINISTRATOR";
 
     private final SecurityExpressionRoot delegate;
 
@@ -45,15 +47,19 @@ public class LdmsMethodSecurityExpressionRoot implements MethodSecurityExpressio
 
     @Override
     public boolean hasRole(String role) {
-        return delegate.hasRole(ADMIN_ROLE) || delegate.hasRole(role);
+        return isWorkspaceSuperRole() || delegate.hasRole(role);
     }
 
     @Override
     public boolean hasAnyRole(String... roles) {
-        if (delegate.hasRole(ADMIN_ROLE)) {
+        if (isWorkspaceSuperRole()) {
             return true;
         }
         return delegate.hasAnyRole(roles);
+    }
+
+    private boolean isWorkspaceSuperRole() {
+        return delegate.hasRole(ADMIN_ROLE) || delegate.hasRole(ORGANIZATION_ADMINISTRATOR_ROLE);
     }
 
     @Override

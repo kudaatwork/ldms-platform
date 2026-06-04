@@ -47,6 +47,9 @@ import projectlx.user.management.business.logic.api.PlatformHealthService;
 import projectlx.user.management.business.logic.impl.PlatformHealthServiceImpl;
 import projectlx.user.management.business.logic.api.HelpSupportService;
 import projectlx.user.management.business.logic.impl.HelpSupportServiceImpl;
+import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
+import projectlx.user.management.business.logic.support.OrganizationWorkspaceProvisioner;
+import projectlx.user.management.business.logic.support.SupportTicketAssignmentService;
 import projectlx.user.management.business.validator.api.HelpSupportServiceValidator;
 import projectlx.user.management.business.validator.impl.HelpSupportServiceValidatorImpl;
 import projectlx.user.management.repository.HelpArticleRepository;
@@ -110,15 +113,29 @@ public class BusinessConfig {
     }
 
     @Bean
+    public SupportTicketAssignmentService supportTicketAssignmentService(
+            UserRepository userRepository,
+            SupportTicketRepository supportTicketRepository) {
+        return new SupportTicketAssignmentService(userRepository, supportTicketRepository);
+    }
+
+    @Bean
+    public OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport(UserRepository userRepository) {
+        return new OrganizationWorkspaceAccessSupport(userRepository);
+    }
+
+    @Bean
     public HelpSupportService helpSupportService(HelpSupportServiceValidator helpSupportServiceValidator,
                                                  MessageService messageService,
                                                  HelpArticleRepository helpArticleRepository,
                                                  SupportTicketRepository supportTicketRepository,
                                                  UserRepository userRepository,
                                                  PlatformHealthService platformHealthService,
+                                                 SupportTicketAssignmentService supportTicketAssignmentService,
                                                  ModelMapper modelMapper) {
         return new HelpSupportServiceImpl(helpSupportServiceValidator, messageService, helpArticleRepository,
-                supportTicketRepository, userRepository, platformHealthService, modelMapper);
+                supportTicketRepository, userRepository, platformHealthService, supportTicketAssignmentService,
+                modelMapper);
     }
 
     @Bean
@@ -184,13 +201,15 @@ public class BusinessConfig {
             UserPreferencesService userPreferencesService, UserSecurityService userSecurityService, UserTypeService userTypeService,
             FileUploadServiceClient fileUploadServiceClient, RabbitTemplate rabbitTemplate, TokenService tokenService,
             EmailVerificationLinkProperties emailVerificationLinkProperties,
-            PasswordResetLinkProperties passwordResetLinkProperties) {
+            PasswordResetLinkProperties passwordResetLinkProperties,
+            OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport) {
         return new UserServiceImpl(userServiceValidator, messageService, userRepository, userAccountRepository,
                 userAddressRepository, userPasswordRepository, userPreferencesRepository, userSecurityRepository,
                 userTypeRepository, modelMapper, userServiceAuditable, userAccountServiceAuditable, userPasswordServiceAuditable,
                 userPreferencesServiceAuditable, userSecurityServiceAuditable, userAccountService, userPasswordService,
                 userAddressService, userPreferencesService, userSecurityService, userTypeService, fileUploadServiceClient,
-                rabbitTemplate, tokenService, emailVerificationLinkProperties, passwordResetLinkProperties
+                rabbitTemplate, tokenService, emailVerificationLinkProperties, passwordResetLinkProperties,
+                organizationWorkspaceAccessSupport
         );
     }
 
@@ -229,9 +248,12 @@ public class BusinessConfig {
                                              MessageService messageService, ModelMapper modelMapper,
                                              UserGroupRepository userGroupRepository,
                                              UserRepository userRepository, UserGroupServiceAuditable userGroupServiceAuditable,
-                                             UserRoleRepository userRoleRepository, UserServiceAuditable userServiceAuditable) {
+                                             UserRoleRepository userRoleRepository, UserServiceAuditable userServiceAuditable,
+                                             OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport,
+                                             OrganizationWorkspaceProvisioner organizationWorkspaceProvisioner) {
         return new UserGroupServiceImpl(userGroupServiceValidator, messageService, modelMapper, userGroupRepository,
-                userRepository, userGroupServiceAuditable, userRoleRepository, userServiceAuditable);
+                userRepository, userGroupServiceAuditable, userRoleRepository, userServiceAuditable,
+                organizationWorkspaceAccessSupport, organizationWorkspaceProvisioner);
     }
 
     @Bean

@@ -266,6 +266,17 @@
               >
             </td>
           </ng-container>
+          <ng-container matColumnDef="operationalHandlerEligible">
+            <th mat-header-cell *matHeaderCellDef>Ops handler</th>
+            <td mat-cell *matCellDef="let row">
+              <span
+                class="lx-pill"
+                [class.lx-pill--success]="row.operationalHandlerEligibleLabel === 'Eligible'"
+                [class.lx-pill--muted]="row.operationalHandlerEligibleLabel !== 'Eligible'"
+                >{{ row.operationalHandlerEligibleLabel }}</span
+              >
+            </td>
+          </ng-container>
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>Status</th>
             <td mat-cell *matCellDef="let row">
@@ -279,8 +290,7 @@
                 type="button"
                 mat-icon-button
                 [matMenuTriggerFor]="userListRowActionsMenu"
-                [matMenuTriggerData]="{ userRow: row }"
-                (click)="$event.stopPropagation()"
+                (click)="prepareRowActions($event, row)"
                 aria-label="Row actions"
               >
                 <mat-icon>more_vert</mat-icon>
@@ -301,56 +311,85 @@
         (page)="onPage($any($event))"
       ></mat-paginator>
     </ng-container>
-    <mat-menu #userListRowActionsMenu="matMenu" panelClass="lx-row-actions-menu">
-      <ng-template matMenuContent let-userRow="userRow">
-        <a mat-menu-item class="lx-action-view" [routerLink]="userLink(userRow, 'profile')">
-          <mat-icon>visibility</mat-icon> View profile
-        </a>
-        <button mat-menu-item type="button" class="lx-action-edit" (click)="openEditUserDialog(userRow)">
-          <mat-icon>edit</mat-icon> Edit user
-        </button>
-        <button
-          mat-menu-item
-          type="button"
-          class="lx-action-edit"
-          *ngIf="userRow.canResendVerificationEmail"
-          [disabled]="resendingVerificationUserId === userRow.id"
-          (click)="resendVerificationEmail(userRow)"
-        >
-          <mat-icon>mark_email_read</mat-icon>
-          Resend verification email
-        </button>
-        <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteUserRow(userRow)">
-          <mat-icon>delete</mat-icon> Delete user
-        </button>
-        <a mat-menu-item class="lx-action-edit" [routerLink]="userLink(userRow, 'account')">
-          <mat-icon>account_circle</mat-icon> Account
-        </a>
-        <a mat-menu-item [routerLink]="userLink(userRow, 'preferences')">
-          <mat-icon>tune</mat-icon> Preferences
-        </a>
-        <button
-          mat-menu-item
-          type="button"
-          class="lx-action-assign"
-          *ngIf="userRow.userGroupId"
-          (click)="openAssignRolesToGroupDialog(userRow)"
-        >
-          <mat-icon>assignment_ind</mat-icon> Manage roles
-        </button>
-        <button mat-menu-item type="button" class="lx-action-group" (click)="openAddUserToGroupDialog(userRow)">
-          <mat-icon>group_add</mat-icon> Add user to group
-        </button>
-        <a mat-menu-item [routerLink]="userLink(userRow, 'security-policies')">
-          <mat-icon>security</mat-icon> Security details
-        </a>
-        <a mat-menu-item [routerLink]="userLink(userRow, 'addresses')">
-          <mat-icon>home</mat-icon> Addresses
-        </a>
-        <a mat-menu-item [routerLink]="userLink(userRow, 'password')">
-          <mat-icon>password</mat-icon> Change password
-        </a>
-      </ng-template>
+    <mat-menu #userListRowActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearRowActions()">
+      <button
+        mat-menu-item
+        type="button"
+        class="lx-action-view"
+        [disabled]="!activeUserRow"
+        (click)="navigateToUserSection('profile')"
+      >
+        <mat-icon>visibility</mat-icon> View profile
+      </button>
+      <button
+        mat-menu-item
+        type="button"
+        class="lx-action-edit"
+        [disabled]="!activeUserRow"
+        (click)="activeUserRow && openEditUserDialog(activeUserRow)"
+      >
+        <mat-icon>edit</mat-icon> Edit user
+      </button>
+      <button
+        mat-menu-item
+        type="button"
+        class="lx-action-edit"
+        *ngIf="activeUserRow?.canResendVerificationEmail"
+        [disabled]="!activeUserRow || resendingVerificationUserId === activeUserRow.id"
+        (click)="activeUserRow && resendVerificationEmail(activeUserRow)"
+      >
+        <mat-icon>mark_email_read</mat-icon>
+        Resend verification email
+      </button>
+      <button
+        mat-menu-item
+        type="button"
+        class="lx-action-delete"
+        [disabled]="!activeUserRow"
+        (click)="activeUserRow && deleteUserRow(activeUserRow)"
+      >
+        <mat-icon>delete</mat-icon> Delete user
+      </button>
+      <button
+        mat-menu-item
+        type="button"
+        class="lx-action-edit"
+        [disabled]="!activeUserRow"
+        (click)="navigateToUserSection('account')"
+      >
+        <mat-icon>account_circle</mat-icon> Account
+      </button>
+      <button mat-menu-item type="button" [disabled]="!activeUserRow" (click)="navigateToUserSection('preferences')">
+        <mat-icon>tune</mat-icon> Preferences
+      </button>
+      <button
+        mat-menu-item
+        type="button"
+        class="lx-action-assign"
+        *ngIf="activeUserRow?.userGroupId"
+        [disabled]="!activeUserRow"
+        (click)="activeUserRow && openAssignRolesToGroupDialog(activeUserRow)"
+      >
+        <mat-icon>assignment_ind</mat-icon> Manage roles
+      </button>
+      <button
+        mat-menu-item
+        type="button"
+        class="lx-action-group"
+        [disabled]="!activeUserRow"
+        (click)="activeUserRow && openAddUserToGroupDialog(activeUserRow)"
+      >
+        <mat-icon>group_add</mat-icon> Add user to group
+      </button>
+      <button mat-menu-item type="button" [disabled]="!activeUserRow" (click)="navigateToUserSection('security-policies')">
+        <mat-icon>security</mat-icon> Security details
+      </button>
+      <button mat-menu-item type="button" [disabled]="!activeUserRow" (click)="navigateToUserSection('addresses')">
+        <mat-icon>home</mat-icon> Addresses
+      </button>
+      <button mat-menu-item type="button" [disabled]="!activeUserRow" (click)="navigateToUserSection('password')">
+        <mat-icon>password</mat-icon> Change password
+      </button>
     </mat-menu>
     <ng-container *ngIf="!fetching && userTable.data.length === 0">
       <div class="lx-empty lx-empty--compact">
@@ -458,6 +497,14 @@
       </mat-slide-toggle>
       <span class="lx-field-hint">Stage 1 or stage 2 — assigned automatically by workload.</span>
       <span class="lx-field-hint">Only for admin portal users with no organisation. Approvers must not be linked to a tenant.</span>
+    </label>
+    <label class="lx-modal__field lx-modal__field--full lx-modal__field--toggle" *ngIf="!createModel.organizationId">
+      <span class="lx-field-label">Operational issue handler</span>
+      <mat-slide-toggle [(ngModel)]="createModel.operationalIssueHandler" color="primary">
+        Eligible to receive Help &amp; Support tickets
+      </mat-slide-toggle>
+      <span class="lx-field-hint">Assigned automatically by workload when portal users submit tickets.</span>
+      <span class="lx-field-hint">Only for admin portal users with no organisation.</span>
     </label>
     <label class="lx-modal__field"><span class="lx-field-label">Username <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">alternate_email</mat-icon><input [(ngModel)]="createModel.username" placeholder="e.g. tinashe.moyo" /></div><span class="lx-field-hint">Unique sign-in username used for portal login.</span></label>
     <label class="lx-modal__field"><span class="lx-field-label">Email <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">mail_outline</mat-icon><input [(ngModel)]="createModel.email" placeholder="e.g. tinashe@example.com" /></div><span class="lx-field-hint">Primary email for notifications and recovery.</span></label>

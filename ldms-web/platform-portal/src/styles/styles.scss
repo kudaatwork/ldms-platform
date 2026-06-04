@@ -1,7 +1,59 @@
+@use '@angular/material' as mat;
 @use 'tokens' as *;
 @use 'shared-ui/styles/lx-premium';
+@use '../app/shared/styles/lx-loading';
+@use '../app/shared/styles/lx-dialog-form-shell';
+@use '../app/shared/styles/lx-page-layout';
 
-/* Platform portal uses the same design tokens + utilities as the admin portal (no Angular Material bundle). */
+@include mat.core();
+
+/* ── Angular Material custom theme (matches LX Admin) ─── */
+$lx-primary-map: (
+  50:#EFF6FF, 100:#DBEAFE, 200:#BFDBFE, 300:#93C5FD, 400:#60A5FA,
+  500:#3B82F6, 600:#2563EB, 700:#1D4ED8, 800:#1E40AF, 900:#1E3A8A,
+  contrast:(
+    50:rgba(0,0,0,.87), 100:rgba(0,0,0,.87), 200:rgba(0,0,0,.87),
+    300:rgba(0,0,0,.87), 400:#fff, 500:#fff, 600:#fff, 700:#fff,
+    800:#fff, 900:#fff
+  )
+);
+$lx-accent-map: (
+  50:#FFF7ED, 100:#FFEDD5, 200:#FED7AA, 300:#FDBA74, 400:#FB923C,
+  500:#F97316, 600:#EA580C, 700:#C2410C, 800:#9A3412, 900:#7C2D12,
+  contrast:(500:#fff, 600:#fff, 700:#fff, 800:#fff, 900:#fff)
+);
+
+$primary: mat.m2-define-palette($lx-primary-map, 500, 300, 700);
+$accent:  mat.m2-define-palette($lx-accent-map,  500, 300, 700);
+$warn:    mat.m2-define-palette(mat.$m2-red-palette);
+
+$lx-typography: mat.m2-define-typography-config(
+  $font-family: "'Plus Jakarta Sans', sans-serif"
+);
+
+$theme: mat.m2-define-light-theme((
+  color: (
+    primary: $primary,
+    accent: $accent,
+    warn: $warn,
+  ),
+  typography: $lx-typography,
+  density: 0,
+));
+
+@include mat.all-component-themes($theme);
+
+$dark-theme: mat.m2-define-dark-theme((
+  color: (
+    primary: $primary,
+    accent: $accent,
+    warn: $warn,
+  ),
+  typography: $lx-typography,
+  density: 0,
+));
+
+/* Platform portal uses the same design tokens + utilities as the admin portal. */
 html.theme-dark {
   color-scheme: dark;
 
@@ -33,13 +85,36 @@ html.theme-dark {
 
   --surface: #1e293b;
   --surface-2: #172338;
+  --surface-elevated: #25354d;
   --page-bg: #0f172a;
   --raised: #25354d;
   --raised-hover: #2d4360;
+  --primary-500: #3b82f6;
+  --primary-600: #60a5fa;
 
   --card-border: 1px solid rgba(148, 163, 184, 0.24);
   --card-shadow: 0 10px 28px rgba(2, 8, 23, 0.38), 0 1px 1px rgba(2, 8, 23, 0.42);
   --card-shadow-hover: 0 16px 36px rgba(2, 8, 23, 0.5), 0 2px 2px rgba(2, 8, 23, 0.45);
+
+  @include mat.all-component-colors($dark-theme);
+}
+
+html.theme-dark .lx-input-shell {
+  background: #1b2a40;
+  border-color: rgba(148, 163, 184, 0.35);
+}
+
+html.theme-dark .lx-input-shell:focus-within {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.32);
+}
+
+html.theme-dark .lx-input-shell select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%2389a1c2' d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
+}
+
+html.theme-dark .lx-input-shell--readonly,
+html.theme-dark .lx-input-shell--muted {
+  background: #172338;
 }
 
 html.theme-dark .lx-card {
@@ -546,6 +621,15 @@ button,
   }
 }
 
+/* Toolbar search — native `.lx-input-shell` chrome (matches admin portal) */
+.lx-search-field.lx-input-shell {
+  flex: 0 0 auto;
+  width: 168px;
+  max-width: min(168px, 42vw);
+  min-width: 120px;
+  margin-bottom: 0;
+}
+
 .lx-filter-panel {
   padding: 12px 14px;
   margin-bottom: 14px;
@@ -585,6 +669,11 @@ button,
   font-weight: 600;
   color: var(--gray-700);
   margin-bottom: 6px;
+}
+
+.lx-filter-field.lx-input-shell {
+  width: 100%;
+  margin-bottom: 0;
 }
 
 .lx-filter-field {
@@ -655,7 +744,7 @@ button,
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 40px;
+  min-height: 42px;
   padding: 8px 14px;
   line-height: 1.2;
 
@@ -776,6 +865,143 @@ button,
   }
 }
 
+/* Composite field: icon + input — dialogs, filters, settings (admin parity) */
+.lx-input-shell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  box-sizing: border-box;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--gray-800);
+  font-family: var(--font);
+  font-size: 13px;
+  transition: border-color var(--ease-fast), box-shadow var(--ease-fast);
+
+  &:focus-within {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+
+  &.lx-input-shell--invalid {
+    border-color: rgba(239, 68, 68, 0.55);
+  }
+
+  &.lx-input-shell--muted {
+    opacity: 0.88;
+    background: var(--gray-50);
+  }
+
+  &.lx-input-shell--readonly {
+    background: var(--gray-50);
+    cursor: default;
+
+    input {
+      cursor: default;
+      color: var(--gray-600);
+    }
+  }
+
+  .lx-input-shell__icon {
+    flex-shrink: 0;
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    line-height: 18px;
+    color: var(--gray-400);
+  }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='file']) {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 22px;
+    color: var(--gray-800);
+    padding: 0;
+    margin: 0;
+
+    &::placeholder {
+      color: var(--gray-400);
+      opacity: 1;
+    }
+
+    &[readonly] {
+      cursor: default;
+      color: var(--gray-600);
+    }
+  }
+
+  input[type='file'] {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 22px;
+    color: var(--gray-700);
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+  }
+
+  select {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    outline: none;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 22px;
+    color: var(--gray-800);
+    padding: 0 22px 0 0;
+    margin: 0;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24'%3E%3Cpath fill='%2364748b' d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0 center;
+    background-color: transparent;
+  }
+}
+
+.lx-input-shell--textarea {
+  align-items: flex-start;
+  min-height: auto;
+
+  .lx-input-shell__icon {
+    margin-top: 2px;
+  }
+
+  textarea {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    min-height: 4.5rem;
+    border: none;
+    background: transparent;
+    outline: none;
+    resize: vertical;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 22px;
+    color: var(--gray-800);
+    padding: 0;
+    margin: 0;
+  }
+}
+
 .lx-input,
 .lx-select {
   width: 100%;
@@ -813,6 +1039,57 @@ button,
   padding: 28px !important;
 }
 
+/* Material dialogs must sit above the shell sidebar (z-index 100) and mobile backdrop (150). */
+.cdk-overlay-container {
+  z-index: 1200 !important;
+}
+
+.cdk-overlay-backdrop.cdk-overlay-backdrop-showing {
+  opacity: 0.48 !important;
+}
+
+/* Custom-chrome dialogs (profile edit, locations, user forms) own padding + radius. */
+.cdk-overlay-pane.lx-location-dialog-panel {
+  width: min(720px, 96vw) !important;
+  max-width: 96vw !important;
+  z-index: 1100 !important;
+
+  .mat-mdc-dialog-container {
+    max-height: 90vh;
+  }
+
+  .mat-mdc-dialog-container .mdc-dialog__surface {
+    padding: 0 !important;
+    border-radius: 12px !important;
+    overflow: hidden;
+    background: transparent !important;
+    box-shadow: none !important;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .lx-dialog-shell {
+    background: var(--surface, #ffffff);
+    min-height: 12rem;
+    box-shadow:
+      0 4px 6px rgba(0, 0, 0, 0.04),
+      0 20px 50px rgba(0, 0, 0, 0.08);
+  }
+
+  app-user-address-cascade-fields {
+    display: contents;
+  }
+}
+
+html.theme-dark .cdk-overlay-pane.lx-location-dialog-panel .mat-mdc-dialog-container .mdc-dialog__surface {
+  background: transparent !important;
+}
+
+html.theme-dark .cdk-overlay-pane.lx-location-dialog-panel .lx-dialog-shell {
+  background: var(--surface, #1e293b);
+}
+
 /* Google Material Icons font (same as admin shell) */
 .material-icons {
   font-family: 'Material Icons', sans-serif;
@@ -848,4 +1125,27 @@ html.theme-dark .brand-lx {
 .su-left-name .brand-lx {
   color: #a5f3fc;
   text-shadow: 0 0 20px rgba(34, 211, 238, 0.28);
+}
+
+/* ── In-page modals (Create user, user groups, etc.) ─────────── */
+/* Above shell topbar (30), breadcrumbs (20), flyouts (50), sidebar (100). */
+.lx-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.lx-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1210;
+  max-height: 88vh;
+  overflow: auto;
+}
+
+body.lx-page-modal-open {
+  overflow: hidden;
 }

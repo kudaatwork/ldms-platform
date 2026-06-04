@@ -138,6 +138,14 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
             }
         }
 
+        if (Boolean.TRUE.equals(createUserRequest.getOperationalIssueHandler())) {
+            if (createUserRequest.getOrganizationId() != null || createUserRequest.getBranchId() != null) {
+                logger.info("Validation failed: operational issue handler cannot be linked to an organisation or branch");
+                errors.add(messageService.getMessage(
+                        I18Code.MESSAGE_CREATE_USER_OPERATIONAL_HANDLER_REQUIRES_NO_ORG.getCode(), new String[]{}, locale));
+            }
+        }
+
         if (errors.isEmpty()) {
             return new ValidatorDto(true, null, null);
         } else {

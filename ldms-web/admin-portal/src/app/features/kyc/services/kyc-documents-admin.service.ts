@@ -1,7 +1,8 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, from, map, mergeMap, of, switchMap, tap, throwError, toArray } from 'rxjs';
+import { Observable, catchError, forkJoin, from, map, mergeMap, of, switchMap, tap, throwError, toArray } from 'rxjs';
 import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
+import { resolveFilePreview } from '@shared/utils/file-upload-preview';
 import { extractPagedResult } from '../../../core/utils/api-paged-response.util';
 import { ldmsApiUrl } from '../../../core/utils/api-url.util';
 import {
@@ -14,6 +15,63 @@ import {
 } from '../../organizations/services/organizations-admin.service';
 import type { KycApplicationDocument } from '../../organizations/models/organization.model';
 import { kycStatusPresentation } from '../../organizations/models/organization.model';
+
+export type DocumentSourceScope = 'ORGANIZATION' | 'USER';
+export type DocumentSourceChannel =
+  | 'KYC_ONBOARDING'
+  | 'ORGANIZATION_COMPLIANCE'
+  | 'USER_PROFILE'
+  | 'ORGANIZATION_BRANDING'
+  | 'FILE_UPLOAD_REGISTRY';
+
+export type DocumentFilterId =
+  | 'ALL'
+  | 'KYC'
+  | 'COMPLIANCE'
+  | 'PROFILE'
+  | 'BRANDING'
+  | 'OTHER';
+
+export type DocumentSortId = 'newest' | 'oldest' | 'name' | 'size';
+
+export interface AdminStagedDocument {
+  id: number;
+  fileName: string;
+  displayTitle: string;
+  category: string;
+  sourceLabel: string;
+  sourceScope: DocumentSourceScope;
+  sourceChannel: DocumentSourceChannel;
+  ownerType: 'USER' | 'ORGANIZATION';
+  ownerId: number;
+  organizationId: number;
+  organizationName: string;
+  kycStatusLabel: string;
+  statusLabel: string;
+  fileType: string;
+  contentType: string;
+  fileSizeInBytes?: number;
+  createdAt: string;
+  entityStatus: string;
+  storageProvider?: string;
+  storedFileName?: string;
+  fileUrl?: string;
+  fileHash?: string;
+  autoVerified?: boolean;
+  autoVerificationNotes?: string;
+  autoVerifiedAt?: string;
+  autoVerificationMethod?: string;
+  autoVerificationSource?: string;
+  expiresAt?: string;
+  createdBy?: string;
+  modifiedAt?: string;
+  modifiedBy?: string;
+  linkedFieldKey?: string;
+  previewImageUrl?: string | null;
+  previewPdfDataUrl?: string | null;
+  hasPdfPreview: boolean;
+  hasPreview: boolean;
+}
 
 export interface KycDocumentTableRow {
   uploadId: number;
@@ -32,6 +90,18 @@ export interface KycDocumentTableRow {
 
 export interface KycDocumentsTablePage {
   rows: KycDocumentTableRow[];
+  totalElements: number;
+}
+
+export interface VaultDocumentsQuery {
+  page: number;
+  size: number;
+  searchQuery: string;
+  categoryFilter: DocumentFilterId;
+}
+
+export interface VaultDocumentsPage {
+  documents: AdminStagedDocument[];
   totalElements: number;
 }
 
@@ -117,6 +187,71 @@ export class KycDocumentsAdminService {
   /** @deprecated Use {@link queryTablePage}. */
   loadTablePage(page: number, size: number): Observable<KycDocumentsTablePage> {
     return this.queryTablePage({ page, size, searchQuery: '', columnFilters: {} });
+  }
+
+  /** Server-paged vault catalogue (metadata only until detail fetch). */
+  queryVaultPage(q: VaultDocumentsQuery): Observable<VaultDocumentsPage> {
+    const fileTypeHint = this.fileTypeHintForCategory(q.categoryFilter);
+    return this.queryTablePage({
+      page: q.page,
+      size: q.size,
+      searchQuery: q.searchQuery,
+      columnFilters: { type: fileTypeHint },
+    }).pipe(
+      map(({ rows, totalElements }) => {
+        let documents = rows.map((row) => this.stagedDocumentFromTableRow(row));
+        if (q.categoryFilter !== 'ALL') {
+          documents = documents.filter((d) => this.matchesCategoryFilter(d, q.categoryFilter));
+        }
+        return { documents, totalElements };
+      }),
+      catchError((err) => throwError(() => this.toTableError(err))),
+    );
+  }
+
+  /** Total documents per vault category (respects current search; one lightweight count query each). */
+  loadFilterCounts(searchQuery: string): Observable<Record<DocumentFilterId, number>> {
+    const filters: DocumentFilterId[] = ['ALL', 'KYC', 'COMPLIANCE', 'PROFILE', 'BRANDING', 'OTHER'];
+    return forkJoin(
+      filters.map((categoryFilter) =>
+        this.queryVaultPage({ page: 0, size: 1, searchQuery, categoryFilter }).pipe(
+          map(({ totalElements }) => ({ categoryFilter, count: totalElements })),
+          catchError(() => of({ categoryFilter, count: 0 })),
+        ),
+      ),
+    ).pipe(
+      map((entries) => {
+        const counts = {} as Record<DocumentFilterId, number>;
+        for (const entry of entries) {
+          counts[entry.categoryFilter] = entry.count;
+        }
+        return counts;
+      }),
+    );
+  }
+
+  fetchVaultDocumentDetail(id: number): Observable<AdminStagedDocument | null> {
+    return this.fileUpload.getById(id).pipe(
+      switchMap((dto) => {
+        if (!dto) {
+          return of(null);
+        }
+        const summary = this.fileUpload.dtoToSummary(dto);
+        if (!summary) {
+          return of(null);
+        }
+        return this.enrichUploads([summary]).pipe(
+          map((rows) => {
+            const row = rows[0];
+            if (!row) {
+              return null;
+            }
+            return this.rowToStagedDocument(row, summary, dto, { withPreview: true });
+          }),
+        );
+      }),
+      catchError(() => of(null)),
+    );
   }
 
   private buildFilterBody(
@@ -389,5 +524,168 @@ export class KycDocumentsAdminService {
       return { css: 'inactive', label: s === 'SUSPENDED' ? 'Suspended' : 'Inactive' };
     }
     return { css: 'active', label: 'Active' };
+  }
+
+  private rowToStagedDocument(
+    row: KycDocumentTableRow,
+    upload: FileUploadSummary,
+    dto?: Record<string, unknown>,
+    options?: { withPreview?: boolean },
+  ): AdminStagedDocument {
+    const sourceScope: DocumentSourceScope = row.ownerType === 'ORGANIZATION' ? 'ORGANIZATION' : 'USER';
+    const sourceChannel = this.inferSourceChannel(row.type, row.fileTypeLabel, sourceScope);
+    const displayTitle = this.enrichDisplayTitle(row.fileName, row.type);
+    const preview =
+      options?.withPreview === true && dto
+        ? resolveFilePreview(dto, { maxBase64Chars: 900_000 })
+        : null;
+    const contentType = upload.contentType || String(dto?.['contentType'] ?? '').trim();
+    const nameLower = row.fileName.toLowerCase();
+    const ctLower = contentType.toLowerCase();
+    const hasPdfPreview = preview?.kind === 'pdf' || ctLower.includes('pdf') || nameLower.endsWith('.pdf');
+    const hasPreview = preview != null;
+
+    return {
+      id: row.uploadId,
+      fileName: row.fileName,
+      displayTitle,
+      category: row.type,
+      sourceLabel: `${row.organizationName} · ${row.type}`,
+      sourceScope,
+      sourceChannel,
+      ownerType: row.ownerType,
+      ownerId: Number(upload.ownerId ?? 0),
+      organizationId: row.organizationId,
+      organizationName: row.organizationName,
+      kycStatusLabel: row.kycStatusLabel,
+      statusLabel: row.statusLabel,
+      fileType: row.fileTypeLabel,
+      contentType,
+      fileSizeInBytes: upload.fileSizeInBytes,
+      createdAt: row.uploadedAt || upload.createdAt || '',
+      entityStatus: row.entityStatus,
+      storageProvider: dto?.['storageProvider'] != null ? String(dto['storageProvider']) : undefined,
+      storedFileName: dto?.['storedFileName'] != null ? String(dto['storedFileName']) : undefined,
+      fileUrl: dto?.['fileUrl'] != null ? String(dto['fileUrl']) : undefined,
+      fileHash: dto?.['fileHash'] != null ? String(dto['fileHash']) : undefined,
+      autoVerified: dto?.['autoVerified'] === true,
+      autoVerificationNotes:
+        dto?.['autoVerificationNotes'] != null ? String(dto['autoVerificationNotes']) : undefined,
+      autoVerifiedAt: dto?.['autoVerifiedAt'] != null ? String(dto['autoVerifiedAt']) : undefined,
+      autoVerificationMethod:
+        dto?.['autoVerificationMethod'] != null ? String(dto['autoVerificationMethod']) : undefined,
+      autoVerificationSource:
+        dto?.['autoVerificationSource'] != null ? String(dto['autoVerificationSource']) : undefined,
+      expiresAt: dto?.['expiresAt'] != null ? String(dto['expiresAt']) : undefined,
+      createdBy: dto?.['createdBy'] != null ? String(dto['createdBy']) : undefined,
+      modifiedAt:
+        dto?.['modifiedAt'] != null
+          ? String(dto['modifiedAt'])
+          : dto?.['updatedAt'] != null
+            ? String(dto['updatedAt'])
+            : undefined,
+      modifiedBy: dto?.['modifiedBy'] != null ? String(dto['modifiedBy']) : undefined,
+      previewImageUrl: preview?.kind === 'image' ? preview.dataUrl : null,
+      previewPdfDataUrl: preview?.kind === 'pdf' ? preview.dataUrl : null,
+      hasPdfPreview,
+      hasPreview,
+    };
+  }
+
+  private enrichDisplayTitle(fileName: string, category: string): string {
+    const cat = category.toLowerCase();
+    if (cat.includes('tax')) {
+      return 'ZIMRA tax clearance certificate';
+    }
+    if (cat.includes('registration')) {
+      return 'Company registration certificate';
+    }
+    if (cat.includes('address')) {
+      return 'Proof of address';
+    }
+    if (cat.includes('licence') || cat.includes('license')) {
+      return 'Business licence';
+    }
+    if (cat.includes('brand')) {
+      return 'Organisation logo';
+    }
+    if (cat.includes('identification')) {
+      return 'Identification document';
+    }
+    return fileName;
+  }
+
+  private inferSourceChannel(
+    category: string,
+    fileType: string,
+    scope: DocumentSourceScope,
+  ): DocumentSourceChannel {
+    const cat = category.toLowerCase();
+    const ft = fileType.toLowerCase();
+    if (cat.includes('brand') || ft.includes('logo')) {
+      return 'ORGANIZATION_BRANDING';
+    }
+    if (cat.includes('identification') || ft.includes('national') || ft.includes('passport')) {
+      return scope === 'USER' ? 'USER_PROFILE' : 'KYC_ONBOARDING';
+    }
+    if (
+      cat.includes('tax') ||
+      cat.includes('licence') ||
+      cat.includes('license') ||
+      ft.includes('clearance') ||
+      ft.includes('certificate')
+    ) {
+      return 'ORGANIZATION_COMPLIANCE';
+    }
+    if (cat.includes('registration') || cat.includes('address') || cat.includes('kyc')) {
+      return 'KYC_ONBOARDING';
+    }
+    return 'FILE_UPLOAD_REGISTRY';
+  }
+
+  private stagedDocumentFromTableRow(row: KycDocumentTableRow): AdminStagedDocument {
+    const upload: FileUploadSummary = {
+      id: row.uploadId,
+      originalFileName: row.fileName,
+      fileType: row.fileTypeLabel,
+      contentType: '',
+      createdAt: row.uploadedAt,
+      entityStatus: row.entityStatus,
+      ownerType: row.ownerType,
+      ownerId: row.ownerType === 'ORGANIZATION' ? row.organizationId : undefined,
+    };
+    return this.rowToStagedDocument(row, upload);
+  }
+
+  private fileTypeHintForCategory(filter: DocumentFilterId): string {
+    switch (filter) {
+      case 'COMPLIANCE':
+        return 'TAX';
+      case 'BRANDING':
+        return 'LOGO';
+      case 'KYC':
+        return 'REGISTRATION';
+      case 'PROFILE':
+        return 'NATIONAL';
+      default:
+        return '';
+    }
+  }
+
+  matchesCategoryFilter(doc: AdminStagedDocument, filter: DocumentFilterId): boolean {
+    switch (filter) {
+      case 'KYC':
+        return doc.sourceChannel === 'KYC_ONBOARDING';
+      case 'COMPLIANCE':
+        return doc.sourceChannel === 'ORGANIZATION_COMPLIANCE';
+      case 'PROFILE':
+        return doc.sourceChannel === 'USER_PROFILE';
+      case 'BRANDING':
+        return doc.sourceChannel === 'ORGANIZATION_BRANDING';
+      case 'OTHER':
+        return doc.sourceChannel === 'FILE_UPLOAD_REGISTRY';
+      default:
+        return true;
+    }
   }
 }

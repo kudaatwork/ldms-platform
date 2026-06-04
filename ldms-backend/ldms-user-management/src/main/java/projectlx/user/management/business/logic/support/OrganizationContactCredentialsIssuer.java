@@ -27,6 +27,7 @@ import projectlx.user.management.utils.dtos.UserDto;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.user.management.utils.requests.CompleteCredentialsSetupRequest;
 import projectlx.user.management.utils.requests.IssueOrganizationContactCredentialsRequest;
+import projectlx.user.management.utils.responses.UsernameAvailabilityResponse;
 import projectlx.user.management.utils.responses.UserResponse;
 
 /**
@@ -41,12 +42,16 @@ public class OrganizationContactCredentialsIssuer {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final UserRepository userRepository;
+    private final OrganizationContactAdministratorGroupSupport administratorGroupSupport;
     private final UserPasswordRepository userPasswordRepository;
     private final UserServiceAuditable userServiceAuditable;
     private final UserPasswordServiceAuditable userPasswordServiceAuditable;
     private final UserServiceValidator userServiceValidator;
+    private final UsernameUniquenessSupport usernameUniquenessSupport;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
     private final MessageService messageService;
+
+    private static final int MAX_TEMPORARY_USERNAME_ATTEMPTS = 12;
 
     @Transactional
     public UserResponse issueTemporaryCredentials(
@@ -58,12 +63,13 @@ public class OrganizationContactCredentialsIssuer {
         if (user == null) {
             return buildError(404, List.of("Organisation contact person user was not found."));
         }
-        String temporaryUsername = generateTemporaryUsername(user.getOrganizationId(), user.getId());
+        String temporaryUsername = resolveUniqueTemporaryUsername(user.getOrganizationId(), user.getId());
         String temporaryPassword = generateCompliantPassword();
         user.setUsername(temporaryUsername);
         user.setMustChangeCredentials(true);
         user.setEmailVerified(true);
         user.setVerificationToken(null);
+        administratorGroupSupport.assignIfPresent(user);
         User savedUser = userServiceAuditable.update(user, locale, actor);
 
         UserPassword passwordRow = userPasswordRepository
@@ -105,6 +111,44 @@ public class OrganizationContactCredentialsIssuer {
         return response;
     }
 
+    @Transactional(readOnly = true)
+    public UsernameAvailabilityResponse checkUsernameAvailability(
+            String candidateUsername, String currentUsername, Locale locale) {
+        UsernameAvailabilityResponse response = new UsernameAvailabilityResponse();
+        if (!StringUtils.hasText(currentUsername)) {
+            response.setSuccess(false);
+            response.setStatusCode(401);
+            response.setAvailable(false);
+            response.setMessage("Authentication is required.");
+            return response;
+        }
+        String candidate = candidateUsername != null ? candidateUsername.trim() : "";
+        if (!StringUtils.hasText(candidate) || !userServiceValidator.isValidUserName(candidate)) {
+            response.setSuccess(false);
+            response.setStatusCode(400);
+            response.setAvailable(false);
+            response.setMessage("Choose a valid username (letters, numbers, dots, underscores).");
+            return response;
+        }
+        User user = resolveSessionUser(currentUsername.trim());
+        if (user == null) {
+            response.setSuccess(false);
+            response.setStatusCode(404);
+            response.setAvailable(false);
+            response.setMessage("User not found.");
+            return response;
+        }
+        boolean available = usernameUniquenessSupport.isAvailable(candidate, user.getId());
+        response.setSuccess(true);
+        response.setStatusCode(200);
+        response.setAvailable(available);
+        if (!available) {
+            response.setMessage(messageService.getMessage(
+                    I18Code.MESSAGE_USERNAME_ALREADY_TAKEN.getCode(), new String[] {}, locale));
+        }
+        return response;
+    }
+
     @Transactional
     public UserResponse completeCredentialsSetup(
             CompleteCredentialsSetupRequest request, String currentUsername, Locale locale, String actor) {
@@ -127,22 +171,17 @@ public class OrganizationContactCredentialsIssuer {
             return buildError(400, List.of("Password confirmation does not match."));
         }
 
-        User user = userRepository
-                .findByUsernameAndEntityStatusNot(currentUsername.trim(), EntityStatus.DELETED)
-                .or(() -> userRepository.findByEmailAndEntityStatusNot(currentUsername.trim().toLowerCase(Locale.ROOT),
-                        EntityStatus.DELETED))
-                .orElse(null);
+        User user = resolveSessionUser(currentUsername.trim());
         if (user == null) {
             return buildError(404, List.of("User not found."));
         }
         if (!Boolean.TRUE.equals(user.getMustChangeCredentials())) {
             return buildError(400, List.of("Credential setup is not required for this account."));
         }
-        if (!newUsername.equalsIgnoreCase(user.getUsername())) {
-            Optional<User> taken = userRepository.findByUsernameAndEntityStatusNot(newUsername, EntityStatus.DELETED);
-            if (taken.isPresent() && !taken.get().getId().equals(user.getId())) {
-                return buildError(409, List.of("Username is already taken."));
-            }
+        if (!usernameUniquenessSupport.isAvailable(newUsername, user.getId())) {
+            String takenMessage = messageService.getMessage(
+                    I18Code.MESSAGE_USERNAME_ALREADY_TAKEN.getCode(), new String[] {}, locale);
+            return buildError(409, List.of(takenMessage));
         }
 
         user.setUsername(newUsername);
@@ -176,6 +215,14 @@ public class OrganizationContactCredentialsIssuer {
         return response;
     }
 
+    private User resolveSessionUser(String currentUsername) {
+        return userRepository
+                .findByUsernameAndEntityStatusNot(currentUsername, EntityStatus.DELETED)
+                .or(() -> userRepository.findByEmailAndEntityStatusNot(
+                        currentUsername.toLowerCase(Locale.ROOT), EntityStatus.DELETED))
+                .orElse(null);
+    }
+
     private User resolveContactUser(Long organizationId, Long contactUserId) {
         if (contactUserId != null && contactUserId > 0) {
             Optional<User> byId = userRepository.findByIdAndEntityStatusNot(contactUserId, EntityStatus.DELETED);
@@ -189,6 +236,17 @@ public class OrganizationContactCredentialsIssuer {
                 .filter(user -> user.getOrganizationId() != null)
                 .findFirst()
                 .orElse(null);
+    }
+
+    private String resolveUniqueTemporaryUsername(Long organizationId, Long userId) {
+        for (int attempt = 0; attempt < MAX_TEMPORARY_USERNAME_ATTEMPTS; attempt++) {
+            String candidate = generateTemporaryUsername(organizationId, userId);
+            if (usernameUniquenessSupport.isAvailable(candidate, userId)) {
+                return candidate;
+            }
+        }
+        return generateTemporaryUsername(organizationId, userId)
+                + Integer.toString(SECURE_RANDOM.nextInt(900_000) + 100_000, 36);
     }
 
     private static String generateTemporaryUsername(Long organizationId, Long userId) {

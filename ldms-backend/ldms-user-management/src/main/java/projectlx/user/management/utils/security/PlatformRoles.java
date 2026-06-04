@@ -1,14 +1,9 @@
 package projectlx.user.management.utils.security;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-
 /**
  * Cross-cutting portal roles (admin UI guards, KYC reviewer shortcuts). Stored in {@code user_role}
  * like service-scoped roles and included in JWT {@code roles} claims.
  */
-@RequiredArgsConstructor
-@Getter
 public enum PlatformRoles {
 
     ADMIN("ADMIN", "Full platform administrator (admin portal)"),
@@ -21,4 +16,17 @@ public enum PlatformRoles {
 
     private final String roleName;
     private final String description;
+
+    PlatformRoles(String roleName, String description) {
+        this.roleName = roleName;
+        this.description = description;
+    }
+
+    public String getRoleName() {
+        return roleName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
 }

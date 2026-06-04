@@ -1,14 +1,21 @@
-import { Component, Inject, OnInit } from '@angular/core';
+import { Component, Inject, OnInit, Optional } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { finalize } from 'rxjs';
 import { UsersAdminService } from '../../services/users-admin.service';
 
 export interface UserEditSecurityDialogData {
-  security: Record<string, unknown>;
+  security?: Record<string, unknown> | null;
   userId: number;
   /** `recovery` from Preferences (Q&A); `full` from Security details (all fields). */
   emphasis?: 'recovery' | 'full';
+}
+
+function coerceSecurityRecord(raw: unknown): Record<string, unknown> {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, unknown>;
+  }
+  return {};
 }
 
 @Component({
@@ -39,16 +46,18 @@ export class UserEditSecurityDialogComponent implements OnInit {
     private readonly dialogRef: MatDialogRef<UserEditSecurityDialogComponent, boolean>,
     private readonly usersAdmin: UsersAdminService,
     private readonly snackBar: MatSnackBar,
-    @Inject(MAT_DIALOG_DATA) private readonly data: UserEditSecurityDialogData,
+    @Optional() @Inject(MAT_DIALOG_DATA) data: UserEditSecurityDialogData | null,
   ) {
-    this.emphasis = data.emphasis ?? 'full';
+    const safeData = data ?? { security: {}, userId: 0 };
+    const security = coerceSecurityRecord(safeData.security);
+    this.emphasis = safeData.emphasis ?? 'full';
     this.dialogTitle =
       this.emphasis === 'recovery'
         ? 'Edit security questions & answers'
         : 'Edit security & authentication';
-    this.securityId = Number(data.security['id'] ?? 0);
-    this.initialUserId = Number(data.userId ?? 0);
-    this.applySecurityRecord(data.security);
+    this.securityId = Number(security['id'] ?? 0);
+    this.initialUserId = Number(safeData.userId ?? 0);
+    this.applySecurityRecord(security);
   }
 
   ngOnInit(): void {
@@ -144,15 +153,16 @@ export class UserEditSecurityDialogComponent implements OnInit {
       });
   }
 
-  private applySecurityRecord(s: Record<string, unknown>): void {
-    this.securityQuestion_1 = this.pickStr(s, 'securityQuestion_1', 'securityQuestion1');
-    this.securityAnswer_1 = this.pickStr(s, 'securityAnswer_1', 'securityAnswer1');
-    this.securityQuestion_2 = this.pickStr(s, 'securityQuestion_2', 'securityQuestion2');
-    this.securityAnswer_2 = this.pickStr(s, 'securityAnswer_2', 'securityAnswer2');
-    this.twoFactorAuthSecret = this.pickStr(s, 'twoFactorAuthSecret', 'twoFactorSecret');
-    const t = s['isTwoFactorEnabled'];
+  private applySecurityRecord(s: Record<string, unknown> | null | undefined): void {
+    const row = coerceSecurityRecord(s);
+    this.securityQuestion_1 = this.pickStr(row, 'securityQuestion_1', 'securityQuestion1');
+    this.securityAnswer_1 = this.pickStr(row, 'securityAnswer_1', 'securityAnswer1');
+    this.securityQuestion_2 = this.pickStr(row, 'securityQuestion_2', 'securityQuestion2');
+    this.securityAnswer_2 = this.pickStr(row, 'securityAnswer_2', 'securityAnswer2');
+    this.twoFactorAuthSecret = this.pickStr(row, 'twoFactorAuthSecret', 'twoFactorSecret');
+    const t = row['isTwoFactorEnabled'];
     this.isTwoFactorEnabled = t === true || t === 'true';
-    const id = Number(s['id'] ?? 0);
+    const id = Number(row['id'] ?? 0);
     if (Number.isFinite(id) && id > 0) {
       this.securityId = id;
     }

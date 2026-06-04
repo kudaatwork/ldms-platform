@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import projectlx.co.zw.organizationmanagement.service.processor.api.OrganizationServiceProcessor;
 import projectlx.co.zw.organizationmanagement.utils.requests.AddBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
@@ -68,13 +69,37 @@ public class OrganizationFrontendResource {
     }
 
     @Auditable(action = "ORG_GET_MY")
-    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).VIEW_MY_ORGAN.toString())")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/my")
     public OrganizationResponse getMy(
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return organizationServiceProcessor.getMy(locale, username);
+    }
+
+    @Auditable(action = "ORG_FIND_BY_MULTIPLE_FILTERS")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/find-by-multiple-filters")
+    @Operation(summary = "Find organisations by filters (paginated)", description = "Organisation portal users only see their own organisation.")
+    public OrganizationResponse findByMultipleFilters(
+            @Valid @RequestBody OrganizationMultipleFiltersRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.findByMultipleFilters(request, username, locale);
+    }
+
+    @Auditable(action = "ORG_GET_BY_ID")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/{id}")
+    @Operation(summary = "Get organisation by id", description = "Includes branches. Caller may only access their linked organisation.")
+    public OrganizationResponse getById(
+            @PathVariable Long id,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.getByIdForFrontend(id, locale, username);
     }
 
     @Auditable(action = "ORG_UPDATE_MY")

@@ -4,7 +4,9 @@ import { DomSanitizer, SafeResourceUrl, Title } from '@angular/platform-browser'
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subscription, combineLatest, forkJoin, of } from 'rxjs';
-import { finalize, map, switchMap } from 'rxjs/operators';
+import { finalize, map, startWith, switchMap } from 'rxjs/operators';
+import { StorageService } from '../../../../core/services/storage.service';
+import { decodeJwtPayload } from '../../../../core/utils/jwt.util';
 import { UserDocumentDetailDialogComponent } from '../../components/user-document-detail-dialog/user-document-detail-dialog.component';
 import { UserEditAccountDialogComponent } from '../../components/user-edit-account-dialog/user-edit-account-dialog.component';
 import { UserEditAddressDialogComponent } from '../../components/user-edit-address-dialog/user-edit-address-dialog.component';
@@ -16,6 +18,9 @@ import { isLdmsPasswordValid, LDMS_PASSWORD_INVALID_MESSAGE } from '@core/utils/
 
 type UserSection = 'profile' | 'account' | 'preferences' | 'security-policies' | 'addresses' | 'password';
 type ProfileLoadErrorKey = '' | 'invalidId' | 'missingUser' | 'requestFailed';
+
+/** Roles listed before the user expands or searches. */
+const ROLES_PREVIEW_LIMIT = 8;
 
 @Component({
   selector: 'app-user-profile-shell',
@@ -48,6 +53,10 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
   passwordError = '';
   resendingVerificationEmail = false;
 
+  readonly rolesPreviewLimit = ROLES_PREVIEW_LIMIT;
+  roleSearch = '';
+  rolesExpanded = false;
+
   readonly documentColumns: string[] = ['preview', 'originalFileName', 'fileType', 'fileSizeInBytes', 'createdAt', 'entityStatus'];
 
   readonly nav: ReadonlyArray<{ key: UserSection; icon: string }> = [
@@ -69,17 +78,22 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
+    private readonly storage: StorageService,
   ) {}
 
   ngOnInit(): void {
     // Do not include `route.url` in combineLatest: in some lazy-route setups it never emits an
     // initial value, which blocks combineLatest and leaves this screen stuck on “Loading…”.
     // Section is resolved from `route.data` (see users-routing) and `snapshot.url` as fallback.
-    this.routeSub = combineLatest([this.route.paramMap, this.route.data]).subscribe(() => {
+    this.routeSub = combineLatest([
+      this.route.paramMap.pipe(startWith(this.route.snapshot.paramMap)),
+      this.route.data.pipe(startWith(this.route.snapshot.data)),
+    ]).subscribe(() => {
       const previousUserId = this.userId;
       this.applyRouteSnapshot();
       const userChanged = this.userId !== previousUserId || previousUserId === '';
       if (userChanged || !this.bundle.user) {
+        this.resetRolesPanel();
         this.loadBundle();
       } else {
         this.cdr.markForCheck();
@@ -256,17 +270,19 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
   }
 
   openEditAddress(): void {
-    const ad = this.bundle.address;
-    if (!ad) {
+    const user = this.bundle.user;
+    if (!user) {
       return;
     }
+    const existing = this.usersService.resolveAddressRecord(user, this.bundle.address);
+    const address = this.usersService.addressDraftForEdit(user, this.bundle.address);
     this.dialog
       .open(UserEditAddressDialogComponent, {
         width: '640px',
         maxWidth: '95vw',
         autoFocus: 'first-tabbable',
         panelClass: 'lx-location-dialog-panel',
-        data: { address: ad },
+        data: { address, user, createMode: !existing },
       })
       .afterClosed()
       .subscribe((saved) => {
@@ -463,7 +479,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     if (!Array.isArray(raw)) {
       return [];
     }
-    return raw
+    const names = raw
       .map((r) => {
         if (r && typeof r === 'object' && 'role' in (r as object)) {
           return String((r as { role?: unknown }).role ?? '').trim();
@@ -471,6 +487,56 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
         return '';
       })
       .filter(Boolean);
+    return [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }
+
+  filteredRoleChips(): string[] {
+    const q = this.roleSearch.trim().toLowerCase();
+    const all = this.roleChips();
+    if (!q) {
+      return all;
+    }
+    return all.filter((role) => role.toLowerCase().includes(q));
+  }
+
+  displayedRoleChips(): string[] {
+    const filtered = this.filteredRoleChips();
+    const searching = this.roleSearch.trim().length > 0;
+    if (this.rolesExpanded || searching || filtered.length <= ROLES_PREVIEW_LIMIT) {
+      return filtered;
+    }
+    return filtered.slice(0, ROLES_PREVIEW_LIMIT);
+  }
+
+  showRoleSearch(): boolean {
+    return this.roleChips().length > 4;
+  }
+
+  canExpandRoles(): boolean {
+    if (this.roleSearch.trim()) {
+      return false;
+    }
+    return this.filteredRoleChips().length > ROLES_PREVIEW_LIMIT && !this.rolesExpanded;
+  }
+
+  canCollapseRoles(): boolean {
+    return this.rolesExpanded && this.filteredRoleChips().length > ROLES_PREVIEW_LIMIT;
+  }
+
+  onRoleSearchChange(): void {
+    if (this.filteredRoleChips().length <= ROLES_PREVIEW_LIMIT) {
+      this.rolesExpanded = false;
+    }
+    this.cdr.markForCheck();
+  }
+
+  toggleRolesExpanded(): void {
+    this.rolesExpanded = !this.rolesExpanded;
+    this.cdr.markForCheck();
+  }
+
+  trackRoleChip(_index: number, role: string): string {
+    return role;
   }
 
   retryLoad(): void {
@@ -562,6 +628,17 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     );
   }
 
+  private isSelfProfile(): boolean {
+    const jwt = decodeJwtPayload(this.storage.getToken() ?? '');
+    const fromJwt = Number(jwt?.userId ?? 0);
+    return Number.isFinite(fromJwt) && fromJwt > 0 && fromJwt === this.userIdNumber;
+  }
+
+  private resetRolesPanel(): void {
+    this.roleSearch = '';
+    this.rolesExpanded = false;
+  }
+
   private loadBundle(): void {
     this.loadError = '';
     if (!Number.isFinite(this.userIdNumber) || this.userIdNumber <= 0) {
@@ -575,8 +652,17 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
 
     this.loading = true;
     this.pdfSafeUrlByUploadId.clear();
-    this.usersService
-      .getUserProfileBundle(this.userIdNumber)
+    const profile$ = this.isSelfProfile()
+      ? this.usersService.getMyAccountProfileBundle().pipe(
+          switchMap((selfBundle) =>
+            selfBundle.user
+              ? this.usersService.enrichUserProfileBundle(selfBundle, this.userIdNumber)
+              : this.usersService.getUserProfileBundle(this.userIdNumber),
+          ),
+        )
+      : this.usersService.getUserProfileBundle(this.userIdNumber);
+
+    profile$
       .pipe(
         switchMap((bundle) => {
           const needAccount = !bundle.account;
@@ -606,6 +692,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
         next: ({ bundle, uploads }) => {
           this.bundle = bundle;
           this.userDocuments = uploads;
+          this.resetRolesPanel();
           if (!bundle.user) {
             this.loadError = 'missingUser';
           }

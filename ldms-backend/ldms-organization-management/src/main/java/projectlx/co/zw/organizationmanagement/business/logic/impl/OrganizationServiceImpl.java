@@ -726,6 +726,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
 
         Specification<Organization> spec = buildOrganizationFilterSpec(request);
+        spec = applyFrontendOrganizationScope(spec, username);
 
         Pageable pageable = PageRequest.of(
                 request.getPage(),
@@ -800,6 +801,13 @@ public class OrganizationServiceImpl implements OrganizationService {
     public OrganizationResponse getById(Long id, Locale locale) {
         Organization org = organizationRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElseThrow(() -> notFound(locale));
         return buildOrganizationResponse(toDtoWithKycPolicy(org));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse getByIdForFrontend(Long id, String username, Locale locale) {
+        assertCanAccessOrganization(id, username, locale);
+        return getByIdForSystem(id, locale);
     }
 
     @Override
@@ -1754,11 +1762,65 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     private Organization loadForUser(String username) {
-        return organizationRepository
-                .findByEmailAndEntityStatusNot(username.toLowerCase(), EntityStatus.DELETED)
-                .orElseThrow(() -> new BusinessRuleException(
-                        messageService.getMessage(I18Code.ORG_NOT_FOUND.getCode(), new String[]{}, Locale.getDefault()),
-                        I18Code.ORG_NOT_FOUND));
+        Long organizationId = resolveCallerOrganizationId(username);
+        if (organizationId != null) {
+            return organizationRepository
+                    .findByIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
+                    .orElseThrow(() -> notFound(Locale.getDefault()));
+        }
+        if (!StringUtils.hasText(username)) {
+            throw notFound(Locale.getDefault());
+        }
+        String principal = username.trim();
+        if (principal.contains("@")) {
+            return organizationRepository
+                    .findByEmailAndEntityStatusNot(principal.toLowerCase(Locale.ROOT), EntityStatus.DELETED)
+                    .orElseThrow(() -> notFound(Locale.getDefault()));
+        }
+        throw notFound(Locale.getDefault());
+    }
+
+    private Long resolveCallerOrganizationId(String username) {
+        if (!StringUtils.hasText(username) || TRUSTED_ADMIN_MODIFIERS.contains(username.trim())) {
+            return null;
+        }
+        String principal = username.trim();
+        try {
+            UserResponse userResponse = userManagementServiceClient.findSessionProfileByUsername(principal);
+            if (userResponse != null && userResponse.isSuccess() && userResponse.getUserDto() != null
+                    && userResponse.getUserDto().getOrganizationId() != null
+                    && userResponse.getUserDto().getOrganizationId() > 0) {
+                return userResponse.getUserDto().getOrganizationId();
+            }
+        } catch (Exception ex) {
+            log.warn("Could not resolve organisation id for user {} via user-management: {}", principal, ex.getMessage());
+        }
+        return null;
+    }
+
+    private Specification<Organization> applyFrontendOrganizationScope(Specification<Organization> spec, String username) {
+        if (!StringUtils.hasText(username) || TRUSTED_ADMIN_MODIFIERS.contains(username.trim())) {
+            return spec;
+        }
+        Long callerOrganizationId = resolveCallerOrganizationId(username);
+        if (callerOrganizationId == null) {
+            return spec;
+        }
+        return spec.and(OrganizationSpecifications.idEquals(callerOrganizationId));
+    }
+
+    private void assertCanAccessOrganization(Long organizationId, String username, Locale locale) {
+        if (organizationId == null || organizationId < 1) {
+            throw notFound(locale);
+        }
+        if (!StringUtils.hasText(username) || TRUSTED_ADMIN_MODIFIERS.contains(username.trim())) {
+            return;
+        }
+        Long callerOrganizationId = resolveCallerOrganizationId(username);
+        if (callerOrganizationId != null && callerOrganizationId.equals(organizationId)) {
+            return;
+        }
+        throw notFound(locale);
     }
 
     private BusinessRuleException notFound(Locale locale) {

@@ -16,6 +16,10 @@ public interface UserManagementServiceClient {
     @GetMapping("/ldms-user-management/v1/system/user/find-by-username/{username}")
     UserResponse findByUsername(@org.springframework.web.bind.annotation.PathVariable("username") String username);
 
+    @GetMapping("/ldms-user-management/v1/system/user/session-profile-by-username/{username}")
+    UserResponse findSessionProfileByUsername(
+            @org.springframework.web.bind.annotation.PathVariable("username") String username);
+
     @PostMapping("/ldms-user-management/v1/system/user/provision-organization-contact-person")
     UserResponse provisionOrganizationContactPerson(@RequestBody ProvisionOrganizationContactPersonRequest request);
 

@@ -1,10 +1,71 @@
 import { OrganizationClassification } from '../../core/models/auth.model';
 
+export interface NavChild {
+  label: string;
+  route: string;
+  /** Material Symbols name */
+  icon: string;
+}
+
 export interface NavItem {
   label: string;
   route: string;
   /** Material Symbols name */
   icon: string;
+  children?: NavChild[];
+}
+
+/** Organisation-scoped user management (contact person + future org users). */
+export const USERS_NAV_ITEM: NavItem = {
+  label: 'User management',
+  route: '/users',
+  icon: 'people_outline',
+  children: [
+    { label: 'All users', icon: 'person_search', route: '/users' },
+    { label: 'User groups', icon: 'groups', route: '/users/groups' },
+    { label: 'User roles', icon: 'verified_user', route: '/users/roles' },
+    { label: 'User types', icon: 'category', route: '/users/types' },
+  ],
+};
+
+/** Organisation audit log (login & user activity only). */
+export const AUDIT_LOG_NAV_ITEM: NavItem = {
+  label: 'Audit Log',
+  route: '/activity',
+  icon: 'receipt_long',
+  children: [{ label: 'Login & activity', icon: 'history', route: '/activity/activity-logs' }],
+};
+
+/** Inserts audit log after user management when not already present. */
+export function withAuditLogNav(items: NavItem[]): NavItem[] {
+  if (items.some((item) => item.route === AUDIT_LOG_NAV_ITEM.route)) {
+    return items;
+  }
+  const usersIndex = items.findIndex((item) => item.route === USERS_NAV_ITEM.route);
+  if (usersIndex === -1) {
+    return [...items, AUDIT_LOG_NAV_ITEM];
+  }
+  return [
+    ...items.slice(0, usersIndex + 1),
+    AUDIT_LOG_NAV_ITEM,
+    ...items.slice(usersIndex + 1),
+  ];
+}
+
+/** Inserts org-scoped user management immediately after Documents when not already present. */
+export function withUsersNavAfterDocuments(items: NavItem[]): NavItem[] {
+  if (items.some((item) => item.route === USERS_NAV_ITEM.route)) {
+    return items;
+  }
+  const documentsIndex = items.findIndex((item) => item.route === '/documents');
+  if (documentsIndex === -1) {
+    return [...items, USERS_NAV_ITEM];
+  }
+  return [
+    ...items.slice(0, documentsIndex + 1),
+    USERS_NAV_ITEM,
+    ...items.slice(documentsIndex + 1),
+  ];
 }
 
 export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {

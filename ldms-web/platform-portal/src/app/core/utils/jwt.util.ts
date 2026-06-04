@@ -27,13 +27,20 @@ export function decodeJwtPayload(token: string): LdmsJwtPayload | null {
 }
 
 export function normalizeJwtRoles(raw: unknown): string[] {
-  if (!Array.isArray(raw)) {
-    return [];
+  if (Array.isArray(raw)) {
+    return raw
+      .map((r) => String(r).trim())
+      .filter(Boolean)
+      .map((r) => (r.startsWith('ROLE_') ? r.slice(5) : r));
   }
-  return raw
-    .map((r) => String(r).trim())
-    .filter(Boolean)
-    .map((r) => (r.startsWith('ROLE_') ? r.slice(5) : r));
+  if (typeof raw === 'string' && raw.trim()) {
+    return raw
+      .split(',')
+      .map((r) => r.trim())
+      .filter(Boolean)
+      .map((r) => (r.startsWith('ROLE_') ? r.slice(5) : r));
+  }
+  return [];
 }
 
 export function currentUserFromJwt(token: string): CurrentUser | null {

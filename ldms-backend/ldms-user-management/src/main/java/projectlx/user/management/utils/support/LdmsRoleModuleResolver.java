@@ -1,4 +1,4 @@
-package projectlx.user.management.utils.security;
+package projectlx.user.management.utils.support;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -80,6 +80,7 @@ public final class LdmsRoleModuleResolver {
         return List.of(
                 new ModuleRule(platform, Set.of("ADMIN", "KYC_STAGE1", "KYC_STAGE2", "KYC_STAGE3", "KYC_STAGE4", "KYC_STAGE5", "READ_ONLY")),
                 new ModuleRule(org, Set.of(
+                        "ORGANIZATION_ADMINISTRATOR",
                         "SUBMIT_KYC", "VIEW_MY_ORGAN", "UPDATE_MY_ORGAN", "MANAGE_BRANCHES",
                         "LIST_CUSTOMERS", "REGISTER_CUSTOMER", "LINK_TRANSPORTER")),
                 new ModuleRule(audit, prefix("AUDIT_LOG")),

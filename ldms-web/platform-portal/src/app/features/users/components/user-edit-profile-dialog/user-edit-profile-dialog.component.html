@@ -1,0 +1,249 @@
+<div class="lx-dialog-shell lx-dialog-shell--wide">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ scope === 'profile-only' ? 'Edit profile' : 'Edit user details' }}</h2>
+      <p class="lx-dialog-subtitle" *ngIf="scope === 'profile-only'">
+        Update your personal details. Use the other My Account sections for address, account flags, and security.
+      </p>
+      <p class="lx-dialog-subtitle" *ngIf="scope !== 'profile-only'">
+        Profile, address, and documents are saved together to user management. Leave file fields empty to keep existing uploads.
+      </p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content">
+    <div class="lx-form-grid">
+      <div class="lx-field">
+        <label class="lx-field-label">Username <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">alternate_email</mat-icon>
+          <input [(ngModel)]="username" placeholder="e.g. tinashe.moyo" autocomplete="off" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Email <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
+          <input type="email" [(ngModel)]="email" placeholder="e.g. tinashe@example.com" autocomplete="off" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">First name <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">person</mat-icon>
+          <input [(ngModel)]="firstName" placeholder="e.g. Tinashe" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Last name <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+          <input [(ngModel)]="lastName" placeholder="e.g. Moyo" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Gender <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">wc</mat-icon>
+          <select [(ngModel)]="gender">
+            <option value="" disabled>Select…</option>
+            <option *ngFor="let g of genderOptions" [value]="g">{{ g }}</option>
+          </select>
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Phone <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+          <input [(ngModel)]="phoneNumber" placeholder="e.g. +263771234567" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Date of birth <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <input type="date" [(ngModel)]="dateOfBirth" [max]="maximumDateOfBirth" />
+        </div>
+        <small class="ued-hint">Must be at least 18 years ago.</small>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">National ID</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+          <input [(ngModel)]="nationalIdNumber" placeholder="National ID number" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">National ID expiry (optional)</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event_available</mat-icon>
+          <input type="date" [(ngModel)]="nationalIdExpiryDate" />
+        </div>
+        <small class="ued-hint">Leave blank if the national ID has no expiry date.</small>
+      </div>
+      <ng-container *ngIf="scope !== 'profile-only'">
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Replace national ID scan</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">upload_file</mat-icon>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onNationalFile($event)" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Passport number</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">assignment_ind</mat-icon>
+          <input [(ngModel)]="passportNumber" placeholder="Passport number" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Passport expiry</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event_busy</mat-icon>
+          <input type="date" [(ngModel)]="passportExpiryDate" />
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Replace passport scan</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">upload</mat-icon>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onPassportFile($event)" />
+        </div>
+      </div>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Address</div>
+        <p class="lx-form-section-lead">
+          Select country through suburb (same as Add user). Line 1, postal code, and suburb are required when any address field is set.
+        </p>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Address line 1</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">home</mat-icon>
+          <input [(ngModel)]="addressLine1" placeholder="Street address" />
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Address line 2</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">home_work</mat-icon>
+          <input [(ngModel)]="addressLine2" placeholder="Optional" />
+        </div>
+      </div>
+      <div class="lx-field">
+        <label class="lx-field-label">Postal code</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon>
+          <input [(ngModel)]="postalCode" placeholder="e.g. 00263" />
+        </div>
+      </div>
+      <app-user-address-cascade-fields
+        class="span-2"
+        [(suburbId)]="suburbIdStr"
+        [seedSuburbId]="seedSuburbId"
+        [disabled]="saving"
+      ></app-user-address-cascade-fields>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Security</div>
+        <p class="lx-form-section-lead">
+          Optional if left blank. If you change any field, include question 1, both answers, and a 2FA secret (same rules as Add user).
+        </p>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Security question 1</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">help</mat-icon>
+          <input [(ngModel)]="securityQuestion1" placeholder="e.g. Name of your first school?" autocomplete="off" />
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Security answer 1</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">key</mat-icon>
+          <input [(ngModel)]="securityAnswer1" placeholder="Answer for question 1" autocomplete="off" />
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Security question 2</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">help_outline</mat-icon>
+          <input [(ngModel)]="securityQuestion2" placeholder="e.g. Favorite childhood friend?" autocomplete="off" />
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Security answer 2</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">vpn_key</mat-icon>
+          <input [(ngModel)]="securityAnswer2" placeholder="Answer for question 2" autocomplete="off" />
+        </div>
+      </div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">2FA secret</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">lock_clock</mat-icon>
+          <input [(ngModel)]="twoFactorAuthSecret" placeholder="Authenticator secret" autocomplete="off" />
+        </div>
+        <div class="ued-hint-row">
+          <small class="ued-hint">Required when saving security. Loaded from profile when available.</small>
+          <button type="button" mat-stroked-button class="ued-generate-btn" (click)="generateTwoFactorSecret()" [disabled]="saving">
+            <mat-icon aria-hidden="true">autorenew</mat-icon>
+            Generate secret
+          </button>
+        </div>
+      </div>
+      <div class="lx-field span-2 lx-field--toggle">
+        <span class="lx-field-label">Enable two-factor auth</span>
+        <mat-slide-toggle [(ngModel)]="isTwoFactorEnabled" color="primary"></mat-slide-toggle>
+      </div>
+
+      <div class="lx-field span-2 lx-field--toggle" *ngIf="canEditKycApprover">
+        <span class="lx-field-label">Organisation KYC approver</span>
+        <mat-slide-toggle [(ngModel)]="organizationKycApprover" color="primary">
+          Eligible to review signup organisations
+        </mat-slide-toggle>
+        <small class="ued-hint">
+          Stage 1 or stage 2 reviewers are assigned automatically by workload. Only for admin users with no
+          organisation.
+        </small>
+      </div>
+
+      <ng-container *ngIf="hasPreferences">
+        <div class="lx-form-section span-2">
+          <div class="lx-form-section-title">Preferences</div>
+        </div>
+        <div class="lx-field">
+          <label class="lx-field-label">Preferred language <span class="req">*</span></label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">translate</mat-icon>
+            <input [(ngModel)]="preferredLanguage" placeholder="e.g. en" />
+          </div>
+        </div>
+        <div class="lx-field">
+          <label class="lx-field-label">Timezone (IANA) <span class="req">*</span></label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">schedule</mat-icon>
+            <input [(ngModel)]="timezone" placeholder="e.g. Africa/Harare" />
+          </div>
+        </div>
+      </ng-container>
+      </ng-container>
+    </div>
+
+    <p class="lx-form-error" *ngIf="error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+    </p>
+
+    <div class="lx-step-actions">
+      <button mat-stroked-button type="button" (click)="close()" [disabled]="saving">Cancel</button>
+      <button mat-raised-button color="primary" type="button" (click)="save()" [disabled]="saving">
+        {{ saving ? 'Saving…' : 'Save changes' }}
+      </button>
+    </div>
+  </div>
+</div>

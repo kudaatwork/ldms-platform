@@ -1,10 +1,5 @@
 package projectlx.user.management.utils.security;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-
-@RequiredArgsConstructor
-@Getter
 public enum UserGroupRoles {
     CREATE_USER_GROUP("CREATE_USER_GROUP", "Creates user group"),
     DELETE_USER_GROUP("DELETE_USER_GROUP", "Deletes user group"),
@@ -19,4 +14,17 @@ public enum UserGroupRoles {
 
     private final String roleName;
     private final String description;
+
+    UserGroupRoles(String roleName, String description) {
+        this.roleName = roleName;
+        this.description = description;
+    }
+
+    public String getRoleName() {
+        return roleName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
 }

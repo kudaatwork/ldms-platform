@@ -24,6 +24,8 @@ public class SupportTicketDto {
     private String requesterEmail;
     private Long organizationId;
     private String organizationName;
+    private Long assignedHandlerUserId;
+    private String assignedHandlerUsername;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
 }

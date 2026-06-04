@@ -1,0 +1,275 @@
+<div class="assign-roles-dialog lx-dialog-shell lx-dialog-shell--wide">
+  <div class="assign-roles-dialog__accent" aria-hidden="true"></div>
+
+  <div class="lx-dialog-header assign-roles-dialog__header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">
+        Permissions are grouped by LDMS module. Search, expand a section, then assign or remove roles for this group.
+      </p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="assign-roles-dialog__body">
+    <div class="assign-roles-loading" *ngIf="loading">
+      <mat-progress-bar mode="indeterminate" aria-label="Loading roles"></mat-progress-bar>
+      <p>Loading role catalog…</p>
+    </div>
+
+    <ng-container *ngIf="!loading">
+      <div class="assign-roles-controls" *ngIf="roles.length > 0">
+        <div class="assign-roles-search lx-input-shell">
+          <mat-icon class="lx-input-shell__icon" aria-hidden="true">search</mat-icon>
+          <input
+            type="search"
+            [(ngModel)]="searchQuery"
+            (ngModelChange)="onSearchQueryChange()"
+            placeholder="Search by role name or description…"
+            aria-label="Search roles"
+            [disabled]="assigning || removing"
+          />
+        </div>
+
+        <div class="assign-roles-filters" role="tablist" aria-label="Filter roles">
+          <button
+            type="button"
+            class="assign-roles-filter"
+            role="tab"
+            [class.is-active]="activeFilter === 'all'"
+            [attr.aria-selected]="activeFilter === 'all'"
+            (click)="setFilter('all')"
+          >
+            All
+            <span class="assign-roles-filter__count">{{ roles.length }}</span>
+          </button>
+          <button
+            type="button"
+            class="assign-roles-filter"
+            role="tab"
+            [class.is-active]="activeFilter === 'on-group'"
+            [attr.aria-selected]="activeFilter === 'on-group'"
+            (click)="setFilter('on-group')"
+          >
+            On group
+            <span class="assign-roles-filter__count">{{ onGroupCount }}</span>
+          </button>
+          <button
+            type="button"
+            class="assign-roles-filter"
+            role="tab"
+            [class.is-active]="activeFilter === 'available'"
+            [attr.aria-selected]="activeFilter === 'available'"
+            (click)="setFilter('available')"
+          >
+            Available
+            <span class="assign-roles-filter__count">{{ availableCount }}</span>
+          </button>
+        </div>
+
+        <div class="assign-roles-meta">
+          <div class="assign-roles-meta__stats">
+            <span class="assign-roles-stat assign-roles-stat--assign" *ngIf="assignSelectedCount > 0">
+              {{ assignSelectedCount }} to assign
+            </span>
+            <span class="assign-roles-stat assign-roles-stat--remove" *ngIf="removeSelectedCount > 0">
+              {{ removeSelectedCount }} to remove
+            </span>
+            <span class="assign-roles-stat assign-roles-stat--muted">
+              Showing {{ pagedFilteredRoles.length }} of {{ filteredRoles.length }} filtered ({{ roles.length }} total)
+            </span>
+          </div>
+          <div class="assign-roles-meta__actions">
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              (click)="expandAllModules()"
+              [disabled]="assigning || removing || roleModuleGroups.length === 0"
+            >
+              Expand all
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              (click)="collapseAllModules()"
+              [disabled]="assigning || removing || roleModuleGroups.length === 0"
+            >
+              Collapse all
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              (click)="toggleFilteredSelection()"
+              [disabled]="assigning || removing || filteredRoles.length === 0"
+            >
+              {{ allFilteredSelected ? 'Deselect visible' : 'Select visible' }}
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              (click)="clearSelection()"
+              [disabled]="assigning || removing || (assignSelectedCount === 0 && removeSelectedCount === 0)"
+            >
+              Clear all
+            </button>
+          </div>
+        </div>
+
+        <div class="assign-roles-legend" aria-hidden="true">
+          <span class="assign-roles-legend__item">
+            <span class="assign-roles-legend__swatch assign-roles-legend__swatch--assign"></span>
+            Assign
+          </span>
+          <span class="assign-roles-legend__item">
+            <span class="assign-roles-legend__swatch assign-roles-legend__swatch--remove"></span>
+            Remove
+          </span>
+        </div>
+      </div>
+
+      <p class="assign-roles-error" *ngIf="error">{{ error }}</p>
+
+      <p class="assign-roles-empty" *ngIf="roles.length === 0 && !error">No roles are available to assign.</p>
+
+      <p class="assign-roles-empty assign-roles-empty--info" *ngIf="roles.length > 0 && allCatalogRolesAlreadyOnGroup">
+        Every catalog role is already on this group. Filter to <strong>On group</strong> and select roles to remove.
+      </p>
+
+      <p class="assign-roles-empty" *ngIf="roles.length > 0 && filteredRoles.length === 0 && !error">
+        No roles match your search or filter. Try another term or switch tabs.
+      </p>
+
+      <div
+        *ngIf="roles.length > 0 && filteredRoles.length > 0"
+        class="assign-roles-sections"
+        role="list"
+        aria-label="Roles by module"
+      >
+        <div class="assign-roles-pagebar">
+          <div class="assign-roles-pagebar__left">
+            <label for="assignRolesPageSize">Rows per page</label>
+            <select
+              id="assignRolesPageSize"
+              class="lx-select"
+              [ngModel]="pageSize"
+              (ngModelChange)="onPageSizeChange($event)"
+            >
+              <option *ngFor="let size of pageSizeOptions" [ngValue]="size">{{ size }}</option>
+            </select>
+          </div>
+          <div class="assign-roles-pagebar__right">
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="previousPage()" [disabled]="pageIndex === 0">
+              Previous
+            </button>
+            <span>Page {{ pageIndex + 1 }} / {{ totalPages }}</span>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              (click)="nextPage()"
+              [disabled]="(pageIndex + 1) * pageSize >= filteredRoles.length"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+        <mat-accordion class="assign-roles-accordion" multi displayMode="flat">
+          <mat-expansion-panel
+            *ngFor="let group of roleModuleGroups"
+            class="assign-roles-module-panel"
+            [expanded]="isModuleExpanded(group.section.key)"
+            (expandedChange)="toggleModuleExpanded(group.section.key, $event)"
+          >
+            <mat-expansion-panel-header class="assign-roles-module-header">
+              <mat-panel-title class="assign-roles-module-title">
+                <mat-icon class="assign-roles-module-icon" aria-hidden="true">{{ group.section.icon }}</mat-icon>
+                <span class="assign-roles-module-label">{{ group.section.label }}</span>
+              </mat-panel-title>
+              <mat-panel-description class="assign-roles-module-meta">
+                <span class="assign-roles-module-count">{{ group.roles.length }} roles</span>
+                <span class="assign-roles-module-on-group" *ngIf="moduleOnGroupCount(group) > 0">
+                  {{ moduleOnGroupCount(group) }} on group
+                </span>
+                <span class="assign-roles-module-pick assign-roles-module-pick--assign" *ngIf="moduleSelectedAssignCount(group) > 0">
+                  +{{ moduleSelectedAssignCount(group) }}
+                </span>
+                <span class="assign-roles-module-pick assign-roles-module-pick--remove" *ngIf="moduleSelectedRemoveCount(group) > 0">
+                  −{{ moduleSelectedRemoveCount(group) }}
+                </span>
+                <button
+                  type="button"
+                  class="assign-roles-module-select lx-btn lx-btn-ghost lx-btn-sm"
+                  (click)="toggleModuleSelection(group, $event)"
+                  [disabled]="assigning || removing"
+                >
+                  Toggle section
+                </button>
+              </mat-panel-description>
+            </mat-expansion-panel-header>
+
+            <div class="assign-roles-module-rows">
+              <label
+                class="assign-roles-row"
+                role="listitem"
+                *ngFor="let r of group.roles; trackBy: trackRole"
+                [class.assign-roles-row--assigned]="r.alreadyAssigned"
+                [class.assign-roles-row--selected]="r.selected"
+                [class.assign-roles-row--selected-assign]="r.selected && !r.alreadyAssigned"
+                [class.assign-roles-row--selected-remove]="r.selected && r.alreadyAssigned"
+                [attr.title]="rowTitle(r)"
+                (click)="toggleRow(r, $event)"
+              >
+                <span class="assign-roles-row__check">
+                  <mat-checkbox
+                    [(ngModel)]="r.selected"
+                    [disabled]="assigning || removing"
+                    (click)="$event.stopPropagation()"
+                  ></mat-checkbox>
+                </span>
+                <span class="assign-roles-row__body">
+                  <span class="assign-roles-row__role">{{ roleBreakPoints(r.role) }}</span>
+                  <span class="assign-roles-row__desc" *ngIf="r.description !== '—'">{{ r.description }}</span>
+                </span>
+                <span class="assign-roles-row__status" *ngIf="r.alreadyAssigned">
+                  <mat-icon class="assign-roles-row__status-icon" aria-hidden="true">link</mat-icon>
+                  On group
+                </span>
+              </label>
+            </div>
+          </mat-expansion-panel>
+        </mat-accordion>
+      </div>
+    </ng-container>
+  </div>
+
+  <footer class="assign-roles-footer">
+    <button type="button" mat-stroked-button class="assign-roles-footer__cancel" (click)="close()" [disabled]="assigning || removing">
+      Cancel
+    </button>
+    <div class="assign-roles-footer__actions">
+      <button
+        type="button"
+        mat-stroked-button
+        color="warn"
+        class="assign-roles-footer__btn"
+        (click)="remove()"
+        [disabled]="assigning || removing || loading || roles.length === 0 || !canRemoveSelected"
+      >
+        <span *ngIf="removeSelectedCount > 0">Remove {{ removeSelectedCount }}</span>
+        <span *ngIf="removeSelectedCount === 0">Remove from group</span>
+      </button>
+      <button
+        type="button"
+        mat-raised-button
+        color="primary"
+        class="assign-roles-footer__btn assign-roles-footer__btn--primary"
+        (click)="assign()"
+        [disabled]="assigning || removing || loading || roles.length === 0 || !canAssignSelected"
+      >
+        <span *ngIf="assignSelectedCount > 0">Assign {{ assignSelectedCount }}</span>
+        <span *ngIf="assignSelectedCount === 0">Assign selected</span>
+      </button>
+    </div>
+  </footer>
+</div>

@@ -186,18 +186,20 @@ export class MyAccountComponent implements OnInit {
   }
 
   openEditAddress(): void {
-    const address = this.usersService.resolveAddressRecord(this.bundle.user, this.bundle.address);
-    if (!address) {
-      this.snackBar.open('No address is linked to your profile yet.', 'Close', {
-        duration: 5000,
-        panelClass: ['app-snackbar-error'],
-      });
+    const user = this.bundle.user;
+    if (!user) {
       return;
     }
+    const existing = this.usersService.resolveAddressRecord(user, this.bundle.address);
+    const address = this.usersService.addressDraftForEdit(user, this.bundle.address);
     this.dialog
       .open(UserEditAddressDialogComponent, {
         ...this.editDialogConfig,
-        data: { address },
+        data: {
+          address,
+          user,
+          createMode: !existing,
+        },
       })
       .afterClosed()
       .subscribe((saved) => saved && this.loadMyAccount());

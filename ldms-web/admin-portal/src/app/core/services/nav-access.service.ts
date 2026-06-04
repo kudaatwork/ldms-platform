@@ -35,7 +35,11 @@ export class NavAccessService {
   }
 
   canAccessRoute(route: string): boolean {
-    return canAccessPath(route, this.currentRoles());
+    const user = this.storage.getUser();
+    return canAccessPath(route, this.currentRoles(), {
+      organizationKycApprover: user?.organizationKycApprover,
+      operationalIssueHandler: user?.operationalIssueHandler,
+    });
   }
 
   /** Filters top-level and nested menu entries by user-group roles. */

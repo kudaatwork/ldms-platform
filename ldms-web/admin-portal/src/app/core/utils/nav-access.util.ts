@@ -16,6 +16,18 @@ export function hasPlatformWideAccess(roles: string[]): boolean {
   return set.has('ADMIN') || set.has('READ_ONLY');
 }
 
+export interface NavAccessUserFlags {
+  organizationKycApprover?: boolean;
+  operationalIssueHandler?: boolean;
+}
+
+export function canHandleSupportTickets(roles: string[] | undefined | null, userFlags?: NavAccessUserFlags): boolean {
+  if (hasPlatformWideAccess(roles ?? [])) {
+    return true;
+  }
+  return userFlags?.operationalIssueHandler === true;
+}
+
 export function modulesForRoles(roles: string[]): Set<LdmsRoleModuleKey> {
   const modules = new Set<LdmsRoleModuleKey>();
   for (const role of normalizeRoleCodes(roles)) {
@@ -50,6 +62,8 @@ type RouteAccessRule = {
   adminOnly?: boolean;
   /** ADMIN or READ_ONLY (system health). */
   platformOnly?: boolean;
+  /** ADMIN, READ_ONLY, or operational issue handler flag (Help & Support queue). */
+  supportQueue?: boolean;
   /** User must hold a role mapped to one of these module keys/prefixes. */
   modulePrefixes?: string[];
   /** Exact role codes (any). */
@@ -59,7 +73,7 @@ type RouteAccessRule = {
 /** Longest-prefix wins; keep sorted by descending prefix length. */
 const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { prefix: '/account', public: true },
-  { prefix: '/help', public: true },
+  { prefix: '/help', supportQueue: true },
   { prefix: '/settings', adminOnly: true },
   { prefix: '/system', platformOnly: true },
   { prefix: '/users/roles', modulePrefixes: ['user-management.roles'] },
@@ -82,13 +96,24 @@ function ruleForPath(path: string): RouteAccessRule | undefined {
 /**
  * Whether the signed-in user may navigate to this path based on user-group roles only.
  */
-export function canAccessPath(path: string, roles: string[] | undefined | null): boolean {
+export function canAccessPath(
+  path: string,
+  roles: string[] | undefined | null,
+  userFlags?: NavAccessUserFlags,
+): boolean {
   const normalizedPath = path.split('?')[0].split('#')[0];
   const rule = ruleForPath(normalizedPath);
   if (!rule) {
     return hasPlatformWideAccess(roles ?? []) || normalizeRoleCodes(roles).length > 0;
   }
   if (rule.public) {
+    return true;
+  }
+  if (rule.supportQueue) {
+    return canHandleSupportTickets(roles, userFlags);
+  }
+  if (rule.anyAssignedRole) {
+    // Authenticated users may have a group name but no role codes yet; dashboard stays reachable.
     return true;
   }
   const codes = normalizeRoleCodes(roles);
@@ -100,9 +125,6 @@ export function canAccessPath(path: string, roles: string[] | undefined | null):
   }
   if (rule.platformOnly) {
     return hasPlatformWideAccess(codes);
-  }
-  if (rule.anyAssignedRole) {
-    return true;
   }
   if (rule.roleCodes?.length) {
     return hasAnyRoleCode(codes, rule.roleCodes);

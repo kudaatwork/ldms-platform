@@ -15,6 +15,7 @@ import projectlx.user.management.utils.requests.CompleteCredentialsSetupRequest;
 import projectlx.user.management.utils.requests.IssueOrganizationContactCredentialsRequest;
 import projectlx.user.management.utils.requests.ProvisionOrganizationContactPersonRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
+import projectlx.user.management.utils.responses.UsernameAvailabilityResponse;
 import projectlx.user.management.utils.responses.UserResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -70,6 +71,19 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
         UserResponse userResponse = userService.findByUsername(username, locale);
 
         logger.info("Outgoing response after finding a user by username : {}. Status Code: {}. Message: {}", userResponse,
+                userResponse.getStatusCode(), userResponse.getMessage());
+
+        return userResponse;
+    }
+
+    @Override
+    public UserResponse findCurrentUserForSession(String username, Locale locale) {
+
+        logger.info("Incoming request for current user session profile: {}", username);
+
+        UserResponse userResponse = userService.findCurrentUserForSession(username, locale);
+
+        logger.info("Outgoing response for current user session profile. Status Code: {}. Message: {}",
                 userResponse.getStatusCode(), userResponse.getMessage());
 
         return userResponse;
@@ -138,6 +152,22 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
 
         logger.info("Outgoing response after finding users by organization id: {}. Status Code: {}. Message: {}", userResponse,
                 userResponse.getStatusCode(), userResponse.getMessage());
+
+        return userResponse;
+    }
+
+    @Override
+    public UserResponse findUsernamesByOrganizationId(Long organizationId, Locale locale, String username) {
+
+        logger.info("Incoming request to find usernames by organization id: {}", organizationId);
+
+        UserResponse userResponse = userService.findUsernamesByOrganizationId(organizationId, locale, username);
+
+        logger.info(
+                "Outgoing response after finding usernames by organization id: {}. Status Code: {}. Message: {}",
+                userResponse,
+                userResponse.getStatusCode(),
+                userResponse.getMessage());
 
         return userResponse;
     }
@@ -307,6 +337,24 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
     }
 
     @Override
+    public UserResponse listOperationalIssueHandlers(Locale locale) {
+        logger.info("Incoming request to list operational issue handlers");
+        UserResponse userResponse = userService.listOperationalIssueHandlers(locale);
+        logger.info("Outgoing response after listing operational issue handlers. Status Code: {}. Message: {}",
+                userResponse.getStatusCode(), userResponse.getMessage());
+        return userResponse;
+    }
+
+    @Override
+    public UserResponse setOperationalIssueHandler(Long id, boolean enabled, Locale locale, String username) {
+        logger.info("Incoming request to set operational issue handler for user {}: {}", id, enabled);
+        UserResponse userResponse = userService.setOperationalIssueHandler(id, enabled, locale, username);
+        logger.info("Outgoing response after setting operational issue handler. Status Code: {}. Message: {}",
+                userResponse.getStatusCode(), userResponse.getMessage());
+        return userResponse;
+    }
+
+    @Override
     public UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale) {
 
         logger.info("Incoming request to find a user by phone number or email: {}", phoneNumberOrEmail);
@@ -363,5 +411,12 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
                     userResponse.getMessage());
         }
         return userResponse;
+    }
+
+    @Override
+    public UsernameAvailabilityResponse checkUsernameAvailability(String candidateUsername, Locale locale,
+            String username) {
+        logger.info("Incoming request to check username availability for {}", username);
+        return organizationContactCredentialsIssuer.checkUsernameAvailability(candidateUsername, username, locale);
     }
 }

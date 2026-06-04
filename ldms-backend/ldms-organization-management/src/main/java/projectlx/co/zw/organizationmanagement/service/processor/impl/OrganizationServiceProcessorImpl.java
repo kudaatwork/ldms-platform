@@ -180,6 +180,14 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     }
 
     @Override
+    public OrganizationResponse getByIdForFrontend(Long id, Locale locale, String username) {
+        log.info("Incoming request: getByIdForFrontend id={} user={}", id, username);
+        OrganizationResponse response = organizationService.getByIdForFrontend(id, username, locale);
+        log.info("Outgoing response: getByIdForFrontend success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
     public OrganizationResponse getByIdForSystem(Long id, Locale locale) {
         log.info("Incoming request: getByIdForSystem id={}", id);
         OrganizationResponse response = organizationService.getByIdForSystem(id, locale);
