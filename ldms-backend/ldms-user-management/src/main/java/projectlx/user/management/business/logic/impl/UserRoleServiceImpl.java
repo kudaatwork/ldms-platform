@@ -19,7 +19,7 @@ import projectlx.user.management.repository.UserRepository;
 import projectlx.user.management.repository.specification.UserRoleSpecification;
 import projectlx.user.management.utils.dtos.UserRoleDto;
 import projectlx.user.management.utils.enums.I18Code;
-import projectlx.user.management.utils.security.UserRoleDtoModuleEnricher;
+import projectlx.user.management.utils.support.UserRoleDtoModuleEnricher;
 import projectlx.user.management.utils.requests.CreateUserRoleRequest;
 import projectlx.user.management.utils.requests.EditUserRoleRequest;
 import projectlx.user.management.utils.requests.UserRoleMultipleFiltersRequest;

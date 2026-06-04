@@ -1,0 +1,39 @@
+<div class="lx-page settings-page">
+  <header class="settings-head">
+    <div>
+      <p class="settings-head__eyebrow">Workspace</p>
+      <h1 class="settings-head__title">Settings</h1>
+      <p class="settings-head__lead">
+        Configure identity and access for your organisation — map permission roles to user groups and KYC approval stages.
+      </p>
+    </div>
+  </header>
+
+  <nav class="settings-nav" aria-label="Settings sections">
+    @for (section of sections; track section.id) {
+      <button
+        type="button"
+        class="settings-nav__item"
+        [class.settings-nav__item--active]="activeSection === section.id"
+        (click)="selectSection(section.id)"
+      >
+        <span class="settings-nav__icon-wrap">
+          <mat-icon>{{ section.icon }}</mat-icon>
+        </span>
+        <span class="settings-nav__copy">
+          <span class="settings-nav__label">{{ section.label }}</span>
+          <span class="settings-nav__hint">{{ section.hint }}</span>
+        </span>
+      </button>
+    }
+  </nav>
+
+  <div class="settings-panel lx-card">
+    @if (activeSection === 'group-roles') {
+      <app-settings-group-roles />
+    }
+    @if (activeSection === 'kyc-approvers') {
+      <app-settings-kyc-approvers />
+    }
+  </div>
+</div>

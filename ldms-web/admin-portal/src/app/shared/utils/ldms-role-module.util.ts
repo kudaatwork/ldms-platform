@@ -201,6 +201,49 @@ export function groupRolesByModule<T extends { role: string }>(
     .sort((a, b) => a.section.sortOrder - b.section.sortOrder || a.section.label.localeCompare(b.section.label));
 }
 
+/** All known LDMS modules for catalog navigation (stable order). */
+export function listLdmsRoleModuleSections(): LdmsRoleModuleSection[] {
+  return (Object.keys(MODULE_META) as LdmsRoleModuleKey[])
+    .map((key) => ({ key, ...MODULE_META[key] }))
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+}
+
+/**
+ * Search token sent to the role catalog API when a module is selected (`UserRoleSpecification.any`).
+ * Narrows large catalogs server-side without loading every row into the browser.
+ */
+export function moduleCatalogSearchHint(key: LdmsRoleModuleKey | string): string {
+  const hints: Partial<Record<LdmsRoleModuleKey, string>> = {
+    platform: 'KYC',
+    'organization-management': 'ORGANIZATION',
+    'audit-trail': 'AUDIT_LOG',
+    notifications: 'NOTIFICATION',
+    'user-management.password': 'PASSWORD',
+    'user-management.accounts': 'USER_ACCOUNT',
+    'user-management.addresses': 'USER_ADDRESS',
+    'user-management.groups': 'USER_GROUP',
+    'user-management.roles': 'USER_ROLE',
+    'user-management.security': 'USER_SECURIT',
+    'user-management.preferences': 'USER_PREFERENCES',
+    'user-management.types': 'USER_TYPE',
+    'user-management.users': 'CREATE_USER',
+    'locations.address': 'ADDRESS',
+    'locations.administrative-level': 'ADMINISTRATIVE_LEVEL',
+    'locations.city': 'CITY',
+    'locations.country': 'COUNTRY',
+    'locations.district': 'DISTRICT',
+    'locations.geo-coordinates': 'GEO_COORDINATES',
+    'locations.language': 'LANGUAGE',
+    'locations.localized-name': 'LOCALIZED_NAME',
+    'locations.location-node': 'LOCATION_NODE',
+    'locations.province': 'PROVINCE',
+    'locations.suburb': 'SUBURB',
+    'locations.village': 'VILLAGE',
+    other: '',
+  };
+  return hints[key as LdmsRoleModuleKey] ?? '';
+}
+
 /** Reads module metadata from API when present, otherwise derives from role code. */
 export function moduleSectionFromApi(
   role: string,

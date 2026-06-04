@@ -133,7 +133,7 @@ public class UserRoleFrontendResource {
     }
 
     @Auditable(action = "FIND_ALL_USER_ROLES_BY_MULTIPLE_FILTERS")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoleRoles).VIEW_ALL_USER_ROLES_BY_MULTIPLE_FILTERS.toString())")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping(value = "/find-by-multiple-filters")
     @Operation(summary = "Find user roles by multiple filters",
             description = "Retrieves a list of user role that match the provided filters.")

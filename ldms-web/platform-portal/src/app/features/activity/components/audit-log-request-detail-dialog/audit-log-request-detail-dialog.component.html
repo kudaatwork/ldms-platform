@@ -1,0 +1,167 @@
+<h2 mat-dialog-title>Request log detail</h2>
+
+<mat-dialog-content class="ald-body">
+  <div class="ald-loading" *ngIf="loading">
+    <mat-progress-spinner diameter="40" mode="indeterminate" aria-label="Loading full log"></mat-progress-spinner>
+    <p class="ald-loading__text">Loading full log…</p>
+  </div>
+
+  <ng-container *ngIf="!loading && detail">
+    <p class="ald-banner" *ngIf="infoBanner">{{ infoBanner }}</p>
+
+    <h3 class="ald-section">Identifiers</h3>
+    <div class="ald-grid">
+      <div class="ald-field"><span class="ald-k">ID</span><span class="ald-v lx-mono">{{ detail!.id }}</span></div>
+      <div class="ald-field">
+        <span class="ald-k">Trace ID</span>
+        <div class="ald-copy-row">
+          <span class="ald-v lx-mono ald-break">{{ detail!.traceId }}</span>
+          <button
+            type="button"
+            mat-icon-button
+            class="ald-copy-btn"
+            [disabled]="!copyable(detail!.traceId)"
+            matTooltip="Copy trace ID"
+            aria-label="Copy trace ID"
+            (click)="copyToClipboard(detail!.traceId, 'Trace ID')"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+      </div>
+      <div class="ald-field"><span class="ald-k">Service</span><span class="ald-v">{{ detail!.serviceName }}</span></div>
+      <div class="ald-field"><span class="ald-k">Username</span><span class="ald-v">{{ detail!.username }}</span></div>
+    </div>
+
+    <h3 class="ald-section">Timestamps</h3>
+    <div class="ald-grid">
+      <div class="ald-field ald-field--full">
+        <span class="ald-k">Request timestamp</span><span class="ald-v lx-mono">{{ detail!.requestTimestamp }}</span>
+      </div>
+      <div class="ald-field ald-field--full">
+        <span class="ald-k">Response timestamp</span><span class="ald-v lx-mono">{{ detail!.responseTimestamp }}</span>
+      </div>
+      <div class="ald-field"><span class="ald-k">Response time</span><span class="ald-v lx-mono">{{ detail!.responseTime }}</span></div>
+    </div>
+
+    <h3 class="ald-section">HTTP</h3>
+    <div class="ald-grid">
+      <div class="ald-field"><span class="ald-k">Method</span><span class="ald-v lx-mono">{{ detail!.httpMethod }}</span></div>
+      <div class="ald-field"><span class="ald-k">Status</span><span class="ald-v lx-mono">{{ detail!.httpStatusCode }}</span></div>
+      <div class="ald-field"><span class="ald-k">Client IP</span><span class="ald-v lx-mono">{{ detail!.clientIpAddress }}</span></div>
+      <div class="ald-field"><span class="ald-k">Action</span><span class="ald-v">{{ detail!.action }}</span></div>
+      <div class="ald-field"><span class="ald-k">Event type</span><span class="ald-v">{{ detail!.eventType }}</span></div>
+      <div class="ald-field ald-field--full">
+        <span class="ald-k">Request URL</span>
+        <div class="ald-copy-row">
+          <span class="ald-v lx-mono ald-break">{{ detail!.requestUrl }}</span>
+          <button
+            type="button"
+            mat-icon-button
+            class="ald-copy-btn"
+            [disabled]="!copyable(detail!.requestUrl)"
+            matTooltip="Copy request URL"
+            aria-label="Copy request URL"
+            (click)="copyToClipboard(detail!.requestUrl, 'Request URL')"
+          >
+            <mat-icon>content_copy</mat-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="ald-block">
+      <div class="ald-block__head">
+        <h3 class="ald-section ald-section--tight">Exception</h3>
+        <button
+          type="button"
+          mat-icon-button
+          class="ald-copy-btn"
+          [disabled]="!copyable(detail!.exceptionMessage)"
+          matTooltip="Copy exception message"
+          aria-label="Copy exception message"
+          (click)="copyToClipboard(detail!.exceptionMessage, 'Exception message')"
+        >
+          <mat-icon>content_copy</mat-icon>
+        </button>
+      </div>
+      <pre class="ald-pre" tabindex="0">{{ detail!.exceptionMessage }}</pre>
+    </div>
+
+    <div class="ald-block">
+      <div class="ald-block__head">
+        <h3 class="ald-section ald-section--tight">Request headers</h3>
+        <button
+          type="button"
+          mat-icon-button
+          class="ald-copy-btn"
+          [disabled]="!copyable(detail!.requestHeaders)"
+          matTooltip="Copy request headers"
+          aria-label="Copy request headers"
+          (click)="copyToClipboard(detail!.requestHeaders, 'Request headers')"
+        >
+          <mat-icon>content_copy</mat-icon>
+        </button>
+      </div>
+      <pre class="ald-pre" tabindex="0">{{ detail!.requestHeaders }}</pre>
+    </div>
+
+    <div class="ald-block">
+      <div class="ald-block__head">
+        <h3 class="ald-section ald-section--tight">Request payload</h3>
+        <button
+          type="button"
+          mat-icon-button
+          class="ald-copy-btn"
+          [disabled]="!copyable(detail!.requestPayload)"
+          matTooltip="Copy request payload"
+          aria-label="Copy request payload"
+          (click)="copyToClipboard(detail!.requestPayload, 'Request payload')"
+        >
+          <mat-icon>content_copy</mat-icon>
+        </button>
+      </div>
+      <pre class="ald-pre" tabindex="0">{{ detail!.requestPayload }}</pre>
+    </div>
+
+    <div class="ald-block">
+      <div class="ald-block__head">
+        <h3 class="ald-section ald-section--tight">Response payload</h3>
+        <button
+          type="button"
+          mat-icon-button
+          class="ald-copy-btn"
+          [disabled]="!copyable(detail!.responsePayload)"
+          matTooltip="Copy response payload"
+          aria-label="Copy response payload"
+          (click)="copyToClipboard(detail!.responsePayload, 'Response payload')"
+        >
+          <mat-icon>content_copy</mat-icon>
+        </button>
+      </div>
+      <pre class="ald-pre" tabindex="0">{{ detail!.responsePayload }}</pre>
+    </div>
+
+    <div class="ald-block">
+      <div class="ald-block__head">
+        <h3 class="ald-section ald-section--tight">cURL (reconstructed)</h3>
+        <button
+          type="button"
+          mat-icon-button
+          class="ald-copy-btn"
+          [disabled]="!copyable(detail!.curlCommand)"
+          matTooltip="Copy cURL command"
+          aria-label="Copy cURL command"
+          (click)="copyToClipboard(detail!.curlCommand, 'cURL command')"
+        >
+          <mat-icon>content_copy</mat-icon>
+        </button>
+      </div>
+      <pre class="ald-pre ald-pre--curl" tabindex="0">{{ detail!.curlCommand }}</pre>
+    </div>
+  </ng-container>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" mat-stroked-button (click)="close()">Close</button>
+</mat-dialog-actions>

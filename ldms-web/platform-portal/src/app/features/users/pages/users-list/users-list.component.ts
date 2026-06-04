@@ -1,0 +1,1294 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Title } from '@angular/platform-browser';
+import { PageEvent } from '@angular/material/paginator';
+import { MatTableDataSource } from '@angular/material/table';
+import { IdLabelOption, UsersPortalService, UserListRow } from '../../services/users-portal.service';
+import { Subject, debounceTime, forkJoin } from 'rxjs';
+import { finalize } from 'rxjs/operators';
+import { LocationsService } from '../../../locations/services/locations.service';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar } from '@angular/material/snack-bar';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
+import { AssignRolesDialogComponent } from '../../components/assign-roles-dialog/assign-roles-dialog.component';
+import { UserAssignUserGroupDialogComponent } from '../../components/user-assign-user-group-dialog/user-assign-user-group-dialog.component';
+import { UserEditProfileDialogComponent } from '../../components/user-edit-profile-dialog/user-edit-profile-dialog.component';
+import { NotificationService } from '../../../../core/services/notification.service';
+import { isLdmsPasswordValid, LDMS_PASSWORD_INVALID_MESSAGE } from '@core/utils/ldms-password.util';
+import {
+  dateOfBirthMinimumAgeMessage,
+  isDateOfBirthAtLeastMinimumAge,
+  maximumDateOfBirthInput,
+} from '@core/utils/date-of-birth.util';
+import {
+  LxExportFormat,
+  downloadBlob,
+  exportFilename,
+} from '@shared/utils/lx-export.util';
+import { OrgContextService } from '../../../../core/services/org-context.service';
+import { AuthStateService } from '../../../../core/services/auth-state.service';
+
+interface SelectOption {
+  id: number;
+  label: string;
+  sublabel?: string;
+}
+
+interface UserTypeOption extends SelectOption {
+  description: string;
+}
+
+@Component({
+  selector: 'app-users-list',
+  templateUrl: './users-list.component.html',
+  styleUrl: './users-list.component.scss',
+  standalone: false,
+})
+export class UsersListComponent implements OnInit, OnDestroy {
+  readonly pageLead =
+    'Manage people in your organisation. After onboarding, the contact person from signup is usually the only user here until you invite more.';
+
+  fetching = true;
+  exporting = false;
+  resendingVerificationUserId: number | null = null;
+  /** Row targeted by the shared actions menu (avoids brittle {@code matMenuTriggerData}). */
+  activeUserRow: UserListRow | null = null;
+  /** Retained through menu close so navigation is not lost before {@code router.navigate}. */
+  private menuTargetRow: UserListRow | null = null;
+
+  /** Stable row for the open actions menu (survives {@code mat-menu} close before click handlers run). */
+  get actionsRow(): UserListRow | null {
+    return this.menuTargetRow ?? this.activeUserRow;
+  }
+
+  displayedColumns = [
+    'name',
+    'username',
+    'email',
+    'phoneNumber',
+    'gender',
+    'nationalId',
+    'emailVerified',
+    'status',
+    'actions',
+  ];
+
+  /** Columns shown in the users table (hides platform-only flags for organisation-scoped portal). */
+  get tableColumns(): string[] {
+    const cols = [...this.displayedColumns];
+    if (!this.orgScopeLocked) {
+      const statusIdx = cols.indexOf('status');
+      cols.splice(statusIdx, 0, 'kycApproverEligible');
+    }
+    return cols;
+  }
+
+  /** Material table + async loads: use dataSource so rows render reliably after HTTP. */
+  readonly userTable = new MatTableDataSource<UserListRow>([]);
+
+  searchQuery = '';
+  filterFieldsOpen = false;
+  showSampleCsvInfo = false;
+  readonly sampleCsvDescription =
+    'Use this template to prepare user imports. Keep the column headers unchanged and provide one user per row.';
+  readonly importCsvDisclaimer =
+    'CSV import only. Keep required fields populated (username, email, first/last name, gender, date of birth, phone, password, userTypeName).';
+
+  columnFilters = {
+    email: '',
+    firstName: '',
+    lastName: '',
+    username: '',
+    phoneNumber: '',
+    nationalIdNumber: '',
+    passportNumber: '',
+    statusLabel: '',
+  };
+
+  pageIndex = 0;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
+  totalRecords = 0;
+  private readonly reload$ = new Subject<void>();
+  private latestLoadToken = 0;
+  showCreateModal = false;
+  creating = false;
+  createError = '';
+  createStep = 0;
+  optionsLoading = false;
+  nationalIdUploadLabel = '';
+  passportUploadLabel = '';
+  createModel = {
+    organizationId: '',
+    branchId: '',
+    organizationKycApprover: false,
+    username: '',
+    email: '',
+    firstName: '',
+    lastName: '',
+    gender: '',
+    dateOfBirth: '',
+    phoneNumber: '',
+    password: '',
+    confirmPassword: '',
+    nationalIdNumber: '',
+    nationalIdExpiryDate: '',
+    nationalIdUpload: null as File | null,
+    passportNumber: '',
+    passportExpiryDate: '',
+    passportUpload: null as File | null,
+    userTypeName: '',
+    userTypeDescription: '',
+    addressLine1: '',
+    addressLine2: '',
+    postalCode: '',
+    suburbId: '',
+    geoLatitude: '',
+    geoLongitude: '',
+    preferredLanguage: '',
+    timezone: '',
+    securityQuestion1: '',
+    securityAnswer1: '',
+    securityQuestion2: '',
+    securityAnswer2: '',
+    twoFactorAuthSecret: '',
+    isTwoFactorEnabled: false,
+  };
+  genderOptions = ['MALE', 'FEMALE', 'OTHER'];
+  languageOptions = ['English', 'Shona', 'Ndebele'];
+  timezoneOptions = ['Africa/Harare', 'UTC'];
+  userTypeOptions: UserTypeOption[] = [];
+  countryOptions: SelectOption[] = [];
+  provinceOptions: SelectOption[] = [];
+  districtOptions: SelectOption[] = [];
+  cityOptions: SelectOption[] = [];
+  suburbOptions: SelectOption[] = [];
+  organizationOptions: IdLabelOption[] = [];
+  branchOptions: IdLabelOption[] = [];
+  /** Wizard-only address cascade; suburb id is sent as `userAddressDetails.suburbId` on create. */
+  addressCountryId = '';
+  addressProvinceId = '';
+  addressDistrictId = '';
+  addressCityId = '';
+  /** Prevents opening native selects while FK rows are still in flight (empty first paint). */
+  provinceOptionsLoading = false;
+  districtOptionsLoading = false;
+  cityOptionsLoading = false;
+  suburbOptionsLoading = false;
+  organizationsLoading = false;
+  branchesLoading = false;
+  /** Table filter: organisation id as string for `<select>` binding (empty = all). */
+  filterOrganizationId = '';
+  filterBranchId = '';
+  filterOrganizationOptions: IdLabelOption[] = [];
+  filterBranchOptions: IdLabelOption[] = [];
+  filterOrganizationsLoading = false;
+  filterBranchesLoading = false;
+
+  private pendingDeleteSnapshot: { row: UserListRow; index: number; didPageBack: boolean } | null = null;
+
+  constructor(
+    private readonly title: Title,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
+    private readonly usersService: UsersPortalService,
+    private readonly locationsService: LocationsService,
+    private readonly dialog: MatDialog,
+    private readonly snackBar: MatSnackBar,
+    private readonly cdr: ChangeDetectorRef,
+    private readonly notifications: NotificationService,
+    private readonly orgContext: OrgContextService,
+    private readonly authState: AuthStateService,
+  ) {}
+
+  get orgScopeLocked(): boolean {
+    return this.lockedOrganizationId != null;
+  }
+
+  get lockedOrgLabel(): string {
+    const id = this.lockedOrganizationId;
+    if (!id) {
+      return '';
+    }
+    return (
+      this.authState.currentUser?.orgName?.trim() ||
+      this.filterOrganizationOptions.find((o) => o.id === id)?.label ||
+      `Organisation #${id}`
+    );
+  }
+
+  trackBySelectOptionId(_index: number, o: SelectOption): number {
+    return o.id;
+  }
+
+  /** String `<option value>` so `ngModel` stays aligned with the DOM (avoids native select mismatch). */
+  selectOptionValue(id: number): string {
+    return String(id);
+  }
+
+  resetPaging(): void {
+    this.pageIndex = 0;
+    this.reload$.next();
+  }
+
+  onPage(e: PageEvent): void {
+    this.pageIndex = e.pageIndex;
+    this.pageSize = e.pageSize;
+    this.reload$.next();
+  }
+
+  ngOnInit(): void {
+    this.title.setTitle('Users | LX Platform');
+    const sessionOrg = this.lockedOrganizationId;
+    if (sessionOrg) {
+      this.filterOrganizationId = String(sessionOrg);
+      const orgName = this.authState.currentUser?.orgName?.trim();
+      if (orgName) {
+        this.filterOrganizationOptions = [{ id: sessionOrg, label: orgName }];
+      }
+      this.loadFilterBranchesForOrganization(sessionOrg);
+    }
+    this.route.queryParamMap.subscribe(() => {
+      if (sessionOrg) {
+        this.filterOrganizationId = String(sessionOrg);
+      }
+      this.pageIndex = 0;
+      this.reload$.next();
+    });
+    this.reload$.pipe(debounceTime(150)).subscribe(() => this.loadUsers());
+    this.loadFilterOrganizationOptions();
+    this.reload$.next();
+  }
+
+  get lockedOrganizationId(): number | null {
+    return this.orgContext.organizationId;
+  }
+
+  get hasScopeFilters(): boolean {
+    return this.orgScopeLocked || !!this.parsedFilterOrganizationId() || !!this.parsedFilterBranchId();
+  }
+
+  get filterScopeSummary(): string {
+    if (this.orgScopeLocked) {
+      return this.lockedOrgLabel;
+    }
+    const parts: string[] = [];
+    const orgLabel = this.filterOrganizationLabel;
+    if (orgLabel) {
+      parts.push(orgLabel);
+    }
+    const branchLabel = this.filterBranchLabel;
+    if (branchLabel) {
+      parts.push(branchLabel);
+    }
+    return parts.join(' · ');
+  }
+
+  get filterOrganizationLabel(): string {
+    const id = this.parsedFilterOrganizationId();
+    if (!id) {
+      return '';
+    }
+    return this.filterOrganizationOptions.find((o) => o.id === id)?.label ?? `Organisation #${id}`;
+  }
+
+  get filterBranchLabel(): string {
+    const id = this.parsedFilterBranchId();
+    if (!id) {
+      return '';
+    }
+    return this.filterBranchOptions.find((b) => b.id === id)?.label ?? `Branch #${id}`;
+  }
+
+  onFilterOrganizationChange(value: unknown): void {
+    const raw = String(value ?? '').trim();
+    this.filterOrganizationId = raw;
+    this.filterBranchId = '';
+    this.filterBranchOptions = [];
+    if (!raw) {
+      this.resetPaging();
+      return;
+    }
+    const organizationId = Number(raw);
+    if (!Number.isFinite(organizationId) || organizationId < 1) {
+      this.resetPaging();
+      return;
+    }
+    this.loadFilterBranchesForOrganization(organizationId);
+    this.resetPaging();
+  }
+
+  onFilterBranchChange(value: unknown): void {
+    this.filterBranchId = String(value ?? '').trim();
+    this.resetPaging();
+  }
+
+  clearScopeFilters(): void {
+    this.filterOrganizationId = '';
+    this.filterBranchId = '';
+    this.filterBranchOptions = [];
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {},
+      replaceUrl: true,
+    });
+    this.resetPaging();
+  }
+
+  userLink(
+    row: UserListRow,
+    section: 'profile' | 'account' | 'preferences' | 'security-policies' | 'addresses' | 'password',
+  ): string[] {
+    return ['/users', String(row.id), section];
+  }
+
+  prepareRowActions(event: Event, row: UserListRow): void {
+    event.stopPropagation();
+    this.activeUserRow = row;
+    this.menuTargetRow = row;
+  }
+
+  clearRowActions(): void {
+    this.activeUserRow = null;
+  }
+
+  navigateToUserSection(
+    section: 'profile' | 'account' | 'preferences' | 'security-policies' | 'addresses' | 'password',
+  ): void {
+    const row = this.menuTargetRow;
+    if (!row || !Number.isFinite(row.id) || row.id <= 0) {
+      return;
+    }
+    void this.router.navigate(this.userLink(row, section)).then(() => {
+      this.menuTargetRow = null;
+    });
+  }
+
+  openAssignRolesToGroupDialog(row: UserListRow): void {
+    if (!row.userGroupId) return;
+    const groupLabel = row.role !== '—' ? row.role : undefined;
+    this.dialog.open(AssignRolesDialogComponent, {
+      width: '840px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      panelClass: 'lx-location-dialog-panel',
+      data: { userGroupId: row.userGroupId, groupLabel },
+    });
+  }
+
+  openEditUserDialog(row: UserListRow): void {
+    if (!Number.isFinite(row.id) || row.id <= 0) {
+      return;
+    }
+    this.usersService.getUserProfileBundle(row.id).subscribe({
+      next: (bundle) => {
+        const user = bundle.user;
+        if (!user) {
+          this.notifications.error('Could not load user profile for editing.');
+          return;
+        }
+        this.dialog
+          .open(UserEditProfileDialogComponent, {
+            width: '640px',
+            maxWidth: '95vw',
+            autoFocus: 'first-tabbable',
+            panelClass: 'lx-location-dialog-panel',
+            data: { user },
+          })
+          .afterClosed()
+          .subscribe((saved) => {
+            if (saved) {
+              this.reload$.next();
+            }
+          });
+      },
+      error: () => {
+        this.notifications.error('Could not load user profile for editing.');
+      },
+    });
+  }
+
+  resendVerificationEmail(row: UserListRow): void {
+    const email = row.email?.trim();
+    if (!email || !row.canResendVerificationEmail) {
+      return;
+    }
+    this.resendingVerificationUserId = row.id;
+    this.usersService
+      .resendVerificationEmail(email)
+      .pipe(
+        finalize(() => {
+          this.resendingVerificationUserId = null;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (resp) => {
+          if (this.usersService.isUserMutationFailure(resp)) {
+            this.notifications.error(
+              this.usersService.formatUserMutationError(resp, 'Could not resend verification email.'),
+            );
+            return;
+          }
+          this.notifications.success(`Verification email sent to ${email}.`);
+        },
+        error: (err: unknown) => {
+          this.notifications.error(this.formatResendVerificationHttpError(err));
+        },
+      });
+  }
+
+  deleteUserRow(row: UserListRow): void {
+    if (!Number.isFinite(row.id) || row.id <= 0) {
+      return;
+    }
+    this.dialog
+      .open(DeleteConfirmDialogComponent, {
+        width: '420px',
+        maxWidth: '92vw',
+        data: {
+          entityLabel: 'user',
+          onConfirm: () => {
+            const rows = this.userTable.data;
+            const idx = rows.findIndex((r) => r.id === row.id);
+            let didPageBack = false;
+            this.userTable.data = rows.filter((r) => r.id !== row.id);
+            this.totalRecords = Math.max(0, this.totalRecords - 1);
+            if (this.userTable.data.length === 0 && this.totalRecords > 0 && this.pageIndex > 0) {
+              this.pageIndex -= 1;
+              didPageBack = true;
+              this.reload$.next();
+            }
+            this.pendingDeleteSnapshot = { row: { ...row }, index: idx >= 0 ? idx : 0, didPageBack };
+            this.cdr.detectChanges();
+          },
+        },
+      })
+      .afterClosed()
+      .subscribe((confirmed) => {
+        if (!confirmed) {
+          return;
+        }
+        this.usersService.deleteUser(row.id).subscribe({
+          next: (resp) => {
+            if (this.usersService.isUserMutationFailure(resp)) {
+              this.rollbackOptimisticDelete();
+              this.snackBar.open(
+                this.usersService.formatUserMutationError(resp, 'Failed to delete user.'),
+                'Close',
+                { duration: 5000, panelClass: ['app-snackbar-error'] },
+              );
+              return;
+            }
+            this.pendingDeleteSnapshot = null;
+            this.snackBar.open('User deleted successfully.', 'Close', {
+              duration: 5000,
+              panelClass: ['app-snackbar-success'],
+            });
+          },
+          error: () => {
+            this.rollbackOptimisticDelete();
+            this.snackBar.open('Failed to delete user.', 'Close', {
+              duration: 5000,
+              panelClass: ['app-snackbar-error'],
+            });
+          },
+        });
+      });
+  }
+
+  openAddUserToGroupDialog(row: UserListRow): void {
+    if (!Number.isFinite(row.id) || row.id <= 0) {
+      return;
+    }
+    this.dialog
+      .open(UserAssignUserGroupDialogComponent, {
+        width: '560px',
+        maxWidth: '95vw',
+        autoFocus: 'first-tabbable',
+        panelClass: 'lx-location-dialog-panel',
+        data: { userId: row.id, currentGroupId: row.userGroupId },
+      })
+      .afterClosed()
+      .subscribe((saved) => {
+        if (saved) {
+          this.reload$.next();
+        }
+      });
+  }
+
+  refresh(): void {
+    this.fetching = true;
+    this.cdr.detectChanges();
+    this.reload$.next();
+  }
+
+  stubImport(): void {}
+
+  exportAs(format: LxExportFormat): void {
+    if (this.exporting) {
+      return;
+    }
+    this.exporting = true;
+    this.usersService
+      .exportUsers(
+        {
+          page: this.pageIndex,
+          size: this.pageSize,
+          searchQuery: this.searchQuery,
+          columnFilters: this.columnFilters,
+          organizationId: this.parsedFilterOrganizationId(),
+          branchId: this.parsedFilterBranchId(),
+        },
+        format,
+      )
+      .pipe(
+        finalize(() => {
+          this.exporting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (blob) => {
+          downloadBlob(blob, exportFilename('users', format));
+          this.snackBar.open(`Exported users as ${format.toUpperCase()}.`, 'Close', {
+            duration: 3500,
+            panelClass: ['app-snackbar-success'],
+          });
+        },
+        error: (err: Error) => {
+          this.snackBar.open(err.message ?? 'Export failed.', 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-error'],
+          });
+        },
+      });
+  }
+
+  downloadSampleCsv(): void {
+    const rows = [
+      'username,email,firstName,lastName,gender,dateOfBirth,phoneNumber,password,userTypeName,nationalIdNumber,passportNumber,statusLabel',
+      'tmoyo,tmoyo@example.com,Tinashe,Moyo,MALE,1992-04-17,+263771111111,Temp@123,Driver,63-123456-A-12,DN123456,ACTIVE',
+      'rnyoni,rnyoni@example.com,Rudo,Nyoni,FEMALE,1996-11-02,+263772222222,Temp@123,Dispatcher,12-987654-B-34,DN654321,ACTIVE',
+    ].join('\n');
+    this.downloadCsv('users-sample.csv', rows);
+  }
+
+  openCreateModal(): void {
+    this.resetCreateWizardForm();
+    const orgId = this.lockedOrganizationId;
+    if (orgId) {
+      this.createModel.organizationId = String(orgId);
+      this.loadFilterBranchesForOrganization(orgId);
+    }
+    this.showCreateModal = true;
+    this.syncPageModalScrollLock(true);
+    this.loadCreateOptions();
+  }
+
+  closeCreateModal(): void {
+    if (this.creating) return;
+    this.showCreateModal = false;
+    this.syncPageModalScrollLock(false);
+  }
+
+  ngOnDestroy(): void {
+    this.syncPageModalScrollLock(false);
+  }
+
+  private syncPageModalScrollLock(open: boolean): void {
+    document.body.classList.toggle('lx-page-modal-open', open);
+  }
+
+  submitCreate(): void {
+    const required = [
+      this.createModel.username,
+      this.createModel.email,
+      this.createModel.firstName,
+      this.createModel.lastName,
+      this.createModel.gender,
+      this.createModel.dateOfBirth,
+      this.createModel.phoneNumber,
+      this.createModel.password,
+      this.createModel.userTypeName,
+      this.createModel.userTypeDescription,
+    ];
+    if (required.some((v) => !v.trim())) {
+      this.createError = 'Fill all required user fields.';
+      return;
+    }
+    if (this.createModel.password !== this.createModel.confirmPassword) {
+      this.createError = 'Password and confirm password must match.';
+      return;
+    }
+    if (!isLdmsPasswordValid(this.createModel.password)) {
+      this.createError = LDMS_PASSWORD_INVALID_MESSAGE;
+      return;
+    }
+    const nid = this.createModel.nationalIdNumber.trim();
+    const ppt = this.createModel.passportNumber.trim();
+    if (!nid && !ppt) {
+      this.createError = 'Provide a national ID or a passport number (backend requires identification).';
+      return;
+    }
+    if (!this.createModel.preferredLanguage.trim() || !this.createModel.timezone.trim()) {
+      this.createError = 'Select preferred language and timezone.';
+      return;
+    }
+
+    this.creating = true;
+    this.createError = '';
+    this.usersService
+      .createUser({
+        organizationId: this.parseLong(this.createModel.organizationId),
+        branchId: this.parseLong(this.createModel.branchId),
+        organizationKycApprover:
+          !this.createModel.organizationId && this.createModel.organizationKycApprover,
+        username: this.createModel.username.trim(),
+        email: this.createModel.email.trim(),
+        firstName: this.createModel.firstName.trim(),
+        lastName: this.createModel.lastName.trim(),
+        gender: this.createModel.gender.trim(),
+        dateOfBirth: this.createModel.dateOfBirth.trim(),
+        phoneNumber: this.createModel.phoneNumber.trim(),
+        password: this.createModel.password,
+        nationalIdNumber: nid || undefined,
+        nationalIdExpiryDate: this.createModel.nationalIdExpiryDate.trim() || undefined,
+        nationalIdUpload: this.createModel.nationalIdUpload ?? undefined,
+        passportNumber: ppt || undefined,
+        passportExpiryDate: this.createModel.passportExpiryDate.trim() || undefined,
+        passportUpload: this.createModel.passportUpload ?? undefined,
+        userTypeName: this.createModel.userTypeName.trim(),
+        userTypeDescription: this.createModel.userTypeDescription.trim(),
+        addressLine1: this.createModel.addressLine1.trim(),
+        addressLine2: this.createModel.addressLine2.trim(),
+        postalCode: this.createModel.postalCode.trim(),
+        suburbId: this.parseLong(this.createModel.suburbId),
+        geoLatitude: this.parseOptionalNumber(this.createModel.geoLatitude),
+        geoLongitude: this.parseOptionalNumber(this.createModel.geoLongitude),
+        preferredLanguage: this.createModel.preferredLanguage.trim(),
+        timezone: this.createModel.timezone.trim(),
+        securityQuestion1: this.createModel.securityQuestion1.trim(),
+        securityAnswer1: this.createModel.securityAnswer1.trim(),
+        securityQuestion2: this.createModel.securityQuestion2.trim(),
+        securityAnswer2: this.createModel.securityAnswer2.trim(),
+        twoFactorAuthSecret: this.createModel.twoFactorAuthSecret.trim(),
+        isTwoFactorEnabled: this.createModel.isTwoFactorEnabled,
+      })
+      .pipe(
+        finalize(() => {
+          this.creating = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (resp: unknown) => {
+          if (this.isUserCreateFailure(resp)) {
+            const msg = this.formatUserApiError(resp);
+            this.createError = msg;
+            this.notifications.error(msg);
+            return;
+          }
+          this.notifications.success('User created successfully.');
+          this.showCreateModal = false;
+          this.syncPageModalScrollLock(false);
+          this.resetPaging();
+        },
+        error: (err: unknown) => {
+          const msg = this.formatCreateUserHttpError(err);
+          this.createError = msg;
+          this.notifications.error(msg);
+        },
+      });
+  }
+
+  nextCreateStep(): void {
+    if (!this.validateStep(this.createStep, true)) return;
+    this.createStep = Math.min(3, this.createStep + 1);
+  }
+
+  prevCreateStep(): void {
+    this.createError = '';
+    this.createStep = Math.max(0, this.createStep - 1);
+  }
+
+  goToCreateStep(step: number): void {
+    if (step < 0 || step > 3) return;
+    if (!this.canAccessStep(step)) {
+      this.createError = 'Complete the current stage before moving forward.';
+      return;
+    }
+    this.createStep = step;
+    this.createError = '';
+  }
+
+  canAccessStep(step: number): boolean {
+    for (let i = 0; i < step; i += 1) {
+      if (!this.isStepComplete(i)) return false;
+    }
+    return true;
+  }
+
+  isStepComplete(step: number): boolean {
+    return this.validateStep(step, false);
+  }
+
+  onUserTypeChange(userTypeIdRaw: string): void {
+    const id = Number(userTypeIdRaw);
+    const selected = this.userTypeOptions.find((u) => u.id === id);
+    if (!selected) return;
+    this.createModel.userTypeName = selected.label;
+    this.createModel.userTypeDescription = selected.description;
+  }
+
+  onSuburbChange(suburbIdRaw: unknown): void {
+    const trimmed = String(suburbIdRaw ?? '').trim();
+    if (!trimmed) {
+      this.createModel.suburbId = '';
+      return;
+    }
+    const id = Number(trimmed);
+    if (!Number.isFinite(id)) return;
+    this.createModel.suburbId = String(id);
+  }
+
+  onNationalIdUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+    this.createModel.nationalIdUpload = file;
+    this.nationalIdUploadLabel = file?.name ?? '';
+  }
+
+  onPassportUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0] ?? null;
+    this.createModel.passportUpload = file;
+    this.passportUploadLabel = file?.name ?? '';
+  }
+
+  onOrganizationChange(value: unknown): void {
+    const raw = String(value ?? '').trim();
+    this.createModel.organizationId = raw;
+    this.createModel.branchId = '';
+    if (raw) {
+      this.createModel.organizationKycApprover = false;
+    }
+    this.branchOptions = [];
+    this.branchesLoading = false;
+    const organizationId = Number(raw);
+    if (!raw || !Number.isFinite(organizationId) || organizationId < 1) return;
+    this.branchesLoading = true;
+    this.usersService.queryBranchesForOrganization(organizationId).pipe(
+      finalize(() => {
+        this.branchesLoading = false;
+        queueMicrotask(() => this.cdr.detectChanges());
+      }),
+    ).subscribe({
+      next: (options) => {
+        this.branchOptions = options;
+      },
+      error: () => {
+        this.branchOptions = [];
+      },
+    });
+  }
+
+  onAddressCountryChange(value: unknown): void {
+    const raw = String(value ?? '').trim();
+    this.addressCountryId = raw;
+    this.addressProvinceId = '';
+    this.addressDistrictId = '';
+    this.addressCityId = '';
+    this.provinceOptions = [];
+    this.districtOptions = [];
+    this.cityOptions = [];
+    this.suburbOptions = [];
+    this.provinceOptionsLoading = false;
+    this.districtOptionsLoading = false;
+    this.cityOptionsLoading = false;
+    this.suburbOptionsLoading = false;
+    this.clearSuburbSelection();
+    const id = Number(raw);
+    if (!raw || !Number.isFinite(id)) return;
+    this.provinceOptionsLoading = true;
+    this.locationsService
+      .fetchProvincesForSelect({ countryId: String(id) })
+      .pipe(finalize(() => this.afterAddressOptionsLoaded('provinces')))
+      .subscribe({
+        next: (opts) => {
+          this.provinceOptions = opts.map((o) => ({ id: o.id, label: o.label, sublabel: o.sublabel }));
+        },
+        error: () => {
+          this.provinceOptions = [];
+        },
+      });
+  }
+
+  onAddressProvinceChange(value: unknown): void {
+    const raw = String(value ?? '').trim();
+    this.addressProvinceId = raw;
+    this.addressDistrictId = '';
+    this.addressCityId = '';
+    this.districtOptions = [];
+    this.cityOptions = [];
+    this.suburbOptions = [];
+    this.districtOptionsLoading = false;
+    this.cityOptionsLoading = false;
+    this.suburbOptionsLoading = false;
+    this.clearSuburbSelection();
+    const id = Number(raw);
+    if (!raw || !Number.isFinite(id)) return;
+    this.districtOptionsLoading = true;
+    this.locationsService
+      .fetchDistrictsForSelect({ provinceId: String(id) })
+      .pipe(finalize(() => this.afterAddressOptionsLoaded('districts')))
+      .subscribe({
+        next: (opts) => {
+          this.districtOptions = opts.map((o) => ({ id: o.id, label: o.label, sublabel: o.sublabel }));
+        },
+        error: () => {
+          this.districtOptions = [];
+        },
+      });
+  }
+
+  onAddressDistrictChange(value: unknown): void {
+    const raw = String(value ?? '').trim();
+    this.addressDistrictId = raw;
+    this.addressCityId = '';
+    this.cityOptions = [];
+    this.suburbOptions = [];
+    this.cityOptionsLoading = false;
+    this.suburbOptionsLoading = false;
+    this.clearSuburbSelection();
+    const id = Number(raw);
+    if (!raw || !Number.isFinite(id)) return;
+    this.cityOptionsLoading = true;
+    this.locationsService
+      .fetchCitiesForSelect({ districtId: String(id) })
+      .pipe(finalize(() => this.afterAddressOptionsLoaded('cities')))
+      .subscribe({
+        next: (opts) => {
+          this.cityOptions = opts.map((o) => ({ id: o.id, label: o.label, sublabel: o.sublabel }));
+        },
+        error: () => {
+          this.cityOptions = [];
+        },
+      });
+  }
+
+  onAddressCityChange(value: unknown): void {
+    const raw = String(value ?? '').trim();
+    this.addressCityId = raw;
+    this.suburbOptions = [];
+    this.suburbOptionsLoading = false;
+    this.clearSuburbSelection();
+    const cityId = Number(raw);
+    const districtId = Number(this.addressDistrictId);
+    if (!raw || !Number.isFinite(cityId) || !Number.isFinite(districtId)) return;
+    this.suburbOptionsLoading = true;
+    this.locationsService
+      .fetchSuburbsForSelect({ districtId: String(districtId), cityId: String(cityId) })
+      .pipe(finalize(() => this.afterAddressOptionsLoaded('suburbs')))
+      .subscribe({
+        next: (opts) => {
+          this.suburbOptions = opts.map((o) => ({ id: o.id, label: o.label, sublabel: o.sublabel }));
+        },
+        error: () => {
+          this.suburbOptions = [];
+        },
+      });
+  }
+
+  /** Native `<select>` + async `*ngFor` options often need a tick to repaint correctly. */
+  private afterAddressOptionsLoaded(
+    tier: 'provinces' | 'districts' | 'cities' | 'suburbs',
+  ): void {
+    if (tier === 'provinces') this.provinceOptionsLoading = false;
+    if (tier === 'districts') this.districtOptionsLoading = false;
+    if (tier === 'cities') this.cityOptionsLoading = false;
+    if (tier === 'suburbs') this.suburbOptionsLoading = false;
+    queueMicrotask(() => this.cdr.detectChanges());
+  }
+
+  private rollbackOptimisticDelete(): void {
+    const snap = this.pendingDeleteSnapshot;
+    if (!snap) {
+      return;
+    }
+    if (snap.didPageBack) {
+      this.pageIndex += 1;
+      this.pendingDeleteSnapshot = null;
+      this.reload$.next();
+      return;
+    }
+    const rows = this.userTable.data.slice();
+    const insertAt = Math.min(Math.max(snap.index, 0), rows.length);
+    rows.splice(insertAt, 0, snap.row);
+    this.userTable.data = rows;
+    this.totalRecords += 1;
+    this.pendingDeleteSnapshot = null;
+    this.cdr.detectChanges();
+  }
+
+  private loadFilterOrganizationOptions(): void {
+    this.filterOrganizationsLoading = true;
+    this.usersService
+      .queryOrganizationsForSelect()
+      .pipe(
+        finalize(() => {
+          this.filterOrganizationsLoading = false;
+          queueMicrotask(() => this.cdr.detectChanges());
+        }),
+      )
+      .subscribe({
+        next: (options) => {
+          this.filterOrganizationOptions = options;
+        },
+        error: () => {
+          this.filterOrganizationOptions = [];
+        },
+      });
+  }
+
+  private loadFilterBranchesForOrganization(organizationId: number): void {
+    this.filterBranchesLoading = true;
+    this.usersService
+      .queryBranchesForOrganization(organizationId)
+      .pipe(
+        finalize(() => {
+          this.filterBranchesLoading = false;
+          queueMicrotask(() => this.cdr.detectChanges());
+        }),
+      )
+      .subscribe({
+        next: (options) => {
+          this.filterBranchOptions = options;
+        },
+        error: () => {
+          this.filterBranchOptions = [];
+        },
+      });
+  }
+
+  private parsedFilterOrganizationId(): number | null {
+    const trimmed = this.filterOrganizationId.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const id = Number(trimmed);
+    return Number.isFinite(id) && id > 0 ? Math.trunc(id) : null;
+  }
+
+  private parsedFilterBranchId(): number | null {
+    const trimmed = this.filterBranchId.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const id = Number(trimmed);
+    return Number.isFinite(id) && id > 0 ? Math.trunc(id) : null;
+  }
+
+  private loadUsers(): void {
+    const loadToken = ++this.latestLoadToken;
+    this.fetching = true;
+    this.usersService
+      .queryUsers({
+        page: this.pageIndex,
+        size: this.pageSize,
+        searchQuery: this.searchQuery,
+        columnFilters: this.columnFilters,
+        organizationId: this.parsedFilterOrganizationId(),
+        branchId: this.parsedFilterBranchId(),
+      })
+      .pipe(
+        finalize(() => {
+          if (loadToken === this.latestLoadToken) {
+            this.fetching = false;
+            this.cdr.detectChanges();
+          }
+        }),
+      )
+      .subscribe({
+        next: ({ rows, totalElements }) => {
+          if (loadToken !== this.latestLoadToken) return;
+          if (rows.length === 0 && totalElements > 0 && this.pageIndex > 0) {
+            this.pageIndex = 0;
+            this.loadUsers();
+            return;
+          }
+          // New array ref so MatTableDataSource always emits; avoids stale empty state after HTTP.
+          this.userTable.data = rows.slice();
+          this.totalRecords = totalElements;
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          if (loadToken !== this.latestLoadToken) return;
+          this.userTable.data = [];
+          this.totalRecords = 0;
+        },
+      });
+  }
+
+  private parseOptionalNumber(raw: string): number | undefined {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? n : undefined;
+  }
+
+  private parseLong(raw: string): number | undefined {
+    const trimmed = raw.trim();
+    if (!trimmed) return undefined;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? n : undefined;
+  }
+
+  private downloadCsv(filename: string, contents: string): void {
+    const blob = new Blob([contents], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  private validateStep(step: number, showError: boolean): boolean {
+    if (step === 0) {
+      const basicRequired = [
+        this.createModel.username,
+        this.createModel.email,
+        this.createModel.firstName,
+        this.createModel.lastName,
+        this.createModel.gender,
+        this.createModel.dateOfBirth,
+        this.createModel.phoneNumber,
+        this.createModel.password,
+        this.createModel.confirmPassword,
+      ];
+      const isValid = basicRequired.every((v) => v.trim().length > 0);
+      if (!isValid && showError) this.createError = 'Complete all required basic information fields.';
+      if (!isValid) return false;
+
+      const passwordsMatch = this.createModel.password === this.createModel.confirmPassword;
+      if (!passwordsMatch && showError) {
+        this.createError = 'Password and confirm password must match before continuing.';
+      }
+      if (!passwordsMatch) return false;
+
+      if (!isLdmsPasswordValid(this.createModel.password)) {
+        if (showError) this.createError = LDMS_PASSWORD_INVALID_MESSAGE;
+        return false;
+      }
+
+      const dateIsValid = isDateOfBirthAtLeastMinimumAge(this.createModel.dateOfBirth);
+      if (!dateIsValid && showError) {
+        this.createError = dateOfBirthMinimumAgeMessage();
+      }
+      if (dateIsValid && showError) this.createError = '';
+      return dateIsValid;
+    }
+
+    if (step === 1) {
+      const typeOk = this.createModel.userTypeName.trim().length > 0;
+      const nid = this.createModel.nationalIdNumber.trim();
+      const ppt = this.createModel.passportNumber.trim();
+      const idOk = nid.length > 0 || ppt.length > 0;
+      const addrOk =
+        this.createModel.addressLine1.trim().length > 0 &&
+        this.createModel.postalCode.trim().length > 0 &&
+        !!this.parseLong(this.createModel.suburbId);
+      const isValid = typeOk && idOk && addrOk;
+      if (!typeOk && showError) this.createError = 'Select a user type.';
+      else if (!idOk && showError) {
+        this.createError = 'Enter a national ID or passport number.';
+      } else if (!addrOk && showError) {
+        this.createError = 'Enter address line 1, postal code, and suburb (required to create the address).';
+      }
+      if (isValid && showError) this.createError = '';
+      return isValid;
+    }
+
+    if (step === 2) {
+      const isValid = this.createModel.preferredLanguage.trim().length > 0 && this.createModel.timezone.trim().length > 0;
+      if (!isValid && showError) this.createError = 'Select preferred language and timezone before continuing.';
+      if (isValid && showError) this.createError = '';
+      return isValid;
+    }
+
+    if (step === 3) {
+      if (showError) this.createError = '';
+      return true;
+    }
+
+    return true;
+  }
+
+  private isUserCreateFailure(resp: unknown): boolean {
+    if (resp === null || typeof resp !== 'object') {
+      return false;
+    }
+    const r = resp as Record<string, unknown>;
+    if (r['success'] === false || r['isSuccess'] === false) {
+      return true;
+    }
+    const statusCode = r['statusCode'];
+    return typeof statusCode === 'number' && statusCode >= 400;
+  }
+
+  private formatUserApiError(resp: unknown): string {
+    if (resp !== null && typeof resp === 'object') {
+      const r = resp as Record<string, unknown>;
+      const messages = r['errorMessages'];
+      if (Array.isArray(messages) && messages.length > 0) {
+        return messages.map((m) => String(m)).join(' ');
+      }
+      if (typeof r['message'] === 'string' && r['message'].trim()) {
+        return r['message'].trim();
+      }
+    }
+    return 'Could not create user. Check the form and try again.';
+  }
+
+  private formatResendVerificationHttpError(err: unknown): string {
+    if (!(err instanceof HttpErrorResponse)) {
+      return 'Failed to resend verification email.';
+    }
+    const body = err.error;
+    if (body !== null && typeof body === 'object') {
+      const rec = body as Record<string, unknown>;
+      const messages = rec['errorMessages'];
+      if (Array.isArray(messages) && messages.length > 0) {
+        return messages.map((m) => String(m)).join(' ');
+      }
+      if (typeof rec['message'] === 'string' && rec['message'].trim()) {
+        return rec['message'].trim();
+      }
+    }
+    return err.status >= 400
+      ? `Failed to resend verification email (${err.status}).`
+      : 'Failed to resend verification email.';
+  }
+
+  private formatCreateUserHttpError(err: unknown): string {
+    if (!(err instanceof HttpErrorResponse)) {
+      return 'Failed to create user.';
+    }
+    const body = err.error;
+    if (body !== null && typeof body === 'object') {
+      const rec = body as Record<string, unknown>;
+      const messages = rec['errorMessages'];
+      if (Array.isArray(messages) && messages.length > 0) {
+        return messages.map((m) => String(m)).join(' ');
+      }
+      if (typeof rec['message'] === 'string' && rec['message'].trim()) {
+        return rec['message'].trim();
+      }
+    }
+    if (typeof body === 'string' && body.trim()) {
+      return body.trim().slice(0, 300);
+    }
+    return err.status >= 400
+      ? `Failed to create user (${err.status}).`
+      : 'Failed to create user.';
+  }
+
+  get maximumDateOfBirth(): string {
+    return maximumDateOfBirthInput();
+  }
+
+  private clearSuburbSelection(): void {
+    this.createModel.suburbId = '';
+  }
+
+  private resetCreateWizardForm(): void {
+    this.createError = '';
+    this.createStep = 0;
+    this.nationalIdUploadLabel = '';
+    this.passportUploadLabel = '';
+    this.createModel = {
+      organizationId: '',
+      branchId: '',
+      organizationKycApprover: false,
+      username: '',
+      email: '',
+      firstName: '',
+      lastName: '',
+      gender: '',
+      dateOfBirth: '',
+      phoneNumber: '',
+      password: '',
+      confirmPassword: '',
+      nationalIdNumber: '',
+      nationalIdExpiryDate: '',
+      nationalIdUpload: null,
+      passportNumber: '',
+      passportExpiryDate: '',
+      passportUpload: null,
+      userTypeName: '',
+      userTypeDescription: '',
+      addressLine1: '',
+      addressLine2: '',
+      postalCode: '',
+      suburbId: '',
+      geoLatitude: '',
+      geoLongitude: '',
+      preferredLanguage: '',
+      timezone: '',
+      securityQuestion1: '',
+      securityAnswer1: '',
+      securityQuestion2: '',
+      securityAnswer2: '',
+      twoFactorAuthSecret: '',
+      isTwoFactorEnabled: false,
+    };
+    this.addressCountryId = '';
+    this.addressProvinceId = '';
+    this.addressDistrictId = '';
+    this.addressCityId = '';
+    this.countryOptions = [];
+    this.organizationOptions = [];
+    this.branchOptions = [];
+    this.provinceOptions = [];
+    this.districtOptions = [];
+    this.cityOptions = [];
+    this.suburbOptions = [];
+  }
+
+  private loadCreateOptions(): void {
+    this.optionsLoading = true;
+    this.organizationsLoading = true;
+    forkJoin({
+      userTypes: this.usersService.queryUserTypes({
+        page: 0,
+        size: 200,
+        searchQuery: '',
+        columnFilters: { userTypeName: '', description: '' },
+      }),
+      countries: this.locationsService.fetchCountriesForSelect(),
+      organizations: this.usersService.queryOrganizationsForSelect(),
+    }).subscribe({
+      next: ({ userTypes, countries, organizations }) => {
+        this.userTypeOptions = userTypes.rows.map((r) => ({
+          id: Number(r['id'] ?? 0),
+          label: String(r['userTypeName'] ?? ''),
+          description: String(r['description'] ?? ''),
+        }));
+        this.countryOptions = countries.map((o) => ({ id: o.id, label: o.label, sublabel: o.sublabel }));
+        this.organizationOptions = organizations;
+        this.optionsLoading = false;
+        this.organizationsLoading = false;
+        queueMicrotask(() => this.cdr.detectChanges());
+      },
+      error: () => {
+        this.userTypeOptions = [];
+        this.countryOptions = [];
+        this.organizationOptions = [];
+        this.optionsLoading = false;
+        this.organizationsLoading = false;
+      },
+    });
+  }
+}

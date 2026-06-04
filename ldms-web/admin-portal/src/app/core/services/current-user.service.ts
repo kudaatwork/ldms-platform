@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { catchError, finalize, map, shareReplay, timeout } from 'rxjs/operators';
 import { decodeJwtPayload, normalizeJwtRoles } from '../utils/jwt.util';
 import { StorageService, StoredUser } from './storage.service';
 import { UserProfileService } from './user-profile.service';
@@ -19,7 +19,10 @@ export interface ShellUserView {
 
 @Injectable({ providedIn: 'root' })
 export class CurrentUserService {
+  private static readonly PROFILE_TIMEOUT_MS = 12_000;
+
   private readonly subject = new BehaviorSubject<ShellUserView | null>(null);
+  private refreshInFlight: Observable<ShellUserView | null> | null = null;
   readonly user$ = this.subject.asObservable();
 
   constructor(
@@ -33,9 +36,14 @@ export class CurrentUserService {
 
   syncFromStorage(): void {
     const stored = this.storage.getUser();
-    if (stored) {
-      this.subject.next(this.toView(stored));
+    if (!stored) {
+      return;
     }
+    const view = this.toView(stored);
+    if (this.viewsEqual(view, this.subject.value)) {
+      return;
+    }
+    this.subject.next(view);
   }
 
   clear(): void {
@@ -56,8 +64,14 @@ export class CurrentUserService {
       return of(null);
     }
 
+    if (this.refreshInFlight) {
+      return this.refreshInFlight;
+    }
+
     const jwtRoles = normalizeJwtRoles(payload?.roles);
-    return this.userProfile.fetchCurrentUser().pipe(
+    this.refreshInFlight = this.userProfile.fetchCurrentUser().pipe(
+      timeout(CurrentUserService.PROFILE_TIMEOUT_MS),
+      catchError(() => of(null)),
       map((profile) => {
         const groupRoles = profile?.roles ?? [];
         const merged = profile
@@ -69,9 +83,34 @@ export class CurrentUserService {
           : this.buildStoredFromJwt(token, jwtRoles);
         this.storage.setUser(merged);
         const view = this.toView(merged);
-        this.subject.next(view);
+        if (!this.viewsEqual(view, this.subject.value)) {
+          this.subject.next(view);
+        }
         return view;
       }),
+      shareReplay({ bufferSize: 1, refCount: true }),
+      finalize(() => {
+        this.refreshInFlight = null;
+      }),
+    );
+    return this.refreshInFlight;
+  }
+
+  private viewsEqual(a: ShellUserView | null, b: ShellUserView | null): boolean {
+    if (a === b) {
+      return true;
+    }
+    if (!a || !b) {
+      return false;
+    }
+    return (
+      a.firstName === b.firstName &&
+      a.lastName === b.lastName &&
+      a.email === b.email &&
+      a.role === b.role &&
+      a.displayName === b.displayName &&
+      a.welcomeMessage === b.welcomeMessage &&
+      a.initials === b.initials
     );
   }
 
@@ -93,6 +132,7 @@ export class CurrentUserService {
       roleLabel: 'User',
       roles: jwtRoles,
       organizationKycApprover: payload?.organizationKycApprover === true,
+      operationalIssueHandler: payload?.operationalIssueHandler === true,
     };
   }
 

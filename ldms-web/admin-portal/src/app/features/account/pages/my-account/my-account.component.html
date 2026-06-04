@@ -122,8 +122,8 @@
             <mat-icon class="my-card__icon">home_work</mat-icon>
             <h3>Address</h3>
           </div>
-          <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditAddress()" [disabled]="!hasAddress()">
-            Edit
+          <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditAddress()">
+            {{ hasAddress() ? 'Edit' : 'Add address' }}
           </button>
         </header>
         <dl class="my-fields" *ngIf="hasAddress(); else addressEmpty">

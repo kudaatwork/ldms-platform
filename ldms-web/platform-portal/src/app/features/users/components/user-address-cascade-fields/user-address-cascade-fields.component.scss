@@ -1,0 +1,29 @@
+:host {
+  display: contents;
+}
+
+.uacf-grid {
+  display: contents;
+}
+
+.uacf-grid .lx-field-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gray-700, #334155);
+  letter-spacing: 0.01em;
+}
+
+.uacf-grid .lx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.uacf-hint {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--lx-muted, #64748b);
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}

@@ -76,6 +76,8 @@ public interface OrganizationService {
 
     OrganizationResponse getById(Long id, Locale locale);
 
+    OrganizationResponse getByIdForFrontend(Long id, String username, Locale locale);
+
     OrganizationResponse getByIdForSystem(Long id, Locale locale);
 
     OrganizationResponse delete(Long id, Locale locale, String modifiedBy);

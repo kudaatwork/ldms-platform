@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { catchError, forkJoin, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { catchError, forkJoin, map, Observable, of, switchMap, tap, throwError, timeout } from 'rxjs';
 import { UserProfileService } from './user-profile.service';
 import { environment } from '../../../environments/environment';
 import { CurrentUser, OrganizationClassification } from '../models/auth.model';
@@ -21,6 +21,8 @@ import { portalHomeRoute } from '../utils/portal-navigation.util';
 export class AuthService {
   /** Via API Gateway: {@code http://localhost:8091/ldms-authentication/v1/auth} (not :4201). */
   private readonly authBase = ldmsApiUrl('/ldms-authentication/v1/auth');
+  /** Avoid indefinite spinner when profile/org APIs are slow or unavailable. */
+  private static readonly SESSION_ENRICHMENT_TIMEOUT_MS = 12_000;
 
   constructor(
     private readonly http: HttpClient,
@@ -98,6 +100,10 @@ export class AuthService {
 
   private completeLogin(token: string, mustChangeCredentials = false): Observable<void> {
     this.storage.setToken(token);
+    const jwtUser = currentUserFromJwt(token);
+    if (jwtUser?.roles?.length) {
+      this.storage.setUser({ roles: jwtUser.roles });
+    }
     return this.loadSessionUser(token, mustChangeCredentials).pipe(
       tap((user) => this.authState.setCurrentUser(user)),
       map(() => void 0),
@@ -105,8 +111,15 @@ export class AuthService {
   }
 
   private loadSessionUser(token: string, mustChangeCredentials = false): Observable<CurrentUser> {
-    const profile$ = this.userProfile.fetchCurrentUser();
-    const org$ = this.organizationService.getMy().pipe(catchError(() => of(null)));
+    const enrichTimeout = AuthService.SESSION_ENRICHMENT_TIMEOUT_MS;
+    const profile$ = this.userProfile.fetchCurrentUser().pipe(
+      timeout(enrichTimeout),
+      catchError(() => of(null)),
+    );
+    const org$ = this.organizationService.getMy().pipe(
+      timeout(enrichTimeout),
+      catchError(() => of(null)),
+    );
     return forkJoin({ profile: profile$, org: org$ }).pipe(
       map(({ profile, org }) =>
         this.mergeSession(token, org, profile, mustChangeCredentials),
@@ -149,16 +162,35 @@ export class AuthService {
         profile.displayName.split(/\s+/)[0] ||
         (user.firstName ?? '').trim() ||
         '';
+      const roleLabel = profile.roleLabel?.trim() || user.roleLabel;
+      const profileOrgId =
+        profile.organizationId != null && profile.organizationId > 0
+          ? String(profile.organizationId)
+          : '';
+      const profileUserId =
+        profile.id != null && profile.id > 0 ? String(profile.id) : user.userId;
       user = {
         ...user,
+        userId: profileUserId || user.userId,
         email: profile.email || user.email,
         firstName,
         lastName: profile.lastName,
+        roleLabel,
+        organizationId: profileOrgId || user.organizationId,
         displayName: this.buildDisplayName(firstName, profile.lastName, profile.displayName),
         welcomeMessage: this.buildWelcomeMessage(firstName, profile.lastName, profile.displayName),
         mustChangeCredentials:
           mustChangeCredentials || profile.mustChangeCredentials === true || user.mustChangeCredentials === true,
       };
+      this.storage.setUser({
+        username: profile.username,
+        firstName,
+        lastName: profile.lastName,
+        email: profile.email,
+        name: user.displayName,
+        roleLabel,
+        roles: user.roles,
+      });
     } else {
       const local = (user.email ?? '').split('@')[0];
       const firstName = (user.firstName ?? '').trim() || local;
@@ -168,6 +200,7 @@ export class AuthService {
         displayName: this.buildDisplayName(firstName, user.lastName ?? '', local),
         welcomeMessage: this.buildWelcomeMessage(firstName, user.lastName ?? '', local),
       };
+      this.storage.setUser({ roles: user.roles });
     }
     return user;
   }

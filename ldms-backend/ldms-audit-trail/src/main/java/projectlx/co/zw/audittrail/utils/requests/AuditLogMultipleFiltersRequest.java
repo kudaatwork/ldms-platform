@@ -36,4 +36,7 @@ public class AuditLogMultipleFiltersRequest extends MultipleFiltersRequest {
 
     /** When non-empty, rows whose {@code action} is in this list are excluded. */
     private List<String> excludeActions;
+
+    /** When non-empty, only rows whose {@code username} is in this list are returned. */
+    private List<String> usernamesIn;
 }

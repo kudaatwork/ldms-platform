@@ -6,10 +6,42 @@
         >Track outbound loads, drivers, and ETAs — demo data until live shipment APIs are connected.</ng-container
       >
       <ng-container *ngIf="!isSupplier"
-        >Snapshot metrics for your organisation — figures below are demo data until backend wiring is complete.</ng-container
+        >Key metrics for your organisation at a glance — figures are demo data until backend wiring is complete.</ng-container
       >
     </p>
   </header>
+
+  <div class="dash-kpi-grid" *ngIf="cards.length">
+    <article
+      class="dash-kpi"
+      *ngFor="let card of cards; trackBy: trackKpi"
+      [ngClass]="'dash-kpi--' + card.theme"
+    >
+      <div class="dash-kpi__glow" aria-hidden="true"></div>
+      <div class="dash-kpi__mesh" aria-hidden="true"></div>
+      <div class="dash-kpi__inner">
+        <div class="dash-kpi__head">
+          <div class="dash-kpi__icon-wrap">
+            <span class="material-icons" aria-hidden="true">{{ card.icon }}</span>
+          </div>
+          <span class="dash-kpi__trend" [class.dash-kpi__trend--up]="card.up" [class.dash-kpi__trend--down]="!card.up">
+            <span class="dash-kpi__trend-arrow" aria-hidden="true">{{ card.up ? '↑' : '↓' }}</span>
+            {{ card.trend }}
+          </span>
+        </div>
+        <div class="dash-kpi__value">{{ card.value }}</div>
+        <div class="dash-kpi__label">{{ card.label }}</div>
+        <div class="dash-kpi__spark" aria-hidden="true">
+          <span
+            *ngFor="let bar of card.spark; let i = index"
+            class="dash-kpi__spark-bar"
+            [style.height.%]="bar"
+            [class.dash-kpi__spark-bar--last]="i === card.spark.length - 1"
+          ></span>
+        </div>
+      </div>
+    </article>
+  </div>
 
   <!-- Supplier: operations board -->
   <ng-container *ngIf="isSupplier">
@@ -170,20 +202,5 @@
         </div>
       </aside>
     </div>
-
-    <div class="lx-grid lx-grid-4 dash-kpi-below">
-      <article class="lx-card kpi-card" *ngFor="let card of cards">
-        <div class="lx-kpi-label">{{ card.label }}</div>
-        <div class="lx-kpi-value">{{ card.value }}</div>
-      </article>
-    </div>
   </ng-container>
-
-  <!-- Other classifications: compact KPI grid -->
-  <div class="lx-grid lx-grid-4" *ngIf="!isSupplier">
-    <article class="lx-card kpi-card" *ngFor="let card of cards">
-      <div class="lx-kpi-label">{{ card.label }}</div>
-      <div class="lx-kpi-value">{{ card.value }}</div>
-    </article>
-  </div>
 </section>

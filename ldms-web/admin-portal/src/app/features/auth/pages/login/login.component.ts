@@ -10,6 +10,7 @@ import {
 import { GoogleGsiService } from '@core/services/google-gsi.service';
 import { ThemeService } from '@core/services/theme.service';
 import { environment } from '../../../../../environments/environment';
+import { resolveAdminPostLoginUrl } from '@core/utils/post-login-url.util';
 
 @Component({
   selector: 'app-login',
@@ -70,20 +71,12 @@ export class LoginComponent implements AfterViewInit {
   }
 
   private onGoogleCredential(idToken: string): void {
-    this.loading = true;
-    this.error = '';
-    this.cdr.markForCheck();
+    this.beginSignIn();
     this.auth.loginWithGoogleIdToken(idToken).subscribe({
       next: () => {
-        this.loading = false;
-        this.cdr.markForCheck();
-        void this.router.navigateByUrl('/dashboard', { replaceUrl: true });
+        void this.navigateAfterLogin('/dashboard');
       },
-      error: (e: Error) => {
-        this.error = e.message ?? 'Google sign-in failed';
-        this.loading = false;
-        this.cdr.markForCheck();
-      },
+      error: (e: Error) => this.failSignIn(e.message ?? 'Google sign-in failed'),
     });
   }
 
@@ -108,25 +101,31 @@ export class LoginComponent implements AfterViewInit {
       this.cdr.markForCheck();
       return;
     }
-    this.loading = true;
-    this.error = '';
-    this.cdr.markForCheck();
+    this.beginSignIn();
     const { usernameOrEmail, password } = this.form.value as {
       usernameOrEmail: string;
       password: string;
     };
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    const target = resolveAdminPostLoginUrl(returnUrl);
     this.auth.login(usernameOrEmail, password).subscribe({
       next: () => {
-        this.loading = false;
-        this.cdr.markForCheck();
-        void this.router.navigateByUrl('/dashboard', { replaceUrl: true });
+        void this.navigateAfterLogin(target);
       },
-      error: (e: Error) => {
-        this.error = e.message || 'Invalid credentials';
-        this.loading = false;
-        this.cdr.markForCheck();
-      },
+      error: (e: Error) => this.failSignIn(e.message || 'Invalid credentials'),
     });
+  }
+
+  private beginSignIn(): void {
+    this.loading = true;
+    this.error = '';
+    this.cdr.markForCheck();
+  }
+
+  private failSignIn(message: string): void {
+    this.loading = false;
+    this.error = message;
+    this.cdr.markForCheck();
   }
 
   get usernameOrEmailCtrl() {
@@ -135,5 +134,27 @@ export class LoginComponent implements AfterViewInit {
 
   get passCtrl() {
     return this.form.get('password');
+  }
+
+  private async navigateAfterLogin(target: string): Promise<void> {
+    const path = (target.startsWith('/') ? target : `/${target}`).split('?')[0];
+    const commands =
+      !path || path === '/' ? ['dashboard'] : path.split('/').filter((segment) => segment.length > 0);
+
+    try {
+      let ok = await this.router.navigate(commands, { replaceUrl: true });
+      if (!ok) {
+        ok = await this.router.navigateByUrl(path.startsWith('/') ? path : `/${path}`, { replaceUrl: true });
+      }
+      if (!ok) {
+        this.failSignIn('Could not open the app after sign-in. Refresh the page or open /dashboard.');
+        return;
+      }
+    } catch {
+      this.failSignIn('Navigation failed. Please try again.');
+      return;
+    }
+    this.loading = false;
+    this.cdr.markForCheck();
   }
 }

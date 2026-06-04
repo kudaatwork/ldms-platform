@@ -64,7 +64,6 @@ export class UserEditAccountDialogComponent {
         id: this.accountId,
         userId: this.userId,
         phoneNumber: this.phoneNumber.trim() || undefined,
-        accountNumber: this.accountNumber.trim() || undefined,
         ...(this.selfService ? {} : { isAccountLocked: this.isAccountLocked }),
       })
       .pipe(finalize(() => (this.saving = false)))

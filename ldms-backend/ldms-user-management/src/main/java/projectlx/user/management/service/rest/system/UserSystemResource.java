@@ -84,11 +84,16 @@ public class UserSystemResource {
     public UserResponse update(@Valid @ModelAttribute final EditUserRequest editUserRequest,
                                @RequestParam(value = "organizationKycApprover", required = false)
                                final String organizationKycApprover,
+                               @RequestParam(value = "operationalIssueHandler", required = false)
+                               final String operationalIssueHandler,
                                @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                    @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                            defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         if (organizationKycApprover != null) {
             editUserRequest.setOrganizationKycApprover(organizationKycApprover);
+        }
+        if (operationalIssueHandler != null) {
+            editUserRequest.setOperationalIssueHandler(operationalIssueHandler);
         }
         return userServiceProcessor.update(editUserRequest, "SYSTEM", locale);
     }
@@ -103,6 +108,18 @@ public class UserSystemResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return userServiceProcessor.setOrganizationKycApprover(id, enabled, locale, "SYSTEM");
+    }
+
+    @Auditable(action = "SET_OPERATIONAL_ISSUE_HANDLER")
+    @PutMapping("/{id}/operational-issue-handler")
+    @Operation(summary = "Set operational issue handler eligibility",
+            description = "Toggles whether an admin user (no organisation) may be assigned Help & Support tickets.")
+    public UserResponse setOperationalIssueHandler(
+            @PathVariable("id") final Long id,
+            @RequestParam("enabled") final boolean enabled,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.setOperationalIssueHandler(id, enabled, locale, "SYSTEM");
     }
 
     @Auditable(action = "FIND_USER_BY_ID")
@@ -136,7 +153,17 @@ public class UserSystemResource {
     {
         return userServiceProcessor.findByUsername(username, locale);
     }
-    
+
+    @Auditable(action = "FIND_CURRENT_USER_SESSION")
+    @GetMapping(value = "/session-profile-by-username/{username}")
+    @Operation(summary = "Session profile by username",
+            description = "Lightweight user lookup for inter-service session/org resolution (no remote address hydration).")
+    public UserResponse findSessionProfileByUsername(@PathVariable("username") final String username,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.findCurrentUserForSession(username, locale);
+    }
+
     @Auditable(action = "LIST_ORGANIZATION_KYC_APPROVERS")
     @GetMapping(value = "/organization-kyc-approvers")
     @Operation(summary = "List organisation KYC approver candidates",
@@ -148,6 +175,19 @@ public class UserSystemResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return userServiceProcessor.listOrganizationKycApprovers(locale);
+    }
+
+    @Auditable(action = "LIST_OPERATIONAL_ISSUE_HANDLERS")
+    @GetMapping(value = "/operational-issue-handlers")
+    @Operation(summary = "List operational issue handler candidates",
+            description = "Returns active admin-portal users flagged as support ticket handlers with no organisation assignment.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Handlers retrieved successfully")
+    })
+    public UserResponse listOperationalIssueHandlers(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.listOperationalIssueHandlers(locale);
     }
 
     @Auditable(action = "PROVISION_ORGANIZATION_CONTACT_PERSON")

@@ -36,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
@@ -80,11 +81,16 @@ public class UserBackofficeResource {
     public UserResponse update(@Valid @ModelAttribute final EditUserRequest editUserRequest,
                                @RequestParam(value = "organizationKycApprover", required = false)
                                final String organizationKycApprover,
+                               @RequestParam(value = "operationalIssueHandler", required = false)
+                               final String operationalIssueHandler,
                                @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                    @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                            defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         if (organizationKycApprover != null) {
             editUserRequest.setOrganizationKycApprover(organizationKycApprover);
+        }
+        if (operationalIssueHandler != null) {
+            editUserRequest.setOperationalIssueHandler(operationalIssueHandler);
         }
         return userServiceProcessor.update(editUserRequest, "BACKOFFICE", locale);
     }
@@ -101,6 +107,18 @@ public class UserBackofficeResource {
         return userServiceProcessor.setOrganizationKycApprover(id, enabled, locale, "BACKOFFICE");
     }
 
+    @Auditable(action = "SET_OPERATIONAL_ISSUE_HANDLER")
+    @PutMapping("/{id}/operational-issue-handler")
+    @Operation(summary = "Set operational issue handler eligibility",
+            description = "Toggles whether an admin user (no organisation) may be assigned Help & Support tickets.")
+    public UserResponse setOperationalIssueHandler(
+            @PathVariable("id") final Long id,
+            @RequestParam("enabled") final boolean enabled,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.setOperationalIssueHandler(id, enabled, locale, "BACKOFFICE");
+    }
+
     @Auditable(action = "FIND_USER_BY_ID")
     @GetMapping(value = "/find-by-id/{id}")
     @Operation(summary = "Find user by ID", description = "Retrieves a user by their unique ID.")
@@ -114,7 +132,7 @@ public class UserBackofficeResource {
                                     @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                             defaultValue = Constants.DEFAULT_LOCALE) final Locale locale)
     {
-        return userServiceProcessor.findById(id, locale, "BACKOFFICE");
+        return userServiceProcessor.findById(id, locale, resolveBackofficeActor());
     }
 
     @Auditable(action = "FIND_CURRENT_USER")
@@ -129,7 +147,7 @@ public class UserBackofficeResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userServiceProcessor.findByUsername(username, locale);
+        return userServiceProcessor.findCurrentUserForSession(username, locale);
     }
 
     @Auditable(action = "FIND_USER_BY_USERNAME")
@@ -412,5 +430,17 @@ public class UserBackofficeResource {
                                                @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                                        defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return userServiceProcessor.resendVerificationLink(email, locale, "BACKOFFICE");
+    }
+
+    /** Prefer the signed-in admin username for access checks; fall back to the legacy backoffice actor. */
+    private static String resolveBackofficeActor() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && StringUtils.hasText(auth.getName())) {
+            String name = auth.getName().trim();
+            if (!"anonymousUser".equalsIgnoreCase(name)) {
+                return name;
+            }
+        }
+        return "BACKOFFICE";
     }
 }

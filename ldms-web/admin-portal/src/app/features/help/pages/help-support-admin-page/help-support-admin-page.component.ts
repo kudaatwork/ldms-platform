@@ -69,6 +69,7 @@ export class HelpSupportAdminPageComponent implements OnInit {
         t.subject.toLowerCase().includes(q) ||
         t.requesterUsername.toLowerCase().includes(q) ||
         t.requesterEmail.toLowerCase().includes(q) ||
+        (t.assignedHandlerUsername ?? '').toLowerCase().includes(q) ||
         t.category.toLowerCase().includes(q)
       );
     });

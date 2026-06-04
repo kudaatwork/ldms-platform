@@ -38,6 +38,7 @@ import projectlx.user.management.utils.requests.CreateUserRequest;
 import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
+import projectlx.user.management.utils.responses.UsernameAvailabilityResponse;
 import projectlx.user.management.utils.responses.UserResponse;
 
 import java.io.IOException;
@@ -86,11 +87,16 @@ public class UserFrontendResource {
     public UserResponse update(@Valid @ModelAttribute final EditUserRequest editUserRequest,
                                @RequestParam(value = "organizationKycApprover", required = false)
                                final String organizationKycApprover,
+                               @RequestParam(value = "operationalIssueHandler", required = false)
+                               final String operationalIssueHandler,
                                @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                    @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                            defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         if (organizationKycApprover != null) {
             editUserRequest.setOrganizationKycApprover(organizationKycApprover);
+        }
+        if (operationalIssueHandler != null) {
+            editUserRequest.setOperationalIssueHandler(operationalIssueHandler);
         }
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userServiceProcessor.update(editUserRequest, username, locale);
@@ -110,8 +116,22 @@ public class UserFrontendResource {
         return userServiceProcessor.setOrganizationKycApprover(id, enabled, locale, username);
     }
 
+    @Auditable(action = "SET_OPERATIONAL_ISSUE_HANDLER")
+    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoles).UPDATE_USER.toString())")
+    @PutMapping("/{id}/operational-issue-handler")
+    @Operation(summary = "Set operational issue handler eligibility",
+            description = "Toggles whether an admin user (no organisation) may be assigned Help & Support tickets.")
+    public UserResponse setOperationalIssueHandler(
+            @PathVariable("id") final Long id,
+            @RequestParam("enabled") final boolean enabled,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.setOperationalIssueHandler(id, enabled, locale, username);
+    }
+
     @Auditable(action = "FIND_USER_BY_ID")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoles).VIEW_USER_BY_ID.toString())")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping(value = "/find-by-id/{id}")
     @Operation(summary = "Find user by ID", description = "Retrieves a user by their unique ID.")
     @ApiResponses({
@@ -139,7 +159,7 @@ public class UserFrontendResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userServiceProcessor.findByUsername(username, locale);
+        return userServiceProcessor.findCurrentUserForSession(username, locale);
     }
 
     @Auditable(action = "FIND_USER_BY_USERNAME")
@@ -156,6 +176,23 @@ public class UserFrontendResource {
                                  @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                          defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return userServiceProcessor.findByUsername(username, locale);
+    }
+
+    @Auditable(action = "CHECK_USERNAME_AVAILABILITY")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/username-availability/{username}")
+    @Operation(summary = "Check username availability",
+            description = "Returns whether a username is free for the signed-in user completing credential setup.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Availability evaluated"),
+            @ApiResponse(responseCode = "400", description = "Invalid username format")
+    })
+    public UsernameAvailabilityResponse checkUsernameAvailability(
+            @PathVariable("username") final String username,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String sessionUsername = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.checkUsernameAvailability(username, locale, sessionUsername);
     }
 
     @Auditable(action = "COMPLETE_CREDENTIALS_SETUP")
@@ -243,7 +280,7 @@ public class UserFrontendResource {
     }
 
     @Auditable(action = "FIND_USERS_BY_ORGANIZATION")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoles).VIEW_USERS_BY_ORGANIZATION.toString())")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping(value = "/find-by-organization-id/{organizationId}")
     @Operation(summary = "Find users by organization ID",
             description = "Retrieves a list of users that belong to the specified organization.")
@@ -261,6 +298,29 @@ public class UserFrontendResource {
         UserResponse response = userServiceProcessor.findByOrganizationId(organizationId, locale, username);
         logger.info("Outgoing response after finding users by organization ID: {}. Status Code: {}. Message: {}", 
                 response, response.getStatusCode(), response.getMessage());
+        return response;
+    }
+
+    @Auditable(action = "FIND_USERNAMES_BY_ORGANIZATION")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping(value = "/usernames-by-organization-id/{organizationId}")
+    @Operation(
+            summary = "Find usernames by organization ID",
+            description = "Returns distinct login usernames for the organisation workspace (lightweight audit scoping).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Usernames retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid organization ID"),
+            @ApiResponse(responseCode = "403", description = "Not allowed to view this organisation")
+    })
+    public UserResponse findUsernamesByOrganizationId(@PathVariable("organizationId") final Long organizationId,
+                                                      @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+                                                      @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                                                              defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        logger.info("Incoming request to find usernames by organization ID: {}", organizationId);
+        UserResponse response = userServiceProcessor.findUsernamesByOrganizationId(organizationId, locale, username);
+        logger.info("Outgoing response after finding usernames by organization ID: {}. Status Code: {}. Message: {}",
+                organizationId, response.getStatusCode(), response.getMessage());
         return response;
     }
 

@@ -48,6 +48,10 @@ public final class OrganizationSpecifications {
         return (root, query, cb) -> cb.notEqual(root.get("entityStatus"), EntityStatus.DELETED);
     }
 
+    public static Specification<Organization> idEquals(Long id) {
+        return (root, query, cb) -> cb.equal(root.get("id"), id);
+    }
+
     public static Specification<Organization> nameLike(String name) {
         String pattern = name.trim().toLowerCase() + "%";
         return (root, query, cb) -> cb.like(cb.lower(root.get("name")), pattern);

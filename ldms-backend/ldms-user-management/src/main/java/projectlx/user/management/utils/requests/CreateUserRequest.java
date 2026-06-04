@@ -24,6 +24,9 @@ public class CreateUserRequest {
     /** When true, user is an admin-portal KYC reviewer candidate (requires no organisation/branch). */
     private Boolean organizationKycApprover;
 
+    /** When true, user may be assigned Help &amp; Support / operational issue tickets (requires no organisation/branch). */
+    private Boolean operationalIssueHandler;
+
     private Long locationId;
 
     // ===========================

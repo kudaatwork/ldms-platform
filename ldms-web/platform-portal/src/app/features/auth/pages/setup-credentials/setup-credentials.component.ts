@@ -1,10 +1,36 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit,
+} from '@angular/core';
 import { AbstractControl, FormBuilder, FormGroup, ValidationErrors, Validators } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
 import { CredentialsSetupService } from '../../../../core/services/credentials-setup.service';
 import { ThemeService } from '../../../../core/services/theme.service';
+import {
+  LDMS_USERNAME_INVALID_MESSAGE,
+  isLdmsUsernameValid,
+  ldmsUsernameFormatValidator,
+} from '../../../../core/utils/ldms-username.util';
+import {
+  LDMS_PASSWORD_INVALID_MESSAGE,
+  ldmsPasswordFormatValidator,
+} from '../../../../core/utils/ldms-password.util';
+import { Subject, of } from 'rxjs';
+import {
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  filter,
+  map,
+  switchMap,
+  takeUntil,
+  tap,
+} from 'rxjs/operators';
 
 function passwordsMatch(c: AbstractControl): ValidationErrors | null {
   const np = c.get('newPassword')?.value as string | undefined;
@@ -15,6 +41,8 @@ function passwordsMatch(c: AbstractControl): ValidationErrors | null {
   return np === cp ? null : { mismatch: true };
 }
 
+export type UsernameAvailabilityUi = 'idle' | 'checking' | 'available' | 'taken';
+
 @Component({
   selector: 'app-setup-credentials',
   templateUrl: './setup-credentials.component.html',
@@ -22,12 +50,20 @@ function passwordsMatch(c: AbstractControl): ValidationErrors | null {
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: false,
 })
-export class SetupCredentialsComponent {
+export class SetupCredentialsComponent implements OnInit, OnDestroy {
+  readonly usernameFormatHint = LDMS_USERNAME_INVALID_MESSAGE;
+  readonly passwordFormatHint = LDMS_PASSWORD_INVALID_MESSAGE;
+  readonly usernameUniquenessInfo =
+    'Your username must be unique across the platform. If it is already taken, you will be asked to choose another.';
+
   form: FormGroup;
   loading = false;
   error = '';
   showPass = false;
   showPass2 = false;
+  usernameAvailability: UsernameAvailabilityUi = 'idle';
+
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
     private readonly fb: FormBuilder,
@@ -40,13 +76,63 @@ export class SetupCredentialsComponent {
   ) {
     this.form = this.fb.group(
       {
-        newUsername: ['', [Validators.required, Validators.minLength(3), Validators.maxLength(20)]],
-        newPassword: ['', [Validators.required, Validators.minLength(8)]],
+        newUsername: ['', [Validators.required, ldmsUsernameFormatValidator()]],
+        newPassword: ['', [Validators.required, ldmsPasswordFormatValidator()]],
         confirmPassword: ['', Validators.required],
       },
       { validators: passwordsMatch },
     );
     this.title.setTitle('Set up your account | LX Platform');
+  }
+
+  ngOnInit(): void {
+    const usernameControl = this.form.get('newUsername');
+    if (!usernameControl) {
+      return;
+    }
+    usernameControl.valueChanges
+      .pipe(
+        debounceTime(400),
+        map((value) => String(value ?? '').trim()),
+        distinctUntilChanged(),
+        tap((value) => {
+          this.clearUsernameTakenError();
+          if (!value || !isLdmsUsernameValid(value)) {
+            this.usernameAvailability = 'idle';
+            this.cdr.markForCheck();
+          }
+        }),
+        filter((value) => value.length > 0 && isLdmsUsernameValid(value)),
+        tap(() => {
+          this.usernameAvailability = 'checking';
+          this.cdr.markForCheck();
+        }),
+        switchMap((value) =>
+          this.credentialsSetup.checkUsernameAvailability(value).pipe(
+            map((available) => ({ value, available })),
+            catchError(() => of({ value, available: false })),
+          ),
+        ),
+        takeUntil(this.destroy$),
+      )
+      .subscribe(({ value, available }) => {
+        const current = String(usernameControl.value ?? '').trim();
+        if (current !== value) {
+          return;
+        }
+        this.usernameAvailability = available ? 'available' : 'taken';
+        if (!available) {
+          this.setUsernameTakenError();
+        } else {
+          this.clearUsernameTakenError();
+        }
+        this.cdr.markForCheck();
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
   }
 
   toggleTheme(): void {
@@ -65,6 +151,11 @@ export class SetupCredentialsComponent {
   }
 
   submit(): void {
+    if (this.usernameAvailability === 'taken' || this.usernameAvailability === 'checking') {
+      this.usernameCtrl?.markAsTouched();
+      this.cdr.markForCheck();
+      return;
+    }
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       this.cdr.markForCheck();
@@ -119,5 +210,32 @@ export class SetupCredentialsComponent {
 
   get confirm() {
     return this.form.get('confirmPassword');
+  }
+
+  get submitDisabled(): boolean {
+    return (
+      this.loading ||
+      this.usernameAvailability === 'checking' ||
+      this.usernameAvailability === 'taken'
+    );
+  }
+
+  private setUsernameTakenError(): void {
+    const control = this.usernameCtrl;
+    if (!control) {
+      return;
+    }
+    const errors = { ...(control.errors ?? {}), usernameTaken: true };
+    control.setErrors(errors);
+  }
+
+  private clearUsernameTakenError(): void {
+    const control = this.usernameCtrl;
+    if (!control?.hasError('usernameTaken')) {
+      return;
+    }
+    const errors = { ...control.errors } as ValidationErrors;
+    delete errors['usernameTaken'];
+    control.setErrors(Object.keys(errors).length ? errors : null);
   }
 }

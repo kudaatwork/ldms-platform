@@ -42,6 +42,11 @@ public class SharedJwtSecurityConfig {
                     response.setContentType("application/json");
                     response.getWriter().write("{\"error\": \"Unauthorized - Invalid or missing token.\"}");
                 })
+                .accessDeniedHandler((request, response, accessDeniedException) -> {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\": \"Access Denied\"}");
+                })
             )
 
             .authorizeHttpRequests(auth -> auth

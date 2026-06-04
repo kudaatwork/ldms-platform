@@ -31,7 +31,6 @@ export class AuthInterceptor implements HttpInterceptor {
       const headers = req.headers.has('Authorization') ? req.headers.delete('Authorization') : req.headers;
       return next.handle(req.clone({ headers }));
     }
-
     const token = normalizeAccessToken(this.storage.getToken());
     if (!token) {
       return throwError(

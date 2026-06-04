@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, throwError } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 import { ldmsServiceUrl } from '../utils/api-url.util';
 
@@ -18,12 +18,32 @@ interface UserEnvelope {
   errorMessages?: string[];
 }
 
+interface UsernameAvailabilityEnvelope extends UserEnvelope {
+  available?: boolean;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CredentialsSetupService {
   private readonly passwordBase = ldmsServiceUrl('user-management', 'user-password');
   private readonly userBase = ldmsServiceUrl('user-management', 'user');
 
   constructor(private readonly http: HttpClient) {}
+
+  /** Live uniqueness check while the user types a new username (credential setup). */
+  checkUsernameAvailability(username: string): Observable<boolean> {
+    const trimmed = username.trim();
+    if (!trimmed) {
+      return of(false);
+    }
+    return this.http
+      .get<UsernameAvailabilityEnvelope>(
+        `${this.userBase}/username-availability/${encodeURIComponent(trimmed)}`,
+      )
+      .pipe(
+        map((res) => res.available === true),
+        catchError(() => of(false)),
+      );
+  }
 
   completeSetup(payload: CompleteCredentialsSetupPayload): Observable<void> {
     return this.http

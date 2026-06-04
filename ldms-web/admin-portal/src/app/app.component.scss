@@ -164,6 +164,16 @@
   display: block;
 }
 
+.sb-nav-hint {
+  margin: 0 12px 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+}
+
 .sb-section-label {
   font-size: 9.5px;
   font-weight: 700;
@@ -1006,10 +1016,20 @@
 .content {
   position: relative;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: clamp(18px, 2.5vw, 28px);
+  display: flex;
+  flex-direction: column;
   /* No z-index here — page modals (.lx-modal) must stack above topbar (30) / breadcrumbs (20). */
   /* Background layers (gradients + page colour + dot texture) live in styles.scss */
+
+  > router-outlet + * {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+  }
 }
 
 /* ── Responsive ─────────────────────────────────────────────── */

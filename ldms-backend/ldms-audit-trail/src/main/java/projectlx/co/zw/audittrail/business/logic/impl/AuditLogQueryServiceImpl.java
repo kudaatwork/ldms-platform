@@ -63,6 +63,7 @@ public class AuditLogQueryServiceImpl implements AuditLogQueryService {
                 blankToNull(filter.clientPlatform()),
                 normalizeActionList(filter.actionsIn()),
                 normalizeActionList(filter.excludeActions()),
+                normalizeActionList(filter.usernamesIn()),
                 pageable);
     }
 

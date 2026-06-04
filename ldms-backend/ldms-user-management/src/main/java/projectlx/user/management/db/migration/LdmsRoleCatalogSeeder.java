@@ -1,30 +1,112 @@
 package projectlx.user.management.db.migration;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import projectlx.user.management.utils.security.LdmsRoleCatalog;
-import projectlx.user.management.utils.security.LdmsRoleCatalog.RoleSeed;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import projectlx.user.management.utils.support.OrganizationPortalRolePolicy;
 
 /**
- * Idempotent seed of {@code user_role} rows and full assignment to the {@code Administrator} group.
+ * Idempotent seed of {@code user_role} rows and assignment to platform / organisation administrator groups.
  */
 public final class LdmsRoleCatalogSeeder {
 
     private static final String ADMIN_GROUP_NAME = "Administrator";
+    public static final String ORGANIZATION_ADMIN_GROUP_DESCRIPTION =
+            "Organisation workspace administrators with user-management, audit, and self-service permissions";
+    private static final String CATALOG_RESOURCE = "ldms/role-catalog.properties";
 
     private LdmsRoleCatalogSeeder() {
     }
 
+    public record RoleSeed(String role, String description) {
+    }
+
     public static void seedAllRolesAndAdministratorGroup(Connection connection) throws SQLException {
         ensureRoleUniqueIndex(connection);
-        for (RoleSeed seed : LdmsRoleCatalog.all()) {
+        for (RoleSeed seed : loadRoleCatalog()) {
             upsertRole(connection, seed.role(), seed.description());
         }
-        long groupId = ensureAdministratorGroup(connection);
+        long groupId = ensurePlatformAdministratorGroup(connection);
         linkAllActiveRolesToGroup(connection, groupId);
+    }
+
+    /**
+     * Ensures an organisation-scoped {@code Administrator} group exists and holds all workspace permissions.
+     */
+    public static long seedOrganizationAdministratorGroup(Connection connection, long organizationId) throws SQLException {
+        if (organizationId <= 0) {
+            throw new IllegalArgumentException("organizationId must be positive");
+        }
+        ensureRoleUniqueIndex(connection);
+        for (RoleSeed seed : loadRoleCatalog()) {
+            upsertRole(connection, seed.role(), seed.description());
+        }
+        long groupId = ensureOrganizationAdministratorGroup(connection, organizationId);
+        linkOrganizationPortalRolesToGroup(connection, groupId);
+        return groupId;
+    }
+
+    /**
+     * Grants an existing active user platform-administrator group membership (admin portal).
+     * Clears organisation/branch scope so the account is treated as a platform operator.
+     */
+    public static void assignUserToAdministratorGroupByUsername(Connection connection, String username)
+            throws SQLException {
+        if (username == null || username.isBlank()) {
+            return;
+        }
+        long groupId = ensurePlatformAdministratorGroup(connection);
+        String sql = """
+                UPDATE user u
+                INNER JOIN user_group g ON g.id = ?
+                SET u.user_group_id = g.id,
+                    u.organization_id = NULL,
+                    u.branch_id = NULL,
+                    u.updated_at = NOW(6)
+                WHERE LOWER(u.username) = LOWER(?)
+                  AND u.entity_status = 'ACTIVE'
+                """;
+        try (PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setLong(1, groupId);
+            ps.setString(2, username.trim());
+            ps.executeUpdate();
+        }
+    }
+
+    private static List<RoleSeed> loadRoleCatalog() {
+        Map<String, RoleSeed> unique = new LinkedHashMap<>();
+        try (InputStream in = LdmsRoleCatalogSeeder.class.getClassLoader().getResourceAsStream(CATALOG_RESOURCE)) {
+            if (in == null) {
+                throw new IllegalStateException("Missing classpath resource: " + CATALOG_RESOURCE);
+            }
+            Properties properties = new Properties();
+            properties.load(new InputStreamReader(in, StandardCharsets.UTF_8));
+            for (String role : properties.stringPropertyNames()) {
+                if (role.startsWith("#") || role.isBlank()) {
+                    continue;
+                }
+                String normalized = role.trim().toUpperCase();
+                String description = properties.getProperty(role, "").trim();
+                unique.putIfAbsent(normalized, new RoleSeed(normalized, description));
+            }
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to load " + CATALOG_RESOURCE, ex);
+        }
+        List<RoleSeed> seeds = new ArrayList<>(unique.values());
+        seeds.sort(Comparator.comparing(RoleSeed::role));
+        return seeds;
     }
 
     private static void ensureRoleUniqueIndex(Connection connection) throws SQLException {
@@ -59,12 +141,13 @@ public final class LdmsRoleCatalogSeeder {
         }
     }
 
-    private static long ensureAdministratorGroup(Connection connection) throws SQLException {
-        Long existingId = findAdministratorGroupId(connection);
+    private static long ensurePlatformAdministratorGroup(Connection connection) throws SQLException {
+        Long existingId = findPlatformAdministratorGroupId(connection);
         if (existingId != null) {
             String update = """
                     UPDATE user_group
                     SET description = 'Platform administrators with all LDMS permissions',
+                        organization_id = NULL,
                         entity_status = 'ACTIVE',
                         updated_at = NOW(6)
                     WHERE id = ?
@@ -76,23 +159,65 @@ public final class LdmsRoleCatalogSeeder {
             return existingId;
         }
         String insert = """
-                INSERT INTO user_group (name, description, entity_status, created_at, updated_at)
-                VALUES (?, 'Platform administrators with all LDMS permissions', 'ACTIVE', NOW(6), NOW(6))
+                INSERT INTO user_group (name, description, organization_id, entity_status, created_at, updated_at)
+                VALUES (?, 'Platform administrators with all LDMS permissions', NULL, 'ACTIVE', NOW(6), NOW(6))
                 """;
         try (PreparedStatement ps = connection.prepareStatement(insert)) {
             ps.setString(1, ADMIN_GROUP_NAME);
             ps.executeUpdate();
         }
-        Long createdId = findAdministratorGroupId(connection);
+        Long createdId = findPlatformAdministratorGroupId(connection);
         if (createdId == null) {
-            throw new IllegalStateException("Administrator user group was not created");
+            throw new IllegalStateException("Platform Administrator user group was not created");
         }
         return createdId;
     }
 
-    private static Long findAdministratorGroupId(Connection connection) throws SQLException {
+    private static long ensureOrganizationAdministratorGroup(Connection connection, long organizationId)
+            throws SQLException {
+        Long existingId = findOrganizationAdministratorGroupId(connection, organizationId);
+        if (existingId != null) {
+            String update = """
+                    UPDATE user_group
+                    SET description = ?,
+                        entity_status = 'ACTIVE',
+                        updated_at = NOW(6)
+                    WHERE id = ?
+                    """;
+            try (PreparedStatement ps = connection.prepareStatement(update)) {
+                ps.setString(1, ORGANIZATION_ADMIN_GROUP_DESCRIPTION);
+                ps.setLong(2, existingId);
+                ps.executeUpdate();
+            }
+            return existingId;
+        }
+        String insert = """
+                INSERT INTO user_group (name, description, organization_id, entity_status, created_at, updated_at)
+                VALUES (?, ?, ?, 'ACTIVE', NOW(6), NOW(6))
+                """;
+        try (PreparedStatement ps = connection.prepareStatement(insert)) {
+            ps.setString(1, ADMIN_GROUP_NAME);
+            ps.setString(2, ORGANIZATION_ADMIN_GROUP_DESCRIPTION);
+            ps.setLong(3, organizationId);
+            ps.executeUpdate();
+        }
+        Long createdId = findOrganizationAdministratorGroupId(connection, organizationId);
+        if (createdId == null) {
+            throw new IllegalStateException(
+                    "Organisation Administrator user group was not created for organisation " + organizationId);
+        }
+        return createdId;
+    }
+
+    private static Long findPlatformAdministratorGroupId(Connection connection) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(
-                "SELECT id FROM user_group WHERE name = ? AND entity_status <> 'DELETED' LIMIT 1")) {
+                """
+                SELECT id FROM user_group
+                WHERE LOWER(name) = LOWER(?)
+                  AND organization_id IS NULL
+                  AND entity_status <> 'DELETED'
+                LIMIT 1
+                """)) {
             ps.setString(1, ADMIN_GROUP_NAME);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
@@ -101,6 +226,50 @@ public final class LdmsRoleCatalogSeeder {
             }
         }
         return null;
+    }
+
+    private static Long findOrganizationAdministratorGroupId(Connection connection, long organizationId)
+            throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(
+                """
+                SELECT id FROM user_group
+                WHERE LOWER(name) = LOWER(?)
+                  AND organization_id = ?
+                  AND entity_status <> 'DELETED'
+                LIMIT 1
+                """)) {
+            ps.setString(1, ADMIN_GROUP_NAME);
+            ps.setLong(2, organizationId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void linkOrganizationPortalRolesToGroup(Connection connection, long groupId) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement("DELETE FROM user_group_user_role WHERE user_group_id = ?")) {
+            ps.setLong(1, groupId);
+            ps.executeUpdate();
+        }
+
+        for (RoleSeed seed : loadRoleCatalog()) {
+            if (!OrganizationPortalRolePolicy.isOrganizationPortalRole(seed.role())) {
+                continue;
+            }
+            String insertLink = """
+                    INSERT IGNORE INTO user_group_user_role (user_group_id, user_role_id)
+                    SELECT ?, ur.id FROM user_role ur
+                    WHERE ur.role = ? AND ur.entity_status = 'ACTIVE'
+                    """;
+            try (PreparedStatement ps = connection.prepareStatement(insertLink)) {
+                ps.setLong(1, groupId);
+                ps.setString(2, seed.role());
+                ps.executeUpdate();
+            }
+        }
     }
 
     private static void linkAllActiveRolesToGroup(Connection connection, long groupId) throws SQLException {

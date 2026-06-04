@@ -347,6 +347,106 @@ html.theme-dark .vault-hero__title {
   color: var(--primary-dark);
 }
 
+.vault-filter--all.vault-filter--on {
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--primary-light) 60%, var(--surface)),
+    color-mix(in srgb, var(--surface) 95%, transparent)
+  );
+  color: var(--primary-dark);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 18%, transparent);
+
+  .material-icons {
+    color: var(--primary-dark);
+  }
+
+  .vault-filter__count {
+    background: color-mix(in srgb, var(--primary) 18%, transparent);
+    color: var(--primary-dark);
+  }
+}
+
+.vault-filter--kyc.vault-filter--on {
+  border-color: color-mix(in srgb, #059669 45%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, #d1fae5 70%, var(--surface)), var(--surface));
+  color: #047857;
+  box-shadow: 0 4px 14px color-mix(in srgb, #059669 16%, transparent);
+
+  .material-icons,
+  .vault-filter__count {
+    color: #047857;
+  }
+
+  .vault-filter__count {
+    background: color-mix(in srgb, #059669 16%, transparent);
+  }
+}
+
+.vault-filter--compliance.vault-filter--on {
+  border-color: color-mix(in srgb, #d97706 45%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, #fef3c7 75%, var(--surface)), var(--surface));
+  color: #b45309;
+  box-shadow: 0 4px 14px color-mix(in srgb, #d97706 16%, transparent);
+
+  .material-icons,
+  .vault-filter__count {
+    color: #b45309;
+  }
+
+  .vault-filter__count {
+    background: color-mix(in srgb, #d97706 16%, transparent);
+  }
+}
+
+.vault-filter--profile.vault-filter--on {
+  border-color: color-mix(in srgb, #2563eb 45%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, #dbeafe 75%, var(--surface)), var(--surface));
+  color: #1d4ed8;
+  box-shadow: 0 4px 14px color-mix(in srgb, #2563eb 16%, transparent);
+
+  .material-icons,
+  .vault-filter__count {
+    color: #1d4ed8;
+  }
+
+  .vault-filter__count {
+    background: color-mix(in srgb, #2563eb 16%, transparent);
+  }
+}
+
+.vault-filter--branding.vault-filter--on {
+  border-color: color-mix(in srgb, #9333ea 45%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, #f3e8ff 75%, var(--surface)), var(--surface));
+  color: #7e22ce;
+  box-shadow: 0 4px 14px color-mix(in srgb, #9333ea 16%, transparent);
+
+  .material-icons,
+  .vault-filter__count {
+    color: #7e22ce;
+  }
+
+  .vault-filter__count {
+    background: color-mix(in srgb, #9333ea 16%, transparent);
+  }
+}
+
+.vault-filter--other.vault-filter--on {
+  border-color: color-mix(in srgb, var(--gray-500) 45%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--gray-200) 80%, var(--surface)), var(--surface));
+  color: var(--gray-800);
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--gray-500) 14%, transparent);
+
+  .material-icons,
+  .vault-filter__count {
+    color: var(--gray-700);
+  }
+
+  .vault-filter__count {
+    background: color-mix(in srgb, var(--gray-400) 20%, transparent);
+  }
+}
+
 .vault-alert {
   display: flex;
   align-items: center;
@@ -1009,4 +1109,29 @@ html.theme-dark .vault-card__preview--image {
   .vault-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.vault-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+}
+
+.vault-pagination__range {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-600);
+}
+
+.vault-pagination__control {
+  background: transparent;
+}
+
+::ng-deep .vault-pagination__control .mat-mdc-paginator-container {
+  min-height: 44px;
+  padding: 0;
 }

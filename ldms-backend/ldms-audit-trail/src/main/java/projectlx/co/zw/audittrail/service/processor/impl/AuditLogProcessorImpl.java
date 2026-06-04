@@ -203,6 +203,10 @@ public class AuditLogProcessorImpl implements AuditLogProcessor {
         c.setRequestUrl(src.getRequestUrl());
         c.setHttpMethod(src.getHttpMethod());
         c.setTraceId(src.getTraceId());
+        c.setClientPlatform(src.getClientPlatform());
+        c.setActionsIn(src.getActionsIn());
+        c.setExcludeActions(src.getExcludeActions());
+        c.setUsernamesIn(src.getUsernamesIn());
         c.setPage(page);
         c.setSize(size);
         return c;

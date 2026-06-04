@@ -60,6 +60,12 @@ public class SupportTicket {
     @Column(name = "organization_name", length = 200)
     private String organizationName;
 
+    @Column(name = "assigned_handler_user_id")
+    private Long assignedHandlerUserId;
+
+    @Column(name = "assigned_handler_username", length = 150)
+    private String assignedHandlerUsername;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)
     private EntityStatus entityStatus;

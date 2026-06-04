@@ -51,6 +51,8 @@ export class UsersListComponent implements OnInit, OnDestroy {
   fetching = true;
   exporting = false;
   resendingVerificationUserId: number | null = null;
+  activeUserRow: UserListRow | null = null;
+  private menuTargetRow: UserListRow | null = null;
 
   displayedColumns = [
     'name',
@@ -61,6 +63,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
     'nationalId',
     'emailVerified',
     'kycApproverEligible',
+    'operationalHandlerEligible',
     'status',
     'actions',
   ];
@@ -103,6 +106,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
     organizationId: '',
     branchId: '',
     organizationKycApprover: false,
+    operationalIssueHandler: false,
     username: '',
     email: '',
     firstName: '',
@@ -296,6 +300,28 @@ export class UsersListComponent implements OnInit, OnDestroy {
     section: 'profile' | 'account' | 'preferences' | 'security-policies' | 'addresses' | 'password',
   ): string[] {
     return ['/users', String(row.id), section];
+  }
+
+  prepareRowActions(event: Event, row: UserListRow): void {
+    event.stopPropagation();
+    this.activeUserRow = row;
+    this.menuTargetRow = row;
+  }
+
+  clearRowActions(): void {
+    this.activeUserRow = null;
+  }
+
+  navigateToUserSection(
+    section: 'profile' | 'account' | 'preferences' | 'security-policies' | 'addresses' | 'password',
+  ): void {
+    const row = this.menuTargetRow;
+    if (!row || !Number.isFinite(row.id) || row.id <= 0) {
+      return;
+    }
+    void this.router.navigate(this.userLink(row, section)).then(() => {
+      this.menuTargetRow = null;
+    });
   }
 
   openAssignRolesToGroupDialog(row: UserListRow): void {
@@ -573,6 +599,8 @@ export class UsersListComponent implements OnInit, OnDestroy {
         branchId: this.parseLong(this.createModel.branchId),
         organizationKycApprover:
           !this.createModel.organizationId && this.createModel.organizationKycApprover,
+        operationalIssueHandler:
+          !this.createModel.organizationId && this.createModel.operationalIssueHandler,
         username: this.createModel.username.trim(),
         email: this.createModel.email.trim(),
         firstName: this.createModel.firstName.trim(),
@@ -701,6 +729,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
     this.createModel.branchId = '';
     if (raw) {
       this.createModel.organizationKycApprover = false;
+      this.createModel.operationalIssueHandler = false;
     }
     this.branchOptions = [];
     this.branchesLoading = false;
@@ -1140,6 +1169,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
       organizationId: '',
       branchId: '',
       organizationKycApprover: false,
+      operationalIssueHandler: false,
       username: '',
       email: '',
       firstName: '',

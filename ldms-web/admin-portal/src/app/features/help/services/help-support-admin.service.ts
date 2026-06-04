@@ -49,6 +49,8 @@ export interface AdminSupportTicket {
   requesterEmail: string;
   organizationId?: number;
   organizationName?: string;
+  assignedHandlerUserId?: number;
+  assignedHandlerUsername?: string;
   createdAt: string;
 }
 

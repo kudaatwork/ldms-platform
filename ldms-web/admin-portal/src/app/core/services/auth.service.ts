@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, delay, of, throwError } from 'rxjs';
-import { catchError, map, switchMap, tap } from 'rxjs/operators';
+import { catchError, finalize, map, switchMap, tap, timeout } from 'rxjs/operators';
 import { CurrentUserService } from './current-user.service';
 import { environment } from '../../../environments/environment';
 import {
@@ -10,7 +10,12 @@ import {
   isAuthSuccess,
 } from '../models/auth-api.model';
 import { ldmsApiUrl } from '../utils/api-url.util';
-import { decodeJwtPayload, isStoredSessionToken, normalizeJwtRoles } from '../utils/jwt.util';
+import {
+  decodeJwtPayload,
+  isStoredSessionToken,
+  normalizeAccessToken,
+  normalizeJwtRoles,
+} from '../utils/jwt.util';
 import { StorageService, StoredUser } from './storage.service';
 
 export interface MockCredential {
@@ -40,6 +45,8 @@ function rolesForEmail(email: string): string[] {
 export class AuthService {
   /** {@code /ldms-authentication/v1/auth} (dev proxy → gateway :8091). */
   private readonly authBase = ldmsApiUrl('/ldms-authentication/v1/auth');
+  private static readonly AUTH_HTTP_TIMEOUT_MS = 20_000;
+  private static readonly SESSION_REFRESH_TIMEOUT_MS = 12_000;
 
   constructor(
     private readonly http: HttpClient,
@@ -54,6 +61,7 @@ export class AuthService {
     return this.http
       .post<AuthTokenResponse>(`${this.authBase}/google-id-token`, { idToken })
       .pipe(
+        timeout(AuthService.AUTH_HTTP_TIMEOUT_MS),
         switchMap((res) => this.completeLogin(this.requireAccessToken(res))),
         catchError((err: HttpErrorResponse) =>
           throwError(() => new Error(this.messageFromHttp(err))),
@@ -73,6 +81,7 @@ export class AuthService {
         password,
       })
       .pipe(
+        timeout(AuthService.AUTH_HTTP_TIMEOUT_MS),
         switchMap((res) => this.completeLogin(this.requireAccessToken(res))),
         catchError((err: HttpErrorResponse) =>
           throwError(() => new Error(this.messageFromHttp(err))),
@@ -90,11 +99,21 @@ export class AuthService {
       return of(undefined);
     }
     this.persistJwtFallback(token!);
-    return this.currentUser.refreshFromApi().pipe(map(() => undefined));
+    return this.currentUser.refreshFromApi().pipe(
+      timeout(AuthService.SESSION_REFRESH_TIMEOUT_MS),
+      catchError(() => of(null)),
+      map(() => undefined),
+    );
   }
 
   bootstrapFromStorage(): void {
-    void this.initializeSession().subscribe();
+    void this.initializeSession()
+      .pipe(
+        timeout(AuthService.SESSION_REFRESH_TIMEOUT_MS),
+        catchError(() => of(undefined)),
+        finalize(() => undefined),
+      )
+      .subscribe();
   }
 
   logout(): void {
@@ -103,9 +122,24 @@ export class AuthService {
   }
 
   private completeLogin(token: string): Observable<void> {
-    this.storage.setToken(token);
-    this.persistJwtFallback(token);
-    return this.currentUser.refreshFromApi().pipe(map(() => undefined));
+    const normalized = normalizeAccessToken(token) ?? token.trim();
+    this.storage.setToken(normalized);
+    this.persistJwtFallback(normalized);
+    this.currentUser.syncFromStorage();
+    this.scheduleSessionRefresh();
+    return of(undefined);
+  }
+
+  private scheduleSessionRefresh(): void {
+    setTimeout(() => {
+      void this.currentUser
+        .refreshFromApi()
+        .pipe(
+          timeout(AuthService.SESSION_REFRESH_TIMEOUT_MS),
+          catchError(() => of(null)),
+        )
+        .subscribe();
+    }, 0);
   }
 
   private persistJwtFallback(token: string): void {
@@ -127,9 +161,9 @@ export class AuthService {
       roleLabel: 'User',
       roles: normalizeJwtRoles(payload?.roles),
       organizationKycApprover: payload?.organizationKycApprover === true,
+      operationalIssueHandler: payload?.operationalIssueHandler === true,
     };
     this.storage.setUser(user);
-    this.currentUser.syncFromStorage();
   }
 
   private requireAccessToken(res: AuthTokenResponse): string {
@@ -155,7 +189,7 @@ export class AuthService {
       return throwError(() => new Error('Invalid credentials'));
     }
     return of(undefined).pipe(
-      delay(350),
+      delay(80),
       tap(() => {
         this.storage.setToken(`mock-token-${Date.now()}`);
         const user: StoredUser = {

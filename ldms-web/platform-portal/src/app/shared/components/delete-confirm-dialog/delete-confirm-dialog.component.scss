@@ -1,0 +1,21 @@
+.lx-delete-confirm {
+  mat-dialog-title {
+    margin: 0 0 8px;
+    color: var(--gray-900);
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+
+  mat-dialog-content {
+    margin: 0;
+    color: var(--gray-600);
+    font-size: 0.95rem;
+    line-height: 1.5;
+    padding: 4px 0 8px;
+  }
+
+  mat-dialog-actions {
+    padding-top: 8px;
+    gap: 8px;
+  }
+}

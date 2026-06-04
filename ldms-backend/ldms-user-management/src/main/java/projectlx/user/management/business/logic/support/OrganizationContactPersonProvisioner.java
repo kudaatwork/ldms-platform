@@ -69,6 +69,7 @@ public class OrganizationContactPersonProvisioner {
     private final UserSecurityRepository userSecurityRepository;
     private final UserTypeRepository userTypeRepository;
     private final UserServiceAuditable userServiceAuditable;
+    private final OrganizationContactAdministratorGroupSupport administratorGroupSupport;
     private final UserAccountService userAccountService;
     private final UserPasswordService userPasswordService;
     private final UserSecurityService userSecurityService;
@@ -138,6 +139,8 @@ public class OrganizationContactPersonProvisioner {
         user.setUserType(resolveOrganizationContactUserType(locale, actor));
 
         User saved = userServiceAuditable.create(user, locale, actor);
+        administratorGroupSupport.assignIfPresent(saved);
+        saved = userServiceAuditable.update(saved, locale, actor);
 
         CreateUserAccountRequest accountRequest = new CreateUserAccountRequest();
         accountRequest.setPhoneNumber(resolveAccountPhoneNumber(saved));
@@ -197,6 +200,8 @@ public class OrganizationContactPersonProvisioner {
             user.setOrganizationId(orgId);
             user = userServiceAuditable.update(user, locale, actor);
         }
+        administratorGroupSupport.assignIfPresent(user);
+        user = userServiceAuditable.update(user, locale, actor);
         UserResponse artifacts = ensureLoginArtifacts(user, locale, actor);
         if (!artifacts.isSuccess()) {
             return artifacts;

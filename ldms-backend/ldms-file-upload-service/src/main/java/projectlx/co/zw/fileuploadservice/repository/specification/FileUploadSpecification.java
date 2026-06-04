@@ -1,6 +1,5 @@
 package projectlx.co.zw.fileuploadservice.repository.specification;
 
-import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 import projectlx.co.zw.fileuploadservice.model.FileUpload;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
@@ -34,12 +33,15 @@ public final class FileUploadSpecification {
     }
 
     public static Specification<FileUpload> organizationOwnerIdsIn(final List<Long> organizationOwnerIds) {
-        return (root, query, cb) -> {
-            Predicate orgOwners = cb.and(
-                    cb.equal(root.get("ownerType"), OwnerType.ORGANIZATION),
-                    root.get("ownerId").in(organizationOwnerIds));
-            return orgOwners;
-        };
+        return (root, query, cb) -> cb.and(
+                cb.equal(root.get("ownerType"), OwnerType.ORGANIZATION),
+                root.get("ownerId").in(organizationOwnerIds));
+    }
+
+    public static Specification<FileUpload> userOwnerIdsIn(final List<Long> userOwnerIds) {
+        return (root, query, cb) -> cb.and(
+                cb.equal(root.get("ownerType"), OwnerType.USER),
+                root.get("ownerId").in(userOwnerIds));
     }
 
     public static Specification<FileUpload> any(final String search) {

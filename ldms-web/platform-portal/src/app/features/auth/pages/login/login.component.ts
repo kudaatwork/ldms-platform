@@ -60,12 +60,34 @@ export class LoginComponent implements OnInit, AfterViewInit {
     if (email) {
       this.form.patchValue({ usernameOrEmail: email });
     }
+    if (this.route.snapshot.queryParamMap.get('reason') === 'inactivity') {
+      this.infoMessage = 'You were signed out after inactivity. Please sign in again.';
+    }
     if (this.route.snapshot.queryParamMap.get('verified') === '1') {
       this.infoMessage = 'Your email is verified. Sign in to open your organisation workspace.';
     }
     if (this.route.snapshot.queryParamMap.get('registered') === '1') {
       this.infoMessage =
         'Registration received. After KYC approval, sign in with the temporary username and password emailed to your organisation and contact addresses.';
+    }
+  }
+
+  /** Replace login in browser history so Back does not return to the sign-in form after entry. */
+  private async navigateAfterLogin(): Promise<void> {
+    const commands = this.authService.postLoginRoute();
+    try {
+      let ok = await this.router.navigate(commands, { replaceUrl: true });
+      if (!ok) {
+        const path = `/${commands.filter(Boolean).join('/')}`;
+        ok = await this.router.navigateByUrl(path, { replaceUrl: true });
+      }
+      if (!ok) {
+        this.error = 'Could not open your workspace after sign-in. Refresh the page or try again.';
+        this.cdr.markForCheck();
+      }
+    } catch {
+      this.error = 'Navigation failed. Please try again.';
+      this.cdr.markForCheck();
     }
   }
 
@@ -99,7 +121,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
       next: () => {
         this.loading = false;
         this.cdr.markForCheck();
-        void this.router.navigate(this.authService.postLoginRoute());
+        void this.navigateAfterLogin();
       },
       error: (e: Error) => {
         this.error = e.message ?? 'Google sign-in failed';
@@ -141,7 +163,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
       next: () => {
         this.loading = false;
         this.cdr.markForCheck();
-        void this.router.navigate(this.authService.postLoginRoute());
+        void this.navigateAfterLogin();
       },
       error: (e: Error) => {
         this.loading = false;

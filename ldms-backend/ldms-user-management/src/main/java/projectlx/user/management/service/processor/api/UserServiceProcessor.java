@@ -9,6 +9,7 @@ import projectlx.user.management.utils.requests.CompleteCredentialsSetupRequest;
 import projectlx.user.management.utils.requests.IssueOrganizationContactCredentialsRequest;
 import projectlx.user.management.utils.requests.ProvisionOrganizationContactPersonRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
+import projectlx.user.management.utils.responses.UsernameAvailabilityResponse;
 import projectlx.user.management.utils.responses.UserResponse;
 
 import java.io.IOException;
@@ -19,12 +20,15 @@ public interface UserServiceProcessor {
     UserResponse create(CreateUserRequest createUserRequest, Locale locale, String username);
     UserResponse findById(Long id, Locale locale, String username);
     UserResponse findByUsername(String username, Locale locale);
+
+    UserResponse findCurrentUserForSession(String username, Locale locale);
     UserResponse findAllAsList(Locale locale, String username);
     UserResponse update(EditUserRequest editUserRequest, String username, Locale locale);
     UserResponse delete(Long id, Locale locale, String username);
     UserResponse findByMultipleFilters(UsersMultipleFiltersRequest usersMultipleFiltersRequest, String username,
                                        Locale locale);
     UserResponse findByOrganizationId(Long organizationId, Locale locale, String username);
+    UserResponse findUsernamesByOrganizationId(Long organizationId, Locale locale, String username);
     UserResponse findByBranchId(Long branchId, Locale locale, String username);
     byte[] exportToCsv(UsersMultipleFiltersRequest filters, String username, Locale locale);
     byte[] exportToExcel(UsersMultipleFiltersRequest filters, String username, Locale locale) throws IOException;
@@ -40,6 +44,10 @@ public interface UserServiceProcessor {
 
     UserResponse setOrganizationKycApprover(Long id, boolean enabled, Locale locale, String username);
 
+    UserResponse listOperationalIssueHandlers(Locale locale);
+
+    UserResponse setOperationalIssueHandler(Long id, boolean enabled, Locale locale, String username);
+
     UserResponse resendVerificationLink(String email, Locale locale, String username);
 
     UserResponse provisionOrganizationContactPerson(ProvisionOrganizationContactPersonRequest request, Locale locale,
@@ -49,5 +57,7 @@ public interface UserServiceProcessor {
             String username);
 
     UserResponse completeCredentialsSetup(CompleteCredentialsSetupRequest request, Locale locale, String username);
+
+    UsernameAvailabilityResponse checkUsernameAvailability(String candidateUsername, Locale locale, String username);
 
 }

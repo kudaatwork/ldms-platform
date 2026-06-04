@@ -1,4 +1,4 @@
-package projectlx.user.management.utils.security;
+package projectlx.user.management.utils.support;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 

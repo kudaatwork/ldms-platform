@@ -212,6 +212,16 @@
         </small>
       </div>
 
+      <div class="lx-field span-2 lx-field--toggle" *ngIf="canEditKycApprover">
+        <span class="lx-field-label">Operational issue handler</span>
+        <mat-slide-toggle [(ngModel)]="operationalIssueHandler" color="primary">
+          Eligible to receive Help &amp; Support tickets
+        </mat-slide-toggle>
+        <small class="ued-hint">
+          New portal support tickets are assigned automatically by workload. Only for admin users with no organisation.
+        </small>
+      </div>
+
       <ng-container *ngIf="hasPreferences">
         <div class="lx-form-section span-2">
           <div class="lx-form-section-title">Preferences</div>

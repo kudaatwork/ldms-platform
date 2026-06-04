@@ -140,8 +140,7 @@ public class UserAddressFrontendResource {
     }
 
     @Auditable(action = "FIND_ALL_USER_ADDRESSES_BY_MULTIPLE_FILTERS")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserAddressRoles)." +
-            "VIEW_ALL_USER_ADDRESSES_BY_MULTIPLE_FILTERS.toString())")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping(value = "/find-by-multiple-filters")
     @Operation(summary = "Find user addresses by multiple filters",
             description = "Retrieves a list of user addresses that match the provided filters.")

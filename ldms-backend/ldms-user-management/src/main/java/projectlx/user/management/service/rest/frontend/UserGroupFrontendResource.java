@@ -94,8 +94,7 @@ public class UserGroupFrontendResource {
     }
 
     @Auditable(action = "FIND_USER_GROUP_BY_ID")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserGroupRoles)." +
-            "VIEW_USER_GROUP_BY_ID.toString())")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping(value = "/find-by-id/{id}")
     @Operation(summary = "Find user group by ID", description = "Retrieves a user group by their unique ID.")
     @ApiResponses({
@@ -145,8 +144,7 @@ public class UserGroupFrontendResource {
     }
 
     @Auditable(action = "FIND_ALL_USER_GROUPS_BY_MULTIPLE_FILTERS")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserGroupRoles)." +
-            "VIEW_ALL_USER_GROUPS_BY_MULTIPLE_FILTERS.toString())")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping(value = "/find-by-multiple-filters")
     @Operation(summary = "Find user groups by multiple filters",
             description = "Retrieves a list of user group that match the provided filters.")
@@ -166,8 +164,7 @@ public class UserGroupFrontendResource {
     }
 
     @Auditable(action = "ASSIGN_USER_ROLES_TO_USER_GROUP")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserGroupRoles)." +
-            "ASSIGN_USER_ROLES_TO_USER_GROUP.toString())")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping(value = "/assign-user-roles-to-user-group")
     @Operation(summary = "Assign user roles to a user group", description = "Assigns user role(s) to a user group")
     @ApiResponses({
@@ -186,8 +183,7 @@ public class UserGroupFrontendResource {
     }
 
     @Auditable(action = "REMOVE_USER_ROLES_FROM_USER_GROUP")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserGroupRoles)." +
-            "REMOVE_USER_ROLES_FROM_USER_GROUP.toString())")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping(value = "/remove-user-roles-from-user-group")
     @Operation(summary = "Remove user roles from a user group", description = "Removes user role(s) to a user group")
     @ApiResponses({

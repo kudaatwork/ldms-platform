@@ -170,17 +170,19 @@ export class OrganizationContactPersonPanelComponent implements OnChanges, OnDes
   }
 
   openEditAddress(): void {
-    const ad = this.bundle.address;
-    if (!ad) {
+    const user = this.bundle.user;
+    if (!user) {
       return;
     }
+    const existing = this.usersService.resolveAddressRecord(user, this.bundle.address);
+    const address = this.usersService.addressDraftForEdit(user, this.bundle.address);
     this.dialog
       .open(UserEditAddressDialogComponent, {
         width: '640px',
         maxWidth: '95vw',
         autoFocus: 'first-tabbable',
         panelClass: 'lx-location-dialog-panel',
-        data: { address: ad },
+        data: { address, user, createMode: !existing },
       })
       .afterClosed()
       .subscribe((saved) => {
