@@ -38,8 +38,13 @@
   /* ── Surface ───────────────────────── */
   --surface:   #FFFFFF;
   --surface-2: #F8FAFC;
+  --surface-elevated: #FFFFFF;
   --raised:      #FFFFFF;
   --raised-hover:#F3F4F6;
+
+  /* Aliases used by settings / cards */
+  --primary-500: #3B82F6;
+  --primary-600: #2563EB;
 
   /* ── Card ──────────────────────────── */
   --card-radius:  20px;

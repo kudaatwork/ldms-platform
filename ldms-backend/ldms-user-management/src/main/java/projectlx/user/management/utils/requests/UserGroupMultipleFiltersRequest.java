@@ -11,4 +11,6 @@ import projectlx.co.zw.shared_library.utils.requests.MultipleFiltersRequest;
 public class UserGroupMultipleFiltersRequest extends MultipleFiltersRequest {
     private String name;
     private String description;
+    /** When set (or inferred from session), limits results to that organisation's workspace groups. */
+    private Long organizationId;
 }

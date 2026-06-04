@@ -1,196 +1,416 @@
-<div class="lx-page">
-  <lx-page-hero
-    eyebrow="Compliance"
-    title="Compliance documents"
-    [lead]="pageLead"
-    icon="folder_open"
-    variant="brand"
-  ></lx-page-hero>
-
-  <div class="lx-card lx-card--subsection kyc-docs-alert" *ngIf="loadError && !fetching" role="alert">
-    <mat-icon>info</mat-icon>
-    <span>{{ loadError }}</span>
-    <button type="button" class="lx-btn lx-btn-sm lx-btn-primary" (click)="reload()">Retry</button>
+<section class="vault lx-page">
+  <div class="vault__aurora" aria-hidden="true">
+    <span class="vault__orb vault__orb--1"></span>
+    <span class="vault__orb vault__orb--2"></span>
+    <span class="vault__orb vault__orb--3"></span>
   </div>
 
-  <ng-container *ngIf="totalRecords > 0 || fetching || hasActiveFilters; else tableCardEmpty">
-      <div class="lx-card lx-card--subsection">
-        <h3 class="lx-controls-title">Table controls</h3>
-        <p class="lx-controls-subtitle">Manage upload actions, search terms, and column filters.</p>
-        <div class="lx-data-toolbar">
-          <div class="lx-data-toolbar__actions">
-            <button type="button" class="lx-btn lx-btn-ghost" (click)="reload()" [disabled]="fetching && rows.length === 0">Refresh</button>
-            <button type="button" class="lx-btn lx-btn-ghost" (click)="stubImport()">Import</button>
-            <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
-              Export
-            </button>
-            <button type="button" class="lx-btn lx-btn-primary" (click)="uploadHint()">How to upload</button>
-          </div>
-          <div class="lx-data-toolbar__search">
-            <div class="lx-input-shell lx-search-field">
-              <mat-icon class="lx-input-shell__icon">search</mat-icon>
-              <input [(ngModel)]="searchQuery" (ngModelChange)="onFiltersChanged()" placeholder="Search…" />
-            </div>
-            <button
-              type="button"
-              class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
-              (click)="filterFieldsOpen = !filterFieldsOpen"
-              [class.lx-btn-filter--on]="filterFieldsOpen"
-            >
-              <mat-icon>tune</mat-icon>
-              Filters
-            </button>
-          </div>
-        </div>
-        <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
-          <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')">
-            <mat-icon>picture_as_pdf</mat-icon>
-            <span>Export PDF</span>
-          </button>
-          <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')">
-            <mat-icon>table_view</mat-icon>
-            <span>Export CSV</span>
-          </button>
-          <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')">
-            <mat-icon>grid_on</mat-icon>
-            <span>Export XLSX</span>
-          </button>
-        </mat-menu>
+  <header class="vault-hero">
+    <div class="vault-hero__main">
+      <div class="vault-hero__badge">
+        <span class="material-icons" aria-hidden="true">inventory_2</span>
+        LDMS Document Vault · Admin
+      </div>
+      <h1 class="vault-hero__title">Every file. One vault.</h1>
+      <p class="vault-hero__lead">
+        The complete document library across <strong>every organisation</strong> — onboarding packs,
+        compliance certificates, profile IDs, branding assets, and every upload registered in LDMS,
+        with full metadata and instant preview.
+      </p>
+    </div>
 
-        <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
-          <span class="lx-filter-panel__label">Column filters</span>
-          <div class="lx-filter-fields">
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">File</div>
-              <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">insert_drive_file</mat-icon>
-              <input [(ngModel)]="columnFilters.fileName" (ngModelChange)="onFiltersChanged()" />
-            </div>
-            </div>
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Type</div>
-              <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">category</mat-icon>
-              <input [(ngModel)]="columnFilters.type" (ngModelChange)="onFiltersChanged()" />
-            </div>
-            </div>
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Organisation</div>
-              <div class="lx-input-shell lx-filter-field">
-                <mat-icon class="lx-input-shell__icon">business</mat-icon>
-                <input [(ngModel)]="columnFilters.organizationName" (ngModelChange)="onFiltersChanged()" />
-              </div>
-            </div>
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">Org compliance</div>
-              <div class="lx-input-shell lx-filter-field">
-                <mat-icon class="lx-input-shell__icon">verified</mat-icon>
-                <input [(ngModel)]="columnFilters.kycStatusLabel" (ngModelChange)="onFiltersChanged()" />
-              </div>
-            </div>
-            <div class="lx-filter-field-wrap">
-              <div class="lx-field-label">File status</div>
-              <div class="lx-input-shell lx-filter-field">
-              <mat-icon class="lx-input-shell__icon">label</mat-icon>
-              <input [(ngModel)]="columnFilters.statusLabel" (ngModelChange)="onFiltersChanged()" />
-            </div>
-            </div>
-          </div>
-        </div>
+    <div class="vault-bento">
+      <article class="vault-bento__card vault-bento__card--primary">
+        <span class="vault-bento__value">{{ stats.total }}</span>
+        <span class="vault-bento__label">Total documents</span>
+        <span class="material-icons vault-bento__icon" aria-hidden="true">folder_special</span>
+      </article>
+      <article class="vault-bento__card">
+        <span class="vault-bento__value">{{ stats.org }}</span>
+        <span class="vault-bento__label">Organisation (page)</span>
+      </article>
+      <article class="vault-bento__card">
+        <span class="vault-bento__value">{{ stats.user }}</span>
+        <span class="vault-bento__label">Profile (page)</span>
+      </article>
+      <article class="vault-bento__card vault-bento__card--accent">
+        <span class="vault-bento__value">{{ stats.verified }}</span>
+        <span class="vault-bento__label">Auto-verified</span>
+      </article>
+    </div>
+  </header>
+
+  <div class="vault-toolbar lx-card">
+    <label class="vault-search">
+      <span class="material-icons" aria-hidden="true">search</span>
+      <input
+        type="search"
+        [value]="search()"
+        (input)="onSearchInput($any($event.target).value)"
+        placeholder="Search title, filename, organisation, category, upload ID…"
+        autocomplete="off"
+      />
+    </label>
+
+    <div class="vault-toolbar__actions">
+      <label class="vault-sort">
+        <span class="material-icons" aria-hidden="true">sort</span>
+        <select [value]="sortBy()" (change)="onSortChange($any($event.target).value)">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+          <option value="name">Name A–Z</option>
+          <option value="size">Largest first</option>
+        </select>
+      </label>
+
+      <div class="vault-views" role="group" aria-label="View mode">
+        <button
+          type="button"
+          *ngFor="let v of viewModes"
+          class="vault-view"
+          [class.vault-view--on]="viewMode() === v.id"
+          [attr.aria-pressed]="viewMode() === v.id"
+          (click)="setViewMode(v.id)"
+          [title]="v.label"
+        >
+          <span class="material-icons" aria-hidden="true">{{ v.icon }}</span>
+        </button>
       </div>
 
-      <div class="lx-card">
-        <div class="lx-table-header">
-          <p class="lx-table-meta">Compliance uploads</p>
-          <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="exportAs('csv')" title="Export filtered list">
+        <span class="material-icons" aria-hidden="true">download</span>
+        Export
+      </button>
+
+      <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm" (click)="reload()" [disabled]="loading()">
+        <span class="material-icons" aria-hidden="true">refresh</span>
+        Refresh
+      </button>
+    </div>
+  </div>
+
+  <nav class="vault-filters" aria-label="Document filters">
+    <button
+      type="button"
+      *ngFor="let f of filters"
+      class="vault-filter"
+      [ngClass]="filterCssClass(f.id)"
+      [class.vault-filter--on]="filter() === f.id"
+      (click)="setFilter(f.id)"
+      [attr.aria-pressed]="filter() === f.id"
+    >
+      <span class="material-icons" aria-hidden="true">{{ f.icon }}</span>
+      {{ f.label }}
+      <span class="vault-filter__count">{{ filterCount(f.id) }}</span>
+    </button>
+  </nav>
+
+  <div class="vault-alert" *ngIf="loadError()" role="alert">
+    <span class="material-icons" aria-hidden="true">error_outline</span>
+    {{ loadError() }}
+    <button type="button" class="vault-alert__btn" (click)="reload()">Retry</button>
+  </div>
+
+  <div class="vault-loading" *ngIf="loading()">
+    <div class="vault-loading__ring" aria-hidden="true"></div>
+    <p>Syncing the document vault…</p>
+  </div>
+
+  <div class="vault-empty lx-card" *ngIf="!loading() && !loadError() && totalElements() === 0 && !search().trim() && filter() === 'ALL'">
+    <div class="vault-empty__art" aria-hidden="true">
+      <span class="material-icons">cloud_off</span>
+    </div>
+    <h2>Your vault is empty</h2>
+    <p>
+      Uploads from organisation registration, compliance workflows, profile updates, and direct file
+      registry entries will appear here automatically.
+    </p>
+  </div>
+
+  <!-- Gallery view -->
+  <div
+    class="vault-grid"
+    *ngIf="!loading() && displayDocuments.length && viewMode() === 'grid'"
+    role="list"
+  >
+    <button
+      type="button"
+      class="vault-card"
+      role="listitem"
+      *ngFor="let doc of displayDocuments; trackBy: trackDoc"
+      [class.vault-card--selected]="selectedId() === doc.id"
+      (click)="selectDocument(doc)"
+    >
+      <div class="vault-card__preview" [class]="'vault-card__preview--' + fileKindClass(doc)">
+        <img *ngIf="doc.previewImageUrl" [src]="doc.previewImageUrl" alt="" />
+        <span class="material-icons" *ngIf="!doc.previewImageUrl" aria-hidden="true">{{ fileKindIcon(doc) }}</span>
+        <span class="vault-card__verified" *ngIf="doc.autoVerified" title="Auto-verified">
+          <span class="material-icons" aria-hidden="true">verified</span>
+        </span>
+      </div>
+      <div class="vault-card__body">
+        <span class="vault-card__badge" [class]="'vault-card__badge--' + sourceTone(doc.sourceScope)">
+          {{ doc.category }}
+        </span>
+        <h3 class="vault-card__title">{{ doc.displayTitle }}</h3>
+        <p class="vault-card__org">{{ doc.organizationName }}</p>
+        <p class="vault-card__meta">
+          {{ doc.fileType }} · {{ formatBytes(doc.fileSizeInBytes) }} ·
+          {{ doc.createdAt | date : 'mediumDate' }}
+        </p>
+      </div>
+    </button>
+  </div>
+
+  <!-- List view -->
+  <div class="vault-list lx-card" *ngIf="!loading() && displayDocuments.length && viewMode() === 'list'">
+    <button
+      type="button"
+      class="vault-row"
+      *ngFor="let doc of displayDocuments; trackBy: trackDoc"
+      [class.vault-row--on]="selectedId() === doc.id"
+      (click)="selectDocument(doc)"
+    >
+      <span class="vault-row__icon" [class]="'vault-row__icon--' + fileKindClass(doc)">
+        <span class="material-icons" aria-hidden="true">{{ fileKindIcon(doc) }}</span>
+      </span>
+      <span class="vault-row__main">
+        <span class="vault-row__title">{{ doc.displayTitle }}</span>
+        <span class="vault-row__sub">{{ doc.organizationName }} · {{ doc.fileName }}</span>
+      </span>
+      <span class="vault-row__source">{{ doc.category }}</span>
+      <span class="vault-row__size">{{ formatBytes(doc.fileSizeInBytes) }}</span>
+      <span class="vault-row__date">{{ doc.createdAt | date : 'mediumDate' }}</span>
+      <span class="material-icons vault-row__chev" aria-hidden="true">chevron_right</span>
+    </button>
+  </div>
+
+  <!-- Focus split view -->
+  <div class="vault-focus" *ngIf="!loading() && displayDocuments.length && viewMode() === 'focus'">
+    <aside class="vault-focus__list lx-card">
+      <button
+        type="button"
+        class="vault-row vault-row--compact"
+        *ngFor="let doc of displayDocuments; trackBy: trackDoc"
+        [class.vault-row--on]="selectedId() === doc.id"
+        (click)="selectDocument(doc, false)"
+      >
+        <span class="vault-row__icon vault-row__icon--sm" [class]="'vault-row__icon--' + fileKindClass(doc)">
+          <span class="material-icons" aria-hidden="true">{{ fileKindIcon(doc) }}</span>
+        </span>
+        <span class="vault-row__main">
+          <span class="vault-row__title">{{ doc.displayTitle }}</span>
+          <span class="vault-row__sub">{{ doc.organizationName }}</span>
+        </span>
+      </button>
+    </aside>
+
+    <article class="vault-inspector lx-card" *ngIf="selected as doc">
+      <ng-container *ngTemplateOutlet="inspectorBody; context: { doc: doc }"></ng-container>
+    </article>
+  </div>
+
+  <div class="vault-pagination lx-card" *ngIf="!loading() && totalElements() > 0">
+    <p class="vault-pagination__range">{{ pageRangeLabel }}</p>
+    <mat-paginator
+      class="vault-pagination__control"
+      [length]="totalElements()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="pageSizeOptions"
+      [showFirstLastButtons]="true"
+      (page)="onPage($event)"
+    ></mat-paginator>
+  </div>
+
+  <div
+    class="vault-empty lx-card"
+    *ngIf="!loading() && !loadError() && totalElements() === 0 && (search().trim() || filter() !== 'ALL')"
+  >
+    <div class="vault-empty__art" aria-hidden="true">
+      <span class="material-icons">search_off</span>
+    </div>
+    <h2>No matching documents</h2>
+    <p>Try a different search term or clear the category filter.</p>
+  </div>
+
+  <!-- Slide-over inspector (grid + list) -->
+  <div
+    class="vault-drawer-backdrop"
+    *ngIf="inspectorOpen() && viewMode() !== 'focus'"
+    (click)="closeInspector()"
+    aria-hidden="true"
+  ></div>
+  <aside
+    class="vault-drawer"
+    *ngIf="inspectorOpen() && viewMode() !== 'focus' && selected as doc"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Document details"
+  >
+    <header class="vault-drawer__head">
+      <h2 class="vault-drawer__title">Document inspector</h2>
+      <button type="button" class="vault-drawer__close" (click)="closeInspector()" aria-label="Close">
+        <span class="material-icons" aria-hidden="true">close</span>
+      </button>
+    </header>
+    <div class="vault-drawer__body">
+      <ng-container *ngTemplateOutlet="inspectorBody; context: { doc: doc }"></ng-container>
+    </div>
+  </aside>
+
+  <ng-template #inspectorBody let-doc="doc">
+    <header class="vault-inspector__head">
+      <div>
+        <span class="vault-inspector__badge" [class]="'vault-inspector__badge--' + sourceTone(doc.sourceScope)">
+          <span class="material-icons" aria-hidden="true">{{ sourceIcon(doc.sourceChannel) }}</span>
+          {{ doc.category }}
+        </span>
+        <h2 class="vault-inspector__title">{{ doc.displayTitle }}</h2>
+        <p class="vault-inspector__sub">
+          {{ doc.organizationName }} · Upload #{{ doc.id }}
+          <ng-container *ngIf="doc.linkedFieldKey"> · {{ doc.linkedFieldKey }}</ng-container>
+        </p>
+      </div>
+      <div class="vault-inspector__actions">
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm"
+          (click)="copyUploadId(doc.id)"
+          title="Copy upload ID"
+        >
+          <span class="material-icons" aria-hidden="true">tag</span>
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-secondary lx-btn-sm"
+          *ngIf="doc.hasPreview"
+          (click)="downloadDocument(doc)"
+        >
+          <span class="material-icons" aria-hidden="true">download</span>
+          Download
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-secondary lx-btn-sm"
+          *ngIf="doc.hasPdfPreview && doc.previewPdfDataUrl"
+          (click)="openPdfInNewTab()"
+        >
+          <span class="material-icons" aria-hidden="true">open_in_new</span>
+          Open PDF
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-danger lx-btn-sm"
+          (click)="deleteDocument(doc)"
+          [disabled]="deletingId() === doc.id"
+        >
+          <span class="material-icons" aria-hidden="true">delete</span>
+          {{ deletingId() === doc.id ? 'Deleting…' : 'Delete' }}
+        </button>
+      </div>
+    </header>
+
+    <nav class="vault-tabs" aria-label="Document sections">
+      <button
+        type="button"
+        class="vault-tab"
+        [class.vault-tab--on]="detailTab() === 'preview'"
+        (click)="setDetailTab('preview')"
+      >
+        Preview
+      </button>
+      <button
+        type="button"
+        class="vault-tab"
+        [class.vault-tab--on]="detailTab() === 'metadata'"
+        (click)="setDetailTab('metadata')"
+      >
+        Metadata
+      </button>
+      <button
+        type="button"
+        class="vault-tab"
+        [class.vault-tab--on]="detailTab() === 'verification'"
+        (click)="setDetailTab('verification')"
+      >
+        Verification
+      </button>
+    </nav>
+
+    <div class="vault-inspector__panel" *ngIf="detailTab() === 'preview'">
+      <div class="vault-stage" aria-live="polite">
+        <div class="vault-stage__loading" *ngIf="detailLoading()">
+          <div class="vault-loading__ring" aria-hidden="true"></div>
+          Loading preview…
         </div>
 
-        <lx-table-loading [busy]="fetching && rows.length === 0" message="Loading compliance documents…"></lx-table-loading>
+        <img
+          *ngIf="!detailLoading() && doc.previewImageUrl"
+          class="vault-stage__image"
+          [src]="doc.previewImageUrl"
+          [alt]="doc.displayTitle"
+        />
 
-        <ng-container *ngIf="rows.length > 0 || totalRecords > 0">
-        <ng-container *ngIf="rows.length > 0; else tableReadyEmpty">
-          <div class="lx-table-wrap lx-table-wrap--host">
-            <lx-table-loading [busy]="fetching && rows.length > 0" [hasData]="true" message="Refreshing compliance documents…"></lx-table-loading>
-            <table mat-table [dataSource]="rows">
-              <ng-container matColumnDef="fileName">
-                <th mat-header-cell *matHeaderCellDef>File</th>
-                <td mat-cell *matCellDef="let row">
-                  <span class="kyc-doc-name">{{ row.fileName }}</span>
-                  <span class="kyc-doc-id">#{{ row.uploadId }}</span>
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="organizationName">
-                <th mat-header-cell *matHeaderCellDef>Organisation</th>
-                <td mat-cell *matCellDef="let row">{{ row.organizationName }}</td>
-              </ng-container>
-              <ng-container matColumnDef="type">
-                <th mat-header-cell *matHeaderCellDef>Category</th>
-                <td mat-cell *matCellDef="let row">{{ row.type }}</td>
-              </ng-container>
-              <ng-container matColumnDef="kycStatusLabel">
-                <th mat-header-cell *matHeaderCellDef>Org compliance</th>
-                <td mat-cell *matCellDef="let row">{{ row.kycStatusLabel }}</td>
-              </ng-container>
-              <ng-container matColumnDef="status">
-                <th mat-header-cell *matHeaderCellDef>File status</th>
-                <td mat-cell *matCellDef="let row">
-                  <span class="lx-status" [ngClass]="'lx-status-' + row.status">{{ row.statusLabel }}</span>
-                </td>
-              </ng-container>
-              <ng-container matColumnDef="uploadedAt">
-                <th mat-header-cell *matHeaderCellDef>Uploaded</th>
-                <td mat-cell *matCellDef="let row">{{ row.uploadedAt || '—' }}</td>
-              </ng-container>
-              <ng-container matColumnDef="actions">
-                <th mat-header-cell *matHeaderCellDef>Actions</th>
-                <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="viewDocument(row)">View</button>
-                  <button
-                    type="button"
-                    class="lx-btn lx-btn-danger lx-btn-sm"
-                    (click)="deleteDocument(row)"
-                    [disabled]="deletingId === row.uploadId"
-                  >
-                    {{ deletingId === row.uploadId ? 'Deleting…' : 'Delete' }}
-                  </button>
-                </td>
-              </ng-container>
-              <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-              <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-            </table>
-          </div>
-          <mat-paginator
-            class="lx-table-paginator"
-            [length]="totalRecords"
-            [pageIndex]="pageIndex"
-            [pageSize]="pageSize"
-            [pageSizeOptions]="[10, 20, 25, 50]"
-            [showFirstLastButtons]="true"
-            (page)="onPage($event)"
-          ></mat-paginator>
-        </ng-container>
-        </ng-container>
-        <ng-template #tableReadyEmpty>
-          <ng-container *ngIf="hasActiveFilters || totalRecords > 0; else noSearchHits">
-            <div class="lx-empty lx-empty--compact">
-              <mat-icon class="lx-empty-icon">search_off</mat-icon>
-              <div class="lx-empty-title">No matching rows</div>
-              <div class="lx-empty-sub">Adjust search or column filters.</div>
-            </div>
-          </ng-container>
-          <ng-template #noSearchHits></ng-template>
-        </ng-template>
-      </div>
-  </ng-container>
+        <iframe
+          *ngIf="!detailLoading() && selectedPdfUrl && !doc.previewImageUrl"
+          class="vault-stage__pdf"
+          [src]="selectedPdfUrl"
+          title="Document preview"
+        ></iframe>
 
-  <ng-template #tableCardEmpty>
-      <div class="lx-card">
-        <p class="lx-table-meta">Compliance uploads</p>
-        <div class="lx-empty">
-          <mat-icon class="lx-empty-icon">inbox</mat-icon>
-          <div class="lx-empty-title">No documents yet</div>
-          <div class="lx-empty-sub">Files appear here once uploaded to the LDMS file registry.</div>
+        <div class="vault-stage__empty" *ngIf="!detailLoading() && !doc.previewImageUrl && !selectedPdfUrl">
+          <span class="material-icons" aria-hidden="true">visibility_off</span>
+          <p>Preview unavailable for this file type or size. Metadata and download may still be available once content is loaded.</p>
+          <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm" (click)="selectDocument(doc)">
+            Retry load
+          </button>
         </div>
       </div>
+    </div>
+
+    <div class="vault-inspector__panel" *ngIf="detailTab() === 'metadata'">
+      <dl class="vault-meta-grid">
+        <div><dt>Organisation</dt><dd>{{ doc.organizationName }}</dd></div>
+        <div><dt>Org compliance</dt><dd>{{ doc.kycStatusLabel }}</dd></div>
+        <div><dt>Original filename</dt><dd>{{ doc.fileName }}</dd></div>
+        <div><dt>Stored filename</dt><dd>{{ doc.storedFileName || '—' }}</dd></div>
+        <div><dt>Category</dt><dd>{{ doc.category }}</dd></div>
+        <div><dt>Source channel</dt><dd>{{ formatSourceChannel(doc.sourceChannel) }}</dd></div>
+        <div><dt>File type</dt><dd>{{ doc.fileType }}</dd></div>
+        <div><dt>MIME type</dt><dd>{{ doc.contentType || '—' }}</dd></div>
+        <div><dt>Size</dt><dd>{{ formatBytes(doc.fileSizeInBytes) }}</dd></div>
+        <div><dt>Owner</dt><dd>{{ doc.ownerType }} #{{ doc.ownerId || '—' }}</dd></div>
+        <div><dt>Status</dt><dd>{{ doc.statusLabel }} ({{ doc.entityStatus }})</dd></div>
+        <div><dt>Storage</dt><dd>{{ doc.storageProvider || '—' }}</dd></div>
+        <div><dt>File URL</dt><dd>{{ doc.fileUrl || '—' }}</dd></div>
+        <div><dt>Hash</dt><dd class="vault-meta-grid__mono">{{ doc.fileHash || '—' }}</dd></div>
+        <div><dt>Uploaded</dt><dd>{{ doc.createdAt | date : 'medium' }}</dd></div>
+        <div><dt>Created by</dt><dd>{{ doc.createdBy || '—' }}</dd></div>
+        <div><dt>Modified</dt><dd>{{ doc.modifiedAt | date : 'medium' }}</dd></div>
+        <div><dt>Modified by</dt><dd>{{ doc.modifiedBy || '—' }}</dd></div>
+        <div><dt>Expires</dt><dd>{{ doc.expiresAt ? (doc.expiresAt | date : 'medium') : '—' }}</dd></div>
+      </dl>
+    </div>
+
+    <div class="vault-inspector__panel" *ngIf="detailTab() === 'verification'">
+      <dl class="vault-meta-grid">
+        <div>
+          <dt>Auto-verified</dt>
+          <dd>
+            <span class="vault-pill" [class.vault-pill--ok]="doc.autoVerified" [class.vault-pill--muted]="!doc.autoVerified">
+              {{ doc.autoVerified ? 'Yes' : 'No' }}
+            </span>
+          </dd>
+        </div>
+        <div><dt>Verified at</dt><dd>{{ doc.autoVerifiedAt ? (doc.autoVerifiedAt | date : 'medium') : '—' }}</dd></div>
+        <div><dt>Method</dt><dd>{{ doc.autoVerificationMethod || '—' }}</dd></div>
+        <div><dt>Source</dt><dd>{{ doc.autoVerificationSource || '—' }}</dd></div>
+        <div class="vault-meta-grid__wide">
+          <dt>Notes</dt>
+          <dd>{{ doc.autoVerificationNotes || 'No verification notes recorded.' }}</dd>
+        </div>
+      </dl>
+    </div>
   </ng-template>
-</div>
+</section>

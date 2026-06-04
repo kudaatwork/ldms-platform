@@ -11,6 +11,8 @@ import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.management.business.auditable.api.UserGroupServiceAuditable;
 import projectlx.user.management.business.auditable.api.UserServiceAuditable;
+import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
+import projectlx.user.management.business.logic.support.OrganizationWorkspaceProvisioner;
 import projectlx.user.management.business.logic.api.UserGroupService;
 import projectlx.user.management.business.validator.api.UserGroupServiceValidator;
 import projectlx.user.management.model.EntityStatus;
@@ -23,7 +25,7 @@ import projectlx.user.management.repository.UserRoleRepository;
 import projectlx.user.management.repository.specification.UserGroupSpecification;
 import projectlx.user.management.utils.dtos.UserGroupDto;
 import projectlx.user.management.utils.dtos.UserRoleDto;
-import projectlx.user.management.utils.security.UserRoleDtoModuleEnricher;
+import projectlx.user.management.utils.support.UserRoleDtoModuleEnricher;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.user.management.utils.requests.AddUserToUserGroupRequest;
 import projectlx.user.management.utils.requests.AddUsersToUserGroupRequest;
@@ -79,6 +81,8 @@ public class UserGroupServiceImpl implements UserGroupService {
     private final UserGroupServiceAuditable userGroupServiceAuditable;
     private final UserRoleRepository userRoleRepository;
     private final UserServiceAuditable userServiceAuditable;
+    private final OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport;
+    private final OrganizationWorkspaceProvisioner organizationWorkspaceProvisioner;
 
     private static final String[] HEADERS = {
             "ID", "NAME", "DESCRIPTION", "USER ROLES"
@@ -105,8 +109,19 @@ public class UserGroupServiceImpl implements UserGroupService {
         }
 
         String normalizedName = createUserGroupRequest.getName().toUpperCase();
-        Optional<UserGroup> userGroupRetrieved =
-                    userGroupRepository.findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
+        Long workspaceOrganizationId = resolveOrganizationIdForWorkspaceMutation(
+                username, createUserGroupRequest.getOrganizationId());
+
+        if (workspaceOrganizationId != null
+                && workspaceOrganizationId > 0
+                && OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(normalizedName)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_USER_GROUP_INVALID_REQUEST.getCode(),
+                    new String[]{}, locale);
+            return buildUserGroupResponseWithErrors(400, false, message, null, null,
+                    List.of("The Administrator group is provisioned automatically for your organisation."));
+        }
+
+        Optional<UserGroup> userGroupRetrieved = existingActiveGroupByName(normalizedName, workspaceOrganizationId);
 
         if (userGroupRetrieved.isPresent()) {
 
@@ -117,8 +132,7 @@ public class UserGroupServiceImpl implements UserGroupService {
                         null, null);
         }
 
-        Optional<UserGroup> deletedUserGroup = userGroupRepository.findByName(normalizedName)
-                .filter(group -> group.getEntityStatus() == EntityStatus.DELETED);
+        Optional<UserGroup> deletedUserGroup = existingDeletedGroupByName(normalizedName, workspaceOrganizationId);
 
         createUserGroupRequest.setName(normalizedName);
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -128,9 +142,15 @@ public class UserGroupServiceImpl implements UserGroupService {
             userGroupToBeReactivated.setName(normalizedName);
             userGroupToBeReactivated.setDescription(createUserGroupRequest.getDescription());
             userGroupToBeReactivated.setEntityStatus(EntityStatus.ACTIVE);
+            if (workspaceOrganizationId != null && workspaceOrganizationId > 0) {
+                userGroupToBeReactivated.setOrganizationId(workspaceOrganizationId);
+            }
             userGroupSaved = userGroupServiceAuditable.update(userGroupToBeReactivated, locale, username);
         } else {
             UserGroup userGroupToBeSaved = modelMapper.map(createUserGroupRequest, UserGroup.class);
+            if (workspaceOrganizationId != null && workspaceOrganizationId > 0) {
+                userGroupToBeSaved.setOrganizationId(workspaceOrganizationId);
+            }
             userGroupSaved = userGroupServiceAuditable.create(userGroupToBeSaved, locale, username);
         }
 
@@ -197,6 +217,7 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserGroupResponse findAllAsList(String username, Locale locale) {
 
         String message = "";
@@ -366,6 +387,14 @@ public class UserGroupServiceImpl implements UserGroupService {
         if (searchValueValidatorDto.getSuccess()) {
 
             spec = addToSpec(userGroupMultipleFiltersRequest.getSearchValue(), spec, UserGroupSpecification::any);
+        }
+
+        Optional<Long> workspaceOrganizationId = resolveWorkspaceOrganizationFilter(
+                username, userGroupMultipleFiltersRequest);
+        if (workspaceOrganizationId.isPresent()) {
+            long organizationId = workspaceOrganizationId.get();
+            organizationWorkspaceProvisioner.ensureAdministratorGroup(organizationId);
+            spec = addToSpec(organizationId, spec, UserGroupSpecification::organizationIdEquals);
         }
 
         Page<UserGroup> result = userGroupRepository.findAll(spec, pageable);
@@ -795,6 +824,56 @@ public class UserGroupServiceImpl implements UserGroupService {
             log.warn("Failed to resolve userRoleMemberCount for userGroupId={}: {}", dto.getId(), ex.toString());
             dto.setUserRoleMemberCount(0L);
         }
+    }
+
+    private Optional<Long> resolveWorkspaceOrganizationFilter(
+            String username, UserGroupMultipleFiltersRequest request) {
+        if (organizationWorkspaceAccessSupport.hasWorkspaceSuperRole()) {
+            Long requested = request.getOrganizationId();
+            if (requested != null && requested > 0) {
+                if (!organizationWorkspaceAccessSupport.canReadOrganization(username, requested)) {
+                    return Optional.empty();
+                }
+                return Optional.of(requested);
+            }
+            return Optional.empty();
+        }
+        return organizationWorkspaceAccessSupport.sessionOrganizationId(username);
+    }
+
+    private Long resolveOrganizationIdForWorkspaceMutation(String username, Long requestedOrganizationId) {
+        if (organizationWorkspaceAccessSupport.hasWorkspaceSuperRole()) {
+            return requestedOrganizationId != null && requestedOrganizationId > 0
+                    ? requestedOrganizationId
+                    : null;
+        }
+        return organizationWorkspaceAccessSupport.sessionOrganizationId(username).orElse(null);
+    }
+
+    private Optional<UserGroup> existingActiveGroupByName(String normalizedName, Long organizationId) {
+        if (organizationId != null && organizationId > 0) {
+            return userGroupRepository.findByOrganizationIdAndNameIgnoreCaseAndEntityStatusNot(
+                    organizationId, normalizedName, EntityStatus.DELETED);
+        }
+        return userGroupRepository.findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
+    }
+
+    private Optional<UserGroup> existingDeletedGroupByName(String normalizedName, Long organizationId) {
+        return userGroupRepository.findByName(normalizedName)
+                .filter(group -> group.getEntityStatus() == EntityStatus.DELETED
+                        && (organizationId == null
+                        || organizationId <= 0
+                        || organizationId.equals(group.getOrganizationId())));
+    }
+
+    private Specification<UserGroup> addToSpec(final Long value, Specification<UserGroup> spec,
+            Function<Long, Specification<UserGroup>> predicateMethod) {
+        if (value != null && value > 0) {
+            Specification<UserGroup> localSpec = Specification.where(predicateMethod.apply(value));
+            spec = (spec == null) ? localSpec : spec.and(localSpec);
+            return spec;
+        }
+        return spec;
     }
 
     private Specification<UserGroup> addToSpec(Specification<UserGroup> spec,

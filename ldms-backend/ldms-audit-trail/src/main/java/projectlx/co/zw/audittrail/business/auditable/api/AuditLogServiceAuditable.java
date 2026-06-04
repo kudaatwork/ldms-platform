@@ -31,6 +31,7 @@ public interface AuditLogServiceAuditable {
             String clientPlatform,
             List<String> actionsIn,
             List<String> excludeActions,
+            List<String> usernamesIn,
             Pageable pageable);
 
     Optional<AuditLog> findById(Long id);

@@ -1,0 +1,9 @@
+@forward '../../../../shared/styles/lx-dialog-form-shell';
+@use '../../../../shared/styles/lx-dialog-form-shell';
+
+.ued-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--gray-500, #64748b);
+}

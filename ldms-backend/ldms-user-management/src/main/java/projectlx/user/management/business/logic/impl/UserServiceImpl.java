@@ -36,6 +36,7 @@ import projectlx.user.management.business.logic.api.UserPreferencesService;
 import projectlx.user.management.business.logic.api.UserSecurityService;
 import projectlx.user.management.business.logic.api.UserService;
 import projectlx.user.management.business.logic.api.UserTypeService;
+import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
 import projectlx.user.management.business.validator.api.UserServiceValidator;
 import projectlx.user.management.clients.FileUploadServiceClient;
 import projectlx.user.management.model.Address;
@@ -52,6 +53,7 @@ import projectlx.user.management.model.UserSecurityDetails;
 import projectlx.user.management.model.UserType;
 import projectlx.user.management.model.UserTypeDetails;
 import projectlx.user.management.model.UserGroup;
+import projectlx.user.management.model.UserRole;
 import projectlx.user.management.repository.UserAccountRepository;
 import projectlx.user.management.repository.UserAddressRepository;
 import projectlx.user.management.repository.UserPasswordRepository;
@@ -70,6 +72,7 @@ import projectlx.user.management.utils.dtos.UserPreferencesDto;
 import projectlx.user.management.utils.dtos.UserRoleDto;
 import projectlx.user.management.utils.dtos.UserSecurityDto;
 import projectlx.user.management.utils.dtos.UserTypeDto;
+import projectlx.user.management.utils.support.UserRoleDtoModuleEnricher;
 import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
 import projectlx.user.management.utils.config.PasswordResetLinkProperties;
 import projectlx.user.management.utils.notifications.UserNotificationTemplateData;
@@ -106,6 +109,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 import org.apache.poi.ss.usermodel.Cell;
@@ -133,6 +137,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 
@@ -165,6 +170,7 @@ public class UserServiceImpl implements UserService {
     private final TokenService tokenService;
     private final EmailVerificationLinkProperties emailVerificationLinkProperties;
     private final PasswordResetLinkProperties passwordResetLinkProperties;
+    private final OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport;
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
     private static final String[] HEADERS = {
@@ -239,6 +245,7 @@ public class UserServiceImpl implements UserService {
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         User userToBeSaved = modelMapper.map(createUserRequest, User.class);
         applyOrganizationKycApproverFlag(userToBeSaved, createUserRequest);
+        applyOperationalIssueHandlerFlag(userToBeSaved, createUserRequest);
 
         if (createUserRequest.getUserTypeDetails() != null) {
 
@@ -490,6 +497,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional
     public UserResponse findById(Long id, Locale locale, String username) {
 
         String message = "";
@@ -502,6 +510,10 @@ public class UserServiceImpl implements UserService {
 
             return buildUserResponse(400, false, message, null, null,
                     null);
+        }
+
+        if (!organizationWorkspaceAccessSupport.canReadUser(username, id)) {
+            throw new AccessDeniedException("Not allowed to view this user");
         }
 
         Optional<User> userRetrieved = userRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED);
@@ -551,36 +563,38 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional(readOnly = true)
     public UserResponse findByUsername(String username, Locale locale) {
+        return findUserByUsernameInternal(username, locale, true);
+    }
 
-        String message = "";
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse findCurrentUserForSession(String username, Locale locale) {
+        return findUserByUsernameInternal(username, locale, false);
+    }
 
-        boolean isIdValid = userServiceValidator.isStringValid(username);
+    private UserResponse findUserByUsernameInternal(String username, Locale locale, boolean hydrateRemoteAddress) {
 
-        if(!isIdValid) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_USERNAME_SUPPLIED_INVALID.getCode(), new String[]
+        if (!userServiceValidator.isStringValid(username)) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USERNAME_SUPPLIED_INVALID.getCode(), new String[]
                     {}, locale);
-
-            return buildUserResponse(400, false, message,null, null,
-                    null);
+            return buildUserResponse(400, false, message, null, null, null);
         }
 
-        Optional<User> userRetrieved = userRepository.findByUsernameAndEntityStatusNot(username, EntityStatus.DELETED);
+        Optional<User> userRetrieved = userRepository.findSessionProfileByUsernameIgnoreCaseAndEntityStatusNot(
+                username, EntityStatus.DELETED);
 
         if (userRetrieved.isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{},
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{},
                     locale);
-
-            return buildUserResponse(404, false, message,null, null,
-                    null);
+            return buildUserResponse(404, false, message, null, null, null);
         }
 
         User userReturned = userRetrieved.get();
 
-        if (userReturned.getAddress() != null) {
+        if (hydrateRemoteAddress && userReturned.getAddress() != null) {
             try {
-                AddressResponse addressResponse = userAddressService.findById(userReturned.getAddress().getId(), locale, username);
+                AddressResponse addressResponse = userAddressService.findById(
+                        userReturned.getAddress().getId(), locale, username);
                 if (addressResponse.isSuccess() && addressResponse.getAddressDto() != null) {
                     userReturned.getAddress().setAddressDetails(addressResponse.getAddressDto());
                 }
@@ -589,6 +603,15 @@ public class UserServiceImpl implements UserService {
             }
         }
 
+        UserDto userDto = mapUserEntityToDto(userReturned);
+
+        String message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
+                locale);
+
+        return buildUserResponse(200, true, message, userDto, null, null);
+    }
+
+    private UserDto mapUserEntityToDto(User userReturned) {
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         UserDto userDto = modelMapper.map(userReturned, UserDto.class);
 
@@ -605,15 +628,7 @@ public class UserServiceImpl implements UserService {
 
         UserGroup userGroup = userReturned.getUserGroup();
         if (userGroup != null) {
-            UserGroupDto userGroupDto = modelMapper.map(userGroup, UserGroupDto.class);
-            if (userGroup.getUserRoles() != null) {
-                List<UserRoleDto> userRoleDtoList = userGroup.getUserRoles().stream()
-                        .filter(role -> role.getEntityStatus() != EntityStatus.DELETED)
-                        .map(role -> modelMapper.map(role, UserRoleDto.class))
-                        .toList();
-                userGroupDto.setUserRoleDtoSet(userRoleDtoList);
-            }
-            userDto.setUserGroupDto(userGroupDto);
+            userDto.setUserGroupDto(mapUserGroupDto(userGroup));
         }
 
         UserPassword userPassword = userReturned.getUserPassword();
@@ -628,11 +643,23 @@ public class UserServiceImpl implements UserService {
         userDto.setUserSecurityDto(
                 userSecurity != null ? modelMapper.map(userSecurity, UserSecurityDto.class) : null);
 
-        message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
-                locale);
+        return userDto;
+    }
 
-        return buildUserResponse(200, true, message, userDto, null,
-                null);
+    private UserGroupDto mapUserGroupDto(UserGroup userGroup) {
+        UserGroupDto userGroupDto = modelMapper.map(userGroup, UserGroupDto.class);
+        Set<UserRole> roleSet = userGroup.getUserRoles();
+        List<UserRoleDto> roleDtos = new ArrayList<>();
+        if (roleSet != null) {
+            for (UserRole role : roleSet) {
+                if (role.getEntityStatus() != EntityStatus.DELETED) {
+                    roleDtos.add(modelMapper.map(role, UserRoleDto.class));
+                }
+            }
+        }
+        UserRoleDtoModuleEnricher.enrichAll(roleDtos);
+        userGroupDto.setUserRoleDtoSet(roleDtos);
+        return userGroupDto;
     }
 
     @Override
@@ -739,6 +766,7 @@ public class UserServiceImpl implements UserService {
             userToBeEdited.setPassportUploadId(editUserRequest.getPassportUploadId());
         }
         applyOrganizationKycApproverFlagOnUpdate(userToBeEdited, editUserRequest);
+        applyOperationalIssueHandlerFlagOnUpdate(userToBeEdited, editUserRequest);
 
         User userEdited = userServiceAuditable.update(userToBeEdited, locale, username);
         applyUserAddressOnUpdate(userEdited, editUserRequest, locale, username);
@@ -1590,6 +1618,39 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public UserResponse listOperationalIssueHandlers(Locale locale) {
+        List<User> handlers = userRepository.findByOperationalIssueHandlerTrueAndOrganizationIdIsNullAndEntityStatusNot(
+                EntityStatus.DELETED);
+        List<UserDto> dtos = new ArrayList<>();
+        for (User user : handlers) {
+            dtos.add(toUserDto(user));
+        }
+        String message = messageService.getMessage(
+                I18Code.MESSAGE_OPERATIONAL_ISSUE_HANDLERS_RETRIEVED.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, null, dtos, null);
+    }
+
+    @Override
+    public UserResponse setOperationalIssueHandler(Long id, boolean enabled, Locale locale, String username) {
+        User user = userRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED)
+                .orElse(null);
+        if (user == null) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(404, false, message, null, null, null);
+        }
+        if (enabled && (user.getOrganizationId() != null || user.getBranchId() != null)) {
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_CREATE_USER_OPERATIONAL_HANDLER_REQUIRES_NO_ORG.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
+        }
+        user.setOperationalIssueHandler(enabled);
+        User saved = userServiceAuditable.update(user, locale, username);
+        String message = messageService.getMessage(I18Code.MESSAGE_USER_UPDATED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, toUserDto(saved), null, null);
+    }
+
+    @Override
     public UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale) {
 
         String message = "";
@@ -1744,7 +1805,11 @@ public class UserServiceImpl implements UserService {
                     null);
         }
 
-        List<User> userList = userRepository.findByOrganizationIdAndEntityStatusNot(organizationId, EntityStatus.DELETED);
+        if (!organizationWorkspaceAccessSupport.canReadOrganization(username, organizationId)) {
+            throw new AccessDeniedException("Not allowed to view users for this organisation");
+        }
+
+        List<User> userList = userRepository.findByOrganizationWorkspace(organizationId, EntityStatus.DELETED);
         List<UserDto> userDtoList = mapUsersToDtoList(userList);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(),
@@ -1752,6 +1817,36 @@ public class UserServiceImpl implements UserService {
 
         return buildUserResponse(200, true, message, null, userDtoList,
                 null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse findUsernamesByOrganizationId(Long organizationId, Locale locale, String username) {
+
+        if (!userServiceValidator.isIdValid(organizationId)) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_ID_SUPPLIED_INVALID.getCode(), new String[]
+                    {}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        if (!organizationWorkspaceAccessSupport.canReadOrganization(username, organizationId)) {
+            throw new AccessDeniedException("Not allowed to view users for this organisation");
+        }
+
+        List<String> usernames = userRepository
+                .findUsernamesByOrganizationWorkspace(organizationId, EntityStatus.DELETED)
+                .stream()
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
+                .toList();
+
+        String message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(),
+                new String[]{}, locale);
+
+        UserResponse response = buildUserResponse(200, true, message, null, null, null);
+        response.setUsernames(usernames);
+        return response;
     }
 
     @Override
@@ -1827,7 +1922,7 @@ public class UserServiceImpl implements UserService {
         List<UserDto> userDtoList = new ArrayList<>();
 
         for (User user : userPage) {
-            userDtoList.add(toUserDto(user));
+            userDtoList.add(toUserDtoForList(user));
         }
 
         int page = userPage.getNumber();
@@ -2445,6 +2540,13 @@ public class UserServiceImpl implements UserService {
         user.setOrganizationKycApprover(approver);
     }
 
+    private void applyOperationalIssueHandlerFlag(User user, CreateUserRequest request) {
+        boolean handler = Boolean.TRUE.equals(request.getOperationalIssueHandler())
+                && request.getOrganizationId() == null
+                && request.getBranchId() == null;
+        user.setOperationalIssueHandler(handler);
+    }
+
     private void applyOrganizationKycApproverFlagOnUpdate(User user, EditUserRequest request) {
         Boolean flag = resolveOrganizationKycApproverFlag(request.getOrganizationKycApprover());
         if (flag == null) {
@@ -2456,7 +2558,22 @@ public class UserServiceImpl implements UserService {
         user.setOrganizationKycApprover(approver);
     }
 
+    private void applyOperationalIssueHandlerFlagOnUpdate(User user, EditUserRequest request) {
+        Boolean flag = resolveBooleanFormFlag(request.getOperationalIssueHandler());
+        if (flag == null) {
+            return;
+        }
+        boolean handler = Boolean.TRUE.equals(flag)
+                && user.getOrganizationId() == null
+                && user.getBranchId() == null;
+        user.setOperationalIssueHandler(handler);
+    }
+
     private Boolean resolveOrganizationKycApproverFlag(String raw) {
+        return resolveBooleanFormFlag(raw);
+    }
+
+    private Boolean resolveBooleanFormFlag(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;
         }
@@ -2469,15 +2586,29 @@ public class UserServiceImpl implements UserService {
             return userDtoList;
         }
         for (User user : userList) {
-            userDtoList.add(toUserDto(user));
+            userDtoList.add(toUserDtoForList(user));
         }
         return userDtoList;
+    }
+
+    /** List and organisation-scoped reads — includes group and type for portal tables. */
+    private UserDto toUserDtoForList(User user) {
+        UserDto userDto = toUserDto(user);
+        if (user.getUserType() != null) {
+            userDto.setUserTypeDto(modelMapper.map(user.getUserType(), UserTypeDto.class));
+        }
+        UserGroup userGroup = user.getUserGroup();
+        if (userGroup != null) {
+            userDto.setUserGroupDto(modelMapper.map(userGroup, UserGroupDto.class));
+        }
+        return userDto;
     }
 
     private UserDto toUserDto(User user) {
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         UserDto dto = modelMapper.map(user, UserDto.class);
         dto.setOrganizationKycApprover(user.isOrganizationKycApprover());
+        dto.setOperationalIssueHandler(user.isOperationalIssueHandler());
         return dto;
     }
 
@@ -2492,8 +2623,7 @@ public class UserServiceImpl implements UserService {
         Address address = user.getAddress();
         userDto.setAddressDto(address != null ? userAddressService.toAddressDto(address) : null);
         UserGroup userGroup = user.getUserGroup();
-        userDto.setUserGroupDto(
-                userGroup != null ? modelMapper.map(userGroup, UserGroupDto.class) : null);
+        userDto.setUserGroupDto(userGroup != null ? mapUserGroupDto(userGroup) : null);
         UserPassword userPassword = user.getUserPassword();
         userDto.setUserPasswordDto(
                 userPassword != null ? modelMapper.map(userPassword, UserPasswordDto.class) : null);

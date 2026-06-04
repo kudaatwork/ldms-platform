@@ -1,12 +1,20 @@
-import { Chart, registerables } from 'chart.js';
+import {
+  BarController,
+  BarElement,
+  CategoryScale,
+  Chart,
+  Legend,
+  LinearScale,
+  Tooltip,
+} from 'chart.js';
 
 let registered = false;
 
-/** Registers Chart.js once (lazy — not in main.ts to avoid Vite prebundle chunk drift). */
+/** Registers only the bar chart pieces the dashboard uses (avoids heavy full registerables on login). */
 export function ensureChartJsRegistered(): void {
   if (registered) {
     return;
   }
-  Chart.register(...registerables);
+  Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
   registered = true;
 }

@@ -38,6 +38,12 @@ public class EditUserRequest {
      */
     private String organizationKycApprover;
 
+    /**
+     * When set ({@code true} / {@code false}), toggles operational issue / support ticket handler eligibility.
+     * Bound as {@link String} for reliable multipart form binding. Omit to leave unchanged.
+     */
+    private String operationalIssueHandler;
+
     /** When provided, creates or updates the user's linked address (same as user create). */
     private UserAddressDetails userAddressDetails;
 }

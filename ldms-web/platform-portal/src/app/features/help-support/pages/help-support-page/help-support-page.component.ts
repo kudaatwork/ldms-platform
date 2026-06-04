@@ -168,23 +168,46 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy {
           return of([] as SupportTicket[]);
         }),
       ),
-      status: this.helpApi.fetchPlatformStatus().pipe(
-        catchError((err: Error) => {
-          captureError(err);
-          return of(null);
-        }),
-      ),
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: ({ articles, tickets, status }) => {
+        next: ({ articles, tickets }) => {
           this.articles = articles;
           this.tickets = tickets;
-          this.platformStatus = status;
           this.loadError.set(firstError);
           this.loading.set(false);
           this.cdr.markForCheck();
         },
+      });
+
+    this.loadPlatformStatusInBackground(() => firstError, (msg) => {
+      firstError = msg;
+    });
+  }
+
+  /** Platform health probes every LDMS service and can take several seconds — load after the page shell. */
+  private loadPlatformStatusInBackground(
+    readError: () => string,
+    writeError: (msg: string) => void,
+  ): void {
+    this.helpApi
+      .fetchPlatformStatus()
+      .pipe(
+        catchError((err: Error) => {
+          if (!readError()) {
+            writeError(err.message);
+          }
+          return of(null);
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((status) => {
+        this.platformStatus = status;
+        const errMsg = readError();
+        if (errMsg && !this.loadError()) {
+          this.loadError.set(errMsg);
+        }
+        this.cdr.markForCheck();
       });
   }
 

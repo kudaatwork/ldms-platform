@@ -7,8 +7,11 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { PageEvent } from '@angular/material/paginator';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, debounceTime, merge, of, takeUntil } from 'rxjs';
+import { catchError, switchMap, tap } from 'rxjs/operators';
+import { VAULT_PAGE_SIZE, VAULT_PAGE_SIZE_OPTIONS } from '@shared/constants/table-pagination';
 import {
   DocumentFilterId,
   DocumentSortId,
@@ -30,6 +33,8 @@ type DetailTab = 'preview' | 'metadata' | 'verification';
 })
 export class DocumentsStagingComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
+  private readonly pageReload$ = new Subject<void>();
+  private readonly searchReload$ = new Subject<void>();
   private readonly docsApi = inject(DocumentsService);
   private readonly authState = inject(AuthStateService);
   private readonly sanitizer = inject(DomSanitizer);
@@ -45,6 +50,13 @@ export class DocumentsStagingComponent implements OnInit, OnDestroy {
   readonly selectedId = signal<number | null>(null);
   readonly detailLoading = signal(false);
   readonly inspectorOpen = signal(false);
+  readonly pageIndex = signal(0);
+  readonly pageSize = signal(VAULT_PAGE_SIZE);
+  readonly totalElements = signal(0);
+  readonly filterCounts = signal<Partial<Record<DocumentFilterId, number>>>({});
+  readonly filterCountsLoading = signal(false);
+
+  readonly pageSizeOptions = VAULT_PAGE_SIZE_OPTIONS;
 
   documents: StagedDocument[] = [];
   selected: StagedDocument | null = null;
@@ -66,7 +78,16 @@ export class DocumentsStagingComponent implements OnInit, OnDestroy {
   ];
 
   ngOnInit(): void {
-    this.reload();
+    this.refreshFilterCounts();
+    merge(of(undefined), this.pageReload$, this.searchReload$.pipe(debounceTime(350)))
+      .pipe(
+        switchMap(() => this.loadPage()),
+        takeUntil(this.destroy$),
+      )
+      .subscribe();
+    this.searchReload$
+      .pipe(debounceTime(350), takeUntil(this.destroy$))
+      .subscribe(() => this.refreshFilterCounts());
   }
 
   ngOnDestroy(): void {
@@ -78,80 +99,80 @@ export class DocumentsStagingComponent implements OnInit, OnDestroy {
     return this.authState.currentUser?.orgName ?? 'Your organisation';
   }
 
-  get filteredDocuments(): StagedDocument[] {
-    const q = this.search().trim().toLowerCase();
-    let rows = this.documents;
-    const f = this.filter();
-    if (f !== 'ALL') {
-      rows = rows.filter((d) => this.matchesFilter(d, f));
-    }
-    if (q) {
-      rows = rows.filter(
-        (d) =>
-          d.displayTitle.toLowerCase().includes(q) ||
-          d.fileName.toLowerCase().includes(q) ||
-          d.sourceLabel.toLowerCase().includes(q) ||
-          d.category.toLowerCase().includes(q) ||
-          d.fileType.toLowerCase().includes(q) ||
-          String(d.id).includes(q),
-      );
-    }
-    return this.sortDocuments(rows);
+  get displayDocuments(): StagedDocument[] {
+    return this.sortDocuments(this.documents);
   }
 
   get stats() {
-    const all = this.documents;
+    const page = this.documents;
     return {
-      total: all.length,
-      org: all.filter((d) => d.sourceScope === 'ORGANIZATION').length,
-      user: all.filter((d) => d.sourceScope === 'USER').length,
-      verified: all.filter((d) => d.autoVerified).length,
-      withPreview: all.filter((d) => d.hasPreview).length,
+      total: this.filterCounts()['ALL'] ?? this.totalElements(),
+      org: page.filter((d) => d.sourceScope === 'ORGANIZATION').length,
+      user: page.filter((d) => d.sourceScope === 'USER').length,
+      verified: page.filter((d) => d.autoVerified).length,
+      withPreview: page.filter((d) => d.hasPreview).length,
     };
   }
 
-  filterCount(id: DocumentFilterId): number {
-    if (id === 'ALL') {
-      return this.documents.length;
+  get pageRangeLabel(): string {
+    const total = this.totalElements();
+    if (total < 1) {
+      return 'No documents';
     }
-    return this.documents.filter((d) => this.matchesFilter(d, id)).length;
+    const start = this.pageIndex() * this.pageSize() + 1;
+    const end = Math.min(total, (this.pageIndex() + 1) * this.pageSize());
+    return `${start.toLocaleString()}–${end.toLocaleString()} of ${total.toLocaleString()}`;
+  }
+
+  onSearchInput(value: string): void {
+    this.search.set(value);
+    if (this.pageIndex() !== 0) {
+      this.pageIndex.set(0);
+    }
+    this.searchReload$.next();
   }
 
   reload(): void {
-    this.loading.set(true);
-    this.loadError.set('');
-    this.docsApi
-      .loadStagingDocuments()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (docs) => {
-          this.documents = docs;
-          this.loading.set(false);
-          if (docs.length && !this.selected) {
-            this.selectDocument(docs[0], false);
-          }
-          this.cdr.markForCheck();
-        },
-        error: (err: Error) => {
-          this.loadError.set(err.message);
-          this.loading.set(false);
-          this.cdr.markForCheck();
-        },
-      });
+    this.refreshFilterCounts();
+    this.pageReload$.next();
+  }
+
+  filterCount(id: DocumentFilterId): string {
+    if (this.filterCountsLoading()) {
+      return '…';
+    }
+    const count = this.filterCounts()[id];
+    return count != null ? count.toLocaleString() : '—';
+  }
+
+  filterCssClass(id: DocumentFilterId): string {
+    return `vault-filter--${id.toLowerCase()}`;
   }
 
   setFilter(id: DocumentFilterId): void {
     this.filter.set(id);
-    const rows = this.filteredDocuments;
-    if (rows.length && !rows.some((d) => d.id === this.selectedId())) {
-      this.selectDocument(rows[0], false);
+    this.pageIndex.set(0);
+    this.pageReload$.next();
+  }
+
+  onSortChange(value: DocumentSortId): void {
+    this.sortBy.set(value);
+    this.cdr.markForCheck();
+  }
+
+  onPage(event: PageEvent): void {
+    if (event.pageIndex === this.pageIndex() && event.pageSize === this.pageSize()) {
+      return;
     }
+    this.pageIndex.set(event.pageIndex);
+    this.pageSize.set(event.pageSize);
+    this.pageReload$.next();
   }
 
   setViewMode(mode: ViewMode): void {
     this.viewMode.set(mode);
-    if (mode === 'focus' && this.filteredDocuments.length && !this.selected) {
-      this.selectDocument(this.filteredDocuments[0], false);
+    if (mode === 'focus' && this.displayDocuments.length && !this.selected) {
+      this.selectDocument(this.displayDocuments[0], false);
     }
   }
 
@@ -287,6 +308,58 @@ export class DocumentsStagingComponent implements OnInit, OnDestroy {
     return doc.id;
   }
 
+  private refreshFilterCounts(): void {
+    this.filterCountsLoading.set(true);
+    this.docsApi
+      .loadFilterCounts(this.search())
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (counts) => {
+          this.filterCounts.set(counts);
+          this.filterCountsLoading.set(false);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.filterCountsLoading.set(false);
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private loadPage() {
+    this.loading.set(true);
+    this.loadError.set('');
+    return this.docsApi
+      .queryVaultPage({
+        page: this.pageIndex(),
+        size: this.pageSize(),
+        searchQuery: this.search(),
+        categoryFilter: this.filter(),
+      })
+      .pipe(
+        tap((page) => {
+          this.documents = page.documents;
+          this.totalElements.set(page.totalElements);
+          this.loading.set(false);
+          if (page.documents.length && !this.selected) {
+            this.selectDocument(page.documents[0], false);
+          } else if (this.selected && !page.documents.some((d) => d.id === this.selected?.id)) {
+            this.selected = page.documents[0] ?? null;
+            this.selectedId.set(this.selected?.id ?? null);
+          }
+          this.cdr.markForCheck();
+        }),
+        catchError((err: Error) => {
+          this.loadError.set(err.message);
+          this.documents = [];
+          this.totalElements.set(0);
+          this.loading.set(false);
+          this.cdr.markForCheck();
+          return of(null);
+        }),
+      );
+  }
+
   private sortDocuments(rows: StagedDocument[]): StagedDocument[] {
     const sorted = [...rows];
     switch (this.sortBy()) {
@@ -298,23 +371,6 @@ export class DocumentsStagingComponent implements OnInit, OnDestroy {
         return sorted.sort((a, b) => (b.fileSizeInBytes ?? 0) - (a.fileSizeInBytes ?? 0));
       default:
         return sorted.sort((a, b) => (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0));
-    }
-  }
-
-  private matchesFilter(doc: StagedDocument, filter: DocumentFilterId): boolean {
-    switch (filter) {
-      case 'KYC':
-        return doc.sourceChannel === 'KYC_ONBOARDING';
-      case 'COMPLIANCE':
-        return doc.sourceChannel === 'ORGANIZATION_COMPLIANCE';
-      case 'PROFILE':
-        return doc.sourceChannel === 'USER_PROFILE';
-      case 'BRANDING':
-        return doc.sourceChannel === 'ORGANIZATION_BRANDING';
-      case 'OTHER':
-        return doc.sourceChannel === 'FILE_UPLOAD_REGISTRY';
-      default:
-        return true;
     }
   }
 }

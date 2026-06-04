@@ -45,6 +45,10 @@ public class User {
     @jakarta.persistence.Column(name = "organization_kyc_approver", nullable = false)
     private boolean organizationKycApprover;
 
+    /** Admin-portal user eligible to be assigned Help &amp; Support / operational issue tickets. */
+    @jakarta.persistence.Column(name = "operational_issue_handler", nullable = false)
+    private boolean operationalIssueHandler;
+
     private String username;              // Unique username for login
     private String email;                 // User's email address
     private String firstName;             // User's first name

@@ -2,6 +2,7 @@ package projectlx.user.management.repository;
 
 import projectlx.user.management.model.EntityStatus;
 import projectlx.user.management.model.User;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -24,11 +25,49 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     Optional<User> findByPhoneNumberAndEntityStatusNot(String phoneNumber, EntityStatus entityStatus);
     List<User> findByEntityStatusNot(EntityStatus entityStatus);
     Optional<User> findByUsernameAndEntityStatusNot(String username, EntityStatus entityStatus);
+
+    @Query("SELECT u FROM User u WHERE LOWER(u.username) = LOWER(:username) AND u.entityStatus <> :excluded")
+    Optional<User> findByUsernameIgnoreCaseAndEntityStatusNot(
+            @Param("username") String username,
+            @Param("excluded") EntityStatus excluded);
+
+    @EntityGraph(attributePaths = {"userGroup", "userGroup.userRoles", "userAccount", "userType"})
+    @Query("SELECT u FROM User u WHERE LOWER(u.username) = LOWER(:username) AND u.entityStatus <> :excluded")
+    Optional<User> findSessionProfileByUsernameIgnoreCaseAndEntityStatusNot(
+            @Param("username") String username,
+            @Param("excluded") EntityStatus excluded);
     Optional<User> findByEmailAndEntityStatusNot(String email, EntityStatus entityStatus);
     List<User> findByOrganizationIdAndEntityStatusNot(Long organizationId, EntityStatus entityStatus);
+
+    /** Organisation workspace listing: {@code user.organization_id} or linked {@code user_group.organization_id}. */
+    @Query("""
+            SELECT DISTINCT u FROM User u
+            LEFT JOIN u.userGroup g
+            WHERE u.entityStatus <> :excluded
+              AND (u.organizationId = :organizationId OR g.organizationId = :organizationId)
+            """)
+    List<User> findByOrganizationWorkspace(
+            @Param("organizationId") Long organizationId,
+            @Param("excluded") EntityStatus excluded);
+
+    /** Login names only — used by organisation audit views (avoids full {@link User} hydration). */
+    @Query("""
+            SELECT DISTINCT u.username FROM User u
+            LEFT JOIN u.userGroup g
+            WHERE u.entityStatus <> :excluded
+              AND u.username IS NOT NULL AND TRIM(u.username) <> ''
+              AND (u.organizationId = :organizationId OR g.organizationId = :organizationId)
+            """)
+    List<String> findUsernamesByOrganizationWorkspace(
+            @Param("organizationId") Long organizationId,
+            @Param("excluded") EntityStatus excluded);
+
     List<User> findByBranchIdAndEntityStatusNot(Long branchId, EntityStatus entityStatus);
 
     List<User> findByOrganizationKycApproverTrueAndOrganizationIdIsNullAndEntityStatusNot(
+            EntityStatus entityStatus);
+
+    List<User> findByOperationalIssueHandlerTrueAndOrganizationIdIsNullAndEntityStatusNot(
             EntityStatus entityStatus);
 
     /**

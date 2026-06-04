@@ -8,7 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { ActivatedRouteSnapshot, NavigationEnd, Router } from '@angular/router';
-import { filter, takeUntil, tap } from 'rxjs/operators';
+import { filter, finalize, takeUntil, tap } from 'rxjs/operators';
 import { Subject } from 'rxjs';
 import { CurrentUserService, ShellUserView } from './core/services/current-user.service';
 import { NavAccessService } from './core/services/nav-access.service';
@@ -102,11 +102,14 @@ export class AppComponent implements OnInit, OnDestroy {
   private idleLogoutTimerId: ReturnType<typeof setTimeout> | null = null;
   private idleCountdownTimerId: ReturnType<typeof setInterval> | null = null;
   private warningDeadlineMs = 0;
+  private lastActivityResetMs = 0;
+  private static readonly ACTIVITY_RESET_COOLDOWN_MS = 1_000;
   private readonly onActivityBound = () => this.onUserActivity();
 
   collapsed = false;
   pageTitle = 'Dashboard';
   showShell = true;
+  private sessionProfileHydrated = false;
   breadcrumbs: Breadcrumb[] = [];
 
   /** Expanded state per sidebar group route (e.g. /locations, /activity). */
@@ -116,6 +119,22 @@ export class AppComponent implements OnInit, OnDestroy {
   currentUrl = '';
 
   visibleNavItems: NavItem[] = [];
+  showNavRoleHint = false;
+  private kycStatsLoaded = false;
+
+  /** Minimal menu when RBAC roles are not loaded yet or the user group has none assigned. */
+  private readonly bootstrapNavItems: NavItem[] = [
+    { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
+    {
+      label: 'Users',
+      icon: 'people_outline',
+      route: '/users',
+      children: [
+        { label: 'User groups', icon: 'groups', route: '/users/groups' },
+        { label: 'User roles', icon: 'verified_user', route: '/users/roles' },
+      ],
+    },
+  ];
 
   private readonly allNavItems: NavItem[] = [
     { label: 'Dashboard', icon: 'dashboard', route: '/dashboard' },
@@ -208,26 +227,25 @@ export class AppComponent implements OnInit, OnDestroy {
     private readonly kycStats: KycQueueStatsService,
     private readonly kycNotificationDismiss: KycNotificationDismissService,
     readonly theme: ThemeService,
-  ) {}
+  ) {
+    this.showShell = !router.url.startsWith('/auth');
+  }
 
   ngOnInit(): void {
     this.registerActivityListeners();
     this.currentUser.user$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
       this.shellUser = user;
       this.rebuildVisibleNav();
-      this.syncChromeFromUrl();
       this.cdr.markForCheck();
     });
     this.kycStats.summary$.pipe(takeUntil(this.destroy$)).subscribe((summary) => {
       this.applyKycQueueSummary(summary);
       this.cdr.markForCheck();
     });
-    if (this.storage.getToken() && !this.storage.getToken()?.startsWith('mock-token-')) {
-      this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
-    }
     this.rebuildVisibleNav();
     this.syncChromeFromUrl();
     this.rebuildBreadcrumbs();
+    this.hydrateSessionProfile();
     this.router.events
       .pipe(
         filter((e): e is NavigationEnd => e instanceof NavigationEnd),
@@ -236,6 +254,8 @@ export class AppComponent implements OnInit, OnDestroy {
           this.rebuildBreadcrumbs();
           this.profileOpen = false;
           this.notificationsOpen = false;
+          this.scheduleKycStatsRefresh();
+          this.hydrateSessionProfile();
           this.cdr.markForCheck();
         }),
       )
@@ -351,7 +371,16 @@ export class AppComponent implements OnInit, OnDestroy {
   private syncChromeFromUrl(): void {
     const url = this.router.url;
     this.currentUrl = url;
-    this.showShell = !url.startsWith('/auth');
+    const wantsShell = !url.startsWith('/auth');
+    this.showShell = wantsShell;
+
+    if (!wantsShell) {
+      this.pageTitle = this.resolvePageTitle(url);
+      this.showNavRoleHint = false;
+      this.syncSessionWatchState();
+      this.cdr.markForCheck();
+      return;
+    }
 
     const nextExpanded = { ...this.expandedGroups() };
     const activeGroupKeys = new Set<string>();
@@ -393,8 +422,38 @@ export class AppComponent implements OnInit, OnDestroy {
     this.expandedGroups.set(nextExpanded);
 
     this.pageTitle = this.resolvePageTitle(url);
+    this.updateNavRoleHint();
     this.syncSessionWatchState();
     this.cdr.markForCheck();
+  }
+
+  private hydrateSessionProfile(): void {
+    if (!this.isAuthenticated() || this.router.url.startsWith('/auth')) {
+      return;
+    }
+    const roles = this.navAccess.currentRoles();
+    if (this.sessionProfileHydrated && roles.length > 0) {
+      return;
+    }
+    this.currentUser
+      .refreshFromApi()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.sessionProfileHydrated = true;
+          this.rebuildVisibleNav();
+          this.updateNavRoleHint();
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe();
+  }
+
+  private updateNavRoleHint(): void {
+    this.showNavRoleHint =
+      this.showShell &&
+      this.sessionProfileHydrated &&
+      this.navAccess.currentRoles().length === 0;
   }
 
   private syncSessionWatchState(): void {
@@ -422,6 +481,11 @@ export class AppComponent implements OnInit, OnDestroy {
     if (!this.showShell || !this.isAuthenticated()) {
       return;
     }
+    const now = Date.now();
+    if (now - this.lastActivityResetMs < AppComponent.ACTIVITY_RESET_COOLDOWN_MS) {
+      return;
+    }
+    this.lastActivityResetMs = now;
     this.armSessionTimers();
   }
 
@@ -678,7 +742,34 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   rebuildVisibleNav(): void {
-    this.visibleNavItems = this.navAccess.filterNavItems(this.allNavItems);
+    if (!this.showShell) {
+      return;
+    }
+    const filtered = this.navAccess.filterNavItems(this.allNavItems);
+    if (filtered.length > 0) {
+      this.visibleNavItems = filtered;
+    } else {
+      const stored = this.storage.getUser();
+      const fallback = [...this.bootstrapNavItems];
+      if (stored?.organizationKycApprover) {
+        fallback.push({ label: 'KYC Queue', icon: 'verified_user', route: '/kyc/applications' });
+      }
+      if (stored?.operationalIssueHandler) {
+        fallback.push({ label: 'Help & Support', icon: 'help_outline', route: '/help' });
+      }
+      this.visibleNavItems = fallback;
+    }
+    this.updateNavRoleHint();
+  }
+
+  private scheduleKycStatsRefresh(): void {
+    if (this.kycStatsLoaded || !this.showShell || !this.isAuthenticated()) {
+      return;
+    }
+    this.kycStatsLoaded = true;
+    setTimeout(() => {
+      this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
+    }, 0);
   }
 
   logout(fromTimeout = false): void {
@@ -688,6 +779,8 @@ export class AppComponent implements OnInit, OnDestroy {
     this.notificationsOpen = false;
     this.storage.clearSession();
     this.currentUser.clear();
+    this.sessionProfileHydrated = false;
+    this.kycStatsLoaded = false;
     void this.router.navigate(['/auth/login'], { replaceUrl: true });
     if (fromTimeout) {
       this.topNotifications = [

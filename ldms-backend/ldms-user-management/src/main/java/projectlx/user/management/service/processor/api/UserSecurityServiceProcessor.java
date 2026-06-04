@@ -15,4 +15,8 @@ public interface UserSecurityServiceProcessor {
     UserSecurityResponse delete(Long id, Locale locale, String username);
     UserSecurityResponse findByMultipleFilters(UserSecurityMultipleFiltersRequest userSecurityMultipleFiltersRequest,
                                                String username, Locale locale);
+
+    UserSecurityResponse findMySecurity(Locale locale, String sessionUsername);
+
+    UserSecurityResponse saveMySecurity(EditUserSecurityRequest request, Locale locale, String sessionUsername);
 }

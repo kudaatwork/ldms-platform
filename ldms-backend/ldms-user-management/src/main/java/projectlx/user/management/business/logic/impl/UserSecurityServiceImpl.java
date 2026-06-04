@@ -361,6 +361,55 @@ public class UserSecurityServiceImpl implements UserSecurityService {
         return new PageImpl<UserSecurityDto>(userSecurityDtoList, pageableUserSecurities, userSecurityPage.getTotalElements());
     }
 
+    @Override
+    public UserSecurityResponse findMySecurity(Locale locale, String sessionUsername) {
+        Optional<User> userOpt = userRepository.findSessionProfileByUsernameIgnoreCaseAndEntityStatusNot(
+                sessionUsername, EntityStatus.DELETED);
+        if (userOpt.isEmpty()) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[] {}, locale);
+            return buildUserSecurityResponse(404, false, message, null, null, null);
+        }
+        Optional<UserSecurity> securityOpt = userSecurityRepository.findByUser_IdAndEntityStatusNot(
+                userOpt.get().getId(), EntityStatus.DELETED);
+        if (securityOpt.isEmpty()) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_SECURITY_NOT_FOUND.getCode(), new String[] {}, locale);
+            return buildUserSecurityResponse(200, true, message, null, null, null);
+        }
+        UserSecurityDto dto = modelMapper.map(securityOpt.get(), UserSecurityDto.class);
+        String message = messageService.getMessage(
+                I18Code.MESSAGE_USER_SECURITY_RETRIEVED_SUCCESSFULLY.getCode(), new String[] {}, locale);
+        return buildUserSecurityResponse(200, true, message, dto, null, null);
+    }
+
+    @Override
+    public UserSecurityResponse saveMySecurity(EditUserSecurityRequest request, Locale locale, String sessionUsername) {
+        Optional<User> userOpt = userRepository.findSessionProfileByUsernameIgnoreCaseAndEntityStatusNot(
+                sessionUsername, EntityStatus.DELETED);
+        if (userOpt.isEmpty()) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[] {}, locale);
+            return buildUserSecurityResponse(404, false, message, null, null, null);
+        }
+        Long userId = userOpt.get().getId();
+        request.setUserId(userId);
+
+        Optional<UserSecurity> existing = userSecurityRepository.findByUser_IdAndEntityStatusNot(userId, EntityStatus.DELETED);
+        if (existing.isPresent()) {
+            request.setId(existing.get().getId());
+            return update(request, sessionUsername, locale);
+        }
+
+        CreateUserSecurityRequest createRequest = new CreateUserSecurityRequest();
+        createRequest.setUserId(userId);
+        createRequest.setSecurityQuestion_1(request.getSecurityQuestion_1());
+        createRequest.setSecurityAnswer_1(request.getSecurityAnswer_1());
+        createRequest.setSecurityQuestion_2(request.getSecurityQuestion_2());
+        createRequest.setSecurityAnswer_2(request.getSecurityAnswer_2());
+        createRequest.setTwoFactorAuthSecret(request.getTwoFactorAuthSecret());
+        createRequest.setIsTwoFactorEnabled(
+                request.getIsTwoFactorEnabled() != null ? request.getIsTwoFactorEnabled() : Boolean.FALSE);
+        return create(createRequest, locale, sessionUsername);
+    }
+
     private void applyUpdatesToUserSecurity(UserSecurity userSecurity, EditUserSecurityRequest editRequest) {
         userSecurity.setSecurityQuestion_1(editRequest.getSecurityQuestion_1());
         userSecurity.setSecurityAnswer_1(editRequest.getSecurityAnswer_1());

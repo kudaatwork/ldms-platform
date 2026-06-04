@@ -6,8 +6,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.springframework.util.StringUtils;
 import javax.crypto.SecretKey;
 import lombok.RequiredArgsConstructor;
@@ -16,18 +18,13 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 import projectlx.co.zw.shared_library.business.logic.api.JwtService;
 import projectlx.co.zw.shared_library.utils.config.JwtProperties;
+import projectlx.co.zw.shared_library.utils.security.JwtRoleClaimLimits;
 import projectlx.co.zw.shared_library.utils.security.JwtSigningKeys;
+import projectlx.co.zw.shared_library.utils.security.OrganizationPortalRolePriorities;
 
 @Service
 @RequiredArgsConstructor
 public class JwtServiceImpl implements JwtService {
-
-    /**
-     * Access tokens with more roles are stored without a {@code roles} claim to keep the Authorization
-     * header under reverse-proxy limits. Microservices still authenticate via {@code sub} / profile claims;
-     * backoffice surfaces use {@code permitAll} at the HTTP layer.
-     */
-    private static final int MAX_ROLES_IN_ACCESS_TOKEN = 48;
 
     private final JwtProperties jwtProperties;
 
@@ -72,8 +69,9 @@ public class JwtServiceImpl implements JwtService {
                     .map(JwtServiceImpl::stripRolePrefix)
                     .filter(StringUtils::hasText)
                     .toList();
-            if (!roleCodes.isEmpty() && roleCodes.size() <= MAX_ROLES_IN_ACCESS_TOKEN) {
-                claims.put("roles", String.join(",", roleCodes));
+            String rolesClaim = rolesClaimForToken(roleCodes);
+            if (StringUtils.hasText(rolesClaim)) {
+                claims.put("roles", rolesClaim);
             }
         }
 
@@ -137,6 +135,41 @@ public class JwtServiceImpl implements JwtService {
             return roles;
         }
         return List.of();
+    }
+
+    private static final List<String> PINNED_WORKSPACE_ROLES = List.of(
+            "ORGANIZATION_ADMINISTRATOR",
+            "SEARCH_AUDIT_LOGS",
+            "VIEW_AUDIT_LOG_BY_ID",
+            "VIEW_AUDIT_LOGS_BY_TRACE",
+            "VIEW_AUDIT_LOG_SERVICE_STATS");
+
+    private static String rolesClaimForToken(List<String> roleCodes) {
+        if (roleCodes == null || roleCodes.isEmpty()) {
+            return null;
+        }
+        int maxRoles = JwtRoleClaimLimits.MAX_ROLES_IN_ACCESS_TOKEN;
+        if (roleCodes.size() <= maxRoles) {
+            return String.join(",", roleCodes);
+        }
+        Set<String> compact = new LinkedHashSet<>();
+        for (String pinned : PINNED_WORKSPACE_ROLES) {
+            if (roleCodes.contains(pinned)) {
+                compact.add(pinned);
+            }
+        }
+        for (String role : roleCodes) {
+            if (OrganizationPortalRolePriorities.isOrganizationPortalRole(role)) {
+                compact.add(role);
+            }
+        }
+        for (String role : roleCodes) {
+            if (compact.size() >= maxRoles) {
+                break;
+            }
+            compact.add(role);
+        }
+        return compact.isEmpty() ? null : String.join(",", compact);
     }
 
     private static String stripRolePrefix(String role) {

@@ -504,6 +504,7 @@ public class AuditLogServiceImpl implements AuditLogService {
                 trimToNull(searchRequest.getClientPlatform()),
                 normalizeActionList(searchRequest.getActionsIn()),
                 normalizeActionList(searchRequest.getExcludeActions()),
+                normalizeActionList(searchRequest.getUsernamesIn()),
                 page,
                 size,
                 sortBy,

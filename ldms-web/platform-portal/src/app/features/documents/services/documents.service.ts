@@ -1,7 +1,8 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, forkJoin, map, of, switchMap, throwError } from 'rxjs';
+import { Observable, catchError, forkJoin, map, of, switchMap, tap, throwError } from 'rxjs';
 import { AuthStateService } from '../../../core/services/auth-state.service';
+import { extractPagedResult } from '../../../core/utils/api-paged-response.util';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
 import {
   collectUploadIdRefsFromJsonTree,
@@ -32,6 +33,18 @@ export type DocumentFilterId =
   | 'OTHER';
 
 export type DocumentSortId = 'newest' | 'oldest' | 'name' | 'size';
+
+export interface VaultDocumentsQuery {
+  page: number;
+  size: number;
+  searchQuery: string;
+  categoryFilter: DocumentFilterId;
+}
+
+export interface VaultDocumentsPage {
+  documents: StagedDocument[];
+  totalElements: number;
+}
 
 export interface StagedDocument {
   id: number;
@@ -86,66 +99,97 @@ export class DocumentsService {
   private readonly userBase = ldmsServiceUrl('user-management', 'user');
   private readonly orgBase = ldmsServiceUrl('organization-management', 'organization');
 
+  private linkedRefs: LinkedDocumentRef[] = [];
+  private userOwnerId = 0;
+  private orgOwnerId = 0;
+  private vaultContextLoaded = false;
+
   constructor(
     private readonly http: HttpClient,
     private readonly authState: AuthStateService,
   ) {}
 
-  loadStagingDocuments(): Observable<StagedDocument[]> {
-    return forkJoin({
-      userResp: this.http.get<unknown>(`${this.userBase}/me`).pipe(catchError(() => of(null))),
-      orgResp: this.http.get<unknown>(`${this.orgBase}/my`).pipe(catchError(() => of(null))),
-    }).pipe(
-      switchMap(({ userResp, orgResp }) => {
-        const user = extractUserDtoFromResponse(userResp);
-        const org = extractOrganizationDtoFromResponse(orgResp);
-        const userId = Number(user?.['id'] ?? this.authState.currentUser?.userId ?? 0);
-        const orgId = Number(org?.['id'] ?? this.authState.currentUser?.organizationId ?? 0);
-
-        const linked = [
-          ...this.buildLinkedRefsFromTree(org, orgId, 'ORGANIZATION'),
-          ...this.buildLinkedRefsFromTree(user, userId, 'USER'),
-        ];
-
-        const ownerLoads = [
-          userId > 0 ? this.listByOwner('USER', userId) : of([] as StagedDocument[]),
-          orgId > 0 ? this.listByOwner('ORGANIZATION', orgId) : of([] as StagedDocument[]),
-        ];
-
-        return forkJoin(ownerLoads).pipe(
-          switchMap(([userOwnerDocs, orgOwnerDocs]) => {
-            const registryDocs = [...userOwnerDocs, ...orgOwnerDocs];
-            const missingIds = linked
-              .map((l) => l.uploadId)
-              .filter((id) => !registryDocs.some((d) => d.id === id));
-
-            if (!missingIds.length) {
-              return of(this.mergeDocuments(linked, registryDocs));
+  /** Server-paged vault catalogue scoped to the signed-in user and organisation. */
+  queryVaultPage(q: VaultDocumentsQuery): Observable<VaultDocumentsPage> {
+    return this.ensureVaultContext().pipe(
+      switchMap(() => {
+        if (this.userOwnerId < 1 && this.orgOwnerId < 1) {
+          return of({ documents: [], totalElements: 0 });
+        }
+        const body: Record<string, unknown> = {
+          page: q.page,
+          size: q.size,
+          searchValue: q.searchQuery.trim(),
+          fileType: this.fileTypeHintForCategory(q.categoryFilter),
+        };
+        if (this.userOwnerId > 0) {
+          body['userOwnerIds'] = [this.userOwnerId];
+        }
+        if (this.orgOwnerId > 0) {
+          body['organizationOwnerIds'] = [this.orgOwnerId];
+        }
+        return this.http.post<unknown>(`${this.fileUploadBase}/find-by-multiple-filters`, body).pipe(
+          map((resp) => {
+            const { rows, totalElements } = extractPagedResult(resp, 'fileUploadDtoPage');
+            const registryDocs = rows.map((row) => {
+              const dto = row as Record<string, unknown>;
+              return this.toStagedDocument(
+                dto,
+                {
+                  uploadId: Number(dto['id']),
+                  displayTitle: this.fileNameFromDto(dto),
+                  category: this.fileTypeLabel(dto['fileType']),
+                  sourceLabel: this.buildRegistrySourceLabel(dto),
+                  sourceScope: String(dto['ownerType'] ?? '').includes('ORG') ? 'ORGANIZATION' : 'USER',
+                  sourceChannel: 'FILE_UPLOAD_REGISTRY',
+                  ownerType: String(dto['ownerType'] ?? '').includes('ORG') ? 'ORGANIZATION' : 'USER',
+                  ownerId: Number(dto['ownerId'] ?? 0),
+                },
+                { withPreview: false },
+              );
+            });
+            let documents = this.mergeDocuments(this.linkedRefs, registryDocs);
+            if (q.categoryFilter !== 'ALL') {
+              documents = documents.filter((d) => this.matchesCategoryFilter(d, q.categoryFilter));
             }
-
-            const cappedMissing = missingIds.slice(0, 24);
-            return forkJoin(
-              cappedMissing.map((id) =>
-                this.fetchById(id).pipe(
-                  catchError(() => of(null)),
-                  map((dto) => ({ id, dto })),
-                ),
-              ),
-            ).pipe(
-              map((extras) => {
-                const extraDocs = extras
-                  .map(({ id, dto }) => {
-                    const ref = linked.find((l) => l.uploadId === id);
-                    return dto && ref ? this.toStagedDocument(dto, ref, { withPreview: false }) : null;
-                  })
-                  .filter((d): d is StagedDocument => d != null);
-                return this.mergeDocuments(linked, [...registryDocs, ...extraDocs]);
-              }),
-            );
+            return { documents, totalElements };
+          }),
+          catchError((err) => {
+            if (err instanceof HttpErrorResponse && err.status === 404) {
+              return this.queryVaultPageViaOwner(q);
+            }
+            return throwError(() => this.mapError(err, 'Could not load documents.'));
           }),
         );
       }),
-      catchError((err) => throwError(() => this.mapError(err, 'Could not load documents.'))),
+    );
+  }
+
+  /** Total documents per vault category (respects current search). */
+  loadFilterCounts(searchQuery: string): Observable<Record<DocumentFilterId, number>> {
+    const filters: DocumentFilterId[] = ['ALL', 'KYC', 'COMPLIANCE', 'PROFILE', 'BRANDING', 'OTHER'];
+    return forkJoin(
+      filters.map((categoryFilter) =>
+        this.queryVaultPage({ page: 0, size: 1, searchQuery, categoryFilter }).pipe(
+          map(({ totalElements }) => ({ categoryFilter, count: totalElements })),
+          catchError(() => of({ categoryFilter, count: 0 })),
+        ),
+      ),
+    ).pipe(
+      map((entries) => {
+        const counts = {} as Record<DocumentFilterId, number>;
+        for (const entry of entries) {
+          counts[entry.categoryFilter] = entry.count;
+        }
+        return counts;
+      }),
+    );
+  }
+
+  /** @deprecated Use {@link queryVaultPage}. */
+  loadStagingDocuments(): Observable<StagedDocument[]> {
+    return this.queryVaultPage({ page: 0, size: 100, searchQuery: '', categoryFilter: 'ALL' }).pipe(
+      map(({ documents }) => documents),
     );
   }
 
@@ -423,6 +467,92 @@ export class DocumentsService {
       return String((value as { name?: unknown }).name ?? '').replace(/_/g, ' ');
     }
     return String(value).replace(/_/g, ' ');
+  }
+
+  private ensureVaultContext(): Observable<void> {
+    if (this.vaultContextLoaded) {
+      return of(undefined);
+    }
+    return forkJoin({
+      userResp: this.http.get<unknown>(`${this.userBase}/me`).pipe(catchError(() => of(null))),
+      orgResp: this.http.get<unknown>(`${this.orgBase}/my`).pipe(catchError(() => of(null))),
+    }).pipe(
+      tap(({ userResp, orgResp }) => {
+        const user = extractUserDtoFromResponse(userResp);
+        const org = extractOrganizationDtoFromResponse(orgResp);
+        this.userOwnerId = Number(user?.['id'] ?? this.authState.currentUser?.userId ?? 0);
+        this.orgOwnerId = Number(org?.['id'] ?? this.authState.currentUser?.organizationId ?? 0);
+        this.linkedRefs = [
+          ...this.buildLinkedRefsFromTree(org, this.orgOwnerId, 'ORGANIZATION'),
+          ...this.buildLinkedRefsFromTree(user, this.userOwnerId, 'USER'),
+        ];
+        this.vaultContextLoaded = true;
+      }),
+      map(() => undefined),
+    );
+  }
+
+  /** Legacy fallback when the paginated filter endpoint is not deployed yet. */
+  private queryVaultPageViaOwner(q: VaultDocumentsQuery): Observable<VaultDocumentsPage> {
+    const ownerLoads = [
+      this.userOwnerId > 0 ? this.listByOwner('USER', this.userOwnerId) : of([] as StagedDocument[]),
+      this.orgOwnerId > 0 ? this.listByOwner('ORGANIZATION', this.orgOwnerId) : of([] as StagedDocument[]),
+    ];
+    return forkJoin(ownerLoads).pipe(
+      map(([userDocs, orgDocs]) => {
+        let documents = this.mergeDocuments(this.linkedRefs, [...userDocs, ...orgDocs]);
+        const search = q.searchQuery.trim().toLowerCase();
+        if (search) {
+          documents = documents.filter(
+            (d) =>
+              d.displayTitle.toLowerCase().includes(search) ||
+              d.fileName.toLowerCase().includes(search) ||
+              d.category.toLowerCase().includes(search) ||
+              String(d.id).includes(search),
+          );
+        }
+        if (q.categoryFilter !== 'ALL') {
+          documents = documents.filter((d) => this.matchesCategoryFilter(d, q.categoryFilter));
+        }
+        const start = q.page * q.size;
+        return {
+          totalElements: documents.length,
+          documents: documents.slice(start, start + q.size),
+        };
+      }),
+    );
+  }
+
+  private fileTypeHintForCategory(filter: DocumentFilterId): string {
+    switch (filter) {
+      case 'COMPLIANCE':
+        return 'TAX';
+      case 'BRANDING':
+        return 'LOGO';
+      case 'KYC':
+        return 'REGISTRATION';
+      case 'PROFILE':
+        return 'NATIONAL';
+      default:
+        return '';
+    }
+  }
+
+  matchesCategoryFilter(doc: StagedDocument, filter: DocumentFilterId): boolean {
+    switch (filter) {
+      case 'KYC':
+        return doc.sourceChannel === 'KYC_ONBOARDING';
+      case 'COMPLIANCE':
+        return doc.sourceChannel === 'ORGANIZATION_COMPLIANCE';
+      case 'PROFILE':
+        return doc.sourceChannel === 'USER_PROFILE';
+      case 'BRANDING':
+        return doc.sourceChannel === 'ORGANIZATION_BRANDING';
+      case 'OTHER':
+        return doc.sourceChannel === 'FILE_UPLOAD_REGISTRY';
+      default:
+        return true;
+    }
   }
 
   private mapError(err: unknown, fallback: string): Error {

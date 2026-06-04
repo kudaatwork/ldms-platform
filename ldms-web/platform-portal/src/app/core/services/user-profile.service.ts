@@ -2,15 +2,20 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
+import { resolveUserRoleLabel } from '../utils/field-display.util';
 import { ldmsServiceUrl } from '../utils/api-url.util';
 
 export interface UserProfileSummary {
+  id?: number;
   firstName: string;
   lastName: string;
   email: string;
   username: string;
   displayName: string;
+  /** User group or user type — for shell chrome, not JWT permission codes. */
+  roleLabel: string;
   mustChangeCredentials?: boolean;
+  organizationId?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -55,7 +60,22 @@ export class UserProfileService {
     const email = String(user['email'] ?? '').trim();
     const displayName = `${firstName} ${lastName}`.trim() || username || email;
     const mustChangeCredentials = user['mustChangeCredentials'] === true;
-    return { firstName, lastName, email, username, displayName, mustChangeCredentials };
+    const roleLabel = resolveUserRoleLabel(user) || 'User';
+    const orgRaw = Number(user['organizationId'] ?? 0);
+    const organizationId = Number.isFinite(orgRaw) && orgRaw > 0 ? Math.trunc(orgRaw) : undefined;
+    const idRaw = Number(user['id'] ?? 0);
+    const id = Number.isFinite(idRaw) && idRaw > 0 ? Math.trunc(idRaw) : undefined;
+    return {
+      id,
+      firstName,
+      lastName,
+      email,
+      username,
+      displayName,
+      roleLabel,
+      mustChangeCredentials,
+      organizationId,
+    };
   }
 
   private extractUserDto(response: unknown): Record<string, unknown> | null {

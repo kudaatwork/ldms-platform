@@ -20,7 +20,9 @@ export class AuthGuard implements CanActivate {
     if (!token || token.startsWith('mock.')) {
       return this.router.createUrlTree(['/auth/login']);
     }
-    this.authService.bootstrapFromStorage();
+    if (!this.authState.currentUser) {
+      this.authService.bootstrapFromStorage();
+    }
     if (this.mustChangeCredentials(token)) {
       return this.router.createUrlTree(['/auth/setup-credentials']);
     }

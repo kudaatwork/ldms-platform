@@ -299,6 +299,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         if (Boolean.TRUE.equals(dto.getOrganizationKycApprover())) {
             claims.put("organizationKycApprover", true);
         }
+        if (Boolean.TRUE.equals(dto.getOperationalIssueHandler())) {
+            claims.put("operationalIssueHandler", true);
+        }
         if (Boolean.TRUE.equals(dto.getMustChangeCredentials())) {
             claims.put("mustChangeCredentials", true);
         }

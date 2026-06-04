@@ -23,6 +23,7 @@ public class UserDto {
     private Long branchId;
     private Long agentId;
     private Boolean organizationKycApprover;
+    private Boolean operationalIssueHandler;
 
     private String username;
     private String email;

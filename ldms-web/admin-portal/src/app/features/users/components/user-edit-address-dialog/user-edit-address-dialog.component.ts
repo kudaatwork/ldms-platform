@@ -6,6 +6,8 @@ import { UsersAdminService } from '../../services/users-admin.service';
 
 export interface UserEditAddressDialogData {
   address: Record<string, unknown>;
+  user?: Record<string, unknown>;
+  createMode?: boolean;
 }
 
 @Component({
@@ -17,6 +19,7 @@ export interface UserEditAddressDialogData {
 export class UserEditAddressDialogComponent {
   saving = false;
   error = '';
+  readonly createMode: boolean;
 
   line1 = '';
   line2 = '';
@@ -27,6 +30,7 @@ export class UserEditAddressDialogComponent {
   private readonly addressId: number;
   private readonly locationAddressId: number;
   private readonly existingGeoCoordinatesId?: number;
+  private readonly user?: Record<string, unknown>;
 
   constructor(
     private readonly dialogRef: MatDialogRef<UserEditAddressDialogComponent, boolean>,
@@ -34,6 +38,8 @@ export class UserEditAddressDialogComponent {
     private readonly snackBar: MatSnackBar,
     @Inject(MAT_DIALOG_DATA) data: UserEditAddressDialogData,
   ) {
+    this.createMode = data.createMode === true || Number(data.address['id'] ?? 0) <= 0;
+    this.user = data.user;
     const a = data.address;
     this.addressId = Number(a['id'] ?? 0);
     this.locationAddressId = Number(a['locationAddressId'] ?? 0);
@@ -56,17 +62,51 @@ export class UserEditAddressDialogComponent {
 
   save(): void {
     this.error = '';
-    if (!Number.isFinite(this.addressId) || this.addressId <= 0) {
-      this.error = 'Invalid address id.';
-      return;
-    }
     if (!this.line1.trim() || !this.postalCode.trim()) {
       this.error = 'Line 1 and postal code are required.';
       return;
     }
     const suburbId = Number(this.suburbIdStr.trim());
-    if (!Number.isFinite(suburbId)) {
+    if (!Number.isFinite(suburbId) || suburbId <= 0) {
       this.error = 'Select a suburb using country, province, district, and city.';
+      return;
+    }
+
+    const fields = {
+      line1: this.line1.trim(),
+      ...(this.line2.trim() ? { line2: this.line2.trim() } : {}),
+      postalCode: this.postalCode.trim(),
+      suburbId,
+      ...(this.existingGeoCoordinatesId != null ? { geoCoordinatesId: this.existingGeoCoordinatesId } : {}),
+    };
+
+    if (this.createMode) {
+      if (!this.user) {
+        this.error = 'User context is missing.';
+        return;
+      }
+      this.saving = true;
+      this.usersAdmin
+        .upsertUserAddressForUser(this.user, fields)
+        .pipe(finalize(() => (this.saving = false)))
+        .subscribe({
+          next: (resp) => {
+            if (this.usersAdmin.isUserMutationFailure(resp)) {
+              this.error = this.usersAdmin.formatUserMutationError(resp, 'Could not save address.');
+              return;
+            }
+            this.snackBar.open('Address saved.', 'Close', { duration: 4000 });
+            this.dialogRef.close(true);
+          },
+          error: (err: unknown) => {
+            this.error = this.formatHttpError(err);
+          },
+        });
+      return;
+    }
+
+    if (!Number.isFinite(this.addressId) || this.addressId <= 0) {
+      this.error = 'Invalid address id.';
       return;
     }
     const locId = this.locationAddressId > 0 ? this.locationAddressId : undefined;
@@ -75,11 +115,7 @@ export class UserEditAddressDialogComponent {
       .updateUserAddress({
         id: this.addressId,
         ...(locId != null ? { locationAddressId: locId } : {}),
-        line1: this.line1.trim(),
-        ...(this.line2.trim() ? { line2: this.line2.trim() } : {}),
-        postalCode: this.postalCode.trim(),
-        suburbId,
-        ...(this.existingGeoCoordinatesId != null ? { geoCoordinatesId: this.existingGeoCoordinatesId } : {}),
+        ...fields,
       })
       .pipe(finalize(() => (this.saving = false)))
       .subscribe({

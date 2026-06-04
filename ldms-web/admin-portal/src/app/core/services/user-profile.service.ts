@@ -1,24 +1,32 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, switchMap } from 'rxjs/operators';
+import { decodeJwtPayload } from '../utils/jwt.util';
 import { ldmsApiUrl } from '../utils/api-url.util';
-import { StoredUser } from './storage.service';
+import { StorageService, StoredUser } from './storage.service';
 
 @Injectable({ providedIn: 'root' })
 export class UserProfileService {
   /** Gateway → ldms-user-management backoffice (admin CRUD). */
   private readonly userBase = ldmsApiUrl('/ldms-user-management/v1/backoffice/user');
-  /** Self-service profile ({@code /me}) — frontend surface; only requires authentication. */
-  private readonly frontendUserBase = ldmsApiUrl('/ldms-user-management/v1/frontend/user');
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly storage: StorageService,
+  ) {}
 
-  /** Signed-in user profile — backoffice {@code /me} (requires authentication only). */
+  /** Signed-in user profile — prefers {@code /me}, falls back to {@code find-by-username}. */
   fetchCurrentUser(): Observable<StoredUser | null> {
     return this.http.get<unknown>(`${this.userBase}/me`).pipe(
       map((resp) => this.mapToStoredUser(resp)),
-      catchError(() => of(null)),
+      switchMap((profile) => {
+        if (profile) {
+          return of(profile);
+        }
+        return this.fetchByUsernameFromToken();
+      }),
+      catchError(() => this.fetchByUsernameFromToken()),
     );
   }
 
@@ -35,9 +43,16 @@ export class UserProfileService {
       );
   }
 
+  private fetchByUsernameFromToken(): Observable<StoredUser | null> {
+    const username = String(decodeJwtPayload(this.storage.getToken() ?? '')?.sub ?? '').trim();
+    if (!username) {
+      return of(null);
+    }
+    return this.fetchByUsername(username);
+  }
+
   private mapToStoredUser(response: unknown): StoredUser | null {
-    const envelope = this.toRecord(response);
-    if (envelope && envelope['success'] === false) {
+    if (this.isFailureEnvelope(response)) {
       return null;
     }
     const user = this.extractUserDto(response);
@@ -67,7 +82,16 @@ export class UserProfileService {
       roleLabel,
       roles: this.extractGroupRoles(user),
       organizationKycApprover: user['organizationKycApprover'] === true,
+      operationalIssueHandler: user['operationalIssueHandler'] === true,
     };
+  }
+
+  private isFailureEnvelope(response: unknown): boolean {
+    const envelope = this.toRecord(response);
+    if (!envelope) {
+      return false;
+    }
+    return envelope['success'] === false || envelope['isSuccess'] === false;
   }
 
   /** Permission codes assigned to the user's group (authoritative for admin-portal menu RBAC). */
@@ -76,14 +100,14 @@ export class UserProfileService {
     if (!group) {
       return [];
     }
-    const raw = group['userRoleDtoSet'] ?? group['userRoles'];
+    const raw = group['userRoleDtoSet'] ?? group['userRoles'] ?? group['userRoleDtos'];
     if (!Array.isArray(raw)) {
       return [];
     }
     const codes: string[] = [];
     for (const item of raw) {
       const row = this.toRecord(item);
-      const role = String(row?.['role'] ?? '').trim();
+      const role = String(row?.['role'] ?? row?.['roleCode'] ?? '').trim();
       if (role) {
         codes.push(role);
       }
@@ -92,21 +116,36 @@ export class UserProfileService {
   }
 
   private extractUserDto(response: unknown): Record<string, unknown> | null {
-    const direct = this.toRecord(response);
-    if (direct && this.looksLikeUserRecord(direct)) {
-      return direct;
+    const parsed = this.parsePossiblyStringifiedJson(response);
+    const envelope = this.toRecord(parsed);
+    if (envelope && this.isFailureEnvelope(envelope)) {
+      return null;
+    }
+    if (envelope && this.looksLikeUserRecord(envelope)) {
+      return envelope;
     }
     for (const key of ['userDto', 'user', 'UserDto'] as const) {
-      const hit = this.extractSingleDto(response, key);
+      const hit = this.extractSingleDto(parsed, key);
       if (hit) {
         return hit;
+      }
+    }
+    const candidates = [
+      envelope,
+      this.toRecord(envelope?.['data']),
+      this.toRecord(envelope?.['body']),
+      this.toRecord(envelope?.['payload']),
+    ].filter(Boolean) as Record<string, unknown>[];
+    for (const wrapped of candidates) {
+      if (wrapped && this.looksLikeUserRecord(wrapped)) {
+        return wrapped;
       }
     }
     return null;
   }
 
   private extractSingleDto(response: unknown, dtoKey: string): Record<string, unknown> | null {
-    const obj = this.toRecord(response);
+    const obj = this.toRecord(this.parsePossiblyStringifiedJson(response));
     if (!obj) {
       return null;
     }
@@ -123,6 +162,17 @@ export class UserProfileService {
       }
     }
     return null;
+  }
+
+  private parsePossiblyStringifiedJson(value: unknown): unknown {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as unknown;
+      } catch {
+        return value;
+      }
+    }
+    return value;
   }
 
   private toRecord(value: unknown): Record<string, unknown> | null {

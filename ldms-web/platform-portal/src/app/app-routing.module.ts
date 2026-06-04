@@ -2,8 +2,10 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
 import { ClassificationGuard } from './core/guards/classification.guard';
+import { RoleGuard } from './core/guards/role.guard';
 import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.component';
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
+import { MyAccountComponent } from './features/account/pages/my-account/my-account.component';
 import { LandingComponent } from './features/landing/pages/landing/landing.component';
 import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
 
@@ -25,7 +27,7 @@ const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'welcome' },
   {
     path: '',
-    canActivate: [AuthGuard, ClassificationGuard],
+    canActivate: [AuthGuard, ClassificationGuard, RoleGuard],
     component: ShellLayoutComponent,
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
@@ -80,14 +82,24 @@ const routes: Routes = [
         data: { title: 'Border Activity', breadcrumb: 'Border Activity' },
       },
       {
+        path: 'users',
+        loadChildren: () => import('./features/users/users.module').then((m) => m.UsersModule),
+        data: { breadcrumb: 'Users' },
+      },
+      {
+        path: 'activity',
+        loadChildren: () => import('./features/activity/activity.module').then((m) => m.ActivityModule),
+        data: { breadcrumb: 'Audit Log' },
+      },
+      {
         path: 'account',
-        component: PlaceholderPageComponent,
+        component: MyAccountComponent,
         data: { title: 'My account', breadcrumb: 'My account' },
       },
       {
         path: 'settings',
-        component: PlaceholderPageComponent,
-        data: { title: 'Settings', breadcrumb: 'Settings' },
+        loadChildren: () => import('./features/settings/settings.module').then((m) => m.SettingsModule),
+        data: { breadcrumb: 'Settings' },
       },
       {
         path: 'help',

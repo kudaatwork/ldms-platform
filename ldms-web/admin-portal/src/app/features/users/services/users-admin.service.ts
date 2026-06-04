@@ -43,6 +43,8 @@ export interface UserListRow {
   updatedAtLabel: string;
   /** Organisation signup KYC approver eligibility (admin users without organisation only). */
   kycApproverEligibleLabel: string;
+  /** Help & Support / operational issue handler eligibility (admin users without organisation only). */
+  operationalHandlerEligibleLabel: string;
 }
 
 export interface UserProfileBundle {
@@ -286,9 +288,68 @@ export class UsersAdminService {
 
   getUserProfileBundle(userId: number): Observable<UserProfileBundle> {
     return this.http.get<unknown>(`${this.base}/user/find-by-id/${userId}`).pipe(
-      map((resp) => this.mapUserResponseToProfileBundle(resp)),
-      catchError((err) => this.emptyProfileBundleOnNotFound(err)),
+      switchMap((resp) => {
+        const bundle = this.mapUserResponseToProfileBundle(resp);
+        if (bundle.user) {
+          return of(bundle);
+        }
+        return this.resolveAdminProfileFallback(userId);
+      }),
+      catchError((err) => {
+        if (err instanceof HttpErrorResponse && [401, 403, 404].includes(err.status)) {
+          return this.resolveAdminProfileFallback(userId);
+        }
+        return throwError(() => err);
+      }),
     );
+  }
+
+  /** After failed or empty find-by-id, try list filters then signed-in /me. */
+  private resolveAdminProfileFallback(userId: number): Observable<UserProfileBundle> {
+    const body = this.buildUsersFilterBody({
+      page: 0,
+      size: 1,
+      searchQuery: '',
+      columnFilters: {},
+    });
+    return this.http.post<unknown>(`${this.base}/user/find-by-multiple-filters`, body).pipe(
+      map((resp) => {
+        const page = this.extractPagedResult(resp, 'userDtoPage');
+        const match =
+          page.rows.find((row) => Number(row['id'] ?? 0) === userId) ?? page.rows[0] ?? null;
+        if (!match) {
+          return this.emptyProfileBundle();
+        }
+        return this.mapUserResponseToProfileBundle({ userDto: match, success: true });
+      }),
+      switchMap((bundle) =>
+        bundle.user ? of(bundle) : this.resolveSelfProfileBundleWhenIdsMatch(userId),
+      ),
+      catchError(() => this.resolveSelfProfileBundleWhenIdsMatch(userId)),
+    );
+  }
+
+  private resolveSelfProfileBundleWhenIdsMatch(userId: number): Observable<UserProfileBundle> {
+    return this.getMyAccountProfileBundle().pipe(
+      map((bundle) => {
+        const resolvedId = Number(bundle.user?.['id'] ?? 0);
+        if (!bundle.user || resolvedId !== userId) {
+          return this.emptyProfileBundle();
+        }
+        return bundle;
+      }),
+      catchError(() => of(this.emptyProfileBundle())),
+    );
+  }
+
+  private emptyProfileBundle(): UserProfileBundle {
+    return {
+      user: null,
+      account: null,
+      security: null,
+      address: null,
+      password: null,
+    };
   }
 
   /** Signed-in user's full profile ({@code GET /backoffice/user/me}). */
@@ -383,6 +444,54 @@ export class UsersAdminService {
     }
     const embedded = this.extractNestedDto(user, ['addressDto', 'address']);
     return embedded && Number(embedded['id'] ?? 0) > 0 ? embedded : null;
+  }
+
+  addressDraftForEdit(
+    user: Record<string, unknown> | null,
+    address: Record<string, unknown> | null,
+  ): Record<string, unknown> {
+    return (
+      this.resolveAddressRecord(user, address) ?? {
+        id: 0,
+        line1: '',
+        line2: '',
+        postalCode: '',
+        suburbId: null,
+      }
+    );
+  }
+
+  upsertUserAddressForUser(
+    user: Record<string, unknown>,
+    fields: {
+      line1: string;
+      line2?: string;
+      postalCode: string;
+      suburbId: number;
+      geoCoordinatesId?: number;
+    },
+  ): Observable<unknown> {
+    const id = Number(user['id'] ?? 0);
+    if (!Number.isFinite(id) || id <= 0) {
+      return throwError(() => new Error('Invalid user id'));
+    }
+    return this.updateUser({
+      id,
+      username: String(user['username'] ?? '').trim(),
+      email: String(user['email'] ?? '').trim(),
+      firstName: String(user['firstName'] ?? '').trim(),
+      lastName: String(user['lastName'] ?? '').trim(),
+      gender: String(user['gender'] ?? 'MALE').trim(),
+      phoneNumber: String(user['phoneNumber'] ?? '').trim(),
+      dateOfBirth: this.apiDateToInputString(user['dateOfBirth']) || '1990-01-01',
+      nationalIdNumber: String(user['nationalIdNumber'] ?? '').trim() || undefined,
+      passportNumber: String(user['passportNumber'] ?? '').trim() || undefined,
+      addressLine1: fields.line1,
+      addressLine2: fields.line2,
+      postalCode: fields.postalCode,
+      suburbId: fields.suburbId,
+      geoCoordinatesId: fields.geoCoordinatesId,
+    });
   }
 
   /**
@@ -875,6 +984,12 @@ export class UsersAdminService {
     return this.http.put(`${this.base}/user/${userId}/organization-kyc-approver`, null, { params });
   }
 
+  /** Sets operational issue / support ticket handler eligibility (admin users without organisation only). */
+  setOperationalIssueHandler(userId: number, enabled: boolean): Observable<unknown> {
+    const params = new HttpParams().set('enabled', String(enabled));
+    return this.http.put(`${this.base}/user/${userId}/operational-issue-handler`, null, { params });
+  }
+
   deleteUser(id: number): Observable<unknown> {
     return this.http.delete(`${this.base}/user/delete-by-id/${id}`);
   }
@@ -1094,6 +1209,7 @@ export class UsersAdminService {
     organizationId?: number;
     branchId?: number;
     organizationKycApprover?: boolean;
+    operationalIssueHandler?: boolean;
     /** Location-service address id — only when integrating with an existing address; do not send suburb id here. */
     locationId?: number;
     nationalIdNumber?: string;
@@ -1137,6 +1253,9 @@ export class UsersAdminService {
     this.appendFormValue(form, 'branchId', payload.branchId);
     if (payload.organizationKycApprover) {
       form.append('organizationKycApprover', 'true');
+    }
+    if (payload.operationalIssueHandler) {
+      form.append('operationalIssueHandler', 'true');
     }
     this.appendFormValue(form, 'locationId', payload.locationId);
     this.appendFormValue(form, 'nationalIdNumber', payload.nationalIdNumber);
@@ -1252,6 +1371,7 @@ export class UsersAdminService {
         createdAtLabel: '—',
         updatedAtLabel: '—',
         kycApproverEligibleLabel: '—',
+        operationalHandlerEligibleLabel: '—',
       };
     }
     const firstName = String(row['firstName'] ?? '').trim();
@@ -1287,7 +1407,16 @@ export class UsersAdminService {
       createdAtLabel: this.formatIsoDateTimeForDisplay(row['createdAt']),
       updatedAtLabel: this.formatIsoDateTimeForDisplay(row['updatedAt']),
       kycApproverEligibleLabel: this.formatKycApproverEligibleLabel(row),
+      operationalHandlerEligibleLabel: this.formatOperationalHandlerEligibleLabel(row),
     };
+  }
+
+  private formatOperationalHandlerEligibleLabel(row: Record<string, unknown>): string {
+    const orgId = Number(row['organizationId'] ?? 0);
+    if (Number.isFinite(orgId) && orgId > 0) {
+      return 'Org user';
+    }
+    return this.isTruthyOperationalIssueHandler(row['operationalIssueHandler']) ? 'Eligible' : 'Not eligible';
   }
 
   private formatKycApproverEligibleLabel(row: Record<string, unknown>): string {
@@ -1299,6 +1428,16 @@ export class UsersAdminService {
   }
 
   private isTruthyOrganizationKycApprover(raw: unknown): boolean {
+    if (raw === true) {
+      return true;
+    }
+    if (typeof raw === 'string') {
+      return raw.trim().toLowerCase() === 'true';
+    }
+    return false;
+  }
+
+  private isTruthyOperationalIssueHandler(raw: unknown): boolean {
     if (raw === true) {
       return true;
     }

@@ -168,6 +168,10 @@
             <dt>Priority</dt>
             <dd>{{ t.priority }}</dd>
           </div>
+          <div>
+            <dt>Assigned handler</dt>
+            <dd>{{ t.assignedHandlerUsername || 'Unassigned' }}</dd>
+          </div>
           <div *ngIf="t.organizationId">
             <dt>Organisation ID</dt>
             <dd>#{{ t.organizationId }}</dd>

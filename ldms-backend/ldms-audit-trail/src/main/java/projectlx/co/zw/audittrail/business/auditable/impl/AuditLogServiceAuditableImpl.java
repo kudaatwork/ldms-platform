@@ -50,9 +50,11 @@ public class AuditLogServiceAuditableImpl implements AuditLogServiceAuditable {
             String clientPlatform,
             List<String> actionsIn,
             List<String> excludeActions,
+            List<String> usernamesIn,
             Pageable pageable) {
         boolean actionsInEmpty = actionsIn == null || actionsIn.isEmpty();
         boolean excludeActionsEmpty = excludeActions == null || excludeActions.isEmpty();
+        boolean usernamesInEmpty = usernamesIn == null || usernamesIn.isEmpty();
         return auditLogRepository.search(
                 serviceName,
                 username,
@@ -70,6 +72,8 @@ public class AuditLogServiceAuditableImpl implements AuditLogServiceAuditable {
                 actionsInEmpty,
                 excludeActionsEmpty ? List.of("") : excludeActions,
                 excludeActionsEmpty,
+                usernamesInEmpty ? List.of("") : usernamesIn,
+                usernamesInEmpty,
                 pageable);
     }
 

@@ -2,21 +2,8 @@ import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse
 import { Injectable } from '@angular/core';
 import { Observable, throwError } from 'rxjs';
 import { isLdmsApiRequest } from '../utils/api-url.util';
+import { normalizeAccessToken } from '../utils/jwt.util';
 import { StorageService } from '../services/storage.service';
-
-function normalizeAccessToken(raw: string | null | undefined): string | null {
-  if (!raw) {
-    return null;
-  }
-  const trimmed = raw.trim();
-  if (!trimmed || trimmed.startsWith('mock-token-')) {
-    return null;
-  }
-  if (trimmed.toLowerCase().startsWith('bearer ')) {
-    return trimmed.slice(7).trim() || null;
-  }
-  return trimmed;
-}
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
@@ -29,27 +16,29 @@ export class AuthInterceptor implements HttpInterceptor {
     if (req.url.includes('/v1/system/') || req.url.includes('/v1/auth/')) {
       return next.handle(req);
     }
-    // Backoffice APIs are permitAll on services; omit Bearer to avoid 431 from oversized JWTs.
-    if (req.url.includes('/v1/backoffice/') && !req.url.includes('/me')) {
-      return next.handle(req);
-    }
 
     const token = normalizeAccessToken(this.storage.getToken());
-    if (!token) {
-      return throwError(
-        () =>
-          new HttpErrorResponse({
-            status: 401,
-            statusText: 'Unauthorized',
-            url: req.url,
-            error: { message: 'Not signed in. Log in again to continue.' },
-          }),
+    if (token) {
+      return next.handle(
+        req.clone({
+          setHeaders: { Authorization: `Bearer ${token}` },
+        }),
       );
     }
 
-    const authReq = req.clone({
-      setHeaders: { Authorization: `Bearer ${token}` },
-    });
-    return next.handle(authReq);
+    // Unsigned backoffice calls (services permitAll); frontend/surface calls need a session.
+    if (req.url.includes('/v1/backoffice/')) {
+      return next.handle(req);
+    }
+
+    return throwError(
+      () =>
+        new HttpErrorResponse({
+          status: 401,
+          statusText: 'Unauthorized',
+          url: req.url,
+          error: { message: 'Not signed in. Log in again to continue.' },
+        }),
+    );
   }
 }

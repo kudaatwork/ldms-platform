@@ -1,5 +1,6 @@
 import { APP_INITIALIZER, NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
+import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { HttpClientModule } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 
@@ -11,6 +12,7 @@ import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.compone
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
 import { LandingComponent } from './features/landing/pages/landing/landing.component';
 import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
+import { AccountModule } from './features/account/account.module';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 
@@ -38,7 +40,9 @@ export function initPlatformSession(auth: AuthService): () => Promise<void> {
   ],
   imports: [
     BrowserModule,
+    BrowserAnimationsModule,
     HttpClientModule,
+    AccountModule,
     CoreModule,
     SharedModule,
     AppRoutingModule,

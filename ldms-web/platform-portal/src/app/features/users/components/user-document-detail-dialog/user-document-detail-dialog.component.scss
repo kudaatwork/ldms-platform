@@ -1,0 +1,74 @@
+@use '../../../../shared/styles/lx-dialog-form-shell';
+
+.udd-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.udd-pdf-hint {
+  grid-column: 1 / -1;
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--gray-700);
+  background: color-mix(in srgb, var(--primary, #1976d2) 8%, var(--surface, #fff));
+  border: 1px solid color-mix(in srgb, var(--primary, #1976d2) 22%, transparent);
+  border-radius: 8px;
+}
+
+.udd-preview {
+  border: 1px solid var(--gray-200);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--gray-50);
+
+  img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 320px;
+    object-fit: contain;
+  }
+
+  &--pdf iframe {
+    display: block;
+    width: 100%;
+    min-height: 360px;
+    max-height: 60vh;
+    border: 0;
+    background: var(--surface);
+  }
+}
+
+.udd-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.udd-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.udd-k {
+  color: var(--gray-600);
+  font-weight: 600;
+}
+
+.udd-v {
+  color: var(--gray-900);
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .udd-grid {
+    grid-template-columns: 1fr;
+  }
+}

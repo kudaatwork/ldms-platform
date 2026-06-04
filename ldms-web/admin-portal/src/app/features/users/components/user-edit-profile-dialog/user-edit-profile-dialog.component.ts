@@ -46,6 +46,7 @@ export class UserEditProfileDialogComponent {
   preferredLanguage = '';
   timezone = '';
   organizationKycApprover = false;
+  operationalIssueHandler = false;
   private readonly preferencesId: number;
   private readonly organizationId?: number;
 
@@ -101,6 +102,7 @@ export class UserEditProfileDialogComponent {
     const orgId = Number(u['organizationId'] ?? 0);
     this.organizationId = Number.isFinite(orgId) && orgId > 0 ? orgId : undefined;
     this.organizationKycApprover = this.readOrganizationKycApprover(u['organizationKycApprover']);
+    this.operationalIssueHandler = this.readOperationalIssueHandler(u['operationalIssueHandler']);
     this.username = String(u['username'] ?? '').trim();
     this.email = String(u['email'] ?? '').trim();
     this.firstName = String(u['firstName'] ?? '').trim();
@@ -262,6 +264,12 @@ export class UserEditProfileDialogComponent {
             switchMap((kycResp) => {
               if (this.usersAdmin.isUserMutationFailure(kycResp)) {
                 return throwError(() => kycResp);
+              }
+              return this.usersAdmin.setOperationalIssueHandler(this.userId, this.operationalIssueHandler);
+            }),
+            switchMap((handlerResp) => {
+              if (this.usersAdmin.isUserMutationFailure(handlerResp)) {
+                return throwError(() => handlerResp);
               }
               return of(userResp);
             }),
@@ -457,6 +465,14 @@ export class UserEditProfileDialogComponent {
   }
 
   private readOrganizationKycApprover(raw: unknown): boolean {
+    return this.readBooleanFlag(raw);
+  }
+
+  private readOperationalIssueHandler(raw: unknown): boolean {
+    return this.readBooleanFlag(raw);
+  }
+
+  private readBooleanFlag(raw: unknown): boolean {
     if (raw === true) {
       return true;
     }

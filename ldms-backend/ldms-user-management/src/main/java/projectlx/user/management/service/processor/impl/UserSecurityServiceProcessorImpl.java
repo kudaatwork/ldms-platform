@@ -84,6 +84,22 @@ public class UserSecurityServiceProcessorImpl implements UserSecurityServiceProc
     }
 
     @Override
+    public UserSecurityResponse findMySecurity(Locale locale, String sessionUsername) {
+        logger.info("Incoming request to find security for signed-in user {}", sessionUsername);
+        UserSecurityResponse response = userSecurityService.findMySecurity(locale, sessionUsername);
+        logger.info("Outgoing findMySecurity statusCode={}", response.getStatusCode());
+        return response;
+    }
+
+    @Override
+    public UserSecurityResponse saveMySecurity(EditUserSecurityRequest request, Locale locale, String sessionUsername) {
+        logger.info("Incoming request to save security for signed-in user {}", sessionUsername);
+        UserSecurityResponse response = userSecurityService.saveMySecurity(request, locale, sessionUsername);
+        logger.info("Outgoing saveMySecurity statusCode={}", response.getStatusCode());
+        return response;
+    }
+
+    @Override
     public UserSecurityResponse findByMultipleFilters(UserSecurityMultipleFiltersRequest userSecurityMultipleFiltersRequest, String username, Locale locale) {
 
         logger.info("Incoming request to find a user security using multiple filters : {}", userSecurityMultipleFiltersRequest);

@@ -37,6 +37,14 @@ export function isLdmsApiRequest(url: string): boolean {
   if (url.startsWith('/ldms-') || url.startsWith('/api')) {
     return true;
   }
+  try {
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    if (parsed.pathname.startsWith('/ldms-') || parsed.pathname.startsWith('/api')) {
+      return true;
+    }
+  } catch {
+    // fall through
+  }
   const base = apiBaseUrl();
   if (!base) {
     return false;

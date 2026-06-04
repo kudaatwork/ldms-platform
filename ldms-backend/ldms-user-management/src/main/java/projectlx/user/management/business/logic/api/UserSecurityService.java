@@ -15,4 +15,10 @@ public interface UserSecurityService {
     UserSecurityResponse delete(Long id, Locale locale, String username);
     UserSecurityResponse findByMultipleFilters(UserSecurityMultipleFiltersRequest userSecurityMultipleFiltersRequest,
                                            String username, Locale locale);
+
+    /** Signed-in user's security row (platform My Account — no admin lookup role required). */
+    UserSecurityResponse findMySecurity(Locale locale, String sessionUsername);
+
+    /** Creates or updates security for the signed-in user only. */
+    UserSecurityResponse saveMySecurity(EditUserSecurityRequest request, Locale locale, String sessionUsername);
 }

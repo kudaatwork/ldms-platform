@@ -77,6 +77,37 @@ public class UserSecurityFrontendResource {
         return userSecurityServiceProcessor.update(editUserSecurityRequest, username, locale);
     }
 
+    @Auditable(action = "FIND_MY_USER_SECURITY")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/me")
+    @Operation(summary = "Current user security", description = "Returns the signed-in user's security settings.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Security retrieved or not yet configured"),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public UserSecurityResponse findMySecurity(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.findMySecurity(locale, username);
+    }
+
+    @Auditable(action = "SAVE_MY_USER_SECURITY")
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/me")
+    @Operation(summary = "Save current user security", description = "Creates or updates security for the signed-in user.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Security saved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request data")
+    })
+    public UserSecurityResponse saveMySecurity(
+            @Valid @RequestBody final EditUserSecurityRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.saveMySecurity(request, locale, username);
+    }
+
     @Auditable(action = "FIND_USER_SECURITY_BY_ID")
     @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserSecurityRoles)." +
             "VIEW_USER_SECURITY_BY_ID.toString())")
@@ -129,8 +160,7 @@ public class UserSecurityFrontendResource {
     }
 
     @Auditable(action = "FIND_USER_SECURITIES_BY_MULTIPLE_FILTERS")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserSecurityRoles)." +
-            "VIEW_USER_SECURITIES_BY_MULTIPLE_FILTERS.toString())")
+    @PreAuthorize("isAuthenticated()")
     @PostMapping(value = "/find-by-multiple-filters")
     @Operation(summary = "Find user securities by multiple filters",
             description = "Retrieves a list of user Security that match the provided filters.")

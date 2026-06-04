@@ -17,6 +17,8 @@ import java.util.List;
 public class UserResponse extends CommonResponse {
     private UserDto userDto;
     List<UserDto> userDtoList;
+    /** Organisation workspace login names (lightweight listing for audit scoping). */
+    private List<String> usernames;
     Page<UserDto> userDtoPage;
     private String accessToken;
     private String refreshToken;

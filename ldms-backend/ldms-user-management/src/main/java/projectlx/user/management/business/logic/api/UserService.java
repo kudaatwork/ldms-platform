@@ -17,12 +17,19 @@ public interface UserService {
     UserResponse create(CreateUserRequest createUserRequest, Locale locale, String username);
     UserResponse findById(Long id, Locale locale, String username);
     UserResponse findByUsername(String username, Locale locale);
+
+    /** Lightweight profile for the signed-in session (skips remote address hydration). */
+    UserResponse findCurrentUserForSession(String username, Locale locale);
     UserResponse findAllAsList(Locale locale, String username);
     UserResponse update(EditUserRequest editUserRequest, String username, Locale locale);
     UserResponse delete(Long id, Locale locale, String username);
     UserResponse findByMultipleFilters(UsersMultipleFiltersRequest usersMultipleFiltersRequest, String username,
                                        Locale locale);
     UserResponse findByOrganizationId(Long organizationId, Locale locale, String username);
+
+    /** Distinct login usernames for an organisation workspace (audit scoping). */
+    UserResponse findUsernamesByOrganizationId(Long organizationId, Locale locale, String username);
+
     UserResponse findByBranchId(Long branchId, Locale locale, String username);
     byte[] exportToCsv(List<UserDto> users);
     byte[] exportToExcel(List<UserDto> users) throws IOException;
@@ -39,4 +46,9 @@ public interface UserService {
     UserResponse listOrganizationKycApprovers(Locale locale);
 
     UserResponse setOrganizationKycApprover(Long id, boolean enabled, Locale locale, String username);
+
+    /** Admin-portal users flagged as operational issue / support ticket handlers (no organisation assignment). */
+    UserResponse listOperationalIssueHandlers(Locale locale);
+
+    UserResponse setOperationalIssueHandler(Long id, boolean enabled, Locale locale, String username);
 }

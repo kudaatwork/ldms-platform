@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { normalizeAccessToken } from '../utils/jwt.util';
 
 const TOKEN_KEY = 'ldms_admin_token';
 const USER_KEY = 'ldms_admin_user';
@@ -15,6 +16,8 @@ export interface StoredUser {
   roleLabel?: string;
   /** Admin-portal KYC reviewer pool (from JWT claim). */
   organizationKycApprover?: boolean;
+  /** Admin-portal Help & Support ticket handler (from JWT claim). */
+  operationalIssueHandler?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -39,7 +42,8 @@ export class StorageService {
   }
 
   setToken(token: string): void {
-    this.setItem(TOKEN_KEY, token);
+    const normalized = normalizeAccessToken(token) ?? token.trim();
+    this.setItem(TOKEN_KEY, normalized);
   }
 
   clearToken(): void {

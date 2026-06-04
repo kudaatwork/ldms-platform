@@ -27,15 +27,15 @@
       </article>
       <article class="vault-bento__card">
         <span class="vault-bento__value">{{ stats.org }}</span>
-        <span class="vault-bento__label">Organisation</span>
+        <span class="vault-bento__label">Organisation (page)</span>
       </article>
       <article class="vault-bento__card">
         <span class="vault-bento__value">{{ stats.user }}</span>
-        <span class="vault-bento__label">Profile</span>
+        <span class="vault-bento__label">Profile (page)</span>
       </article>
       <article class="vault-bento__card vault-bento__card--accent">
         <span class="vault-bento__value">{{ stats.withPreview }}</span>
-        <span class="vault-bento__label">Preview ready</span>
+        <span class="vault-bento__label">Preview ready (page)</span>
       </article>
     </div>
   </header>
@@ -46,7 +46,7 @@
       <input
         type="search"
         [value]="search()"
-        (input)="search.set($any($event.target).value)"
+        (input)="onSearchInput($any($event.target).value)"
         placeholder="Search title, filename, category, upload ID…"
         autocomplete="off"
       />
@@ -55,7 +55,7 @@
     <div class="vault-toolbar__actions">
       <label class="vault-sort">
         <span class="material-icons" aria-hidden="true">sort</span>
-        <select [value]="sortBy()" (change)="sortBy.set($any($event.target).value)">
+        <select [value]="sortBy()" (change)="onSortChange($any($event.target).value)">
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
           <option value="name">Name A–Z</option>
@@ -89,8 +89,10 @@
       type="button"
       *ngFor="let f of filters"
       class="vault-filter"
+      [ngClass]="filterCssClass(f.id)"
       [class.vault-filter--on]="filter() === f.id"
       (click)="setFilter(f.id)"
+      [attr.aria-pressed]="filter() === f.id"
     >
       <span class="material-icons" aria-hidden="true">{{ f.icon }}</span>
       {{ f.label }}
@@ -109,7 +111,7 @@
     <p>Syncing your document vault…</p>
   </div>
 
-  <div class="vault-empty lx-card" *ngIf="!loading() && !loadError() && !filteredDocuments.length">
+  <div class="vault-empty lx-card" *ngIf="!loading() && !loadError() && totalElements() === 0 && !search().trim() && filter() === 'ALL'">
     <div class="vault-empty__art" aria-hidden="true">
       <span class="material-icons">cloud_off</span>
     </div>
@@ -123,14 +125,14 @@
   <!-- Gallery view -->
   <div
     class="vault-grid"
-    *ngIf="!loading() && filteredDocuments.length && viewMode() === 'grid'"
+    *ngIf="!loading() && displayDocuments.length && viewMode() === 'grid'"
     role="list"
   >
     <button
       type="button"
       class="vault-card"
       role="listitem"
-      *ngFor="let doc of filteredDocuments; trackBy: trackDoc"
+      *ngFor="let doc of displayDocuments; trackBy: trackDoc"
       [class.vault-card--selected]="selectedId() === doc.id"
       (click)="selectDocument(doc)"
     >
@@ -155,11 +157,11 @@
   </div>
 
   <!-- List view -->
-  <div class="vault-list lx-card" *ngIf="!loading() && filteredDocuments.length && viewMode() === 'list'">
+  <div class="vault-list lx-card" *ngIf="!loading() && displayDocuments.length && viewMode() === 'list'">
     <button
       type="button"
       class="vault-row"
-      *ngFor="let doc of filteredDocuments; trackBy: trackDoc"
+      *ngFor="let doc of displayDocuments; trackBy: trackDoc"
       [class.vault-row--on]="selectedId() === doc.id"
       (click)="selectDocument(doc)"
     >
@@ -178,12 +180,12 @@
   </div>
 
   <!-- Focus split view -->
-  <div class="vault-focus" *ngIf="!loading() && filteredDocuments.length && viewMode() === 'focus'">
+  <div class="vault-focus" *ngIf="!loading() && displayDocuments.length && viewMode() === 'focus'">
     <aside class="vault-focus__list lx-card">
       <button
         type="button"
         class="vault-row vault-row--compact"
-        *ngFor="let doc of filteredDocuments; trackBy: trackDoc"
+        *ngFor="let doc of displayDocuments; trackBy: trackDoc"
         [class.vault-row--on]="selectedId() === doc.id"
         (click)="selectDocument(doc, false)"
       >
@@ -200,6 +202,30 @@
     <article class="vault-inspector lx-card" *ngIf="selected as doc">
       <ng-container *ngTemplateOutlet="inspectorBody; context: { doc: doc }"></ng-container>
     </article>
+  </div>
+
+  <div class="vault-pagination lx-card" *ngIf="!loading() && totalElements() > 0">
+    <p class="vault-pagination__range">{{ pageRangeLabel }}</p>
+    <mat-paginator
+      class="vault-pagination__control"
+      [length]="totalElements()"
+      [pageIndex]="pageIndex()"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="pageSizeOptions"
+      [showFirstLastButtons]="true"
+      (page)="onPage($event)"
+    ></mat-paginator>
+  </div>
+
+  <div
+    class="vault-empty lx-card"
+    *ngIf="!loading() && !loadError() && totalElements() === 0 && (search().trim() || filter() !== 'ALL')"
+  >
+    <div class="vault-empty__art" aria-hidden="true">
+      <span class="material-icons">search_off</span>
+    </div>
+    <h2>No matching documents</h2>
+    <p>Try a different search term or clear the category filter.</p>
   </div>
 
   <!-- Slide-over inspector (grid + list) -->

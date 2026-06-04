@@ -282,12 +282,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    ensureChartJsRegistered();
     this.title.setTitle('Dashboard | LX Admin');
-    const token = this.storage.getToken();
-    if (token && !token.startsWith('mock-token-')) {
-      this.currentUser.refreshFromApi().pipe(takeUntil(this.destroy$)).subscribe();
-    }
     this.currentUser.user$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
       const firstName = this.resolveFirstName(user?.firstName);
       this.greetingFirstName = firstName;
@@ -305,23 +300,42 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.applyKycPipelineSummary(summary);
       this.cdr.markForCheck();
     });
-    this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe({
-      next: () => {
-        this.kycLoading = false;
-        this.cdr.markForCheck();
-      },
-      error: () => {
-        this.kycLoading = false;
-        this.cdr.markForCheck();
-      },
-    });
-    this.loadQuickActionCounts();
     this.loading = false;
     this.cdr.markForCheck();
+    setTimeout(() => this.bootstrapDashboardData(), 0);
+  }
 
+  private bootstrapDashboardData(): void {
+    ensureChartJsRegistered();
+    const token = this.storage.getToken();
+    const needsProfile =
+      token &&
+      !token.startsWith('mock-token-') &&
+      (this.storage.getRoles().length === 0 || !this.currentUser.snapshot);
+    if (needsProfile) {
+      this.currentUser.refreshFromApi().pipe(takeUntil(this.destroy$)).subscribe(() => {
+        this.cdr.markForCheck();
+      });
+    }
+    if (this.kycStats.snapshot == null) {
+      this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe({
+        next: () => {
+          this.kycLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.kycLoading = false;
+          this.cdr.markForCheck();
+        },
+      });
+    } else {
+      this.kycLoading = false;
+    }
+    this.loadQuickActionCounts();
     timer(400, 2600)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.applyLiveTick());
+    this.cdr.markForCheck();
   }
 
   ngOnDestroy(): void {

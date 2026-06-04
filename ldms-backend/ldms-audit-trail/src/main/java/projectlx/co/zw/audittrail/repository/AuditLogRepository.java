@@ -43,6 +43,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
                     + "(:clientPlatform IS NULL OR a.clientPlatform = :clientPlatform) AND "
                     + "(:actionsInEmpty = true OR a.action IN :actionsIn) AND "
                     + "(:excludeActionsEmpty = true OR a.action NOT IN :excludeActions) AND "
+                    + "(:usernamesInEmpty = true OR a.username IN :usernamesIn) AND "
                     + "(:searchValue IS NULL OR "
                     + "LOWER(a.serviceName) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
                     + "LOWER(COALESCE(a.username, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
@@ -66,6 +67,7 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
                     + "(:clientPlatform IS NULL OR a.clientPlatform = :clientPlatform) AND "
                     + "(:actionsInEmpty = true OR a.action IN :actionsIn) AND "
                     + "(:excludeActionsEmpty = true OR a.action NOT IN :excludeActions) AND "
+                    + "(:usernamesInEmpty = true OR a.username IN :usernamesIn) AND "
                     + "(:searchValue IS NULL OR "
                     + "LOWER(a.serviceName) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
                     + "LOWER(COALESCE(a.username, '')) LIKE LOWER(CONCAT('%', :searchValue, '%')) OR "
@@ -92,6 +94,8 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
             @Param("actionsInEmpty") boolean actionsInEmpty,
             @Param("excludeActions") List<String> excludeActions,
             @Param("excludeActionsEmpty") boolean excludeActionsEmpty,
+            @Param("usernamesIn") List<String> usernamesIn,
+            @Param("usernamesInEmpty") boolean usernamesInEmpty,
             Pageable pageable);
 
     @Query("SELECT COUNT(a) FROM AuditLog a WHERE a.serviceName = :sn AND a.requestTimestamp >= :from")
