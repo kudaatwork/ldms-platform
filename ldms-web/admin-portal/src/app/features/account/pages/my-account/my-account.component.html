@@ -1,11 +1,13 @@
 <div class="lx-page my-account-page">
-  <header class="my-page-head">
-    <div>
-      <p class="my-page-head__eyebrow">Self-service</p>
-      <h1 class="my-page-head__title">My Account</h1>
-      <p class="my-page-head__lead">View and update your profile, account settings, security, and address.</p>
-    </div>
-  </header>
+  <lx-workspace-hero
+    variant="brand"
+    eyebrow="Self-service"
+    eyebrowIcon="account_circle"
+    title="My Account"
+    lead="View and update your profile, account settings, security, and address."
+    hubIcon="person"
+    [orbitIcons]="['security', 'home', 'badge']"
+  ></lx-workspace-hero>
 
   <div class="my-account-hero lx-card">
     <div class="my-account-hero__avatar">{{ initials() }}</div>

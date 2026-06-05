@@ -1,83 +1,98 @@
 <div class="lx-page sh-page">
-  <ng-container *ngIf="!loading; else skel">
-    <header class="sh-hero lx-card" [ngClass]="'sh-hero--' + overallTone">
-      <div class="sh-hero__pulse" aria-hidden="true">
-        <span class="sh-hero__ring sh-hero__ring--1"></span>
-        <span class="sh-hero__ring sh-hero__ring--2"></span>
-        <mat-icon class="sh-hero__heart">monitor_heart</mat-icon>
-      </div>
-      <div class="sh-hero__copy">
-        <p class="sh-hero__eyebrow">
-          <mat-icon aria-hidden="true">radar</mat-icon>
-          Live platform telemetry
-        </p>
-        <h1 class="sh-hero__title">System health</h1>
-        <p class="sh-hero__lead">
-          Parallel actuator probes across every LDMS microservice — latency, dependency components, and Eureka
-          registration in one snapshot.
-        </p>
-        <div class="sh-hero__meta">
-          <span class="sh-hero__checked">
-            Last checked {{ formatCheckedAt(snapshot?.checkedAt) }}
-            <span class="sh-hero__refresh-dot" *ngIf="refreshing" aria-label="Refreshing"></span>
-          </span>
-          <button
-            type="button"
-            class="sh-auto-btn"
-            [class.sh-auto-btn--on]="autoRefresh"
-            (click)="toggleAutoRefresh()"
-          >
-            <mat-icon>{{ autoRefresh ? 'sync' : 'sync_disabled' }}</mat-icon>
-            Auto-refresh {{ autoRefresh ? '30s' : 'off' }}
-          </button>
-        </div>
-      </div>
-      <div class="sh-hero__status-panel" *ngIf="showErrorHero">
-        <div class="sh-overall-badge sh-overall-badge--outage">Snapshot unavailable</div>
-        <div class="sh-error-panel">
-          <mat-icon>cloud_off</mat-icon>
-          <p>{{ loadError }}</p>
-          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="refresh()">Retry probe</button>
-        </div>
-      </div>
-      <div class="sh-hero__status-panel" *ngIf="snapshot as snap">
-        <div class="sh-overall-badge" [ngClass]="'sh-overall-badge--' + overallTone">
-          {{ overallLabel(snap.overallStatus) }}
-        </div>
-        <div class="sh-kpi-grid">
-          <div class="sh-kpi">
-            <span class="sh-kpi__value">{{ snap.summary.upCount }}</span>
-            <span class="sh-kpi__label">Services up</span>
-          </div>
-          <div class="sh-kpi sh-kpi--warn" *ngIf="snap.summary.unknownCount > 0">
-            <span class="sh-kpi__value">{{ snap.summary.unknownCount }}</span>
-            <span class="sh-kpi__label">Unknown</span>
-          </div>
-          <div class="sh-kpi sh-kpi--down" *ngIf="snap.summary.downCount > 0">
-            <span class="sh-kpi__value">{{ snap.summary.downCount }}</span>
-            <span class="sh-kpi__label">Down</span>
-          </div>
-          <div class="sh-kpi">
-            <span class="sh-kpi__value">{{ snap.summary.totalServices }}</span>
-            <span class="sh-kpi__label">Monitored</span>
-          </div>
-        </div>
-      </div>
-    </header>
-
-    <div class="sh-alert lx-card" *ngIf="loadError && snapshot">
-      <mat-icon>error_outline</mat-icon>
-      <div>
-        <strong>Could not refresh health snapshot</strong>
-        <p>{{ loadError }}</p>
-      </div>
-      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="refresh()">Retry</button>
+  <header
+    class="sh-hero lx-card"
+    [ngClass]="initialLoad ? 'sh-hero--degraded' : 'sh-hero--' + overallTone"
+  >
+    <div class="sh-hero__pulse" aria-hidden="true">
+      <span class="sh-hero__ring sh-hero__ring--1"></span>
+      <span class="sh-hero__ring sh-hero__ring--2"></span>
+      <mat-icon class="sh-hero__heart">monitor_heart</mat-icon>
     </div>
+    <div class="sh-hero__copy">
+      <p class="sh-hero__eyebrow">
+        <mat-icon aria-hidden="true">radar</mat-icon>
+        Live platform telemetry
+      </p>
+      <h1 class="sh-hero__title">System health</h1>
+      <p class="sh-hero__lead">
+        Parallel actuator probes across every LDMS microservice — latency, dependency components, and Eureka
+        registration in one snapshot.
+      </p>
+      <div class="sh-hero__meta">
+        <span class="sh-hero__checked">
+          <ng-container *ngIf="snapshot; else probingLabel">
+            Last checked {{ formatCheckedAt(snapshot.checkedAt) }}
+          </ng-container>
+          <ng-template #probingLabel>Running fleet probes…</ng-template>
+          <span class="sh-hero__refresh-dot" *ngIf="refreshing || initialLoad" aria-label="Refreshing"></span>
+        </span>
+        <button
+          type="button"
+          class="sh-auto-btn"
+          [class.sh-auto-btn--on]="autoRefresh"
+          (click)="toggleAutoRefresh()"
+          [disabled]="initialLoad"
+        >
+          <mat-icon>{{ autoRefresh ? 'sync' : 'sync_disabled' }}</mat-icon>
+          Auto-refresh {{ autoRefresh ? '30s' : 'off' }}
+        </button>
+      </div>
+    </div>
+    <div class="sh-hero__status-panel" *ngIf="showErrorHero">
+      <div class="sh-overall-badge sh-overall-badge--outage">Snapshot unavailable</div>
+      <div class="sh-error-panel">
+        <mat-icon>cloud_off</mat-icon>
+        <p>{{ loadError }}</p>
+        <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="refresh()">Retry probe</button>
+      </div>
+    </div>
+    <div class="sh-hero__status-panel" *ngIf="!showErrorHero">
+      <div class="sh-overall-badge" [ngClass]="initialLoad ? 'sh-overall-badge--degraded' : 'sh-overall-badge--' + overallTone">
+        {{ initialLoad ? 'Probing services…' : overallLabel(snapshot?.overallStatus) }}
+      </div>
+      <div class="sh-kpi-grid">
+        <div class="sh-kpi">
+          <span class="sh-kpi__value">{{ statDisplay(snapshot?.summary?.upCount) }}</span>
+          <span class="sh-kpi__label">Services up</span>
+        </div>
+        <div class="sh-kpi sh-kpi--warn" *ngIf="initialLoad || (snapshot?.summary?.unknownCount ?? 0) > 0">
+          <span class="sh-kpi__value">{{ statDisplay(snapshot?.summary?.unknownCount) }}</span>
+          <span class="sh-kpi__label">Unknown</span>
+        </div>
+        <div class="sh-kpi sh-kpi--down" *ngIf="initialLoad || (snapshot?.summary?.downCount ?? 0) > 0">
+          <span class="sh-kpi__value">{{ statDisplay(snapshot?.summary?.downCount) }}</span>
+          <span class="sh-kpi__label">Down</span>
+        </div>
+        <div class="sh-kpi">
+          <span class="sh-kpi__value">{{ statDisplay(snapshot?.summary?.totalServices) }}</span>
+          <span class="sh-kpi__label">Monitored</span>
+        </div>
+      </div>
+    </div>
+  </header>
 
-    <section class="sh-constellation" *ngIf="snapshot?.services?.length" aria-label="Service mesh">
+  <div class="sh-probing lx-card" *ngIf="initialLoad" role="status" aria-live="polite">
+    <span class="sh-probing__spinner" aria-hidden="true"></span>
+    <div>
+      <strong>Probing LDMS fleet</strong>
+      <p>Actuator checks run in parallel across every registered service. This usually completes in a few seconds.</p>
+    </div>
+  </div>
+
+  <div class="sh-alert lx-card" *ngIf="loadError && snapshot">
+    <mat-icon>error_outline</mat-icon>
+    <div>
+      <strong>Could not refresh health snapshot</strong>
+      <p>{{ loadError }}</p>
+    </div>
+    <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="refresh()">Retry</button>
+  </div>
+
+  <ng-container *ngIf="snapshot">
+    <section class="sh-constellation" *ngIf="snapshot.services?.length" aria-label="Service mesh">
       <button
         type="button"
-        *ngFor="let row of snapshot!.services; trackBy: trackBySnapshotId"
+        *ngFor="let row of snapshot.services; trackBy: trackBySnapshotId"
         class="sh-node lx-card"
         [ngClass]="'sh-node--' + statusPresentation(row.status).css"
         (click)="toggleExpanded(row.serviceId)"
@@ -100,12 +115,12 @@
       </button>
     </section>
 
-    <section class="sh-infra-row" *ngIf="snapshot?.infrastructure?.length || snapshot?.eureka">
-      <article class="sh-infra lx-card" *ngIf="snapshot?.infrastructure?.length">
+    <section class="sh-infra-row" *ngIf="snapshot.infrastructure?.length || snapshot.eureka">
+      <article class="sh-infra lx-card" *ngIf="snapshot.infrastructure?.length">
         <h3 class="sh-infra__title">Shared infrastructure</h3>
         <div class="sh-infra__chips">
           <div
-            *ngFor="let infra of snapshot!.infrastructure"
+            *ngFor="let infra of snapshot.infrastructure"
             class="sh-infra-chip"
             [ngClass]="'sh-infra-chip--' + statusPresentation(infra.status).css"
           >
@@ -115,7 +130,7 @@
           </div>
         </div>
       </article>
-      <article class="sh-eureka lx-card" *ngIf="snapshot?.eureka as eureka">
+      <article class="sh-eureka lx-card" *ngIf="snapshot.eureka as eureka">
         <h3 class="sh-eureka__title">Service discovery</h3>
         <div class="sh-eureka__stats">
           <span class="lx-status" [ngClass]="eureka.available ? 'lx-status-active' : 'lx-status-rejected'">
@@ -130,30 +145,42 @@
         </div>
       </article>
     </section>
+  </ng-container>
 
-    <div class="lx-card lx-card--subsection">
-      <h3 class="lx-controls-title">Probe controls</h3>
-      <p class="lx-controls-subtitle">Filter the registry, export a compliance snapshot, or run a fresh probe cycle.</p>
-      <div class="lx-data-toolbar">
-        <div class="lx-data-toolbar__actions">
-          <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()" [disabled]="refreshing">
-            {{ refreshing ? 'Probing…' : 'Run checks' }}
-          </button>
-          <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu">
-            Export
-          </button>
+  <div class="lx-card lx-card--subsection">
+    <h3 class="lx-controls-title">Probe controls</h3>
+    <p class="lx-controls-subtitle">Filter the registry, export a compliance snapshot, or run a fresh probe cycle.</p>
+    <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()" [disabled]="refreshing || initialLoad">
+          {{ refreshing || initialLoad ? 'Probing…' : 'Run checks' }}
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-export-trigger"
+          [matMenuTriggerFor]="exportMenu"
+          [disabled]="initialLoad || !dataSource.length"
+        >
+          Export
+        </button>
+      </div>
+      <div class="lx-data-toolbar__search">
+        <div class="lx-input-shell lx-search-field">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input
+            [(ngModel)]="searchQuery"
+            (ngModelChange)="resetPaging()"
+            placeholder="Search service, host, component…"
+            [disabled]="initialLoad"
+          />
         </div>
-        <div class="lx-data-toolbar__search">
-          <div class="lx-input-shell lx-search-field">
-            <mat-icon class="lx-input-shell__icon">search</mat-icon>
-            <input [(ngModel)]="searchQuery" (ngModelChange)="resetPaging()" placeholder="Search service, host, component…" />
-          </div>
-          <button
-            type="button"
-            class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
-            (click)="filterFieldsOpen = !filterFieldsOpen"
-            [class.lx-btn-filter--on]="filterFieldsOpen"
-          >
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+          (click)="filterFieldsOpen = !filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen"
+          [disabled]="initialLoad"
+        >
             <mat-icon>tune</mat-icon>
             Filters
           </button>
@@ -167,6 +194,7 @@
           class="sh-status-tab"
           [class.sh-status-tab--active]="statusFilter === f"
           (click)="setStatusFilter(f)"
+          [disabled]="initialLoad"
         >
           {{ f === 'ALL' ? 'All services' : f }}
         </button>
@@ -214,8 +242,13 @@
       </mat-menu>
     </div>
 
-    <div class="lx-card sh-table-card">
-      <h3 class="sh-table-title">Microservice registry</h3>
+  <div class="lx-card sh-table-card">
+    <h3 class="sh-table-title">Microservice registry</h3>
+    <div class="sh-probing sh-probing--compact" *ngIf="initialLoad" role="status">
+      <span class="sh-probing__spinner" aria-hidden="true"></span>
+      <span>Waiting for probe results…</span>
+    </div>
+    <ng-container *ngIf="!initialLoad">
       <ng-container *ngIf="dataSource.length > 0; else empty">
         <ng-container *ngIf="filteredRows.length > 0; else noSearchHits">
           <div class="lx-table-wrap">
@@ -267,21 +300,21 @@
           <div class="sh-expand-panels">
             <ng-container *ngFor="let row of pagedRows">
               <div class="sh-expand-panel lx-card" *ngIf="isExpanded(row.serviceId)">
-              <div class="sh-expand-panel__head">
-                <strong>{{ row.service }}</strong>
-                <span class="lx-mono">{{ row.snapshot.serviceId }}</span>
-              </div>
-              <div class="sh-component-grid" *ngIf="(row.snapshot.components | keyvalue)?.length; else noComponents">
-                <div *ngFor="let c of row.snapshot.components | keyvalue" class="sh-component">
-                  <span class="sh-component__name">{{ c.key }}</span>
-                  <span class="lx-status lx-status-sm" [ngClass]="'lx-status-' + statusPresentation(c.value).css">
-                    {{ c.value }}
-                  </span>
+                <div class="sh-expand-panel__head">
+                  <strong>{{ row.service }}</strong>
+                  <span class="lx-mono">{{ row.snapshot.serviceId }}</span>
                 </div>
-              </div>
-              <ng-template #noComponents>
-                <p class="sh-expand-panel__empty">No component breakdown returned from actuator.</p>
-              </ng-template>
+                <div class="sh-component-grid" *ngIf="(row.snapshot.components | keyvalue)?.length; else noComponents">
+                  <div *ngFor="let c of row.snapshot.components | keyvalue" class="sh-component">
+                    <span class="sh-component__name">{{ c.key }}</span>
+                    <span class="lx-status lx-status-sm" [ngClass]="'lx-status-' + statusPresentation(c.value).css">
+                      {{ c.value }}
+                    </span>
+                  </div>
+                </div>
+                <ng-template #noComponents>
+                  <p class="sh-expand-panel__empty">No component breakdown returned from actuator.</p>
+                </ng-template>
               </div>
             </ng-container>
           </div>
@@ -312,19 +345,6 @@
           <button *ngIf="loadError" type="button" class="lx-btn lx-btn-primary" (click)="refresh()">Retry</button>
         </div>
       </ng-template>
-    </div>
-  </ng-container>
-</div>
-
-<ng-template #skel>
-  <div class="lx-page sh-page">
-    <div class="lx-card sh-hero sh-hero--skeleton">
-      <div class="skeleton" style="width: 40%; height: 16px; margin-bottom: 12px"></div>
-      <div class="skeleton" style="width: 55%; height: 32px; margin-bottom: 16px"></div>
-      <div class="skeleton" style="width: 70%; height: 14px"></div>
-    </div>
-    <div class="sh-constellation sh-constellation--skeleton">
-      <div class="skeleton lx-card" *ngFor="let i of [1,2,3,4,5,6]" style="height: 120px"></div>
-    </div>
+    </ng-container>
   </div>
-</ng-template>
+</div>

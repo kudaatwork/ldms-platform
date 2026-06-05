@@ -232,6 +232,7 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.currentUser.syncFromStorage();
     this.registerActivityListeners();
     this.currentUser.user$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
       this.shellUser = user;
@@ -435,6 +436,12 @@ export class AppComponent implements OnInit, OnDestroy {
     if (this.sessionProfileHydrated && roles.length > 0) {
       return;
     }
+    if (roles.length > 0 && this.currentUser.snapshot) {
+      this.sessionProfileHydrated = true;
+      this.rebuildVisibleNav();
+      this.updateNavRoleHint();
+      return;
+    }
     this.currentUser
       .refreshFromApi()
       .pipe(
@@ -501,6 +508,10 @@ export class AppComponent implements OnInit, OnDestroy {
   private showSessionWarning(): void {
     this.sessionWarningVisible = true;
     this.warningDeadlineMs = Date.now() + this.idleWarningMs;
+    if (this.idleLogoutTimerId) {
+      clearTimeout(this.idleLogoutTimerId);
+    }
+    this.idleLogoutTimerId = setTimeout(() => this.handleInactivityTimeout(), this.idleWarningMs);
     this.updateSessionCountdown();
     this.idleCountdownTimerId = setInterval(() => this.updateSessionCountdown(), 1000);
     this.cdr.markForCheck();
@@ -518,10 +529,13 @@ export class AppComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  stayLoggedIn(): void {
+  stayLoggedIn(event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
     if (!this.isAuthenticated()) {
       return;
     }
+    this.lastActivityResetMs = 0;
     this.armSessionTimers();
     this.cdr.markForCheck();
   }
@@ -769,7 +783,7 @@ export class AppComponent implements OnInit, OnDestroy {
     this.kycStatsLoaded = true;
     setTimeout(() => {
       this.kycStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
-    }, 0);
+    }, 350);
   }
 
   logout(fromTimeout = false): void {
@@ -781,7 +795,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.currentUser.clear();
     this.sessionProfileHydrated = false;
     this.kycStatsLoaded = false;
-    void this.router.navigate(['/auth/login'], { replaceUrl: true });
+    void this.router.navigate(['/auth/login'], {
+      replaceUrl: true,
+      queryParams: { reason: fromTimeout ? 'inactivity' : 'logout' },
+    });
     if (fromTimeout) {
       this.topNotifications = [
         {

@@ -1,21 +1,21 @@
 <div class="lx-page dashboard-page lx-page--no-enter">
   <mat-progress-bar *ngIf="loading" class="lx-page-progress" mode="indeterminate" aria-label="Loading dashboard"></mat-progress-bar>
-  <section class="dashboard-hero lx-card">
-    <div class="dashboard-hero__glow" aria-hidden="true"></div>
-    <div class="dashboard-topbar">
-    <div>
-      <p class="dashboard-hero__eyebrow">Operations</p>
-      <h1 class="dashboard-title">{{ greetingFirstName ? ('Welcome ' + greetingFirstName) : welcomeMessage }}</h1>
-      <p class="dashboard-subtitle">Route planning, KYC queue, fulfillment metrics, and compliance at a glance.</p>
-    </div>
-    <div class="dashboard-top-actions">
+  <lx-workspace-hero
+    variant="brand"
+    eyebrow="Operations"
+    eyebrowIcon="insights"
+    [title]="greetingFirstName ? ('Welcome ' + greetingFirstName) : welcomeMessage"
+    lead="Route planning, KYC queue, fulfillment metrics, and compliance at a glance."
+    hubIcon="dashboard"
+    [orbitIcons]="['local_shipping', 'verified_user', 'analytics']"
+  >
+    <div lxWorkspaceHeroActions class="dashboard-top-actions">
       <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="dashboardExportMenu">
         Export Snapshot
       </button>
-      <button type="button" class="lx-btn lx-btn-primary">Create Dispatch Plan</button>
+      <button type="button" class="lx-btn lx-btn-primary lx-btn-accent">Create Dispatch Plan</button>
     </div>
-    </div>
-  </section>
+  </lx-workspace-hero>
   <mat-menu #dashboardExportMenu="matMenu" panelClass="lx-export-menu">
     <button mat-menu-item class="lx-export-option--pdf" (click)="exportSnapshot('pdf')">
       <mat-icon>picture_as_pdf</mat-icon>

@@ -1,6 +1,18 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { catchError, forkJoin, map, Observable, of, switchMap, tap, throwError, timeout } from 'rxjs';
+import {
+  catchError,
+  finalize,
+  forkJoin,
+  map,
+  Observable,
+  of,
+  shareReplay,
+  switchMap,
+  tap,
+  throwError,
+  timeout,
+} from 'rxjs';
 import { UserProfileService } from './user-profile.service';
 import { environment } from '../../../environments/environment';
 import { CurrentUser, OrganizationClassification } from '../models/auth.model';
@@ -21,8 +33,10 @@ import { portalHomeRoute } from '../utils/portal-navigation.util';
 export class AuthService {
   /** Via API Gateway: {@code http://localhost:8091/ldms-authentication/v1/auth} (not :4201). */
   private readonly authBase = ldmsApiUrl('/ldms-authentication/v1/auth');
-  /** Avoid indefinite spinner when profile/org APIs are slow or unavailable. */
-  private static readonly SESSION_ENRICHMENT_TIMEOUT_MS = 12_000;
+  /** Avoid long blank UI when profile/org APIs are slow or unavailable. */
+  private static readonly SESSION_ENRICHMENT_TIMEOUT_MS = 8_000;
+
+  private sessionInit$?: Observable<void>;
 
   constructor(
     private readonly http: HttpClient,
@@ -72,16 +86,32 @@ export class AuthService {
   initializeSession(): Observable<void> {
     const token = this.storage.getToken();
     if (!token || token.startsWith('mock.')) {
+      this.clearSessionCache();
       this.authState.setCurrentUser(null);
       return of(undefined);
     }
-    return this.loadSessionUser(token, decodeJwtPayload(token)?.mustChangeCredentials === true).pipe(
-      tap((user) => this.authState.setCurrentUser(user)),
-      map(() => undefined),
-    );
+    if (!this.sessionInit$) {
+      this.primeUserFromJwt(token);
+      this.sessionInit$ = this.loadSessionUser(
+        token,
+        decodeJwtPayload(token)?.mustChangeCredentials === true,
+      ).pipe(
+        tap((user) => this.authState.setCurrentUser(user)),
+        map(() => undefined),
+        shareReplay(1),
+        finalize(() => {
+          this.sessionInit$ = undefined;
+        }),
+      );
+    }
+    return this.sessionInit$;
   }
 
   bootstrapFromStorage(): void {
+    const token = this.storage.getToken();
+    if (token && !token.startsWith('mock.')) {
+      this.primeUserFromJwt(token);
+    }
     void this.initializeSession().subscribe();
   }
 
@@ -94,11 +124,13 @@ export class AuthService {
   }
 
   logout(): void {
+    this.clearSessionCache();
     this.storage.clearSession();
     this.authState.setCurrentUser(null);
   }
 
   private completeLogin(token: string, mustChangeCredentials = false): Observable<void> {
+    this.clearSessionCache();
     this.storage.setToken(token);
     const jwtUser = currentUserFromJwt(token);
     if (jwtUser?.roles?.length) {
@@ -116,15 +148,43 @@ export class AuthService {
       timeout(enrichTimeout),
       catchError(() => of(null)),
     );
-    const org$ = this.organizationService.getMy().pipe(
-      timeout(enrichTimeout),
-      catchError(() => of(null)),
-    );
+    const org$ = this.shouldFetchOrganization(token)
+      ? this.organizationService.getMy().pipe(
+          timeout(enrichTimeout),
+          catchError(() => of(null)),
+        )
+      : of(null);
     return forkJoin({ profile: profile$, org: org$ }).pipe(
       map(({ profile, org }) =>
         this.mergeSession(token, org, profile, mustChangeCredentials),
       ),
     );
+  }
+
+  private primeUserFromJwt(token: string): void {
+    const jwtUser = currentUserFromJwt(token);
+    if (!jwtUser) {
+      return;
+    }
+    this.authState.setCurrentUser(jwtUser);
+    if (jwtUser.roles?.length) {
+      this.storage.setUser({ roles: jwtUser.roles });
+    }
+  }
+
+  private shouldFetchOrganization(token: string): boolean {
+    const jwt = currentUserFromJwt(token);
+    if (!jwt) {
+      return true;
+    }
+    const hasId = !!String(jwt.organizationId ?? '').trim();
+    const hasClass = !!String(jwt.orgClassification ?? '').trim();
+    const hasName = !!String(jwt.orgName ?? '').trim();
+    return !(hasId && hasClass && hasName);
+  }
+
+  private clearSessionCache(): void {
+    this.sessionInit$ = undefined;
   }
 
   private mergeOrgContext(token: string, org: OrganizationSummary | null): CurrentUser {

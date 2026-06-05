@@ -46,21 +46,40 @@
   }
 }
 
-/* ── Sidebar ────────────────────────────────────────────────── */
+/* ── Sidebar (navy gradient — matches lx-premium) ───────────── */
 .sidebar {
+  position: relative;
   width: var(--sidebar-width);
   min-width: var(--sidebar-width);
-  background: var(--sidebar-bg);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  z-index: 100;
+  background: var(--gradient-sidebar, linear-gradient(185deg, #070d1a 0%, #0f172a 38%, #121f3d 72%, #0a1020 100%));
+  border-right: 1px solid rgba(96, 165, 250, 0.12);
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.04),
+    12px 0 40px rgba(2, 6, 23, 0.35);
   transition:
     width 280ms ease-in-out,
     min-width 280ms ease-in-out,
     box-shadow 280ms ease-in-out;
-  overflow: hidden;
-  border-right: 1px solid rgba(148, 163, 184, 0.16);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03), 10px 0 30px rgba(15, 23, 42, 0.2);
-  z-index: 100;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background:
+      radial-gradient(ellipse 120% 80% at 100% 0%, rgba(59, 130, 246, 0.18), transparent 50%),
+      radial-gradient(ellipse 80% 60% at 0% 100%, rgba(124, 58, 237, 0.14), transparent 55%);
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
 
   .collapsed & {
     min-width: var(--sidebar-collapsed);
@@ -77,12 +96,13 @@
   .sb-logo-brand {
     width: 40px;
     height: 40px;
-    border-radius: 9px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 24px rgba(37, 99, 235, 0.35);
   }
 
   .sb-logo-text {
@@ -229,7 +249,7 @@
   }
 
   &.active {
-    background: var(--sidebar-active-bg);
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.28) 0%, rgba(59, 130, 246, 0.08) 100%);
     color: #fff;
     border-left-color: var(--sidebar-active-border);
 
@@ -328,9 +348,10 @@
   }
 
   &.active {
-    background: var(--sidebar-active-bg);
+    background: linear-gradient(90deg, rgba(59, 130, 246, 0.28) 0%, rgba(59, 130, 246, 0.08) 100%);
     color: #fff;
     border-left-color: var(--sidebar-active-border);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
 
     .sb-icon {
       background: var(--primary);
@@ -361,13 +382,14 @@
     height: 34px;
     border-radius: 50%;
     flex-shrink: 0;
-    background: linear-gradient(135deg, var(--primary), var(--accent));
+    background: var(--gradient-brand, linear-gradient(135deg, #2563eb, #6366f1));
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 12px;
     font-weight: 700;
     color: #fff;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
   }
 
   .sb-user-info {
@@ -428,6 +450,7 @@
 }
 
 .tb-session-warning {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -436,22 +459,27 @@
   border-bottom: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 30%, var(--gray-200));
   color: var(--gray-800);
   font-size: 13px;
-  z-index: 25;
+  z-index: 35;
   flex-shrink: 0;
+  pointer-events: auto;
 
   mat-icon {
     color: var(--warning, #f59e0b);
     width: 18px;
     height: 18px;
     font-size: 18px;
+    flex-shrink: 0;
   }
 
-  .lx-btn {
+  .lx-btn,
+  &__action {
     margin-left: auto;
+    flex-shrink: 0;
+    pointer-events: auto;
   }
 }
 
-/* ── Topbar ─────────────────────────────────────────────────── */
+/* ── Topbar (frosted glass) ─────────────────────────────────── */
 .topbar {
   position: relative;
   z-index: 30;
@@ -459,11 +487,13 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 24px;
-  height: 66px;
-  background: color-mix(in srgb, var(--surface) 82%, transparent);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--gray-200);
+  height: 68px;
   flex-shrink: 0;
+  background: var(--glass-surface, rgba(255, 255, 255, 0.78));
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border-bottom: var(--glass-border, 1px solid rgba(255, 255, 255, 0.65));
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.05);
 
   .tb-left {
     display: flex;
@@ -472,10 +502,15 @@
     min-width: 0;
 
     .tb-title {
-      font-size: 17px;
-      font-weight: 700;
-      color: var(--gray-900);
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
       margin: 0;
+      color: var(--gray-900);
+      background: linear-gradient(120deg, var(--gray-900) 0%, var(--primary-dark) 120%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
   }
 
@@ -493,16 +528,16 @@
   align-items: center;
   gap: 8px;
   padding: 7px 12px;
-  background: var(--gray-100);
-  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+  border-radius: 12px;
   width: 260px;
-  border: 1.5px solid transparent;
+  border: 1px solid color-mix(in srgb, var(--primary) 12%, var(--gray-200));
   transition: all var(--ease-fast);
 
   &:focus-within {
-    background: var(--raised);
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79, 111, 255, 0.1);
+    background: var(--surface);
+    border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
   }
 
   .tb-search-icon {
@@ -580,8 +615,10 @@
   z-index: 20;
   flex-shrink: 0;
   padding: 8px 24px;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  border-bottom: 1px solid var(--gray-200);
+  background: color-mix(in srgb, var(--glass-surface, rgba(255, 255, 255, 0.78)) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.14);
 }
 
 .lx-breadcrumbs__list {

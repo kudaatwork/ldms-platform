@@ -1,13 +1,13 @@
 <div class="lx-page settings-page">
-  <header class="settings-head">
-    <div>
-      <p class="settings-head__eyebrow">Workspace</p>
-      <h1 class="settings-head__title">Settings</h1>
-      <p class="settings-head__lead">
-        Configure how roles attach to user groups and how many KYC approval stages each company requires.
-      </p>
-    </div>
-  </header>
+  <lx-workspace-hero
+    variant="slate"
+    eyebrow="Workspace"
+    eyebrowIcon="tune"
+    title="Settings"
+    lead="Configure how roles attach to user groups and how many KYC approval stages each company requires."
+    hubIcon="settings"
+    [orbitIcons]="['group', 'verified_user', 'rule']"
+  ></lx-workspace-hero>
 
   <nav class="settings-nav" aria-label="Settings sections">
     @for (section of sections; track section.id) {

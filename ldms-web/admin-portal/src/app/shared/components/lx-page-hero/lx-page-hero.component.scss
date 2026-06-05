@@ -39,15 +39,24 @@
   flex: 1 1 280px;
   min-width: 0;
   max-width: 640px;
+  overflow: visible;
+  padding-inline-start: 2px;
 }
 
 .lx-page-hero__eyebrow {
-  margin: 0 0 8px;
+  display: inline-block;
+  margin: 0 0 10px;
+  padding: 5px 12px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
   text-transform: uppercase;
-  opacity: 0.78;
+  color: #1e3a8a;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 999px;
+  opacity: 1;
+  overflow: visible;
 }
 
 .lx-page-hero__title {
@@ -65,7 +74,8 @@
   margin: 12px 0 0;
   font-size: 14px;
   line-height: 1.55;
-  opacity: 0.9;
+  color: #ffffff;
+  opacity: 1;
   max-width: 56ch;
 }
 

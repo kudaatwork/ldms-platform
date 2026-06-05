@@ -1,7 +1,7 @@
 :root {
   color-scheme: light;
 
-  --page-bg: #f1f5fb;
+  --page-bg: #e8eef8;
 
   /* ── Brand ─────────────────────────── */
   --primary:       #3B82F6;
@@ -46,11 +46,24 @@
   --primary-500: #3B82F6;
   --primary-600: #2563EB;
 
+  /* ── Layout chrome (shared with lx-premium) ─ */
+  --radius-xl: 22px;
+  --radius-lg: 16px;
+  --gradient-brand: linear-gradient(135deg, #2563eb 0%, #3b82f6 45%, #6366f1 100%);
+  --gradient-sidebar: linear-gradient(185deg, #070d1a 0%, #0f172a 38%, #121f3d 72%, #0a1020 100%);
+  --gradient-mesh-light:
+    radial-gradient(ellipse 90% 60% at 0% -10%, rgba(59, 130, 246, 0.14), transparent 55%),
+    radial-gradient(ellipse 70% 50% at 100% 0%, rgba(139, 92, 246, 0.1), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(249, 115, 22, 0.06), transparent 45%);
+  --glass-surface: rgba(255, 255, 255, 0.78);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.65);
+  --glow-primary: 0 0 0 1px rgba(59, 130, 246, 0.12), 0 12px 40px rgba(37, 99, 235, 0.14);
+
   /* ── Card ──────────────────────────── */
-  --card-radius:  20px;
-  --card-shadow:  0 0 0 1px rgba(59, 130, 246, 0.06), 0 8px 28px rgba(15, 23, 42, 0.07);
-  --card-shadow-hover: 0 0 0 1px rgba(59, 130, 246, 0.1), 0 20px 48px rgba(15, 23, 42, 0.11);
-  --card-border:  1px solid rgba(148, 163, 184, 0.24);
+  --card-radius:  var(--radius-xl);
+  --card-shadow:  var(--glow-primary);
+  --card-shadow-hover: 0 0 0 1px rgba(59, 130, 246, 0.14), 0 22px 52px rgba(15, 23, 42, 0.12);
+  --card-border:  1px solid rgba(148, 163, 184, 0.22);
 
   /* ── Typography ────────────────────── */
   --font: 'Plus Jakarta Sans', -apple-system, sans-serif;

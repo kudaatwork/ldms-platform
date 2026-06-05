@@ -1,0 +1,336 @@
+import { Component, Inject, OnDestroy, OnInit, Optional } from '@angular/core';
+import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { Subject, finalize, takeUntil } from 'rxjs';
+import { ORG_TYPES, type OrganizationType } from '../../../../core/models/auth.model';
+import {
+  dateOfBirthMinimumAgeMessage,
+  isDateOfBirthAtLeastMinimumAge,
+  maximumDateOfBirthInput,
+} from '../../../../core/utils/date-of-birth.util';
+import { CustomerListRow, IndustrySelectOption, RegisterCustomerPayload } from '../../models/customer.model';
+import { CustomersPortalService } from '../../services/customers-portal.service';
+
+const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY'] as const;
+
+export type RegisterCustomerDialogData = {
+  customerId?: number;
+};
+
+@Component({
+  selector: 'app-register-customer-dialog',
+  templateUrl: './register-customer-dialog.component.html',
+  styleUrl: './register-customer-dialog.component.scss',
+  standalone: false,
+})
+export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
+  readonly organizationTypes = ORG_TYPES;
+  readonly genderOptions = GENDER_OPTIONS;
+  readonly isEdit: boolean;
+  readonly title: string;
+  readonly subtitle: string;
+
+  readonly form: FormGroup;
+  submitting = false;
+  loadingCustomer = false;
+  saveError = '';
+  private readonly customerId?: number;
+  private existingTaxUploadId?: number;
+  private existingNationalIdUploadId?: number;
+  private existingPassportUploadId?: number;
+  taxClearanceUploadLabel = '';
+  taxClearanceCertificateUpload: File | null = null;
+  taxUploadMissing = false;
+  nationalIdUploadLabel = '';
+  passportUploadLabel = '';
+  nationalIdUpload: File | null = null;
+  passportUpload: File | null = null;
+  identificationError = '';
+  industriesLoading = false;
+  industriesLoadError = '';
+  industryOptions: IndustrySelectOption[] = [];
+  addressLine1 = '';
+  addressLine2 = '';
+  postalCode = '';
+  suburbIdStr = '';
+  addressError = '';
+
+  private readonly destroy$ = new Subject<void>();
+
+  constructor(
+    private readonly fb: FormBuilder,
+    private readonly dialogRef: MatDialogRef<RegisterCustomerDialogComponent, CustomerListRow | undefined>,
+    private readonly customers: CustomersPortalService,
+    @Optional() @Inject(MAT_DIALOG_DATA) data: RegisterCustomerDialogData | null,
+  ) {
+    this.customerId = data?.customerId;
+    this.isEdit = this.customerId != null && this.customerId > 0;
+    this.title = this.isEdit ? 'Edit customer' : 'Add customer';
+    this.subtitle = this.isEdit
+      ? 'Update the buyer profile linked to your supplier workspace. Existing verification documents are kept unless you upload replacements.'
+      : 'Onboard a buyer organisation with the same profile fields as admin Add organisation. The buyer is linked to your supplier workspace (no platform KYC review). The primary contact receives temporary sign-in credentials; the organisation email receives a verification link that must be opened before the buyer is marked verified.';
+    this.dialogRef.disableClose = true;
+    this.form = this.fb.group({
+      organizationType: ['PRIVATE' as OrganizationType, Validators.required],
+      industryId: [null as number | null],
+      name: ['', [Validators.required, Validators.minLength(2)]],
+      email: ['', [Validators.required, Validators.email]],
+      phoneNumber: ['', Validators.required],
+      registrationNumber: [''],
+      taxNumber: [''],
+      contactPersonFirstName: ['', Validators.required],
+      contactPersonLastName: ['', Validators.required],
+      contactPersonEmail: ['', [Validators.required, Validators.email]],
+      contactPersonPhoneNumber: ['', Validators.required],
+      contactPersonGender: ['', Validators.required],
+      contactPersonDateOfBirth: ['', Validators.required],
+      contactPersonNationalIdNumber: [''],
+      contactPersonNationalIdExpiryDate: [''],
+      contactPersonPassportNumber: [''],
+      contactPersonPassportExpiryDate: [''],
+    });
+  }
+
+  get maximumDateOfBirth(): string {
+    return maximumDateOfBirthInput();
+  }
+
+  ngOnInit(): void {
+    this.loadIndustries();
+    if (this.isEdit && this.customerId) {
+      this.loadCustomer(this.customerId);
+    }
+    this.form
+      .get('taxNumber')
+      ?.valueChanges.pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        if (!this.taxNumberProvided) {
+          this.taxUploadMissing = false;
+        }
+      });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  get taxNumberProvided(): boolean {
+    return String(this.form.get('taxNumber')?.value ?? '').trim().length > 0;
+  }
+
+  hasError(controlName: string, errorName: string): boolean {
+    const control = this.form.get(controlName);
+    return !!control && control.hasError(errorName) && (control.touched || control.dirty);
+  }
+
+  cancel(): void {
+    if (!this.submitting) {
+      this.dialogRef.close();
+    }
+  }
+
+  onTaxClearanceSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.taxClearanceCertificateUpload = file;
+    this.taxClearanceUploadLabel = file?.name ?? '';
+    this.taxUploadMissing = false;
+  }
+
+  onNationalIdUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.nationalIdUpload = file;
+    this.nationalIdUploadLabel = file?.name ?? '';
+    this.identificationError = '';
+  }
+
+  onPassportUploadSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    this.passportUpload = file;
+    this.passportUploadLabel = file?.name ?? '';
+    this.identificationError = '';
+  }
+
+  save(): void {
+    if (this.form.invalid || this.submitting) {
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const taxNumber = String(this.form.get('taxNumber')?.value ?? '').trim();
+    const hasTaxDocument = !!this.taxClearanceCertificateUpload || !!this.existingTaxUploadId;
+    if (taxNumber && !hasTaxDocument) {
+      this.taxUploadMissing = true;
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const dob = String(this.form.get('contactPersonDateOfBirth')?.value ?? '').trim();
+    if (!isDateOfBirthAtLeastMinimumAge(dob)) {
+      this.saveError = dateOfBirthMinimumAgeMessage();
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    const nationalIdNumber = String(this.form.get('contactPersonNationalIdNumber')?.value ?? '').trim();
+    const passportNumber = String(this.form.get('contactPersonPassportNumber')?.value ?? '').trim();
+    const nationalComplete =
+      nationalIdNumber.length > 0 && (!!this.nationalIdUpload || !!this.existingNationalIdUploadId);
+    const passportComplete =
+      passportNumber.length > 0 && (!!this.passportUpload || !!this.existingPassportUploadId);
+    if (!nationalComplete && !passportComplete) {
+      this.identificationError =
+        'Provide a national ID number with scan, or a passport number with scan (at least one complete set).';
+      this.form.markAllAsTouched();
+      return;
+    }
+
+    this.addressError = '';
+    const suburbId = Number(this.suburbIdStr.trim());
+    const hasAnyAddressInput =
+      this.addressLine1.trim().length > 0 ||
+      this.addressLine2.trim().length > 0 ||
+      this.postalCode.trim().length > 0 ||
+      (Number.isFinite(suburbId) && suburbId > 0);
+    if (hasAnyAddressInput) {
+      if (!this.addressLine1.trim() || !this.postalCode.trim() || !Number.isFinite(suburbId) || suburbId <= 0) {
+        this.addressError =
+          'Address requires line 1, postal code, and a selected suburb when any address field is set.';
+        return;
+      }
+    }
+
+    const v = this.form.getRawValue();
+    const payload: RegisterCustomerPayload = {
+      name: String(v.name).trim(),
+      email: String(v.email).trim(),
+      phoneNumber: String(v.phoneNumber).trim(),
+      organizationType: v.organizationType,
+      industryId: this.toNumberOrNull(v.industryId) ?? undefined,
+      contactPersonFirstName: String(v.contactPersonFirstName).trim(),
+      contactPersonLastName: String(v.contactPersonLastName).trim(),
+      contactPersonEmail: String(v.contactPersonEmail).trim(),
+      contactPersonPhoneNumber: String(v.contactPersonPhoneNumber).trim(),
+      contactPersonGender: String(v.contactPersonGender).trim(),
+      contactPersonDateOfBirth: dob,
+      contactPersonNationalIdNumber: nationalComplete ? nationalIdNumber : undefined,
+      contactPersonNationalIdExpiryDate: nationalComplete
+        ? String(v.contactPersonNationalIdExpiryDate ?? '').trim() || undefined
+        : undefined,
+      contactPersonNationalIdUpload: nationalComplete ? this.nationalIdUpload ?? undefined : undefined,
+      contactPersonNationalIdUploadId: this.existingNationalIdUploadId,
+      contactPersonPassportNumber: passportComplete ? passportNumber : undefined,
+      contactPersonPassportExpiryDate: passportComplete
+        ? String(v.contactPersonPassportExpiryDate ?? '').trim() || undefined
+        : undefined,
+      contactPersonPassportUpload: passportComplete ? this.passportUpload ?? undefined : undefined,
+      contactPersonPassportUploadId: this.existingPassportUploadId,
+      registrationNumber: String(v.registrationNumber ?? '').trim() || undefined,
+      taxNumber: taxNumber || undefined,
+      taxClearanceCertificateUpload: this.taxClearanceCertificateUpload ?? undefined,
+      taxClearanceCertificateUploadId: this.existingTaxUploadId,
+      addressLine1: hasAnyAddressInput ? this.addressLine1.trim() : undefined,
+      addressLine2: hasAnyAddressInput ? this.addressLine2.trim() || undefined : undefined,
+      postalCode: hasAnyAddressInput ? this.postalCode.trim() : undefined,
+      suburbId: hasAnyAddressInput ? suburbId : undefined,
+    };
+
+    this.submitting = true;
+    this.saveError = '';
+    this.identificationError = '';
+
+    const request$ =
+      this.isEdit && this.customerId
+        ? this.customers.updateCustomer(this.customerId, payload)
+        : this.customers.registerCustomer(payload);
+
+    request$
+      .pipe(
+        finalize(() => (this.submitting = false)),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (row) => this.dialogRef.close(row),
+        error: (err: Error) => {
+          this.saveError =
+            err.message ?? (this.isEdit ? 'Could not update customer.' : 'Could not register customer.');
+        },
+      });
+  }
+
+  private loadCustomer(customerId: number): void {
+    this.loadingCustomer = true;
+    this.saveError = '';
+    this.customers
+      .getCustomer(customerId)
+      .pipe(
+        finalize(() => (this.loadingCustomer = false)),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (detail) => {
+          this.existingTaxUploadId = detail.taxClearanceCertificateUploadId;
+          this.existingNationalIdUploadId = detail.contactPersonNationalIdUploadId;
+          this.existingPassportUploadId = detail.contactPersonPassportUploadId;
+          if (this.existingTaxUploadId) {
+            this.taxClearanceUploadLabel = 'Existing document on file';
+          }
+          if (this.existingNationalIdUploadId) {
+            this.nationalIdUploadLabel = 'Existing document on file';
+          }
+          if (this.existingPassportUploadId) {
+            this.passportUploadLabel = 'Existing document on file';
+          }
+          this.form.patchValue({
+            organizationType: detail.organizationType,
+            industryId: detail.industryId ?? null,
+            name: detail.name,
+            email: detail.email,
+            phoneNumber: detail.phoneNumber,
+            registrationNumber: detail.registrationNumber ?? '',
+            taxNumber: detail.taxNumber ?? '',
+            contactPersonFirstName: detail.contactPersonFirstName,
+            contactPersonLastName: detail.contactPersonLastName,
+            contactPersonEmail: detail.contactPersonEmail,
+            contactPersonPhoneNumber: detail.contactPersonPhoneNumber,
+            contactPersonGender: detail.contactPersonGender,
+            contactPersonDateOfBirth: detail.contactPersonDateOfBirth,
+            contactPersonNationalIdNumber: detail.contactPersonNationalIdNumber ?? '',
+            contactPersonPassportNumber: detail.contactPersonPassportNumber ?? '',
+          });
+        },
+        error: (err: Error) => {
+          this.saveError = err.message ?? 'Could not load customer profile.';
+        },
+      });
+  }
+
+  private loadIndustries(): void {
+    this.industriesLoading = true;
+    this.industriesLoadError = '';
+    this.customers
+      .listPlatformIndustries()
+      .pipe(
+        finalize(() => (this.industriesLoading = false)),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.industryOptions = rows;
+        },
+        error: (err: Error) => {
+          this.industryOptions = [];
+          this.industriesLoadError =
+            err.message ?? 'Could not load industries. Ensure you are signed in and organization-management is running.';
+        },
+      });
+  }
+
+  private toNumberOrNull(raw: unknown): number | null {
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+}

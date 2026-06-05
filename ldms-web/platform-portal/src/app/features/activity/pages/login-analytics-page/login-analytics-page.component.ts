@@ -122,7 +122,6 @@ const DEFAULT_LOGIN_LOOKBACK_DAYS = 30;
   standalone: false,
 })
 export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
-  loading = true;
   loginLoading = false;
   activityLoading = false;
   loginExporting = false;
@@ -220,6 +219,15 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
     return [...set];
   }
 
+  get heroLead(): string {
+    const base =
+      'Immutable audit trail of sign-in events (who, when, which client, IP address) with drill-down into every recorded business action for investigations and compliance reviews.';
+    if (this.organizationScopeLabel) {
+      return `${base} Only users linked to ${this.organizationScopeLabel} are included.`;
+    }
+    return base;
+  }
+
   ngOnInit(): void {
     this.title.setTitle('Login & activity | LX Platform');
     this.organizationScopeLabel = this.orgContext.organizationName;
@@ -227,12 +235,10 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
 
     if (environment.useMocks) {
       this.applyLoginRows([], 0);
-      this.loading = false;
       return;
     }
 
     if (this.orgContext.organizationId == null) {
-      this.loading = false;
       this.permissionError =
         'Your account is not linked to an organisation, so login and activity history cannot be scoped.';
       this.cdr.markForCheck();
@@ -240,6 +246,7 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
     }
 
     this.lastLoginFilterSignature = this.loginFilterSignature();
+    this.loginLoading = true;
     this.auditLogPortal.prefetchOrganizationUsernames().pipe(takeUntil(this.destroy$)).subscribe();
 
     merge(of(undefined as void), this.loginFilterReload$.pipe(debounceTime(150)))
@@ -250,10 +257,7 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
         }),
         takeUntil(this.destroy$),
       )
-      .subscribe(() => {
-        this.loading = false;
-        this.cdr.markForCheck();
-      });
+      .subscribe();
   }
 
   ngOnDestroy(): void {

@@ -1,11 +1,13 @@
 <div class="lx-page lx-page--audit">
-  <lx-page-hero
+  <lx-workspace-hero
+    variant="slate"
     eyebrow="Audit &amp; compliance"
+    eyebrowIcon="auto_delete"
     title="Churnout history"
     lead="Execution records for manual and scheduled request-log retention jobs."
-    icon="auto_delete"
-    variant="slate"
-  ></lx-page-hero>
+    hubIcon="auto_delete"
+    [orbitIcons]="['schedule', 'history', 'storage']"
+  ></lx-workspace-hero>
 
 <section class="audit-section">
   <div class="lx-card">

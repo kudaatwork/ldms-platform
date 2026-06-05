@@ -23,4 +23,5 @@ public class ProvisionOrganizationContactPersonRequest {
     private Long nationalIdUploadId;
     private Long passportUploadId;
     private Boolean viaSignup;
+    private Boolean sendVerificationEmail;
 }

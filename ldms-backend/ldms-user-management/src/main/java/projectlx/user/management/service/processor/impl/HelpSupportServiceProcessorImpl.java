@@ -1,22 +1,18 @@
 package projectlx.user.management.service.processor.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.modelmapper.ModelMapper;
-import org.modelmapper.TypeToken;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.management.business.logic.api.HelpSupportService;
-import projectlx.user.management.model.EntityStatus;
-import projectlx.user.management.model.SupportTicket;
-import projectlx.user.management.repository.SupportTicketRepository;
+import projectlx.user.management.model.HelpArticleCategory;
 import projectlx.user.management.service.processor.api.HelpSupportServiceProcessor;
-import projectlx.user.management.utils.dtos.SupportTicketDto;
-import projectlx.user.management.utils.enums.I18Code;
+import projectlx.user.management.utils.requests.AddSupportTicketMessageRequest;
+import projectlx.user.management.utils.requests.AssignSupportTicketRequest;
 import projectlx.user.management.utils.requests.CreateSupportTicketRequest;
+import projectlx.user.management.utils.requests.SupportTicketExportFilterRequest;
+import projectlx.user.management.utils.requests.UpdateSupportTicketStatusRequest;
 import projectlx.user.management.utils.responses.HelpSupportResponse;
 
-import java.util.List;
 import java.util.Locale;
 
 @RequiredArgsConstructor
@@ -25,12 +21,9 @@ public class HelpSupportServiceProcessorImpl implements HelpSupportServiceProces
     private static final Logger logger = LoggerFactory.getLogger(HelpSupportServiceProcessorImpl.class);
 
     private final HelpSupportService helpSupportService;
-    private final SupportTicketRepository supportTicketRepository;
-    private final ModelMapper modelMapper;
-    private final MessageService messageService;
 
     @Override
-    public HelpSupportResponse listArticles(Locale locale, projectlx.user.management.model.HelpArticleCategory category) {
+    public HelpSupportResponse listArticles(Locale locale, HelpArticleCategory category) {
         return helpSupportService.listArticles(locale, category);
     }
 
@@ -57,14 +50,46 @@ public class HelpSupportServiceProcessorImpl implements HelpSupportServiceProces
 
     @Override
     public HelpSupportResponse listAllSupportTickets(Locale locale) {
-        List<SupportTicket> tickets = supportTicketRepository.findByEntityStatusNotOrderByCreatedAtDesc(EntityStatus.DELETED);
-        List<SupportTicketDto> dtos = modelMapper.map(tickets, new TypeToken<List<SupportTicketDto>>() {}.getType());
-        String message = messageService.getMessage(I18Code.MESSAGE_SUPPORT_TICKETS_RETRIEVED.getCode(), new String[]{}, locale);
-        HelpSupportResponse response = new HelpSupportResponse();
-        response.setStatusCode(200);
-        response.setSuccess(true);
-        response.setMessage(message);
-        response.setSupportTicketDtoList(dtos);
-        return response;
+        return helpSupportService.listAllSupportTickets(locale);
+    }
+
+    @Override
+    public HelpSupportResponse findSupportTicketById(Long id, Locale locale, boolean includeInternalMessages) {
+        return helpSupportService.findSupportTicketById(id, locale, includeInternalMessages);
+    }
+
+    @Override
+    public HelpSupportResponse findMySupportTicketById(Long id, Locale locale, String username) {
+        return helpSupportService.findMySupportTicketById(id, locale, username);
+    }
+
+    @Override
+    public HelpSupportResponse updateSupportTicketStatus(UpdateSupportTicketStatusRequest request,
+                                                           Locale locale,
+                                                           String actorUsername) {
+        logger.info("Support ticket {} status update requested by {}", request.getSupportTicketId(), actorUsername);
+        return helpSupportService.updateSupportTicketStatus(request, locale, actorUsername);
+    }
+
+    @Override
+    public HelpSupportResponse assignSupportTicket(AssignSupportTicketRequest request,
+                                                   Locale locale,
+                                                   String actorUsername) {
+        logger.info("Support ticket {} assignment requested by {}", request.getSupportTicketId(), actorUsername);
+        return helpSupportService.assignSupportTicket(request, locale, actorUsername);
+    }
+
+    @Override
+    public HelpSupportResponse addSupportTicketMessage(AddSupportTicketMessageRequest request,
+                                                       Locale locale,
+                                                       String actorUsername,
+                                                       boolean handlerActor) {
+        logger.info("Support ticket {} message requested by {}", request.getSupportTicketId(), actorUsername);
+        return helpSupportService.addSupportTicketMessage(request, locale, actorUsername, handlerActor);
+    }
+
+    @Override
+    public byte[] exportSupportTickets(SupportTicketExportFilterRequest filters, String format, Locale locale) throws Exception {
+        return helpSupportService.exportSupportTickets(filters, format, locale);
     }
 }

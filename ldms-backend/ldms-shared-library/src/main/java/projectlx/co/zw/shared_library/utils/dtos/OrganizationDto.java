@@ -10,6 +10,7 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.enums.Gender;
 import projectlx.co.zw.shared_library.utils.enums.VerificationMethod;
 import projectlx.co.zw.shared_library.utils.enums.VerificationSource;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -177,6 +178,11 @@ public class OrganizationDto {
 
     /** Contracted transporter organisations linked to this organisation. */
     private List<OrganizationDto> contractedTransporterDtoList;
+
+    /** Populated when listing/getting a transport partner relationship. */
+    private LocalDate contractStartDate;
+    private LocalDate contractEndDate;
+    private LocalDateTime contractLinkedAt;
 
     /** Contracted clearing agent organisations linked to this supplier. */
     private List<OrganizationDto> contractedClearingAgentDtoList;

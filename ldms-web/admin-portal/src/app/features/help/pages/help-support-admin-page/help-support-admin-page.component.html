@@ -1,27 +1,46 @@
 <section class="lx-page hs-page">
-  <header class="hs-hero">
-    <div class="hs-hero__glow" aria-hidden="true"></div>
-    <div class="hs-hero__content">
-      <p class="hs-hero__eyebrow">Operations · Help desk</p>
-      <h1 class="hs-hero__title">Help &amp; Support</h1>
-      <p class="hs-hero__lead">
-        Every portal ticket lands here — triage requests, track SLAs, and jump to live platform health when users report outages.
-      </p>
-      <div class="hs-hero__actions">
-        <button type="button" class="lx-btn lx-btn-primary hs-hero__btn" (click)="goSystemHealth()">
-          <span class="material-icons" aria-hidden="true">monitor_heart</span>
-          System health
-        </button>
-        <button type="button" class="lx-btn lx-btn-secondary hs-hero__btn" (click)="reload()" [disabled]="loading">
-          <span class="material-icons" aria-hidden="true">refresh</span>
-          Refresh
-        </button>
-      </div>
-    </div>
-    <div class="hs-hero__visual" aria-hidden="true">
-      <span class="material-icons hs-hero__icon">support_agent</span>
-    </div>
-  </header>
+  <lx-workspace-hero
+    variant="amber"
+    eyebrow="Operations · Help desk"
+    eyebrowIcon="support_agent"
+    title="Help &amp; Support"
+    lead="Triage portal tickets, chat with requesters, and drive each case through to resolution and closure."
+    hubIcon="help"
+    [orbitIcons]="['confirmation_number', 'forum', 'task_alt']"
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-primary lx-btn-accent" (click)="goSystemHealth()">
+      <mat-icon aria-hidden="true">monitor_heart</mat-icon>
+      System health
+    </button>
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="exportMenu" [disabled]="loading || !tickets.length">
+      <mat-icon aria-hidden="true">download</mat-icon>
+      Export
+    </button>
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reload()" [disabled]="loading">
+      <mat-icon aria-hidden="true">refresh</mat-icon>
+      Refresh
+    </button>
+
+    <lx-workspace-hero-stat [value]="statDisplay(tickets.length)" label="Total tickets" icon="inbox" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="statDisplay(openTicketCount)" label="Open" icon="mark_email_unread" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="statDisplay(inProgressCount)" label="In progress" icon="pending" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="statDisplay(waitingCount)" label="Waiting on customer" icon="hourglass_empty" theme="violet"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
+    <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')">
+      <mat-icon>picture_as_pdf</mat-icon>
+      <span>Export PDF</span>
+    </button>
+    <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')">
+      <mat-icon>table_view</mat-icon>
+      <span>Export CSV</span>
+    </button>
+    <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')">
+      <mat-icon>grid_on</mat-icon>
+      <span>Export Excel</span>
+    </button>
+  </mat-menu>
 
   <div class="hs-alert" *ngIf="error" role="alert">
     <span class="material-icons" aria-hidden="true">error_outline</span>
@@ -29,169 +48,283 @@
     <button type="button" class="hs-alert__action" (click)="reload()">Retry</button>
   </div>
 
-  <div class="hs-loading" *ngIf="loading">
+  <div class="hs-kpis" [class.hs-kpis--loading]="loading">
+    <article class="hs-kpi lx-card">
+      <span class="material-icons hs-kpi__icon hs-kpi__icon--total" aria-hidden="true">inbox</span>
+      <div>
+        <span class="hs-kpi__value">{{ statDisplay(tickets.length) }}</span>
+        <span class="hs-kpi__label">Total queue</span>
+      </div>
+    </article>
+    <article class="hs-kpi lx-card hs-kpi--open">
+      <span class="material-icons hs-kpi__icon" aria-hidden="true">fiber_new</span>
+      <div>
+        <span class="hs-kpi__value">{{ statDisplay(openTicketCount) }}</span>
+        <span class="hs-kpi__label">New / open</span>
+      </div>
+    </article>
+    <article class="hs-kpi lx-card hs-kpi--progress">
+      <span class="material-icons hs-kpi__icon" aria-hidden="true">pending_actions</span>
+      <div>
+        <span class="hs-kpi__value">{{ statDisplay(inProgressCount) }}</span>
+        <span class="hs-kpi__label">In progress</span>
+      </div>
+    </article>
+    <article class="hs-kpi lx-card hs-kpi--wait">
+      <span class="material-icons hs-kpi__icon" aria-hidden="true">hourglass_top</span>
+      <div>
+        <span class="hs-kpi__value">{{ statDisplay(waitingCount) }}</span>
+        <span class="hs-kpi__label">Awaiting customer</span>
+      </div>
+    </article>
+  </div>
+
+  <div class="hs-toolbar">
+    <label class="hs-search">
+      <span class="material-icons" aria-hidden="true">search</span>
+      <input
+        type="search"
+        [value]="search()"
+        (input)="search.set($any($event.target).value)"
+        placeholder="Search ticket, subject, requester…"
+        autocomplete="off"
+        [disabled]="loading"
+      />
+    </label>
+    <nav class="hs-filters" aria-label="Filter by status">
+      <button
+        type="button"
+        *ngFor="let f of statusFilters"
+        class="hs-filter"
+        [class.hs-filter--on]="statusFilter() === f.id"
+        (click)="setStatusFilter(f.id)"
+        [disabled]="loading"
+      >
+        {{ f.label }}
+      </button>
+    </nav>
+  </div>
+
+  <div class="hs-loading lx-card" *ngIf="loading" role="status" aria-live="polite">
     <span class="hs-loading__spinner" aria-hidden="true"></span>
     Loading support queue…
   </div>
 
-  <ng-container *ngIf="!loading && !error">
-    <div class="hs-kpis">
-      <article class="hs-kpi lx-card">
-        <span class="material-icons hs-kpi__icon hs-kpi__icon--total" aria-hidden="true">inbox</span>
-        <div>
-          <span class="hs-kpi__value">{{ tickets.length }}</span>
-          <span class="hs-kpi__label">Total queue</span>
-        </div>
-      </article>
-      <article class="hs-kpi lx-card hs-kpi--open">
-        <span class="material-icons hs-kpi__icon" aria-hidden="true">fiber_new</span>
-        <div>
-          <span class="hs-kpi__value">{{ openTicketCount }}</span>
-          <span class="hs-kpi__label">New / open</span>
-        </div>
-      </article>
-      <article class="hs-kpi lx-card hs-kpi--progress">
-        <span class="material-icons hs-kpi__icon" aria-hidden="true">pending_actions</span>
-        <div>
-          <span class="hs-kpi__value">{{ inProgressCount }}</span>
-          <span class="hs-kpi__label">In progress</span>
-        </div>
-      </article>
-      <article class="hs-kpi lx-card hs-kpi--wait">
-        <span class="material-icons hs-kpi__icon" aria-hidden="true">hourglass_top</span>
-        <div>
-          <span class="hs-kpi__value">{{ waitingCount }}</span>
-          <span class="hs-kpi__label">Awaiting customer</span>
-        </div>
-      </article>
+  <div class="hs-empty lx-card" *ngIf="!loading && !error && !tickets.length">
+    <div class="hs-empty__icon-wrap">
+      <span class="material-icons" aria-hidden="true">inbox</span>
     </div>
+    <h2>No support tickets yet</h2>
+    <p>When portal users submit Help &amp; Support requests, they will appear in this queue.</p>
+  </div>
 
-    <div class="hs-toolbar">
-      <label class="hs-search">
-        <span class="material-icons" aria-hidden="true">search</span>
-        <input
-          type="search"
-          [value]="search()"
-          (input)="search.set($any($event.target).value)"
-          placeholder="Search ticket, subject, requester…"
-          autocomplete="off"
-        />
-      </label>
-      <nav class="hs-filters" aria-label="Filter by status">
+  <div class="hs-empty lx-card" *ngIf="!loading && !error && tickets.length && !filteredTickets.length">
+    <span class="material-icons" aria-hidden="true">search_off</span>
+    <h2>No matches</h2>
+    <p>Try a different search term or status filter.</p>
+  </div>
+
+  <div class="hc-messenger__shell lx-card" *ngIf="!loading && !error && filteredTickets.length">
+    <aside
+      class="hc-inbox"
+      [class.hc-inbox--hidden]="mobileShowChat() && selected"
+      aria-label="Support ticket queue"
+    >
+      <header class="hc-inbox__head">
+        <div>
+          <h2 class="hc-inbox__title">Queue</h2>
+          <p class="hc-inbox__sub">{{ filteredTickets.length }} ticket{{ filteredTickets.length === 1 ? '' : 's' }}</p>
+        </div>
+      </header>
+
+      <div class="hc-inbox__list">
         <button
           type="button"
-          *ngFor="let f of statusFilters"
-          class="hs-filter"
-          [class.hs-filter--on]="statusFilter() === f.id"
-          (click)="setStatusFilter(f.id)"
+          class="hc-convo"
+          *ngFor="let t of filteredTickets; trackBy: trackTicket"
+          [class.hc-convo--active]="selected?.id === t.id"
+          (click)="selectTicket(t)"
         >
-          {{ f.label }}
+          <div class="hc-convo__avatar" [attr.data-status]="t.status">
+            <span class="material-icons" aria-hidden="true">{{ categoryIcon(t.category) }}</span>
+          </div>
+          <div class="hc-convo__body">
+            <div class="hc-convo__row">
+              <span class="hc-convo__subject">{{ t.subject }}</span>
+              <span class="hc-convo__time">{{ relativeTime(t.modifiedAt ?? t.createdAt) }}</span>
+            </div>
+            <div class="hc-convo__row">
+              <span class="hc-convo__preview">{{ lastMessagePreview(t) }}</span>
+            </div>
+            <div class="hc-convo__meta">
+              <span class="hc-convo__number">{{ t.ticketNumber }}</span>
+              <span class="hc-convo__pill" [attr.data-status]="t.status">{{ statusLabel(t.status) }}</span>
+              <span class="hc-convo__requester">{{ t.requesterUsername }}</span>
+            </div>
+          </div>
         </button>
-      </nav>
-    </div>
-
-    <div class="hs-empty lx-card" *ngIf="!tickets.length">
-      <div class="hs-empty__icon-wrap">
-        <span class="material-icons" aria-hidden="true">inbox</span>
       </div>
-      <h2>No support tickets yet</h2>
-      <p>When portal users submit Help &amp; Support requests, they will appear in this queue.</p>
-    </div>
+    </aside>
 
-    <div class="hs-empty lx-card" *ngIf="tickets.length && !filteredTickets.length">
-      <span class="material-icons" aria-hidden="true">search_off</span>
-      <h2>No matches</h2>
-      <p>Try a different search term or status filter.</p>
-    </div>
-
-    <div class="hs-layout" *ngIf="filteredTickets.length">
-      <aside class="hs-queue lx-card" aria-label="Support ticket queue">
-        <div class="hs-queue__head">
-          <h2 class="hs-queue__title">Queue</h2>
-          <span class="hs-queue__count">{{ filteredTickets.length }} shown</span>
+    <main
+      class="hc-chat"
+      [class.hc-chat--mobile]="mobileShowChat()"
+      *ngIf="selected as t; else pickTicket"
+    >
+      <header class="hc-chat__head">
+        <button type="button" class="hc-chat__back" (click)="backToInbox()" aria-label="Back to queue">
+          <span class="material-icons" aria-hidden="true">arrow_back</span>
+        </button>
+        <div class="hc-chat__avatar hc-chat__avatar--requester" aria-hidden="true">
+          {{ avatarInitials(t.requesterUsername) }}
         </div>
-        <div class="hs-queue__list">
+        <div class="hc-chat__identity">
+          <h2 class="hc-chat__title">{{ t.subject }}</h2>
+          <p class="hc-chat__sub">
+            <span class="hc-chat__number">{{ t.ticketNumber }}</span>
+            · {{ t.requesterUsername }}
+            · <span class="hc-chat__pill" [attr.data-status]="t.status">{{ statusLabel(t.status) }}</span>
+            · <span class="hs-priority" [attr.data-priority]="priorityTone(t.priority)">{{ t.priority }}</span>
+          </p>
+        </div>
+      </header>
+
+      <div class="hc-admin-actions" *ngIf="!isClosed">
+        <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="startWork()" [disabled]="actionBusy || t.status === 'IN_PROGRESS'">
+          <mat-icon aria-hidden="true">play_arrow</mat-icon>
+          Start
+        </button>
+        <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm" (click)="assignToMe()" [disabled]="actionBusy">
+          <mat-icon aria-hidden="true">person_add</mat-icon>
+          Assign
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="markWaitingOnCustomer()" [disabled]="actionBusy || t.status === 'WAITING_ON_CUSTOMER'">
+          <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+          Waiting
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="resolveTicket()" [disabled]="actionBusy || t.status === 'RESOLVED'">
+          <mat-icon aria-hidden="true">task_alt</mat-icon>
+          Resolve
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="closeTicket()" [disabled]="actionBusy">
+          <mat-icon aria-hidden="true">archive</mat-icon>
+          Close
+        </button>
+      </div>
+
+      <details class="hc-admin-meta">
+        <summary>Ticket details</summary>
+        <dl class="hc-admin-meta__grid">
+          <div><dt>Email</dt><dd>{{ t.requesterEmail }}</dd></div>
+          <div><dt>Category</dt><dd>{{ t.category }}</dd></div>
+          <div><dt>Handler</dt><dd>{{ t.assignedHandlerUsername || 'Unassigned' }}</dd></div>
+          <div><dt>Opened</dt><dd>{{ t.createdAt | date : 'medium' }}</dd></div>
+          <div *ngIf="t.organizationName"><dt>Organisation</dt><dd>{{ t.organizationName }}</dd></div>
+        </dl>
+      </details>
+
+      <div class="hs-detail__alert" *ngIf="detailError" role="alert">{{ detailError }}</div>
+
+      <div class="hc-chat__thread" #chatThread aria-live="polite">
+        <div class="hc-chat__loading" *ngIf="detailLoading">
+          <span class="hc-chat__loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          Loading conversation…
+        </div>
+
+        <ng-container *ngIf="!detailLoading">
+          <ng-container *ngFor="let group of dateGroups(); trackBy: trackDate">
+            <div class="hc-chat__date"><span>{{ group.label }}</span></div>
+            <article
+              class="hc-bubble"
+              *ngFor="let item of group.items; trackBy: trackMessage"
+              [class.hc-bubble--mine]="item.isMine && !item.internal"
+              [class.hc-bubble--theirs]="!item.isMine && !item.internal"
+              [class.hc-bubble--system]="item.internal"
+            >
+              <div class="hc-bubble__avatar" *ngIf="!item.isMine && !item.internal" aria-hidden="true">
+                {{ avatarInitials(t.requesterUsername) }}
+              </div>
+              <div class="hc-bubble__content">
+                <header class="hc-bubble__head">
+                  <strong>{{ item.author }}</strong>
+                  <time>{{ item.at | date : 'shortTime' }}</time>
+                </header>
+                <p class="hc-bubble__body">{{ item.body }}</p>
+              </div>
+              <div class="hc-bubble__avatar hc-bubble__avatar--mine" *ngIf="item.isMine && !item.internal" aria-hidden="true">
+                <span class="material-icons">support_agent</span>
+              </div>
+            </article>
+          </ng-container>
+
+          <article class="hc-bubble hc-bubble--mine hc-bubble--typing" *ngIf="isTyping() && messageDraft.trim() && !internalNote">
+            <div class="hc-bubble__content hc-bubble__content--ghost">
+              <header class="hc-bubble__head">
+                <strong>You · support</strong>
+                <span class="hc-typing-label">typing…</span>
+              </header>
+              <p class="hc-bubble__body hc-bubble__body--draft">{{ messageDraft }}</p>
+            </div>
+            <div class="hc-bubble__avatar hc-bubble__avatar--mine" aria-hidden="true">
+              <span class="material-icons">support_agent</span>
+            </div>
+          </article>
+
+          <div class="hc-typing-indicator" *ngIf="isTyping()" aria-live="polite">
+            <span class="hc-typing-indicator__dots"><i></i><i></i><i></i></span>
+            <span class="hc-typing-indicator__text">{{ internalNote ? 'Drafting internal note…' : 'Reply preview active' }}</span>
+          </div>
+        </ng-container>
+      </div>
+
+      <footer class="hc-chat__compose" *ngIf="!isClosed; else closedTicket">
+        <label class="hc-compose__internal">
+          <input type="checkbox" [checked]="internalNote" (change)="internalNote = $any($event.target).checked" [disabled]="sendingMessage" />
+          Internal note (hidden from requester)
+        </label>
+        <div class="hc-compose">
+          <textarea
+            class="hc-compose__input"
+            rows="1"
+            [value]="messageDraft"
+            (input)="onReplyInput($any($event.target).value)"
+            (keydown)="onReplyKeydown($event)"
+            [placeholder]="internalNote ? 'Internal note for your team…' : 'Reply to ' + t.requesterUsername + '…'"
+            [disabled]="sendingMessage || detailLoading"
+            aria-label="Message composer"
+          ></textarea>
           <button
             type="button"
-            class="hs-ticket"
-            *ngFor="let t of filteredTickets; trackBy: trackTicket"
-            [class.hs-ticket--active]="selected?.ticketNumber === t.ticketNumber"
-            (click)="selectTicket(t)"
+            class="hc-compose__send"
+            (click)="sendMessage()"
+            [disabled]="sendingMessage || detailLoading || !messageDraft.trim()"
+            aria-label="Send message"
           >
-            <div class="hs-ticket__top">
-              <span class="hs-ticket__number">{{ t.ticketNumber }}</span>
-              <span class="hs-pill" [attr.data-status]="t.status">{{ statusLabel(t.status) }}</span>
-            </div>
-            <h3 class="hs-ticket__subject">{{ t.subject }}</h3>
-            <div class="hs-ticket__meta">
-              <span class="hs-ticket__chip">
-                <span class="material-icons" aria-hidden="true">{{ categoryIcon(t.category) }}</span>
-                {{ t.category }}
-              </span>
-              <span>{{ t.createdAt | date : 'mediumDate' }}</span>
-            </div>
-            <div class="hs-ticket__requester">{{ t.requesterUsername }}</div>
+            <span class="material-icons" aria-hidden="true">{{ sendingMessage ? 'hourglass_top' : 'send' }}</span>
           </button>
         </div>
-      </aside>
+        <p class="hc-compose__hint">
+          <span class="material-icons" aria-hidden="true">keyboard</span>
+          Enter to send · Shift+Enter for new line
+        </p>
+      </footer>
 
-      <article class="hs-detail lx-card" *ngIf="selected as t">
-        <header class="hs-detail__head">
-          <div>
-            <span class="hs-detail__number">{{ t.ticketNumber }}</span>
-            <h2 class="hs-detail__title">{{ t.subject }}</h2>
-            <p class="hs-detail__sub">
-              Opened {{ t.createdAt | date : 'medium' }}
-              <span *ngIf="t.organizationName"> · {{ t.organizationName }}</span>
-            </p>
-          </div>
-          <div class="hs-detail__badges">
-            <span class="hs-pill hs-pill--lg" [attr.data-status]="t.status">{{ statusLabel(t.status) }}</span>
-            <span class="hs-priority" [attr.data-priority]="priorityTone(t.priority)">{{ t.priority }}</span>
-          </div>
-        </header>
-
-        <dl class="hs-detail__grid">
-          <div>
-            <dt>Requester</dt>
-            <dd>{{ t.requesterUsername }}</dd>
-          </div>
-          <div>
-            <dt>Email</dt>
-            <dd>{{ t.requesterEmail }}</dd>
-          </div>
-          <div>
-            <dt>Category</dt>
-            <dd>{{ t.category }}</dd>
-          </div>
-          <div>
-            <dt>Priority</dt>
-            <dd>{{ t.priority }}</dd>
-          </div>
-          <div>
-            <dt>Assigned handler</dt>
-            <dd>{{ t.assignedHandlerUsername || 'Unassigned' }}</dd>
-          </div>
-          <div *ngIf="t.organizationId">
-            <dt>Organisation ID</dt>
-            <dd>#{{ t.organizationId }}</dd>
-          </div>
-        </dl>
-
-        <section class="hs-detail__body">
-          <h3 class="hs-detail__body-title">
-            <span class="material-icons" aria-hidden="true">description</span>
-            Description
-          </h3>
-          <p class="hs-detail__description">{{ t.description }}</p>
-        </section>
-
-        <footer class="hs-detail__foot">
-          <button type="button" class="lx-btn lx-btn-secondary lx-btn-sm" (click)="goSystemHealth()">
-            Check platform health
-          </button>
+      <ng-template #closedTicket>
+        <footer class="hc-chat__closed">
+          <span class="material-icons" aria-hidden="true">lock</span>
+          Ticket closed — reopen from resolved status to continue the conversation.
         </footer>
-      </article>
-    </div>
-  </ng-container>
+      </ng-template>
+    </main>
+
+    <ng-template #pickTicket>
+      <div class="hc-chat hc-chat--placeholder">
+        <div class="hc-chat__placeholder">
+          <span class="material-icons" aria-hidden="true">forum</span>
+          <h2>Select a ticket</h2>
+          <p>Choose a conversation from the queue to triage, reply, and drive it to closure.</p>
+        </div>
+      </div>
+    </ng-template>
+  </div>
 </section>

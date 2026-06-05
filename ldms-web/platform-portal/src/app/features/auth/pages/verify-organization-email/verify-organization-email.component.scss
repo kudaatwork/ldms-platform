@@ -1,0 +1,41 @@
+.ve-root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1.25rem;
+}
+
+.ve-card {
+  width: min(440px, 100%);
+  padding: 2rem;
+  text-align: center;
+}
+
+.ve-icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--lx-danger, #c62828) 12%, transparent);
+  color: var(--lx-danger, #c62828);
+
+  &--ok {
+    background: color-mix(in srgb, var(--lx-success, #2e7d32) 12%, transparent);
+    color: var(--lx-success, #2e7d32);
+  }
+}
+
+.ve-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.375rem;
+}
+
+.ve-msg {
+  margin: 0 0 1.5rem;
+  color: var(--lx-text-muted);
+  line-height: 1.5;
+}

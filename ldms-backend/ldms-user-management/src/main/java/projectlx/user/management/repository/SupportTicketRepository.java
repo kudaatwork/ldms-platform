@@ -17,6 +17,8 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
     Optional<SupportTicket> findByIdAndRequesterUsernameAndEntityStatusNot(
             Long id, String requesterUsername, EntityStatus entityStatus);
 
+    Optional<SupportTicket> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
+
     List<SupportTicket> findByEntityStatusNotOrderByCreatedAtDesc(EntityStatus entityStatus);
 
     long countByAssignedHandlerUserIdAndStatusInAndEntityStatusNot(

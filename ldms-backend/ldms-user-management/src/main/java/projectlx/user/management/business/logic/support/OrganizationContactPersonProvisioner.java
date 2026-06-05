@@ -166,11 +166,13 @@ public class OrganizationContactPersonProvisioner {
             return buildError(400, resolveErrorMessages(securityResponse.getErrorMessages(), securityResponse.getMessage()));
         }
 
-        String verificationToken = tokenService.generateEmailVerificationToken();
-        saved.setVerificationToken(verificationToken);
-        User updated = userServiceAuditable.update(saved, locale, actor);
-
-        sendContactPersonVerificationEmail(updated, request, verificationToken);
+        User updated = saved;
+        if (shouldSendVerificationEmail(request)) {
+            String verificationToken = tokenService.generateEmailVerificationToken();
+            saved.setVerificationToken(verificationToken);
+            updated = userServiceAuditable.update(saved, locale, actor);
+            sendContactPersonVerificationEmail(updated, request, verificationToken);
+        }
 
         UserDto dto = new UserDto();
         dto.setId(updated.getId());
@@ -211,11 +213,16 @@ public class OrganizationContactPersonProvisioner {
             userServiceAuditable.update(user, locale, actor);
             return buildSuccess(user, locale, 200);
         }
-        String verificationToken = tokenService.generateEmailVerificationToken();
-        user.setVerificationToken(verificationToken);
+        if (shouldSendVerificationEmail(request)) {
+            String verificationToken = tokenService.generateEmailVerificationToken();
+            user.setVerificationToken(verificationToken);
+            user.setEmailVerified(false);
+            User updated = userServiceAuditable.update(user, locale, actor);
+            sendContactPersonVerificationEmail(updated, request, verificationToken);
+            return buildSuccess(updated, locale, 200);
+        }
         user.setEmailVerified(false);
         User updated = userServiceAuditable.update(user, locale, actor);
-        sendContactPersonVerificationEmail(updated, request, verificationToken);
         return buildSuccess(updated, locale, 200);
     }
 
@@ -332,6 +339,10 @@ public class OrganizationContactPersonProvisioner {
         response.setMessage(messageService.getMessage(I18Code.MESSAGE_USER_CREATED_SUCCESSFULLY.getCode(), new String[] {}, locale));
         response.setUserDto(dto);
         return response;
+    }
+
+    private static boolean shouldSendVerificationEmail(ProvisionOrganizationContactPersonRequest request) {
+        return request == null || request.getSendVerificationEmail() == null || Boolean.TRUE.equals(request.getSendVerificationEmail());
     }
 
     private void sendContactPersonVerificationEmail(User user, ProvisionOrganizationContactPersonRequest request,

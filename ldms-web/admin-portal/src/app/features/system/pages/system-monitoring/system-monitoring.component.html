@@ -1,11 +1,13 @@
 <div class="lx-page">
-  <lx-page-hero
+  <lx-workspace-hero
+    variant="slate"
     eyebrow="Operations"
+    eyebrowIcon="monitor_heart"
     title="System monitoring"
     lead="Operational signals, queue depth, and infrastructure alerts across LDMS services."
-    icon="insights"
-    variant="slate"
-  ></lx-page-hero>
+    hubIcon="insights"
+    [orbitIcons]="['cloud', 'memory', 'speed']"
+  ></lx-workspace-hero>
 
   <ng-container *ngIf="!loading; else skel">
     <ng-container *ngIf="dataSource.length > 0; else tableCardEmpty">

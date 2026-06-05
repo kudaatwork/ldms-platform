@@ -102,6 +102,9 @@ public class Organization {
     @Column(name = "is_verified", nullable = false)
     private boolean isVerified;
 
+    @Column(name = "email_verification_token", length = 255)
+    private String emailVerificationToken;
+
     @Column(name = "created_via_signup")
     private Boolean createdViaSignup;
 
@@ -302,16 +305,33 @@ public class Organization {
     @ManyToMany(mappedBy = "customers")
     private List<Organization> suppliers = new ArrayList<>();
 
-    @ManyToMany(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
-    @JoinTable(
-            name = "organization_contracted_transporters",
-            joinColumns = @JoinColumn(name = "organization_id"),
-            inverseJoinColumns = @JoinColumn(name = "transporter_id")
-    )
-    private List<Organization> contractedTransporters = new ArrayList<>();
+    @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<ContractedTransporterLink> contractedTransporterLinks = new ArrayList<>();
 
-    @ManyToMany(mappedBy = "contractedTransporters")
-    private List<Organization> contractingOrganizations = new ArrayList<>();
+    @OneToMany(mappedBy = "transporter")
+    private List<ContractedTransporterLink> contractingTransporterLinks = new ArrayList<>();
+
+    public List<Organization> getContractedTransporters() {
+        List<Organization> partners = new ArrayList<>();
+        for (ContractedTransporterLink link : contractedTransporterLinks) {
+            if (link.getEntityStatus() != EntityStatus.DELETED && link.getTransporter() != null
+                    && link.getTransporter().getEntityStatus() != EntityStatus.DELETED) {
+                partners.add(link.getTransporter());
+            }
+        }
+        return partners;
+    }
+
+    public List<Organization> getContractingOrganizations() {
+        List<Organization> partners = new ArrayList<>();
+        for (ContractedTransporterLink link : contractingTransporterLinks) {
+            if (link.getEntityStatus() != EntityStatus.DELETED && link.getOrganization() != null
+                    && link.getOrganization().getEntityStatus() != EntityStatus.DELETED) {
+                partners.add(link.getOrganization());
+            }
+        }
+        return partners;
+    }
 
     @ManyToMany(cascade = { CascadeType.PERSIST, CascadeType.MERGE })
     @JoinTable(

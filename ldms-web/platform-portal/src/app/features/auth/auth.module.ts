@@ -6,6 +6,7 @@ import { LoginComponent } from './pages/login/login.component';
 import { ResetPasswordComponent } from './pages/reset-password/reset-password.component';
 import { SetupCredentialsComponent } from './pages/setup-credentials/setup-credentials.component';
 import { VerifyEmailComponent } from './pages/verify-email/verify-email.component';
+import { VerifyOrganizationEmailComponent } from './pages/verify-organization-email/verify-organization-email.component';
 
 @NgModule({
   declarations: [
@@ -14,6 +15,7 @@ import { VerifyEmailComponent } from './pages/verify-email/verify-email.componen
     ResetPasswordComponent,
     SetupCredentialsComponent,
     VerifyEmailComponent,
+    VerifyOrganizationEmailComponent,
   ],
   imports: [SharedModule, AuthRoutingModule],
 })

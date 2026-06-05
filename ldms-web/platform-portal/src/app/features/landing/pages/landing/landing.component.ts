@@ -538,6 +538,11 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       const max = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
       this.scrollBarEl.style.transform = `scaleX(${Math.min(Math.max(y / max, 0), 1)})`;
     }
+
+    const heroRoute = this.el.nativeElement.querySelector('.ldms-landing__hero-route') as HTMLElement | null;
+    if (heroRoute && y < window.innerHeight) {
+      heroRoute.style.transform = `translateY(${y * 0.12}px)`;
+    }
   }
 
   constructor(
@@ -551,6 +556,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     this.ngZone.runOutsideAngular(() => {
       this.initScrollBar();
       this.initHeroReveal();
+      this.initHeroArtMotion();
       this.initSectionReveals();
       this.initCounters();
       this.initNavScrollState();
@@ -586,6 +592,72 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
         heroSubs,
         { y: 24, opacity: 0 },
         { y: 0, opacity: 1, duration: 0.7, stagger: 0.09, ease: 'power2.out', delay: 0.8 },
+      );
+    }
+  }
+
+  private initHeroArtMotion(): void {
+    const heroArt = this.el.nativeElement.querySelector('.ldms-landing__hero-art') as HTMLElement | null;
+    const heroImg = this.el.nativeElement.querySelector('.ldms-landing__hero-img');
+    const statCard = this.el.nativeElement.querySelector('.ldms-hero-stat-card');
+    const badge = this.el.nativeElement.querySelector('.ldms-hero-badge');
+
+    if (heroArt) {
+      gsap.fromTo(
+        heroArt,
+        { y: 48, opacity: 0, scale: 0.94 },
+        { y: 0, opacity: 1, scale: 1, duration: 1.05, ease: 'power3.out', delay: 0.45 },
+      );
+
+      heroArt.addEventListener('mousemove', (ev: MouseEvent) => {
+        const rect = heroArt.getBoundingClientRect();
+        const x = ((ev.clientX - rect.left) / rect.width) * 100;
+        const y = ((ev.clientY - rect.top) / rect.height) * 100;
+        heroArt.style.setProperty('--hero-spot-x', `${x}%`);
+        heroArt.style.setProperty('--hero-spot-y', `${y}%`);
+
+        const tiltX = (ev.clientX - rect.left) / rect.width - 0.5;
+        const tiltY = (ev.clientY - rect.top) / rect.height - 0.5;
+        gsap.to(heroArt, {
+          rotateX: -tiltY * 6,
+          rotateY: tiltX * 6,
+          duration: 0.45,
+          ease: 'power2.out',
+          transformPerspective: 900,
+        });
+      });
+
+      heroArt.addEventListener('mouseleave', () => {
+        gsap.to(heroArt, {
+          rotateX: 0,
+          rotateY: 0,
+          duration: 0.65,
+          ease: 'power2.out',
+        });
+      });
+    }
+
+    if (heroImg) {
+      gsap.fromTo(
+        heroImg,
+        { opacity: 0 },
+        { opacity: 1, duration: 1.1, ease: 'power2.out', delay: 0.55 },
+      );
+    }
+
+    if (statCard) {
+      gsap.fromTo(
+        statCard,
+        { x: 24, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.75, ease: 'power2.out', delay: 1.1 },
+      );
+    }
+
+    if (badge) {
+      gsap.fromTo(
+        badge,
+        { x: -24, opacity: 0 },
+        { x: 0, opacity: 1, duration: 0.75, ease: 'power2.out', delay: 1.25 },
       );
     }
   }

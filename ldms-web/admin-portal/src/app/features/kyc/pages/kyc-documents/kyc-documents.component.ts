@@ -119,6 +119,10 @@ export class KycDocumentsComponent implements OnInit, OnDestroy {
     };
   }
 
+  get heroLead(): string {
+    return 'The complete document library across every organisation — onboarding packs, compliance certificates, profile IDs, branding assets, and every upload registered in LDMS, with full metadata and instant preview.';
+  }
+
   get pageRangeLabel(): string {
     const total = this.totalElements();
     if (total < 1) {

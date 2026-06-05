@@ -1,0 +1,362 @@
+<div class="lx-dialog-shell lx-dialog-shell--wide">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
+    <div class="lx-form-grid">
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Contract terms</div>
+        <p class="lx-form-section-lead">
+          Contracted transporters are <strong>third-party partners</strong> — not vehicles in your own fleet. Set the
+          commercial window for this corridor relationship.
+        </p>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Contract start <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('contractStartDate', 'required')">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <input type="date" formControlName="contractStartDate" aria-label="Contract start date" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('contractStartDate', 'required')">Contract start is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Contract end</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event_available</mat-icon>
+          <input type="date" formControlName="contractEndDate" aria-label="Contract end date" />
+        </div>
+        <div class="lx-field-hint">Leave blank for an open-ended contract.</div>
+      </div>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Transport organisation</div>
+        <p class="lx-form-section-lead">
+          Registers a <strong>Transport company</strong> partner and links it to your supplier corridor network.
+          Industries and locations configured in the <strong>admin portal</strong> are platform-wide and available to
+          every organisation.
+        </p>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Platform classification</label>
+        <div class="lx-input-shell lx-input-shell--muted">
+          <mat-icon class="lx-input-shell__icon">category</mat-icon>
+          <select disabled aria-label="Platform classification">
+            <option selected>Transport company</option>
+          </select>
+        </div>
+        <div class="lx-field-hint">Contracted partners are always classified as Transport company in LDMS.</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Organisation type <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('organizationType', 'required')">
+          <mat-icon class="lx-input-shell__icon">business</mat-icon>
+          <select formControlName="organizationType" aria-label="Organisation type">
+            <option *ngFor="let t of organizationTypes" [ngValue]="t.slug">{{ t.label }}</option>
+          </select>
+        </div>
+        <div class="lx-field-hint">Legal form of the entity (private company, government body, NGO, etc.).</div>
+        <div class="lx-field-error" *ngIf="hasError('organizationType', 'required')">Organisation type is required</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Industry sector</label>
+        <div class="lx-input-shell" [class.lx-input-shell--muted]="industriesLoading">
+          <mat-icon class="lx-input-shell__icon">factory</mat-icon>
+          <select formControlName="industryId" aria-label="Industry" [disabled]="industriesLoading">
+            <option [ngValue]="null">None — assign later</option>
+            <option *ngFor="let i of industryOptions" [ngValue]="i.id">{{ i.label }}</option>
+          </select>
+        </div>
+        <div class="lx-field-hint lx-field-hint--loading" *ngIf="industriesLoading">
+          <mat-progress-spinner diameter="16" mode="indeterminate"></mat-progress-spinner>
+          Loading industries…
+        </div>
+        <div class="lx-field-hint" *ngIf="!industriesLoading && !industriesLoadError">
+          Optional. Same industry list as admin — any active sector added there appears here for all organisations.
+        </div>
+        <div class="lx-field-hint" *ngIf="!industriesLoading && !industriesLoadError && industryOptions.length === 0">
+          No active industries yet. Add sectors in the admin portal under Organisations → Industries.
+        </div>
+        <div class="lx-field-error" *ngIf="industriesLoadError">{{ industriesLoadError }}</div>
+      </div>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Legal entity</div>
+        <p class="lx-form-section-lead">Registered company or trading identity. Tax details are optional unless you enter a ZIMRA number.</p>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Legal name <span class="req">*</span></label>
+        <div
+          class="lx-input-shell"
+          [class.lx-input-shell--invalid]="hasError('name', 'required') || hasError('name', 'minlength')"
+        >
+          <mat-icon class="lx-input-shell__icon">domain</mat-icon>
+          <input formControlName="name" placeholder="e.g. Corridor Haulage (Pvt) Ltd" />
+        </div>
+        <div class="lx-field-hint">Display name in your transport partner network.</div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'required')">Legal name is required</div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'minlength')">Enter at least 2 characters</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Organisation email <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('email', 'required') || hasError('email', 'email')">
+          <mat-icon class="lx-input-shell__icon">mail</mat-icon>
+          <input type="email" formControlName="email" placeholder="ops@transporter.co.zw" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('email', 'required')">Email is required</div>
+        <div class="lx-field-error" *ngIf="hasError('email', 'email')">Enter a valid email address</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Phone <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('phoneNumber', 'required')">
+          <mat-icon class="lx-input-shell__icon">call</mat-icon>
+          <input formControlName="phoneNumber" placeholder="e.g. +263 77 123 4567" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('phoneNumber', 'required')">Phone is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Registration number</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">description</mat-icon>
+          <input formControlName="registrationNumber" placeholder="e.g. 1234/2020" />
+        </div>
+        <div class="lx-field-hint">Company registration (optional).</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Tax / VAT (ZIMRA)</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">receipt_long</mat-icon>
+          <input formControlName="taxNumber" placeholder="e.g. 1000123456" />
+        </div>
+        <div class="lx-field-hint">When provided, upload the tax clearance certificate below.</div>
+      </div>
+
+      <div class="lx-field span-2 lx-field--file">
+        <label class="lx-field-label">
+          Tax clearance certificate
+          <span class="req" *ngIf="taxNumberProvided">*</span>
+        </label>
+        <input
+          type="file"
+          class="lx-file-input"
+          accept=".pdf,.jpg,.jpeg,.png"
+          (change)="onTaxClearanceSelected($event)"
+        />
+        <span class="lx-file-input__name" *ngIf="taxClearanceUploadLabel">{{ taxClearanceUploadLabel }}</span>
+        <div class="lx-field-hint">PDF, JPG, or PNG. Required when a tax number is entered.</div>
+        <div class="lx-field-error" *ngIf="taxUploadMissing">Upload the ZIMRA tax clearance certificate.</div>
+      </div>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Address</div>
+        <p class="lx-form-section-lead">
+          Select country through suburb using the same location hierarchy as the admin portal. Line 1, postal code, and
+          suburb are required when any address field is set.
+        </p>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Address line 1</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">home</mat-icon>
+          <input [(ngModel)]="addressLine1" [ngModelOptions]="{ standalone: true }" placeholder="Street address" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Address line 2</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">home_work</mat-icon>
+          <input [(ngModel)]="addressLine2" [ngModelOptions]="{ standalone: true }" placeholder="Optional" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Postal code</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon>
+          <input [(ngModel)]="postalCode" [ngModelOptions]="{ standalone: true }" placeholder="e.g. 00263" />
+        </div>
+      </div>
+
+      <app-user-address-cascade-fields
+        class="span-2"
+        [(suburbId)]="suburbIdStr"
+        [disabled]="submitting"
+      ></app-user-address-cascade-fields>
+
+      <p class="lx-field-error span-2" *ngIf="addressError">{{ addressError }}</p>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Primary contact</div>
+        <p class="lx-form-section-lead">
+          Same profile and identification fields as <strong>Add organisation</strong> in the admin portal — personal
+          details, then national ID or passport with document scans.
+        </p>
+      </div>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Personal details</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">First name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('contactPersonFirstName', 'required')">
+          <mat-icon class="lx-input-shell__icon">person</mat-icon>
+          <input formControlName="contactPersonFirstName" placeholder="e.g. Tendai" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('contactPersonFirstName', 'required')">First name is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Last name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('contactPersonLastName', 'required')">
+          <mat-icon class="lx-input-shell__icon">person</mat-icon>
+          <input formControlName="contactPersonLastName" placeholder="e.g. Moyo" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('contactPersonLastName', 'required')">Last name is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Contact email <span class="req">*</span></label>
+        <div
+          class="lx-input-shell"
+          [class.lx-input-shell--invalid]="hasError('contactPersonEmail', 'required') || hasError('contactPersonEmail', 'email')"
+        >
+          <mat-icon class="lx-input-shell__icon">alternate_email</mat-icon>
+          <input type="email" formControlName="contactPersonEmail" placeholder="contact@example.co.zw" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('contactPersonEmail', 'required')">Contact email is required</div>
+        <div class="lx-field-error" *ngIf="hasError('contactPersonEmail', 'email')">Enter a valid email address</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Gender <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('contactPersonGender', 'required')">
+          <mat-icon class="lx-input-shell__icon">wc</mat-icon>
+          <select formControlName="contactPersonGender" aria-label="Gender">
+            <option value="" disabled>Select gender</option>
+            <option *ngFor="let g of genderOptions" [ngValue]="g">{{ g }}</option>
+          </select>
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('contactPersonGender', 'required')">Gender is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Contact phone <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('contactPersonPhoneNumber', 'required')">
+          <mat-icon class="lx-input-shell__icon">phone_iphone</mat-icon>
+          <input formControlName="contactPersonPhoneNumber" placeholder="e.g. +263771234567" />
+        </div>
+        <div class="lx-field-hint">International format (E.164) preferred.</div>
+        <div class="lx-field-error" *ngIf="hasError('contactPersonPhoneNumber', 'required')">Phone is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Date of birth <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('contactPersonDateOfBirth', 'required')">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <input type="date" formControlName="contactPersonDateOfBirth" [max]="maximumDateOfBirth" />
+        </div>
+        <div class="lx-field-hint">Contact must be at least 18 years old.</div>
+        <div class="lx-field-error" *ngIf="hasError('contactPersonDateOfBirth', 'required')">Date of birth is required</div>
+      </div>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Identification</div>
+        <p class="lx-form-section-lead">National ID or passport — at least one complete set (number plus scan).</p>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">National ID number</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+          <input formControlName="contactPersonNationalIdNumber" placeholder="If no passport below" />
+        </div>
+        <div class="lx-field-hint">Together with passport: fill at least one.</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">National ID expiry (optional)</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event_available</mat-icon>
+          <input type="date" formControlName="contactPersonNationalIdExpiryDate" />
+        </div>
+        <div class="lx-field-hint">Leave blank if your country's national ID does not expire.</div>
+      </div>
+
+      <div class="lx-field span-2 lx-field--file">
+        <label class="lx-field-label">National ID upload</label>
+        <input
+          type="file"
+          class="lx-file-input"
+          accept=".pdf,.jpg,.jpeg,.png"
+          (change)="onNationalIdUploadSelected($event)"
+        />
+        <span class="lx-file-input__name" *ngIf="nationalIdUploadLabel">{{ nationalIdUploadLabel }}</span>
+        <div class="lx-field-hint">PDF, JPG, or PNG. Required with national ID number.</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Passport number</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">assignment_ind</mat-icon>
+          <input formControlName="contactPersonPassportNumber" placeholder="If no national ID above" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Passport expiry</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event_busy</mat-icon>
+          <input type="date" formControlName="contactPersonPassportExpiryDate" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2 lx-field--file">
+        <label class="lx-field-label">Passport upload</label>
+        <input
+          type="file"
+          class="lx-file-input"
+          accept=".pdf,.jpg,.jpeg,.png"
+          (change)="onPassportUploadSelected($event)"
+        />
+        <span class="lx-file-input__name" *ngIf="passportUploadLabel">{{ passportUploadLabel }}</span>
+        <div class="lx-field-hint">PDF, JPG, or PNG. Required with passport number.</div>
+      </div>
+
+      <p class="lx-list-error span-2" *ngIf="identificationError">
+        <mat-icon>warning_amber</mat-icon>
+        {{ identificationError }}
+      </p>
+    </div>
+
+    <p class="lx-list-error" *ngIf="saveError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ saveError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+        {{ submitting ? 'Registering…' : 'Register partner' }}
+      </button>
+    </div>
+  </form>
+</div>

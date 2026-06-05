@@ -55,6 +55,9 @@
       <div class="lc-error" *ngIf="error">
         <mat-icon>error_outline</mat-icon> {{ error }}
       </div>
+      <div class="lc-info" *ngIf="infoMessage && !error">
+        <mat-icon>info</mat-icon> {{ infoMessage }}
+      </div>
 
       <!-- Form -->
       <form [formGroup]="form" (ngSubmit)="submit()">

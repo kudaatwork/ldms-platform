@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
 import { catchError, finalize, map, shareReplay, timeout } from 'rxjs/operators';
+import type { CurrentUser } from '../models/auth.model';
 import { shellRoleSummary } from '../utils/field-display.util';
 import { decodeJwtPayload } from '../utils/jwt.util';
 import { StorageService, StoredUser } from './storage.service';
@@ -20,7 +21,7 @@ export interface ShellUserView {
 
 @Injectable({ providedIn: 'root' })
 export class ShellUserService {
-  private static readonly PROFILE_TIMEOUT_MS = 12_000;
+  private static readonly PROFILE_TIMEOUT_MS = 8_000;
 
   private readonly subject = new BehaviorSubject<ShellUserView | null>(null);
   private refreshInFlight: Observable<ShellUserView | null> | null = null;
@@ -42,6 +43,31 @@ export class ShellUserService {
       return;
     }
     const view = this.toView(stored);
+    if (this.viewsEqual(view, this.subject.value)) {
+      return;
+    }
+    this.subject.next(view);
+  }
+
+  /** Instant shell chrome from JWT/session (no HTTP). */
+  syncFromAuthState(user: CurrentUser): void {
+    const firstName = (user.firstName ?? '').trim();
+    const lastName = (user.lastName ?? '').trim();
+    const displayName =
+      user.displayName?.trim() ||
+      `${firstName} ${lastName}`.trim() ||
+      user.orgName?.trim() ||
+      'User';
+    const roleLabel = user.roleLabel?.trim() || 'User';
+    const view: ShellUserView = {
+      firstName,
+      lastName,
+      email: user.email ?? '',
+      role: shellRoleSummary(roleLabel, user.orgClassification),
+      initials: this.initialsFrom(firstName, lastName, displayName),
+      welcomeMessage: user.welcomeMessage ?? `Welcome, ${firstName || displayName}`,
+      displayName,
+    };
     if (this.viewsEqual(view, this.subject.value)) {
       return;
     }

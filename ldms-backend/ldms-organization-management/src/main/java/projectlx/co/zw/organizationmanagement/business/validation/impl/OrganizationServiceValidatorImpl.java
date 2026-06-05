@@ -17,7 +17,6 @@ import projectlx.co.zw.organizationmanagement.utils.requests.IndustryMultipleFil
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
-import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
@@ -168,10 +167,12 @@ public class OrganizationServiceValidatorImpl implements OrganizationServiceVali
     }
 
     @Override
-    public ValidatorDto validateRegisterCustomer(RegisterCustomerOrganizationRequest request, Locale locale) {
+    public ValidatorDto validateLinkTransporter(LinkTransporterRequest request, Locale locale) {
         List<String> errors = new ArrayList<>();
-        if (request == null || !StringUtils.hasText(request.getName()) || !StringUtils.hasText(request.getEmail())) {
-            errors.add(messageService.getMessage(I18Code.ORG_CUSTOMER_REGISTER_INVALID.getCode(), new String[]{}, locale));
+        if (request == null || request.getTransporterOrganizationId() == null) {
+            errors.add(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(), new String[] { "transporterId" }, locale));
+        } else {
+            errors.addAll(collectTransporterContractDateErrors(request.getContractStartDate(), request.getContractEndDate(), locale));
         }
         if (errors.isEmpty()) {
             return new ValidatorDto(true, null, null);
@@ -180,15 +181,43 @@ public class OrganizationServiceValidatorImpl implements OrganizationServiceVali
     }
 
     @Override
-    public ValidatorDto validateLinkTransporter(LinkTransporterRequest request, Locale locale) {
-        List<String> errors = new ArrayList<>();
-        if (request == null || request.getTransporterOrganizationId() == null) {
-            errors.add(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(), new String[] { "transporterId" }, locale));
-        }
+    public ValidatorDto validateTransporterContract(String contractStartDate, String contractEndDate, Locale locale) {
+        List<String> errors = collectTransporterContractDateErrors(contractStartDate, contractEndDate, locale);
         if (errors.isEmpty()) {
             return new ValidatorDto(true, null, null);
         }
         return new ValidatorDto(false, null, errors);
+    }
+
+    private List<String> collectTransporterContractDateErrors(
+            String contractStartDate, String contractEndDate, Locale locale) {
+        List<String> errors = new ArrayList<>();
+        if (!StringUtils.hasText(contractStartDate)) {
+            errors.add(messageService.getMessage(
+                    I18Code.ORG_VALIDATION_FAILED.getCode(), new String[] { "contractStartDate" }, locale));
+            return errors;
+        }
+        java.time.LocalDate start;
+        try {
+            start = java.time.LocalDate.parse(contractStartDate.trim());
+        } catch (RuntimeException ex) {
+            errors.add(messageService.getMessage(
+                    I18Code.ORG_VALIDATION_FAILED.getCode(), new String[] { "contractStartDate" }, locale));
+            return errors;
+        }
+        if (StringUtils.hasText(contractEndDate)) {
+            try {
+                java.time.LocalDate end = java.time.LocalDate.parse(contractEndDate.trim());
+                if (end.isBefore(start)) {
+                    errors.add(messageService.getMessage(
+                            I18Code.ORG_VALIDATION_FAILED.getCode(), new String[] { "contractEndDate" }, locale));
+                }
+            } catch (RuntimeException ex) {
+                errors.add(messageService.getMessage(
+                        I18Code.ORG_VALIDATION_FAILED.getCode(), new String[] { "contractEndDate" }, locale));
+            }
+        }
+        return errors;
     }
 
     @Override

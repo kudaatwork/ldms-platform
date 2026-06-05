@@ -1,11 +1,13 @@
 <div class="lx-page">
-  <lx-page-hero
+  <lx-workspace-hero
+    variant="violet"
     eyebrow="Identity &amp; access"
+    eyebrowIcon="shield"
     title="User groups"
     [lead]="pageLead"
-    icon="groups"
-    variant="violet"
-  ></lx-page-hero>
+    hubIcon="groups"
+    [orbitIcons]="['group_add', 'folder_shared', 'hub']"
+  ></lx-workspace-hero>
 
   <app-users-hub-nav></app-users-hub-nav>
 

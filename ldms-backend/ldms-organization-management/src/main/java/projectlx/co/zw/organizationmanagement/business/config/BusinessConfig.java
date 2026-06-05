@@ -26,6 +26,7 @@ import projectlx.co.zw.organizationmanagement.business.logic.support.Organizatio
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationContactPersonProvisioningSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationKycNotifier;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationAddressSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationNotifier;
 import projectlx.co.zw.organizationmanagement.business.validation.api.OrganizationServiceValidator;
 import projectlx.co.zw.organizationmanagement.business.validation.impl.OrganizationServiceValidatorImpl;
@@ -84,6 +85,8 @@ public class BusinessConfig {
     @Bean
     public OrganizationService organizationService(
             OrganizationRepository organizationRepository,
+            projectlx.co.zw.organizationmanagement.repository.ContractedTransporterLinkRepository
+                    contractedTransporterLinkRepository,
             IndustryRepository industryRepository,
             IndustryServiceAuditable industryServiceAuditable,
             BranchRepository branchRepository,
@@ -106,9 +109,14 @@ public class BusinessConfig {
             OrganizationContactPersonProvisioningSupport organizationContactPersonProvisioningSupport,
             OrganizationKycNotifier organizationKycNotifier,
             OrganizationApprovedCredentialsSupport organizationApprovedCredentialsSupport,
-            OrganizationDirectoryNotifier organizationDirectoryNotifier) {
+            OrganizationDirectoryNotifier organizationDirectoryNotifier,
+            OrganizationRegistrationAddressSupport organizationRegistrationAddressSupport,
+            projectlx.co.zw.organizationmanagement.business.logic.support.SupplierRegisteredOrganizationOnboardingSupport
+                    supplierRegisteredOrganizationOnboardingSupport,
+            projectlx.co.zw.shared_library.business.logic.impl.TokenService tokenService) {
         return new OrganizationServiceImpl(
                 organizationRepository,
+                contractedTransporterLinkRepository,
                 industryRepository,
                 industryServiceAuditable,
                 branchRepository,
@@ -131,6 +139,9 @@ public class BusinessConfig {
                 organizationContactPersonProvisioningSupport,
                 organizationKycNotifier,
                 organizationApprovedCredentialsSupport,
-                organizationDirectoryNotifier);
+                organizationDirectoryNotifier,
+                organizationRegistrationAddressSupport,
+                supplierRegisteredOrganizationOnboardingSupport,
+                tokenService);
     }
 }

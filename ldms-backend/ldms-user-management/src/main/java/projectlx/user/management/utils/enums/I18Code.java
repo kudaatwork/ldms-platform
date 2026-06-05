@@ -306,6 +306,16 @@ public enum I18Code {
     MESSAGE_CREATE_SUPPORT_TICKET_INVALID_REQUEST("message.create.support.ticket.invalid.request"),
     MESSAGE_SUPPORT_TICKET_CREATED("message.support.ticket.created"),
     MESSAGE_SUPPORT_TICKETS_RETRIEVED("message.support.tickets.retrieved"),
+    MESSAGE_SUPPORT_TICKET_RETRIEVED("message.support.ticket.retrieved"),
+    MESSAGE_SUPPORT_TICKET_NOT_FOUND("message.support.ticket.not.found"),
+    MESSAGE_SUPPORT_TICKET_UPDATED("message.support.ticket.updated"),
+    MESSAGE_SUPPORT_TICKET_ASSIGNED("message.support.ticket.assigned"),
+    MESSAGE_SUPPORT_TICKET_MESSAGE_ADDED("message.support.ticket.message.added"),
+    MESSAGE_SUPPORT_TICKET_CLOSED("message.support.ticket.closed"),
+    MESSAGE_SUPPORT_TICKET_STATUS_INVALID("message.support.ticket.status.invalid"),
+    MESSAGE_UPDATE_SUPPORT_TICKET_INVALID_REQUEST("message.update.support.ticket.invalid.request"),
+    MESSAGE_ASSIGN_SUPPORT_TICKET_INVALID_REQUEST("message.assign.support.ticket.invalid.request"),
+    MESSAGE_ADD_SUPPORT_TICKET_MESSAGE_INVALID("message.add.support.ticket.message.invalid.request"),
     MESSAGE_HELP_PLATFORM_STATUS_RETRIEVED("message.help.platform.status.retrieved");
 
     private final String code;

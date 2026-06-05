@@ -330,7 +330,13 @@
       <span>
         Your session will expire in <strong>{{ sessionCountdownLabel }}</strong> due to inactivity.
       </span>
-      <button type="button" class="lx-btn lx-btn-sm lx-btn-primary" (click)="stayLoggedIn()">Stay logged in</button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-sm lx-btn-primary"
+        (click)="stayLoggedIn($event)"
+      >
+        Stay logged in
+      </button>
     </section>
 
     <nav class="lx-breadcrumbs" aria-label="Breadcrumb" *ngIf="breadcrumbs.length">

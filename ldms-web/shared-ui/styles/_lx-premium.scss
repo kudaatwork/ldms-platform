@@ -4,7 +4,7 @@
   font-family: 'Material Icons';
   font-style: normal;
   font-weight: 400;
-  font-display: block;
+  font-display: swap;
   src: url('/fonts/material-icons.woff2') format('woff2');
 }
 
@@ -12,7 +12,7 @@
   font-family: 'Material Symbols Outlined';
   font-style: normal;
   font-weight: 100 700;
-  font-display: block;
+  font-display: swap;
   src: url('/fonts/material-symbols-outlined.woff2') format('woff2');
 }
 
@@ -71,7 +71,9 @@ html.theme-dark {
 
 /* ── Page canvas ───────────────────────────────────────────── */
 body {
-  background: var(--page-bg);
+  background-color: var(--page-bg);
+  background-image: var(--gradient-mesh-light);
+  background-attachment: fixed;
 }
 
 .shell .main .content {
@@ -196,6 +198,7 @@ html.theme-dark .lx-card {
 /* ── Page headers (feature pages) ──────────────────────────── */
 .lc-title,
 .dashboard-title,
+.tb-title,
 .lx-page-hero__title {
   font-size: 1.35rem;
   font-weight: 800;
@@ -209,6 +212,7 @@ html.theme-dark .lx-card {
 
 html.theme-dark .lc-title,
 html.theme-dark .dashboard-title,
+html.theme-dark .tb-title,
 html.theme-dark .lx-page-hero__title {
   background: linear-gradient(120deg, #f8fafc 0%, #93c5fd 120%);
   -webkit-background-clip: text;
@@ -217,10 +221,15 @@ html.theme-dark .lx-page-hero__title {
 }
 
 .lc-lead,
-.dashboard-sub,
-.lx-page-hero__lead {
+.dashboard-sub {
   color: var(--gray-500);
   font-size: 13px;
+  line-height: 1.55;
+}
+
+/* Gradient heroes set lead color in lx-page-hero component (not page-body gray). */
+.lx-page-hero .lx-page-hero__lead {
+  font-size: 14px;
   line-height: 1.55;
 }
 
@@ -381,4 +390,44 @@ html.theme-dark .signup-card,
 html.theme-dark .auth-card,
 html.theme-dark .onboarding-card {
   background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(23, 35, 56, 0.98) 100%);
+}
+
+/* ── Data tables ───────────────────────────────────────────── */
+.mat-mdc-table .mat-mdc-header-row {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--gray-50) 80%, var(--surface)) 0%, var(--surface) 100%);
+}
+
+.mat-mdc-table .mat-mdc-row {
+  transition: background-color 180ms ease;
+}
+
+.mat-mdc-table .mat-mdc-row:hover {
+  background: color-mix(in srgb, var(--primary-light) 35%, transparent);
+}
+
+html.theme-dark .mat-mdc-table .mat-mdc-header-row {
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(23, 35, 56, 0.98) 100%);
+}
+
+/* ── Breadcrumb links ──────────────────────────────────────── */
+.lx-breadcrumbs__link {
+  transition: color 180ms ease, opacity 180ms ease;
+}
+
+.lx-breadcrumbs__link:hover {
+  color: var(--primary);
+}
+
+/* ── Icon buttons in chrome ────────────────────────────────── */
+.shell .topbar .mat-mdc-icon-button {
+  border-radius: 12px;
+  transition:
+    background 200ms ease,
+    box-shadow 200ms ease,
+    transform 200ms ease;
+}
+
+.shell .topbar .mat-mdc-icon-button:hover {
+  background: color-mix(in srgb, var(--primary-light) 55%, transparent);
+  box-shadow: 0 6px 16px color-mix(in srgb, var(--primary) 14%, transparent);
 }

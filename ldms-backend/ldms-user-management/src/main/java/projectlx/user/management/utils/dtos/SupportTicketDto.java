@@ -8,6 +8,7 @@ import projectlx.user.management.model.SupportTicketPriority;
 import projectlx.user.management.model.SupportTicketStatus;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -26,6 +27,9 @@ public class SupportTicketDto {
     private String organizationName;
     private Long assignedHandlerUserId;
     private String assignedHandlerUsername;
+    private LocalDateTime resolvedAt;
+    private LocalDateTime closedAt;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
+    private List<SupportTicketMessageDto> messages;
 }
