@@ -111,6 +111,9 @@ const SIGN_IN_METHOD_OPTIONS = [
   { value: 'USER_AUTHENTICATION_GOOGLE', label: 'Google' },
 ];
 
+/** Default sign-in history window on first load (keeps audit queries fast). */
+const DEFAULT_LOGIN_LOOKBACK_DAYS = 30;
+
 @Component({
   selector: 'app-login-analytics-page',
   templateUrl: './login-analytics-page.component.html',
@@ -118,7 +121,6 @@ const SIGN_IN_METHOD_OPTIONS = [
   standalone: false,
 })
 export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
-  loading = true;
   loginLoading = false;
   activityLoading = false;
   loginExporting = false;
@@ -211,16 +213,21 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
     return [...set];
   }
 
+  get heroLead(): string {
+    return 'Immutable audit trail of sign-in events (who, when, which client, IP address) with drill-down into every recorded business action for investigations and compliance reviews.';
+  }
+
   ngOnInit(): void {
     this.title.setTitle('Login & activity | LX Admin');
+    this.loginColumnFilters.from = this.defaultLoginFromFilter();
 
     if (environment.useMocks) {
       this.applyLoginRows([], 0);
-      this.loading = false;
       return;
     }
 
     this.lastLoginFilterSignature = this.loginFilterSignature();
+    this.loginLoading = true;
     merge(of(undefined as void), this.loginFilterReload$.pipe(debounceTime(150)))
       .pipe(
         switchMap(() => {
@@ -229,9 +236,7 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
         }),
         takeUntil(this.destroy$),
       )
-      .subscribe(() => {
-        this.loading = false;
-      });
+      .subscribe();
   }
 
   ngOnDestroy(): void {
@@ -261,10 +266,18 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
       signInMethod: '',
       traceId: '',
       clientIp: '',
-      from: '',
+      from: this.defaultLoginFromFilter(),
       to: '',
     };
     this.onLoginFiltersChanged();
+  }
+
+  /** ISO local datetime for {@code datetime-local} inputs (last N days). */
+  private defaultLoginFromFilter(): string {
+    const d = new Date();
+    d.setDate(d.getDate() - DEFAULT_LOGIN_LOOKBACK_DAYS);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T00:00`;
   }
 
   resetActivityFilters(): void {

@@ -1,22 +1,23 @@
 <section class="lx-page help-page">
-  <header class="help-hero">
-    <div class="help-hero__copy">
-      <p class="help-hero__eyebrow">Help &amp; Support</p>
-      <h1 class="help-hero__title">How can we help, {{ userDisplayName || 'there' }}?</h1>
-      <p class="help-hero__lead">
-        Browse guides, check platform status, or open a ticket — our operations team monitors every request.
-      </p>
-    </div>
-    <div class="help-hero__status" *ngIf="platformStatus as ps" [class]="'help-hero__status--' + statusTone(ps.overallStatus)">
-      <span class="material-icons help-hero__status-icon" aria-hidden="true">
-        {{ ps.overallStatus === 'OPERATIONAL' ? 'check_circle' : ps.overallStatus === 'OUTAGE' ? 'error' : 'warning' }}
-      </span>
-      <div>
-        <div class="help-hero__status-label">{{ ps.headline }}</div>
-        <div class="help-hero__status-meta">{{ ps.upCount }}/{{ ps.totalServices }} services healthy</div>
-      </div>
-    </div>
-  </header>
+  <lx-workspace-hero
+    variant="amber"
+    eyebrow="Help &amp; Support"
+    eyebrowIcon="support_agent"
+    [title]="'How can we help, ' + (userDisplayName || 'there') + '?'"
+    lead="Browse guides, check platform status, or open a ticket — our operations team monitors every request."
+    hubIcon="help"
+    [orbitIcons]="['menu_book', 'confirmation_number', 'cloud']"
+  >
+    <ng-container *ngIf="platformStatus as ps">
+      <lx-workspace-hero-stat
+        [value]="ps.upCount + '/' + ps.totalServices"
+        label="Services healthy"
+        icon="check_circle"
+        theme="teal"
+      ></lx-workspace-hero-stat>
+      <lx-workspace-hero-stat [value]="ps.headline" label="Platform status" icon="cloud" theme="mint"></lx-workspace-hero-stat>
+    </ng-container>
+  </lx-workspace-hero>
 
   <nav class="help-tabs" aria-label="Help sections">
     <button type="button" class="help-tab" [class.help-tab--on]="activeTab() === 'overview'" (click)="setTab('overview')">
@@ -180,22 +181,205 @@
       </form>
     </div>
 
-    <!-- My tickets -->
-    <div class="help-tickets" *ngIf="activeTab() === 'tickets'">
-      <div class="help-tickets__empty lx-card" *ngIf="!tickets.length">
-        <span class="material-icons" aria-hidden="true">inbox</span>
-        <p>No support tickets yet.</p>
-        <button type="button" class="lx-btn lx-btn-primary" (click)="setTab('ticket')">Open your first ticket</button>
-      </div>
-      <article class="help-ticket-row lx-card" *ngFor="let t of tickets; trackBy: trackTicket">
-        <div class="help-ticket-row__head">
-          <span class="help-ticket-row__number">{{ t.ticketNumber }}</span>
-          <span class="help-ticket-row__status" [attr.data-status]="t.status">{{ ticketStatusLabel(t.status) }}</span>
+    <!-- My tickets — messenger -->
+    <div class="hc-messenger" *ngIf="activeTab() === 'tickets'">
+      <div class="hc-messenger__empty lx-card" *ngIf="!tickets.length">
+        <div class="hc-messenger__empty-art" aria-hidden="true">
+          <span class="material-icons">forum</span>
         </div>
-        <h3 class="help-ticket-row__subject">{{ t.subject }}</h3>
-        <p class="help-ticket-row__meta">{{ t.category }} · {{ t.createdAt | date : 'medium' }}</p>
-        <p class="help-ticket-row__desc">{{ t.description }}</p>
-      </article>
+        <h2>Your support inbox is empty</h2>
+        <p>Open a ticket and our team will reply right here — like a conversation.</p>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="setTab('ticket')">Start a conversation</button>
+      </div>
+
+      <div class="hc-messenger__shell lx-card" *ngIf="tickets.length">
+        <!-- Conversation list -->
+        <aside
+          class="hc-inbox"
+          [class.hc-inbox--hidden]="mobileShowChat() && selectedTicket()"
+          aria-label="Your support conversations"
+        >
+          <header class="hc-inbox__head">
+            <div>
+              <h2 class="hc-inbox__title">Conversations</h2>
+              <p class="hc-inbox__sub">{{ tickets.length }} ticket{{ tickets.length === 1 ? '' : 's' }}</p>
+            </div>
+            <button type="button" class="hc-inbox__new lx-btn lx-btn-primary lx-btn-sm" (click)="setTab('ticket')" title="New ticket">
+              <span class="material-icons" aria-hidden="true">add</span>
+            </button>
+          </header>
+
+          <label class="hc-inbox__search">
+            <span class="material-icons" aria-hidden="true">search</span>
+            <input
+              type="search"
+              [value]="ticketSearch()"
+              (input)="ticketSearch.set($any($event.target).value)"
+              placeholder="Search chats…"
+              autocomplete="off"
+            />
+          </label>
+
+          <div class="hc-inbox__list">
+            <button
+              type="button"
+              class="hc-convo"
+              *ngFor="let t of filteredTickets; trackBy: trackTicket"
+              [class.hc-convo--active]="selectedTicket()?.id === t.id"
+              (click)="openTicket(t)"
+            >
+              <div class="hc-convo__avatar" [attr.data-status]="t.status">
+                <span class="material-icons" aria-hidden="true">{{ categoryIcon(t.category) }}</span>
+              </div>
+              <div class="hc-convo__body">
+                <div class="hc-convo__row">
+                  <span class="hc-convo__subject">{{ t.subject }}</span>
+                  <span class="hc-convo__time">{{ relativeTime(t.modifiedAt ?? t.createdAt) }}</span>
+                </div>
+                <div class="hc-convo__row">
+                  <span class="hc-convo__preview">{{ lastMessagePreview(t) }}</span>
+                  <span class="hc-convo__badge" *ngIf="unreadCount(t) as unread">{{ unread }}</span>
+                </div>
+                <div class="hc-convo__meta">
+                  <span class="hc-convo__number">{{ t.ticketNumber }}</span>
+                  <span class="hc-convo__pill" [attr.data-status]="t.status">{{ ticketStatusLabel(t.status) }}</span>
+                </div>
+              </div>
+            </button>
+          </div>
+        </aside>
+
+        <!-- Active chat -->
+        <main
+          class="hc-chat"
+          [class.hc-chat--visible]="selectedTicket()"
+          [class.hc-chat--mobile]="mobileShowChat()"
+          *ngIf="selectedTicket() as st; else pickConversation"
+        >
+          <header class="hc-chat__head">
+            <button type="button" class="hc-chat__back" (click)="backToInbox()" aria-label="Back to conversations">
+              <span class="material-icons" aria-hidden="true">arrow_back</span>
+            </button>
+            <div class="hc-chat__avatar hc-chat__avatar--support" aria-hidden="true">
+              <span class="material-icons">support_agent</span>
+              <span class="hc-chat__presence" [attr.data-presence]="supportPresence()"></span>
+            </div>
+            <div class="hc-chat__identity">
+              <h2 class="hc-chat__title">{{ st.subject }}</h2>
+              <p class="hc-chat__sub">
+                <span class="hc-chat__number">{{ st.ticketNumber }}</span>
+                · {{ st.category }}
+                · <span class="hc-chat__pill" [attr.data-status]="st.status">{{ ticketStatusLabel(st.status) }}</span>
+              </p>
+              <p class="hc-chat__presence-label">
+                <span class="hc-chat__presence-dot" [attr.data-presence]="supportPresence()"></span>
+                {{ presenceLabel() }}
+              </p>
+            </div>
+          </header>
+
+          <div class="hc-chat__thread" #chatThread aria-live="polite">
+            <div class="hc-chat__loading" *ngIf="chatLoading()">
+              <span class="hc-chat__loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              Loading conversation…
+            </div>
+
+            <ng-container *ngIf="!chatLoading()">
+              <ng-container *ngFor="let group of dateGroups(st); trackBy: trackDate">
+                <div class="hc-chat__date">
+                  <span>{{ group.label }}</span>
+                </div>
+                <article
+                  class="hc-bubble"
+                  *ngFor="let item of group.items; trackBy: trackMessage"
+                  [class.hc-bubble--mine]="item.isMine"
+                  [class.hc-bubble--theirs]="!item.isMine"
+                >
+                  <div class="hc-bubble__avatar" *ngIf="!item.isMine" aria-hidden="true">
+                    <span class="material-icons">support_agent</span>
+                  </div>
+                  <div class="hc-bubble__content">
+                    <header class="hc-bubble__head">
+                      <strong>{{ item.author }}</strong>
+                      <time>{{ item.at | date : 'shortTime' }}</time>
+                    </header>
+                    <p class="hc-bubble__body">{{ item.body }}</p>
+                  </div>
+                  <div class="hc-bubble__avatar hc-bubble__avatar--mine" *ngIf="item.isMine" aria-hidden="true">
+                    {{ avatarInitials(userDisplayName || 'You') }}
+                  </div>
+                </article>
+              </ng-container>
+
+              <!-- Live typing preview -->
+              <article class="hc-bubble hc-bubble--mine hc-bubble--typing" *ngIf="isTyping() && ticketReplyDraft.trim()">
+                <div class="hc-bubble__content hc-bubble__content--ghost">
+                  <header class="hc-bubble__head">
+                    <strong>You</strong>
+                    <span class="hc-typing-label">typing…</span>
+                  </header>
+                  <p class="hc-bubble__body hc-bubble__body--draft">{{ ticketReplyDraft }}</p>
+                </div>
+                <div class="hc-bubble__avatar hc-bubble__avatar--mine" aria-hidden="true">
+                  {{ avatarInitials(userDisplayName || 'You') }}
+                </div>
+              </article>
+
+              <div class="hc-typing-indicator" *ngIf="isTyping()" aria-live="polite">
+                <span class="hc-typing-indicator__avatar">{{ avatarInitials(userDisplayName || 'You') }}</span>
+                <span class="hc-typing-indicator__dots"><i></i><i></i><i></i></span>
+                <span class="hc-typing-indicator__text">You’re typing — preview shown above</span>
+              </div>
+            </ng-container>
+          </div>
+
+          <footer class="hc-chat__compose" *ngIf="st.status !== 'CLOSED'; else closedTicket">
+            <div class="hc-compose">
+              <textarea
+                class="hc-compose__input"
+                rows="1"
+                [value]="ticketReplyDraft"
+                (input)="onReplyInput($any($event.target).value)"
+                (keydown)="onReplyKeydown($event)"
+                placeholder="Write a message…"
+                [disabled]="sendingReply() || chatLoading()"
+                aria-label="Reply to support"
+              ></textarea>
+              <button
+                type="button"
+                class="hc-compose__send"
+                (click)="sendTicketReply()"
+                [disabled]="sendingReply() || chatLoading() || !ticketReplyDraft.trim()"
+                aria-label="Send message"
+              >
+                <span class="material-icons" aria-hidden="true">{{ sendingReply() ? 'hourglass_top' : 'send' }}</span>
+              </button>
+            </div>
+            <p class="hc-compose__hint">
+              <span class="material-icons" aria-hidden="true">keyboard</span>
+              Enter to send · Shift+Enter for new line
+              <span class="hc-compose__typing" *ngIf="isTyping()"> · live preview active</span>
+            </p>
+          </footer>
+
+          <ng-template #closedTicket>
+            <footer class="hc-chat__closed">
+              <span class="material-icons" aria-hidden="true">lock</span>
+              This conversation is closed. Open a new ticket if you need further help.
+            </footer>
+          </ng-template>
+        </main>
+
+        <ng-template #pickConversation>
+          <div class="hc-chat hc-chat--placeholder">
+            <div class="hc-chat__placeholder">
+              <span class="material-icons" aria-hidden="true">chat_bubble_outline</span>
+              <h2>Select a conversation</h2>
+              <p>Pick a ticket from the left to view your full message history with our support team.</p>
+            </div>
+          </div>
+        </ng-template>
+      </div>
     </div>
 
     <!-- Status -->

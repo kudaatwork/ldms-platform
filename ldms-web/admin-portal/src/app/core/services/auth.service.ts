@@ -46,7 +46,7 @@ export class AuthService {
   /** {@code /ldms-authentication/v1/auth} (dev proxy → gateway :8091). */
   private readonly authBase = ldmsApiUrl('/ldms-authentication/v1/auth');
   private static readonly AUTH_HTTP_TIMEOUT_MS = 20_000;
-  private static readonly SESSION_REFRESH_TIMEOUT_MS = 12_000;
+  private static readonly SESSION_REFRESH_TIMEOUT_MS = 8_000;
 
   constructor(
     private readonly http: HttpClient,
@@ -107,6 +107,7 @@ export class AuthService {
   }
 
   bootstrapFromStorage(): void {
+    this.currentUser.syncFromStorage();
     void this.initializeSession()
       .pipe(
         timeout(AuthService.SESSION_REFRESH_TIMEOUT_MS),

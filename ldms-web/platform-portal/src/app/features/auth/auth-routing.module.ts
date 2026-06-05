@@ -7,10 +7,12 @@ import { ResetPasswordComponent } from './pages/reset-password/reset-password.co
 import { SetupCredentialsComponent } from './pages/setup-credentials/setup-credentials.component';
 import { SetupCredentialsGuard } from '../../core/guards/setup-credentials.guard';
 import { VerifyEmailComponent } from './pages/verify-email/verify-email.component';
+import { VerifyOrganizationEmailComponent } from './pages/verify-organization-email/verify-organization-email.component';
 
 const routes: Routes = [
   { path: 'login', component: LoginComponent, canActivate: [GuestGuard] },
   { path: 'verify-email', component: VerifyEmailComponent },
+  { path: 'verify-organization-email', component: VerifyOrganizationEmailComponent },
   { path: 'forgot-password', component: ForgotPasswordComponent },
   { path: 'reset-password', component: ResetPasswordComponent },
   {

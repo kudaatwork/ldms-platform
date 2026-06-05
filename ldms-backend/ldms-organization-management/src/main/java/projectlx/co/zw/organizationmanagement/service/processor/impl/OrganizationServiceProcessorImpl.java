@@ -24,7 +24,6 @@ import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRe
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
-import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationKycStagesRequest;
@@ -112,10 +111,75 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     }
 
     @Override
-    public OrganizationResponse registerCustomer(RegisterCustomerOrganizationRequest request, Locale locale, String username) {
+    public OrganizationResponse listTransporters(Locale locale, String username) {
+        log.info("Incoming request: listTransporters user={}", username);
+        OrganizationResponse response = organizationService.listTransporters(locale, username);
+        log.info("Outgoing response: listTransporters success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse searchTransportCompanyCandidates(String search, Locale locale, String username) {
+        log.info("Incoming request: searchTransportCompanyCandidates user={}", username);
+        OrganizationResponse response = organizationService.searchTransportCompanyCandidates(search, locale, username);
+        log.info("Outgoing response: searchTransportCompanyCandidates success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse registerCustomer(RegisterOrganizationRequest request, Locale locale, String username) {
         log.info("Incoming request: registerCustomer user={}", username);
         OrganizationResponse response = organizationService.registerCustomer(request, locale, username);
         log.info("Outgoing response: registerCustomer success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse registerTransporter(RegisterOrganizationRequest request, Locale locale, String username) {
+        log.info("Incoming request: registerTransporter user={}", username);
+        OrganizationResponse response = organizationService.registerTransporter(request, locale, username);
+        log.info("Outgoing response: registerTransporter success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse verifyOrganizationEmail(String email, String token, Locale locale) {
+        log.info("Incoming request: verifyOrganizationEmail email={}", email);
+        OrganizationResponse response = organizationService.verifyOrganizationEmail(email, token, locale);
+        log.info("Outgoing response: verifyOrganizationEmail success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse getCustomer(Long customerId, Locale locale, String username) {
+        log.info("Incoming request: getCustomer id={} user={}", customerId, username);
+        OrganizationResponse response = organizationService.getCustomer(customerId, locale, username);
+        log.info("Outgoing response: getCustomer success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse getTransporter(Long transporterId, Locale locale, String username) {
+        log.info("Incoming request: getTransporter id={} user={}", transporterId, username);
+        OrganizationResponse response = organizationService.getTransporter(transporterId, locale, username);
+        log.info("Outgoing response: getTransporter success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse updateCustomer(
+            Long customerId, RegisterOrganizationRequest request, Locale locale, String username) {
+        log.info("Incoming request: updateCustomer id={} user={}", customerId, username);
+        OrganizationResponse response = organizationService.updateCustomer(customerId, request, locale, username);
+        log.info("Outgoing response: updateCustomer success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse deleteCustomer(Long customerId, Locale locale, String username) {
+        log.info("Incoming request: deleteCustomer id={} user={}", customerId, username);
+        OrganizationResponse response = organizationService.deleteCustomer(customerId, locale, username);
+        log.info("Outgoing response: deleteCustomer success={}", response.isSuccess());
         return response;
     }
 
@@ -320,6 +384,14 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         log.info("Incoming request: listIndustriesWithUsage");
         OrganizationResponse response = organizationService.listIndustriesWithUsage(locale);
         log.info("Outgoing response: listIndustriesWithUsage success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse listActiveIndustriesForPlatform(Locale locale) {
+        log.info("Incoming request: listActiveIndustriesForPlatform");
+        OrganizationResponse response = organizationService.listActiveIndustriesForPlatform(locale);
+        log.info("Outgoing response: listActiveIndustriesForPlatform success={}", response.isSuccess());
         return response;
     }
 

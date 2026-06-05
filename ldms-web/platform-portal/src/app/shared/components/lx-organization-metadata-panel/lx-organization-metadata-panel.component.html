@@ -1,0 +1,76 @@
+<div class="lx-org-meta" role="region" aria-label="Organisation metadata">
+  <div class="lx-org-meta__loading" *ngIf="loading" role="status">
+    <mat-spinner diameter="28"></mat-spinner>
+    <span>Loading linked metadata…</span>
+  </div>
+
+  <div class="lx-org-meta__error" *ngIf="!loading && error" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ error }}</span>
+  </div>
+
+  <ng-container *ngIf="!loading && !error && metadata as detail">
+    <p class="lx-org-meta__summary">
+      {{ detail.sections.length }} metadata {{ detail.sections.length === 1 ? 'group' : 'groups' }} linked to this record.
+    </p>
+
+    <div class="lx-org-meta__sections" *ngIf="detail.sections.length; else noMetadata">
+      <section
+        class="lx-org-meta__section"
+        *ngFor="let group of detail.sections; trackBy: trackSection"
+        [class.is-open]="isExpanded(group.id)"
+      >
+        <button
+          type="button"
+          class="lx-org-meta__section-head"
+          (click)="toggleSection(group.id)"
+          [attr.aria-expanded]="isExpanded(group.id)"
+        >
+          <mat-icon class="lx-org-meta__section-icon">{{ group.icon }}</mat-icon>
+          <span class="lx-org-meta__section-title">{{ group.title }}</span>
+          <span class="lx-org-meta__section-count">{{ group.items.length }}</span>
+          <mat-icon class="lx-org-meta__chevron">expand_more</mat-icon>
+        </button>
+
+        <dl class="lx-org-meta__facts" *ngIf="isExpanded(group.id)">
+          <div *ngFor="let fact of group.items; trackBy: trackItem">
+            <dt>{{ fact.label }}</dt>
+            <dd>
+              <a
+                *ngIf="fact.kind === 'link'; else valueBlock"
+                class="lx-org-meta__link"
+                [href]="fact.value"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {{ fact.value }}
+              </a>
+              <ng-template #valueBlock>
+                <span
+                  *ngIf="fact.kind === 'badge'; else plainValue"
+                  class="lx-org-meta__badge"
+                  [ngClass]="badgeClass(fact.tone)"
+                >
+                  {{ fact.value }}
+                </span>
+                <ng-template #plainValue>
+                  <span
+                    class="lx-org-meta__value"
+                    [class.lx-org-meta__value--upload]="fact.kind === 'upload'"
+                  >
+                    <mat-icon *ngIf="fact.kind === 'upload'" aria-hidden="true">attach_file</mat-icon>
+                    {{ fact.value }}
+                  </span>
+                </ng-template>
+              </ng-template>
+            </dd>
+          </div>
+        </dl>
+      </section>
+    </div>
+
+    <ng-template #noMetadata>
+      <p class="lx-org-meta__empty">{{ emptyMessage }}</p>
+    </ng-template>
+  </ng-container>
+</div>

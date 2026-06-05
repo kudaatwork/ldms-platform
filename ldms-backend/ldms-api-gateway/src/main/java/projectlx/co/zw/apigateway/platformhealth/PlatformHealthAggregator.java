@@ -101,6 +101,28 @@ public class PlatformHealthAggregator {
         }
 
         String configuredHost = resolveHost(target);
+
+        // App ports without a management actuator often hang until the HTTP timeout on each candidate.
+        // When Eureka already lists the service, skip the slow sequential actuator loop.
+        if (target.getManagementPort() == null) {
+            int eurekaInstances = countEurekaInstances(target.getEurekaName());
+            if (eurekaInstances > 0) {
+                snapshot.setHost(configuredHost);
+                snapshot.setPort(target.getPort());
+                snapshot.setManagementPortUsed(false);
+                snapshot.setStatus("UP");
+                long tcpStart = System.nanoTime();
+                boolean reachable = isTcpReachable(configuredHost, target.getPort());
+                snapshot.setLatencyMs((System.nanoTime() - tcpStart) / 1_000_000L);
+                snapshot.setMessage(reachable
+                        ? "Registered in Eureka (" + eurekaInstances + " instance"
+                        + (eurekaInstances == 1 ? "" : "s") + "); process reachable on port " + target.getPort()
+                        : "Registered in Eureka (" + eurekaInstances + " instance"
+                        + (eurekaInstances == 1 ? "" : "s") + "); actuator health endpoint unavailable");
+                return snapshot;
+            }
+        }
+
         List<ProbeTarget> probeTargets = buildProbeTargets(target, configuredHost);
         Exception lastFailure = null;
         URI lastHealthUri = null;

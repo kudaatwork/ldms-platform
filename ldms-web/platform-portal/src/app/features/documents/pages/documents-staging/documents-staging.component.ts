@@ -99,6 +99,10 @@ export class DocumentsStagingComponent implements OnInit, OnDestroy {
     return this.authState.currentUser?.orgName ?? 'Your organisation';
   }
 
+  get heroLead(): string {
+    return `The complete document library for ${this.orgName} — onboarding packs, compliance certificates, profile IDs, branding assets, and every upload registered in LDMS, with full metadata and instant preview.`;
+  }
+
   get displayDocuments(): StagedDocument[] {
     return this.sortDocuments(this.documents);
   }

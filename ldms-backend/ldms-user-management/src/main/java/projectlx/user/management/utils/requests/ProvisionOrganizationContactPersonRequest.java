@@ -27,4 +27,6 @@ public class ProvisionOrganizationContactPersonRequest {
     private Long passportUploadId;
     /** When true, verification/sign-in links target the platform portal; otherwise the admin portal. */
     private Boolean viaSignup;
+    /** When false, skips the contact-person verification email (credentials are emailed separately). */
+    private Boolean sendVerificationEmail;
 }

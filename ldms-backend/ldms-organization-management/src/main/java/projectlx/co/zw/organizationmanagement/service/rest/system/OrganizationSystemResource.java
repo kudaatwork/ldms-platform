@@ -72,6 +72,17 @@ public class OrganizationSystemResource {
     // Organization
     // =========================================================
 
+    @Auditable(action = "ORG_SYSTEM_VERIFY_EMAIL")
+    @PostMapping("/verify-email")
+    @Operation(summary = "Verify organisation email (supplier-registered customers/transporters)")
+    public OrganizationResponse verifyOrganizationEmail(
+            @RequestParam String token,
+            @RequestParam String email,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.verifyOrganizationEmail(email, token, locale);
+    }
+
     @Auditable(action = "ORG_SYSTEM_ONBOARDING_STATUS")
     @GetMapping("/onboarding-status/{organizationId}")
     @Operation(summary = "Public onboarding tracker — live KYC status for signup applicants")
@@ -151,7 +162,7 @@ public class OrganizationSystemResource {
     }
 
     @Auditable(action = "ORG_SYSTEM_GET_BY_ID")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "Get organisation by id", description = "Includes branches, agents, linked customers and contracted transporters.")
     public OrganizationResponse getById(
             @PathVariable Long id,

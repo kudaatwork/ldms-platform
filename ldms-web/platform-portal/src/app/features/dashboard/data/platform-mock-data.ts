@@ -12,6 +12,26 @@ export interface KpiCard {
   theme: KpiCardTheme;
 }
 
+export type DashboardChartType = 'area' | 'bar' | 'donut';
+
+export interface DashboardDonutSegment {
+  label: string;
+  value: number;
+  color: string;
+}
+
+export interface DashboardChart {
+  id: string;
+  title: string;
+  subtitle: string;
+  type: DashboardChartType;
+  theme: KpiCardTheme;
+  labels?: string[];
+  values?: number[];
+  segments?: DashboardDonutSegment[];
+  highlight?: string;
+}
+
 export type SupplierShipmentStatus = 'PREPARED' | 'IN_TRANSIT' | 'COMPLETED' | 'FAILED';
 
 export interface SupplierShipmentCard {
@@ -332,6 +352,243 @@ export const PLATFORM_KPI_CONFIG: Record<OrganizationClassification, KpiCard[]> 
       up: false,
       spark: [42, 48, 52, 58, 55, 62, 58, 65],
       theme: 'ember',
+    },
+  ],
+};
+
+const WEEK_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+export const PLATFORM_CHART_CONFIG: Record<OrganizationClassification, DashboardChart[]> = {
+  SUPPLIER: [
+    {
+      id: 'ship-volume',
+      title: 'Shipment volume',
+      subtitle: 'Loads dispatched · last 7 days',
+      type: 'area',
+      theme: 'ocean',
+      labels: WEEK_LABELS,
+      values: [18, 22, 19, 28, 24, 31, 27],
+      highlight: '+12% vs prior week',
+    },
+    {
+      id: 'po-pipeline',
+      title: 'PO pipeline',
+      subtitle: 'Orders by fulfilment stage',
+      type: 'bar',
+      theme: 'forest',
+      labels: ['Draft', 'Confirmed', 'Picking', 'Shipped'],
+      values: [8, 14, 11, 22],
+      highlight: '22 shipped this week',
+    },
+    {
+      id: 'lane-mix',
+      title: 'Corridor mix',
+      subtitle: 'Share of outbound lanes',
+      type: 'donut',
+      theme: 'violet',
+      highlight: 'Harare hub leads',
+      segments: [
+        { label: 'Harare corridor', value: 42, color: '#3b82f6' },
+        { label: 'Bulawayo', value: 28, color: '#10b981' },
+        { label: 'Border / export', value: 18, color: '#8b5cf6' },
+        { label: 'Other', value: 12, color: '#94a3b8' },
+      ],
+    },
+  ],
+  CUSTOMER: [
+    {
+      id: 'delivery-pulse',
+      title: 'Delivery pulse',
+      subtitle: 'Inbound shipments · last 7 days',
+      type: 'area',
+      theme: 'mint',
+      labels: WEEK_LABELS,
+      values: [6, 9, 7, 12, 10, 14, 11],
+      highlight: 'On-time rate 94%',
+    },
+    {
+      id: 'order-stages',
+      title: 'Order stages',
+      subtitle: 'Open orders by status',
+      type: 'bar',
+      theme: 'ocean',
+      labels: ['Placed', 'Allocated', 'In transit', 'Delivered'],
+      values: [5, 8, 12, 19],
+    },
+    {
+      id: 'supplier-mix',
+      title: 'Supplier mix',
+      subtitle: 'Volume by linked supplier',
+      type: 'donut',
+      theme: 'sunset',
+      segments: [
+        { label: 'Primary supplier', value: 48, color: '#0ea5e9' },
+        { label: 'Secondary', value: 32, color: '#f59e0b' },
+        { label: 'Spot buy', value: 20, color: '#a78bfa' },
+      ],
+    },
+  ],
+  TRANSPORT_COMPANY: [
+    {
+      id: 'trip-volume',
+      title: 'Trip volume',
+      subtitle: 'Completed trips · last 7 days',
+      type: 'area',
+      theme: 'forest',
+      labels: WEEK_LABELS,
+      values: [24, 28, 26, 34, 30, 38, 35],
+      highlight: 'Fleet utilisation 71%',
+    },
+    {
+      id: 'trip-stages',
+      title: 'Active trips',
+      subtitle: 'By operational stage',
+      type: 'bar',
+      theme: 'ocean',
+      labels: ['Queued', 'Loading', 'On road', 'Unloading'],
+      values: [6, 9, 18, 7],
+    },
+    {
+      id: 'cargo-mix',
+      title: 'Cargo mix',
+      subtitle: 'Share by commodity type',
+      type: 'donut',
+      theme: 'ember',
+      segments: [
+        { label: 'FMCG', value: 36, color: '#3b82f6' },
+        { label: 'Agri', value: 28, color: '#22c55e' },
+        { label: 'Cold chain', value: 22, color: '#06b6d4' },
+        { label: 'Other', value: 14, color: '#94a3b8' },
+      ],
+    },
+  ],
+  CLEARING_AGENT: [
+    {
+      id: 'clearance-flow',
+      title: 'Clearance flow',
+      subtitle: 'Files processed · last 7 days',
+      type: 'area',
+      theme: 'violet',
+      labels: WEEK_LABELS,
+      values: [9, 11, 14, 12, 16, 13, 15],
+    },
+    {
+      id: 'border-queue',
+      title: 'Border queue',
+      subtitle: 'Shipments by desk status',
+      type: 'bar',
+      theme: 'ocean',
+      labels: ['Waiting', 'Review', 'Released', 'Held'],
+      values: [7, 11, 18, 4],
+    },
+    {
+      id: 'doc-mix',
+      title: 'Document mix',
+      subtitle: 'Submission types this week',
+      type: 'donut',
+      theme: 'mint',
+      segments: [
+        { label: 'Import', value: 52, color: '#6366f1' },
+        { label: 'Export', value: 31, color: '#14b8a6' },
+        { label: 'Transit', value: 17, color: '#f59e0b' },
+      ],
+    },
+  ],
+  SERVICE_STATION: [
+    {
+      id: 'visit-trend',
+      title: 'Visit trend',
+      subtitle: 'Truck visits · last 7 days',
+      type: 'area',
+      theme: 'sunset',
+      labels: WEEK_LABELS,
+      values: [48, 55, 52, 61, 58, 68, 63],
+    },
+    {
+      id: 'fuel-types',
+      title: 'Fuel breakdown',
+      subtitle: 'Litres dispensed by product',
+      type: 'bar',
+      theme: 'ocean',
+      labels: ['Diesel', 'Petrol', 'AdBlue', 'LPG'],
+      values: [8200, 2100, 980, 420],
+    },
+    {
+      id: 'fleet-type',
+      title: 'Fleet type',
+      subtitle: 'Visiting vehicle classes',
+      type: 'donut',
+      theme: 'forest',
+      segments: [
+        { label: 'Heavy rig', value: 58, color: '#059669' },
+        { label: 'Rigid', value: 26, color: '#3b82f6' },
+        { label: 'Light commercial', value: 16, color: '#f59e0b' },
+      ],
+    },
+  ],
+  ROADSIDE_SUPPORT_SERVICE: [
+    {
+      id: 'incident-trend',
+      title: 'Incident trend',
+      subtitle: 'Calls logged · last 7 days',
+      type: 'area',
+      theme: 'ember',
+      labels: WEEK_LABELS,
+      values: [10, 14, 18, 12, 16, 11, 9],
+    },
+    {
+      id: 'response-buckets',
+      title: 'Response times',
+      subtitle: 'Incidents by SLA bucket',
+      type: 'bar',
+      theme: 'violet',
+      labels: ['<15m', '15–30m', '30–60m', '>60m'],
+      values: [22, 14, 8, 3],
+    },
+    {
+      id: 'incident-type',
+      title: 'Incident type',
+      subtitle: 'Share of active cases',
+      type: 'donut',
+      theme: 'rose',
+      segments: [
+        { label: 'Tyre / wheel', value: 34, color: '#ef4444' },
+        { label: 'Battery', value: 22, color: '#f59e0b' },
+        { label: 'Mechanical', value: 28, color: '#8b5cf6' },
+        { label: 'Other', value: 16, color: '#94a3b8' },
+      ],
+    },
+  ],
+  GOVERNMENT_AGENCY: [
+    {
+      id: 'border-throughput',
+      title: 'Border throughput',
+      subtitle: 'Truck crossings · last 7 days',
+      type: 'area',
+      theme: 'ocean',
+      labels: WEEK_LABELS,
+      values: [72, 78, 81, 88, 85, 92, 89],
+    },
+    {
+      id: 'compliance-buckets',
+      title: 'Compliance queue',
+      subtitle: 'Cases by severity',
+      type: 'bar',
+      theme: 'ember',
+      labels: ['Info', 'Review', 'Warning', 'Critical'],
+      values: [24, 18, 9, 3],
+    },
+    {
+      id: 'crossing-type',
+      title: 'Crossing type',
+      subtitle: 'Import vs export share',
+      type: 'donut',
+      theme: 'slate',
+      segments: [
+        { label: 'Import', value: 54, color: '#2563eb' },
+        { label: 'Export', value: 38, color: '#10b981' },
+        { label: 'Transit', value: 8, color: '#64748b' },
+      ],
     },
   ],
 };

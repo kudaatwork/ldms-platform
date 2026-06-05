@@ -6,7 +6,7 @@
       <h1 class="lx-page-hero__title">{{ title }}</h1>
       <p class="lx-page-hero__lead" *ngIf="lead">{{ lead }}</p>
       <div class="lx-page-hero__actions">
-        <ng-content select="[lxPageHeroActions]"></ng-content>
+        <ng-content select="[lxPageHeroActions],[lx-page-hero-actions]"></ng-content>
       </div>
     </div>
     <div class="lx-page-hero__visual" *ngIf="icon" aria-hidden="true">

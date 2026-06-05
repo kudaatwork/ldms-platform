@@ -1,36 +1,32 @@
 <div class="lx-page lx-page--audit lx-page--login-analytics">
-  <ng-container *ngIf="!loading; else skel">
-    <header class="lx-audit-hero lx-card">
-      <div class="lx-audit-hero__text">
-        <div class="lx-audit-hero__eyebrow">
-          <mat-icon aria-hidden="true">verified_user</mat-icon>
-          Security & compliance
-        </div>
-        <h1 class="lx-audit-hero__title">Login & user activity</h1>
-        <p class="lx-audit-hero__lead">
-          Immutable audit trail of sign-in events (who, when, which client, IP address) with drill-down into every
-          recorded business action for investigations and compliance reviews.
-        </p>
-      </div>
-      <div class="lx-audit-kpi-grid" aria-label="Summary">
-        <div class="lx-audit-kpi">
-          <span class="lx-audit-kpi__label">Sign-in events</span>
-          <span class="lx-audit-kpi__value">{{ loginTotalElements | number }}</span>
-          <span class="lx-audit-kpi__hint">Matching current filters</span>
-        </div>
-        <div class="lx-audit-kpi">
-          <span class="lx-audit-kpi__label">Platforms (this page)</span>
-          <span class="lx-audit-kpi__value">{{ platformsOnPage.length | number }}</span>
-          <span class="lx-audit-kpi__hint" *ngIf="platformsOnPage.length">{{ platformsOnPage.join(' · ') }}</span>
-          <span class="lx-audit-kpi__hint" *ngIf="!platformsOnPage.length">—</span>
-        </div>
-        <div class="lx-audit-kpi" [class.lx-audit-kpi--active]="!!selectedUsername">
-          <span class="lx-audit-kpi__label">Investigation subject</span>
-          <span class="lx-audit-kpi__value lx-audit-kpi__value--user">{{ selectedUsername || 'None selected' }}</span>
-          <span class="lx-audit-kpi__hint">Click a user row to drill down</span>
-        </div>
-      </div>
-    </header>
+    <lx-workspace-hero
+      variant="slate"
+      eyebrow="Security &amp; compliance"
+      eyebrowIcon="verified_user"
+      title="Login &amp; user activity"
+      [lead]="heroLead"
+      hubIcon="history"
+      [orbitIcons]="['login', 'travel_explore', 'policy']"
+    >
+      <lx-workspace-hero-stat
+        [value]="loginTotalElements"
+        label="Sign-in events"
+        icon="login"
+        theme="teal"
+      ></lx-workspace-hero-stat>
+      <lx-workspace-hero-stat
+        [value]="platformsOnPage.length"
+        label="Platforms (this page)"
+        icon="devices"
+        theme="mint"
+      ></lx-workspace-hero-stat>
+      <lx-workspace-hero-stat
+        [value]="selectedUsername || 'None selected'"
+        label="Investigation subject"
+        icon="person_search"
+        theme="amber"
+      ></lx-workspace-hero-stat>
+    </lx-workspace-hero>
 
     <section class="audit-section" aria-labelledby="login-analytics-heading">
       <div class="lx-card lx-card--subsection">
@@ -521,13 +517,4 @@
         </div>
       </div>
     </section>
-  </ng-container>
-
-  <ng-template #skel>
-    <div class="lx-card skel-card lx-audit-hero">
-      <div class="skel-line skel-line--lg"></div>
-      <div class="skel-line skel-line--md"></div>
-      <div class="skel-line skel-line--full"></div>
-    </div>
-  </ng-template>
 </div>

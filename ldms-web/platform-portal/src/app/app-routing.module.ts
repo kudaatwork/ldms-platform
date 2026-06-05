@@ -5,7 +5,6 @@ import { ClassificationGuard } from './core/guards/classification.guard';
 import { RoleGuard } from './core/guards/role.guard';
 import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.component';
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
-import { MyAccountComponent } from './features/account/pages/my-account/my-account.component';
 import { LandingComponent } from './features/landing/pages/landing/landing.component';
 import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
 
@@ -48,8 +47,16 @@ const routes: Routes = [
         data: { title: 'Purchase Orders', breadcrumb: 'Purchase Orders' },
       },
       { path: 'shipments', component: PlaceholderPageComponent, data: { title: 'Shipments', breadcrumb: 'Shipments' } },
-      { path: 'fleet', component: PlaceholderPageComponent, data: { title: 'Fleet', breadcrumb: 'Fleet' } },
-      { path: 'customers', component: PlaceholderPageComponent, data: { title: 'Customers', breadcrumb: 'Customers' } },
+      {
+        path: 'fleet',
+        loadChildren: () => import('./features/fleet/fleet.module').then((m) => m.FleetModule),
+        data: { breadcrumb: 'Fleet & Transporters' },
+      },
+      {
+        path: 'customers',
+        loadChildren: () => import('./features/customers/customers.module').then((m) => m.CustomersModule),
+        data: { breadcrumb: 'Customers' },
+      },
       {
         path: 'documents',
         loadChildren: () => import('./features/documents/documents.module').then((m) => m.DocumentsModule),
@@ -93,8 +100,8 @@ const routes: Routes = [
       },
       {
         path: 'account',
-        component: MyAccountComponent,
-        data: { title: 'My account', breadcrumb: 'My account' },
+        loadChildren: () => import('./features/account/account.module').then((m) => m.AccountModule),
+        data: { breadcrumb: 'My account' },
       },
       {
         path: 'settings',

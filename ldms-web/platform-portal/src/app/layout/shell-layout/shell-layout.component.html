@@ -269,7 +269,13 @@
       <span>
         Your session will expire in <strong>{{ sessionCountdownLabel }}</strong> due to inactivity.
       </span>
-      <button type="button" class="lx-btn lx-btn-sm lx-btn-primary" (click)="staySignedIn()">Stay signed in</button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-sm lx-btn-primary tb-session-warning__action"
+        (click)="staySignedIn($event)"
+      >
+        Stay logged in
+      </button>
     </section>
 
     <nav class="lx-breadcrumbs" aria-label="Breadcrumb" *ngIf="breadcrumbs.length">

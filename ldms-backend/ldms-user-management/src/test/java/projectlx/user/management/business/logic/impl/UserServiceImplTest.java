@@ -136,6 +136,8 @@ class UserServiceImplTest {
                 "http://localhost:4200");
         var passwordResetLinkProperties = new projectlx.user.management.utils.config.PasswordResetLinkProperties(
                 "http://localhost:4200", "http://localhost:4201");
+        var organizationWorkspaceAccessSupport =
+                mock(projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport.class);
 
         userService = new UserServiceImpl(
                 userServiceValidator,
@@ -163,7 +165,8 @@ class UserServiceImplTest {
                 rabbitTemplate,
                 tokenService,
                 emailVerificationLinkProperties,
-                passwordResetLinkProperties
+                passwordResetLinkProperties,
+                organizationWorkspaceAccessSupport
         );
 
         // Set the objectMapper field using reflection

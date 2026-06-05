@@ -1,0 +1,397 @@
+<div class="lx-page cust">
+  <lx-workspace-hero
+    variant="emerald"
+    eyebrow="Commercial network"
+    eyebrowIcon="hub"
+    title="Customers"
+    [lead]="heroLead"
+    hubIcon="groups"
+    [orbitIcons]="['storefront', 'verified', 'handshake']"
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="fetching">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button
+      type="button"
+      lxWorkspaceHeroActions
+      class="lx-btn lx-btn-primary lx-btn-sm lx-btn-accent"
+      (click)="openRegisterDialog()"
+      [disabled]="!isSupplier || fetching"
+      [matTooltip]="isSupplier ? 'Register a new customer organisation' : 'Available to supplier organisations'"
+    >
+      <mat-icon>person_add</mat-icon>
+      Add customer
+    </button>
+
+    <lx-workspace-hero-stat [value]="metrics.total" label="Linked buyers" icon="groups" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.verified" label="Verified" icon="verified" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.pendingKyc" label="In KYC pipeline" icon="pending_actions" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.draft" label="Draft profiles" icon="edit_note" theme="violet"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <div class="lx-card lx-card--subsection cust-toolbar" *ngIf="isSupplier">
+    <div class="cust-toolbar__row">
+      <div class="cust-view-toggle" role="group" aria-label="Display mode">
+        <button
+          type="button"
+          class="cust-view-toggle__btn"
+          [class.is-on]="viewMode === 'atlas'"
+          (click)="setViewMode('atlas')"
+        >
+          <mat-icon>grid_view</mat-icon>
+          Atlas
+        </button>
+        <button
+          type="button"
+          class="cust-view-toggle__btn"
+          [class.is-on]="viewMode === 'ledger'"
+          (click)="setViewMode('ledger')"
+        >
+          <mat-icon>view_list</mat-icon>
+          Ledger
+        </button>
+      </div>
+
+      <div class="cust-search lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">search</mat-icon>
+        <input
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange()"
+          placeholder="Search name, email, or phone…"
+          autocomplete="off"
+        />
+      </div>
+    </div>
+
+    <div class="cust-chips" role="group" aria-label="Status filters">
+      <button type="button" class="cust-chip" [class.is-on]="statusFilter === 'ALL'" (click)="setStatusFilter('ALL')">
+        All <span class="cust-chip__count">{{ metrics.total }}</span>
+      </button>
+      <button
+        type="button"
+        class="cust-chip"
+        [class.is-on]="statusFilter === 'VERIFIED'"
+        (click)="setStatusFilter('VERIFIED')"
+      >
+        Verified <span class="cust-chip__count">{{ metrics.verified }}</span>
+      </button>
+      <button
+        type="button"
+        class="cust-chip"
+        [class.is-on]="statusFilter === 'PENDING_KYC'"
+        (click)="setStatusFilter('PENDING_KYC')"
+      >
+        In KYC <span class="cust-chip__count">{{ metrics.pendingKyc }}</span>
+      </button>
+      <button
+        type="button"
+        class="cust-chip"
+        [class.is-on]="statusFilter === 'DRAFT'"
+        (click)="setStatusFilter('DRAFT')"
+      >
+        Draft <span class="cust-chip__count">{{ metrics.draft }}</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="cust-alert lx-card" *ngIf="loadError" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ loadError }}</span>
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()">Retry</button>
+  </div>
+
+  <div class="cust-forbidden lx-card" *ngIf="!isSupplier && !fetching">
+    <div class="cust-forbidden__orb" aria-hidden="true"></div>
+    <mat-icon class="cust-forbidden__icon">lock</mat-icon>
+    <h2>Supplier workspace</h2>
+    <p>Customer management is available when your organisation is registered as a <strong>supplier</strong>.</p>
+  </div>
+
+  <div class="cust-layout" *ngIf="isSupplier">
+    <div class="cust-main">
+      <div class="cust-loading" *ngIf="fetching && !allRows.length" role="status">
+        <lx-table-loading [busy]="true" message="Loading your customer network…"></lx-table-loading>
+      </div>
+
+      <!-- Atlas grid -->
+      <div class="cust-atlas" *ngIf="!fetching && viewMode === 'atlas' && filteredRows.length">
+        <article
+          class="cust-card"
+          *ngFor="let row of filteredRows; trackBy: trackByCustomerId"
+          [class.is-selected]="selectedId === row.id"
+          [style.--cust-hue]="row.accentHue"
+          role="button"
+          tabindex="0"
+          [attr.aria-pressed]="selectedId === row.id"
+          (click)="selectRow(row)"
+          (keydown)="onCardKeydown(row, $event)"
+        >
+          <div class="cust-card__ring" [class]="'cust-card__ring--' + row.kycTone" aria-hidden="true"></div>
+          <div class="cust-card__avatar" [ngStyle]="avatarStyle(row)" aria-hidden="true">{{ row.initials }}</div>
+          <div class="cust-card__body">
+            <h3 class="cust-card__name">{{ row.name }}</h3>
+            <p class="cust-card__email">{{ row.email || '—' }}</p>
+            <div class="cust-card__meta">
+              <span class="cust-badge" [class]="'cust-badge--' + row.kycTone">{{ row.kycStatusLabel }}</span>
+              <span class="cust-badge" [class]="row.verified ? 'cust-badge--ok' : 'cust-badge--muted'">
+                {{ row.verifiedLabel }}
+              </span>
+            </div>
+          </div>
+          <div class="cust-card__foot">
+            <span class="cust-card__joined">
+              <mat-icon>event</mat-icon>
+              {{ row.createdAtLabel }}
+            </span>
+            <div class="cust-card__actions" role="group" aria-label="Customer actions" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="cust-card__action"
+                mat-icon-button
+                aria-label="Edit customer"
+                matTooltip="Edit"
+                (click)="openEditDialog(row, $event)"
+              >
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button
+                type="button"
+                class="cust-card__action cust-card__action--danger"
+                mat-icon-button
+                aria-label="Delete customer"
+                matTooltip="Delete"
+                (click)="confirmDeleteCustomer(row, $event)"
+              >
+                <mat-icon>delete</mat-icon>
+              </button>
+              <button
+                type="button"
+                class="cust-card__action"
+                mat-icon-button
+                aria-label="View details"
+                matTooltip="View details"
+                (click)="openSpotlight(row, $event)"
+              >
+                <mat-icon>info_outline</mat-icon>
+              </button>
+              <button
+                type="button"
+                class="cust-card__action"
+                mat-icon-button
+                aria-label="Copy email"
+                matTooltip="Copy email"
+                (click)="copyEmail(row, $event)"
+                [disabled]="!row.email"
+              >
+                <mat-icon>mail_outline</mat-icon>
+              </button>
+              <button
+                type="button"
+                class="cust-card__action"
+                mat-icon-button
+                aria-label="Copy phone"
+                matTooltip="Copy phone"
+                (click)="copyPhone(row, $event)"
+                [disabled]="!row.phoneNumber"
+              >
+                <mat-icon>phone</mat-icon>
+              </button>
+            </div>
+          </div>
+        </article>
+      </div>
+
+      <!-- Ledger table -->
+      <div class="lx-card cust-ledger" *ngIf="!fetching && viewMode === 'ledger' && filteredRows.length">
+        <div class="lx-table-wrap lx-table-wrap--host">
+          <table mat-table [dataSource]="ledgerTable" class="lx-mat-table">
+            <ng-container matColumnDef="customer">
+              <th mat-header-cell *matHeaderCellDef>Customer</th>
+              <td mat-cell *matCellDef="let row">
+                <div class="cust-ledger__name">
+                  <span class="cust-ledger__avatar" [ngStyle]="avatarStyle(row)">{{ row.initials }}</span>
+                  <strong>{{ row.name }}</strong>
+                </div>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="contact">
+              <th mat-header-cell *matHeaderCellDef>Contact</th>
+              <td mat-cell *matCellDef="let row">
+                <div class="cust-ledger__contact">{{ row.email || '—' }}</div>
+                <div class="cust-ledger__sub">{{ row.phoneNumber || '—' }}</div>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="kyc">
+              <th mat-header-cell *matHeaderCellDef>KYC</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="cust-badge" [class]="'cust-badge--' + row.kycTone">{{ row.kycStatusLabel }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="verified">
+              <th mat-header-cell *matHeaderCellDef>Trust</th>
+              <td mat-cell *matCellDef="let row">
+                <span class="cust-badge" [class]="row.verified ? 'cust-badge--ok' : 'cust-badge--muted'">
+                  {{ row.verifiedLabel }}
+                </span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="joined">
+              <th mat-header-cell *matHeaderCellDef>Linked</th>
+              <td mat-cell *matCellDef="let row">{{ row.createdAtLabel }}</td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Actions</th>
+              <td mat-cell *matCellDef="let row" class="lx-actions-cell cust-ledger__actions" (click)="$event.stopPropagation()">
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-ghost lx-btn-sm"
+                  aria-label="Edit customer"
+                  matTooltip="Edit"
+                  (click)="openEditDialog(row, $event)"
+                >
+                  <mat-icon>edit</mat-icon>
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-ghost lx-btn-sm cust-ledger__btn--danger"
+                  aria-label="Delete customer"
+                  matTooltip="Delete"
+                  (click)="confirmDeleteCustomer(row, $event)"
+                >
+                  <mat-icon>delete</mat-icon>
+                  Delete
+                </button>
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-ghost lx-btn-sm"
+                  aria-label="View details"
+                  matTooltip="View details"
+                  (click)="openSpotlight(row, $event)"
+                >
+                  <mat-icon>info_outline</mat-icon>
+                  Details
+                </button>
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-ghost lx-btn-sm"
+                  aria-label="Copy email"
+                  matTooltip="Copy email"
+                  (click)="copyEmail(row, $event)"
+                  [disabled]="!row.email"
+                >
+                  <mat-icon>mail_outline</mat-icon>
+                  Email
+                </button>
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-ghost lx-btn-sm"
+                  aria-label="Copy phone"
+                  matTooltip="Copy phone"
+                  (click)="copyPhone(row, $event)"
+                  [disabled]="!row.phoneNumber"
+                >
+                  <mat-icon>phone</mat-icon>
+                  Phone
+                </button>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="ledgerColumns"></tr>
+            <tr
+              mat-row
+              *matRowDef="let row; columns: ledgerColumns"
+              class="cust-ledger__row"
+              [class.is-selected]="selectedId === row.id"
+              (click)="selectRow(row)"
+            ></tr>
+          </table>
+        </div>
+      </div>
+
+      <div class="lx-empty lx-empty--compact" *ngIf="!fetching && !filteredRows.length && !loadError">
+        <mat-icon class="lx-empty-icon">travel_explore</mat-icon>
+        <div class="lx-empty-title">{{ allRows.length ? 'No matches' : 'Your network is a blank canvas' }}</div>
+        <div class="lx-empty-sub">
+          {{
+            allRows.length
+              ? 'Try another search or filter.'
+              : 'Register your first buyer organisation — they appear here instantly after linking.'
+          }}
+        </div>
+        <button type="button" class="lx-btn lx-btn-primary" *ngIf="!allRows.length" (click)="openRegisterDialog()">
+          <mat-icon>add</mat-icon>
+          Register customer
+        </button>
+      </div>
+    </div>
+
+    <aside class="cust-spotlight lx-card" [class.is-open]="!!selectedRow" aria-live="polite">
+      <ng-container *ngIf="selectedRow as spot">
+        <div class="cust-spotlight__glow" [style.--cust-hue]="spot.accentHue" aria-hidden="true"></div>
+        <header class="cust-spotlight__head">
+          <div class="cust-spotlight__avatar" [ngStyle]="avatarStyle(spot)">{{ spot.initials }}</div>
+          <div>
+            <p class="cust-spotlight__eyebrow">Relationship spotlight</p>
+            <h2 class="cust-spotlight__title">{{ spot.name }}</h2>
+          </div>
+          <button type="button" mat-icon-button aria-label="Close spotlight" (click)="closeSpotlight()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </header>
+
+        <div class="cust-spotlight__quick">
+          <span class="cust-badge" [class]="'cust-badge--' + spot.kycTone">{{ spot.kycStatusLabel }}</span>
+          <span class="cust-badge" [class]="spot.verified ? 'cust-badge--ok' : 'cust-badge--muted'">
+            {{ spot.verifiedLabel }}
+          </span>
+          <span class="cust-spotlight__quick-date">
+            <mat-icon>event</mat-icon>
+            Linked {{ spot.createdAtLabel }}
+          </span>
+        </div>
+
+        <div class="cust-spotlight__metadata">
+          <lx-organization-metadata-panel
+            [metadata]="spotlightMetadata"
+            [loading]="spotlightLoading"
+            [error]="spotlightError"
+            emptyMessage="No metadata is linked to this customer yet."
+          ></lx-organization-metadata-panel>
+        </div>
+
+        <div class="cust-spotlight__actions">
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditDialog(spot, $event)">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm cust-spotlight__btn--danger"
+            (click)="confirmDeleteCustomer(spot, $event)"
+          >
+            <mat-icon>delete</mat-icon>
+            Delete
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyEmail(spot, $event)">
+            <mat-icon>mail_outline</mat-icon>
+            Copy email
+          </button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm"
+            (click)="copyPhone(spot, $event)"
+            [disabled]="!spot.phoneNumber"
+          >
+            <mat-icon>phone</mat-icon>
+            Copy phone
+          </button>
+        </div>
+      </ng-container>
+      <div class="cust-spotlight__idle" *ngIf="!selectedRow && filteredRows.length">
+        <mat-icon>touch_app</mat-icon>
+        <p>Select a customer to open the spotlight panel.</p>
+      </div>
+    </aside>
+  </div>
+</div>

@@ -66,6 +66,12 @@ public class SupportTicket {
     @Column(name = "assigned_handler_username", length = 150)
     private String assignedHandlerUsername;
 
+    @Column(name = "resolved_at")
+    private LocalDateTime resolvedAt;
+
+    @Column(name = "closed_at")
+    private LocalDateTime closedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)
     private EntityStatus entityStatus;

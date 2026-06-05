@@ -37,6 +37,16 @@ export interface HelpArticle {
   sortOrder: number;
 }
 
+export interface SupportTicketMessage {
+  id: number;
+  supportTicketId: number;
+  authorUsername: string;
+  authorRole: 'REQUESTER' | 'HANDLER' | 'SYSTEM';
+  visibility: 'PUBLIC' | 'INTERNAL';
+  body: string;
+  createdAt: string;
+}
+
 export interface SupportTicket {
   id: number;
   ticketNumber: string;
@@ -49,8 +59,13 @@ export interface SupportTicket {
   requesterEmail: string;
   organizationId?: number;
   organizationName?: string;
+  assignedHandlerUserId?: number;
+  assignedHandlerUsername?: string;
+  resolvedAt?: string;
+  closedAt?: string;
   createdAt: string;
   modifiedAt?: string;
+  messages?: SupportTicketMessage[];
 }
 
 export interface PlatformStatusSummary {
@@ -172,6 +187,32 @@ export class HelpSupportService {
       }),
       catchError((err) => throwError(() => mapHttpError(err, 'Could not load your tickets.'))),
     );
+  }
+
+  fetchMyTicketById(id: number): Observable<SupportTicket> {
+    return this.http.get<HelpSupportApiResponse>(`${this.base}/support-ticket/find-by-id/${id}`).pipe(
+      map((resp) => {
+        if (!apiOk(resp) || !resp.supportTicketDto) {
+          throw new Error(resp.message ?? 'Could not load ticket.');
+        }
+        return resp.supportTicketDto;
+      }),
+      catchError((err) => throwError(() => mapHttpError(err, 'Could not load ticket.'))),
+    );
+  }
+
+  addTicketMessage(supportTicketId: number, body: string): Observable<SupportTicket> {
+    return this.http
+      .post<HelpSupportApiResponse>(`${this.base}/support-ticket/add-message`, { supportTicketId, body })
+      .pipe(
+        map((resp) => {
+          if (!apiOk(resp) || !resp.supportTicketDto) {
+            throw new Error(resp.message ?? 'Could not send message.');
+          }
+          return resp.supportTicketDto;
+        }),
+        catchError((err) => throwError(() => mapHttpError(err, 'Could not send message.'))),
+      );
   }
 
   fetchPlatformStatus(): Observable<PlatformStatusSummary> {

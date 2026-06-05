@@ -31,6 +31,10 @@ public class OrganizationContactPersonProvisioningSupport {
     private final UserManagementServiceClient userManagementServiceClient;
 
     public Long provisionContactPersonUser(Organization org, boolean viaSignup) {
+        return provisionContactPersonUser(org, viaSignup, true);
+    }
+
+    public Long provisionContactPersonUser(Organization org, boolean viaSignup, boolean sendVerificationEmail) {
         if (org == null || org.getId() == null || !StringUtils.hasText(org.getContactPersonEmail())) {
             return null;
         }
@@ -58,6 +62,7 @@ public class OrganizationContactPersonProvisioningSupport {
         request.setNationalIdUploadId(org.getContactPersonNationalIdUploadId());
         request.setPassportUploadId(org.getContactPersonPassportUploadId());
         request.setViaSignup(viaSignup);
+        request.setSendVerificationEmail(sendVerificationEmail);
         try {
             UserResponse response = userManagementServiceClient.provisionOrganizationContactPerson(request);
             Long id = extractUserId(response);

@@ -5,10 +5,8 @@ import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
 import { StaticShellPageComponent } from './shared/static-shell-page/static-shell-page.component';
-import { MyAccountComponent } from './features/account/pages/my-account/my-account.component';
 import { CoreModule } from './core/core.module';
 import { SharedModule } from './shared/shared.module';
-import { UsersDialogsModule } from './features/users/users-dialogs.module';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 
@@ -26,13 +24,12 @@ export function initAdminSession(auth: AuthService): () => void {
 }
 
 @NgModule({
-  declarations: [AppComponent, StaticShellPageComponent, MyAccountComponent],
+  declarations: [AppComponent, StaticShellPageComponent],
   imports: [
     BrowserModule,
     BrowserAnimationsModule,
     CoreModule,
     SharedModule,
-    UsersDialogsModule,
     AppRoutingModule,
   ],
   providers: [

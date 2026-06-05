@@ -5,40 +5,20 @@
     <span class="vault__orb vault__orb--3"></span>
   </div>
 
-  <header class="vault-hero">
-    <div class="vault-hero__main">
-      <div class="vault-hero__badge">
-        <span class="material-icons" aria-hidden="true">inventory_2</span>
-        LDMS Document Vault · Admin
-      </div>
-      <h1 class="vault-hero__title">Every file. One vault.</h1>
-      <p class="vault-hero__lead">
-        The complete document library across <strong>every organisation</strong> — onboarding packs,
-        compliance certificates, profile IDs, branding assets, and every upload registered in LDMS,
-        with full metadata and instant preview.
-      </p>
-    </div>
-
-    <div class="vault-bento">
-      <article class="vault-bento__card vault-bento__card--primary">
-        <span class="vault-bento__value">{{ stats.total }}</span>
-        <span class="vault-bento__label">Total documents</span>
-        <span class="material-icons vault-bento__icon" aria-hidden="true">folder_special</span>
-      </article>
-      <article class="vault-bento__card">
-        <span class="vault-bento__value">{{ stats.org }}</span>
-        <span class="vault-bento__label">Organisation (page)</span>
-      </article>
-      <article class="vault-bento__card">
-        <span class="vault-bento__value">{{ stats.user }}</span>
-        <span class="vault-bento__label">Profile (page)</span>
-      </article>
-      <article class="vault-bento__card vault-bento__card--accent">
-        <span class="vault-bento__value">{{ stats.verified }}</span>
-        <span class="vault-bento__label">Auto-verified</span>
-      </article>
-    </div>
-  </header>
+  <lx-workspace-hero
+    variant="violet"
+    eyebrow="LDMS Document Vault · Admin"
+    eyebrowIcon="inventory_2"
+    title="Every file. One vault."
+    [lead]="heroLead"
+    hubIcon="folder_special"
+    [orbitIcons]="['description', 'verified', 'preview']"
+  >
+    <lx-workspace-hero-stat [value]="stats.total" label="Total documents" icon="folder_special" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="stats.org" label="Organisation (page)" icon="corporate_fare" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="stats.user" label="Profile (page)" icon="badge" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="stats.verified" label="Auto-verified" icon="verified" theme="violet"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
 
   <div class="vault-toolbar lx-card">
     <label class="vault-search">

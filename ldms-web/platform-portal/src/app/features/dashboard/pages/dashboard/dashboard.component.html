@@ -1,15 +1,22 @@
 <section class="lx-page dashboard" [class.dashboard--supplier]="isSupplier">
-  <header class="dashboard-header">
-    <h1 class="dashboard-title">{{ welcomeMessage }}</h1>
-    <p class="dashboard-sub">
-      <ng-container *ngIf="isSupplier"
-        >Track outbound loads, drivers, and ETAs — demo data until live shipment APIs are connected.</ng-container
-      >
-      <ng-container *ngIf="!isSupplier"
-        >Key metrics for your organisation at a glance — figures are demo data until backend wiring is complete.</ng-container
-      >
-    </p>
-  </header>
+  <lx-workspace-hero
+    variant="brand"
+    [eyebrow]="heroEyebrow"
+    eyebrowIcon="insights"
+    [title]="welcomeMessage"
+    [lead]="heroLead"
+    hubIcon="dashboard"
+    [orbitIcons]="['trending_up', 'local_shipping', 'verified']"
+    note="Key metrics are demo data until backend wiring is complete."
+  >
+    <lx-workspace-hero-stat
+      *ngFor="let card of cards; trackBy: trackKpi"
+      [value]="card.value"
+      [label]="card.label"
+      [icon]="card.icon"
+      [theme]="heroStatTheme(card)"
+    ></lx-workspace-hero-stat>
+  </lx-workspace-hero>
 
   <div class="dash-kpi-grid" *ngIf="cards.length">
     <article
@@ -203,4 +210,89 @@
       </aside>
     </div>
   </ng-container>
+
+  <section class="dash-analytics" *ngIf="charts.length" aria-labelledby="dash-analytics-title">
+    <header class="dash-analytics__head">
+      <div>
+        <h2 id="dash-analytics-title" class="dash-analytics__title">Analytics pulse</h2>
+        <p class="dash-analytics__sub">Trends and breakdowns for your workspace — preview data until live feeds connect.</p>
+      </div>
+      <span class="dash-analytics__badge">
+        <span class="material-icons" aria-hidden="true">auto_graph</span>
+        Demo insights
+      </span>
+    </header>
+
+    <div class="dash-charts-grid">
+      <article
+        class="lx-card dash-chart-card"
+        *ngFor="let chart of charts; trackBy: trackChart"
+        [ngClass]="'dash-chart-card--' + chart.theme"
+      >
+        <header class="dash-chart-card__head">
+          <div>
+            <h3 class="dash-chart-card__title">{{ chart.title }}</h3>
+            <p class="dash-chart-card__sub">{{ chart.subtitle }}</p>
+          </div>
+          <span class="dash-chart-card__pill" *ngIf="chart.highlight">{{ chart.highlight }}</span>
+        </header>
+
+        <div class="dash-chart-card__body" [ngSwitch]="chart.type">
+          <!-- Area chart -->
+          <div *ngSwitchCase="'area'" class="dash-chart-area">
+            <svg class="dash-chart-area__svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient [attr.id]="chartGradientId(chart)" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" [attr.stop-color]="chartFillStops(chart.theme).top" stop-opacity="0.55" />
+                  <stop offset="100%" [attr.stop-color]="chartFillStops(chart.theme).bottom" stop-opacity="0.08" />
+                </linearGradient>
+              </defs>
+              <path class="dash-chart-area__fill" [attr.d]="chartAreaPath(chart.values)" [attr.fill]="'url(#' + chartGradientId(chart) + ')'" />
+              <path
+                class="dash-chart-area__line"
+                [attr.d]="chartLinePath(chart.values)"
+                [attr.stroke]="chartStroke(chart.theme)"
+                fill="none"
+              />
+            </svg>
+            <div class="dash-chart-area__labels" *ngIf="chart.labels?.length">
+              <span *ngFor="let lbl of chart.labels">{{ lbl }}</span>
+            </div>
+          </div>
+
+          <!-- Bar chart -->
+          <div *ngSwitchCase="'bar'" class="dash-chart-bars">
+            <div class="dash-chart-bars__plot">
+              <div class="dash-chart-bars__col" *ngFor="let v of chart.values; let i = index">
+                <span class="dash-chart-bars__val">{{ v }}</span>
+                <span
+                  class="dash-chart-bars__bar"
+                  [style.height.%]="chartBarHeight(v, chart.values)"
+                  [attr.aria-label]="(chart.labels?.[i] ?? '') + ': ' + v"
+                ></span>
+                <span class="dash-chart-bars__lbl">{{ chart.labels?.[i] }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Donut chart -->
+          <div *ngSwitchCase="'donut'" class="dash-chart-donut">
+            <div class="dash-chart-donut__ring" [style.background]="donutGradient(chart.segments)">
+              <div class="dash-chart-donut__hole">
+                <span class="dash-chart-donut__total">{{ donutTotal(chart.segments) }}</span>
+                <span class="dash-chart-donut__unit">index</span>
+              </div>
+            </div>
+            <ul class="dash-chart-donut__legend">
+              <li *ngFor="let seg of chart.segments">
+                <span class="dash-chart-donut__swatch" [style.background]="seg.color"></span>
+                <span class="dash-chart-donut__lbl">{{ seg.label }}</span>
+                <span class="dash-chart-donut__pct">{{ seg.value }}%</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
 </section>

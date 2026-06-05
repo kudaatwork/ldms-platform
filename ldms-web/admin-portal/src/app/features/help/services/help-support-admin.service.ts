@@ -1,7 +1,66 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, map, throwError } from 'rxjs';
+import { Observable, catchError, map, of, throwError, timeout, TimeoutError } from 'rxjs';
+import { environment } from '../../../../environments/environment';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
+import { LxExportFormat } from '../../../shared/utils/lx-export.util';
+
+const API_TIMEOUT_MS = 15_000;
+
+export type SupportTicketStatus =
+  | 'OPEN'
+  | 'IN_PROGRESS'
+  | 'WAITING_ON_CUSTOMER'
+  | 'RESOLVED'
+  | 'CLOSED';
+
+export type SupportTicketMessageVisibility = 'PUBLIC' | 'INTERNAL';
+export type SupportTicketMessageAuthorRole = 'REQUESTER' | 'HANDLER' | 'SYSTEM';
+
+export interface AdminSupportTicketMessage {
+  id: number;
+  supportTicketId: number;
+  authorUsername: string;
+  authorRole: SupportTicketMessageAuthorRole;
+  visibility: SupportTicketMessageVisibility;
+  body: string;
+  createdAt: string;
+}
+
+export interface AdminSupportTicket {
+  id: number;
+  ticketNumber: string;
+  subject: string;
+  description: string;
+  category: string;
+  priority: string;
+  status: SupportTicketStatus;
+  requesterUsername: string;
+  requesterEmail: string;
+  organizationId?: number;
+  organizationName?: string;
+  assignedHandlerUserId?: number;
+  assignedHandlerUsername?: string;
+  resolvedAt?: string;
+  closedAt?: string;
+  createdAt: string;
+  modifiedAt?: string;
+  messages?: AdminSupportTicketMessage[];
+}
+
+export interface SupportTicketExportFilters {
+  status?: SupportTicketStatus;
+  search?: string;
+}
+
+interface HelpSupportApiResponse {
+  isSuccess?: boolean;
+  success?: boolean;
+  statusCode?: number;
+  message?: string;
+  supportTicketDto?: AdminSupportTicket;
+  supportTicketDtoList?: AdminSupportTicket[];
+}
 
 function mapHelpSupportHttpError(err: unknown, fallback: string): Error {
   if (err instanceof HttpErrorResponse) {
@@ -12,16 +71,15 @@ function mapHelpSupportHttpError(err: unknown, fallback: string): Error {
         : '';
     if (err.status === 404) {
       return new Error(
-        'Help & Support API returned HTTP 404. Restart ldms-user-management (8086) so the new endpoints and Flyway migration V6 are applied, then retry.',
+        serverMessage ||
+          'Help & Support API returned HTTP 404. Restart ldms-user-management (8086) after pulling the latest build so Flyway migration V15 and the ticket detail endpoints are applied, then retry.',
       );
     }
     if (err.status === 403) {
-      return new Error('Not authorized to view support tickets. Sign in with an ADMIN or READ_ONLY account.');
+      return new Error('Not authorized to manage support tickets.');
     }
-    if (err.status === 401) {
-      return new Error(
-        'Help & Support API returned HTTP 401. Restart ldms-user-management (8086) after pulling the latest build — backoffice ticket listing must not require a Bearer token.',
-      );
+    if (err.status === 409) {
+      return new Error(serverMessage || 'That action is not allowed for this ticket.');
     }
     if (err.status === 0) {
       return new Error('Cannot reach the API gateway. Confirm ldms-api-gateway (8091) and ldms-user-management (8086) are running.');
@@ -37,29 +95,12 @@ function mapHelpSupportHttpError(err: unknown, fallback: string): Error {
   return new Error(fallback);
 }
 
-export interface AdminSupportTicket {
-  id: number;
-  ticketNumber: string;
-  subject: string;
-  description: string;
-  category: string;
-  priority: string;
-  status: string;
-  requesterUsername: string;
-  requesterEmail: string;
-  organizationId?: number;
-  organizationName?: string;
-  assignedHandlerUserId?: number;
-  assignedHandlerUsername?: string;
-  createdAt: string;
-}
-
-interface HelpSupportApiResponse {
-  isSuccess?: boolean;
-  success?: boolean;
-  statusCode?: number;
-  message?: string;
-  supportTicketDtoList?: AdminSupportTicket[];
+function apiOk(resp: HelpSupportApiResponse): boolean {
+  return (
+    resp.isSuccess === true ||
+    resp.success === true ||
+    (resp.statusCode != null && resp.statusCode >= 200 && resp.statusCode < 300)
+  );
 }
 
 @Injectable({ providedIn: 'root' })
@@ -69,18 +110,98 @@ export class HelpSupportAdminService {
   constructor(private readonly http: HttpClient) {}
 
   fetchAllTickets(): Observable<AdminSupportTicket[]> {
+    if (environment.useMocks) {
+      return of([]);
+    }
     return this.http.get<HelpSupportApiResponse>(`${this.base}/support-ticket/list`).pipe(
-      map((resp) => {
-        const ok =
-          resp.isSuccess === true ||
-          resp.success === true ||
-          (resp.statusCode != null && resp.statusCode >= 200 && resp.statusCode < 300);
-        if (!ok) {
-          throw new Error(resp.message ?? 'Could not load support tickets.');
-        }
-        return resp.supportTicketDtoList ?? [];
-      }),
-      catchError((err) => throwError(() => mapHelpSupportHttpError(err, 'Could not load support tickets.'))),
+      timeout(API_TIMEOUT_MS),
+      map((resp) => this.unwrapTicketList(resp)),
+      catchError((err) => this.handleError(err, 'Could not load support tickets.')),
     );
+  }
+
+  fetchTicketById(id: number): Observable<AdminSupportTicket> {
+    return this.http.get<HelpSupportApiResponse>(`${this.base}/support-ticket/find-by-id/${id}`).pipe(
+      timeout(API_TIMEOUT_MS),
+      map((resp) => this.unwrapTicket(resp)),
+      catchError((err) => this.handleError(err, 'Could not load support ticket.')),
+    );
+  }
+
+  updateStatus(supportTicketId: number, status: SupportTicketStatus): Observable<AdminSupportTicket> {
+    return this.http
+      .put<HelpSupportApiResponse>(`${this.base}/support-ticket/update-status`, { supportTicketId, status })
+      .pipe(
+        timeout(API_TIMEOUT_MS),
+        map((resp) => this.unwrapTicket(resp)),
+        catchError((err) => this.handleError(err, 'Could not update ticket status.')),
+      );
+  }
+
+  assignToMe(supportTicketId: number): Observable<AdminSupportTicket> {
+    return this.http
+      .put<HelpSupportApiResponse>(`${this.base}/support-ticket/assign`, { supportTicketId })
+      .pipe(
+        timeout(API_TIMEOUT_MS),
+        map((resp) => this.unwrapTicket(resp)),
+        catchError((err) => this.handleError(err, 'Could not assign ticket.')),
+      );
+  }
+
+  addMessage(
+    supportTicketId: number,
+    body: string,
+    visibility: SupportTicketMessageVisibility = 'PUBLIC',
+  ): Observable<AdminSupportTicket> {
+    return this.http
+      .post<HelpSupportApiResponse>(`${this.base}/support-ticket/add-message`, {
+        supportTicketId,
+        body,
+        visibility,
+      })
+      .pipe(
+        timeout(API_TIMEOUT_MS),
+        map((resp) => this.unwrapTicket(resp)),
+        catchError((err) => this.handleError(err, 'Could not send message.')),
+      );
+  }
+
+  exportTickets(format: LxExportFormat, filters: SupportTicketExportFilters = {}): Observable<HttpResponse<Blob>> {
+    const apiFormat = format === 'xlsx' ? 'xlsx' : format;
+    return this.http
+      .post(`${this.base}/support-ticket/export?format=${encodeURIComponent(apiFormat)}`, filters, {
+        observe: 'response',
+        responseType: 'blob',
+      })
+      .pipe(
+        timeout(60_000),
+        catchError((err) => this.handleError(err, 'Could not export support tickets.')),
+      );
+  }
+
+  private unwrapTicketList(resp: HelpSupportApiResponse): AdminSupportTicket[] {
+    if (!apiOk(resp)) {
+      throw new Error(resp.message ?? 'Could not load support tickets.');
+    }
+    return Array.isArray(resp.supportTicketDtoList) ? resp.supportTicketDtoList : [];
+  }
+
+  private unwrapTicket(resp: HelpSupportApiResponse): AdminSupportTicket {
+    if (!apiOk(resp) || !resp.supportTicketDto) {
+      throw new Error(resp.message ?? 'Support ticket response was empty.');
+    }
+    return resp.supportTicketDto;
+  }
+
+  private handleError(err: unknown, fallback: string): Observable<never> {
+    if (err instanceof TimeoutError) {
+      return throwError(
+        () =>
+          new Error(
+            'Help & Support request timed out. Confirm ldms-api-gateway (8091) and ldms-user-management (8086) are running.',
+          ),
+      );
+    }
+    return throwError(() => mapHelpSupportHttpError(err, fallback));
   }
 }

@@ -71,4 +71,55 @@ public class OrganizationApprovedCredentialsSupport {
                 credentialsResponse.getTemporaryUsername().trim(),
                 credentialsResponse.getTemporaryPassword().trim());
     }
+
+    /**
+     * Issues temporary credentials and emails them to the contact person only (supplier-registered onboarding).
+     */
+    public void issueAndEmailCredentialsToContactOnly(Organization org) {
+        if (org == null || org.getId() == null) {
+            return;
+        }
+        boolean viaSignup = Boolean.TRUE.equals(org.getCreatedViaSignup());
+        Long contactUserId = org.getContactPersonUserId();
+        if (contactUserId == null || contactUserId <= 0) {
+            contactUserId = contactPersonProvisioningSupport.provisionContactPersonUser(org, viaSignup, false);
+        }
+        if (contactUserId == null || contactUserId <= 0) {
+            log.warn(
+                    "Skipping contact-credentials email for organisation {}: contact person user is not linked",
+                    org.getId());
+            return;
+        }
+
+        IssueOrganizationContactCredentialsRequest request = new IssueOrganizationContactCredentialsRequest();
+        request.setOrganizationId(org.getId());
+        request.setContactUserId(contactUserId);
+        UserResponse credentialsResponse;
+        try {
+            credentialsResponse = userManagementServiceClient.issueOrganizationContactCredentials(request);
+        } catch (Exception ex) {
+            log.error(
+                    "Failed to issue temporary credentials for organisation {} contact user {}: {}",
+                    org.getId(),
+                    contactUserId,
+                    ex.getMessage(),
+                    ex);
+            return;
+        }
+        if (credentialsResponse == null
+                || !credentialsResponse.isSuccess()
+                || !StringUtils.hasText(credentialsResponse.getTemporaryUsername())
+                || !StringUtils.hasText(credentialsResponse.getTemporaryPassword())) {
+            log.warn(
+                    "Temporary credentials were not returned for organisation {}: {}",
+                    org.getId(),
+                    credentialsResponse != null ? credentialsResponse.getMessage() : "null response");
+            return;
+        }
+
+        organizationKycNotifier.sendContactCredentials(
+                org,
+                credentialsResponse.getTemporaryUsername().trim(),
+                credentialsResponse.getTemporaryPassword().trim());
+    }
 }

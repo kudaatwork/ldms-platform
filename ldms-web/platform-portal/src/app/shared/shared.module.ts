@@ -39,11 +39,16 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTreeModule } from '@angular/material/tree';
 
 import { LxTablePaginatorDirective } from './directives/lx-table-paginator.directive';
+import { LxPageHeroActionsDirective } from './directives/lx-page-hero-actions.directive';
+import { LxWorkspaceHeroActionsDirective } from './directives/lx-workspace-hero-actions.directive';
 import { DeleteConfirmDialogComponent } from './components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { LdmsPasswordRequirementsComponent } from './components/ldms-password-requirements/ldms-password-requirements.component';
 import { LxInlineBusyComponent } from './components/lx-inline-busy/lx-inline-busy.component';
 import { LxTableLoadingComponent } from './components/lx-table-loading/lx-table-loading.component';
 import { LxPageHeroComponent } from './components/lx-page-hero/lx-page-hero.component';
+import { LxWorkspaceHeroComponent } from './components/lx-workspace-hero/lx-workspace-hero.component';
+import { LxWorkspaceHeroStatComponent } from './components/lx-workspace-hero-stat/lx-workspace-hero-stat.component';
+import { LxOrganizationMetadataPanelComponent } from './components/lx-organization-metadata-panel/lx-organization-metadata-panel.component';
 
 const MATERIAL_MODULES = [
   MatAutocompleteModule,
@@ -98,6 +103,11 @@ const MATERIAL_MODULES = [
     LxInlineBusyComponent,
     LxTableLoadingComponent,
     LxPageHeroComponent,
+    LxPageHeroActionsDirective,
+    LxWorkspaceHeroActionsDirective,
+    LxOrganizationMetadataPanelComponent,
+    LxWorkspaceHeroComponent,
+    LxWorkspaceHeroStatComponent,
   ],
   exports: [
     CommonModule,
@@ -105,11 +115,16 @@ const MATERIAL_MODULES = [
     FormsModule,
     ReactiveFormsModule,
     LxTablePaginatorDirective,
+    LxPageHeroActionsDirective,
+    LxWorkspaceHeroActionsDirective,
     DeleteConfirmDialogComponent,
     LdmsPasswordRequirementsComponent,
     LxInlineBusyComponent,
     LxTableLoadingComponent,
     LxPageHeroComponent,
+    LxOrganizationMetadataPanelComponent,
+    LxWorkspaceHeroComponent,
+    LxWorkspaceHeroStatComponent,
     ...MATERIAL_MODULES,
   ],
 })

@@ -24,6 +24,7 @@ export class LoginComponent implements AfterViewInit {
   loading = false;
   showPass = false;
   error = '';
+  infoMessage = '';
 
   readonly mockCreds = [...MOCK_DEMO_CREDENTIALS];
   readonly showMockCredentials = environment.authUseMocks || environment.useMocks;
@@ -46,6 +47,12 @@ export class LoginComponent implements AfterViewInit {
       password: ['', Validators.required],
     });
     this.title.setTitle('Sign in | LX Admin');
+    const reason = (this.route.snapshot.queryParamMap.get('reason') ?? '').trim().toLowerCase();
+    if (reason === 'inactivity') {
+      this.infoMessage = 'You were signed out after inactivity. Please sign in again.';
+    } else if (reason === 'logout') {
+      this.infoMessage = 'You were signed out. Please sign in again.';
+    }
   }
 
   ngAfterViewInit(): void {

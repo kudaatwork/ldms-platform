@@ -1,0 +1,299 @@
+<div class="lx-page flt">
+  <lx-workspace-hero
+    eyebrow="Corridor intelligence"
+    eyebrowIcon="hub"
+    title="Fleet &amp; Transporters"
+    [lead]="heroLead"
+    hubIcon="local_shipping"
+    [orbitIcons]="['route', 'verified', 'speed']"
+    note="Own fleet cards are a live preview until Fleet Management connects. Contracted transporters are real partner links with stored contract dates."
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="fetching">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button
+      type="button"
+      lxWorkspaceHeroActions
+      class="lx-btn lx-btn-primary lx-btn-sm lx-btn-accent"
+      *ngIf="canLinkTransporter"
+      (click)="openLinkTransporter()"
+      [disabled]="fetching"
+    >
+      <mat-icon>add_link</mat-icon>
+      Contract transporter
+    </button>
+
+    <lx-workspace-hero-stat [value]="metrics.ownFleetTotal" [label]="convoyTitle" icon="garage" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.onRoad" label="On corridor" icon="near_me" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.avgUtilization + '%'" label="Avg utilisation" icon="insights" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.partnersTotal" [label]="contractedPartnersLabel" icon="handshake" theme="violet"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <nav class="flt-tabs lx-card" aria-label="Fleet views">
+    <button type="button" class="flt-tabs__btn" [class.is-on]="activeTab === 'overview'" (click)="setTab('overview')">
+      <mat-icon>dashboard</mat-icon>
+      Overview
+    </button>
+    <button type="button" class="flt-tabs__btn" [class.is-on]="activeTab === 'convoy'" (click)="setTab('convoy')">
+      <mat-icon>garage</mat-icon>
+      <span class="flt-tabs__copy">
+        <span>{{ convoyTitle }}</span>
+        <small>Owned assets</small>
+      </span>
+    </button>
+    <button type="button" class="flt-tabs__btn" [class.is-on]="activeTab === 'partners'" (click)="setTab('partners')">
+      <mat-icon>handshake</mat-icon>
+      <span class="flt-tabs__copy">
+        <span>{{ partnersSectionTitle }}</span>
+        <small>Under contract</small>
+      </span>
+    </button>
+  </nav>
+
+  <div class="flt-alert lx-card" *ngIf="loadError" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ loadError }}</span>
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()">Retry</button>
+  </div>
+
+  <div class="flt-loading" *ngIf="fetching && !partners.length" role="status">
+    <lx-table-loading [busy]="true" message="Scanning corridor network…"></lx-table-loading>
+  </div>
+
+  <div class="flt-layout" *ngIf="!fetching || partners.length || ownFleet.length">
+    <main class="flt-main">
+      <!-- Overview: split runways -->
+      <section class="flt-runway" *ngIf="activeTab === 'overview'">
+        <div class="flt-runway__lane flt-runway__lane--own">
+          <header class="flt-runway__head">
+            <div>
+              <p class="flt-runway__eyebrow"><mat-icon>garage</mat-icon> Own fleet</p>
+              <h2>{{ convoyTitle }}</h2>
+            </div>
+            <span class="flt-runway__badge flt-runway__badge--preview">Preview data</span>
+          </header>
+          <p class="flt-runway__lead">{{ convoySectionLead }}</p>
+          <div class="flt-runway__strip">
+            <button
+              type="button"
+              class="flt-vehicle flt-vehicle--compact"
+              *ngFor="let v of ownFleet | slice: 0 : 4; trackBy: trackByVehicleId"
+              (click)="selectVehicle(v); setTab('convoy')"
+            >
+              <span class="flt-vehicle__icon-wrap">
+                <mat-icon>{{ vehicleIcon(v.type) }}</mat-icon>
+              </span>
+              <span class="flt-vehicle__reg">{{ v.registration }}</span>
+              <span class="flt-vehicle__util" [style.--pct]="v.utilizationPct + '%'"></span>
+            </button>
+          </div>
+        </div>
+        <div class="flt-runway__lane flt-runway__lane--partners">
+          <header class="flt-runway__head">
+            <div>
+              <p class="flt-runway__eyebrow"><mat-icon>handshake</mat-icon> Contracted partners</p>
+              <h2>{{ partnersSectionTitle }}</h2>
+            </div>
+            <span class="flt-runway__badge flt-runway__badge--contract">{{ metrics.partnersVerified }} verified</span>
+          </header>
+          <p class="flt-runway__lead">{{ partnersSectionLead }}</p>
+          <div class="flt-partner-orbit">
+            <button
+              type="button"
+              class="flt-partner-chip"
+              *ngFor="let p of partners | slice: 0 : 6; trackBy: trackByPartnerId"
+              (click)="selectPartner(p); setTab('partners')"
+            >
+              <span class="flt-partner-chip__avatar" [ngStyle]="avatarStyle(p)">{{ p.initials }}</span>
+              {{ p.name }}
+            </button>
+            <div class="flt-partner-orbit__empty" *ngIf="!partners.length">
+              <mat-icon>link_off</mat-icon>
+              <p>No partners yet.</p>
+              <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" *ngIf="canLinkTransporter" (click)="openLinkTransporter()">
+                Contract transporter
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Convoy grid -->
+      <section class="flt-convoy" *ngIf="activeTab === 'convoy'">
+        <header class="flt-section-head">
+          <div>
+            <h2>{{ convoyTitle }}</h2>
+            <p>{{ convoySectionLead }}</p>
+          </div>
+          <span class="flt-section-head__stat">{{ metrics.available }} ready / yard</span>
+        </header>
+        <div class="flt-convoy__grid">
+          <button
+            type="button"
+            class="flt-vehicle flt-vehicle--own"
+            *ngFor="let v of ownFleet; trackBy: trackByVehicleId"
+            [class.is-selected]="selectedVehicleId === v.id"
+            [style.--flt-hue]="v.accentHue"
+            (click)="selectVehicle(v)"
+          >
+            <span class="flt-vehicle__kind">Own asset</span>
+            <span class="flt-vehicle__ring" [class]="vehicleRingClass(v.status)"></span>
+            <div class="flt-vehicle__top">
+              <span class="flt-vehicle__icon-wrap">
+                <mat-icon>{{ vehicleIcon(v.type) }}</mat-icon>
+              </span>
+              <span class="flt-vehicle__status">{{ v.statusLabel }}</span>
+            </div>
+            <h3 class="flt-vehicle__reg">{{ v.registration }}</h3>
+            <p class="flt-vehicle__model">{{ v.makeModel }}</p>
+            <div class="flt-vehicle__meter">
+              <span class="flt-vehicle__meter-fill" [style.width.%]="v.utilizationPct"></span>
+            </div>
+            <div class="flt-vehicle__foot">
+              <span><mat-icon>person</mat-icon>{{ v.driverName }}</span>
+              <span><mat-icon>history</mat-icon>{{ v.lastTripLabel }}</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <!-- Partners -->
+      <section class="flt-partners" *ngIf="activeTab === 'partners'">
+        <header class="flt-section-head">
+          <div>
+            <h2>{{ partnersSectionTitle }}</h2>
+            <p>{{ partnersSectionLead }}</p>
+          </div>
+          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" *ngIf="canLinkTransporter" (click)="openLinkTransporter()">
+            <mat-icon>add_link</mat-icon>
+            Add partner
+          </button>
+        </header>
+
+        <div class="flt-partners__toolbar lx-card">
+          <div class="flt-search lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">search</mat-icon>
+            <input [(ngModel)]="partnerSearch" placeholder="Filter partners…" autocomplete="off" />
+          </div>
+        </div>
+
+        <div class="flt-partners__grid" *ngIf="filteredPartners.length">
+          <button
+            type="button"
+            class="flt-partner-card"
+            *ngFor="let p of filteredPartners; trackBy: trackByPartnerId"
+            [class.is-selected]="selectedPartnerId === p.id"
+            [style.--flt-hue]="p.accentHue"
+            (click)="selectPartner(p)"
+          >
+            <div class="flt-partner-card__glow" aria-hidden="true"></div>
+            <span class="flt-partner-card__kind">Contracted partner</span>
+            <div class="flt-partner-card__avatar" [ngStyle]="avatarStyle(p)">{{ p.initials }}</div>
+            <h3>{{ p.name }}</h3>
+            <p class="flt-partner-card__email">{{ p.email || '—' }}</p>
+            <div class="flt-partner-card__meta">
+              <span [ngClass]="contractPillClass(p.contractStatus)">{{ p.contractStatusLabel }}</span>
+              <span class="flt-pill" [class.flt-pill--ok]="p.verified">{{ p.verifiedLabel }}</span>
+            </div>
+            <div class="flt-partner-card__contract">
+              <span><mat-icon>event</mat-icon>{{ p.contractRangeLabel }}</span>
+            </div>
+            <div class="flt-partner-card__foot">
+              <span><mat-icon>link</mat-icon>Linked {{ p.linkedSinceLabel }}</span>
+              <span><mat-icon>verified</mat-icon>{{ p.kycStatusLabel }}</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="lx-empty lx-empty--compact" *ngIf="!filteredPartners.length && !loadError">
+          <mat-icon class="lx-empty-icon">explore_off</mat-icon>
+          <div class="lx-empty-title">{{ partners.length ? 'No matches' : 'No partners on the board' }}</div>
+          <div class="lx-empty-sub">
+            {{
+              partners.length
+                ? 'Try another filter.'
+                : canLinkTransporter
+                  ? 'Contract a transport company to appear on your corridor map.'
+                  : 'Shipper relationships appear here when organisations link to you.'
+            }}
+          </div>
+          <button type="button" class="lx-btn lx-btn-primary" *ngIf="canLinkTransporter && !partners.length" (click)="openLinkTransporter()">
+            <mat-icon>add_link</mat-icon>
+            Contract transporter
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <aside class="flt-spotlight lx-card" [class.is-open]="!!selectedVehicle || !!selectedPartner">
+      <ng-container *ngIf="selectedVehicle as unit">
+        <header class="flt-spotlight__head">
+          <span class="flt-spotlight__icon">
+            <mat-icon>{{ vehicleIcon(unit.type) }}</mat-icon>
+          </span>
+          <div>
+            <p class="flt-spotlight__eyebrow">Own fleet · unit spotlight</p>
+            <h2>{{ unit.registration }}</h2>
+          </div>
+          <button type="button" mat-icon-button aria-label="Close" (click)="selectedVehicleId = null">
+            <mat-icon>close</mat-icon>
+          </button>
+        </header>
+        <dl class="flt-spotlight__facts">
+          <div><dt>Model</dt><dd>{{ unit.makeModel }}</dd></div>
+          <div><dt>Status</dt><dd>{{ unit.statusLabel }}</dd></div>
+          <div><dt>Driver</dt><dd>{{ unit.driverName }}</dd></div>
+          <div><dt>Last movement</dt><dd>{{ unit.lastTripLabel }}</dd></div>
+          <div><dt>Utilisation</dt><dd>{{ unit.utilizationPct }}%</dd></div>
+        </dl>
+        <div class="flt-spotlight__pulse">
+          <div class="flt-pulse-ring" [style.--pct]="unit.utilizationPct + '%'">
+            <span>{{ unit.utilizationPct }}%</span>
+          </div>
+          <p>Telemetry preview — GPS, fuel, and trip history sync when Fleet Management launches.</p>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="selectedPartner as partner">
+        <header class="flt-spotlight__head">
+          <span class="flt-spotlight__avatar" [ngStyle]="avatarStyle(partner)">{{ partner.initials }}</span>
+          <div>
+            <p class="flt-spotlight__eyebrow">Contracted partner · spotlight</p>
+            <h2>{{ partner.name }}</h2>
+          </div>
+          <button type="button" mat-icon-button aria-label="Close" (click)="closePartnerSpotlight()">
+            <mat-icon>close</mat-icon>
+          </button>
+        </header>
+
+        <div class="flt-spotlight__quick">
+          <span [ngClass]="contractPillClass(partner.contractStatus)">{{ partner.contractStatusLabel }}</span>
+          <span class="flt-pill" [class.flt-pill--ok]="partner.verified">{{ partner.verifiedLabel }}</span>
+          <span class="flt-spotlight__quick-date">
+            <mat-icon>date_range</mat-icon>
+            {{ partner.contractRangeLabel }}
+          </span>
+          <span class="flt-spotlight__quick-date">
+            <mat-icon>link</mat-icon>
+            Linked {{ partner.linkedSinceLabel }}
+          </span>
+        </div>
+
+        <div class="flt-spotlight__metadata">
+          <lx-organization-metadata-panel
+            [metadata]="partnerMetadata"
+            [loading]="partnerMetadataLoading"
+            [error]="partnerMetadataError"
+            emptyMessage="No metadata is linked to this partner yet."
+          ></lx-organization-metadata-panel>
+        </div>
+      </ng-container>
+
+      <div class="flt-spotlight__idle" *ngIf="!selectedVehicle && !selectedPartner">
+        <mat-icon>ads_click</mat-icon>
+        <p>Select a vehicle or partner to open the spotlight.</p>
+      </div>
+    </aside>
+  </div>
+</div>

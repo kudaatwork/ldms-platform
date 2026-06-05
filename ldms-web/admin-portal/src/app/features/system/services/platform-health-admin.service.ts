@@ -1,7 +1,9 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, map, throwError } from 'rxjs';
+import { Observable, catchError, map, throwError, timeout, TimeoutError } from 'rxjs';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
+
+const SNAPSHOT_TIMEOUT_MS = 15_000;
 
 export type PlatformOverallStatus = 'OPERATIONAL' | 'DEGRADED' | 'OUTAGE';
 
@@ -107,8 +109,19 @@ export class PlatformHealthAdminService {
   fetchSnapshot(): Observable<PlatformHealthSnapshot> {
     const url = ldmsServiceUrl('api-gateway', 'platform-health', 'snapshot', 'backoffice');
     return this.http.get<PlatformHealthApiResponse>(url).pipe(
+      timeout(SNAPSHOT_TIMEOUT_MS),
       map((resp) => this.mapSnapshot(resp)),
-      catchError((err) => throwError(() => new Error(mapPlatformHealthHttpError(err)))),
+      catchError((err) => {
+        if (err instanceof TimeoutError) {
+          return throwError(
+            () =>
+              new Error(
+                'Platform health probe timed out. Some services may be slow to respond — retry, or confirm ldms-api-gateway (8091) is running.',
+              ),
+          );
+        }
+        return throwError(() => new Error(mapPlatformHealthHttpError(err)));
+      }),
     );
   }
 

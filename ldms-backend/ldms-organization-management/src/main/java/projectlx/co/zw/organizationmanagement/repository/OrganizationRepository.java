@@ -3,6 +3,8 @@ package projectlx.co.zw.organizationmanagement.repository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import projectlx.co.zw.organizationmanagement.model.Industry;
 import projectlx.co.zw.organizationmanagement.model.KycStatus;
 import projectlx.co.zw.organizationmanagement.model.Organization;
@@ -49,4 +51,26 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
             Long assignedStage5ApproverUserId,
             Collection<KycStatus> kycStatuses,
             EntityStatus entityStatus);
+
+    @Query("""
+            SELECT link.transporter FROM ContractedTransporterLink link
+            WHERE link.organization.id = :supplierId
+            AND link.entityStatus <> :deleted
+            AND link.transporter.entityStatus <> :deleted
+            ORDER BY link.transporter.name ASC
+            """)
+    List<Organization> findContractedTransportersForSupplier(
+            @Param("supplierId") Long supplierId,
+            @Param("deleted") EntityStatus deleted);
+
+    @Query("""
+            SELECT link.organization FROM ContractedTransporterLink link
+            WHERE link.transporter.id = :transporterId
+            AND link.entityStatus <> :deleted
+            AND link.organization.entityStatus <> :deleted
+            ORDER BY link.organization.name ASC
+            """)
+    List<Organization> findContractingOrganizationsForTransporter(
+            @Param("transporterId") Long transporterId,
+            @Param("deleted") EntityStatus deleted);
 }

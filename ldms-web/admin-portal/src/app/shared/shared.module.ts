@@ -45,6 +45,9 @@ import { LdmsPasswordRequirementsComponent } from './components/ldms-password-re
 import { LxInlineBusyComponent } from './components/lx-inline-busy/lx-inline-busy.component';
 import { LxTableLoadingComponent } from './components/lx-table-loading/lx-table-loading.component';
 import { LxPageHeroComponent } from './components/lx-page-hero/lx-page-hero.component';
+import { LxWorkspaceHeroActionsDirective } from './directives/lx-workspace-hero-actions.directive';
+import { LxWorkspaceHeroComponent } from './components/lx-workspace-hero/lx-workspace-hero.component';
+import { LxWorkspaceHeroStatComponent } from './components/lx-workspace-hero-stat/lx-workspace-hero-stat.component';
 
 const MATERIAL_MODULES = [
   MatAutocompleteModule,
@@ -100,6 +103,9 @@ const MATERIAL_MODULES = [
     LxInlineBusyComponent,
     LxTableLoadingComponent,
     LxPageHeroComponent,
+    LxWorkspaceHeroActionsDirective,
+    LxWorkspaceHeroComponent,
+    LxWorkspaceHeroStatComponent,
   ],
   exports: [
     CommonModule,
@@ -112,6 +118,9 @@ const MATERIAL_MODULES = [
     LxInlineBusyComponent,
     LxTableLoadingComponent,
     LxPageHeroComponent,
+    LxWorkspaceHeroActionsDirective,
+    LxWorkspaceHeroComponent,
+    LxWorkspaceHeroStatComponent,
     ...MATERIAL_MODULES,
   ],
 })

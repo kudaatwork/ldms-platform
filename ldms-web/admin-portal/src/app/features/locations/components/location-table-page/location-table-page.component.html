@@ -1,11 +1,13 @@
 <div class="lx-page">
-  <lx-page-hero
+  <lx-workspace-hero
+    variant="emerald"
     eyebrow="Geography"
+    eyebrowIcon="public"
     [title]="pageTitle"
     [lead]="pageLead"
-    icon="public"
-    variant="emerald"
-  ></lx-page-hero>
+    hubIcon="public"
+    [orbitIcons]="['map', 'location_city', 'pin_drop']"
+  ></lx-workspace-hero>
 
   <div class="lx-card lx-card--subsection lx-address-i18n" *ngIf="entity === 'address'">
     <h3 class="lx-address-i18n__title">Languages and localized names</h3>

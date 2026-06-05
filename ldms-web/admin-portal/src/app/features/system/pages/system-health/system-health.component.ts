@@ -107,6 +107,15 @@ export class SystemHealthComponent implements OnInit, OnDestroy {
     return !!this.loadError && !this.snapshot;
   }
 
+  get initialLoad(): boolean {
+    return this.loading && !this.snapshot;
+  }
+
+  /** Hero KPI tiles while the first probe cycle is in flight. */
+  statDisplay(value: number | undefined): string | number {
+    return this.initialLoad ? '—' : (value ?? 0);
+  }
+
   ngOnInit(): void {
     this.title.setTitle('System Health | LX Admin');
     interval(30_000)
@@ -127,6 +136,7 @@ export class SystemHealthComponent implements OnInit, OnDestroy {
               return EMPTY;
             }),
             finalize(() => {
+              this.loading = false;
               this.refreshing = false;
               this.cdr.markForCheck();
             }),

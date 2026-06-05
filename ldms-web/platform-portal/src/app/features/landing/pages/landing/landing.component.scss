@@ -58,17 +58,47 @@
 }
 
 .ldms-word--accent {
-  background: linear-gradient(120deg, #2563eb 0%, #3b82f6 42%, #f97316 100%);
+  background: linear-gradient(
+    120deg,
+    #2563eb 0%,
+    #3b82f6 28%,
+    #60a5fa 42%,
+    #f97316 58%,
+    #fb923c 72%,
+    #3b82f6 100%
+  );
+  background-size: 220% auto;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  animation: accentShimmer 7s ease-in-out infinite;
 }
 
 :host-context(html.theme-dark) .ldms-word--accent {
-  background: linear-gradient(120deg, #60a5fa 0%, #38bdf8 45%, #fb923c 100%);
+  background: linear-gradient(
+    120deg,
+    #60a5fa 0%,
+    #38bdf8 28%,
+    #93c5fd 42%,
+    #fb923c 58%,
+    #fdba74 72%,
+    #60a5fa 100%
+  );
+  background-size: 220% auto;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  animation: accentShimmer 7s ease-in-out infinite;
+}
+
+@keyframes accentShimmer {
+  0%,
+  100% {
+    background-position: 0% center;
+  }
+  50% {
+    background-position: 100% center;
+  }
 }
 
 .ldms-reveal {
@@ -107,6 +137,7 @@
   border-radius: 50%;
   filter: blur(90px);
   pointer-events: none;
+  will-change: transform;
 }
 
 .ldms-orb-global--a {
@@ -115,6 +146,7 @@
   top: -10%;
   left: -15%;
   background: radial-gradient(circle, var(--ldms-orb-blue), transparent 70%);
+  animation: orbDriftA 22s ease-in-out infinite;
 }
 
 .ldms-orb-global--b {
@@ -123,6 +155,7 @@
   top: 5%;
   right: -12%;
   background: radial-gradient(circle, var(--ldms-orb-orange), transparent 70%);
+  animation: orbDriftB 26s ease-in-out infinite;
 }
 
 .ldms-orb-global--c {
@@ -131,6 +164,37 @@
   top: 40%;
   left: 30%;
   background: radial-gradient(circle, var(--ldms-orb-navy), transparent 70%);
+  animation: orbDriftC 30s ease-in-out infinite;
+}
+
+@keyframes orbDriftA {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(48px, 32px) scale(1.06);
+  }
+}
+
+@keyframes orbDriftB {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-56px, 40px) scale(1.08);
+  }
+}
+
+@keyframes orbDriftC {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(36px, -44px) scale(1.04);
+  }
 }
 
 .ldms-hero-badge {
@@ -146,6 +210,9 @@
   background: rgba(7, 12, 26, 0.92);
   border: 1px solid rgba(59, 130, 246, 0.35);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: badgeFloat 4.2s ease-in-out infinite;
 }
 
 .ldms-hero-badge__dot {
@@ -198,6 +265,9 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   min-width: 180px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  animation: statCardFloat 5s ease-in-out infinite;
 }
 
 .ldms-hero-stat-card__row {
@@ -341,7 +411,9 @@
 .ldms-landing__nav-shell--scrolled {
   border-color: rgba(148, 163, 184, 0.22);
   box-shadow: 0 12px 40px rgba(15, 23, 42, 0.1);
-  background: var(--page-bg);
+  background: color-mix(in srgb, var(--page-bg) 88%, transparent);
+  backdrop-filter: blur(16px) saturate(1.4);
+  -webkit-backdrop-filter: blur(16px) saturate(1.4);
 }
 
 :host-context(html.theme-dark) .ldms-landing__nav-shell {
@@ -353,7 +425,9 @@
 :host-context(html.theme-dark) .ldms-landing__nav-shell--scrolled {
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.42);
-  background: #0d1830;
+  background: rgba(13, 24, 48, 0.88);
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
 }
 
 :host-context(html.theme-dark) .ldms-landing__nav {
@@ -660,10 +734,63 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  overflow: hidden;
   background:
     radial-gradient(680px 420px at 18% 22%, rgba(59, 130, 246, 0.16), transparent 62%),
     radial-gradient(540px 360px at 82% 18%, rgba(249, 115, 22, 0.12), transparent 58%),
     radial-gradient(420px 280px at 50% 88%, rgba(139, 92, 246, 0.08), transparent 55%);
+}
+
+.ldms-landing__hero-route {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.45;
+}
+
+.ldms-landing__hero-route-line {
+  fill: none;
+  stroke: url(#ldms-route-grad);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 8 14;
+  animation: routeDash 18s linear infinite;
+}
+
+.ldms-landing__hero-route-line--b {
+  stroke-dasharray: 6 16;
+  animation-duration: 24s;
+  animation-direction: reverse;
+  opacity: 0.65;
+}
+
+.ldms-landing__hero-route-node {
+  fill: #60a5fa;
+  filter: drop-shadow(0 0 6px rgba(96, 165, 250, 0.9));
+  animation: routeNodePulse 2.4s ease-in-out infinite;
+}
+
+.ldms-landing__hero-route-node:last-of-type {
+  animation-delay: 1.2s;
+  fill: #fb923c;
+  filter: drop-shadow(0 0 6px rgba(251, 146, 60, 0.85));
+}
+
+@keyframes routeDash {
+  to {
+    stroke-dashoffset: -220;
+  }
+}
+
+@keyframes routeNodePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
 }
 
 .ldms-landing__hero-shell {
@@ -929,15 +1056,35 @@
     0 32px 80px rgba(37, 99, 235, 0.22),
     0 0 0 1px rgba(148, 163, 184, 0.12);
   background: #0f172a;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.ldms-landing__hero-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    420px circle at var(--hero-spot-x, 50%) var(--hero-spot-y, 50%),
+    rgba(96, 165, 250, 0.22),
+    transparent 55%
+  );
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ldms-landing__hero-art:hover::before {
+    opacity: 1;
+  }
 }
 
 @media (hover: hover) and (pointer: fine) {
   .ldms-landing__hero-art {
-    transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
-
-    &:hover {
-      transform: translateY(-4px);
-    }
+    transition: box-shadow 0.45s ease;
   }
 }
 
@@ -965,6 +1112,17 @@
   object-fit: cover;
   object-position: center 42%;
   transform: scale(1.06);
+  animation: heroKenBurns 22s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes heroKenBurns {
+  0% {
+    transform: scale(1.06) translate(0, 0);
+  }
+  100% {
+    transform: scale(1.12) translate(-1.2%, -0.8%);
+  }
 }
 
 .ldms-landing__hero-scrim {
@@ -1017,6 +1175,7 @@
   border-radius: 999px;
   opacity: 0.35;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  animation: corridorPulse 4.8s ease-in-out infinite;
 
   &--a {
     width: 42%;
@@ -1032,6 +1191,7 @@
     bottom: 38%;
     right: 10%;
     transform: rotate(6deg);
+    animation-delay: 1.6s;
   }
 
   &--c {
@@ -1040,6 +1200,17 @@
     bottom: 18%;
     left: 22%;
     transform: rotate(-3deg);
+    animation-delay: 3.1s;
+  }
+}
+
+@keyframes corridorPulse {
+  0%,
+  100% {
+    opacity: 0.22;
+  }
+  50% {
+    opacity: 0.58;
   }
 }
 
@@ -1310,6 +1481,22 @@
   box-shadow:
     0 28px 60px rgba(37, 99, 235, 0.35),
     0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  animation: showcaseGlow 5s ease-in-out infinite;
+}
+
+@keyframes showcaseGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 28px 60px rgba(37, 99, 235, 0.35),
+      0 0 0 1px rgba(255, 255, 255, 0.12) inset;
+  }
+  50% {
+    box-shadow:
+      0 32px 72px rgba(37, 99, 235, 0.48),
+      0 0 48px rgba(249, 115, 22, 0.12),
+      0 0 0 1px rgba(255, 255, 255, 0.16) inset;
+  }
 }
 
 .ldms-landing__showcase-video {
@@ -1970,9 +2157,21 @@
 .ldms-landing__cta-band {
   padding: clamp(40px, 6vw, 72px) clamp(20px, 4vw, 40px);
   background: linear-gradient(120deg, #0f1c45 0%, #1b2a5e 55%, #0d1830 100%);
+  background-size: 200% 200%;
+  animation: ctaBandShift 14s ease-in-out infinite;
   color: #f8fafc;
   position: relative;
   overflow: hidden;
+}
+
+@keyframes ctaBandShift {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
 }
 
 .ldms-landing__cta-band::before {
@@ -2930,7 +3129,16 @@
 
   .ldms-orb-global,
   .ldms-landing__hero-glow,
-  .ldms-landing__marquee-track {
+  .ldms-landing__marquee-track,
+  .ldms-landing__hero-img,
+  .ldms-landing__hero-route-line,
+  .ldms-landing__hero-route-node,
+  .ldms-landing__hero-floating-line,
+  .ldms-landing__showcase-frame,
+  .ldms-landing__cta-band,
+  .ldms-word--accent,
+  .ldms-hero-badge,
+  .ldms-hero-stat-card {
     animation: none !important;
   }
 

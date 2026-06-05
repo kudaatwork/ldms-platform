@@ -49,10 +49,12 @@ import projectlx.user.management.business.logic.api.HelpSupportService;
 import projectlx.user.management.business.logic.impl.HelpSupportServiceImpl;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceProvisioner;
+import projectlx.user.management.business.logic.support.SupportTicketOperationsSupport;
 import projectlx.user.management.business.logic.support.SupportTicketAssignmentService;
 import projectlx.user.management.business.validator.api.HelpSupportServiceValidator;
 import projectlx.user.management.business.validator.impl.HelpSupportServiceValidatorImpl;
 import projectlx.user.management.repository.HelpArticleRepository;
+import projectlx.user.management.repository.SupportTicketMessageRepository;
 import projectlx.user.management.repository.SupportTicketRepository;
 import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
 import projectlx.user.management.utils.config.PasswordResetLinkProperties;
@@ -125,6 +127,16 @@ public class BusinessConfig {
     }
 
     @Bean
+    public SupportTicketOperationsSupport supportTicketOperationsSupport(
+            SupportTicketRepository supportTicketRepository,
+            SupportTicketMessageRepository supportTicketMessageRepository,
+            UserRepository userRepository,
+            ModelMapper modelMapper) {
+        return new SupportTicketOperationsSupport(
+                supportTicketRepository, supportTicketMessageRepository, userRepository, modelMapper);
+    }
+
+    @Bean
     public HelpSupportService helpSupportService(HelpSupportServiceValidator helpSupportServiceValidator,
                                                  MessageService messageService,
                                                  HelpArticleRepository helpArticleRepository,
@@ -132,10 +144,11 @@ public class BusinessConfig {
                                                  UserRepository userRepository,
                                                  PlatformHealthService platformHealthService,
                                                  SupportTicketAssignmentService supportTicketAssignmentService,
+                                                 SupportTicketOperationsSupport supportTicketOperationsSupport,
                                                  ModelMapper modelMapper) {
         return new HelpSupportServiceImpl(helpSupportServiceValidator, messageService, helpArticleRepository,
                 supportTicketRepository, userRepository, platformHealthService, supportTicketAssignmentService,
-                modelMapper);
+                supportTicketOperationsSupport, modelMapper);
     }
 
     @Bean

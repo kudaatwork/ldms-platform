@@ -2,7 +2,6 @@ import { APP_INITIALIZER, NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { HttpClientModule } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
 
 import { AppRoutingModule } from './app-routing.module';
 import { AppComponent } from './app.component';
@@ -12,7 +11,6 @@ import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.compone
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
 import { LandingComponent } from './features/landing/pages/landing/landing.component';
 import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
-import { AccountModule } from './features/account/account.module';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 
@@ -22,12 +20,11 @@ export function initPlatformTheme(theme: ThemeService): () => void {
   };
 }
 
-export function initPlatformSession(auth: AuthService): () => Promise<void> {
-  return () =>
-    firstValueFrom(auth.initializeSession()).then(
-      () => undefined,
-      () => undefined,
-    );
+/** Non-blocking: never hold bootstrap on profile/org HTTP (prevents frozen login UI). */
+export function initPlatformSession(auth: AuthService): () => void {
+  return () => {
+    auth.bootstrapFromStorage();
+  };
 }
 
 @NgModule({
@@ -42,7 +39,6 @@ export function initPlatformSession(auth: AuthService): () => Promise<void> {
     BrowserModule,
     BrowserAnimationsModule,
     HttpClientModule,
-    AccountModule,
     CoreModule,
     SharedModule,
     AppRoutingModule,
