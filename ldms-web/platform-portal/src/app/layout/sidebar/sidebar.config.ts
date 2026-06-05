@@ -74,7 +74,7 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
     { label: 'Products/Inventory', route: '/products-inventory', icon: 'inventory_2' },
     { label: 'Purchase Orders', route: '/purchase-orders', icon: 'shopping_cart' },
     { label: 'Shipments', route: '/shipments', icon: 'local_shipping' },
-    { label: 'Fleet', route: '/fleet', icon: 'directions_car' },
+    { label: 'Fleet & Transporters', route: '/fleet', icon: 'local_shipping' },
     { label: 'Customers', route: '/customers', icon: 'groups' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
     { label: 'Billing', route: '/billing', icon: 'receipt_long' },
@@ -91,7 +91,7 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
   ],
   TRANSPORT_COMPANY: [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
-    { label: 'Fleet', route: '/fleet', icon: 'local_shipping' },
+    { label: 'Fleet & Transporters', route: '/fleet', icon: 'local_shipping' },
     { label: 'Drivers', route: '/drivers', icon: 'badge' },
     { label: 'Trips', route: '/trips', icon: 'route' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },

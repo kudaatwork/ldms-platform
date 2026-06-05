@@ -1,0 +1,50 @@
+<header class="lx-ws-hero" [ngClass]="'lx-ws-hero--' + variant">
+  <!-- decorative background layers -->
+  <div class="lx-ws-hero__road"          aria-hidden="true"></div>
+  <div class="lx-ws-hero__radar"         aria-hidden="true"></div>
+  <div class="lx-ws-hero__grid"          aria-hidden="true"></div>
+  <div class="lx-ws-hero__glow lx-ws-hero__glow--primary"   aria-hidden="true"></div>
+  <div class="lx-ws-hero__glow lx-ws-hero__glow--secondary" aria-hidden="true"></div>
+
+  <!-- copy + orbit widget -->
+  <div class="lx-ws-hero__body">
+    <div class="lx-ws-hero__copy">
+      <p class="lx-ws-hero__eyebrow">
+        <mat-icon>{{ eyebrowIcon }}</mat-icon>
+        {{ eyebrow }}
+      </p>
+
+      <h1 class="lx-ws-hero__title">{{ title }}</h1>
+      <p class="lx-ws-hero__lead">{{ lead }}</p>
+
+      <div class="lx-ws-hero__actions">
+        <ng-content select="[lxWorkspaceHeroActions]"></ng-content>
+      </div>
+
+      <p class="lx-ws-hero__preview-note" *ngIf="note">
+        <mat-icon>auto_awesome</mat-icon>
+        {{ note }}
+      </p>
+    </div>
+
+    <!-- animated orbit widget -->
+    <div class="lx-ws-hero__orbit" aria-hidden="true">
+      <div class="lx-ws-orbit__ring"></div>
+      <div class="lx-ws-orbit__hub">
+        <mat-icon>{{ hubIcon }}</mat-icon>
+      </div>
+      <span
+        *ngFor="let orbitIcon of orbitIcons.slice(0, 3); let i = index"
+        [class]="'lx-ws-orbit__node lx-ws-orbit__node--' + (i + 1)"
+        [style.animation-delay]="(i * 1.2) + 's'"
+      >
+        <mat-icon>{{ orbitIcon }}</mat-icon>
+      </span>
+    </div>
+  </div>
+
+  <!-- bento stat cards — project lx-workspace-hero-stat children here -->
+  <div class="lx-ws-bento">
+    <ng-content select="lx-workspace-hero-stat"></ng-content>
+  </div>
+</header>

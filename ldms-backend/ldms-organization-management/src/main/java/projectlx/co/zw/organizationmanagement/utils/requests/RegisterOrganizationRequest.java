@@ -37,6 +37,14 @@ public class RegisterOrganizationRequest {
     private Long contactPersonPassportUploadId;
     private String registrationNumber;
     private String taxNumber;
+
+    /** Physical address (optional). When line1 and suburbId are set, an address row is created in ldms-locations. */
+    private String addressLine1;
+    private String addressLine2;
+    private String postalCode;
+    private Long suburbId;
+    /** Pre-created ldms-locations address id; used when the client created the address separately. */
+    private Long locationId;
     /** When false, organisation was registered by an administrator (not public signup). */
     private Boolean createdViaSignup;
 
@@ -44,4 +52,9 @@ public class RegisterOrganizationRequest {
     private MultipartFile taxClearanceCertificateUpload;
     /** Pre-uploaded file-upload row id when the client uploaded via file-upload-service first. */
     private Long taxClearanceCertificateUploadId;
+
+    /** ISO date {@code yyyy-MM-dd}; required when contracting a transport company. */
+    private String contractStartDate;
+    /** ISO date {@code yyyy-MM-dd}; optional open-ended contract when omitted. */
+    private String contractEndDate;
 }

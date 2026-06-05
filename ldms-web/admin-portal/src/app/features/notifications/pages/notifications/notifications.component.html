@@ -1,11 +1,13 @@
 <div class="lx-page nt-page">
-  <lx-page-hero
+  <lx-workspace-hero
+    variant="amber"
     eyebrow="Communications"
+    eyebrowIcon="notifications_active"
     title="Notifications"
     lead="Manage templates (add, export, enable/disable). Delivery log entries are read-only."
-    icon="notifications_active"
-    variant="amber"
-  ></lx-page-hero>
+    hubIcon="notifications"
+    [orbitIcons]="['mail', 'campaign', 'history']"
+  ></lx-workspace-hero>
 
   <mat-tab-group class="nt-tabs" animationDuration="200ms" (selectedIndexChange)="onTabChange($event)">
     <mat-tab label="Templates">

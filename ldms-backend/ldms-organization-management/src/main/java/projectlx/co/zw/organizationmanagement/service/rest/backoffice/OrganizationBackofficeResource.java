@@ -146,7 +146,7 @@ public class OrganizationBackofficeResource {
     }
 
     @Auditable(action = "ORG_SYSTEM_GET_BY_ID")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     @Operation(summary = "Get organisation by id", description = "Includes branches, agents, linked customers, transporters, and clearing agents.")
     public OrganizationResponse getById(
             @PathVariable Long id,

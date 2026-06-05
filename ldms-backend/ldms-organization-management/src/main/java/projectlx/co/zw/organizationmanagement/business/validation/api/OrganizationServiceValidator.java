@@ -14,7 +14,6 @@ import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRe
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
-import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationRequest;
@@ -48,16 +47,16 @@ public interface OrganizationServiceValidator {
         return validateAddBranch(request, Locale.getDefault());
     }
 
-    ValidatorDto validateRegisterCustomer(RegisterCustomerOrganizationRequest request, Locale locale);
-
-    default ValidatorDto validateRegisterCustomer(RegisterCustomerOrganizationRequest request) {
-        return validateRegisterCustomer(request, Locale.getDefault());
-    }
-
     ValidatorDto validateLinkTransporter(LinkTransporterRequest request, Locale locale);
 
     default ValidatorDto validateLinkTransporter(LinkTransporterRequest request) {
         return validateLinkTransporter(request, Locale.getDefault());
+    }
+
+    ValidatorDto validateTransporterContract(String contractStartDate, String contractEndDate, Locale locale);
+
+    default ValidatorDto validateTransporterContract(String contractStartDate, String contractEndDate) {
+        return validateTransporterContract(contractStartDate, contractEndDate, Locale.getDefault());
     }
 
     ValidatorDto validateLinkCustomer(LinkCustomerRequest request, Locale locale);

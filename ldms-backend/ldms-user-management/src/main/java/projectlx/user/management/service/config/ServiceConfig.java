@@ -97,10 +97,7 @@ public class ServiceConfig {
     }
 
     @Bean
-    public HelpSupportServiceProcessor helpSupportServiceProcessor(HelpSupportService helpSupportService,
-                                                                   SupportTicketRepository supportTicketRepository,
-                                                                   ModelMapper modelMapper,
-                                                                   MessageService messageService) {
-        return new HelpSupportServiceProcessorImpl(helpSupportService, supportTicketRepository, modelMapper, messageService);
+    public HelpSupportServiceProcessor helpSupportServiceProcessor(HelpSupportService helpSupportService) {
+        return new HelpSupportServiceProcessorImpl(helpSupportService);
     }
 }

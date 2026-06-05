@@ -30,10 +30,15 @@ import projectlx.co.zw.organizationmanagement.business.logic.support.Organizatio
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationApprovedCredentialsSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationContactPersonProvisioningSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationKycNotifier;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationAddressSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationNotifier;
+import projectlx.co.zw.organizationmanagement.business.logic.support.SupplierRegisteredOrganizationOnboardingSupport;
+import projectlx.co.zw.shared_library.business.logic.impl.TokenService;
+import projectlx.co.zw.shared_library.utils.generators.SecureTokenGenerator;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationFileUploadHelper.UploadOutcome;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationFileUploadHelper.UploadPart;
 import projectlx.co.zw.organizationmanagement.business.validation.api.OrganizationServiceValidator;
+import projectlx.co.zw.organizationmanagement.model.ContractedTransporterLink;
 import projectlx.co.zw.organizationmanagement.model.Agent;
 import projectlx.co.zw.organizationmanagement.model.AgentKind;
 import projectlx.co.zw.organizationmanagement.model.Branch;
@@ -43,8 +48,10 @@ import projectlx.co.zw.organizationmanagement.model.KycReviewStage;
 import projectlx.co.zw.organizationmanagement.model.KycStatus;
 import projectlx.co.zw.organizationmanagement.model.Organization;
 import projectlx.co.zw.organizationmanagement.model.OrganizationClassification;
+import projectlx.co.zw.organizationmanagement.model.OrganizationType;
 import projectlx.co.zw.organizationmanagement.model.OrganizationKycReview;
 import projectlx.co.zw.organizationmanagement.model.PlatformKycPolicy;
+import projectlx.co.zw.organizationmanagement.repository.ContractedTransporterLinkRepository;
 import projectlx.co.zw.organizationmanagement.repository.AgentRepository;
 import projectlx.co.zw.organizationmanagement.repository.BranchRepository;
 import projectlx.co.zw.organizationmanagement.repository.IndustryRepository;
@@ -81,7 +88,6 @@ import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRe
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
-import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationKycStagesRequest;
@@ -100,6 +106,7 @@ import projectlx.co.zw.shared_library.utils.responses.OrganizationResponse;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -120,6 +127,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     private static final Set<String> TRUSTED_ADMIN_MODIFIERS = Set.of(SYSTEM_MODIFIER, "BACKOFFICE");
 
     private final OrganizationRepository organizationRepository;
+    private final ContractedTransporterLinkRepository contractedTransporterLinkRepository;
     private final IndustryRepository industryRepository;
     private final IndustryServiceAuditable industryServiceAuditable;
     private final BranchRepository branchRepository;
@@ -143,6 +151,9 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final OrganizationKycNotifier organizationKycNotifier;
     private final OrganizationApprovedCredentialsSupport organizationApprovedCredentialsSupport;
     private final OrganizationDirectoryNotifier organizationDirectoryNotifier;
+    private final OrganizationRegistrationAddressSupport organizationRegistrationAddressSupport;
+    private final SupplierRegisteredOrganizationOnboardingSupport supplierRegisteredOrganizationOnboardingSupport;
+    private final TokenService tokenService;
 
     @Override
     public OrganizationResponse register(RegisterOrganizationRequest request, Locale locale, String createdBy) {
@@ -196,6 +207,10 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         if (request.getTaxNumber() != null) {
             org.setTaxNumber(request.getTaxNumber().trim());
+        }
+        OrganizationResponse locationResponse = applyRegistrationLocationId(org, request, locale);
+        if (locationResponse != null) {
+            return locationResponse;
         }
         boolean viaSignup = request.getCreatedViaSignup() == null || Boolean.TRUE.equals(request.getCreatedViaSignup());
         org.setCreatedViaSignup(viaSignup);
@@ -539,8 +554,82 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
-    public OrganizationResponse registerCustomer(RegisterCustomerOrganizationRequest request, Locale locale, String username) {
-        ValidatorDto v = organizationServiceValidator.validateRegisterCustomer(request, locale);
+    @Transactional(readOnly = true)
+    public OrganizationResponse listTransporters(Locale locale, String username) {
+        Organization org = loadForUser(username);
+        List<OrganizationDto> dtos = new ArrayList<>();
+        if (org.getOrganizationClassification() == OrganizationClassification.SUPPLIER) {
+            List<ContractedTransporterLink> links = contractedTransporterLinkRepository
+                    .findByOrganizationIdAndEntityStatusNotOrderByLinkedAtDesc(org.getId(), EntityStatus.DELETED);
+            for (ContractedTransporterLink link : links) {
+                Organization transporter = link.getTransporter();
+                if (transporter != null && transporter.getEntityStatus() != EntityStatus.DELETED) {
+                    OrganizationDto dto = OrganizationMapping.toDto(transporter);
+                    applyTransporterContractMetadata(dto, link);
+                    dtos.add(dto);
+                }
+            }
+        } else if (org.getOrganizationClassification() == OrganizationClassification.TRANSPORT_COMPANY) {
+            List<ContractedTransporterLink> links = contractedTransporterLinkRepository
+                    .findByTransporterIdAndEntityStatusNotOrderByLinkedAtDesc(org.getId(), EntityStatus.DELETED);
+            for (ContractedTransporterLink link : links) {
+                Organization shipper = link.getOrganization();
+                if (shipper != null && shipper.getEntityStatus() != EntityStatus.DELETED) {
+                    OrganizationDto dto = OrganizationMapping.toDto(shipper);
+                    applyTransporterContractMetadata(dto, link);
+                    dtos.add(dto);
+                }
+            }
+        }
+        OrganizationResponse res = buildOrganizationResponse(null);
+        res.setOrganizationDtoList(dtos);
+        return res;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse searchTransportCompanyCandidates(String search, Locale locale, String username) {
+        Organization supplier = loadForUser(username);
+        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_TRANSPORTER_LINK.getCode(), new String[]{}, locale)));
+        }
+        java.util.Set<Long> exclude = new java.util.HashSet<>();
+        exclude.add(supplier.getId());
+        for (Organization linked : organizationRepository.findContractedTransportersForSupplier(
+                supplier.getId(), EntityStatus.DELETED)) {
+            if (linked.getId() != null) {
+                exclude.add(linked.getId());
+            }
+        }
+        Specification<Organization> spec = Specification.where(OrganizationSpecifications.notDeleted())
+                .and(OrganizationSpecifications.organizationClassificationEquals(OrganizationClassification.TRANSPORT_COMPANY))
+                .and(OrganizationSpecifications.organizationDirectoryEligible());
+        if (StringUtils.hasText(search)) {
+            spec = spec.and(OrganizationSpecifications.searchValueLike(search));
+        }
+        List<Organization> found = organizationRepository.findAll(
+                spec, PageRequest.of(0, 80, Sort.by(Sort.Direction.ASC, "name"))).getContent();
+        List<OrganizationDto> dtos = new ArrayList<>();
+        for (Organization candidate : found) {
+            if (candidate.getId() != null && !exclude.contains(candidate.getId())) {
+                dtos.add(OrganizationMapping.toDto(candidate));
+            }
+        }
+        OrganizationResponse res = buildOrganizationResponse(null);
+        res.setOrganizationDtoList(dtos);
+        return res;
+    }
+
+    @Override
+    public OrganizationResponse registerCustomer(RegisterOrganizationRequest request, Locale locale, String username) {
+        request.setOrganizationClassification(OrganizationClassification.CUSTOMER);
+        if (request.getOrganizationType() == null) {
+            request.setOrganizationType(OrganizationType.PRIVATE);
+        }
+        request.setCreatedViaSignup(false);
+
+        ValidatorDto v = organizationServiceValidator.validateRegister(request, locale);
         if (Boolean.FALSE.equals(v.getSuccess())) {
             return buildOrganizationResponseWithErrors(v.getErrorMessages());
         }
@@ -561,21 +650,449 @@ public class OrganizationServiceImpl implements OrganizationService {
         customer.setEmail(normalizedEmail);
         customer.setPhoneNumber(request.getPhoneNumber());
         customer.setOrganizationClassification(OrganizationClassification.CUSTOMER);
+        if (request.getOrganizationType() != null) {
+            customer.setOrganizationType(request.getOrganizationType());
+        }
+        if (request.getIndustryId() != null) {
+            industryRepository.findByIdAndEntityStatusNot(request.getIndustryId(), EntityStatus.DELETED)
+                    .ifPresent(customer::setIndustry);
+        }
+        customer.setContactPersonFirstName(request.getContactPersonFirstName());
+        customer.setContactPersonLastName(request.getContactPersonLastName());
+        customer.setContactPersonEmail(StringUtils.hasText(request.getContactPersonEmail())
+                ? request.getContactPersonEmail().trim().toLowerCase()
+                : null);
+        customer.setContactPersonPhoneNumber(request.getContactPersonPhoneNumber());
+        if (request.getContactPersonGender() != null) {
+            customer.setContactPersonGender(request.getContactPersonGender());
+        }
+        if (StringUtils.hasText(request.getContactPersonDateOfBirth())) {
+            customer.setContactPersonDateOfBirth(request.getContactPersonDateOfBirth().trim());
+        }
+        if (StringUtils.hasText(request.getContactPersonNationalIdNumber())) {
+            customer.setContactPersonNationalIdNumber(request.getContactPersonNationalIdNumber().trim());
+        }
+        if (StringUtils.hasText(request.getContactPersonPassportNumber())) {
+            customer.setContactPersonPassportNumber(request.getContactPersonPassportNumber().trim());
+        }
+        if (request.getRegistrationNumber() != null) {
+            customer.setRegistrationNumber(request.getRegistrationNumber().trim());
+        }
+        if (request.getTaxNumber() != null) {
+            customer.setTaxNumber(request.getTaxNumber().trim());
+        }
+        OrganizationResponse locationResponse = applyRegistrationLocationId(customer, request, locale);
+        if (locationResponse != null) {
+            return locationResponse;
+        }
         customer.setCreatedViaSignup(false);
-        customer.setKycStatus(KycStatus.DRAFT);
+        // Supplier-registered buyers skip platform KYC; organisation email must still be verified online.
+        customer.setKycStatus(KycStatus.APPROVED);
+        customer.setVerified(false);
+        customer.setEmailVerificationToken(null);
+        clearApproverAssignments(customer);
         customer.setEntityStatus(EntityStatus.ACTIVE);
         if (deletedCustomer.isEmpty()) {
             customer.setCreatedAt(LocalDateTime.now());
             customer.setCreatedBy(username);
         }
-        customer.setVerified(false);
         customer.setCurrentResubmissionCycle(0);
         customer.setResubmissionCount(0);
-        Organization savedCustomer = organizationServiceAuditable.save(customer);
+        organizationServiceAuditable.save(customer);
+
+        UploadOutcome uploadOutcome = organizationFileUploadHelper.processUploads(
+                customer,
+                List.of(new UploadPart(
+                        request.getTaxClearanceCertificateUpload(),
+                        request.getTaxClearanceCertificateUploadId(),
+                        FileType.TAX_CLEARANCE_CERTIFICATE,
+                        null,
+                        customer::setTaxClearanceCertificateUploadId)),
+                locale,
+                false);
+        if (!uploadOutcome.success()) {
+            return buildOrganizationResponseWithErrors(uploadOutcome.errorMessages());
+        }
+
+        UploadOutcome contactIdOutcome = organizationFileUploadHelper.processUploads(
+                customer,
+                List.of(
+                        contactUploadPart(
+                                request.getContactPersonNationalIdUpload(),
+                                request.getContactPersonNationalIdUploadId(),
+                                FileType.NATIONAL_ID,
+                                customer,
+                                customer::setContactPersonNationalIdUploadId,
+                                request.getContactPersonNationalIdExpiryDate()),
+                        contactUploadPart(
+                                request.getContactPersonPassportUpload(),
+                                request.getContactPersonPassportUploadId(),
+                                FileType.PASSPORT,
+                                customer,
+                                customer::setContactPersonPassportUploadId,
+                                request.getContactPersonPassportExpiryDate())),
+                locale,
+                false);
+        if (!contactIdOutcome.success()) {
+            return buildOrganizationResponseWithErrors(contactIdOutcome.errorMessages());
+        }
+
+        if ((request.getTaxClearanceCertificateUpload() != null && !request.getTaxClearanceCertificateUpload().isEmpty())
+                || request.getTaxClearanceCertificateUploadId() != null
+                || (request.getContactPersonNationalIdUpload() != null && !request.getContactPersonNationalIdUpload().isEmpty())
+                || request.getContactPersonNationalIdUploadId() != null
+                || (request.getContactPersonPassportUpload() != null && !request.getContactPersonPassportUpload().isEmpty())
+                || request.getContactPersonPassportUploadId() != null) {
+            organizationServiceAuditable.save(customer);
+        }
+
+        Organization savedCustomer = customer;
         supplier.getCustomers().add(savedCustomer);
         savedCustomer.getSuppliers().add(supplier);
         organizationServiceAuditable.save(supplier);
+
+        final Long registeredOrgId = savedCustomer.getId();
+        afterCommit(() -> supplierRegisteredOrganizationOnboardingSupport.completeOnboarding(registeredOrgId));
         return buildOrganizationResponse(OrganizationMapping.toDto(savedCustomer));
+    }
+
+    @Override
+    public OrganizationResponse registerTransporter(RegisterOrganizationRequest request, Locale locale, String username) {
+        request.setOrganizationClassification(OrganizationClassification.TRANSPORT_COMPANY);
+        if (request.getOrganizationType() == null) {
+            request.setOrganizationType(OrganizationType.PRIVATE);
+        }
+        request.setCreatedViaSignup(false);
+
+        ValidatorDto v = organizationServiceValidator.validateRegister(request, locale);
+        if (Boolean.FALSE.equals(v.getSuccess())) {
+            return buildOrganizationResponseWithErrors(v.getErrorMessages());
+        }
+        Organization supplier = loadForUser(username);
+        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_TRANSPORTER_LINK.getCode(), new String[]{}, locale)));
+        }
+        ValidatorDto contractValidation = organizationServiceValidator.validateTransporterContract(
+                request.getContractStartDate(), request.getContractEndDate(), locale);
+        if (Boolean.FALSE.equals(contractValidation.getSuccess())) {
+            return buildOrganizationResponseWithErrors(contractValidation.getErrorMessages());
+        }
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        if (organizationRepository.findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED).isPresent()) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
+        }
+        Optional<Organization> deletedTransporter = organizationRepository.findByEmail(normalizedEmail)
+                .filter(organization -> organization.getEntityStatus() == EntityStatus.DELETED);
+        Organization transporter = deletedTransporter.orElseGet(Organization::new);
+        transporter.setName(request.getName().trim());
+        transporter.setEmail(normalizedEmail);
+        transporter.setPhoneNumber(request.getPhoneNumber());
+        transporter.setOrganizationClassification(OrganizationClassification.TRANSPORT_COMPANY);
+        if (request.getOrganizationType() != null) {
+            transporter.setOrganizationType(request.getOrganizationType());
+        }
+        if (request.getIndustryId() != null) {
+            industryRepository.findByIdAndEntityStatusNot(request.getIndustryId(), EntityStatus.DELETED)
+                    .ifPresent(transporter::setIndustry);
+        }
+        transporter.setContactPersonFirstName(request.getContactPersonFirstName());
+        transporter.setContactPersonLastName(request.getContactPersonLastName());
+        transporter.setContactPersonEmail(StringUtils.hasText(request.getContactPersonEmail())
+                ? request.getContactPersonEmail().trim().toLowerCase()
+                : null);
+        transporter.setContactPersonPhoneNumber(request.getContactPersonPhoneNumber());
+        if (request.getContactPersonGender() != null) {
+            transporter.setContactPersonGender(request.getContactPersonGender());
+        }
+        if (StringUtils.hasText(request.getContactPersonDateOfBirth())) {
+            transporter.setContactPersonDateOfBirth(request.getContactPersonDateOfBirth().trim());
+        }
+        if (StringUtils.hasText(request.getContactPersonNationalIdNumber())) {
+            transporter.setContactPersonNationalIdNumber(request.getContactPersonNationalIdNumber().trim());
+        }
+        if (StringUtils.hasText(request.getContactPersonPassportNumber())) {
+            transporter.setContactPersonPassportNumber(request.getContactPersonPassportNumber().trim());
+        }
+        if (request.getRegistrationNumber() != null) {
+            transporter.setRegistrationNumber(request.getRegistrationNumber().trim());
+        }
+        if (request.getTaxNumber() != null) {
+            transporter.setTaxNumber(request.getTaxNumber().trim());
+        }
+        OrganizationResponse locationResponse = applyRegistrationLocationId(transporter, request, locale);
+        if (locationResponse != null) {
+            return locationResponse;
+        }
+        transporter.setCreatedViaSignup(false);
+        // Supplier-registered transporters skip platform KYC; organisation email must still be verified online.
+        transporter.setKycStatus(KycStatus.APPROVED);
+        transporter.setVerified(false);
+        transporter.setEmailVerificationToken(null);
+        clearApproverAssignments(transporter);
+        transporter.setEntityStatus(EntityStatus.ACTIVE);
+        if (deletedTransporter.isEmpty()) {
+            transporter.setCreatedAt(LocalDateTime.now());
+            transporter.setCreatedBy(username);
+        }
+        transporter.setCurrentResubmissionCycle(0);
+        transporter.setResubmissionCount(0);
+        organizationServiceAuditable.save(transporter);
+
+        UploadOutcome uploadOutcome = organizationFileUploadHelper.processUploads(
+                transporter,
+                List.of(new UploadPart(
+                        request.getTaxClearanceCertificateUpload(),
+                        request.getTaxClearanceCertificateUploadId(),
+                        FileType.TAX_CLEARANCE_CERTIFICATE,
+                        null,
+                        transporter::setTaxClearanceCertificateUploadId)),
+                locale,
+                false);
+        if (!uploadOutcome.success()) {
+            return buildOrganizationResponseWithErrors(uploadOutcome.errorMessages());
+        }
+
+        UploadOutcome contactIdOutcome = organizationFileUploadHelper.processUploads(
+                transporter,
+                List.of(
+                        contactUploadPart(
+                                request.getContactPersonNationalIdUpload(),
+                                request.getContactPersonNationalIdUploadId(),
+                                FileType.NATIONAL_ID,
+                                transporter,
+                                transporter::setContactPersonNationalIdUploadId,
+                                request.getContactPersonNationalIdExpiryDate()),
+                        contactUploadPart(
+                                request.getContactPersonPassportUpload(),
+                                request.getContactPersonPassportUploadId(),
+                                FileType.PASSPORT,
+                                transporter,
+                                transporter::setContactPersonPassportUploadId,
+                                request.getContactPersonPassportExpiryDate())),
+                locale,
+                false);
+        if (!contactIdOutcome.success()) {
+            return buildOrganizationResponseWithErrors(contactIdOutcome.errorMessages());
+        }
+
+        if ((request.getTaxClearanceCertificateUpload() != null && !request.getTaxClearanceCertificateUpload().isEmpty())
+                || request.getTaxClearanceCertificateUploadId() != null
+                || (request.getContactPersonNationalIdUpload() != null && !request.getContactPersonNationalIdUpload().isEmpty())
+                || request.getContactPersonNationalIdUploadId() != null
+                || (request.getContactPersonPassportUpload() != null && !request.getContactPersonPassportUpload().isEmpty())
+                || request.getContactPersonPassportUploadId() != null) {
+            organizationServiceAuditable.save(transporter);
+        }
+
+        Organization savedTransporter = transporter;
+        ContractedTransporterLink link = createTransporterContractLink(
+                supplier,
+                savedTransporter,
+                request.getContractStartDate(),
+                request.getContractEndDate(),
+                username);
+        organizationServiceAuditable.save(supplier);
+
+        final Long registeredOrgId = savedTransporter.getId();
+        afterCommit(() -> supplierRegisteredOrganizationOnboardingSupport.completeOnboarding(registeredOrgId));
+        OrganizationDto dto = OrganizationMapping.toDto(savedTransporter);
+        applyTransporterContractMetadata(dto, link);
+        return buildOrganizationResponse(dto);
+    }
+
+    @Override
+    public OrganizationResponse verifyOrganizationEmail(String email, String token, Locale locale) {
+        SecureTokenGenerator.TokenValidationResult validationResult = tokenService.validateVerificationToken(token);
+        if (!validationResult.isValid()) {
+            String message = validationResult.isExpired()
+                    ? messageService.getMessage(I18Code.ORG_VERIFICATION_LINK_EXPIRED.getCode(), new String[] {}, locale)
+                    : messageService.getMessage(I18Code.ORG_VERIFICATION_LINK_INVALID.getCode(), new String[] {}, locale);
+            return buildOrganizationResponseWithErrors(List.of(message));
+        }
+        if (!StringUtils.hasText(email)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_VERIFICATION_LINK_INVALID.getCode(), new String[] {}, locale)));
+        }
+        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+        Organization org = organizationRepository
+                .findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED)
+                .orElse(null);
+        if (org == null) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_NOT_FOUND.getCode(), new String[] {}, locale)));
+        }
+        if (org.isVerified()) {
+            OrganizationResponse response = buildOrganizationResponse(OrganizationMapping.toDto(org));
+            response.setVerified(true);
+            response.setMessage(messageService.getMessage(
+                    I18Code.ORG_EMAIL_ALREADY_VERIFIED.getCode(), new String[] {}, locale));
+            return response;
+        }
+        if (token == null || !token.equals(org.getEmailVerificationToken())) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_VERIFICATION_LINK_INVALID.getCode(), new String[] {}, locale)));
+        }
+        supplierRegisteredOrganizationOnboardingSupport.markVerifiedAfterEmailConfirmation(org);
+        Organization verified = organizationRepository
+                .findByIdAndEntityStatusNot(org.getId(), EntityStatus.DELETED)
+                .orElse(org);
+        OrganizationResponse response = buildOrganizationResponse(OrganizationMapping.toDto(verified));
+        response.setVerified(true);
+        response.setMessage(messageService.getMessage(
+                I18Code.ORG_EMAIL_VERIFIED_SUCCESSFULLY.getCode(), new String[] {}, locale));
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse getCustomer(Long customerId, Locale locale, String username) {
+        Organization supplier = loadForUser(username);
+        Organization customer = requireLinkedCustomer(supplier, customerId, locale);
+        return buildOrganizationResponse(OrganizationMapping.toDto(customer));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse getTransporter(Long transporterId, Locale locale, String username) {
+        Organization caller = loadForUser(username);
+        Organization partner = requireLinkedTransportPartner(caller, transporterId, locale);
+        OrganizationDto dto = OrganizationMapping.toDto(partner);
+        resolveTransporterContractMetadata(caller, partner, dto);
+        return buildOrganizationResponse(dto);
+    }
+
+    @Override
+    public OrganizationResponse updateCustomer(
+            Long customerId, RegisterOrganizationRequest request, Locale locale, String username) {
+        request.setOrganizationClassification(OrganizationClassification.CUSTOMER);
+        if (request.getOrganizationType() == null) {
+            request.setOrganizationType(OrganizationType.PRIVATE);
+        }
+        request.setCreatedViaSignup(false);
+
+        Organization supplier = loadForUser(username);
+        Organization customer = requireLinkedCustomer(supplier, customerId, locale);
+        primeExistingCustomerUploadIds(customer, request);
+
+        ValidatorDto v = organizationServiceValidator.validateRegister(request, locale);
+        if (Boolean.FALSE.equals(v.getSuccess())) {
+            return buildOrganizationResponseWithErrors(v.getErrorMessages());
+        }
+
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        Optional<Organization> emailOwner = organizationRepository.findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED);
+        if (emailOwner.isPresent() && !emailOwner.get().getId().equals(customerId)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
+        }
+
+        customer.setName(request.getName().trim());
+        customer.setEmail(normalizedEmail);
+        customer.setPhoneNumber(request.getPhoneNumber());
+        if (request.getOrganizationType() != null) {
+            customer.setOrganizationType(request.getOrganizationType());
+        }
+        if (request.getIndustryId() != null) {
+            industryRepository.findByIdAndEntityStatusNot(request.getIndustryId(), EntityStatus.DELETED)
+                    .ifPresent(customer::setIndustry);
+        }
+        customer.setContactPersonFirstName(request.getContactPersonFirstName());
+        customer.setContactPersonLastName(request.getContactPersonLastName());
+        customer.setContactPersonEmail(StringUtils.hasText(request.getContactPersonEmail())
+                ? request.getContactPersonEmail().trim().toLowerCase()
+                : null);
+        customer.setContactPersonPhoneNumber(request.getContactPersonPhoneNumber());
+        if (request.getContactPersonGender() != null) {
+            customer.setContactPersonGender(request.getContactPersonGender());
+        }
+        if (StringUtils.hasText(request.getContactPersonDateOfBirth())) {
+            customer.setContactPersonDateOfBirth(request.getContactPersonDateOfBirth().trim());
+        }
+        if (StringUtils.hasText(request.getContactPersonNationalIdNumber())) {
+            customer.setContactPersonNationalIdNumber(request.getContactPersonNationalIdNumber().trim());
+        }
+        if (StringUtils.hasText(request.getContactPersonPassportNumber())) {
+            customer.setContactPersonPassportNumber(request.getContactPersonPassportNumber().trim());
+        }
+        if (request.getRegistrationNumber() != null) {
+            customer.setRegistrationNumber(request.getRegistrationNumber().trim());
+        }
+        if (request.getTaxNumber() != null) {
+            customer.setTaxNumber(request.getTaxNumber().trim());
+        }
+        OrganizationResponse locationResponse = applyRegistrationLocationId(customer, request, locale);
+        if (locationResponse != null) {
+            return locationResponse;
+        }
+        customer.setModifiedAt(LocalDateTime.now());
+        customer.setModifiedBy(username);
+        organizationServiceAuditable.save(customer);
+
+        UploadOutcome uploadOutcome = organizationFileUploadHelper.processUploads(
+                customer,
+                List.of(new UploadPart(
+                        request.getTaxClearanceCertificateUpload(),
+                        request.getTaxClearanceCertificateUploadId(),
+                        FileType.TAX_CLEARANCE_CERTIFICATE,
+                        null,
+                        customer::setTaxClearanceCertificateUploadId)),
+                locale,
+                true);
+        if (!uploadOutcome.success()) {
+            return buildOrganizationResponseWithErrors(uploadOutcome.errorMessages());
+        }
+
+        UploadOutcome contactIdOutcome = organizationFileUploadHelper.processUploads(
+                customer,
+                List.of(
+                        contactUploadPart(
+                                request.getContactPersonNationalIdUpload(),
+                                request.getContactPersonNationalIdUploadId(),
+                                FileType.NATIONAL_ID,
+                                customer,
+                                customer::setContactPersonNationalIdUploadId,
+                                request.getContactPersonNationalIdExpiryDate()),
+                        contactUploadPart(
+                                request.getContactPersonPassportUpload(),
+                                request.getContactPersonPassportUploadId(),
+                                FileType.PASSPORT,
+                                customer,
+                                customer::setContactPersonPassportUploadId,
+                                request.getContactPersonPassportExpiryDate())),
+                locale,
+                true);
+        if (!contactIdOutcome.success()) {
+            return buildOrganizationResponseWithErrors(contactIdOutcome.errorMessages());
+        }
+
+        organizationServiceAuditable.save(customer);
+        return buildOrganizationResponse(OrganizationMapping.toDto(customer));
+    }
+
+    @Override
+    public OrganizationResponse deleteCustomer(Long customerId, Locale locale, String username) {
+        Organization supplier = loadForUser(username);
+        Organization customer = requireLinkedCustomer(supplier, customerId, locale);
+
+        supplier.getCustomers().remove(customer);
+        customer.getSuppliers().remove(supplier);
+        organizationServiceAuditable.save(supplier);
+        organizationServiceAuditable.save(customer);
+
+        if (customer.getSuppliers().isEmpty() && !Boolean.TRUE.equals(customer.getCreatedViaSignup())) {
+            customer.setEntityStatus(EntityStatus.DELETED);
+            customer.setModifiedAt(LocalDateTime.now());
+            customer.setModifiedBy(username);
+            organizationServiceAuditable.save(customer);
+        }
+
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(200);
+        res.setMessage(messageService.getMessage(I18Code.ORG_DELETED.getCode(), new String[] {}, locale));
+        return res;
     }
 
     @Override
@@ -592,8 +1109,12 @@ public class OrganizationServiceImpl implements OrganizationService {
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_TRANSPORTER_LINK.getCode(), new String[]{}, locale)));
         }
         if (!org.getContractedTransporters().contains(transporter)) {
-            org.getContractedTransporters().add(transporter);
-            transporter.getContractingOrganizations().add(org);
+            createTransporterContractLink(
+                    org,
+                    transporter,
+                    request.getContractStartDate(),
+                    request.getContractEndDate(),
+                    username);
             organizationServiceAuditable.save(org);
             organizationServiceAuditable.save(transporter);
             organizationDirectoryNotifier.sendTransporterLinked(org, transporter, username);
@@ -658,8 +1179,12 @@ public class OrganizationServiceImpl implements OrganizationService {
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_TRANSPORTER_LINK.getCode(), new String[]{}, locale)));
         }
         if (!org.getContractedTransporters().contains(transporter)) {
-            org.getContractedTransporters().add(transporter);
-            transporter.getContractingOrganizations().add(org);
+            createTransporterContractLink(
+                    org,
+                    transporter,
+                    request.getContractStartDate(),
+                    request.getContractEndDate(),
+                    username);
             organizationServiceAuditable.save(org);
             organizationServiceAuditable.save(transporter);
             organizationDirectoryNotifier.sendTransporterLinked(org, transporter, username);
@@ -1064,6 +1589,23 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     @Override
     @Transactional(readOnly = true)
+    public OrganizationResponse listActiveIndustriesForPlatform(Locale locale) {
+        List<Industry> industries = industryRepository.findByEntityStatusNotOrderByNameAsc(EntityStatus.DELETED);
+        List<IndustryUsageDto> usageRows = new ArrayList<>();
+        for (Industry industry : industries) {
+            if (industry.isActive()) {
+                usageRows.add(IndustryMapping.toUsageDto(industry));
+            }
+        }
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(200);
+        res.setIndustryUsageDtoList(usageRows);
+        return res;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public OrganizationResponse findIndustriesByMultipleFilters(IndustryMultipleFiltersRequest request, Locale locale) {
         ValidatorDto validation = organizationServiceValidator.validateFindIndustriesByMultipleFilters(request, locale);
         if (!validation.getSuccess()) {
@@ -1274,6 +1816,19 @@ public class OrganizationServiceImpl implements OrganizationService {
         res.setStatusCode(200);
         res.setKycReviews(dtos);
         return res;
+    }
+
+    private OrganizationResponse applyRegistrationLocationId(
+            Organization org, RegisterOrganizationRequest request, Locale locale) {
+        try {
+            Long locationId = organizationRegistrationAddressSupport.resolveLocationId(request, locale);
+            if (locationId != null) {
+                org.setLocationId(locationId);
+            }
+            return null;
+        } catch (IllegalArgumentException | IllegalStateException ex) {
+            return buildOrganizationResponseWithErrors(List.of(ex.getMessage()));
+        }
     }
 
     private IndustryUsageDto enrichIndustryUsage(Industry industry) {
@@ -1858,6 +2413,9 @@ public class OrganizationServiceImpl implements OrganizationService {
         r.setSuccess(false);
         r.setStatusCode(400);
         r.setErrorMessages(errors);
+        if (errors != null && !errors.isEmpty()) {
+            r.setMessage(errors.get(0));
+        }
         return r;
     }
 
@@ -2018,9 +2576,125 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     /**
+     * Resolves the transport-company partner visible to the caller:
+     * - SUPPLIER: the target must be a TRANSPORT_COMPANY in the supplier's contractedTransporters.
+     * - TRANSPORT_COMPANY: the target must be one of the shippers that have contracted this transporter
+     *   (i.e. present in findContractingOrganizationsForTransporter).
+     */
+    private Organization requireLinkedTransportPartner(Organization caller, Long transporterId, Locale locale) {
+        Organization partner = organizationRepository.findByIdAndEntityStatusNot(transporterId, EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+
+        if (caller.getOrganizationClassification() == OrganizationClassification.SUPPLIER) {
+            if (partner.getOrganizationClassification() != OrganizationClassification.TRANSPORT_COMPANY) {
+                throw notFound(locale);
+            }
+            List<Organization> contracted = organizationRepository.findContractedTransportersForSupplier(
+                    caller.getId(), EntityStatus.DELETED);
+            if (!contracted.contains(partner)) {
+                throw notFound(locale);
+            }
+        } else if (caller.getOrganizationClassification() == OrganizationClassification.TRANSPORT_COMPANY) {
+            List<Organization> contracting = organizationRepository.findContractingOrganizationsForTransporter(
+                    caller.getId(), EntityStatus.DELETED);
+            if (!contracting.contains(partner)) {
+                throw notFound(locale);
+            }
+        } else {
+            throw notFound(locale);
+        }
+
+        return partner;
+    }
+
+    /**
      * Platform self-service may edit only while KYC is draft/resubmitted.
      * Admin/system/backoffice updates and admin-registered organisations are exempt.
      */
+    private ContractedTransporterLink createTransporterContractLink(
+            Organization supplier,
+            Organization transporter,
+            String contractStartDateRaw,
+            String contractEndDateRaw,
+            String username) {
+        LocalDate start = LocalDate.parse(contractStartDateRaw.trim());
+        LocalDate end = StringUtils.hasText(contractEndDateRaw) ? LocalDate.parse(contractEndDateRaw.trim()) : null;
+        LocalDateTime now = LocalDateTime.now();
+
+        ContractedTransporterLink link = contractedTransporterLinkRepository
+                .findByOrganizationIdAndTransporterId(supplier.getId(), transporter.getId())
+                .orElseGet(ContractedTransporterLink::new);
+        link.setOrganizationId(supplier.getId());
+        link.setTransporterId(transporter.getId());
+        link.setOrganization(supplier);
+        link.setTransporter(transporter);
+        link.setContractStartDate(start);
+        link.setContractEndDate(end);
+        if (link.getLinkedAt() == null) {
+            link.setLinkedAt(now);
+        }
+        if (link.getCreatedAt() == null) {
+            link.setCreatedAt(now);
+            link.setCreatedBy(username);
+        }
+        link.setModifiedAt(now);
+        link.setModifiedBy(username);
+        link.setEntityStatus(EntityStatus.ACTIVE);
+        contractedTransporterLinkRepository.save(link);
+        return link;
+    }
+
+    private void applyTransporterContractMetadata(OrganizationDto dto, ContractedTransporterLink link) {
+        if (dto == null || link == null) {
+            return;
+        }
+        dto.setContractStartDate(link.getContractStartDate());
+        dto.setContractEndDate(link.getContractEndDate());
+        dto.setContractLinkedAt(link.getLinkedAt());
+    }
+
+    private void resolveTransporterContractMetadata(Organization caller, Organization partner, OrganizationDto dto) {
+        ContractedTransporterLink link = null;
+        if (caller.getOrganizationClassification() == OrganizationClassification.SUPPLIER) {
+            link = contractedTransporterLinkRepository
+                    .findByOrganizationIdAndTransporterId(caller.getId(), partner.getId())
+                    .orElse(null);
+        } else if (caller.getOrganizationClassification() == OrganizationClassification.TRANSPORT_COMPANY) {
+            link = contractedTransporterLinkRepository
+                    .findByOrganizationIdAndTransporterId(partner.getId(), caller.getId())
+                    .orElse(null);
+        }
+        applyTransporterContractMetadata(dto, link);
+    }
+
+    private Organization requireLinkedCustomer(Organization supplier, Long customerId, Locale locale) {
+        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+            throw notFound(locale);
+        }
+        Organization customer = organizationRepository.findByIdAndEntityStatusNot(customerId, EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+        if (customer.getOrganizationClassification() != OrganizationClassification.CUSTOMER
+                || !supplier.getCustomers().contains(customer)) {
+            throw notFound(locale);
+        }
+        return customer;
+    }
+
+    private void primeExistingCustomerUploadIds(Organization customer, RegisterOrganizationRequest request) {
+        if (request.getTaxClearanceCertificateUploadId() == null
+                && customer.getTaxClearanceCertificateUploadId() != null) {
+            request.setTaxClearanceCertificateUploadId(customer.getTaxClearanceCertificateUploadId());
+        }
+        if (request.getContactPersonNationalIdUploadId() == null
+                && customer.getContactPersonNationalIdUploadId() != null) {
+            request.setContactPersonNationalIdUploadId(customer.getContactPersonNationalIdUploadId());
+        }
+        if (request.getContactPersonPassportUploadId() == null
+                && customer.getContactPersonPassportUploadId() != null) {
+            request.setContactPersonPassportUploadId(customer.getContactPersonPassportUploadId());
+        }
+    }
+
     private boolean canUpdateOrganizationProfile(Organization org, String modifiedBy) {
         KycStatus ks = org.getKycStatus();
         if (ks == KycStatus.DRAFT || ks == KycStatus.RESUBMITTED) {

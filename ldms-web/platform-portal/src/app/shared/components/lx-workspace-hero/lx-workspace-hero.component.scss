@@ -1,0 +1,497 @@
+:host {
+  display: block;
+  width: 100%;
+
+  --lx-ws-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ── Hero shell ─────────────────────────────────────────── */
+.lx-ws-hero {
+  position: relative;
+  margin-bottom: 20px;
+  padding: clamp(24px, 3.5vw, 40px);
+  border-radius: calc(var(--card-radius, 16px) + 8px);
+  overflow: hidden;
+  color: #f8fafc;
+  isolation: isolate;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.06) inset,
+    0 28px 64px rgba(6, 13, 24, 0.45);
+
+  /* default: teal / fleet corridor */
+  --lx-ws-bg: linear-gradient(128deg, #060d18 0%, #0f1c2e 42%, #122a3d 68%, #1a3a4a 100%);
+  --lx-ws-road: rgba(20, 184, 166, 0.35);
+  --lx-ws-radar-border: rgba(20, 184, 166, 0.25);
+  --lx-ws-radar-sweep: rgba(20, 184, 166, 0.45);
+  --lx-ws-glow-primary: rgba(20, 184, 166, 0.28);
+  --lx-ws-glow-secondary: rgba(245, 158, 11, 0.2);
+  --lx-ws-eyebrow-text: #99f6e4;
+  --lx-ws-eyebrow-bg: rgba(20, 184, 166, 0.2);
+  --lx-ws-eyebrow-border: rgba(45, 212, 191, 0.35);
+  --lx-ws-hub-bg: linear-gradient(145deg, rgba(20, 184, 166, 0.35), rgba(15, 23, 42, 0.6));
+  --lx-ws-hub-border: rgba(94, 234, 212, 0.35);
+  --lx-ws-hub-icon: #ccfbf1;
+  --lx-ws-node-icon: #fde68a;
+  --lx-ws-btn-from: #14b8a6;
+  --lx-ws-btn-to: #0d9488;
+  --lx-ws-btn-border: rgba(153, 246, 228, 0.45);
+  --lx-ws-btn-shadow: rgba(20, 184, 166, 0.4);
+  --lx-ws-note-icon: #f59e0b;
+
+  background: var(--lx-ws-bg);
+}
+
+/* ── Decorative: animated road stripes ─────────────────── */
+.lx-ws-hero__road {
+  position: absolute;
+  bottom: -8%;
+  left: -10%;
+  right: -10%;
+  height: 42%;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0,
+    transparent 48px,
+    var(--lx-ws-road) 48px,
+    var(--lx-ws-road) 52px
+  );
+  transform: perspective(400px) rotateX(52deg);
+  opacity: 0.35;
+  animation: lxWsRoadDrift 14s linear infinite;
+}
+
+@keyframes lxWsRoadDrift {
+  from { background-position: 0 0; }
+  to   { background-position: 200px 0; }
+}
+
+/* ── Decorative: radar sweep ───────────────────────────── */
+.lx-ws-hero__radar {
+  position: absolute;
+  top: 12%;
+  right: 8%;
+  width: min(280px, 45vw);
+  height: min(280px, 45vw);
+  border-radius: 50%;
+  border: 1px solid var(--lx-ws-radar-border);
+  opacity: 0.5;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      var(--lx-ws-radar-sweep) 42deg,
+      transparent 84deg
+    );
+    animation: lxWsRadarSweep 4.5s linear infinite;
+  }
+}
+
+@keyframes lxWsRadarSweep {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Decorative: dot grid ──────────────────────────────── */
+.lx-ws-hero__grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.12;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000, transparent);
+}
+
+/* ── Decorative: ambient glows ─────────────────────────── */
+.lx-ws-hero__glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  pointer-events: none;
+
+  &--primary {
+    top: -30%;
+    left: -5%;
+    width: 360px;
+    height: 360px;
+    background: var(--lx-ws-glow-primary);
+  }
+
+  &--secondary {
+    bottom: -20%;
+    right: -5%;
+    width: 300px;
+    height: 300px;
+    background: var(--lx-ws-glow-secondary);
+  }
+}
+
+/* ── Body: copy + orbit ────────────────────────────────── */
+.lx-ws-hero__body {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(200px, 280px);
+  gap: 28px;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.lx-ws-bento:empty {
+  display: none;
+}
+
+.lx-ws-hero__body:has(+ .lx-ws-bento:empty) {
+  margin-bottom: 0;
+}
+
+/* ── Eyebrow pill ──────────────────────────────────────── */
+.lx-ws-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--lx-ws-eyebrow-text);
+  background: var(--lx-ws-eyebrow-bg);
+  border: 1px solid var(--lx-ws-eyebrow-border);
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+/* ── Title ─────────────────────────────────────────────── */
+.lx-ws-hero__title {
+  margin: 0 0 10px;
+  font-size: clamp(1.75rem, 3.5vw, 2.35rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+/* ── Lead paragraph ────────────────────────────────────── */
+.lx-ws-hero__lead {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: rgba(226, 232, 240, 0.9);
+  max-width: 52ch;
+}
+
+/* ── Action-button row ─────────────────────────────────── */
+.lx-ws-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+
+  /*
+   * Buttons projected into this slot should carry .lx-btn on the host feature page.
+   * These helpers ensure correct colours when they appear over the dark hero.
+   */
+  ::ng-deep .lx-btn {
+    color: #f8fafc !important;
+    border-color: rgba(255, 255, 255, 0.28) !important;
+  }
+
+  ::ng-deep .lx-btn-accent,
+  ::ng-deep .lx-ws-hero__btn--accent {
+    background: linear-gradient(135deg, var(--lx-ws-btn-from), var(--lx-ws-btn-to)) !important;
+    border-color: var(--lx-ws-btn-border) !important;
+    box-shadow: 0 12px 28px var(--lx-ws-btn-shadow);
+  }
+}
+
+/* ── Preview / informational note ─────────────────────── */
+.lx-ws-hero__preview-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(203, 213, 225, 0.85);
+  max-width: 48ch;
+
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+    color: var(--lx-ws-note-icon);
+    flex-shrink: 0;
+  }
+}
+
+/* ── Orbit widget ──────────────────────────────────────── */
+.lx-ws-hero__orbit {
+  position: relative;
+  width: min(240px, 100%);
+  aspect-ratio: 1;
+  margin-inline: auto;
+}
+
+.lx-ws-orbit__ring {
+  position: absolute;
+  inset: 8%;
+  border-radius: 50%;
+  border: 1px dashed rgba(148, 163, 184, 0.35);
+  animation: lxWsOrbitSpin 24s linear infinite;
+}
+
+@keyframes lxWsOrbitSpin {
+  to { transform: rotate(360deg); }
+}
+
+.lx-ws-orbit__hub {
+  position: absolute;
+  inset: 28%;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--lx-ws-hub-bg);
+  border: 1px solid var(--lx-ws-hub-border);
+  box-shadow: 0 16px 40px rgba(2, 6, 23, 0.5);
+
+  mat-icon {
+    font-size: 40px;
+    width: 40px;
+    height: 40px;
+    color: var(--lx-ws-hub-icon);
+  }
+}
+
+.lx-ws-orbit__node {
+  position: absolute;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  animation: lxWsNodeFloat 5s ease-in-out infinite;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--lx-ws-node-icon);
+  }
+
+  /* Top-centre */
+  &--1 {
+    top: 4%;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  /* Bottom-left */
+  &--2 {
+    bottom: 18%;
+    left: 2%;
+  }
+
+  /* Bottom-right */
+  &--3 {
+    bottom: 18%;
+    right: 2%;
+  }
+}
+
+@keyframes lxWsNodeFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-6px); }
+}
+
+/* Node --1 has translateX(-50%) for centering; preserve it during float */
+.lx-ws-orbit__node--1 {
+  animation: lxWsNodeFloatCentered 5s ease-in-out infinite;
+}
+
+@keyframes lxWsNodeFloatCentered {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%       { transform: translateX(-50%) translateY(-6px); }
+}
+
+/* ── Section colour variants ───────────────────────────── */
+.lx-ws-hero--brand {
+  --lx-ws-bg: linear-gradient(128deg, #060d18 0%, #0b1528 28%, #12243c 52%, #152a52 78%, #1e3a8a 100%);
+  --lx-ws-road: rgba(59, 130, 246, 0.35);
+  --lx-ws-radar-border: rgba(96, 165, 250, 0.28);
+  --lx-ws-radar-sweep: rgba(59, 130, 246, 0.45);
+  --lx-ws-glow-primary: rgba(59, 130, 246, 0.32);
+  --lx-ws-glow-secondary: rgba(99, 102, 241, 0.22);
+  --lx-ws-eyebrow-text: #dbeafe;
+  --lx-ws-eyebrow-bg: rgba(37, 99, 235, 0.35);
+  --lx-ws-eyebrow-border: rgba(147, 197, 253, 0.4);
+  --lx-ws-hub-bg: linear-gradient(145deg, rgba(59, 130, 246, 0.38), rgba(15, 23, 42, 0.6));
+  --lx-ws-hub-border: rgba(147, 197, 253, 0.4);
+  --lx-ws-hub-icon: #eff6ff;
+  --lx-ws-node-icon: #bfdbfe;
+  --lx-ws-btn-from: #3b82f6;
+  --lx-ws-btn-to: #1d4ed8;
+  --lx-ws-btn-border: rgba(191, 219, 254, 0.45);
+  --lx-ws-btn-shadow: rgba(37, 99, 235, 0.4);
+  --lx-ws-note-icon: #fbbf24;
+}
+
+.lx-ws-hero--violet {
+  --lx-ws-bg: linear-gradient(128deg, #12061f 0%, #2e1065 38%, #5b21b6 68%, #6d28d9 100%);
+  --lx-ws-road: rgba(167, 139, 250, 0.32);
+  --lx-ws-radar-border: rgba(139, 92, 246, 0.28);
+  --lx-ws-radar-sweep: rgba(167, 139, 250, 0.45);
+  --lx-ws-glow-primary: rgba(124, 58, 237, 0.32);
+  --lx-ws-glow-secondary: rgba(192, 132, 252, 0.2);
+  --lx-ws-eyebrow-text: #ede9fe;
+  --lx-ws-eyebrow-bg: rgba(109, 40, 217, 0.35);
+  --lx-ws-eyebrow-border: rgba(196, 181, 253, 0.4);
+  --lx-ws-hub-bg: linear-gradient(145deg, rgba(124, 58, 237, 0.38), rgba(30, 27, 75, 0.6));
+  --lx-ws-hub-border: rgba(196, 181, 253, 0.4);
+  --lx-ws-hub-icon: #f5f3ff;
+  --lx-ws-node-icon: #ddd6fe;
+  --lx-ws-btn-from: #7c3aed;
+  --lx-ws-btn-to: #5b21b6;
+  --lx-ws-btn-border: rgba(221, 214, 254, 0.45);
+  --lx-ws-btn-shadow: rgba(109, 40, 217, 0.4);
+  --lx-ws-note-icon: #c4b5fd;
+}
+
+.lx-ws-hero--emerald {
+  --lx-ws-bg: linear-gradient(128deg, #022c22 0%, #064e3b 38%, #047857 68%, #0d9488 100%);
+  --lx-ws-road: rgba(52, 211, 153, 0.32);
+  --lx-ws-radar-border: rgba(16, 185, 129, 0.28);
+  --lx-ws-radar-sweep: rgba(52, 211, 153, 0.45);
+  --lx-ws-glow-primary: rgba(16, 185, 129, 0.3);
+  --lx-ws-glow-secondary: rgba(45, 212, 191, 0.2);
+  --lx-ws-eyebrow-text: #d1fae5;
+  --lx-ws-eyebrow-bg: rgba(5, 150, 105, 0.35);
+  --lx-ws-eyebrow-border: rgba(110, 231, 183, 0.4);
+  --lx-ws-hub-bg: linear-gradient(145deg, rgba(16, 185, 129, 0.38), rgba(6, 78, 59, 0.6));
+  --lx-ws-hub-border: rgba(110, 231, 183, 0.4);
+  --lx-ws-hub-icon: #ecfdf5;
+  --lx-ws-node-icon: #a7f3d0;
+  --lx-ws-btn-from: #10b981;
+  --lx-ws-btn-to: #047857;
+  --lx-ws-btn-border: rgba(167, 243, 208, 0.45);
+  --lx-ws-btn-shadow: rgba(5, 150, 105, 0.4);
+  --lx-ws-note-icon: #6ee7b7;
+}
+
+.lx-ws-hero--amber {
+  --lx-ws-bg: linear-gradient(128deg, #1c0a00 0%, #451a03 32%, #92400e 62%, #b45309 100%);
+  --lx-ws-road: rgba(251, 191, 36, 0.32);
+  --lx-ws-radar-border: rgba(245, 158, 11, 0.28);
+  --lx-ws-radar-sweep: rgba(251, 191, 36, 0.45);
+  --lx-ws-glow-primary: rgba(245, 158, 11, 0.3);
+  --lx-ws-glow-secondary: rgba(251, 146, 60, 0.22);
+  --lx-ws-eyebrow-text: #fef3c7;
+  --lx-ws-eyebrow-bg: rgba(217, 119, 6, 0.35);
+  --lx-ws-eyebrow-border: rgba(253, 230, 138, 0.4);
+  --lx-ws-hub-bg: linear-gradient(145deg, rgba(245, 158, 11, 0.38), rgba(69, 26, 3, 0.6));
+  --lx-ws-hub-border: rgba(253, 230, 138, 0.4);
+  --lx-ws-hub-icon: #fffbeb;
+  --lx-ws-node-icon: #fde68a;
+  --lx-ws-btn-from: #f59e0b;
+  --lx-ws-btn-to: #d97706;
+  --lx-ws-btn-border: rgba(253, 230, 138, 0.45);
+  --lx-ws-btn-shadow: rgba(217, 119, 6, 0.4);
+  --lx-ws-note-icon: #fcd34d;
+}
+
+.lx-ws-hero--rose {
+  --lx-ws-bg: linear-gradient(128deg, #1a0510 0%, #4c0519 36%, #9f1239 66%, #be123c 100%);
+  --lx-ws-road: rgba(251, 113, 133, 0.32);
+  --lx-ws-radar-border: rgba(244, 63, 94, 0.28);
+  --lx-ws-radar-sweep: rgba(251, 113, 133, 0.45);
+  --lx-ws-glow-primary: rgba(225, 29, 72, 0.3);
+  --lx-ws-glow-secondary: rgba(251, 113, 133, 0.2);
+  --lx-ws-eyebrow-text: #ffe4e6;
+  --lx-ws-eyebrow-bg: rgba(190, 18, 60, 0.35);
+  --lx-ws-eyebrow-border: rgba(254, 205, 211, 0.4);
+  --lx-ws-hub-bg: linear-gradient(145deg, rgba(225, 29, 72, 0.38), rgba(76, 5, 25, 0.6));
+  --lx-ws-hub-border: rgba(254, 205, 211, 0.4);
+  --lx-ws-hub-icon: #fff1f2;
+  --lx-ws-node-icon: #fecdd3;
+  --lx-ws-btn-from: #e11d48;
+  --lx-ws-btn-to: #be123c;
+  --lx-ws-btn-border: rgba(254, 205, 211, 0.45);
+  --lx-ws-btn-shadow: rgba(190, 18, 60, 0.4);
+  --lx-ws-note-icon: #fda4af;
+}
+
+.lx-ws-hero--slate {
+  --lx-ws-bg: linear-gradient(128deg, #0b1220 0%, #1e293b 42%, #334155 72%, #475569 100%);
+  --lx-ws-road: rgba(148, 163, 184, 0.28);
+  --lx-ws-radar-border: rgba(148, 163, 184, 0.25);
+  --lx-ws-radar-sweep: rgba(203, 213, 225, 0.4);
+  --lx-ws-glow-primary: rgba(100, 116, 139, 0.28);
+  --lx-ws-glow-secondary: rgba(71, 85, 105, 0.22);
+  --lx-ws-eyebrow-text: #e2e8f0;
+  --lx-ws-eyebrow-bg: rgba(71, 85, 105, 0.45);
+  --lx-ws-eyebrow-border: rgba(203, 213, 225, 0.35);
+  --lx-ws-hub-bg: linear-gradient(145deg, rgba(100, 116, 139, 0.38), rgba(30, 41, 59, 0.6));
+  --lx-ws-hub-border: rgba(203, 213, 225, 0.35);
+  --lx-ws-hub-icon: #f8fafc;
+  --lx-ws-node-icon: #cbd5e1;
+  --lx-ws-btn-from: #64748b;
+  --lx-ws-btn-to: #475569;
+  --lx-ws-btn-border: rgba(203, 213, 225, 0.4);
+  --lx-ws-btn-shadow: rgba(51, 65, 85, 0.45);
+  --lx-ws-note-icon: #94a3b8;
+}
+
+/* ── Bento stat grid ───────────────────────────────────── */
+.lx-ws-bento {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .lx-ws-hero__body {
+    grid-template-columns: 1fr;
+  }
+
+  .lx-ws-hero__orbit {
+    display: none;
+  }
+
+  .lx-ws-bento {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .lx-ws-bento {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ── Reduced-motion ─────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .lx-ws-hero__road,
+  .lx-ws-hero__radar::before,
+  .lx-ws-orbit__ring,
+  .lx-ws-orbit__node,
+  .lx-ws-orbit__node--1 {
+    animation: none;
+  }
+}

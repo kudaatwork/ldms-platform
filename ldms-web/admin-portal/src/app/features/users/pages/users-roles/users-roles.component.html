@@ -1,12 +1,14 @@
 <div class="lx-page roles-page">
-  <lx-page-hero
+  <lx-workspace-hero
     *ngIf="!groupId"
+    variant="violet"
     eyebrow="Identity &amp; access"
+    eyebrowIcon="shield"
     title="User roles"
     [lead]="pageLead"
-    icon="verified_user"
-    variant="violet"
-  ></lx-page-hero>
+    hubIcon="verified_user"
+    [orbitIcons]="['admin_panel_settings', 'lock', 'badge']"
+  ></lx-workspace-hero>
 
   <div class="group-context-banner" *ngIf="groupId" role="region" [attr.aria-label]="'Roles for user group ' + (contextGroupName || groupId)">
     <div class="group-context-banner__accent" aria-hidden="true"></div>

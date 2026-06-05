@@ -1,16 +1,15 @@
 <div class="lx-page lx-loc-explorer">
-  <div class="lx-card lx-card--subsection lx-loc-explorer__hero">
-    <div class="lx-loc-explorer__hero-main">
-      <div class="lx-loc-explorer__eyebrow">
-        <mat-icon class="lx-loc-explorer__eyebrow-icon">account_tree</mat-icon>
-        <span>Locations</span>
-      </div>
-      <h1 class="lx-loc-explorer__title">Hierarchy explorer</h1>
-      <p class="lx-loc-explorer__lead">
-        Drill down from country to province, district, then suburbs and villages — same data as the location tables,
-        without leaving this flow.
-      </p>
+  <lx-workspace-hero
+    variant="emerald"
+    eyebrow="Locations"
+    eyebrowIcon="account_tree"
+    title="Hierarchy explorer"
+    lead="Drill down from country to province, district, then suburbs and villages — same data as the location tables, without leaving this flow."
+    hubIcon="account_tree"
+    [orbitIcons]="['public', 'map', 'pin_drop']"
+  ></lx-workspace-hero>
 
+  <div class="lx-card lx-card--subsection lx-loc-explorer__crumbs-card">
       <nav class="lx-loc-explorer__crumbs" aria-label="Hierarchy trail">
         <button type="button" class="lx-loc-explorer__crumb" [class.is-current]="phase === 'countries'" (click)="resetAll()">
           <mat-icon>public</mat-icon>
@@ -56,7 +55,6 @@
           </button>
         </ng-container>
       </nav>
-    </div>
   </div>
 
   <div class="lx-card lx-card--subsection lx-loc-explorer__panel">

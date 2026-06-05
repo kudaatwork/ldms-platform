@@ -83,7 +83,21 @@
 
   <main class="ldms-landing__main">
     <section class="ldms-landing__hero ldms-landing__anchor" id="ldms-overview" aria-labelledby="ldms-landing-hero-title">
-      <div class="ldms-landing__hero-glow" aria-hidden="true"></div>
+      <div class="ldms-landing__hero-glow" aria-hidden="true">
+        <svg class="ldms-landing__hero-route" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <defs>
+            <linearGradient id="ldms-route-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="rgba(59,130,246,0)" />
+              <stop offset="50%" stop-color="rgba(59,130,246,0.85)" />
+              <stop offset="100%" stop-color="rgba(249,115,22,0)" />
+            </linearGradient>
+          </defs>
+          <path class="ldms-landing__hero-route-line ldms-landing__hero-route-line--a" d="M40,280 Q200,120 380,200 T720,140" />
+          <path class="ldms-landing__hero-route-line ldms-landing__hero-route-line--b" d="M80,340 Q260,180 420,260 T760,220" />
+          <circle class="ldms-landing__hero-route-node" cx="380" cy="200" r="5" />
+          <circle class="ldms-landing__hero-route-node" cx="720" cy="140" r="4" />
+        </svg>
+      </div>
       <div class="ldms-landing__hero-shell">
       <div class="ldms-landing__hero-copy">
         <div class="ldms-landing__hero-topline">

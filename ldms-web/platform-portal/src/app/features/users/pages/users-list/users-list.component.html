@@ -1,11 +1,13 @@
 <div class="lx-page">
-  <lx-page-hero
+  <lx-workspace-hero
+    variant="violet"
     eyebrow="Identity &amp; access"
+    eyebrowIcon="shield"
     title="Users"
     [lead]="pageLead"
-    icon="people"
-    variant="violet"
-  ></lx-page-hero>
+    hubIcon="people"
+    [orbitIcons]="['person_add', 'verified', 'groups']"
+  ></lx-workspace-hero>
 
   <div class="lx-card lx-card--subsection" *ngIf="hasScopeFilters" role="status">
     <p class="lx-controls-subtitle" style="margin: 0">

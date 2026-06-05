@@ -1,11 +1,13 @@
 <div class="lx-page">
-  <lx-page-hero
+  <lx-workspace-hero
+    variant="brand"
     eyebrow="Directory"
+    eyebrowIcon="corporate_fare"
     title="Branches"
     [lead]="pageLead"
-    icon="account_tree"
-    variant="brand"
-  ></lx-page-hero>
+    hubIcon="account_tree"
+    [orbitIcons]="['store', 'hub', 'pin_drop']"
+  ></lx-workspace-hero>
 
   <div class="lx-card lx-card--subsection" *ngIf="hasScopeFilters" role="status">
     <p class="lx-controls-subtitle" style="margin: 0">

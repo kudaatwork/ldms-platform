@@ -1,0 +1,67 @@
+/*
+ * The host is transparent to the parent grid so the article element
+ * becomes the direct grid item inside .lx-ws-bento.
+ */
+:host {
+  display: contents;
+}
+
+/* ── Bento card shell ──────────────────────────────────── */
+.lx-ws-bento__card {
+  position: relative;
+  padding: 16px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.45);
+  overflow: hidden;
+
+  /* ── Theme variants ─────────────────────────────────── */
+  &--teal {
+    background: linear-gradient(145deg, rgba(20, 184, 166, 0.28), rgba(15, 23, 42, 0.4));
+  }
+
+  &--mint {
+    background: linear-gradient(145deg, rgba(45, 212, 191, 0.2), rgba(15, 23, 42, 0.38));
+  }
+
+  &--amber {
+    background: linear-gradient(145deg, rgba(245, 158, 11, 0.22), rgba(15, 23, 42, 0.38));
+  }
+
+  &--violet {
+    background: linear-gradient(145deg, rgba(99, 102, 241, 0.24), rgba(15, 23, 42, 0.38));
+  }
+}
+
+/* ── Stat value ────────────────────────────────────────── */
+.lx-ws-bento__value {
+  display: block;
+  font-size: 1.65rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: #f8fafc;
+}
+
+/* ── Stat label ────────────────────────────────────────── */
+.lx-ws-bento__label {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(226, 232, 240, 0.75);
+}
+
+/* ── Accent icon ───────────────────────────────────────── */
+.lx-ws-bento__icon {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  font-size: 28px;
+  width: 28px;
+  height: 28px;
+  opacity: 0.35;
+  color: #f8fafc;
+}

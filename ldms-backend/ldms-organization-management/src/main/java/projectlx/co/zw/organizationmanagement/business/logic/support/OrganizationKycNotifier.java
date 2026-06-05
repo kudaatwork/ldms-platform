@@ -29,6 +29,7 @@ public class OrganizationKycNotifier {
     private static final String TEMPLATE_STAGE_APPROVED = "ORG_KYC_STAGE_APPROVED";
     private static final String TEMPLATE_FULLY_APPROVED = "ORG_KYC_STAGE2_APPROVED";
     private static final String TEMPLATE_APPROVED_CREDENTIALS = "ORG_KYC_APPROVED_CREDENTIALS";
+    private static final String TEMPLATE_ORG_EMAIL_VERIFICATION = "ORG_EMAIL_VERIFICATION";
     private static final String TEMPLATE_REJECTED = "ORG_KYC_REJECTED";
     private static final String TEMPLATE_RESUBMISSION_ALLOWED = "ORG_KYC_RESUBMISSION_ALLOWED";
 
@@ -79,16 +80,57 @@ public class OrganizationKycNotifier {
         if (org == null || !StringUtils.hasText(temporaryUsername) || !StringUtils.hasText(temporaryPassword)) {
             return;
         }
+        Map<String, Object> data = buildCredentialsTemplateData(org, temporaryUsername, temporaryPassword);
+        sendKycEmailsWithData(org, TEMPLATE_APPROVED_CREDENTIALS, data);
+    }
+
+    /** Sends temporary portal credentials to the contact person only (supplier-registered onboarding). */
+    public void sendContactCredentials(Organization org, String temporaryUsername, String temporaryPassword) {
+        if (org == null || !StringUtils.hasText(temporaryUsername) || !StringUtils.hasText(temporaryPassword)) {
+            return;
+        }
+        String contactEmail = OrganizationNotificationEmailSupport.normalizeEmail(org.getContactPersonEmail());
+        if (!StringUtils.hasText(contactEmail)) {
+            log.warn("Skipping contact credentials email for orgId={}: contact email is blank", org.getId());
+            return;
+        }
+        Map<String, Object> data = buildCredentialsTemplateData(org, temporaryUsername, temporaryPassword);
+        sendToEmail(org.getId(), contactEmail, TEMPLATE_APPROVED_CREDENTIALS, data, "contact-person");
+    }
+
+    /** Sends organisation email verification link to the organisation inbox only. */
+    public void sendOrganizationEmailVerification(Organization org, String verificationLink) {
+        if (org == null || !StringUtils.hasText(verificationLink)) {
+            return;
+        }
+        String organizationEmail = OrganizationNotificationEmailSupport.normalizeEmail(org.getEmail());
+        if (!StringUtils.hasText(organizationEmail)) {
+            log.warn("Skipping organisation verification email for orgId={}: organisation email is blank", org.getId());
+            return;
+        }
+        Map<String, Object> data = buildTemplateData(org);
+        data.put("statusHeadline", "Verify your organisation email");
+        data.put(
+                "statusDetail",
+                "Please confirm that "
+                        + safe(org.getName())
+                        + " is registered on Project LX LDMS. Open the link below to verify your organisation email.");
+        data.put("verificationLink", verificationLink.trim());
+        sendToEmail(org.getId(), organizationEmail, TEMPLATE_ORG_EMAIL_VERIFICATION, data, "organization");
+    }
+
+    private Map<String, Object> buildCredentialsTemplateData(
+            Organization org, String temporaryUsername, String temporaryPassword) {
         Map<String, Object> data = buildTemplateData(org);
         data.put("statusHeadline", "Your portal access is ready");
         data.put(
                 "statusDetail",
                 "Your organisation "
                         + safe(org.getName())
-                        + " is approved. Sign in with the temporary username and password below, then choose your permanent credentials.");
+                        + " is registered on Project LX. Sign in with the temporary username and password below, then choose your permanent credentials.");
         data.put("temporaryUsername", temporaryUsername.trim());
         data.put("temporaryPassword", temporaryPassword.trim());
-        sendKycEmailsWithData(org, TEMPLATE_APPROVED_CREDENTIALS, data);
+        return data;
     }
 
     public void sendRejected(Organization org, String rejectionReason) {
@@ -174,14 +216,8 @@ public class OrganizationKycNotifier {
         }
         data.put("organizationName", safe(org.getName()));
         data.put("contactName", contactName);
-        boolean viaSignup = Boolean.TRUE.equals(org.getCreatedViaSignup());
-        if (viaSignup && org.getId() != null) {
-            data.put("nextStepsLink", portalLinks.platformOnboardingStatusUrl(org.getId()));
-            data.put("signInLink", portalLinks.platformSignInUrl());
-        } else {
-            data.put("nextStepsLink", portalLinks.adminSignInUrl());
-            data.put("signInLink", portalLinks.adminSignInUrl());
-        }
+        data.put("nextStepsLink", portalLinks.nextStepsUrlFor(org));
+        data.put("signInLink", portalLinks.signInUrlFor(org));
         return data;
     }
 

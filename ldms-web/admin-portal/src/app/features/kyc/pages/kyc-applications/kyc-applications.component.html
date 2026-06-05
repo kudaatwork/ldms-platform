@@ -1,33 +1,20 @@
 <div class="lx-page kyc-page">
-  <section class="kyc-hero lx-card">
-    <div class="kyc-hero__text">
-      <p class="kyc-hero__eyebrow">Compliance</p>
-      <h1 class="kyc-hero__title">KYC applications</h1>
-      <p class="kyc-hero__lead">{{ pageLead }}</p>
-    </div>
-    <div class="kyc-hero__stats" *ngIf="queueStatPending() > 0 || totalRecords > 0">
-      <div class="kyc-stat">
-        <span class="kyc-stat__value">{{ queueStatPending() }}</span>
-        <span class="kyc-stat__label">In queue</span>
-      </div>
-      <div class="kyc-stat">
-        <span class="kyc-stat__value">{{ queueStatStage1() }}</span>
-        <span class="kyc-stat__label">Stage 1</span>
-      </div>
-      <div class="kyc-stat">
-        <span class="kyc-stat__value">{{ queueStatStage2() }}</span>
-        <span class="kyc-stat__label">Stage 2</span>
-      </div>
-      <div class="kyc-stat" *ngIf="queueStatRejected() > 0">
-        <span class="kyc-stat__value">{{ queueStatRejected() }}</span>
-        <span class="kyc-stat__label">Rejected</span>
-      </div>
-      <div class="kyc-stat kyc-stat--total">
-        <span class="kyc-stat__value">{{ totalRecords }}</span>
-        <span class="kyc-stat__label">Matching filters</span>
-      </div>
-    </div>
-  </section>
+  <lx-workspace-hero
+    variant="brand"
+    eyebrow="Compliance"
+    eyebrowIcon="verified_user"
+    title="KYC applications"
+    [lead]="pageLead"
+    hubIcon="fact_check"
+    [orbitIcons]="['pending_actions', 'verified', 'gavel']"
+  >
+    <ng-container *ngIf="queueStatPending() > 0 || totalRecords > 0">
+      <lx-workspace-hero-stat [value]="queueStatPending()" label="In queue" icon="hourglass_top" theme="teal"></lx-workspace-hero-stat>
+      <lx-workspace-hero-stat [value]="queueStatStage1()" label="Stage 1" icon="looks_one" theme="mint"></lx-workspace-hero-stat>
+      <lx-workspace-hero-stat [value]="queueStatStage2()" label="Stage 2" icon="looks_two" theme="amber"></lx-workspace-hero-stat>
+      <lx-workspace-hero-stat [value]="totalRecords" label="Matching filters" icon="filter_list" theme="violet"></lx-workspace-hero-stat>
+    </ng-container>
+  </lx-workspace-hero>
 
   <div class="lx-card lx-card--subsection kyc-toolbar-card">
     <div class="lx-data-toolbar">

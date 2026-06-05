@@ -19,7 +19,7 @@ export interface ShellUserView {
 
 @Injectable({ providedIn: 'root' })
 export class CurrentUserService {
-  private static readonly PROFILE_TIMEOUT_MS = 12_000;
+  private static readonly PROFILE_TIMEOUT_MS = 8_000;
 
   private readonly subject = new BehaviorSubject<ShellUserView | null>(null);
   private refreshInFlight: Observable<ShellUserView | null> | null = null;

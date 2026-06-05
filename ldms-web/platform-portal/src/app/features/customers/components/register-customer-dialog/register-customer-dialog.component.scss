@@ -1,0 +1,10 @@
+@use '../../../../shared/styles/lx-dialog-form-shell';
+
+.lx-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-100, #f1f5f9);
+}

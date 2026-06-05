@@ -87,16 +87,8 @@ public class OrganizationRegistrationNotifier {
                     ? "Your organisation signup request was received on the LX platform."
                     : "Your organisation was registered on the LX platform.");
         }
-        if (viaSignup && org.getId() != null) {
-            data.put("nextStepsLink", portalLinks.platformOnboardingStatusUrl(org.getId()));
-            data.put("signInLink", portalLinks.platformSignInUrl());
-        } else if (viaSignup) {
-            data.put("nextStepsLink", portalLinks.platformOnboardingStatusUrl(null));
-            data.put("signInLink", portalLinks.platformSignInUrl());
-        } else {
-            data.put("nextStepsLink", portalLinks.adminSignInUrl());
-            data.put("signInLink", portalLinks.adminSignInUrl());
-        }
+        data.put("nextStepsLink", portalLinks.nextStepsUrlFor(org));
+        data.put("signInLink", portalLinks.signInUrlFor(org));
         return data;
     }
 

@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,12 +16,12 @@ import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import projectlx.co.zw.organizationmanagement.service.processor.api.OrganizationServiceProcessor;
 import projectlx.co.zw.organizationmanagement.utils.requests.AddBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
-import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
@@ -90,18 +91,6 @@ public class OrganizationFrontendResource {
         return organizationServiceProcessor.findByMultipleFilters(request, username, locale);
     }
 
-    @Auditable(action = "ORG_GET_BY_ID")
-    @PreAuthorize("isAuthenticated()")
-    @GetMapping("/{id}")
-    @Operation(summary = "Get organisation by id", description = "Includes branches. Caller may only access their linked organisation.")
-    public OrganizationResponse getById(
-            @PathVariable Long id,
-            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
-            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return organizationServiceProcessor.getByIdForFrontend(id, locale, username);
-    }
-
     @Auditable(action = "ORG_UPDATE_MY")
     @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).UPDATE_MY_ORGAN.toString())")
     @PutMapping("/my/update")
@@ -144,15 +133,110 @@ public class OrganizationFrontendResource {
         return organizationServiceProcessor.listCustomers(locale, username);
     }
 
+    @Auditable(action = "ORG_LIST_TRANSPORTERS")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/transporters")
+    @Operation(summary = "List contracted transport companies for the signed-in organisation")
+    public OrganizationResponse listTransporters(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.listTransporters(locale, username);
+    }
+
+    @Auditable(action = "ORG_GET_TRANSPORTER")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/transporters/{transporterId:\\d+}")
+    @Operation(summary = "Get a linked transport company by id")
+    public OrganizationResponse getTransporter(
+            @PathVariable Long transporterId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.getTransporter(transporterId, locale, username);
+    }
+
+    @Auditable(action = "ORG_SEARCH_TRANSPORT_CANDIDATES")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).LINK_TRANSPORTER.toString())")
+    @GetMapping("/transporters/candidates")
+    @Operation(summary = "Search transport companies available to contract")
+    public OrganizationResponse searchTransportCompanyCandidates(
+            @RequestParam(required = false) String search,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.searchTransportCompanyCandidates(search, locale, username);
+    }
+
+    @Auditable(action = "ORG_LIST_PLATFORM_INDUSTRIES")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/industries")
+    @Operation(summary = "List platform industries (admin-configured, shared by all organisations)")
+    public OrganizationResponse listPlatformIndustries(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.listActiveIndustriesForPlatform(locale);
+    }
+
     @Auditable(action = "ORG_REGISTER_CUSTOMER")
     @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).REGISTER_CUSTOMER.toString())")
-    @PostMapping("/customers/register")
+    @PostMapping(value = "/customers/register", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Register a customer organisation and link to the signed-in supplier")
     public OrganizationResponse registerCustomer(
-            @RequestBody RegisterCustomerOrganizationRequest request,
+            @Valid @ModelAttribute RegisterOrganizationRequest request,
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return organizationServiceProcessor.registerCustomer(request, locale, username);
+    }
+
+    @Auditable(action = "ORG_REGISTER_TRANSPORTER")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).LINK_TRANSPORTER.toString())")
+    @PostMapping(value = "/transporters/register", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Register a transport company and link to the signed-in supplier")
+    public OrganizationResponse registerTransporter(
+            @Valid @ModelAttribute RegisterOrganizationRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.registerTransporter(request, locale, username);
+    }
+
+    @Auditable(action = "ORG_GET_CUSTOMER")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).REGISTER_CUSTOMER.toString())")
+    @GetMapping("/customers/{customerId:\\d+}")
+    @Operation(summary = "Get a linked customer organisation for edit")
+    public OrganizationResponse getCustomer(
+            @PathVariable Long customerId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.getCustomer(customerId, locale, username);
+    }
+
+    @Auditable(action = "ORG_UPDATE_CUSTOMER")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).REGISTER_CUSTOMER.toString())")
+    @PutMapping(value = "/customers/{customerId:\\d+}", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Update a linked customer organisation")
+    public OrganizationResponse updateCustomer(
+            @PathVariable Long customerId,
+            @Valid @ModelAttribute RegisterOrganizationRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.updateCustomer(customerId, request, locale, username);
+    }
+
+    @Auditable(action = "ORG_DELETE_CUSTOMER")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).REGISTER_CUSTOMER.toString())")
+    @DeleteMapping("/customers/{customerId:\\d+}")
+    @Operation(summary = "Remove customer from supplier network (soft-delete when unlinked)")
+    public OrganizationResponse deleteCustomer(
+            @PathVariable Long customerId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.deleteCustomer(customerId, locale, username);
     }
 
     @Auditable(action = "ORG_LINK_TRANSPORTER")
@@ -164,5 +248,17 @@ public class OrganizationFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return organizationServiceProcessor.linkTransporter(request, locale, username);
+    }
+
+    @Auditable(action = "ORG_GET_BY_ID")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/{id:\\d+}")
+    @Operation(summary = "Get organisation by id", description = "Includes branches. Caller may only access their linked organisation.")
+    public OrganizationResponse getById(
+            @PathVariable Long id,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.getByIdForFrontend(id, locale, username);
     }
 }

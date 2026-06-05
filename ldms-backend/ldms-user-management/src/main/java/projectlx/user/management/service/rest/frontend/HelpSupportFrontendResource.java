@@ -87,6 +87,30 @@ public class HelpSupportFrontendResource {
         return helpSupportServiceProcessor.listMySupportTickets(locale, username);
     }
 
+    @Auditable(action = "FIND_MY_SUPPORT_TICKET_BY_ID")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/support-ticket/find-by-id/{id}")
+    @Operation(summary = "Get one of my support tickets with conversation thread")
+    public HelpSupportResponse findMySupportTicketById(
+            @PathVariable("id") Long id,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return helpSupportServiceProcessor.findMySupportTicketById(id, locale, username);
+    }
+
+    @Auditable(action = "ADD_MY_SUPPORT_TICKET_MESSAGE")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/support-ticket/add-message")
+    @Operation(summary = "Reply on one of my support tickets")
+    public HelpSupportResponse addMySupportTicketMessage(
+            @Valid @RequestBody projectlx.user.management.utils.requests.AddSupportTicketMessageRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return helpSupportServiceProcessor.addSupportTicketMessage(request, locale, username, false);
+    }
+
     @Auditable(action = "HELP_PLATFORM_STATUS")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/platform-status")

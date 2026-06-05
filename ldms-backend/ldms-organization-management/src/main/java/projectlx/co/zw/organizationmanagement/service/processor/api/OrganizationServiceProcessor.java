@@ -18,7 +18,6 @@ import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRe
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
-import projectlx.co.zw.organizationmanagement.utils.requests.RegisterCustomerOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationKycStagesRequest;
@@ -54,7 +53,24 @@ public interface OrganizationServiceProcessor {
 
     OrganizationResponse listCustomers(Locale locale, String username);
 
-    OrganizationResponse registerCustomer(RegisterCustomerOrganizationRequest request, Locale locale, String username);
+    OrganizationResponse listTransporters(Locale locale, String username);
+
+    OrganizationResponse searchTransportCompanyCandidates(String search, Locale locale, String username);
+
+    OrganizationResponse registerCustomer(RegisterOrganizationRequest request, Locale locale, String username);
+
+    OrganizationResponse registerTransporter(RegisterOrganizationRequest request, Locale locale, String username);
+
+    OrganizationResponse verifyOrganizationEmail(String email, String token, Locale locale);
+
+    OrganizationResponse getCustomer(Long customerId, Locale locale, String username);
+
+    OrganizationResponse getTransporter(Long transporterId, Locale locale, String username);
+
+    OrganizationResponse updateCustomer(
+            Long customerId, RegisterOrganizationRequest request, Locale locale, String username);
+
+    OrganizationResponse deleteCustomer(Long customerId, Locale locale, String username);
 
     OrganizationResponse linkTransporter(LinkTransporterRequest request, Locale locale, String username);
 
@@ -119,6 +135,8 @@ public interface OrganizationServiceProcessor {
     OrganizationResponse listKycReviews(Long id, Locale locale);
 
     OrganizationResponse listIndustriesWithUsage(Locale locale);
+
+    OrganizationResponse listActiveIndustriesForPlatform(Locale locale);
 
     OrganizationResponse findIndustriesByMultipleFilters(IndustryMultipleFiltersRequest request, Locale locale);
 

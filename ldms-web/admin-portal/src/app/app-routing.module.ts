@@ -2,8 +2,6 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
-import { MyAccountComponent } from './features/account/pages/my-account/my-account.component';
-
 const routes: Routes = [
   {
     path: 'auth',
@@ -64,11 +62,8 @@ const routes: Routes = [
       },
       {
         path: 'account',
-        component: MyAccountComponent,
-        data: {
-          title: 'My account',
-          breadcrumb: 'My account',
-        },
+        loadChildren: () => import('./features/account/account.module').then((m) => m.AccountModule),
+        data: { breadcrumb: 'My account' },
       },
       {
         path: 'settings',

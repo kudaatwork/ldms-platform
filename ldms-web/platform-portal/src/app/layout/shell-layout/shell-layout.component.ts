@@ -103,8 +103,11 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.shellUserService.syncFromStorage();
     this.currentUser = this.authState.currentUser;
-    if (!this.currentUser) {
+    if (this.currentUser) {
+      this.shellUserService.syncFromAuthState(this.currentUser);
+    } else {
       this.authService.bootstrapFromStorage();
     }
     this.navItems = this.currentUser ? this.workspaceNav(this.currentUser.orgClassification) : [];
@@ -112,14 +115,24 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     this.authState.currentUser$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
       this.currentUser = user;
       this.navItems = user ? this.workspaceNav(user.orgClassification) : [];
+      if (user) {
+        this.shellUserService.syncFromAuthState(user);
+      }
       this.syncChromeFromUrl();
       this.cdr.markForCheck();
     });
 
     this.shellUserService.user$.pipe(takeUntil(this.destroy$)).subscribe(() => this.cdr.markForCheck());
 
-    if (this.authState.currentUser) {
-      this.shellUserService.refreshFromApi().pipe(takeUntil(this.destroy$)).subscribe();
+    const stored = this.storage.getUser();
+    const needsProfileRefresh = !String(stored?.firstName ?? '').trim();
+    if (needsProfileRefresh) {
+      setTimeout(() => {
+        if (this.destroy$.closed) {
+          return;
+        }
+        this.shellUserService.refreshFromApi().pipe(takeUntil(this.destroy$)).subscribe();
+      }, 400);
     }
 
     this.syncChromeFromUrl();
@@ -159,8 +172,12 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     return this.sessionIdle.countdownLabel(this.sessionSecondsRemaining);
   }
 
-  staySignedIn(): void {
+  staySignedIn(event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
     this.sessionIdle.staySignedIn();
+    this.sessionWarningVisible = false;
+    this.sessionSecondsRemaining = 0;
     this.cdr.markForCheck();
   }
 
