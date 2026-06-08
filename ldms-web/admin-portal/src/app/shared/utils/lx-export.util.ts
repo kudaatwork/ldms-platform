@@ -1,3 +1,6 @@
+import { HttpErrorResponse } from '@angular/common/http';
+import { Observable, from, mergeMap, throwError } from 'rxjs';
+
 /** Server/API export formats used across LDMS admin tables. */
 export type LxExportFormat = 'csv' | 'xlsx' | 'pdf';
 
@@ -14,8 +17,34 @@ export function downloadBlob(blob: Blob, filename: string): void {
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = filename;
+  anchor.rel = 'noopener';
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
   anchor.click();
-  URL.revokeObjectURL(url);
+  requestAnimationFrame(() => {
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  });
+}
+
+/** Reject empty bodies and JSON/text error payloads masquerading as export files. */
+export async function validateExportBlob(blob: Blob, format: LxExportFormat): Promise<Blob> {
+  if (!blob || blob.size === 0) {
+    throw new Error('Export returned an empty file. Try narrowing your date filters.');
+  }
+  const type = (blob.type || '').toLowerCase();
+  if (type.includes('json') || type === 'text/plain') {
+    const text = (await blob.text()).trim();
+    throw new Error(text || 'Export failed.');
+  }
+  if (format === 'pdf') {
+    const head = await blob.slice(0, 5).text();
+    if (!head.startsWith('%PDF')) {
+      const text = (await blob.text()).trim();
+      throw new Error(text || 'Export did not return a valid PDF.');
+    }
+  }
+  return blob;
 }
 
 export interface LxExportColumn<T> {
@@ -46,9 +75,6 @@ export function exportFilename(base: string, format: LxExportFormat): string {
   const stamp = new Date().toISOString().slice(0, 10);
   return `${base}-${stamp}.${exportFormatExtension(format)}`;
 }
-
-import { HttpErrorResponse } from '@angular/common/http';
-import { Observable, from, mergeMap, throwError } from 'rxjs';
 
 /** Maps blob error bodies from export POST failures into a thrown Error. */
 export function mapExportHttpError(err: HttpErrorResponse): Observable<never> {

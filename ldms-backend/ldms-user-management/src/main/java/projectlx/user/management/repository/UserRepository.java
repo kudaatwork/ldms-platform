@@ -31,11 +31,30 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
             @Param("username") String username,
             @Param("excluded") EntityStatus excluded);
 
-    @EntityGraph(attributePaths = {"userGroup", "userGroup.userRoles", "userAccount", "userType"})
+    @EntityGraph(attributePaths = {
+            "userGroup", "userGroup.userRoles", "userAccount", "userType", "userPassword", "userSecurity"
+    })
     @Query("SELECT u FROM User u WHERE LOWER(u.username) = LOWER(:username) AND u.entityStatus <> :excluded")
     Optional<User> findSessionProfileByUsernameIgnoreCaseAndEntityStatusNot(
             @Param("username") String username,
             @Param("excluded") EntityStatus excluded);
+
+    @EntityGraph(attributePaths = {
+            "userGroup", "userGroup.userRoles", "userAccount", "userType", "userPassword", "userSecurity"
+    })
+    @Query("SELECT u FROM User u WHERE u.phoneNumber = :phoneNumber AND u.entityStatus <> :excluded")
+    Optional<User> findSessionProfileByPhoneNumberAndEntityStatusNot(
+            @Param("phoneNumber") String phoneNumber,
+            @Param("excluded") EntityStatus excluded);
+
+    @EntityGraph(attributePaths = {
+            "userGroup", "userGroup.userRoles", "userAccount", "userType", "userPassword", "userSecurity"
+    })
+    @Query("SELECT u FROM User u WHERE LOWER(u.email) = LOWER(:email) AND u.entityStatus <> :excluded")
+    Optional<User> findSessionProfileByEmailIgnoreCaseAndEntityStatusNot(
+            @Param("email") String email,
+            @Param("excluded") EntityStatus excluded);
+
     Optional<User> findByEmailAndEntityStatusNot(String email, EntityStatus entityStatus);
     List<User> findByOrganizationIdAndEntityStatusNot(Long organizationId, EntityStatus entityStatus);
 

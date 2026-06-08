@@ -303,6 +303,17 @@
           <span class="lx-fetch-hint" *ngIf="requestLoading">Refreshing…</span>
         </div>
 
+        <div class="lx-audit-legend" aria-label="Action colour legend">
+          <span class="lx-audit-legend__item">
+            <span class="lx-audit-legend__swatch lx-audit-legend__swatch--create" aria-hidden="true"></span>
+            <strong>Created</strong> — warning highlight
+          </span>
+          <span class="lx-audit-legend__item">
+            <span class="lx-audit-legend__swatch lx-audit-legend__swatch--update" aria-hidden="true"></span>
+            <strong>Updated / deleted</strong> — red highlight
+          </span>
+        </div>
+
         <lx-table-loading [busy]="requestLoading && requestRawRows.length === 0" message="Loading requests log…"></lx-table-loading>
 <ng-container *ngIf="requestRawRows.length > 0 || requestTotalElements > 0">
           <ng-container *ngIf="requestTableDataSource.data.length > 0; else requestNoSearchHits">
@@ -314,7 +325,12 @@
                 </ng-container>
                 <ng-container matColumnDef="action">
                   <th mat-header-cell *matHeaderCellDef>Action</th>
-                  <td mat-cell *matCellDef="let row">{{ row.action }}</td>
+                  <td mat-cell *matCellDef="let row">
+                    <span [ngClass]="auditActionPillClass(row.action)" [title]="row.action">
+                      <span class="lx-audit-action-pill__badge" *ngIf="auditActionKindBadge(row.action) as badge">{{ badge }}</span>
+                      <span>{{ humanizeAuditAction(row.action) }}</span>
+                    </span>
+                  </td>
                 </ng-container>
                 <ng-container matColumnDef="eventType">
                   <th mat-header-cell *matHeaderCellDef>Event type</th>
@@ -368,7 +384,11 @@
                   </td>
                 </ng-container>
                 <tr mat-header-row *matHeaderRowDef="requestDisplayedColumns; sticky: true"></tr>
-                <tr mat-row *matRowDef="let row; columns: requestDisplayedColumns; trackBy: trackByRequestLogId"></tr>
+                <tr
+                  mat-row
+                  *matRowDef="let row; columns: requestDisplayedColumns; trackBy: trackByRequestLogId"
+                  [ngClass]="auditActionRowClass(row.action)"
+                ></tr>
               </table>
             </div>
             <mat-paginator

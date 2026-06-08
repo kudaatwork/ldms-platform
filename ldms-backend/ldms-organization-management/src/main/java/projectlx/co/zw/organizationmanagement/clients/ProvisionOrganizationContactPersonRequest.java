@@ -24,4 +24,6 @@ public class ProvisionOrganizationContactPersonRequest {
     private Long passportUploadId;
     private Boolean viaSignup;
     private Boolean sendVerificationEmail;
+    /** Existing contact person user to sync when the organisation contact email changes. */
+    private Long contactUserId;
 }

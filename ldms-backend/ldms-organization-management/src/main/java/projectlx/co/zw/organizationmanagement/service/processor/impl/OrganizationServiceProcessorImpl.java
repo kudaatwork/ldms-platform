@@ -8,6 +8,8 @@ import projectlx.co.zw.organizationmanagement.business.logic.api.OrganizationSer
 import projectlx.co.zw.organizationmanagement.service.processor.api.OrganizationServiceProcessor;
 import projectlx.co.zw.organizationmanagement.utils.dtos.ImportSummary;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryDto;
+import projectlx.co.zw.organizationmanagement.utils.requests.CreateFleetVehicleRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.EditFleetVehicleRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.AddBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateBranchRequest;
@@ -151,6 +153,22 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     }
 
     @Override
+    public OrganizationResponse completeSupplierRegisteredOnboarding(Long organizationId, Locale locale) {
+        log.info("Incoming request: completeSupplierRegisteredOnboarding orgId={}", organizationId);
+        OrganizationResponse response = organizationService.completeSupplierRegisteredOnboarding(organizationId, locale);
+        log.info("Outgoing response: completeSupplierRegisteredOnboarding success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse retryCustomerOnboarding(Long customerId, Locale locale, String username) {
+        log.info("Incoming request: retryCustomerOnboarding customerId={} user={}", customerId, username);
+        OrganizationResponse response = organizationService.retryCustomerOnboarding(customerId, locale, username);
+        log.info("Outgoing response: retryCustomerOnboarding success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
     public OrganizationResponse getCustomer(Long customerId, Locale locale, String username) {
         log.info("Incoming request: getCustomer id={} user={}", customerId, username);
         OrganizationResponse response = organizationService.getCustomer(customerId, locale, username);
@@ -180,6 +198,23 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         log.info("Incoming request: deleteCustomer id={} user={}", customerId, username);
         OrganizationResponse response = organizationService.deleteCustomer(customerId, locale, username);
         log.info("Outgoing response: deleteCustomer success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse updateTransporter(
+            Long transporterId, RegisterOrganizationRequest request, Locale locale, String username) {
+        log.info("Incoming request: updateTransporter id={} user={}", transporterId, username);
+        OrganizationResponse response = organizationService.updateTransporter(transporterId, request, locale, username);
+        log.info("Outgoing response: updateTransporter success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse deleteTransporter(Long transporterId, Locale locale, String username) {
+        log.info("Incoming request: deleteTransporter id={} user={}", transporterId, username);
+        OrganizationResponse response = organizationService.deleteTransporter(transporterId, locale, username);
+        log.info("Outgoing response: deleteTransporter success={}", response.isSuccess());
         return response;
     }
 
@@ -550,6 +585,46 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         log.info("Incoming request: updateOrganizationKycStages id={}", id);
         OrganizationResponse response = organizationService.updateOrganizationKycStages(id, request, locale, modifiedBy);
         log.info("Outgoing response: updateOrganizationKycStages success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse listFleetVehicles(Locale locale, String username) {
+        log.info("Incoming request: listFleetVehicles user={}", username);
+        OrganizationResponse response = organizationService.listFleetVehicles(locale, username);
+        log.info("Outgoing response: listFleetVehicles success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse listTransporterFleetVehicles(Long transporterId, Locale locale, String username) {
+        log.info("Incoming request: listTransporterFleetVehicles transporterId={} user={}", transporterId, username);
+        OrganizationResponse response = organizationService.listTransporterFleetVehicles(transporterId, locale, username);
+        log.info("Outgoing response: listTransporterFleetVehicles success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse createFleetVehicle(CreateFleetVehicleRequest request, Locale locale, String username) {
+        log.info("Incoming request: createFleetVehicle user={}", username);
+        OrganizationResponse response = organizationService.createFleetVehicle(request, locale, username);
+        log.info("Outgoing response: createFleetVehicle success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse updateFleetVehicle(Long id, EditFleetVehicleRequest request, Locale locale, String username) {
+        log.info("Incoming request: updateFleetVehicle id={} user={}", id, username);
+        OrganizationResponse response = organizationService.updateFleetVehicle(id, request, locale, username);
+        log.info("Outgoing response: updateFleetVehicle success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse deleteFleetVehicle(Long id, Locale locale, String username) {
+        log.info("Incoming request: deleteFleetVehicle id={} user={}", id, username);
+        OrganizationResponse response = organizationService.deleteFleetVehicle(id, locale, username);
+        log.info("Outgoing response: deleteFleetVehicle success={}", response.isSuccess());
         return response;
     }
 }

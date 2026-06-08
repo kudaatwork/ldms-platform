@@ -1,5 +1,7 @@
 package projectlx.user.management.model;
 
+import projectlx.co.zw.shared_library.utils.enums.TwoFactorMethod;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -33,6 +35,9 @@ public class UserSecurity {
     private String securityAnswer_2; // Answer to the second security question
     private String twoFactorAuthSecret; // Secret for two-factor authentication
     private Boolean isTwoFactorEnabled; // Indicates if 2FA is enabled
+    @Enumerated(EnumType.STRING)
+    @Column(name = "two_factor_method", length = 50)
+    private TwoFactorMethod twoFactorMethod;
     private LocalDateTime createdAt; // Timestamp when the user_security was created
     private LocalDateTime updatedAt; // Timestamp when the user_security was last updated
     @Enumerated(EnumType.STRING)

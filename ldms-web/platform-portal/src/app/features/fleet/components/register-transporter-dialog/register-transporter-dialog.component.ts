@@ -1,6 +1,6 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, Inject, OnDestroy, OnInit, Optional } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Subject, finalize, takeUntil } from 'rxjs';
 import { ORG_TYPES, type OrganizationType } from '../../../../core/models/auth.model';
 import {
@@ -9,10 +9,20 @@ import {
   maximumDateOfBirthInput,
 } from '../../../../core/utils/date-of-birth.util';
 import { CustomersPortalService } from '../../../customers/services/customers-portal.service';
-import { IndustrySelectOption, RegisterTransporterPayload, TransporterPartnerRow } from '../../models/fleet.model';
+import {
+  IndustrySelectOption,
+  RegisterTransporterPayload,
+  TransporterEditDetail,
+  TransporterPartnerRow,
+} from '../../models/fleet.model';
 import { FleetPortalService } from '../../services/fleet-portal.service';
 
 const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY'] as const;
+
+export type RegisterTransporterDialogData = {
+  /** When set the dialog operates in edit mode and pre-fills from GET /transporters/{id}. */
+  partnerId?: number;
+};
 
 @Component({
   selector: 'app-register-transporter-dialog',
@@ -23,12 +33,15 @@ const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY'] as 
 export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
   readonly organizationTypes = ORG_TYPES;
   readonly genderOptions = GENDER_OPTIONS;
-  readonly title = 'Contract transporter';
-  readonly subtitle =
-    'Register a third-party transport company under contract — separate from your own fleet. Capture contract dates, then complete the same organisation profile fields as Add customer.';
+
+  readonly isEdit: boolean;
+  readonly title: string;
+  readonly subtitle: string;
 
   readonly form: FormGroup;
   submitting = false;
+  loadingPartner = false;
+  loadPartnerError = '';
   saveError = '';
   taxClearanceUploadLabel = '';
   taxClearanceCertificateUpload: File | null = null;
@@ -47,6 +60,11 @@ export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
   suburbIdStr = '';
   addressError = '';
 
+  private readonly partnerId?: number;
+  private existingTaxUploadId?: number;
+  private existingNationalIdUploadId?: number;
+  private existingPassportUploadId?: number;
+
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -54,8 +72,16 @@ export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
     private readonly dialogRef: MatDialogRef<RegisterTransporterDialogComponent, TransporterPartnerRow | undefined>,
     private readonly fleet: FleetPortalService,
     private readonly customers: CustomersPortalService,
+    @Optional() @Inject(MAT_DIALOG_DATA) data: RegisterTransporterDialogData | null,
   ) {
     this.dialogRef.disableClose = true;
+    this.partnerId = data?.partnerId;
+    this.isEdit = !!this.partnerId;
+    this.title = this.isEdit ? 'Edit transport partner' : 'Contract transporter';
+    this.subtitle = this.isEdit
+      ? 'Update the contracted transport partner profile and contract terms.'
+      : 'Register a third-party transport company under contract — separate from your own fleet. Capture contract dates, then complete the same organisation profile fields as Add customer.';
+
     const today = new Date().toISOString().slice(0, 10);
     this.form = this.fb.group({
       contractStartDate: [today, Validators.required],
@@ -94,6 +120,10 @@ export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
           this.taxUploadMissing = false;
         }
       });
+
+    if (this.isEdit && this.partnerId) {
+      this.loadPartnerForEdit(this.partnerId);
+    }
   }
 
   ngOnDestroy(): void {
@@ -140,6 +170,9 @@ export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
     this.identificationError = '';
   }
 
+  // ============================================================
+  // STEP 1: Validate form and identification docs
+  // ============================================================
   save(): void {
     if (this.form.invalid || this.submitting) {
       this.form.markAllAsTouched();
@@ -147,7 +180,7 @@ export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
     }
 
     const taxNumber = String(this.form.get('taxNumber')?.value ?? '').trim();
-    if (taxNumber && !this.taxClearanceCertificateUpload) {
+    if (taxNumber && !this.taxClearanceCertificateUpload && !this.existingTaxUploadId) {
       this.taxUploadMissing = true;
       this.form.markAllAsTouched();
       return;
@@ -162,8 +195,10 @@ export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
 
     const nationalIdNumber = String(this.form.get('contactPersonNationalIdNumber')?.value ?? '').trim();
     const passportNumber = String(this.form.get('contactPersonPassportNumber')?.value ?? '').trim();
-    const nationalComplete = nationalIdNumber.length > 0 && !!this.nationalIdUpload;
-    const passportComplete = passportNumber.length > 0 && !!this.passportUpload;
+    const nationalComplete =
+      nationalIdNumber.length > 0 && (!!this.nationalIdUpload || !!this.existingNationalIdUploadId);
+    const passportComplete =
+      passportNumber.length > 0 && (!!this.passportUpload || !!this.existingPassportUploadId);
     if (!nationalComplete && !passportComplete) {
       this.identificationError =
         'Provide a national ID number with scan, or a passport number with scan (at least one complete set).';
@@ -194,6 +229,9 @@ export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // ============================================================
+    // STEP 2: Build payload
+    // ============================================================
     const payload: RegisterTransporterPayload = {
       contractStartDate,
       contractEndDate: contractEndDate || undefined,
@@ -213,14 +251,17 @@ export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
         ? String(v.contactPersonNationalIdExpiryDate ?? '').trim() || undefined
         : undefined,
       contactPersonNationalIdUpload: nationalComplete ? this.nationalIdUpload ?? undefined : undefined,
+      contactPersonNationalIdUploadId: nationalComplete ? this.existingNationalIdUploadId : undefined,
       contactPersonPassportNumber: passportComplete ? passportNumber : undefined,
       contactPersonPassportExpiryDate: passportComplete
         ? String(v.contactPersonPassportExpiryDate ?? '').trim() || undefined
         : undefined,
       contactPersonPassportUpload: passportComplete ? this.passportUpload ?? undefined : undefined,
+      contactPersonPassportUploadId: passportComplete ? this.existingPassportUploadId : undefined,
       registrationNumber: String(v.registrationNumber ?? '').trim() || undefined,
       taxNumber: taxNumber || undefined,
       taxClearanceCertificateUpload: this.taxClearanceCertificateUpload ?? undefined,
+      taxClearanceCertificateUploadId: taxNumber ? this.existingTaxUploadId : undefined,
       addressLine1: hasAnyAddressInput ? this.addressLine1.trim() : undefined,
       addressLine2: hasAnyAddressInput ? this.addressLine2.trim() || undefined : undefined,
       postalCode: hasAnyAddressInput ? this.postalCode.trim() : undefined,
@@ -231,8 +272,15 @@ export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
     this.saveError = '';
     this.identificationError = '';
 
-    this.fleet
-      .registerTransporter(payload)
+    // ============================================================
+    // STEP 3: Call update (edit) or register (create)
+    // ============================================================
+    const request$ =
+      this.isEdit && this.partnerId
+        ? this.fleet.updateTransporter(this.partnerId, payload)
+        : this.fleet.registerTransporter(payload);
+
+    request$
       .pipe(
         finalize(() => (this.submitting = false)),
         takeUntil(this.destroy$),
@@ -240,7 +288,66 @@ export class RegisterTransporterDialogComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (row: TransporterPartnerRow) => this.dialogRef.close(row),
         error: (err: Error) => {
-          this.saveError = err.message ?? 'Could not register transport partner.';
+          this.saveError = err.message ?? 'Could not save transport partner.';
+        },
+      });
+  }
+
+  // ============================================================
+  // Pre-fill form for edit mode
+  // ============================================================
+  private loadPartnerForEdit(partnerId: number): void {
+    this.loadingPartner = true;
+    this.loadPartnerError = '';
+    this.fleet
+      .getTransporterEditDetail(partnerId)
+      .pipe(
+        finalize(() => (this.loadingPartner = false)),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (detail: TransporterEditDetail) => {
+          this.form.patchValue({
+            contractStartDate: detail.contractStartDate ?? '',
+            contractEndDate: detail.contractEndDate ?? '',
+            organizationType: detail.organizationType ?? 'PRIVATE',
+            industryId: detail.industryId ?? null,
+            name: detail.name,
+            email: detail.email,
+            phoneNumber: detail.phoneNumber,
+            registrationNumber: detail.registrationNumber ?? '',
+            taxNumber: detail.taxNumber ?? '',
+            contactPersonFirstName: detail.contactPersonFirstName,
+            contactPersonLastName: detail.contactPersonLastName,
+            contactPersonEmail: detail.contactPersonEmail,
+            contactPersonPhoneNumber: detail.contactPersonPhoneNumber,
+            contactPersonGender: detail.contactPersonGender,
+            contactPersonDateOfBirth: detail.contactPersonDateOfBirth,
+            contactPersonNationalIdNumber: detail.contactPersonNationalIdNumber ?? '',
+            contactPersonPassportNumber: detail.contactPersonPassportNumber ?? '',
+          });
+
+          this.existingTaxUploadId = detail.taxClearanceCertificateUploadId;
+          this.existingNationalIdUploadId = detail.contactPersonNationalIdUploadId;
+          this.existingPassportUploadId = detail.contactPersonPassportUploadId;
+
+          if (detail.taxClearanceCertificateUploadId) {
+            this.taxClearanceUploadLabel = '(existing file on record)';
+          }
+          if (detail.contactPersonNationalIdUploadId) {
+            this.nationalIdUploadLabel = '(existing file on record)';
+          }
+          if (detail.contactPersonPassportUploadId) {
+            this.passportUploadLabel = '(existing file on record)';
+          }
+
+          this.addressLine1 = detail.addressLine1 ?? '';
+          this.addressLine2 = detail.addressLine2 ?? '';
+          this.postalCode = detail.postalCode ?? '';
+          this.suburbIdStr = detail.suburbId ? String(detail.suburbId) : '';
+        },
+        error: (err: Error) => {
+          this.loadPartnerError = err.message ?? 'Could not load transport partner details for editing.';
         },
       });
   }

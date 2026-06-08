@@ -74,10 +74,12 @@ public class OrganizationApprovedCredentialsSupport {
 
     /**
      * Issues temporary credentials and emails them to the contact person only (supplier-registered onboarding).
+     *
+     * @return {@code true} when credentials were issued and the notification was queued
      */
-    public void issueAndEmailCredentialsToContactOnly(Organization org) {
+    public boolean issueAndEmailCredentialsToContactOnly(Organization org) {
         if (org == null || org.getId() == null) {
-            return;
+            return false;
         }
         boolean viaSignup = Boolean.TRUE.equals(org.getCreatedViaSignup());
         Long contactUserId = org.getContactPersonUserId();
@@ -88,7 +90,7 @@ public class OrganizationApprovedCredentialsSupport {
             log.warn(
                     "Skipping contact-credentials email for organisation {}: contact person user is not linked",
                     org.getId());
-            return;
+            return false;
         }
 
         IssueOrganizationContactCredentialsRequest request = new IssueOrganizationContactCredentialsRequest();
@@ -104,22 +106,27 @@ public class OrganizationApprovedCredentialsSupport {
                     contactUserId,
                     ex.getMessage(),
                     ex);
-            return;
+            return false;
         }
-        if (credentialsResponse == null
-                || !credentialsResponse.isSuccess()
-                || !StringUtils.hasText(credentialsResponse.getTemporaryUsername())
-                || !StringUtils.hasText(credentialsResponse.getTemporaryPassword())) {
+        if (credentialsResponse == null || !credentialsResponse.isSuccess()) {
             log.warn(
                     "Temporary credentials were not returned for organisation {}: {}",
                     org.getId(),
                     credentialsResponse != null ? credentialsResponse.getMessage() : "null response");
-            return;
+            return false;
+        }
+        if (!StringUtils.hasText(credentialsResponse.getTemporaryUsername())
+                || !StringUtils.hasText(credentialsResponse.getTemporaryPassword())) {
+            log.info(
+                    "Contact person for organisation {} already has portal access; credentials email skipped",
+                    org.getId());
+            return true;
         }
 
         organizationKycNotifier.sendContactCredentials(
                 org,
                 credentialsResponse.getTemporaryUsername().trim(),
                 credentialsResponse.getTemporaryPassword().trim());
+        return true;
     }
 }

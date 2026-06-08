@@ -1,5 +1,6 @@
 package projectlx.co.zw.organizationmanagement.business.config;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import projectlx.co.zw.organizationmanagement.business.auditable.api.AgentServiceAuditable;
@@ -32,6 +33,7 @@ import projectlx.co.zw.organizationmanagement.business.validation.api.Organizati
 import projectlx.co.zw.organizationmanagement.business.validation.impl.OrganizationServiceValidatorImpl;
 import projectlx.co.zw.organizationmanagement.repository.AgentRepository;
 import projectlx.co.zw.organizationmanagement.repository.BranchRepository;
+import projectlx.co.zw.organizationmanagement.repository.FleetVehicleRepository;
 import projectlx.co.zw.organizationmanagement.repository.IndustryRepository;
 import projectlx.co.zw.organizationmanagement.repository.OrganizationKycReviewRepository;
 import projectlx.co.zw.organizationmanagement.repository.OrganizationRepository;
@@ -87,6 +89,7 @@ public class BusinessConfig {
             OrganizationRepository organizationRepository,
             projectlx.co.zw.organizationmanagement.repository.ContractedTransporterLinkRepository
                     contractedTransporterLinkRepository,
+            FleetVehicleRepository fleetVehicleRepository,
             IndustryRepository industryRepository,
             IndustryServiceAuditable industryServiceAuditable,
             BranchRepository branchRepository,
@@ -113,10 +116,12 @@ public class BusinessConfig {
             OrganizationRegistrationAddressSupport organizationRegistrationAddressSupport,
             projectlx.co.zw.organizationmanagement.business.logic.support.SupplierRegisteredOrganizationOnboardingSupport
                     supplierRegisteredOrganizationOnboardingSupport,
+            ApplicationEventPublisher applicationEventPublisher,
             projectlx.co.zw.shared_library.business.logic.impl.TokenService tokenService) {
         return new OrganizationServiceImpl(
                 organizationRepository,
                 contractedTransporterLinkRepository,
+                fleetVehicleRepository,
                 industryRepository,
                 industryServiceAuditable,
                 branchRepository,
@@ -142,6 +147,7 @@ public class BusinessConfig {
                 organizationDirectoryNotifier,
                 organizationRegistrationAddressSupport,
                 supplierRegisteredOrganizationOnboardingSupport,
+                applicationEventPublisher,
                 tokenService);
     }
 }

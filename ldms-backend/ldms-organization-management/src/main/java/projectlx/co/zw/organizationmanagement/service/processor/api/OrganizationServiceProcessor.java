@@ -2,6 +2,8 @@ package projectlx.co.zw.organizationmanagement.service.processor.api;
 
 import org.springframework.data.domain.Pageable;
 import projectlx.co.zw.organizationmanagement.utils.dtos.ImportSummary;
+import projectlx.co.zw.organizationmanagement.utils.requests.CreateFleetVehicleRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.EditFleetVehicleRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.AddBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateBranchRequest;
@@ -63,6 +65,10 @@ public interface OrganizationServiceProcessor {
 
     OrganizationResponse verifyOrganizationEmail(String email, String token, Locale locale);
 
+    OrganizationResponse completeSupplierRegisteredOnboarding(Long organizationId, Locale locale);
+
+    OrganizationResponse retryCustomerOnboarding(Long customerId, Locale locale, String username);
+
     OrganizationResponse getCustomer(Long customerId, Locale locale, String username);
 
     OrganizationResponse getTransporter(Long transporterId, Locale locale, String username);
@@ -71,6 +77,11 @@ public interface OrganizationServiceProcessor {
             Long customerId, RegisterOrganizationRequest request, Locale locale, String username);
 
     OrganizationResponse deleteCustomer(Long customerId, Locale locale, String username);
+
+    OrganizationResponse updateTransporter(
+            Long transporterId, RegisterOrganizationRequest request, Locale locale, String username);
+
+    OrganizationResponse deleteTransporter(Long transporterId, Locale locale, String username);
 
     OrganizationResponse linkTransporter(LinkTransporterRequest request, Locale locale, String username);
 
@@ -179,4 +190,18 @@ public interface OrganizationServiceProcessor {
     ImportSummary importAgentsFromCsv(InputStream inputStream, Locale locale, String username) throws IOException;
 
     ImportSummary importIndustriesFromCsv(InputStream inputStream, Locale locale, String username) throws IOException;
+
+    // =========================================================
+    // Fleet vehicle management
+    // =========================================================
+
+    OrganizationResponse listFleetVehicles(Locale locale, String username);
+
+    OrganizationResponse listTransporterFleetVehicles(Long transporterId, Locale locale, String username);
+
+    OrganizationResponse createFleetVehicle(CreateFleetVehicleRequest request, Locale locale, String username);
+
+    OrganizationResponse updateFleetVehicle(Long id, EditFleetVehicleRequest request, Locale locale, String username);
+
+    OrganizationResponse deleteFleetVehicle(Long id, Locale locale, String username);
 }

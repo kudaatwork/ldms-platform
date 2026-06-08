@@ -1,0 +1,86 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
+    <div class="lx-form-grid">
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Driver profile</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">First name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('firstName', 'required')">
+          <mat-icon class="lx-input-shell__icon">person</mat-icon>
+          <input formControlName="firstName" autocomplete="off" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('firstName', 'required')">First name is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Last name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('lastName', 'required')">
+          <mat-icon class="lx-input-shell__icon">person</mat-icon>
+          <input formControlName="lastName" autocomplete="off" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('lastName', 'required')">Last name is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Phone</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+          <input formControlName="phoneNumber" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Linked user id</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+          <input type="number" formControlName="userId" placeholder="Optional platform user id" />
+        </div>
+        <div class="lx-field-hint">Optional link to a user-management account.</div>
+      </div>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">License details</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">License number</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">credit_card</mat-icon>
+          <input formControlName="licenseNumber" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">License class</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">category</mat-icon>
+          <input formControlName="licenseClass" placeholder="e.g. CE" autocomplete="off" />
+        </div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="saveError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ saveError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+        {{ submitting ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save changes' : 'Add driver') }}
+      </button>
+    </div>
+  </form>
+</div>

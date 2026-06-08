@@ -85,6 +85,8 @@ export class UsersAdminService {
 
   /** Admin portal: {@code backoffice} (JWT only). {@code frontend} enforces per-endpoint {@code @PreAuthorize} roles. */
   private readonly base = ldmsApiUrl('/ldms-user-management/v1/backoffice');
+  /** Self-service My Account 2FA uses authenticated {@code frontend} endpoints (no admin security roles). */
+  private readonly selfServiceBase = ldmsApiUrl('/ldms-user-management/v1/frontend');
   private readonly fileUploadBase = ldmsApiUrl('/ldms-file-upload-service/v1/backoffice/file-upload');
 
   constructor(private readonly http: HttpClient) {}
@@ -401,7 +403,13 @@ export class UsersAdminService {
     return forkJoin({
       account: needAccount ? this.findUserAccountByUserId(uid) : of(accountFromUser ?? bundle.account),
       security: needSecurity
-        ? this.findUserSecurityByUserId(uid)
+        ? this.getMyUserSecurity().pipe(
+            switchMap((selfRow) =>
+              selfRow
+                ? of(selfRow)
+                : this.findUserSecurityByUserId(uid),
+            ),
+          )
         : of(bundle.security ?? this.extractNestedDto(bundle.user, ['userSecurityDto', 'userSecurity'])),
     }).pipe(
       map(({ account, security }) => ({
@@ -849,6 +857,118 @@ export class UsersAdminService {
     );
   }
 
+  getMyUserSecurity(): Observable<Record<string, unknown> | null> {
+    return this.http.get<unknown>(`${this.selfServiceBase}/user-security/me`).pipe(
+      map((resp) => this.extractSingleDto(resp, 'userSecurityDto')),
+      catchError(() => of(null)),
+    );
+  }
+
+  saveMyUserSecurity(payload: {
+    securityQuestion_1: string;
+    securityAnswer_1: string;
+    securityQuestion_2: string;
+    securityAnswer_2: string;
+    twoFactorAuthSecret: string;
+    isTwoFactorEnabled: boolean;
+  }): Observable<unknown> {
+    return this.http.put(`${this.selfServiceBase}/user-security/me`, payload);
+  }
+
+  beginMyAuthenticatorSetup(): Observable<{
+    secret: string;
+    otpAuthUri: string;
+    qrCodeDataUrl: string;
+  }> {
+    return this.http
+      .post<unknown>(`${this.selfServiceBase}/user-security/me/two-factor/begin-authenticator`, {})
+      .pipe(map((resp) => this.mapAuthenticatorSetupResponse(resp)));
+  }
+
+  confirmMyAuthenticatorSetup(otp: string): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.selfServiceBase}/user-security/me/two-factor/confirm-authenticator`, { otp })
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  enableMySmsTwoFactor(): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.selfServiceBase}/user-security/me/two-factor/enable-sms`, {})
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  requestMyTwoFactorDisableOtp(): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.selfServiceBase}/user-security/me/two-factor/request-disable-otp`, {})
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  disableMyTwoFactor(otp: string): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.selfServiceBase}/user-security/me/two-factor/disable`, { otp })
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  /** Admin: manage another user's two-step verification (requires UPDATE_USER_SECURITY). */
+  adminBeginAuthenticatorSetup(userId: number): Observable<{
+    secret: string;
+    otpAuthUri: string;
+    qrCodeDataUrl: string;
+  }> {
+    return this.http
+      .post<unknown>(`${this.base}/user-security/${userId}/two-factor/begin-authenticator`, {})
+      .pipe(map((resp) => this.mapAuthenticatorSetupResponse(resp)));
+  }
+
+  adminConfirmAuthenticatorSetup(userId: number, otp: string): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.base}/user-security/${userId}/two-factor/confirm-authenticator`, { otp })
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  adminEnableSmsTwoFactor(userId: number): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.base}/user-security/${userId}/two-factor/enable-sms`, {})
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  adminDisableTwoFactor(userId: number): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.base}/user-security/${userId}/two-factor/disable`, {})
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  private mapAuthenticatorSetupResponse(resp: unknown): {
+    secret: string;
+    otpAuthUri: string;
+    qrCodeDataUrl: string;
+  } {
+    const obj = this.assertApiObject(resp);
+    return {
+      secret: String(obj['authenticatorSetupSecret'] ?? '').trim(),
+      otpAuthUri: String(obj['authenticatorSetupOtpAuthUri'] ?? '').trim(),
+      qrCodeDataUrl: String(obj['authenticatorSetupQrCodeDataUrl'] ?? '').trim(),
+    };
+  }
+
+  private assertSuccessResponse(resp: unknown): boolean {
+    this.assertApiObject(resp);
+    return true;
+  }
+
+  private assertApiObject(resp: unknown): Record<string, unknown> {
+    const obj = this.toObj(this.parsePossiblyStringifiedJson(resp));
+    if (!obj || obj['success'] === false) {
+      const msgs = obj?.['errorMessages'];
+      const detail =
+        Array.isArray(msgs) && msgs.length
+          ? msgs.map((m) => String(m)).join(' ')
+          : String(obj?.['message'] ?? 'Request failed');
+      throw new Error(detail);
+    }
+    return obj;
+  }
+
   /** Files stored against this user (`OwnerType.USER`). */
   listUserFileUploads(userId: number): Observable<UserFileUploadSummary[]> {
     return this.http
@@ -1012,6 +1132,19 @@ export class UsersAdminService {
     }
     const hoursMs = 24 * 60 * 60 * 1000;
     return Date.now() - created.getTime() >= hoursMs;
+  }
+
+  /** True when the user record still needs email verification (UI button visibility). */
+  needsEmailVerification(emailVerified: unknown): boolean {
+    return emailVerified !== true;
+  }
+
+  /** True when the user record still needs phone verification and has a phone number on file. */
+  needsPhoneVerification(phoneVerified: unknown, phoneNumber: unknown): boolean {
+    if (phoneVerified === true) {
+      return false;
+    }
+    return String(phoneNumber ?? '').trim().length > 0;
   }
 
   parseApiDateTime(value: unknown): Date | null {

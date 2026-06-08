@@ -14,8 +14,8 @@ import projectlx.user.management.repository.UserGroupRepository;
 import projectlx.user.management.repository.UserTypeRepository;
 
 /**
- * Idempotent workspace bootstrap for a new organisation: scoped {@code Administrator} group with
- * organisation-portal permissions and baseline user types used by the platform portal.
+ * Idempotent workspace bootstrap: one platform-wide {@code Administrator} group (all LDMS roles)
+ * and baseline user types for the organisation portal.
  */
 @Component
 @RequiredArgsConstructor
@@ -30,17 +30,22 @@ public class OrganizationWorkspaceProvisioner {
     private final UserGroupRepository userGroupRepository;
     private final UserTypeRepository userTypeRepository;
 
+    /**
+     * Returns the single platform {@code Administrator} group and refreshes role grants.
+     * {@code organizationId} is accepted for call-site compatibility but does not create per-org groups.
+     */
     public UserGroup ensureAdministratorGroup(long organizationId) {
-        if (organizationId <= 0) {
-            return null;
-        }
+        syncPlatformAdministratorGroup();
         return userGroupRepository
-                .findByOrganizationIdAndNameIgnoreCaseAndEntityStatusNot(
-                        organizationId, ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED)
-                .orElseGet(() -> loadAfterSync(organizationId));
+                .findByOrganizationIdIsNullAndNameIgnoreCaseAndEntityStatusNot(
+                        ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED)
+                .orElse(null);
     }
 
     public void ensureBaselineUserTypes() {
+        ensureUserType(
+                OrganizationPortalUserTypePolicy.SYSTEM_ADMINISTRATOR,
+                "Platform workspace administrator with full organisation access");
         ensureUserType(
                 USER_TYPE_ORGANIZATION_CONTACT,
                 "Primary organisation contact and workspace owner");
@@ -49,24 +54,12 @@ public class OrganizationWorkspaceProvisioner {
                 "Standard organisation user on the platform portal");
     }
 
-    private UserGroup loadAfterSync(long organizationId) {
-        syncOrganizationWorkspace(organizationId);
-        return userGroupRepository
-                .findByOrganizationIdAndNameIgnoreCaseAndEntityStatusNot(
-                        organizationId, ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED)
-                .orElse(null);
-    }
-
-    private void syncOrganizationWorkspace(long organizationId) {
+    private void syncPlatformAdministratorGroup() {
         try (Connection connection = dataSource.getConnection()) {
-            LdmsRoleCatalogSeeder.seedOrganizationAdministratorGroup(connection, organizationId);
-            log.info("Synchronized organisation {} workspace Administrator group and roles", organizationId);
+            LdmsRoleCatalogSeeder.seedAllRolesAndAdministratorGroup(connection);
+            log.debug("Synchronized platform Administrator group and role catalog");
         } catch (Exception ex) {
-            log.error(
-                    "Failed to synchronize organisation {} workspace: {}",
-                    organizationId,
-                    ex.getMessage(),
-                    ex);
+            log.error("Failed to synchronize platform Administrator group: {}", ex.getMessage(), ex);
         }
         ensureBaselineUserTypes();
     }

@@ -14,6 +14,7 @@ public final class LdmsExportReport {
     private final String subtitle;
     private final String[] columnHeaders;
     private final List<String[]> rows;
+    private final List<LdmsExportRowHighlight> rowHighlights;
     private final boolean landscape;
 
     private LdmsExportReport(Builder builder) {
@@ -22,6 +23,7 @@ public final class LdmsExportReport {
         this.subtitle = builder.subtitle;
         this.columnHeaders = builder.columnHeaders.clone();
         this.rows = List.copyOf(builder.rows);
+        this.rowHighlights = List.copyOf(builder.rowHighlights);
         this.landscape = builder.landscape;
     }
 
@@ -49,6 +51,10 @@ public final class LdmsExportReport {
         return rows;
     }
 
+    public List<LdmsExportRowHighlight> getRowHighlights() {
+        return rowHighlights;
+    }
+
     public boolean isLandscape() {
         return landscape;
     }
@@ -59,6 +65,7 @@ public final class LdmsExportReport {
         private String subtitle = "";
         private String[] columnHeaders = new String[0];
         private final List<String[]> rows = new ArrayList<>();
+        private final List<LdmsExportRowHighlight> rowHighlights = new ArrayList<>();
         private boolean landscape = true;
 
         public Builder title(String title) {
@@ -83,14 +90,30 @@ public final class LdmsExportReport {
 
         public Builder rows(List<String[]> rows) {
             this.rows.clear();
+            this.rowHighlights.clear();
             if (rows != null) {
                 this.rows.addAll(rows);
             }
             return this;
         }
 
+        public Builder rowHighlights(List<LdmsExportRowHighlight> highlights) {
+            this.rowHighlights.clear();
+            if (highlights != null) {
+                this.rowHighlights.addAll(highlights);
+            }
+            return this;
+        }
+
         public Builder addRow(String... cells) {
             this.rows.add(cells);
+            this.rowHighlights.add(LdmsExportRowHighlight.NONE);
+            return this;
+        }
+
+        public Builder addRow(LdmsExportRowHighlight highlight, String... cells) {
+            this.rows.add(cells);
+            this.rowHighlights.add(highlight != null ? highlight : LdmsExportRowHighlight.NONE);
             return this;
         }
 

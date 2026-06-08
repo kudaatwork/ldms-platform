@@ -316,7 +316,30 @@ public enum I18Code {
     MESSAGE_UPDATE_SUPPORT_TICKET_INVALID_REQUEST("message.update.support.ticket.invalid.request"),
     MESSAGE_ASSIGN_SUPPORT_TICKET_INVALID_REQUEST("message.assign.support.ticket.invalid.request"),
     MESSAGE_ADD_SUPPORT_TICKET_MESSAGE_INVALID("message.add.support.ticket.message.invalid.request"),
-    MESSAGE_HELP_PLATFORM_STATUS_RETRIEVED("message.help.platform.status.retrieved");
+    MESSAGE_HELP_PLATFORM_STATUS_RETRIEVED("message.help.platform.status.retrieved"),
+
+    // Phone verification & OTP
+    MESSAGE_EMAIL_CHANGE_LOCKED("message.email.change.locked"),
+    MESSAGE_PHONE_CHANGE_LOCKED("message.phone.change.locked"),
+    MESSAGE_PHONE_ALREADY_VERIFIED("message.phone.already.verified"),
+    MESSAGE_PHONE_VERIFIED_SUCCESSFULLY("message.phone.verified.successfully"),
+    MESSAGE_PHONE_NUMBER_MISSING_FOR_VERIFICATION("message.phone.number.missing.for.verification"),
+    MESSAGE_PHONE_VERIFICATION_OTP_SENT("message.phone.verification.otp.sent"),
+    MESSAGE_OTP_INVALID_OR_EXPIRED("message.otp.invalid.or.expired"),
+    MESSAGE_OTP_VERIFIED_SUCCESSFULLY("message.otp.verified.successfully"),
+    MESSAGE_STEP_UP_VERIFIED_SUCCESSFULLY("message.step.up.verified.successfully"),
+    MESSAGE_SMS_DELIVERY_DISABLED("message.sms.delivery.disabled"),
+
+    MESSAGE_TWO_FACTOR_AUTHENTICATOR_SETUP_STARTED("message.two.factor.authenticator.setup.started"),
+    MESSAGE_TWO_FACTOR_AUTHENTICATOR_ENABLED("message.two.factor.authenticator.enabled"),
+    MESSAGE_TWO_FACTOR_SMS_ENABLED("message.two.factor.sms.enabled"),
+    MESSAGE_TWO_FACTOR_DISABLED("message.two.factor.disabled"),
+    MESSAGE_TWO_FACTOR_DISABLE_OTP_SENT("message.two.factor.disable.otp.sent"),
+    MESSAGE_TWO_FACTOR_ALREADY_ENABLED("message.two.factor.already.enabled"),
+    MESSAGE_TWO_FACTOR_NOT_ENABLED("message.two.factor.not.enabled"),
+    MESSAGE_TWO_FACTOR_SETUP_NOT_STARTED("message.two.factor.setup.not.started"),
+    MESSAGE_TWO_FACTOR_PHONE_NOT_VERIFIED("message.two.factor.phone.not.verified"),
+    MESSAGE_TWO_FACTOR_WRONG_METHOD("message.two.factor.wrong.method");
 
     private final String code;
 }

@@ -101,7 +101,14 @@
             <mat-icon class="my-card__icon">shield</mat-icon>
             <h3>Security & recovery</h3>
           </div>
-          <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditSecurity()">Edit</button>
+          <div class="my-card__head-actions">
+            <button type="button" class="lx-btn lx-btn-sm lx-btn-primary" (click)="openManageTwoFactor()">
+              Manage 2FA
+            </button>
+            <button type="button" class="lx-btn lx-btn-sm lx-btn-ghost" (click)="openEditSecurity()">
+              Recovery Q&A
+            </button>
+          </div>
         </header>
         <dl class="my-fields">
           <div>
@@ -111,6 +118,10 @@
                 {{ formatBoolean(bundle.security?.['isTwoFactorEnabled']) }}
               </span>
             </dd>
+          </div>
+          <div>
+            <dt>2FA method</dt>
+            <dd>{{ twoFactorMethodLabel() }}</dd>
           </div>
           <div><dt>Security question 1</dt><dd>{{ formatDisplay(bundle.security?.['securityQuestion_1']) }}</dd></div>
           <div><dt>Security question 2</dt><dd>{{ formatDisplay(bundle.security?.['securityQuestion_2']) }}</dd></div>

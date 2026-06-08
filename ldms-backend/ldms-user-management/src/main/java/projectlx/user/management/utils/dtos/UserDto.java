@@ -46,6 +46,10 @@ public class UserDto {
 
     private EntityStatus entityStatus;
     private Boolean emailVerified;
+    private Boolean phoneVerified;
+    private LocalDateTime lastPhoneVerifiedAt;
+    /** Computed — true when phone is not yet verified and the account is at least 14 days old. */
+    private Boolean phoneVerificationDue;
     private Boolean mustChangeCredentials;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

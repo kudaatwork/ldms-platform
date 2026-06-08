@@ -27,7 +27,21 @@
         <label class="lx-field-label">Email <span class="req">*</span></label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
-          <input type="email" [(ngModel)]="email" placeholder="e.g. tinashe@example.com" autocomplete="off" />
+          <input type="email" [(ngModel)]="email" placeholder="e.g. tinashe@example.com" autocomplete="off" [readonly]="emailVerified" />
+        </div>
+        <small class="ued-hint" *ngIf="emailVerified">Verified email cannot be changed.</small>
+        <div class="ued-verify-row" *ngIf="showVerifyEmail">
+          <button
+            type="button"
+            mat-stroked-button
+            color="primary"
+            class="ued-verify-btn"
+            (click)="verifyEmail()"
+            [disabled]="saving || sendingVerificationEmail"
+          >
+            <mat-icon aria-hidden="true">mark_email_read</mat-icon>
+            {{ sendingVerificationEmail ? 'Sending…' : 'Verify email' }}
+          </button>
         </div>
       </div>
       <div class="lx-field">
@@ -58,7 +72,21 @@
         <label class="lx-field-label">Phone <span class="req">*</span></label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">phone</mat-icon>
-          <input [(ngModel)]="phoneNumber" placeholder="e.g. +263771234567" />
+          <input [(ngModel)]="phoneNumber" placeholder="e.g. +263771234567" [readonly]="phoneVerified" />
+        </div>
+        <small class="ued-hint" *ngIf="phoneVerified">Verified phone number cannot be changed.</small>
+        <div class="ued-verify-row" *ngIf="showVerifyPhone">
+          <button
+            type="button"
+            mat-stroked-button
+            color="primary"
+            class="ued-verify-btn"
+            (click)="verifyPhone()"
+            [disabled]="saving"
+          >
+            <mat-icon aria-hidden="true">sms</mat-icon>
+            Verify phone number
+          </button>
         </div>
       </div>
       <div class="lx-field">

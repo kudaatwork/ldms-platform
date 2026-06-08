@@ -8,7 +8,13 @@ import {
   isDateOfBirthAtLeastMinimumAge,
   maximumDateOfBirthInput,
 } from '../../../../core/utils/date-of-birth.util';
-import { CustomerListRow, IndustrySelectOption, RegisterCustomerPayload } from '../../models/customer.model';
+import type { AddressHierarchySeed } from '../../../users/components/user-address-cascade-fields/user-address-cascade-fields.component';
+import {
+  CustomerEditDetail,
+  CustomerListRow,
+  IndustrySelectOption,
+  RegisterCustomerPayload,
+} from '../../models/customer.model';
 import { CustomersPortalService } from '../../services/customers-portal.service';
 
 const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY'] as const;
@@ -53,7 +59,18 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
   addressLine2 = '';
   postalCode = '';
   suburbIdStr = '';
+  cityIdStr = '';
+  seedSuburbId: number | null = null;
+  addressSeed: AddressHierarchySeed | null = null;
   addressError = '';
+
+  private existingLocationId?: number;
+  private loadedAddress: {
+    line1: string;
+    line2: string;
+    postalCode: string;
+    suburbId: number;
+  } | null = null;
 
   private readonly destroy$ = new Subject<void>();
 
@@ -190,6 +207,7 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
 
     this.addressError = '';
     const suburbId = Number(this.suburbIdStr.trim());
+    const cityId = Number(this.cityIdStr.trim());
     const hasAnyAddressInput =
       this.addressLine1.trim().length > 0 ||
       this.addressLine2.trim().length > 0 ||
@@ -236,6 +254,8 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
       addressLine2: hasAnyAddressInput ? this.addressLine2.trim() || undefined : undefined,
       postalCode: hasAnyAddressInput ? this.postalCode.trim() : undefined,
       suburbId: hasAnyAddressInput ? suburbId : undefined,
+      cityId: hasAnyAddressInput && Number.isFinite(cityId) && cityId > 0 ? cityId : undefined,
+      locationId: hasAnyAddressInput && this.shouldReuseExistingLocation(suburbId) ? this.existingLocationId : undefined,
     };
 
     this.submitting = true;
@@ -272,6 +292,7 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (detail) => {
+          this.existingLocationId = detail.locationId;
           this.existingTaxUploadId = detail.taxClearanceCertificateUploadId;
           this.existingNationalIdUploadId = detail.contactPersonNationalIdUploadId;
           this.existingPassportUploadId = detail.contactPersonPassportUploadId;
@@ -301,11 +322,79 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
             contactPersonNationalIdNumber: detail.contactPersonNationalIdNumber ?? '',
             contactPersonPassportNumber: detail.contactPersonPassportNumber ?? '',
           });
+          this.applyLoadedAddress(detail);
         },
         error: (err: Error) => {
           this.saveError = err.message ?? 'Could not load customer profile.';
         },
       });
+  }
+
+  private applyLoadedAddress(detail: CustomerEditDetail): void {
+    this.loadedAddress = null;
+    this.seedSuburbId = null;
+    this.addressSeed = null;
+
+    const line1 = String(detail.addressLine1 ?? '').trim();
+    const line2 = String(detail.addressLine2 ?? '').trim();
+    const postalCode = String(detail.postalCode ?? '').trim();
+    const suburbNum = detail.suburbId ?? 0;
+
+    if (!line1 && !line2 && !postalCode && !(suburbNum > 0)) {
+      return;
+    }
+
+    this.addressLine1 = line1;
+    this.addressLine2 = line2;
+    this.postalCode = postalCode;
+
+    if (suburbNum > 0) {
+      this.seedSuburbId = suburbNum;
+      this.suburbIdStr = String(suburbNum);
+      this.cityIdStr = '';
+      this.addressSeed = {
+        countryId: detail.countryId,
+        provinceId: detail.provinceId,
+        districtId: detail.districtId,
+        cityId: detail.cityId,
+        cityName: detail.cityName ?? this.parseCityHintFromLine2(line2),
+        addressLine2: line2 || undefined,
+        suburbId: suburbNum,
+      };
+      this.loadedAddress = {
+        line1,
+        line2,
+        postalCode,
+        suburbId: suburbNum,
+      };
+    }
+  }
+
+  private parseCityHintFromLine2(line2: string): string | undefined {
+    const raw = line2.trim();
+    if (!raw) {
+      return undefined;
+    }
+    const parts = raw
+      .split(',')
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (parts.length >= 2) {
+      return parts[parts.length - 1];
+    }
+    return undefined;
+  }
+
+  private shouldReuseExistingLocation(suburbId: number): boolean {
+    if (!this.isEdit || !this.existingLocationId || !this.loadedAddress) {
+      return false;
+    }
+    return (
+      this.addressLine1.trim() === this.loadedAddress.line1 &&
+      this.addressLine2.trim() === this.loadedAddress.line2 &&
+      this.postalCode.trim() === this.loadedAddress.postalCode &&
+      suburbId === this.loadedAddress.suburbId
+    );
   }
 
   private loadIndustries(): void {

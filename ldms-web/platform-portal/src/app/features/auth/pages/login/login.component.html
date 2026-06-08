@@ -46,8 +46,8 @@
   <div class="login-right">
     <div class="login-card">
       <div class="lc-header">
-        <h1 class="lc-title">Sign in</h1>
-        <p class="lc-sub">Platform Portal · Organisation access</p>
+        <h1 class="lc-title">{{ twoFactorStep ? 'Two-step verification' : 'Sign in' }}</h1>
+        <p class="lc-sub" *ngIf="!twoFactorStep">Platform Portal · Organisation access</p>
       </div>
 
       <div class="lc-error" *ngIf="error">
@@ -58,7 +58,7 @@
         <span class="material-icons" aria-hidden="true">info</span> {{ infoMessage }}
       </div>
 
-      <form [formGroup]="form" (ngSubmit)="submit()">
+      <form [formGroup]="form" (ngSubmit)="submit()" *ngIf="!twoFactorStep">
         <div class="lc-field-label">Email or username</div>
         <div class="lc-field">
           <span class="material-icons" aria-hidden="true">person_outline</span>
@@ -102,7 +102,45 @@
         </button>
       </form>
 
-      <div class="lc-google-wrap">
+      <div class="lc-two-factor" *ngIf="twoFactorStep">
+        <div
+          class="lc-2fa-method"
+          [class.lc-2fa-method--sms]="twoFactorMethod === 'SMS'"
+          [class.lc-2fa-method--app]="twoFactorMethod === 'AUTHENTICATOR_APP'"
+        >
+          <div class="lc-2fa-method__badge">
+            <span class="material-icons" aria-hidden="true">{{ twoFactorMethod === 'AUTHENTICATOR_APP' ? 'phonelink_lock' : 'sms' }}</span>
+            <span>{{ twoFactorMethodLabel() }}</span>
+          </div>
+          <h2 class="lc-2fa-method__title">{{ twoFactorStepHeadline() }}</h2>
+          <p class="lc-2fa-method__instruction">{{ twoFactorStepInstruction() }}</p>
+          <p class="lc-2fa-method__hint">
+            <span class="material-icons" aria-hidden="true">info</span>
+            <span>{{ twoFactorStepHint() }}</span>
+          </p>
+        </div>
+        <div class="lc-field-label">{{ twoFactorInputLabel() }}</div>
+        <div class="lc-field">
+          <span class="material-icons" aria-hidden="true">{{ twoFactorMethod === 'AUTHENTICATOR_APP' ? 'phonelink_lock' : 'sms' }}</span>
+          <input
+            [(ngModel)]="twoFactorOtp"
+            maxlength="6"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            [placeholder]="twoFactorInputPlaceholder()"
+          />
+        </div>
+        <button type="button" class="lc-submit" [disabled]="loading" (click)="submitTwoFactor()">
+          <span class="lc-spinner" *ngIf="loading"></span>
+          {{ loading ? 'Verifying…' : 'Verify and continue' }}
+        </button>
+        <button type="button" class="lc-back-link" (click)="backToPasswordStep()">
+          <span class="material-icons" aria-hidden="true">arrow_back</span>
+          Back to sign in
+        </button>
+      </div>
+
+      <div class="lc-google-wrap" *ngIf="!twoFactorStep">
         <div class="lc-divider"><span>or</span></div>
         <div class="lc-google-host" *ngIf="googleClientId" #googleSignInHost></div>
         <div class="lc-google-unconfigured" *ngIf="!googleClientId">

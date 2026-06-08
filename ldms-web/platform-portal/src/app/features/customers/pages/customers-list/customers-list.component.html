@@ -149,6 +149,18 @@
                 type="button"
                 class="cust-card__action"
                 mat-icon-button
+                aria-label="Resend onboarding emails"
+                matTooltip="Resend onboarding emails (contact sign-in + organisation verification)"
+                (click)="retryOnboardingEmails(row, $event)"
+                *ngIf="canRetryOnboarding(row)"
+                [disabled]="retryingOnboardingId === row.id"
+              >
+                <mat-icon>{{ retryingOnboardingId === row.id ? 'hourglass_top' : 'forward_to_inbox' }}</mat-icon>
+              </button>
+              <button
+                type="button"
+                class="cust-card__action"
+                mat-icon-button
                 aria-label="Edit customer"
                 matTooltip="Edit"
                 (click)="openEditDialog(row, $event)"
@@ -243,6 +255,18 @@
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef>Actions</th>
               <td mat-cell *matCellDef="let row" class="lx-actions-cell cust-ledger__actions" (click)="$event.stopPropagation()">
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-ghost lx-btn-sm"
+                  aria-label="Resend onboarding emails"
+                  matTooltip="Resend onboarding emails (contact sign-in + organisation verification)"
+                  (click)="retryOnboardingEmails(row, $event)"
+                  *ngIf="canRetryOnboarding(row)"
+                  [disabled]="retryingOnboardingId === row.id"
+                >
+                  <mat-icon>{{ retryingOnboardingId === row.id ? 'hourglass_top' : 'forward_to_inbox' }}</mat-icon>
+                  Resend emails
+                </button>
                 <button
                   type="button"
                   class="lx-btn lx-btn-ghost lx-btn-sm"
@@ -361,6 +385,17 @@
         </div>
 
         <div class="cust-spotlight__actions">
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm"
+            (click)="retryOnboardingEmails(spot, $event)"
+            *ngIf="canRetryOnboarding(spot)"
+            [disabled]="retryingOnboardingId === spot.id"
+            matTooltip="Resend contact sign-in credentials and organisation verification link"
+          >
+            <mat-icon>{{ retryingOnboardingId === spot.id ? 'hourglass_top' : 'forward_to_inbox' }}</mat-icon>
+            Resend onboarding emails
+          </button>
           <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditDialog(spot, $event)">
             <mat-icon>edit</mat-icon>
             Edit

@@ -12,6 +12,7 @@ import { UserEditProfileDialogComponent } from '../../../users/components/user-e
 import { UserEditAccountDialogComponent } from '../../../users/components/user-edit-account-dialog/user-edit-account-dialog.component';
 import { UserEditAddressDialogComponent } from '../../../users/components/user-edit-address-dialog/user-edit-address-dialog.component';
 import { UserEditSecurityDialogComponent } from '../../../users/components/user-edit-security-dialog/user-edit-security-dialog.component';
+import { TwoFactorSetupDialogComponent } from '../../../users/components/two-factor-setup-dialog/two-factor-setup-dialog.component';
 
 @Component({
   selector: 'app-my-account',
@@ -37,7 +38,9 @@ export class MyAccountComponent implements OnInit {
     maxWidth: '96vw',
     maxHeight: '90vh',
     autoFocus: 'first-tabbable',
+    hasBackdrop: true,
     panelClass: 'lx-location-dialog-panel',
+    backdropClass: 'cdk-overlay-dark-backdrop',
   };
 
   constructor(
@@ -112,6 +115,20 @@ export class MyAccountComponent implements OnInit {
       return 'No';
     }
     return this.formatDisplay(v);
+  }
+
+  twoFactorMethodLabel(): string {
+    if (this.bundle.security?.['isTwoFactorEnabled'] !== true) {
+      return '—';
+    }
+    const method = String(this.bundle.security?.['twoFactorMethod'] ?? '').trim().toUpperCase();
+    if (method === 'AUTHENTICATOR_APP') {
+      return 'Authenticator app';
+    }
+    if (method === 'SMS') {
+      return 'SMS';
+    }
+    return 'SMS';
   }
 
   hasAccount(): boolean {
@@ -215,7 +232,21 @@ export class MyAccountComponent implements OnInit {
         data: {
           security: this.bundle.security ?? {},
           userId: this.userId,
-          emphasis: 'full',
+          emphasis: 'recovery',
+          selfService: true,
+        },
+      })
+      .afterClosed()
+      .subscribe((saved) => saved && this.loadMyAccount());
+  }
+
+  openManageTwoFactor(): void {
+    this.dialog
+      .open(TwoFactorSetupDialogComponent, {
+        ...this.editDialogConfig,
+        data: {
+          security: this.bundle.security ?? {},
+          user: this.bundle.user,
         },
       })
       .afterClosed()

@@ -102,6 +102,10 @@ public class OrganizationContactPersonProvisioner {
             return buildError(400, validation.getErrorMessages());
         }
 
+        if (request.getContactUserId() != null && request.getContactUserId() > 0) {
+            return syncLinkedContactPerson(request, locale, actor);
+        }
+
         String email = request.getEmail().trim().toLowerCase(Locale.ROOT);
         Optional<User> existing = userRepository.findByEmailAndEntityStatusNot(email, EntityStatus.DELETED);
         if (existing.isPresent()) {
@@ -191,6 +195,53 @@ public class OrganizationContactPersonProvisioner {
         return response;
     }
 
+    private UserResponse syncLinkedContactPerson(
+            ProvisionOrganizationContactPersonRequest request, Locale locale, String actor) {
+        User user = userRepository
+                .findByIdAndEntityStatusNot(request.getContactUserId(), EntityStatus.DELETED)
+                .orElse(null);
+        if (user == null) {
+            return buildError(404, List.of("Linked contact person user was not found."));
+        }
+        Long orgId = request.getOrganizationId();
+        if (user.getOrganizationId() != null && !user.getOrganizationId().equals(orgId)) {
+            log.warn(
+                    "Linked contact user {} belongs to organisation {}, not {}",
+                    user.getId(),
+                    user.getOrganizationId(),
+                    orgId);
+            return buildError(409, List.of("Contact person email is already linked to another organisation."));
+        }
+        UserResponse emailConflict = applyContactEmailChange(user, request.getEmail(), locale, actor);
+        if (!emailConflict.isSuccess()) {
+            return emailConflict;
+        }
+        user = userRepository.findByIdAndEntityStatusNot(user.getId(), EntityStatus.DELETED).orElse(user);
+        applyContactProfileFromRequest(user, request);
+        if (user.getOrganizationId() == null) {
+            user.setOrganizationId(orgId);
+        }
+        user = userServiceAuditable.update(user, locale, actor);
+        administratorGroupSupport.assignIfPresent(user);
+        user = userServiceAuditable.update(user, locale, actor);
+
+        UserResponse artifacts = ensureLoginArtifacts(user, locale, actor);
+        if (!artifacts.isSuccess()) {
+            return artifacts;
+        }
+        user = userRepository.findByIdAndEntityStatusNot(user.getId(), EntityStatus.DELETED).orElse(user);
+
+        if (isFullyOnboardedContact(user)) {
+            log.info(
+                    "Linked contact user {} for organisation {} is already verified — profile synced, no refresh needed",
+                    user.getId(),
+                    orgId);
+            return buildSuccess(user, locale, 200);
+        }
+
+        return handleExistingUser(user, request, locale, actor);
+    }
+
     private UserResponse handleExistingUser(User user, ProvisionOrganizationContactPersonRequest request, Locale locale,
             String actor) {
         Long orgId = request.getOrganizationId();
@@ -198,6 +249,12 @@ public class OrganizationContactPersonProvisioner {
             log.warn("Contact person email {} already linked to organisation {}", user.getEmail(), user.getOrganizationId());
             return buildError(409, List.of("Contact person email is already linked to another organisation."));
         }
+        UserResponse emailConflict = applyContactEmailChange(user, request.getEmail(), locale, actor);
+        if (!emailConflict.isSuccess()) {
+            return emailConflict;
+        }
+        user = userRepository.findByIdAndEntityStatusNot(user.getId(), EntityStatus.DELETED).orElse(user);
+        applyContactProfileFromRequest(user, request);
         if (user.getOrganizationId() == null || !orgId.equals(user.getOrganizationId())) {
             user.setOrganizationId(orgId);
             user = userServiceAuditable.update(user, locale, actor);
@@ -209,6 +266,13 @@ public class OrganizationContactPersonProvisioner {
             return artifacts;
         }
         user = userRepository.findByIdAndEntityStatusNot(user.getId(), EntityStatus.DELETED).orElse(user);
+        if (isFullyOnboardedContact(user)) {
+            log.info(
+                    "Contact user {} for organisation {} is already verified — skipping verification refresh",
+                    user.getId(),
+                    orgId);
+            return buildSuccess(user, locale, 200);
+        }
         if (Boolean.TRUE.equals(user.getEmailVerified())) {
             userServiceAuditable.update(user, locale, actor);
             return buildSuccess(user, locale, 200);
@@ -224,6 +288,75 @@ public class OrganizationContactPersonProvisioner {
         user.setEmailVerified(false);
         User updated = userServiceAuditable.update(user, locale, actor);
         return buildSuccess(updated, locale, 200);
+    }
+
+    private UserResponse applyContactEmailChange(User user, String rawEmail, Locale locale, String actor) {
+        String email = rawEmail != null ? rawEmail.trim().toLowerCase(Locale.ROOT) : "";
+        if (!StringUtils.hasText(email)) {
+            return buildError(400, List.of("A valid contact person email is required."));
+        }
+        String currentEmail = user.getEmail() != null ? user.getEmail().trim().toLowerCase(Locale.ROOT) : "";
+        if (email.equals(currentEmail)) {
+            UserResponse ok = new UserResponse();
+            ok.setSuccess(true);
+            ok.setStatusCode(200);
+            return ok;
+        }
+        Optional<User> emailOwner = userRepository.findByEmailAndEntityStatusNot(email, EntityStatus.DELETED);
+        if (emailOwner.isPresent() && !emailOwner.get().getId().equals(user.getId())) {
+            return buildError(409, List.of("Contact person email is already linked to another organisation."));
+        }
+        user.setEmail(email);
+        if (!isFullyOnboardedContact(user)) {
+            user.setUsername(email);
+        }
+        userServiceAuditable.update(user, locale, actor);
+        UserResponse ok = new UserResponse();
+        ok.setSuccess(true);
+        ok.setStatusCode(200);
+        return ok;
+    }
+
+    private void applyContactProfileFromRequest(User user, ProvisionOrganizationContactPersonRequest request) {
+        if (StringUtils.hasText(request.getFirstName())) {
+            user.setFirstName(request.getFirstName().trim());
+        }
+        if (StringUtils.hasText(request.getLastName())) {
+            user.setLastName(request.getLastName().trim());
+        }
+        String phone = resolvePhone(request);
+        if (StringUtils.hasText(phone)) {
+            user.setPhoneNumber(phone);
+        }
+        if (request.getGender() != null) {
+            user.setGender(resolveGender(request.getGender()));
+        }
+        if (StringUtils.hasText(request.getNationalIdNumber())) {
+            user.setNationalIdNumber(request.getNationalIdNumber().trim());
+        }
+        if (StringUtils.hasText(request.getPassportNumber())) {
+            user.setPassportNumber(request.getPassportNumber().trim());
+        }
+        if (request.getNationalIdUploadId() != null && request.getNationalIdUploadId() > 0) {
+            user.setNationalIdUploadId(request.getNationalIdUploadId());
+        }
+        if (request.getPassportUploadId() != null && request.getPassportUploadId() > 0) {
+            user.setPassportUploadId(request.getPassportUploadId());
+        }
+        if (StringUtils.hasText(request.getDateOfBirth())) {
+            try {
+                user.setDateOfBirth(java.sql.Date.valueOf(request.getDateOfBirth().trim()));
+            } catch (IllegalArgumentException ex) {
+                log.warn("Invalid contact person date of birth for organisation {}: {}",
+                        request.getOrganizationId(), request.getDateOfBirth());
+            }
+        }
+    }
+
+    private static boolean isFullyOnboardedContact(User user) {
+        return user != null
+                && Boolean.TRUE.equals(user.getEmailVerified())
+                && !Boolean.TRUE.equals(user.getMustChangeCredentials());
     }
 
     /**

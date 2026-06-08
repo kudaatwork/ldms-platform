@@ -7,7 +7,7 @@ import { canAccessPath, normalizeRoleCodes } from '../utils/nav-access.util';
 const BOOTSTRAP_PATHS = ['/dashboard', '/account', '/help', '/users/groups', '/users/roles'] as const;
 
 /** Organisation workspace modules — allow navigation when signed in; APIs enforce fine-grained roles. */
-const ORG_WORKSPACE_PREFIXES = ['/users', '/activity', '/documents', '/settings'] as const;
+const ORG_WORKSPACE_PREFIXES = ['/users', '/activity', '/documents', '/settings', '/fleet'] as const;
 
 function isBootstrapPath(path: string): boolean {
   return BOOTSTRAP_PATHS.some((p) => path === p || path.startsWith(`${p}/`));

@@ -40,6 +40,7 @@ interface ShipmentRow {
   status: string;
   statusLabel: string;
   eta: string;
+  progress: number;
 }
 
 interface PipelineRow {
@@ -150,6 +151,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       status: 'transit',
       statusLabel: 'In Transit',
       eta: '14:30',
+      progress: 72,
     },
     {
       reg: 'ZW-5678-B',
@@ -158,6 +160,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       status: 'approved',
       statusLabel: 'Approved',
       eta: '17:00',
+      progress: 45,
     },
     {
       reg: 'ZW-9012-C',
@@ -166,6 +169,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       status: 'stage1',
       statusLabel: 'Stage 1',
       eta: '09:00',
+      progress: 18,
     },
     {
       reg: 'ZW-3456-D',
@@ -174,6 +178,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       status: 'submitted',
       statusLabel: 'Submitted',
       eta: '11:45',
+      progress: 88,
     },
     {
       reg: 'ZW-7890-E',
@@ -182,6 +187,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       status: 'transit',
       statusLabel: 'In Transit',
       eta: '16:15',
+      progress: 61,
     },
   ];
 
@@ -206,6 +212,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     { icon: 'people_outline', label: 'Users', count: '—', route: '/users' },
   ];
 
+  chartView: 'bars' | 'donut' = 'bars';
+
   kycChartData: ChartData<'bar'> = {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
     datasets: [
@@ -213,22 +221,45 @@ export class DashboardComponent implements OnInit, OnDestroy {
         label: 'Applications',
         data: [12, 19, 8, 24, 16, 31, 13],
         backgroundColor: ['#3B82F6', '#60A5FA', '#8B5CF6', '#3B82F6', '#93C5FD', '#8B5CF6', '#3B82F6'],
-        borderRadius: 6,
+        borderRadius: 10,
+        borderSkipped: false,
         hoverBackgroundColor: '#1E3A8A',
+        maxBarThickness: 42,
       },
     ],
   };
+
+  kycDonutData: ChartData<'doughnut'> = {
+    labels: [],
+    datasets: [
+      {
+        data: [],
+        backgroundColor: [],
+        borderWidth: 0,
+        hoverOffset: 8,
+      },
+    ],
+  };
+
+  private readonly chartFont = "'Plus Jakarta Sans', sans-serif";
 
   kycChartOptions: ChartOptions<'bar'> = {
     responsive: true,
     maintainAspectRatio: false,
     animation: {
-      duration: 700,
+      duration: 900,
       easing: 'easeOutQuart',
     },
     plugins: {
       legend: { display: false },
       tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        titleFont: { family: this.chartFont, size: 12, weight: 'bold' },
+        bodyFont: { family: this.chartFont, size: 12 },
+        padding: 12,
+        cornerRadius: 10,
+        displayColors: true,
+        boxPadding: 4,
         callbacks: {
           label: (ctx) => ` ${ctx.parsed.y} applications`,
         },
@@ -237,16 +268,61 @@ export class DashboardComponent implements OnInit, OnDestroy {
     scales: {
       x: {
         grid: { display: false },
+        border: { display: false },
         ticks: {
-          font: { size: 11, family: "'Plus Jakarta Sans'" },
-          color: '#9CA3AF',
+          font: { size: 11, family: this.chartFont, weight: 'bold' },
+          color: '#94A3B8',
+          padding: 8,
         },
       },
       y: {
-        grid: { color: '#F3F4F6' },
+        beginAtZero: true,
+        grid: { color: 'rgba(148, 163, 184, 0.12)', drawTicks: false },
+        border: { display: false, dash: [4, 4] },
         ticks: {
-          font: { size: 11, family: "'Plus Jakarta Sans'" },
-          color: '#9CA3AF',
+          font: { size: 11, family: this.chartFont },
+          color: '#94A3B8',
+          padding: 10,
+          maxTicksLimit: 5,
+        },
+      },
+    },
+  };
+
+  kycDonutOptions: ChartOptions<'doughnut'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    cutout: '72%',
+    animation: {
+      animateRotate: true,
+      animateScale: true,
+      duration: 900,
+      easing: 'easeOutQuart',
+    },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'bottom',
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          padding: 14,
+          font: { family: this.chartFont, size: 10, weight: 'bold' },
+          color: '#64748B',
+        },
+      },
+      tooltip: {
+        backgroundColor: 'rgba(15, 23, 42, 0.92)',
+        titleFont: { family: this.chartFont, size: 12, weight: 'bold' },
+        bodyFont: { family: this.chartFont, size: 12 },
+        padding: 12,
+        cornerRadius: 10,
+        callbacks: {
+          label: (ctx) => {
+            const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0);
+            const pct = total > 0 ? Math.round(((ctx.parsed as number) / total) * 100) : 0;
+            return ` ${ctx.parsed} (${pct}%)`;
+          },
         },
       },
     },
@@ -279,6 +355,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   get totalPipelineApplications(): number {
     return this.pipeline.reduce((a, b) => a + b.count, 0);
+  }
+
+  get onTimeRingDash(): string {
+    const circumference = 2 * Math.PI * 15.5;
+    const filled = (this.liveOnTimePct / 100) * circumference;
+    return `${filled} ${circumference}`;
   }
 
   ngOnInit(): void {
@@ -496,15 +578,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     const chartCounts = base.map((r) => r.count);
     const chartColors = base.map((r) => r.color);
+    const chartLabels = base.map((r) => r.label);
     this.kycChartData = {
-      labels: base.map((r) => r.label),
+      labels: chartLabels,
       datasets: [
         {
           label: 'Applications',
           data: chartCounts,
+          backgroundColor: chartColors.map((c) => `${c}CC`),
+          borderRadius: 10,
+          borderSkipped: false,
+          hoverBackgroundColor: chartColors,
+          maxBarThickness: 42,
+        },
+      ],
+    };
+    this.kycDonutData = {
+      labels: chartLabels,
+      datasets: [
+        {
+          data: chartCounts,
           backgroundColor: chartColors,
-          borderRadius: 6,
-          hoverBackgroundColor: '#1E3A8A',
+          borderWidth: 2,
+          borderColor: 'transparent',
+          hoverOffset: 10,
         },
       ],
     };
@@ -533,6 +630,38 @@ export class DashboardComponent implements OnInit, OnDestroy {
   setPeriod(p: string): void {
     this.activePeriod = p;
     this.cdr.markForCheck();
+  }
+
+  setChartView(view: 'bars' | 'donut'): void {
+    this.chartView = view;
+    this.cdr.markForCheck();
+  }
+
+  sparklinePoints(values: number[]): string {
+    if (!values.length) {
+      return '';
+    }
+    const max = Math.max(...values, 1);
+    const step = 100 / (values.length - 1 || 1);
+    return values
+      .map((v, i) => {
+        const x = i * step;
+        const y = 22 - (v / max) * 18;
+        return `${x},${y}`;
+      })
+      .join(' ');
+  }
+
+  sparklineAreaPoints(values: number[]): string {
+    const line = this.sparklinePoints(values);
+    if (!line) {
+      return '';
+    }
+    return `0,24 ${line} 100,24`;
+  }
+
+  kpiAccentClass(index: number): string {
+    return ['primary', 'warning', 'success', 'analytics'][index] ?? 'primary';
   }
 
   trackByReg = (_: number, s: ShipmentRow): string => s.reg;

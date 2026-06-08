@@ -21,4 +21,18 @@ public class AuthResponse extends CommonResponse {
     private String refreshToken;
     /** When true, the client must redirect to credential setup before using the portal. */
     private Boolean mustChangeCredentials;
+    /**
+     * When true, the client must present the {@link #mfaChallengeToken} together with the
+     * SMS OTP at {@code POST /auth/verify-two-factor} to complete the login.
+     */
+    private Boolean requiresTwoFactor;
+    /**
+     * Short-lived opaque token representing the pending 2FA challenge.
+     * Present only when {@link #requiresTwoFactor} is true.
+     */
+    private String mfaChallengeToken;
+    /**
+     * {@code SMS} or {@code AUTHENTICATOR_APP} — tells the client how to complete the 2FA step.
+     */
+    private String twoFactorMethod;
 }

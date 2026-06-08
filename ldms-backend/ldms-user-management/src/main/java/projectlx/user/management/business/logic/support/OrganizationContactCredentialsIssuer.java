@@ -63,6 +63,24 @@ public class OrganizationContactCredentialsIssuer {
         if (user == null) {
             return buildError(404, List.of("Organisation contact person user was not found."));
         }
+        if (Boolean.TRUE.equals(user.getEmailVerified()) && !Boolean.TRUE.equals(user.getMustChangeCredentials())) {
+            log.info(
+                    "Contact user {} for organisation {} already has active portal access; skipping credential re-issue",
+                    user.getId(),
+                    request.getOrganizationId());
+            UserResponse response = new UserResponse();
+            response.setSuccess(true);
+            response.setStatusCode(200);
+            response.setMessage("Contact person already has active portal access.");
+            UserDto dto = new UserDto();
+            dto.setId(user.getId());
+            dto.setOrganizationId(user.getOrganizationId());
+            dto.setEmail(user.getEmail());
+            dto.setEmailVerified(user.getEmailVerified());
+            dto.setMustChangeCredentials(user.getMustChangeCredentials());
+            response.setUserDto(dto);
+            return response;
+        }
         String temporaryUsername = resolveUniqueTemporaryUsername(user.getOrganizationId(), user.getId());
         String temporaryPassword = generateCompliantPassword();
         user.setUsername(temporaryUsername);

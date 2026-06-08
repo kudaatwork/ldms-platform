@@ -220,7 +220,10 @@ public class SuburbServiceImpl implements SuburbService {
                     null, validatorDto.getErrorMessages());
         }
 
-        Optional<Suburb> suburbRetrieved = suburbRepository.findById(id);
+        Optional<Suburb> suburbRetrieved = suburbRepository.findByIdFetchingCityContext(id, EntityStatus.DELETED);
+        if (suburbRetrieved.isEmpty()) {
+            suburbRetrieved = suburbRepository.findById(id);
+        }
 
         if (suburbRetrieved.isEmpty() || suburbRetrieved.get().getEntityStatus() == EntityStatus.DELETED) {
 

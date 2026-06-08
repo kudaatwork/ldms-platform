@@ -13,6 +13,7 @@ import { UserEditProfileDialogComponent } from '../../../users/components/user-e
 import { UserEditAccountDialogComponent } from '../../../users/components/user-edit-account-dialog/user-edit-account-dialog.component';
 import { UserEditAddressDialogComponent } from '../../../users/components/user-edit-address-dialog/user-edit-address-dialog.component';
 import { UserEditSecurityDialogComponent } from '../../../users/components/user-edit-security-dialog/user-edit-security-dialog.component';
+import { TwoFactorSetupDialogComponent } from '../../../users/components/two-factor-setup-dialog/two-factor-setup-dialog.component';
 import {
   formatEntityStatusLabel,
   formatGenderLabel,
@@ -171,6 +172,20 @@ export class MyAccountComponent implements OnInit {
     return this.formatDisplay(v);
   }
 
+  twoFactorMethodLabel(): string {
+    if (this.bundle.security?.['isTwoFactorEnabled'] !== true) {
+      return '—';
+    }
+    const method = String(this.bundle.security?.['twoFactorMethod'] ?? '').trim().toUpperCase();
+    if (method === 'AUTHENTICATOR_APP') {
+      return 'Authenticator app';
+    }
+    if (method === 'SMS') {
+      return 'SMS';
+    }
+    return 'SMS';
+  }
+
   hasAccount(): boolean {
     return Number(this.bundle.account?.['id'] ?? 0) > 0;
   }
@@ -275,8 +290,19 @@ export class MyAccountComponent implements OnInit {
       {
         security,
         userId: userId > 0 ? userId : 0,
-        emphasis: 'full' as const,
+        emphasis: 'recovery' as const,
         selfService: true,
+      },
+      (saved) => saved && this.loadMyAccount(),
+    );
+  }
+
+  openManageTwoFactor(): void {
+    this.openEditDialog(
+      TwoFactorSetupDialogComponent,
+      {
+        security: this.resolveSecurityRecordForEdit(),
+        user: this.bundle.user,
       },
       (saved) => saved && this.loadMyAccount(),
     );

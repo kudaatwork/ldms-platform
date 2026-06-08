@@ -39,6 +39,8 @@ export class UserEditProfileDialogComponent {
   lastName = '';
   gender = '';
   phoneNumber = '';
+  emailVerified = false;
+  phoneVerified = false;
   dateOfBirth = '';
   nationalIdNumber = '';
   nationalIdExpiryDate = '';
@@ -116,6 +118,8 @@ export class UserEditProfileDialogComponent {
     const rawGender = String(u['gender'] ?? '').trim().toUpperCase();
     this.gender = rawGender === 'OTHER' ? 'PREFER_NOT_TO_SAY' : rawGender;
     this.phoneNumber = String(u['phoneNumber'] ?? '').trim();
+    this.emailVerified = u['emailVerified'] === true;
+    this.phoneVerified = u['phoneVerified'] === true;
     this.dateOfBirth = this.dateOfBirthToInput(u['dateOfBirth']);
     this.nationalIdNumber = String(u['nationalIdNumber'] ?? '').trim();
     this.nationalIdExpiryDate = this.dateToInput(u['nationalIdExpiryDate']);

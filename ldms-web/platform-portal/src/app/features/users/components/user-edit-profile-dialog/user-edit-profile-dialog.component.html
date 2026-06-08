@@ -27,8 +27,15 @@
         <label class="lx-field-label">Email <span class="req">*</span></label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">mail_outline</mat-icon>
-          <input type="email" [(ngModel)]="email" placeholder="e.g. tinashe@example.com" autocomplete="off" />
+          <input
+            type="email"
+            [(ngModel)]="email"
+            placeholder="e.g. tinashe@example.com"
+            autocomplete="off"
+            [readonly]="emailVerified"
+          />
         </div>
+        <small class="ued-hint" *ngIf="emailVerified">Verified email cannot be changed.</small>
       </div>
       <div class="lx-field">
         <label class="lx-field-label">First name <span class="req">*</span></label>
@@ -58,8 +65,9 @@
         <label class="lx-field-label">Phone <span class="req">*</span></label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">phone</mat-icon>
-          <input [(ngModel)]="phoneNumber" placeholder="e.g. +263771234567" />
+          <input [(ngModel)]="phoneNumber" placeholder="e.g. +263771234567" [readonly]="phoneVerified" />
         </div>
+        <small class="ued-hint" *ngIf="phoneVerified">Verified phone number cannot be changed.</small>
       </div>
       <div class="lx-field">
         <label class="lx-field-label">Date of birth <span class="req">*</span></label>

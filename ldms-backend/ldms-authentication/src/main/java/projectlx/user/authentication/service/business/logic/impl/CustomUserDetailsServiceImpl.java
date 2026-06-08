@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.util.StringUtils;
 import projectlx.co.zw.shared_library.business.logic.api.CustomUserDetailsService;
+import projectlx.co.zw.shared_library.utils.dtos.UserAccountDto;
 import projectlx.co.zw.shared_library.utils.dtos.UserDto;
 import projectlx.co.zw.shared_library.utils.dtos.UserGroupDto;
 import projectlx.co.zw.shared_library.utils.dtos.UserPasswordDto;
@@ -45,11 +46,19 @@ public class CustomUserDetailsServiceImpl implements CustomUserDetailsService {
 
         Set<GrantedAuthority> authorities = resolveAuthorities(userDto.getUserGroupDto());
 
-        return new org.springframework.security.core.userdetails.User(
-                resolvedUsername.trim(),
-                passwordDto.getPassword(),
-                authorities
-        );
+        boolean accountLocked = isAccountLocked(userDto.getUserAccountDto());
+
+        return org.springframework.security.core.userdetails.User.builder()
+                .username(resolvedUsername.trim())
+                .password(passwordDto.getPassword())
+                .disabled(accountLocked)
+                .accountLocked(accountLocked)
+                .authorities(authorities)
+                .build();
+    }
+
+    private static boolean isAccountLocked(UserAccountDto userAccountDto) {
+        return userAccountDto != null && Boolean.TRUE.equals(userAccountDto.getIsAccountLocked());
     }
 
     private UserResponse loadUserProfile(String username) {

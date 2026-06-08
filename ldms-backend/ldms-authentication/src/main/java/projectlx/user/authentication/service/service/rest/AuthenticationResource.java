@@ -17,6 +17,7 @@ import projectlx.user.authentication.service.service.processor.api.Authenticatio
 import projectlx.user.authentication.service.utils.requests.AuthRequest;
 import projectlx.user.authentication.service.utils.requests.GoogleLoginRequest;
 import projectlx.user.authentication.service.utils.requests.RefreshTokenRequest;
+import projectlx.user.authentication.service.utils.requests.VerifyTwoFactorRequest;
 import projectlx.user.authentication.service.utils.responses.AuthResponse;
 import java.util.Locale;
 
@@ -77,5 +78,24 @@ public class AuthenticationResource {
                                         @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                                 defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return authenticationServiceProcessor.authenticateWithGoogle(googleLoginRequest, locale, "GOOGLE_OIDC");
+    }
+
+    @Auditable(action = "VERIFY_TWO_FACTOR")
+    @PostMapping("/verify-two-factor")
+    @Operation(
+            summary = "Complete 2FA login challenge",
+            description = "Second step of the 2FA login flow. Submit the mfaChallengeToken received from the " +
+                          "initial authenticate call together with the 6-digit SMS OTP. " +
+                          "On success, returns full access and refresh tokens.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "2FA challenge passed — access token issued"),
+            @ApiResponse(responseCode = "400", description = "Invalid request or missing fields"),
+            @ApiResponse(responseCode = "401", description = "Invalid or expired challenge token / OTP"),
+            @ApiResponse(responseCode = "503", description = "User-management service unavailable")
+    })
+    public AuthResponse verifyTwoFactor(@Valid @RequestBody final VerifyTwoFactorRequest request,
+                                        @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                                                defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return authenticationServiceProcessor.verifyTwoFactor(request, locale);
     }
 }

@@ -91,7 +91,8 @@ class UserSecurityServiceImplTest {
                 userSecurityRepository,
                 userRepository,
                 modelMapper,
-                userSecurityServiceAuditable
+                userSecurityServiceAuditable,
+                mock(projectlx.user.management.business.logic.support.TwoFactorSelfServiceSupport.class)
         );
 
         // Common mock setup for ModelMapper configuration

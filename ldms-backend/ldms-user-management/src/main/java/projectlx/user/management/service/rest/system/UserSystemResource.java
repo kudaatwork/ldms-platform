@@ -504,4 +504,41 @@ public class UserSystemResource {
                                                        defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return userServiceProcessor.resendVerificationLink(email, locale, "SYSTEM");
     }
+
+    // ============================================================
+    //  System-only login OTP endpoints (called by ldms-authentication)
+    // ============================================================
+
+    @PostMapping("/otp/generate-login-otp")
+    @Operation(summary = "Generate login 2FA OTP",
+            description = "System-only: generates a LOGIN_2FA OTP and sends it via SMS. " +
+                          "Called by ldms-authentication after successful password validation.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OTP generated and sent"),
+            @ApiResponse(responseCode = "400", description = "User not found or missing phone number")
+    })
+    public UserResponse generateLoginOtp(
+            @RequestParam String usernameOrPhone,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.generateLoginOtp(usernameOrPhone, locale);
+    }
+
+    @PostMapping("/otp/verify-login-otp")
+    @Operation(summary = "Verify login 2FA OTP",
+            description = "System-only: verifies a LOGIN_2FA OTP submitted by the user during the 2FA challenge. " +
+                          "Called by ldms-authentication to complete the challenge step.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OTP verified — 2FA challenge passed"),
+            @ApiResponse(responseCode = "400", description = "OTP invalid or expired")
+    })
+    public UserResponse verifyLoginOtp(
+            @RequestParam String usernameOrPhone,
+            @RequestParam String otp,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.verifyLoginOtp(usernameOrPhone, otp, locale);
+    }
 }

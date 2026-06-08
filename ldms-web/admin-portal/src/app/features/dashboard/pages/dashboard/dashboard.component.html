@@ -62,26 +62,38 @@
     </div>
   </div>
 
-  <div class="lx-grid lx-grid-4 mb-lg">
+  <div class="lx-grid lx-grid-4 mb-lg kpi-grid">
     <ng-container *ngIf="!loading; else kpiSkeleton">
-      <div class="lx-card kpi-card" *ngFor="let k of kpiCards">
+      <div
+        class="lx-card kpi-card"
+        *ngFor="let k of kpiCards; let ki = index"
+        [ngClass]="'kpi-card--' + kpiAccentClass(ki)"
+      >
+        <div class="kpi-card__glow" aria-hidden="true"></div>
         <div class="kpi-top">
-          <div>
+          <div class="kpi-copy">
             <div class="lx-kpi-label">{{ k.label }}</div>
             <div class="lx-kpi-value mt-xs">{{ k.value }}</div>
-            <span class="lx-badge mt-xs" [ngClass]="k.up ? 'up' : 'down'">
-              {{ k.up ? '↑' : '↓' }} {{ k.trend }}
+            <span class="kpi-trend" [class.kpi-trend--up]="k.up" [class.kpi-trend--down]="!k.up">
+              <mat-icon>{{ k.up ? 'trending_up' : 'trending_down' }}</mat-icon>
+              {{ k.trend }}
             </span>
           </div>
-          <div class="kpi-icon" [style.background]="k.iconBg">
-            <mat-icon [style.color]="k.iconColor">{{ k.icon }}</mat-icon>
+          <div class="kpi-icon" [style.--kpi-accent]="k.iconColor">
+            <mat-icon>{{ k.icon }}</mat-icon>
           </div>
         </div>
-        <div class="spark-bars">
-          <div *ngFor="let b of k.spark; let i = index" class="spark-bar"
-               [style.height.%]="b"
-               [style.background]="i === k.spark.length - 1 ? k.iconColor : 'var(--gray-100)'">
-          </div>
+        <div class="kpi-sparkline" aria-hidden="true">
+          <svg viewBox="0 0 100 24" preserveAspectRatio="none">
+            <defs>
+              <linearGradient [attr.id]="'kpi-grad-' + ki" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" [attr.stop-color]="k.iconColor" stop-opacity="0.35" />
+                <stop offset="100%" [attr.stop-color]="k.iconColor" stop-opacity="0" />
+              </linearGradient>
+            </defs>
+            <polygon class="kpi-sparkline__area" [attr.points]="sparklineAreaPoints(k.spark)" [attr.fill]="'url(#kpi-grad-' + ki + ')'" />
+            <polyline class="kpi-sparkline__line" [attr.points]="sparklinePoints(k.spark)" [attr.stroke]="k.iconColor" />
+          </svg>
         </div>
       </div>
     </ng-container>
@@ -182,9 +194,12 @@
   </section>
 
   <div class="row2 mb-lg">
-    <div class="lx-card">
-      <div class="card-hd">
-        <div>
+    <div class="lx-card shipments-card">
+      <div class="card-hd card-hd--modern">
+        <div class="card-hd__icon-wrap">
+          <mat-icon>local_shipping</mat-icon>
+        </div>
+        <div class="card-hd__copy">
           <div class="card-hdtitle">Active Shipments</div>
           <div class="card-hdsub">{{ shipments.length }} vehicles on route</div>
         </div>
@@ -192,16 +207,29 @@
       </div>
       <ng-container *ngIf="!loading; else listSkeleton">
         <div class="ship-row" *ngFor="let s of shipments; trackBy: trackByReg">
-          <div class="ship-icon">
-            <mat-icon style="color:var(--primary);font-size:20px">local_shipping</mat-icon>
+          <div class="ship-icon" [ngClass]="'ship-icon--' + s.status">
+            <mat-icon>local_shipping</mat-icon>
           </div>
           <div class="ship-info">
             <div class="ship-reg">{{ s.reg }}</div>
-            <div class="ship-route">{{ s.from }} → {{ s.to }}</div>
+            <div class="ship-route">
+              <span>{{ s.from }}</span>
+              <mat-icon class="ship-route__arrow">arrow_forward</mat-icon>
+              <span>{{ s.to }}</span>
+            </div>
+            <div class="ship-progress">
+              <div class="ship-progress__track">
+                <div class="ship-progress__fill" [style.width.%]="s.progress" [ngClass]="'ship-progress__fill--' + s.status"></div>
+              </div>
+              <span class="ship-progress__pct">{{ s.progress }}%</span>
+            </div>
           </div>
           <div class="ship-right">
             <span [ngClass]="['lx-status', 'lx-status-' + s.status]">{{ s.statusLabel }}</span>
-            <div class="ship-eta">ETA {{ s.eta }}</div>
+            <div class="ship-eta">
+              <mat-icon>schedule</mat-icon>
+              ETA {{ s.eta }}
+            </div>
           </div>
         </div>
       </ng-container>
@@ -219,59 +247,152 @@
 
     <div class="lx-card map-card">
       <div class="map-hd">
-        <div>
+        <div class="card-hd__icon-wrap card-hd__icon-wrap--map">
+          <mat-icon>radar</mat-icon>
+        </div>
+        <div class="card-hd__copy">
           <div class="card-hdtitle">Live Tracking Grid</div>
           <div class="card-hdsub">{{ shipments.length }} active trips</div>
         </div>
-        <span class="lx-badge info">Live</span>
+        <span class="map-live-badge">
+          <span class="map-live-badge__dot"></span>
+          Live
+        </span>
       </div>
       <div class="map-body">
-        <div class="map-grid-bg"></div>
+        <div class="map-mesh" aria-hidden="true"></div>
+        <div class="map-grid-bg" aria-hidden="true"></div>
+        <div class="map-radar" aria-hidden="true">
+          <div class="map-radar__ring map-radar__ring--1"></div>
+          <div class="map-radar__ring map-radar__ring--2"></div>
+          <div class="map-radar__ring map-radar__ring--3"></div>
+          <div class="map-radar__sweep"></div>
+        </div>
         <div class="map-pin map-pin--live" *ngFor="let p of mapPins; let pi = index" [style.left.%]="p.x" [style.top.%]="p.y">
+          <div class="pin-pulse" [ngClass]="'pin-pulse--' + p.type" [style.animation-delay.ms]="pi * 500"></div>
           <div class="pin-dot" [ngClass]="'pin-' + p.type" [style.animation-delay.ms]="pi * 500"></div>
           <div class="pin-label">{{ p.label }}</div>
         </div>
         <div class="map-stat-chip">
-          <div class="stat-label">On-time performance</div>
-          <div class="stat-value">{{ liveOnTimePct | number : '1.1-1' }}%</div>
-          <div class="stat-trend">+1.9% from last week</div>
+          <div class="map-stat-chip__ring" aria-hidden="true">
+            <svg viewBox="0 0 36 36">
+              <circle class="map-stat-chip__ring-bg" cx="18" cy="18" r="15.5" />
+              <circle
+                class="map-stat-chip__ring-fill"
+                cx="18"
+                cy="18"
+                r="15.5"
+                [attr.stroke-dasharray]="onTimeRingDash"
+              />
+            </svg>
+          </div>
+          <div class="map-stat-chip__copy">
+            <div class="stat-label">On-time performance</div>
+            <div class="stat-value">{{ liveOnTimePct | number : '1.1-1' }}%</div>
+            <div class="stat-trend">
+              <mat-icon>trending_up</mat-icon>
+              +1.9% from last week
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <div class="row3">
-    <div class="lx-card">
-      <div class="card-hd mb-md">
-        <div>
-          <div class="card-hdtitle">KYC pipeline snapshot</div>
-          <div class="lx-kpi-value chart-value">{{ totalPipelineApplications }}</div>
-          <span class="lx-badge analytics">Live queue counts</span>
+    <div class="lx-card chart-panel">
+      <div class="chart-panel__header">
+        <div class="chart-panel__title-block">
+          <div class="card-hd__icon-wrap card-hd__icon-wrap--chart">
+            <mat-icon>bar_chart</mat-icon>
+          </div>
+          <div>
+            <div class="card-hdtitle">KYC pipeline snapshot</div>
+            <div class="chart-panel__meta">
+              <span class="chart-panel__total">{{ totalPipelineApplications }}</span>
+              <span class="chart-panel__total-label">applications</span>
+              <span class="lx-badge analytics">Live</span>
+            </div>
+          </div>
         </div>
-        <div class="period-wrap">
-          <button type="button" *ngFor="let p of periods" class="period-btn"
-                  [class.active]="activePeriod === p" (click)="setPeriod(p)">{{ p }}</button>
+        <div class="chart-panel__controls">
+          <div class="chart-view-toggle">
+            <button
+              type="button"
+              class="chart-view-btn"
+              [class.active]="chartView === 'bars'"
+              (click)="setChartView('bars')"
+              aria-label="Bar chart view"
+            >
+              <mat-icon>bar_chart</mat-icon>
+            </button>
+            <button
+              type="button"
+              class="chart-view-btn"
+              [class.active]="chartView === 'donut'"
+              (click)="setChartView('donut')"
+              aria-label="Donut chart view"
+            >
+              <mat-icon>donut_large</mat-icon>
+            </button>
+          </div>
+          <div class="period-wrap">
+            <button
+              type="button"
+              *ngFor="let p of periods"
+              class="period-btn"
+              [class.active]="activePeriod === p"
+              (click)="setPeriod(p)"
+            >
+              {{ p }}
+            </button>
+          </div>
         </div>
       </div>
-      <div class="chart-host">
-        <canvas baseChart [data]="kycChartData" [options]="kycChartOptions" type="bar"></canvas>
+      <div class="chart-panel__body" [class.chart-panel__body--donut]="chartView === 'donut'">
+        <div class="chart-host chart-host--bars" *ngIf="chartView === 'bars'">
+          <canvas baseChart [data]="kycChartData" [options]="kycChartOptions" type="bar"></canvas>
+        </div>
+        <div class="chart-donut-wrap" *ngIf="chartView === 'donut'">
+          <div class="chart-donut-canvas">
+            <canvas baseChart [data]="kycDonutData" [options]="kycDonutOptions" type="doughnut"></canvas>
+            <div class="chart-donut-center">
+              <span class="chart-donut-center__value">{{ totalPipelineApplications }}</span>
+              <span class="chart-donut-center__label">Total</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="lx-card">
-      <div class="card-hd mb-md">
-        <div class="card-hdtitle">Review Pipeline</div>
+    <div class="lx-card pipeline-card">
+      <div class="card-hd card-hd--modern mb-md">
+        <div class="card-hd__icon-wrap card-hd__icon-wrap--pipeline">
+          <mat-icon>linear_scale</mat-icon>
+        </div>
+        <div class="card-hd__copy">
+          <div class="card-hdtitle">Review Pipeline</div>
+          <div class="card-hdsub">Stage distribution across queue</div>
+        </div>
         <a class="card-hdaction" routerLink="/kyc/applications">View all →</a>
       </div>
       <div class="pipeline">
         <div class="pipe-row" *ngFor="let p of pipeline; trackBy: trackByLabel">
           <div class="pipe-label">
-            <span class="pipe-dot" [style.background]="p.color"></span>{{ p.label }}
+            <span class="pipe-dot" [style.background]="p.color"></span>
+            <span class="pipe-label__text">{{ p.label }}</span>
           </div>
           <div class="pipe-track">
-            <div class="pipe-fill" [style.width.%]="p.pct" [style.background]="p.color"></div>
+            <div
+              class="pipe-fill"
+              [style.width.%]="p.pct"
+              [style.background]="'linear-gradient(90deg, ' + p.color + ' 0%, color-mix(in srgb, ' + p.color + ' 70%, white) 100%)'"
+            ></div>
           </div>
-          <div class="pipe-count">{{ p.count }}</div>
+          <div class="pipe-count">
+            <span class="pipe-count__num">{{ p.count }}</span>
+            <span class="pipe-count__pct">{{ p.pct }}%</span>
+          </div>
         </div>
       </div>
       <div class="status-widget">
@@ -283,12 +404,20 @@
     </div>
 
     <div class="lx-card qa-card">
-      <div class="card-hdtitle qa-title">Quick Actions</div>
+      <div class="qa-card__header">
+        <mat-icon class="qa-card__header-icon">bolt</mat-icon>
+        <div class="card-hdtitle qa-title">Quick Actions</div>
+      </div>
       <div class="qa-grid">
-        <button type="button" *ngFor="let a of quickActions" class="qa-btn" [routerLink]="a.route">
-          <div class="qa-count">{{ a.count }}</div>
-          <mat-icon class="qa-icon">{{ a.icon }}</mat-icon>
-          <div class="qa-label">{{ a.label }}</div>
+        <button type="button" *ngFor="let a of quickActions; let ai = index" class="qa-btn" [routerLink]="a.route" [style.--qa-delay]="ai * 60 + 'ms'">
+          <div class="qa-btn__icon-ring">
+            <mat-icon class="qa-icon">{{ a.icon }}</mat-icon>
+          </div>
+          <div class="qa-btn__copy">
+            <div class="qa-count">{{ a.count }}</div>
+            <div class="qa-label">{{ a.label }}</div>
+          </div>
+          <mat-icon class="qa-btn__arrow">arrow_forward</mat-icon>
         </button>
       </div>
     </div>

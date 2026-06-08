@@ -1,0 +1,12 @@
+:host {
+  display: block;
+}
+
+textarea {
+  width: 100%;
+  min-height: 72px;
+  border: 0;
+  background: transparent;
+  resize: vertical;
+  font: inherit;
+}

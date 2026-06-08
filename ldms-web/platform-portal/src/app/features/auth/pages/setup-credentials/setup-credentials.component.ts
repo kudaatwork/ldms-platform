@@ -10,6 +10,7 @@ import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
 import { CredentialsSetupService } from '../../../../core/services/credentials-setup.service';
+import { PhoneVerificationPromptService } from '../../../../core/services/phone-verification-prompt.service';
 import { ThemeService } from '../../../../core/services/theme.service';
 import {
   LDMS_USERNAME_INVALID_MESSAGE,
@@ -69,6 +70,7 @@ export class SetupCredentialsComponent implements OnInit, OnDestroy {
     private readonly fb: FormBuilder,
     private readonly credentialsSetup: CredentialsSetupService,
     private readonly authService: AuthService,
+    private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
     private readonly title: Title,
@@ -178,9 +180,16 @@ export class SetupCredentialsComponent implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.authService.login(newUsername.trim(), newPassword).subscribe({
-            next: () => {
+            next: (outcome) => {
               this.loading = false;
               this.cdr.markForCheck();
+              if (outcome.kind === 'two_factor_required') {
+                void this.router.navigate(['/auth/login'], {
+                  queryParams: { email: newUsername.trim() },
+                });
+                return;
+              }
+              this.phoneVerificationPrompt.markPromptAfterSetup();
               void this.router.navigate(this.authService.postLoginRoute());
             },
             error: (e: Error) => {

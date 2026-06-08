@@ -83,6 +83,16 @@ public class OrganizationSystemResource {
         return organizationServiceProcessor.verifyOrganizationEmail(email, token, locale);
     }
 
+    @Auditable(action = "ORG_SYSTEM_COMPLETE_SUPPLIER_ONBOARDING")
+    @PostMapping("/{organizationId}/complete-supplier-onboarding")
+    @Operation(summary = "Retry supplier-registered onboarding emails (contact credentials + organisation verification)")
+    public OrganizationResponse completeSupplierRegisteredOnboarding(
+            @PathVariable Long organizationId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.completeSupplierRegisteredOnboarding(organizationId, locale);
+    }
+
     @Auditable(action = "ORG_SYSTEM_ONBOARDING_STATUS")
     @GetMapping("/onboarding-status/{organizationId}")
     @Operation(summary = "Public onboarding tracker — live KYC status for signup applicants")

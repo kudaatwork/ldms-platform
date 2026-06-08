@@ -43,6 +43,8 @@ public class RegisterOrganizationRequest {
     private String addressLine2;
     private String postalCode;
     private Long suburbId;
+    /** Selected city when registering an address (persisted on the ldms-locations address row). */
+    private Long cityId;
     /** Pre-created ldms-locations address id; used when the client created the address separately. */
     private Long locationId;
     /** When false, organisation was registered by an administrator (not public signup). */

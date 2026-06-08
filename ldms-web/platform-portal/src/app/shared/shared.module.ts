@@ -48,6 +48,7 @@ import { LxTableLoadingComponent } from './components/lx-table-loading/lx-table-
 import { LxPageHeroComponent } from './components/lx-page-hero/lx-page-hero.component';
 import { LxWorkspaceHeroComponent } from './components/lx-workspace-hero/lx-workspace-hero.component';
 import { LxWorkspaceHeroStatComponent } from './components/lx-workspace-hero-stat/lx-workspace-hero-stat.component';
+import { PhoneVerificationDialogComponent } from './components/phone-verification-dialog/phone-verification-dialog.component';
 import { LxOrganizationMetadataPanelComponent } from './components/lx-organization-metadata-panel/lx-organization-metadata-panel.component';
 
 const MATERIAL_MODULES = [
@@ -108,6 +109,7 @@ const MATERIAL_MODULES = [
     LxOrganizationMetadataPanelComponent,
     LxWorkspaceHeroComponent,
     LxWorkspaceHeroStatComponent,
+    PhoneVerificationDialogComponent,
   ],
   exports: [
     CommonModule,

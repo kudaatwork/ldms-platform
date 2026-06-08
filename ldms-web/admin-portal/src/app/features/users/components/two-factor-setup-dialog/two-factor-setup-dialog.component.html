@@ -1,0 +1,135 @@
+<div class="lx-dialog-shell lx-dialog-shell--wide tfs-dialog">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Two-step verification</h2>
+      <p class="lx-dialog-subtitle" *ngIf="adminMode && targetUserLabel">Managing {{ targetUserLabel }}</p>
+      <p class="lx-dialog-subtitle">{{ stepSubtitle() }}</p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close dialog" (click)="close()" [disabled]="loading">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-loading-shell" *ngIf="loading && step !== 'choose' && step !== 'status'">
+    <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+    <p>Working…</p>
+  </div>
+
+  <div class="lx-step-content lx-step-content--stack" *ngIf="!loading || step === 'choose' || step === 'status'">
+    <div class="tfs-status-card" *ngIf="step === 'status'">
+      <div class="tfs-status-card__icon" aria-hidden="true">
+        <mat-icon>verified_user</mat-icon>
+      </div>
+      <div class="tfs-status-card__body">
+        <div class="tfs-status-card__label">Currently enabled</div>
+        <div class="tfs-status-card__value">{{ methodLabel(currentMethod) }}</div>
+        <div class="tfs-status-card__actions">
+          <button mat-stroked-button type="button" (click)="changeMethod()" [disabled]="loading">Change method</button>
+          <button mat-stroked-button type="button" color="warn" (click)="turnOffFromStatus()" [disabled]="loading">
+            Turn off
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tfs-method-grid" *ngIf="step === 'choose'">
+      <button type="button" class="tfs-method-card" (click)="chooseMethod('SMS')" [disabled]="loading">
+        <mat-icon>sms</mat-icon>
+        <span class="tfs-method-card__title">SMS</span>
+        <span class="tfs-method-card__sub">6-digit code sent to your phone when you sign in</span>
+        <span class="tfs-method-card__badge" *ngIf="!phoneVerified">Phone verification required</span>
+      </button>
+      <button type="button" class="tfs-method-card" (click)="chooseMethod('AUTHENTICATOR_APP')" [disabled]="loading">
+        <mat-icon>phonelink_lock</mat-icon>
+        <span class="tfs-method-card__title">Authenticator app</span>
+        <span class="tfs-method-card__sub">Google Authenticator, Authy, Microsoft Authenticator, etc.</span>
+      </button>
+    </div>
+
+    <div class="tfs-auth-panel" *ngIf="step === 'authenticator'">
+      <p class="tfs-panel-lead" *ngIf="!adminMode">
+        Scan the QR code with your authenticator app, then enter the 6-digit code to finish setup.
+      </p>
+      <p class="tfs-panel-lead" *ngIf="adminMode">
+        Have the user scan this QR code with their authenticator app, then enter the 6-digit code they see.
+      </p>
+      <div class="tfs-qr-wrap" *ngIf="setupQrCodeDataUrl">
+        <img [src]="setupQrCodeDataUrl" alt="Authenticator QR code" class="tfs-qr" />
+      </div>
+      <p class="tfs-mono" *ngIf="setupSecret">
+        <span class="tfs-mono__label">Manual entry key</span>
+        {{ setupSecret }}
+      </p>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Verification code <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">pin</mat-icon>
+          <input
+            name="authOtp"
+            [(ngModel)]="otp"
+            maxlength="6"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            placeholder="6-digit code"
+          />
+        </div>
+      </div>
+    </div>
+
+    <div class="tfs-auth-panel" *ngIf="step === 'disable'">
+      <ng-container *ngIf="adminMode">
+        <p class="tfs-panel-lead">
+          As an administrator you can turn off two-step verification without the user's code. Only do this when the user has requested a change.
+        </p>
+      </ng-container>
+      <ng-container *ngIf="!adminMode">
+        <p class="tfs-panel-lead" *ngIf="currentMethod === 'AUTHENTICATOR_APP'">
+          Enter the current code from your authenticator app to turn off two-step verification.
+        </p>
+        <p class="tfs-panel-lead" *ngIf="currentMethod === 'SMS'">
+          A verification code was sent to your phone. Enter it below to turn off two-step verification.
+        </p>
+        <div class="lx-field span-2">
+          <label class="lx-field-label">Verification code <span class="req">*</span></label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">{{ currentMethod === 'AUTHENTICATOR_APP' ? 'phonelink_lock' : 'sms' }}</mat-icon>
+            <input
+              name="disableOtp"
+              [(ngModel)]="otp"
+              maxlength="6"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              placeholder="6-digit code"
+            />
+          </div>
+          <span class="lx-field-hint" *ngIf="currentMethod === 'SMS'">
+            Did not receive it?
+            <button type="button" class="tfs-link-btn" (click)="requestDisableOtp()" [disabled]="loading">Resend code</button>
+          </span>
+        </div>
+      </ng-container>
+    </div>
+
+    <p class="lx-form-error" *ngIf="error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+    </p>
+
+    <div class="lx-step-actions">
+      <button mat-stroked-button type="button" (click)="onSecondaryAction()" [disabled]="loading">
+        {{ secondaryActionLabel() }}
+      </button>
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        (click)="onPrimaryAction()"
+        [disabled]="loading || !primaryActionEnabled()"
+        *ngIf="primaryActionLabel()"
+      >
+        <ng-container *ngIf="loading">{{ primaryActionLabel() }}…</ng-container>
+        <ng-container *ngIf="!loading">{{ primaryActionLabel() }}</ng-container>
+      </button>
+    </div>
+  </div>
+</div>

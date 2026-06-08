@@ -419,4 +419,56 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
         logger.info("Incoming request to check username availability for {}", username);
         return organizationContactCredentialsIssuer.checkUsernameAvailability(candidateUsername, username, locale);
     }
+
+    // ============================================================
+    //  Phone verification & step-up
+    // ============================================================
+
+    @Override
+    public UserResponse requestPhoneVerification(String username, Locale locale) {
+        logger.info("Incoming request to initiate phone verification for user: {}", username);
+        UserResponse response = userService.requestPhoneVerification(username, locale);
+        logger.info("Phone verification OTP result for {}: status={}", username, response.getStatusCode());
+        return response;
+    }
+
+    @Override
+    public UserResponse confirmPhoneVerification(String username, String otp, Locale locale) {
+        logger.info("Incoming request to confirm phone verification for user: {}", username);
+        UserResponse response = userService.confirmPhoneVerification(username, otp, locale);
+        logger.info("Phone verification confirmation result for {}: status={}", username, response.getStatusCode());
+        return response;
+    }
+
+    @Override
+    public UserResponse requestStepUpVerification(String username, Locale locale) {
+        logger.info("Incoming request to initiate step-up OTP for user: {}", username);
+        UserResponse response = userService.requestStepUpVerification(username, locale);
+        logger.info("Step-up OTP result for {}: status={}", username, response.getStatusCode());
+        return response;
+    }
+
+    @Override
+    public UserResponse confirmStepUpVerification(String username, String otp, Locale locale) {
+        logger.info("Incoming request to confirm step-up OTP for user: {}", username);
+        UserResponse response = userService.confirmStepUpVerification(username, otp, locale);
+        logger.info("Step-up OTP confirmation result for {}: status={}", username, response.getStatusCode());
+        return response;
+    }
+
+    // ============================================================
+    //  System-only login OTP
+    // ============================================================
+
+    @Override
+    public UserResponse generateLoginOtp(String usernameOrPhone, Locale locale) {
+        logger.info("Incoming system request to generate login OTP for: {}", usernameOrPhone);
+        return userService.generateLoginOtp(usernameOrPhone, locale);
+    }
+
+    @Override
+    public UserResponse verifyLoginOtp(String usernameOrPhone, String otp, Locale locale) {
+        logger.info("Incoming system request to verify login OTP for: {}", usernameOrPhone);
+        return userService.verifyLoginOtp(usernameOrPhone, otp, locale);
+    }
 }

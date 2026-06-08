@@ -117,6 +117,21 @@ export class CustomersPortalService {
     );
   }
 
+  /** POST /customers/{id}/retry-onboarding — resend contact credentials and org verification emails. */
+  retryOnboardingEmails(customerId: number): Observable<string> {
+    return this.http.post<unknown>(`${this.base}/customers/${customerId}/retry-onboarding`, {}).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        const parsed = this.toObj(resp);
+        const message = parsed?.['message'];
+        return typeof message === 'string' && message.trim()
+          ? message.trim()
+          : 'Onboarding emails were queued.';
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
   private buildRegisterFormData(payload: RegisterCustomerPayload): FormData {
     const form = new FormData();
     this.appendFormValue(form, 'name', payload.name);
@@ -148,6 +163,8 @@ export class CustomersPortalService {
     this.appendFormValue(form, 'addressLine2', payload.addressLine2);
     this.appendFormValue(form, 'postalCode', payload.postalCode);
     this.appendFormValue(form, 'suburbId', payload.suburbId);
+    this.appendFormValue(form, 'cityId', payload.cityId);
+    this.appendFormValue(form, 'locationId', payload.locationId);
     return form;
   }
 
@@ -177,6 +194,16 @@ export class CustomersPortalService {
       taxClearanceCertificateUploadId: this.toPositiveId(dto['taxClearanceCertificateUploadId']),
       contactPersonNationalIdUploadId: this.toPositiveId(dto['contactPersonNationalIdUploadId']),
       contactPersonPassportUploadId: this.toPositiveId(dto['contactPersonPassportUploadId']),
+      locationId: this.toPositiveId(dto['locationId']),
+      addressLine1: String(dto['addressLine1'] ?? '').trim() || undefined,
+      addressLine2: String(dto['addressLine2'] ?? '').trim() || undefined,
+      postalCode: String(dto['addressPostalCode'] ?? '').trim() || undefined,
+      suburbId: this.toPositiveId(dto['addressSuburbId']),
+      cityId: this.toPositiveId(dto['addressCityId']),
+      cityName: String(dto['addressCityName'] ?? '').trim() || undefined,
+      districtId: this.toPositiveId(dto['addressDistrictId']),
+      provinceId: this.toPositiveId(dto['addressProvinceId']),
+      countryId: this.toPositiveId(dto['addressCountryId']),
     };
   }
 

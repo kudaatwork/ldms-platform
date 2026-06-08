@@ -8,6 +8,7 @@ import projectlx.user.authentication.service.service.processor.api.Authenticatio
 import projectlx.user.authentication.service.utils.requests.AuthRequest;
 import projectlx.user.authentication.service.utils.requests.GoogleLoginRequest;
 import projectlx.user.authentication.service.utils.requests.RefreshTokenRequest;
+import projectlx.user.authentication.service.utils.requests.VerifyTwoFactorRequest;
 import projectlx.user.authentication.service.utils.responses.AuthResponse;
 import java.util.Locale;
 
@@ -51,6 +52,15 @@ public class AuthenticationServiceProcessorImpl implements AuthenticationService
                         : 0);
         AuthResponse authResponse = authenticateService.authenticateWithGoogle(googleLoginRequest, locale, actor);
         logger.info("Outgoing Google auth response. Status Code: {}. Message: {}",
+                authResponse.getStatusCode(), authResponse.getMessage());
+        return authResponse;
+    }
+
+    @Override
+    public AuthResponse verifyTwoFactor(VerifyTwoFactorRequest request, Locale locale) {
+        logger.info("Incoming 2FA verification request");
+        AuthResponse authResponse = authenticateService.verifyTwoFactor(request, locale);
+        logger.info("Outgoing 2FA verification response. Status Code: {}. Message: {}",
                 authResponse.getStatusCode(), authResponse.getMessage());
         return authResponse;
     }

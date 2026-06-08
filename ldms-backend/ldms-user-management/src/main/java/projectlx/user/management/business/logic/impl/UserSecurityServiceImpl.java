@@ -4,6 +4,8 @@ import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.management.business.auditable.api.UserSecurityServiceAuditable;
 import projectlx.user.management.business.logic.api.UserSecurityService;
+import projectlx.user.management.business.logic.support.TwoFactorSelfServiceSupport;
+import projectlx.user.management.business.logic.support.TwoFactorSelfServiceSupport.TwoFactorSelfServiceException;
 import projectlx.user.management.business.validator.api.UserSecurityServiceValidator;
 import projectlx.user.management.model.EntityStatus;
 import projectlx.user.management.model.User;
@@ -15,7 +17,10 @@ import projectlx.user.management.utils.dtos.UserSecurityDto;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.user.management.utils.requests.CreateUserSecurityRequest;
 import projectlx.user.management.utils.requests.EditUserSecurityRequest;
+import projectlx.user.management.utils.requests.TwoFactorOtpRequest;
 import projectlx.user.management.utils.requests.UserSecurityMultipleFiltersRequest;
+import projectlx.co.zw.shared_library.utils.security.TotpSupport;
+import org.springframework.util.StringUtils;
 import projectlx.user.management.utils.responses.UserSecurityResponse;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
@@ -41,6 +46,7 @@ public class UserSecurityServiceImpl implements UserSecurityService {
     private final UserRepository userRepository;
     private final ModelMapper modelMapper;
     private final UserSecurityServiceAuditable userSecurityServiceAuditable;
+    private final TwoFactorSelfServiceSupport twoFactorSelfServiceSupport;
 
     @Override
     public UserSecurityResponse create(CreateUserSecurityRequest createUserSecurityRequest, Locale locale,
@@ -375,7 +381,7 @@ public class UserSecurityServiceImpl implements UserSecurityService {
             String message = messageService.getMessage(I18Code.MESSAGE_USER_SECURITY_NOT_FOUND.getCode(), new String[] {}, locale);
             return buildUserSecurityResponse(200, true, message, null, null, null);
         }
-        UserSecurityDto dto = modelMapper.map(securityOpt.get(), UserSecurityDto.class);
+        UserSecurityDto dto = twoFactorSelfServiceSupport.sanitizeForSelfServiceRead(securityOpt.get());
         String message = messageService.getMessage(
                 I18Code.MESSAGE_USER_SECURITY_RETRIEVED_SUCCESSFULLY.getCode(), new String[] {}, locale);
         return buildUserSecurityResponse(200, true, message, dto, null, null);
@@ -394,8 +400,25 @@ public class UserSecurityServiceImpl implements UserSecurityService {
 
         Optional<UserSecurity> existing = userSecurityRepository.findByUser_IdAndEntityStatusNot(userId, EntityStatus.DELETED);
         if (existing.isPresent()) {
-            request.setId(existing.get().getId());
+            UserSecurity row = existing.get();
+            request.setId(row.getId());
+            if (!StringUtils.hasText(request.getTwoFactorAuthSecret())) {
+                request.setTwoFactorAuthSecret(row.getTwoFactorAuthSecret());
+            }
+            if (request.getIsTwoFactorEnabled() == null) {
+                request.setIsTwoFactorEnabled(row.getIsTwoFactorEnabled());
+            }
+            if (request.getTwoFactorMethod() == null) {
+                request.setTwoFactorMethod(row.getTwoFactorMethod());
+            }
             return update(request, sessionUsername, locale);
+        }
+
+        if (!StringUtils.hasText(request.getTwoFactorAuthSecret())) {
+            request.setTwoFactorAuthSecret(TotpSupport.generateSecret());
+        }
+        if (request.getIsTwoFactorEnabled() == null) {
+            request.setIsTwoFactorEnabled(Boolean.FALSE);
         }
 
         CreateUserSecurityRequest createRequest = new CreateUserSecurityRequest();
@@ -410,6 +433,175 @@ public class UserSecurityServiceImpl implements UserSecurityService {
         return create(createRequest, locale, sessionUsername);
     }
 
+    @Override
+    public UserSecurityResponse beginMyAuthenticatorSetup(Locale locale, String sessionUsername) {
+        return runTwoFactorSelfService(locale, sessionUsername, user -> {
+            TwoFactorSelfServiceSupport.BeginAuthenticatorSetup setup =
+                    twoFactorSelfServiceSupport.beginAuthenticatorSetup(user, sessionUsername);
+            UserSecurityResponse response = buildUserSecurityResponse(
+                    200,
+                    true,
+                    messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_AUTHENTICATOR_SETUP_STARTED.getCode(),
+                            new String[] {}, locale),
+                    twoFactorSelfServiceSupport.sanitizeForSelfServiceRead(
+                            twoFactorSelfServiceSupport.findActiveSecurity(user).orElseThrow()),
+                    null,
+                    null);
+            response.setAuthenticatorSetupSecret(setup.secret());
+            response.setAuthenticatorSetupOtpAuthUri(setup.otpAuthUri());
+            response.setAuthenticatorSetupQrCodeDataUrl(setup.qrCodeDataUrl());
+            return response;
+        });
+    }
+
+    @Override
+    public UserSecurityResponse confirmMyAuthenticatorSetup(TwoFactorOtpRequest request, Locale locale,
+                                                            String sessionUsername) {
+        return runTwoFactorSelfService(locale, sessionUsername, user -> {
+            UserSecurity saved = twoFactorSelfServiceSupport.confirmAuthenticatorSetup(user, request, sessionUsername);
+            String message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_AUTHENTICATOR_ENABLED.getCode(),
+                    new String[] {}, locale);
+            return buildUserSecurityResponse(200, true, message,
+                    twoFactorSelfServiceSupport.sanitizeForSelfServiceRead(saved), null, null);
+        });
+    }
+
+    @Override
+    public UserSecurityResponse enableMySmsTwoFactor(Locale locale, String sessionUsername) {
+        return runTwoFactorSelfService(locale, sessionUsername, user -> {
+            UserSecurity saved = twoFactorSelfServiceSupport.enableSmsTwoFactor(user, sessionUsername);
+            String message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_SMS_ENABLED.getCode(),
+                    new String[] {}, locale);
+            return buildUserSecurityResponse(200, true, message,
+                    twoFactorSelfServiceSupport.sanitizeForSelfServiceRead(saved), null, null);
+        });
+    }
+
+    @Override
+    public UserSecurityResponse requestMyTwoFactorDisableOtp(Locale locale, String sessionUsername) {
+        return runTwoFactorSelfService(locale, sessionUsername, user -> {
+            twoFactorSelfServiceSupport.sendSmsVerificationForDisable(user, sessionUsername);
+            String message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_DISABLE_OTP_SENT.getCode(),
+                    new String[] {}, locale);
+            return buildUserSecurityResponse(200, true, message, null, null, null);
+        });
+    }
+
+    @Override
+    public UserSecurityResponse disableMyTwoFactor(TwoFactorOtpRequest request, Locale locale, String sessionUsername) {
+        return runTwoFactorSelfService(locale, sessionUsername, user -> {
+            UserSecurity saved = twoFactorSelfServiceSupport.disableTwoFactor(user, request, sessionUsername);
+            String message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_DISABLED.getCode(),
+                    new String[] {}, locale);
+            return buildUserSecurityResponse(200, true, message,
+                    twoFactorSelfServiceSupport.sanitizeForSelfServiceRead(saved), null, null);
+        });
+    }
+
+    @Override
+    public UserSecurityResponse adminBeginAuthenticatorSetup(Long userId, Locale locale, String actor) {
+        return runAdminTwoFactor(userId, locale, user -> {
+            TwoFactorSelfServiceSupport.BeginAuthenticatorSetup setup =
+                    twoFactorSelfServiceSupport.beginAuthenticatorSetup(user, actor);
+            UserSecurityResponse response = buildUserSecurityResponse(
+                    200,
+                    true,
+                    messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_AUTHENTICATOR_SETUP_STARTED.getCode(),
+                            new String[] {}, locale),
+                    twoFactorSelfServiceSupport.sanitizeForSelfServiceRead(
+                            twoFactorSelfServiceSupport.findActiveSecurity(user).orElseThrow()),
+                    null,
+                    null);
+            response.setAuthenticatorSetupSecret(setup.secret());
+            response.setAuthenticatorSetupOtpAuthUri(setup.otpAuthUri());
+            response.setAuthenticatorSetupQrCodeDataUrl(setup.qrCodeDataUrl());
+            return response;
+        });
+    }
+
+    @Override
+    public UserSecurityResponse adminConfirmAuthenticatorSetup(Long userId, TwoFactorOtpRequest request,
+                                                               Locale locale, String actor) {
+        return runAdminTwoFactor(userId, locale, user -> {
+            UserSecurity saved = twoFactorSelfServiceSupport.confirmAuthenticatorSetup(user, request, actor);
+            String message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_AUTHENTICATOR_ENABLED.getCode(),
+                    new String[] {}, locale);
+            return buildUserSecurityResponse(200, true, message,
+                    twoFactorSelfServiceSupport.sanitizeForSelfServiceRead(saved), null, null);
+        });
+    }
+
+    @Override
+    public UserSecurityResponse adminEnableSmsTwoFactor(Long userId, Locale locale, String actor) {
+        return runAdminTwoFactor(userId, locale, user -> {
+            UserSecurity saved = twoFactorSelfServiceSupport.enableSmsTwoFactor(user, actor);
+            String message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_SMS_ENABLED.getCode(),
+                    new String[] {}, locale);
+            return buildUserSecurityResponse(200, true, message,
+                    twoFactorSelfServiceSupport.sanitizeForSelfServiceRead(saved), null, null);
+        });
+    }
+
+    @Override
+    public UserSecurityResponse adminDisableTwoFactor(Long userId, Locale locale, String actor) {
+        return runAdminTwoFactor(userId, locale, user -> {
+            UserSecurity saved = twoFactorSelfServiceSupport.disableTwoFactorAsAdmin(user, actor);
+            String message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_DISABLED.getCode(),
+                    new String[] {}, locale);
+            return buildUserSecurityResponse(200, true, message,
+                    twoFactorSelfServiceSupport.sanitizeForSelfServiceRead(saved), null, null);
+        });
+    }
+
+    private UserSecurityResponse runAdminTwoFactor(Long userId, Locale locale,
+                                                   java.util.function.Function<User, UserSecurityResponse> action) {
+        if (userId == null || userId < 1) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_ID_SUPPLIED_INVALID.getCode(),
+                    new String[] {}, locale);
+            return buildUserSecurityResponse(400, false, message, null, null, null);
+        }
+        Optional<User> userOpt = userRepository.findByIdAndEntityStatusNot(userId, EntityStatus.DELETED);
+        if (userOpt.isEmpty()) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[] {}, locale);
+            return buildUserSecurityResponse(404, false, message, null, null, null);
+        }
+        try {
+            return action.apply(userOpt.get());
+        } catch (TwoFactorSelfServiceException ex) {
+            return buildTwoFactorErrorResponse(ex, locale);
+        }
+    }
+
+    private UserSecurityResponse runTwoFactorSelfService(Locale locale, String sessionUsername,
+                                                         java.util.function.Function<User, UserSecurityResponse> action) {
+        Optional<User> userOpt = userRepository.findSessionProfileByUsernameIgnoreCaseAndEntityStatusNot(
+                sessionUsername, EntityStatus.DELETED);
+        if (userOpt.isEmpty()) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[] {}, locale);
+            return buildUserSecurityResponse(404, false, message, null, null, null);
+        }
+        try {
+            return action.apply(userOpt.get());
+        } catch (TwoFactorSelfServiceException ex) {
+            return buildTwoFactorErrorResponse(ex, locale);
+        }
+    }
+
+    private UserSecurityResponse buildTwoFactorErrorResponse(TwoFactorSelfServiceException ex, Locale locale) {
+        I18Code code = switch (ex.getError()) {
+            case ALREADY_ENABLED -> I18Code.MESSAGE_TWO_FACTOR_ALREADY_ENABLED;
+            case NOT_ENABLED -> I18Code.MESSAGE_TWO_FACTOR_NOT_ENABLED;
+            case SETUP_NOT_STARTED -> I18Code.MESSAGE_TWO_FACTOR_SETUP_NOT_STARTED;
+            case OTP_INVALID -> I18Code.MESSAGE_OTP_INVALID_OR_EXPIRED;
+            case PHONE_MISSING -> I18Code.MESSAGE_PHONE_NUMBER_MISSING_FOR_VERIFICATION;
+            case PHONE_NOT_VERIFIED -> I18Code.MESSAGE_TWO_FACTOR_PHONE_NOT_VERIFIED;
+            case SECURITY_NOT_FOUND -> I18Code.MESSAGE_USER_SECURITY_NOT_FOUND;
+            case WRONG_METHOD -> I18Code.MESSAGE_TWO_FACTOR_WRONG_METHOD;
+        };
+        String message = messageService.getMessage(code.getCode(), new String[] {}, locale);
+        return buildUserSecurityResponse(400, false, message, null, null, null);
+    }
+
     private void applyUpdatesToUserSecurity(UserSecurity userSecurity, EditUserSecurityRequest editRequest) {
         userSecurity.setSecurityQuestion_1(editRequest.getSecurityQuestion_1());
         userSecurity.setSecurityAnswer_1(editRequest.getSecurityAnswer_1());
@@ -417,6 +609,9 @@ public class UserSecurityServiceImpl implements UserSecurityService {
         userSecurity.setSecurityAnswer_2(editRequest.getSecurityAnswer_2());
         userSecurity.setTwoFactorAuthSecret(editRequest.getTwoFactorAuthSecret());
         userSecurity.setIsTwoFactorEnabled(editRequest.getIsTwoFactorEnabled());
+        if (editRequest.getTwoFactorMethod() != null) {
+            userSecurity.setTwoFactorMethod(editRequest.getTwoFactorMethod());
+        }
     }
 
     private UserSecurityResponse buildUserSecurityResponse(int statusCode, boolean isSuccess, String message,

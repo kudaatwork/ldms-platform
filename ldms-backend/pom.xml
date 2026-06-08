@@ -28,6 +28,7 @@
         <redisson.version>3.27.2</redisson.version>
         <jjwt.version>0.12.5</jjwt.version>
         <resilience4j.version>2.2.0</resilience4j.version>
+        <totp.version>1.7.1</totp.version>
 
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
 
@@ -54,7 +55,7 @@
         <!-- <module>ldms-inventory-management</module> -->
         <!-- <module>ldms-shipment-management</module> -->
         <!-- <module>ldms-documents-management</module> -->
-        <!-- <module>ldms-fleet-management</module> -->
+        <module>ldms-fleet-management</module>
         <!-- <module>ldms-trip-tracking</module> -->
         <!-- <module>ldms-roadside-support</module> -->
         <!-- <module>ldms-fuel-expenses</module> -->
@@ -122,6 +123,11 @@
                 <groupId>io.github.resilience4j</groupId>
                 <artifactId>resilience4j-spring-boot3</artifactId>
                 <version>${resilience4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.samstevens.totp</groupId>
+                <artifactId>totp</artifactId>
+                <version>${totp.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
