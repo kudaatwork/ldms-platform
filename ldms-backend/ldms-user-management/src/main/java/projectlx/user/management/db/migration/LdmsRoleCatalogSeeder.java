@@ -42,9 +42,23 @@ public final class LdmsRoleCatalogSeeder {
         linkAllActiveRolesToGroup(connection, groupId);
     }
 
+    public static String administratorGroupName() {
+        return ADMIN_GROUP_NAME;
+    }
+
+    public static long platformAdministratorGroupId(Connection connection) throws SQLException {
+        Long existingId = findPlatformAdministratorGroupId(connection);
+        if (existingId == null) {
+            throw new IllegalStateException("Platform Administrator user group was not found");
+        }
+        return existingId;
+    }
+
     /**
      * Ensures an organisation-scoped {@code Administrator} group exists and holds all workspace permissions.
+     * @deprecated Use the platform-wide {@link #ensurePlatformAdministratorGroup(Connection)} group instead.
      */
+    @Deprecated
     public static long seedOrganizationAdministratorGroup(Connection connection, long organizationId) throws SQLException {
         if (organizationId <= 0) {
             throw new IllegalArgumentException("organizationId must be positive");

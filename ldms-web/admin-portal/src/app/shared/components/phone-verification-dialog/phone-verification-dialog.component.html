@@ -1,0 +1,49 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ lead }}</p>
+    </div>
+    <button
+      *ngIf="!required"
+      mat-icon-button
+      type="button"
+      class="lx-close-button"
+      aria-label="Close"
+      (click)="dismiss()"
+    >
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content">
+    <div class="lx-field">
+      <label class="lx-field-label">Verification code</label>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">sms</mat-icon>
+        <input
+          [(ngModel)]="otp"
+          maxlength="6"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          placeholder="6-digit code"
+        />
+      </div>
+    </div>
+
+    <p class="lx-form-error" *ngIf="error">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ error }}</span>
+    </p>
+
+    <div class="lx-step-actions">
+      <button mat-stroked-button type="button" (click)="sendCode()" [disabled]="sending">
+        {{ sending ? 'Sending…' : codeSent ? 'Resend code' : 'Send code' }}
+      </button>
+      <button mat-raised-button color="primary" type="button" (click)="confirm()" [disabled]="confirming">
+        {{ confirming ? 'Verifying…' : 'Verify phone' }}
+      </button>
+      <button *ngIf="!required" mat-button type="button" (click)="dismiss()">Later</button>
+    </div>
+  </div>
+</div>

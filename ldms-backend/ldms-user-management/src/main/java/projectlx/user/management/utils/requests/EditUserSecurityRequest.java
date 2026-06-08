@@ -3,6 +3,7 @@ package projectlx.user.management.utils.requests;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import projectlx.co.zw.shared_library.utils.enums.TwoFactorMethod;
 
 @Getter
 @Setter
@@ -14,6 +15,7 @@ public class EditUserSecurityRequest {
     private String securityAnswer_2;
     private String twoFactorAuthSecret;
     private Boolean isTwoFactorEnabled;
+    private TwoFactorMethod twoFactorMethod;
     private Long id;
     private Long userId;
 }

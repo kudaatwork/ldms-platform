@@ -30,6 +30,12 @@ import {
 import { AuditLogRequestDetailDialogComponent } from '../../components/audit-log-request-detail-dialog/audit-log-request-detail-dialog.component';
 import { ChurnOutConfirmDialogComponent } from '../../components/churn-out-confirm-dialog/churn-out-confirm-dialog.component';
 import type { RequestLogRow } from '../../models/request-log-row.model';
+import {
+  auditActionKindBadge,
+  auditActionPillClass,
+  auditActionRowClass,
+  humanizeAuditAction,
+} from '../../utils/audit-action-style.util';
 
 import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 import {
@@ -287,6 +293,11 @@ export class ActivityPageComponent implements OnInit, OnDestroy {
     return 'submitted';
   }
 
+  readonly auditActionPillClass = auditActionPillClass;
+  readonly auditActionRowClass = auditActionRowClass;
+  readonly auditActionKindBadge = auditActionKindBadge;
+  readonly humanizeAuditAction = humanizeAuditAction;
+
   ngOnInit(): void {
     const viewMode = String(this.route.snapshot.data['activityView'] ?? 'request').toLowerCase();
     this.showRequestSection = viewMode !== 'activity';
@@ -430,8 +441,11 @@ export class ActivityPageComponent implements OnInit, OnDestroy {
           this.downloadBlob(blob, `audit-requests-${new Date().toISOString().slice(0, 10)}.${ext}`);
           this.snackBar.open(`Exported requests log as ${ext.toUpperCase()}.`, 'Dismiss', { duration: 3500 });
         },
-        error: () => {
-          this.snackBar.open('Export failed. Check filters and try again.', 'Dismiss', { duration: 5000 });
+        error: (err: Error) => {
+          this.snackBar.open(err.message || 'Export failed. Check filters and try again.', 'Dismiss', {
+            duration: 6000,
+            panelClass: ['app-snackbar-error'],
+          });
         },
       });
   }

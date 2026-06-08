@@ -60,4 +60,23 @@ public interface UserServiceProcessor {
 
     UsernameAvailabilityResponse checkUsernameAvailability(String candidateUsername, Locale locale, String username);
 
+    // ============================================================
+    //  Phone verification & step-up
+    // ============================================================
+
+    UserResponse requestPhoneVerification(String username, Locale locale);
+
+    UserResponse confirmPhoneVerification(String username, String otp, Locale locale);
+
+    UserResponse requestStepUpVerification(String username, Locale locale);
+
+    UserResponse confirmStepUpVerification(String username, String otp, Locale locale);
+
+    // ============================================================
+    //  System-only login OTP (called by ldms-authentication)
+    // ============================================================
+
+    UserResponse generateLoginOtp(String usernameOrPhone, Locale locale);
+
+    UserResponse verifyLoginOtp(String usernameOrPhone, String otp, Locale locale);
 }

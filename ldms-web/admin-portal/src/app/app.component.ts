@@ -19,6 +19,7 @@ import type { KycQueueSummary } from './features/organizations/services/organiza
 import { ThemeService } from './core/services/theme.service';
 import { ORG_CLASSIFICATIONS } from './shared/models/org-classifications';
 import { isStoredSessionToken } from './core/utils/jwt.util';
+import { PhoneVerificationPromptService } from './core/services/phone-verification-prompt.service';
 
 /** Leaf link or non-clickable section label inside a nav subsection. */
 type NavSubEntry =
@@ -227,6 +228,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private readonly kycStats: KycQueueStatsService,
     private readonly kycNotificationDismiss: KycNotificationDismissService,
     readonly theme: ThemeService,
+    private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
   ) {
     this.showShell = !router.url.startsWith('/auth');
   }
@@ -247,6 +249,14 @@ export class AppComponent implements OnInit, OnDestroy {
     this.syncChromeFromUrl();
     this.rebuildBreadcrumbs();
     this.hydrateSessionProfile();
+    if (this.showShell && isStoredSessionToken(this.storage.getToken())) {
+      setTimeout(() => {
+        if (this.destroy$.closed) {
+          return;
+        }
+        this.phoneVerificationPrompt.maybePrompt().pipe(takeUntil(this.destroy$)).subscribe();
+      }, 800);
+    }
     this.router.events
       .pipe(
         filter((e): e is NavigationEnd => e instanceof NavigationEnd),

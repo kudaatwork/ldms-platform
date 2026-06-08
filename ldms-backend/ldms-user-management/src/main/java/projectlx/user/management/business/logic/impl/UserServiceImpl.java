@@ -37,6 +37,9 @@ import projectlx.user.management.business.logic.api.UserSecurityService;
 import projectlx.user.management.business.logic.api.UserService;
 import projectlx.user.management.business.logic.api.UserTypeService;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
+import projectlx.user.management.business.logic.support.PhoneVerificationSupport;
+import projectlx.user.management.business.logic.support.SmsDeliveryDisabledException;
+import projectlx.user.management.model.OtpType;
 import projectlx.user.management.business.validator.api.UserServiceValidator;
 import projectlx.user.management.clients.FileUploadServiceClient;
 import projectlx.user.management.model.Address;
@@ -171,6 +174,7 @@ public class UserServiceImpl implements UserService {
     private final EmailVerificationLinkProperties emailVerificationLinkProperties;
     private final PasswordResetLinkProperties passwordResetLinkProperties;
     private final OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport;
+    private final PhoneVerificationSupport phoneVerificationSupport;
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
     private static final String[] HEADERS = {
@@ -731,6 +735,15 @@ public class UserServiceImpl implements UserService {
                 : "";
         boolean emailChanged = org.springframework.util.StringUtils.hasText(normalizedNewEmail)
                 && !normalizedNewEmail.equals(normalizedPreviousEmail);
+
+        // ============================================================
+        // LOCK: reject email change when email is already verified
+        // ============================================================
+        if (emailChanged && Boolean.TRUE.equals(userToBeEdited.getEmailVerified())) {
+            message = messageService.getMessage(I18Code.MESSAGE_EMAIL_CHANGE_LOCKED.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
+        }
+
         if (emailChanged) {
             Optional<User> emailOwner = userRepository.findByEmailAndEntityStatusNot(normalizedNewEmail, EntityStatus.DELETED);
             if (emailOwner.isPresent() && !emailOwner.get().getId().equals(userToBeEdited.getId())) {
@@ -755,6 +768,23 @@ public class UserServiceImpl implements UserService {
         userToBeEdited.setGender(gender);
         userToBeEdited.setNationalIdNumber(editUserRequest.getNationalIdNumber());
         userToBeEdited.setPassportNumber(editUserRequest.getPassportNumber());
+
+        // ============================================================
+        // LOCK: reject phone change when phone is already verified
+        // ============================================================
+        String normalizedNewPhone = editUserRequest.getPhoneNumber() != null
+                ? editUserRequest.getPhoneNumber().trim()
+                : "";
+        String normalizedPreviousPhone = userToBeEdited.getPhoneNumber() != null
+                ? userToBeEdited.getPhoneNumber().trim()
+                : "";
+        boolean phoneChanged = org.springframework.util.StringUtils.hasText(normalizedNewPhone)
+                && !normalizedNewPhone.equals(normalizedPreviousPhone);
+        if (phoneChanged && Boolean.TRUE.equals(userToBeEdited.getPhoneVerified())) {
+            message = messageService.getMessage(I18Code.MESSAGE_PHONE_CHANGE_LOCKED.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
+        }
+
         userToBeEdited.setPhoneNumber(editUserRequest.getPhoneNumber());
         userToBeEdited.setDateOfBirth(Date.valueOf(editUserRequest.getDateOfBirth()));
         syncUserAccountPhoneNumber(userToBeEdited, editUserRequest.getPhoneNumber());
@@ -1651,6 +1681,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale) {
 
         String message = "";
@@ -1666,12 +1697,14 @@ public class UserServiceImpl implements UserService {
                     null);
         }
 
-        // Try to find by phone number first
-        Optional<User> userRetrieved = userRepository.findByPhoneNumberAndEntityStatusNot(phoneNumberOrEmail, EntityStatus.DELETED);
+        String identifier = phoneNumberOrEmail.trim();
 
-        // If not found by phone number, try to find by email
+        // Eager-fetch auth/session graph (roles, password, security) — avoids LazyInitializationException.
+        Optional<User> userRetrieved = userRepository.findSessionProfileByPhoneNumberAndEntityStatusNot(
+                identifier, EntityStatus.DELETED);
         if (userRetrieved.isEmpty()) {
-            userRetrieved = userRepository.findByEmailAndEntityStatusNot(phoneNumberOrEmail, EntityStatus.DELETED);
+            userRetrieved = userRepository.findSessionProfileByEmailIgnoreCaseAndEntityStatusNot(
+                    identifier, EntityStatus.DELETED);
         }
 
         if (userRetrieved.isEmpty()) {
@@ -1684,48 +1717,7 @@ public class UserServiceImpl implements UserService {
         }
 
         User userReturned = userRetrieved.get();
-
-        // Map main user (account/password may be absent for organisation contact rows)
-        UserDto userDto = modelMapper.map(userReturned, UserDto.class);
-        if (userReturned.getUserAccount() != null) {
-            userDto.setUserAccountDto(modelMapper.map(userReturned.getUserAccount(), UserAccountDto.class));
-        }
-        if (userReturned.getUserPassword() != null) {
-            userDto.setUserPasswordDto(modelMapper.map(userReturned.getUserPassword(), UserPasswordDto.class));
-        }
-
-        // Optionally map and set user security
-        if (userReturned.getUserSecurity() != null) {
-            UserSecurityDto userSecurityDto = modelMapper.map(userReturned.getUserSecurity(), UserSecurityDto.class);
-            userDto.setUserSecurityDto(userSecurityDto);
-        }
-
-        // Optionally map and set user group and roles
-        if (userReturned.getUserGroup() != null) {
-            UserGroupDto userGroupDto = modelMapper.map(userReturned.getUserGroup(), UserGroupDto.class);
-
-            if (userReturned.getUserGroup().getUserRoles() != null) {
-                List<UserRoleDto> userRoleDtoList = modelMapper.map(
-                        userReturned.getUserGroup().getUserRoles(),
-                        new TypeToken<List<UserRoleDto>>(){}.getType()
-                );
-                userGroupDto.setUserRoleDtoSet(userRoleDtoList);
-            }
-
-            userDto.setUserGroupDto(userGroupDto);
-        }
-
-        // Optionally map and set address
-        if (userReturned.getAddress() != null) {
-            AddressDto addressDto = modelMapper.map(userReturned.getAddress(), AddressDto.class);
-            userDto.setAddressDto(addressDto);
-        }
-
-        // Optionally map and set preferences
-        if (userReturned.getUserPreferences() != null) {
-            UserPreferencesDto userPreferencesDto = modelMapper.map(userReturned.getUserPreferences(), UserPreferencesDto.class);
-            userDto.setUserPreferencesDto(userPreferencesDto);
-        }
+        UserDto userDto = mapUserEntityToDto(userReturned);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -2609,6 +2601,7 @@ public class UserServiceImpl implements UserService {
         UserDto dto = modelMapper.map(user, UserDto.class);
         dto.setOrganizationKycApprover(user.isOrganizationKycApprover());
         dto.setOperationalIssueHandler(user.isOperationalIssueHandler());
+        dto.setPhoneVerificationDue(phoneVerificationSupport.isPhoneVerificationDue(user));
         return dto;
     }
 
@@ -2634,5 +2627,231 @@ public class UserServiceImpl implements UserService {
         userDto.setUserSecurityDto(
                 userSecurity != null ? modelMapper.map(userSecurity, UserSecurityDto.class) : null);
         return userDto;
+    }
+
+    // ============================================================
+    //  Phone verification — frontend-facing
+    // ============================================================
+
+    @Override
+    @Transactional
+    public UserResponse requestPhoneVerification(String username, Locale locale) {
+        String message;
+
+        Optional<User> userOpt = resolveSessionUser(username);
+        if (userOpt.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        User user = userOpt.get();
+
+        if (Boolean.TRUE.equals(user.getPhoneVerified())) {
+            message = messageService.getMessage(I18Code.MESSAGE_PHONE_ALREADY_VERIFIED.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        if (!org.springframework.util.StringUtils.hasText(user.getPhoneNumber())) {
+            message = messageService.getMessage(I18Code.MESSAGE_PHONE_NUMBER_MISSING_FOR_VERIFICATION.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        try {
+            phoneVerificationSupport.generateAndSendOtp(user, OtpType.PHONE_VERIFICATION, username);
+        } catch (SmsDeliveryDisabledException ex) {
+            message = messageService.getMessage(I18Code.MESSAGE_SMS_DELIVERY_DISABLED.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(
+                    503,
+                    false,
+                    message,
+                    null,
+                    null,
+                    List.of(PhoneVerificationSupport.SMS_DELIVERY_DISABLED_CODE));
+        }
+
+        message = messageService.getMessage(I18Code.MESSAGE_PHONE_VERIFICATION_OTP_SENT.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, null, null, null);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse confirmPhoneVerification(String username, String otp, Locale locale) {
+        String message;
+
+        Optional<User> userOpt = resolveSessionUser(username);
+        if (userOpt.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        User user = userOpt.get();
+
+        boolean valid = phoneVerificationSupport.verifyOtp(user.getId(), otp, OtpType.PHONE_VERIFICATION);
+        if (!valid) {
+            message = messageService.getMessage(I18Code.MESSAGE_OTP_INVALID_OR_EXPIRED.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        phoneVerificationSupport.markPhoneVerified(user);
+
+        message = messageService.getMessage(I18Code.MESSAGE_PHONE_VERIFIED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+        UserDto userDto = toUserDto(userRepository.findById(user.getId()).orElse(user));
+        return buildUserResponse(200, true, message, userDto, null, null);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse requestStepUpVerification(String username, Locale locale) {
+        String message;
+
+        Optional<User> userOpt = resolveSessionUser(username);
+        if (userOpt.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        User user = userOpt.get();
+
+        if (!org.springframework.util.StringUtils.hasText(user.getPhoneNumber())) {
+            message = messageService.getMessage(I18Code.MESSAGE_PHONE_NUMBER_MISSING_FOR_VERIFICATION.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        try {
+            phoneVerificationSupport.generateAndSendOtp(user, OtpType.STEP_UP, username);
+        } catch (SmsDeliveryDisabledException ex) {
+            message = messageService.getMessage(I18Code.MESSAGE_SMS_DELIVERY_DISABLED.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(
+                    503,
+                    false,
+                    message,
+                    null,
+                    null,
+                    List.of(PhoneVerificationSupport.SMS_DELIVERY_DISABLED_CODE));
+        }
+
+        message = messageService.getMessage(I18Code.MESSAGE_PHONE_VERIFICATION_OTP_SENT.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, null, null, null);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse confirmStepUpVerification(String username, String otp, Locale locale) {
+        String message;
+
+        Optional<User> userOpt = resolveSessionUser(username);
+        if (userOpt.isEmpty()) {
+            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        User user = userOpt.get();
+
+        boolean valid = phoneVerificationSupport.verifyOtp(user.getId(), otp, OtpType.STEP_UP);
+        if (!valid) {
+            message = messageService.getMessage(I18Code.MESSAGE_OTP_INVALID_OR_EXPIRED.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        message = messageService.getMessage(I18Code.MESSAGE_STEP_UP_VERIFIED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, null, null, null);
+    }
+
+    // ============================================================
+    //  Phone verification — system-facing (called by ldms-authentication)
+    // ============================================================
+
+    @Override
+    @Transactional
+    public UserResponse generateLoginOtp(String usernameOrPhone, Locale locale) {
+        String message;
+
+        User user = resolveUserByLoginIdentifier(usernameOrPhone);
+        if (user == null) {
+            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        if (!org.springframework.util.StringUtils.hasText(user.getPhoneNumber())) {
+            message = messageService.getMessage(I18Code.MESSAGE_PHONE_NUMBER_MISSING_FOR_VERIFICATION.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        try {
+            phoneVerificationSupport.generateAndSendOtp(user, OtpType.LOGIN_2FA, "system");
+        } catch (SmsDeliveryDisabledException ex) {
+            message = messageService.getMessage(I18Code.MESSAGE_SMS_DELIVERY_DISABLED.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(
+                    503,
+                    false,
+                    message,
+                    null,
+                    null,
+                    List.of(PhoneVerificationSupport.SMS_DELIVERY_DISABLED_CODE));
+        }
+
+        message = messageService.getMessage(I18Code.MESSAGE_PHONE_VERIFICATION_OTP_SENT.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, null, null, null);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse verifyLoginOtp(String usernameOrPhone, String otp, Locale locale) {
+        String message;
+
+        User user = resolveUserByLoginIdentifier(usernameOrPhone);
+        if (user == null) {
+            message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        boolean valid = phoneVerificationSupport.verifyOtp(user.getId(), otp, OtpType.LOGIN_2FA);
+        if (!valid) {
+            message = messageService.getMessage(I18Code.MESSAGE_OTP_INVALID_OR_EXPIRED.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+
+        message = messageService.getMessage(I18Code.MESSAGE_OTP_VERIFIED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, toUserDto(user), null, null);
+    }
+
+    private Optional<User> resolveSessionUser(String sessionPrincipal) {
+        if (!StringUtils.hasText(sessionPrincipal)) {
+            return Optional.empty();
+        }
+        String trimmed = sessionPrincipal.trim();
+        Optional<User> byUsername = userRepository.findSessionProfileByUsernameIgnoreCaseAndEntityStatusNot(
+                trimmed, EntityStatus.DELETED);
+        if (byUsername.isPresent()) {
+            return byUsername;
+        }
+        try {
+            long id = Long.parseLong(trimmed);
+            if (id > 0) {
+                return userRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED);
+            }
+        } catch (NumberFormatException ignored) {
+            // not a numeric JWT principal
+        }
+        return Optional.empty();
+    }
+
+    private User resolveUserByLoginIdentifier(String identifier) {
+        if (!org.springframework.util.StringUtils.hasText(identifier)) {
+            return null;
+        }
+        String trimmed = identifier.trim();
+        Optional<User> byUsername = userRepository.findSessionProfileByUsernameIgnoreCaseAndEntityStatusNot(
+                trimmed, EntityStatus.DELETED);
+        if (byUsername.isPresent()) {
+            return byUsername.get();
+        }
+        Optional<User> byPhone = userRepository.findSessionProfileByPhoneNumberAndEntityStatusNot(
+                trimmed, EntityStatus.DELETED);
+        if (byPhone.isPresent()) {
+            return byPhone.get();
+        }
+        return userRepository.findSessionProfileByEmailIgnoreCaseAndEntityStatusNot(trimmed, EntityStatus.DELETED)
+                .orElse(null);
     }
 }

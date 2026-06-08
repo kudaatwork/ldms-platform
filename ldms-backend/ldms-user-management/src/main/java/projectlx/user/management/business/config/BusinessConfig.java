@@ -49,6 +49,8 @@ import projectlx.user.management.business.logic.api.HelpSupportService;
 import projectlx.user.management.business.logic.impl.HelpSupportServiceImpl;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceProvisioner;
+import projectlx.user.management.business.logic.support.PhoneVerificationSupport;
+import projectlx.user.management.business.logic.support.TwoFactorSelfServiceSupport;
 import projectlx.user.management.business.logic.support.SupportTicketOperationsSupport;
 import projectlx.user.management.business.logic.support.SupportTicketAssignmentService;
 import projectlx.user.management.business.validator.api.HelpSupportServiceValidator;
@@ -58,6 +60,7 @@ import projectlx.user.management.repository.SupportTicketMessageRepository;
 import projectlx.user.management.repository.SupportTicketRepository;
 import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
 import projectlx.user.management.utils.config.PasswordResetLinkProperties;
+import projectlx.user.management.utils.config.PhoneVerificationProperties;
 import projectlx.user.management.utils.config.PlatformHealthProperties;
 import projectlx.user.management.business.validator.api.UserAccountServiceValidator;
 import projectlx.user.management.business.validator.api.UserAddressServiceValidator;
@@ -82,6 +85,7 @@ import projectlx.user.management.clients.LocationsServiceClient;
 import projectlx.user.management.repository.UserAccountRepository;
 import projectlx.user.management.repository.UserAddressRepository;
 import projectlx.user.management.repository.UserGroupRepository;
+import projectlx.user.management.repository.UserOtpChallengeRepository;
 import projectlx.user.management.repository.UserPasswordRepository;
 import projectlx.user.management.repository.UserPreferencesRepository;
 import projectlx.user.management.repository.UserRepository;
@@ -97,7 +101,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 
 @Configuration
-@EnableConfigurationProperties(PlatformHealthProperties.class)
+@EnableConfigurationProperties({PlatformHealthProperties.class, PhoneVerificationProperties.class})
 // Skip SharedDataConfig: stale JARs used @EntityScan(shared model) and can collide with local persistence mappings.
 @Import({UtilsConfig.class})
 public class BusinessConfig {
@@ -202,6 +206,21 @@ public class BusinessConfig {
     public UserServiceValidator userServiceValidator(MessageService messageService){ return new UserServiceValidatorImpl(messageService); }
 
     @Bean
+    public PhoneVerificationSupport phoneVerificationSupport(
+            UserOtpChallengeRepository userOtpChallengeRepository,
+            UserRepository userRepository,
+            BCryptPasswordEncoder bCryptPasswordEncoder,
+            RabbitTemplate rabbitTemplate,
+            PhoneVerificationProperties phoneVerificationProperties) {
+        return new PhoneVerificationSupport(
+                userOtpChallengeRepository,
+                userRepository,
+                bCryptPasswordEncoder,
+                rabbitTemplate,
+                phoneVerificationProperties);
+    }
+
+    @Bean
     public UserService userService(
             UserServiceValidator userServiceValidator, MessageService messageService, UserRepository userRepository,
             UserAccountRepository userAccountRepository, UserAddressRepository userAddressRepository,
@@ -215,14 +234,15 @@ public class BusinessConfig {
             FileUploadServiceClient fileUploadServiceClient, RabbitTemplate rabbitTemplate, TokenService tokenService,
             EmailVerificationLinkProperties emailVerificationLinkProperties,
             PasswordResetLinkProperties passwordResetLinkProperties,
-            OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport) {
+            OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport,
+            PhoneVerificationSupport phoneVerificationSupport) {
         return new UserServiceImpl(userServiceValidator, messageService, userRepository, userAccountRepository,
                 userAddressRepository, userPasswordRepository, userPreferencesRepository, userSecurityRepository,
                 userTypeRepository, modelMapper, userServiceAuditable, userAccountServiceAuditable, userPasswordServiceAuditable,
                 userPreferencesServiceAuditable, userSecurityServiceAuditable, userAccountService, userPasswordService,
                 userAddressService, userPreferencesService, userSecurityService, userTypeService, fileUploadServiceClient,
                 rabbitTemplate, tokenService, emailVerificationLinkProperties, passwordResetLinkProperties,
-                organizationWorkspaceAccessSupport
+                organizationWorkspaceAccessSupport, phoneVerificationSupport
         );
     }
 
@@ -262,11 +282,10 @@ public class BusinessConfig {
                                              UserGroupRepository userGroupRepository,
                                              UserRepository userRepository, UserGroupServiceAuditable userGroupServiceAuditable,
                                              UserRoleRepository userRoleRepository, UserServiceAuditable userServiceAuditable,
-                                             OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport,
-                                             OrganizationWorkspaceProvisioner organizationWorkspaceProvisioner) {
+                                             OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport) {
         return new UserGroupServiceImpl(userGroupServiceValidator, messageService, modelMapper, userGroupRepository,
                 userRepository, userGroupServiceAuditable, userRoleRepository, userServiceAuditable,
-                organizationWorkspaceAccessSupport, organizationWorkspaceProvisioner);
+                organizationWorkspaceAccessSupport);
     }
 
     @Bean
@@ -289,9 +308,10 @@ public class BusinessConfig {
     @Bean
     public UserTypeService userTypeService(UserTypeServiceValidator userTypeServiceValidator, MessageService messageService,
                                            ModelMapper modelMapper, UserTypeRepository userTypeRepository,
-                                           UserRepository userRepository, UserTypeServiceAuditable userTypeServiceAuditable) {
+                                           UserRepository userRepository, UserTypeServiceAuditable userTypeServiceAuditable,
+                                           OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport) {
         return new UserTypeServiceImpl(userTypeServiceValidator, messageService, modelMapper, userTypeRepository,
-                userRepository, userTypeServiceAuditable);
+                userRepository, userTypeServiceAuditable, organizationWorkspaceAccessSupport);
     }
 
     @Bean
@@ -309,12 +329,22 @@ public class BusinessConfig {
     }
 
     @Bean
+    public TwoFactorSelfServiceSupport twoFactorSelfServiceSupport(
+            UserSecurityRepository userSecurityRepository,
+            UserSecurityServiceAuditable userSecurityServiceAuditable,
+            PhoneVerificationSupport phoneVerificationSupport) {
+        return new TwoFactorSelfServiceSupport(
+                userSecurityRepository, userSecurityServiceAuditable, phoneVerificationSupport);
+    }
+
+    @Bean
     public UserSecurityService userSecurityService(UserSecurityServiceValidator userSecurityServiceValidator,
                                                    MessageService messageService, UserSecurityRepository userSecurityRepository,
                                                    UserRepository userRepository, ModelMapper modelMapper,
-                                                   UserSecurityServiceAuditable userSecurityServiceAuditable) {
+                                                   UserSecurityServiceAuditable userSecurityServiceAuditable,
+                                                   TwoFactorSelfServiceSupport twoFactorSelfServiceSupport) {
         return new UserSecurityServiceImpl(userSecurityServiceValidator, messageService, userSecurityRepository,
-                userRepository, modelMapper, userSecurityServiceAuditable);
+                userRepository, modelMapper, userSecurityServiceAuditable, twoFactorSelfServiceSupport);
     }
 
     @Bean

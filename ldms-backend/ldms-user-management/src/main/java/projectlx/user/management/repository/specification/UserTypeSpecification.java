@@ -4,6 +4,8 @@ import projectlx.user.management.model.EntityStatus;
 import projectlx.user.management.model.UserType;
 import projectlx.user.management.model.UserType_;
 import jakarta.persistence.criteria.Predicate;
+import java.util.List;
+import java.util.Locale;
 import org.springframework.data.jpa.domain.Specification;
 
 public class UserTypeSpecification {
@@ -39,6 +41,21 @@ public class UserTypeSpecification {
             );
 
             return p;
+        };
+    }
+
+    public static Specification<UserType> userTypeNameEquals(final String name) {
+        return (root, query, cb) -> cb.equal(
+                cb.upper(root.get(UserType_.userTypeName)),
+                name.trim().toUpperCase(Locale.ROOT));
+    }
+
+    public static Specification<UserType> userTypeNameNotIn(final List<String> excluded) {
+        return (root, query, cb) -> {
+            if (excluded == null || excluded.isEmpty()) {
+                return cb.conjunction();
+            }
+            return cb.not(root.get(UserType_.userTypeName).in(excluded));
         };
     }
 }

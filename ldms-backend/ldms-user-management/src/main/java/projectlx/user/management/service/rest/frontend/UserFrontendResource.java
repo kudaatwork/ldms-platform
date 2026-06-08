@@ -522,4 +522,74 @@ public class UserFrontendResource {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userServiceProcessor.resendVerificationLink(email, locale, username);
     }
+
+    // ============================================================
+    //  Phone verification endpoints
+    // ============================================================
+
+    @Auditable(action = "REQUEST_PHONE_VERIFICATION")
+    @PostMapping("/request-phone-verification")
+    @Operation(summary = "Request phone verification OTP",
+            description = "Sends a 6-digit OTP via SMS to the authenticated user's registered phone number.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OTP sent successfully"),
+            @ApiResponse(responseCode = "400", description = "Phone already verified or no phone number registered")
+    })
+    public UserResponse requestPhoneVerification(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.requestPhoneVerification(username, locale);
+    }
+
+    @Auditable(action = "CONFIRM_PHONE_VERIFICATION")
+    @PostMapping("/confirm-phone-verification")
+    @Operation(summary = "Confirm phone verification OTP",
+            description = "Verifies the 6-digit OTP and marks the phone number as verified.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Phone verified successfully"),
+            @ApiResponse(responseCode = "400", description = "OTP invalid, expired, or phone not found")
+    })
+    public UserResponse confirmPhoneVerification(
+            @Valid @RequestBody final projectlx.user.management.utils.requests.ConfirmPhoneVerificationRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.confirmPhoneVerification(username, request.getOtp(), locale);
+    }
+
+    @Auditable(action = "REQUEST_STEP_UP_VERIFICATION")
+    @PostMapping("/request-step-up-verification")
+    @Operation(summary = "Request step-up OTP",
+            description = "Sends a one-time step-up OTP via SMS for sensitive portal actions.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Step-up OTP sent successfully"),
+            @ApiResponse(responseCode = "400", description = "No phone number registered")
+    })
+    public UserResponse requestStepUpVerification(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.requestStepUpVerification(username, locale);
+    }
+
+    @Auditable(action = "CONFIRM_STEP_UP_VERIFICATION")
+    @PostMapping("/confirm-step-up-verification")
+    @Operation(summary = "Confirm step-up OTP",
+            description = "Validates a step-up OTP without permanently marking the phone as verified.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Step-up OTP confirmed successfully"),
+            @ApiResponse(responseCode = "400", description = "OTP invalid or expired")
+    })
+    public UserResponse confirmStepUpVerification(
+            @Valid @RequestBody final projectlx.user.management.utils.requests.ConfirmStepUpVerificationRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.confirmStepUpVerification(username, request.getOtp(), locale);
+    }
 }

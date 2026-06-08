@@ -1,0 +1,107 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
+    <div class="lx-form-grid">
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Subject</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Subject type <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">category</mat-icon>
+          <select formControlName="subjectType" aria-label="Subject type">
+            <option *ngFor="let s of subjectTypes" [ngValue]="s.value">{{ s.label }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Subject <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('subjectId', 'required')">
+          <mat-icon class="lx-input-shell__icon">link</mat-icon>
+          <select formControlName="subjectId" aria-label="Compliance subject">
+            <option [ngValue]="null" disabled>Select subject</option>
+            <option *ngFor="let option of subjectOptions" [ngValue]="option.id">{{ option.label }}</option>
+          </select>
+        </div>
+        <div class="lx-field-hint" *ngIf="!subjectOptions.length">
+          Add fleet assets or drivers first, then attach compliance records.
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Compliance type <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">verified</mat-icon>
+          <select formControlName="complianceType" aria-label="Compliance type">
+            <option *ngFor="let t of complianceTypes" [ngValue]="t.value">{{ t.label }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Document &amp; expiry</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">File upload id</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">attach_file</mat-icon>
+          <input type="number" formControlName="fileUploadId" placeholder="From file-upload service" />
+        </div>
+        <div class="lx-field-hint">Reference an uploaded document from the file-upload service.</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Expires on</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <input type="date" formControlName="expiresAt" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2" *ngIf="isEdit">
+        <label class="lx-field-label">Status</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">flag</mat-icon>
+          <select formControlName="status" aria-label="Compliance status">
+            <option value="ACTIVE">Active</option>
+            <option value="PENDING">Pending review</option>
+            <option value="EXPIRED">Expired</option>
+            <option value="REVOKED">Revoked</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Notes</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="notes" rows="3" placeholder="Optional notes"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="saveError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ saveError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+        {{ submitting ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save changes' : 'Add record') }}
+      </button>
+    </div>
+  </form>
+</div>

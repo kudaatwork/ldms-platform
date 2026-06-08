@@ -1,3 +1,5 @@
+@use '../../styles/audit-action-style.scss' as *;
+
 .lc-title {
   font-size: 1.125rem;
   font-weight: 600;
@@ -10,6 +12,17 @@
   color: var(--gray-500);
   margin: 0 0 16px;
   line-height: 1.5;
+}
+
+.lx-export-scope-hint {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--gray-700);
+  background: color-mix(in srgb, var(--brand-500, #3b82f6) 6%, var(--gray-50, #f9fafb));
+  border: 1px solid color-mix(in srgb, var(--brand-500, #3b82f6) 18%, var(--gray-200, #e5e7eb));
 }
 
 .lx-mono {

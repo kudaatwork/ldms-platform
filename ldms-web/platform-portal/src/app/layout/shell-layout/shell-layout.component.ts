@@ -21,6 +21,7 @@ import { StorageService } from '../../core/services/storage.service';
 import { UserProfileService } from '../../core/services/user-profile.service';
 import { SessionIdleService } from '../../core/services/session-idle.service';
 import { AuthenticatedHistoryService } from '../../core/services/authenticated-history.service';
+import { PhoneVerificationPromptService } from '../../core/services/phone-verification-prompt.service';
 import { portalHomeRoute } from '../../core/utils/portal-navigation.util';
 import {
   AUDIT_LOG_NAV_ITEM,
@@ -100,6 +101,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     readonly theme: ThemeService,
     private readonly sessionIdle: SessionIdleService,
     private readonly authenticatedHistory: AuthenticatedHistoryService,
+    private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
   ) {}
 
   ngOnInit(): void {
@@ -137,6 +139,12 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
     this.syncChromeFromUrl();
     this.startAuthenticatedSessionGuards();
+    setTimeout(() => {
+      if (this.destroy$.closed) {
+        return;
+      }
+      this.phoneVerificationPrompt.maybePrompt().pipe(takeUntil(this.destroy$)).subscribe();
+    }, 800);
 
     this.sessionIdle.warningVisible$.pipe(takeUntil(this.destroy$)).subscribe((visible) => {
       this.sessionWarningVisible = visible;

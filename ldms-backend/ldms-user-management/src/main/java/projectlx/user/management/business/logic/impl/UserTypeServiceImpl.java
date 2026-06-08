@@ -14,6 +14,8 @@ import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.management.business.auditable.api.UserTypeServiceAuditable;
 import projectlx.user.management.business.logic.api.UserTypeService;
+import projectlx.user.management.business.logic.support.OrganizationPortalUserTypePolicy;
+import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
 import projectlx.user.management.business.validator.api.UserTypeServiceValidator;
 import projectlx.user.management.model.EntityStatus;
 import projectlx.user.management.model.UserType;
@@ -61,6 +63,7 @@ public class UserTypeServiceImpl implements UserTypeService {
     private final UserTypeRepository userTypeRepository;
     private final UserRepository userRepository;
     private final UserTypeServiceAuditable userTypeServiceAuditable;
+    private final OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport;
 
     private final Object modelMapperLock = new Object();
     private volatile boolean modelMapperStrictConfigured;
@@ -315,6 +318,8 @@ public class UserTypeServiceImpl implements UserTypeService {
             spec = addToSpec(userTypeMultipleFiltersRequest.getSearchValue(), spec, UserTypeSpecification::any);
         }
 
+        spec = applyOrganizationPortalUserTypeScope(userTypeMultipleFiltersRequest, username, spec);
+
         Page<UserType> result = userTypeRepository.findAll(spec, pageable);
 
         if (result.getContent().isEmpty()) {
@@ -350,6 +355,25 @@ public class UserTypeServiceImpl implements UserTypeService {
             return spec;
         }
         return spec;
+    }
+
+    private Specification<UserType> applyOrganizationPortalUserTypeScope(
+            UserTypeMultipleFiltersRequest request, String username, Specification<UserType> spec) {
+        if (organizationWorkspaceAccessSupport.isTrustedServiceActor(username)
+                || organizationWorkspaceAccessSupport.hasWorkspaceSuperRole()) {
+            return spec;
+        }
+        if (organizationWorkspaceAccessSupport.sessionOrganizationId(username).isEmpty()) {
+            return spec;
+        }
+        if (Boolean.TRUE.equals(request.getBootstrapDefaultsOnly())) {
+            Specification<UserType> bootstrapSpec = UserTypeSpecification.userTypeNameEquals(
+                    OrganizationPortalUserTypePolicy.SYSTEM_ADMINISTRATOR);
+            return spec == null ? bootstrapSpec : spec.and(bootstrapSpec);
+        }
+        Specification<UserType> portalSpec = UserTypeSpecification.userTypeNameNotIn(
+                OrganizationPortalUserTypePolicy.INTERNAL_USER_TYPES);
+        return spec == null ? portalSpec : spec.and(portalSpec);
     }
 
     private Page<UserTypeDto> convertUserTypeEntityToUserTypeDto(Page<UserType> userTypePage) {

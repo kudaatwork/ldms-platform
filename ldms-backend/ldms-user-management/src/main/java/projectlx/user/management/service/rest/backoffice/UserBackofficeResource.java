@@ -432,6 +432,86 @@ public class UserBackofficeResource {
         return userServiceProcessor.resendVerificationLink(email, locale, "BACKOFFICE");
     }
 
+    @Auditable(action = "REQUEST_PHONE_VERIFICATION")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/request-phone-verification")
+    @Operation(summary = "Request phone verification OTP")
+    public UserResponse requestPhoneVerification(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.requestPhoneVerification(resolveBackofficeActor(), locale);
+    }
+
+    @Auditable(action = "CONFIRM_PHONE_VERIFICATION")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/confirm-phone-verification")
+    @Operation(summary = "Confirm phone verification OTP")
+    public UserResponse confirmPhoneVerification(
+            @Valid @RequestBody final projectlx.user.management.utils.requests.ConfirmPhoneVerificationRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.confirmPhoneVerification(resolveBackofficeActor(), request.getOtp(), locale);
+    }
+
+    @Auditable(action = "REQUEST_PHONE_VERIFICATION")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/{userId}/request-phone-verification")
+    @Operation(summary = "Request phone verification OTP for a user",
+            description = "Sends an SMS OTP to the target user's registered phone number (admin backoffice).")
+    public UserResponse requestPhoneVerificationForUser(
+            @PathVariable("userId") final Long userId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return requestPhoneVerificationForResolvedUser(userId, locale);
+    }
+
+    @Auditable(action = "CONFIRM_PHONE_VERIFICATION")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/{userId}/confirm-phone-verification")
+    @Operation(summary = "Confirm phone verification OTP for a user")
+    public UserResponse confirmPhoneVerificationForUser(
+            @PathVariable("userId") final Long userId,
+            @Valid @RequestBody final projectlx.user.management.utils.requests.ConfirmPhoneVerificationRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        UserResponse lookup = userServiceProcessor.findById(userId, locale, resolveBackofficeActor());
+        if (lookup.getStatusCode() != 200 || lookup.getUserDto() == null) {
+            return lookup;
+        }
+        String targetUsername = lookup.getUserDto().getUsername();
+        if (!StringUtils.hasText(targetUsername)) {
+            return lookup;
+        }
+        return userServiceProcessor.confirmPhoneVerification(targetUsername.trim(), request.getOtp(), locale);
+    }
+
+    private UserResponse requestPhoneVerificationForResolvedUser(Long userId, Locale locale) {
+        UserResponse lookup = userServiceProcessor.findById(userId, locale, resolveBackofficeActor());
+        if (lookup.getStatusCode() != 200 || lookup.getUserDto() == null) {
+            return lookup;
+        }
+        String targetUsername = lookup.getUserDto().getUsername();
+        if (!StringUtils.hasText(targetUsername)) {
+            return lookup;
+        }
+        return userServiceProcessor.requestPhoneVerification(targetUsername.trim(), locale);
+    }
+
+    @Auditable(action = "REQUEST_STEP_UP_VERIFICATION")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/request-step-up-verification")
+    @Operation(summary = "Request step-up OTP")
+    public UserResponse requestStepUpVerification(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.requestStepUpVerification(resolveBackofficeActor(), locale);
+    }
+
+    @Auditable(action = "CONFIRM_STEP_UP_VERIFICATION")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/confirm-step-up-verification")
+    @Operation(summary = "Confirm step-up OTP")
+    public UserResponse confirmStepUpVerification(
+            @Valid @RequestBody final projectlx.user.management.utils.requests.ConfirmStepUpVerificationRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.confirmStepUpVerification(resolveBackofficeActor(), request.getOtp(), locale);
+    }
+
     /** Prefer the signed-in admin username for access checks; fall back to the legacy backoffice actor. */
     private static String resolveBackofficeActor() {
         var auth = SecurityContextHolder.getContext().getAuthentication();

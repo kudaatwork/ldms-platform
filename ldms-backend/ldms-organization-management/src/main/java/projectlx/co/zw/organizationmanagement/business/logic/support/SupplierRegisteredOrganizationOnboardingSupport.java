@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.util.StringUtils;
 import projectlx.co.zw.organizationmanagement.business.auditable.api.OrganizationServiceAuditable;
 import projectlx.co.zw.organizationmanagement.business.kyc.OrganizationEventPublisher;
@@ -33,6 +35,14 @@ public class SupplierRegisteredOrganizationOnboardingSupport {
     private final OrganizationEventPublisher organizationEventPublisher;
     private final TokenService tokenService;
 
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onOrganizationSupplierRegistered(OrganizationSupplierRegisteredEvent event) {
+        if (event == null || event.organizationId() == null || event.organizationId() < 1) {
+            return;
+        }
+        completeOnboarding(event.organizationId());
+    }
+
     public void completeOnboarding(Long organizationId) {
         if (organizationId == null || organizationId < 1) {
             return;
@@ -40,23 +50,84 @@ public class SupplierRegisteredOrganizationOnboardingSupport {
         organizationRepository.findById(organizationId).ifPresent(this::completeOnboarding);
     }
 
-    public void completeOnboarding(Organization org) {
+    public SupplierRegisteredOnboardingResult completeOnboarding(Organization org) {
         if (org == null || org.getId() == null) {
-            return;
+            return new SupplierRegisteredOnboardingResult(false, false, "Organisation not found.");
         }
-        Long contactUserId = contactPersonProvisioningSupport.provisionContactPersonUser(org, true, false);
-        if (contactUserId != null && contactUserId > 0) {
-            linkContactUser(org.getId(), contactUserId);
-            org.setContactPersonUserId(contactUserId);
-        } else {
+        Organization current = organizationRepository.findById(org.getId()).orElse(org);
+        log.info(
+                "Starting supplier-registered onboarding for organisation {} ({})",
+                current.getId(),
+                current.getName());
+
+        boolean organizationVerificationQueued = queueOrganizationVerificationEmail(current);
+
+        Long contactUserId = resolveContactUserId(current);
+        if (contactUserId == null || contactUserId <= 0) {
             log.error(
-                    "Contact person user was not provisioned for supplier-registered organisation {} ({})",
-                    org.getId(),
-                    org.getContactPersonEmail());
+                    "Contact person user was not provisioned for supplier-registered organisation {} ({}). "
+                            + "Temporary credentials email was skipped.",
+                    current.getId(),
+                    current.getContactPersonEmail());
+            return new SupplierRegisteredOnboardingResult(
+                    organizationVerificationQueued,
+                    false,
+                    contactProvisioningFailureMessage(current));
         }
 
-        approvedCredentialsSupport.issueAndEmailCredentialsToContactOnly(org);
-        sendOrganizationVerificationEmail(org);
+        linkContactUser(current.getId(), contactUserId);
+        current.setContactPersonUserId(contactUserId);
+
+        boolean contactCredentialsQueued =
+                approvedCredentialsSupport.issueAndEmailCredentialsToContactOnly(current);
+        if (!contactCredentialsQueued) {
+            return new SupplierRegisteredOnboardingResult(
+                    organizationVerificationQueued,
+                    false,
+                    "Organisation verification was queued, but contact sign-in credentials could not be emailed. "
+                            + "Check that the contact person is linked to this customer and try again.");
+        }
+
+        return new SupplierRegisteredOnboardingResult(
+                organizationVerificationQueued,
+                true,
+                "Onboarding is complete for this customer (verification and contact access are already in place, or emails were queued).");
+    }
+
+    private Long resolveContactUserId(Organization org) {
+        boolean viaSignup = Boolean.TRUE.equals(org.getCreatedViaSignup());
+        return contactPersonProvisioningSupport.provisionContactPersonUser(org, viaSignup, false);
+    }
+
+    private static String contactProvisioningFailureMessage(Organization org) {
+        if (org == null || !StringUtils.hasText(org.getContactPersonEmail())) {
+            return "Organisation verification was queued, but no contact person email is on file.";
+        }
+        return "Organisation verification was queued, but the contact person could not be linked "
+                + "(often because that email already belongs to another organisation). "
+                + "Use a unique contact email for this customer, then retry.";
+    }
+
+    private boolean queueOrganizationVerificationEmail(Organization org) {
+        if (org.isVerified()) {
+            log.info("Organisation {} is already verified; skipping verification email", org.getId());
+            return true;
+        }
+        String organizationEmail = OrganizationNotificationEmailSupport.normalizeEmail(org.getEmail());
+        if (!StringUtils.hasText(organizationEmail)) {
+            log.warn("Skipping organisation verification email for orgId={}: organisation email is blank", org.getId());
+            return false;
+        }
+        String token = tokenService.generateEmailVerificationToken();
+        organizationRepository.findById(org.getId()).ifPresent(reloaded -> {
+            reloaded.setEmailVerificationToken(token);
+            reloaded.setModifiedAt(LocalDateTime.now());
+            reloaded.setModifiedBy(SYSTEM_MODIFIER);
+            organizationServiceAuditable.save(reloaded);
+            String verificationLink = portalLinks.buildOrganizationEmailVerificationLink(token, organizationEmail);
+            organizationKycNotifier.sendOrganizationEmailVerification(reloaded, verificationLink);
+        });
+        return true;
     }
 
     private void linkContactUser(Long organizationId, Long contactUserId) {
@@ -67,23 +138,6 @@ public class SupplierRegisteredOrganizationOnboardingSupport {
                 reloaded.setModifiedBy(SYSTEM_MODIFIER);
                 organizationServiceAuditable.save(reloaded);
             }
-        });
-    }
-
-    private void sendOrganizationVerificationEmail(Organization org) {
-        String organizationEmail = OrganizationNotificationEmailSupport.normalizeEmail(org.getEmail());
-        if (!StringUtils.hasText(organizationEmail)) {
-            log.warn("Skipping organisation verification email for orgId={}: organisation email is blank", org.getId());
-            return;
-        }
-        String token = tokenService.generateEmailVerificationToken();
-        organizationRepository.findById(org.getId()).ifPresent(reloaded -> {
-            reloaded.setEmailVerificationToken(token);
-            reloaded.setModifiedAt(LocalDateTime.now());
-            reloaded.setModifiedBy(SYSTEM_MODIFIER);
-            organizationServiceAuditable.save(reloaded);
-            String verificationLink = portalLinks.buildOrganizationEmailVerificationLink(token, organizationEmail);
-            organizationKycNotifier.sendOrganizationEmailVerification(reloaded, verificationLink);
         });
     }
 

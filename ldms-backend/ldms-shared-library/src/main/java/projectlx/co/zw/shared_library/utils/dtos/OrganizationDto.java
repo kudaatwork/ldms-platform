@@ -25,6 +25,15 @@ public class OrganizationDto {
 
     // Address Details
     private Long locationId;
+    private String addressLine1;
+    private String addressLine2;
+    private String addressPostalCode;
+    private Long addressSuburbId;
+    private Long addressCityId;
+    private String addressCityName;
+    private Long addressDistrictId;
+    private Long addressProvinceId;
+    private Long addressCountryId;
 
     // Contact Details
     private String email;

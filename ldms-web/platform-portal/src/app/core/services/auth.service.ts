@@ -18,6 +18,7 @@ import { environment } from '../../../environments/environment';
 import { CurrentUser, OrganizationClassification } from '../models/auth.model';
 import {
   AuthTokenResponse,
+  AuthLoginOutcome,
   extractAccessToken,
   isAuthSuccess,
 } from '../models/auth-api.model';
@@ -61,7 +62,7 @@ export class AuthService {
   }
 
   /** @param usernameOrEmail LDMS username or registered email address */
-  login(usernameOrEmail: string, password: string): Observable<void> {
+  login(usernameOrEmail: string, password: string): Observable<AuthLoginOutcome> {
     if (environment.useMocks) {
       return throwError(
         () => new Error('Demo login is disabled. Set useMocks to false in environment.ts.'),
@@ -74,8 +75,49 @@ export class AuthService {
         password,
       })
       .pipe(
+        switchMap((res) => {
+          if (!isAuthSuccess(res)) {
+            const msg =
+              res.errorMessages?.filter(Boolean).join(' ') ||
+              res.message ||
+              'Authentication failed';
+            return throwError(() => new Error(msg));
+          }
+          if (res.requiresTwoFactor === true) {
+            const mfaChallengeToken = String(res.mfaChallengeToken ?? '').trim();
+            if (!mfaChallengeToken) {
+              return throwError(
+                () => new Error('Two-factor authentication is required but no challenge token was returned.'),
+              );
+            }
+            return of({
+              kind: 'two_factor_required' as const,
+              mfaChallengeToken,
+              message: res.message,
+              twoFactorMethod: String(res.twoFactorMethod ?? 'SMS').trim(),
+            });
+          }
+          return this.completeLogin(this.requireAccessToken(res), res.mustChangeCredentials === true).pipe(
+            map(() => ({ kind: 'authenticated' as const })),
+          );
+        }),
+        catchError((err: HttpErrorResponse) =>
+          throwError(() => new Error(this.messageFromHttp(err))),
+        ),
+      );
+  }
+
+  verifyTwoFactor(mfaChallengeToken: string, otp: string): Observable<void> {
+    return this.http
+      .post<AuthTokenResponse>(`${this.authBase}/verify-two-factor`, {
+        mfaChallengeToken: mfaChallengeToken.trim(),
+        otp: otp.trim(),
+      })
+      .pipe(
         switchMap((res) =>
-          this.completeLogin(this.requireAccessToken(res), res.mustChangeCredentials === true),
+          this.completeLogin(this.requireAccessToken(res), res.mustChangeCredentials === true).pipe(
+            map(() => void 0),
+          ),
         ),
         catchError((err: HttpErrorResponse) =>
           throwError(() => new Error(this.messageFromHttp(err))),

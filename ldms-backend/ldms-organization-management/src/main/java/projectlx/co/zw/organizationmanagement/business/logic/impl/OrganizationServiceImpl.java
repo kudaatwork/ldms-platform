@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.util.StringUtils;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -32,6 +33,8 @@ import projectlx.co.zw.organizationmanagement.business.logic.support.Organizatio
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationKycNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationAddressSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationNotifier;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationSupplierRegisteredEvent;
+import projectlx.co.zw.organizationmanagement.business.logic.support.SupplierRegisteredOnboardingResult;
 import projectlx.co.zw.organizationmanagement.business.logic.support.SupplierRegisteredOrganizationOnboardingSupport;
 import projectlx.co.zw.shared_library.business.logic.impl.TokenService;
 import projectlx.co.zw.shared_library.utils.generators.SecureTokenGenerator;
@@ -39,6 +42,7 @@ import projectlx.co.zw.organizationmanagement.business.logic.support.Organizatio
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationFileUploadHelper.UploadPart;
 import projectlx.co.zw.organizationmanagement.business.validation.api.OrganizationServiceValidator;
 import projectlx.co.zw.organizationmanagement.model.ContractedTransporterLink;
+import projectlx.co.zw.organizationmanagement.model.FleetVehicle;
 import projectlx.co.zw.organizationmanagement.model.Agent;
 import projectlx.co.zw.organizationmanagement.model.AgentKind;
 import projectlx.co.zw.organizationmanagement.model.Branch;
@@ -52,6 +56,7 @@ import projectlx.co.zw.organizationmanagement.model.OrganizationType;
 import projectlx.co.zw.organizationmanagement.model.OrganizationKycReview;
 import projectlx.co.zw.organizationmanagement.model.PlatformKycPolicy;
 import projectlx.co.zw.organizationmanagement.repository.ContractedTransporterLinkRepository;
+import projectlx.co.zw.organizationmanagement.repository.FleetVehicleRepository;
 import projectlx.co.zw.organizationmanagement.repository.AgentRepository;
 import projectlx.co.zw.organizationmanagement.repository.BranchRepository;
 import projectlx.co.zw.organizationmanagement.repository.IndustryRepository;
@@ -63,15 +68,19 @@ import projectlx.co.zw.organizationmanagement.repository.specification.BranchSpe
 import projectlx.co.zw.organizationmanagement.repository.specification.IndustrySpecifications;
 import projectlx.co.zw.organizationmanagement.repository.specification.OrganizationSpecifications;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OnboardingStatusDto;
+import projectlx.co.zw.organizationmanagement.utils.dtos.FleetVehicleDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryMapping;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryUsageDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.KycApprovalPolicyDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OrganizationKycReviewDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OrganizationMapping;
+import projectlx.co.zw.organizationmanagement.utils.enums.FleetVehicleOwnershipType;
 import projectlx.co.zw.organizationmanagement.utils.enums.I18Code;
 import projectlx.co.zw.organizationmanagement.utils.exceptions.BusinessRuleException;
 import projectlx.co.zw.organizationmanagement.utils.dtos.ImportSummary;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryDto;
+import projectlx.co.zw.organizationmanagement.utils.requests.CreateFleetVehicleRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.EditFleetVehicleRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.AddBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateBranchRequest;
@@ -96,7 +105,9 @@ import projectlx.co.zw.organizationmanagement.utils.requests.UpdateKycApprovalPo
 import projectlx.co.zw.organizationmanagement.utils.responses.OrganizationManagementResponse;
 import projectlx.co.zw.shared_library.utils.dtos.AgentDto;
 import projectlx.co.zw.shared_library.utils.dtos.BranchDto;
+import projectlx.co.zw.organizationmanagement.clients.UsersMultipleFiltersFeignRequest;
 import projectlx.co.zw.shared_library.utils.dtos.OrganizationDto;
+import projectlx.co.zw.shared_library.utils.dtos.UserDto;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.responses.UserResponse;
@@ -128,6 +139,7 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     private final OrganizationRepository organizationRepository;
     private final ContractedTransporterLinkRepository contractedTransporterLinkRepository;
+    private final FleetVehicleRepository fleetVehicleRepository;
     private final IndustryRepository industryRepository;
     private final IndustryServiceAuditable industryServiceAuditable;
     private final BranchRepository branchRepository;
@@ -153,6 +165,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final OrganizationDirectoryNotifier organizationDirectoryNotifier;
     private final OrganizationRegistrationAddressSupport organizationRegistrationAddressSupport;
     private final SupplierRegisteredOrganizationOnboardingSupport supplierRegisteredOrganizationOnboardingSupport;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final TokenService tokenService;
 
     @Override
@@ -643,6 +656,10 @@ public class OrganizationServiceImpl implements OrganizationService {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
         }
+        OrganizationResponse contactEmailConflict = validateSupplierRegisteredContactEmail(request, locale, null, null);
+        if (contactEmailConflict != null) {
+            return contactEmailConflict;
+        }
         Optional<Organization> deletedCustomer = organizationRepository.findByEmail(normalizedEmail)
                 .filter(organization -> organization.getEntityStatus() == EntityStatus.DELETED);
         Organization customer = deletedCustomer.orElseGet(Organization::new);
@@ -752,7 +769,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         organizationServiceAuditable.save(supplier);
 
         final Long registeredOrgId = savedCustomer.getId();
-        afterCommit(() -> supplierRegisteredOrganizationOnboardingSupport.completeOnboarding(registeredOrgId));
+        applicationEventPublisher.publishEvent(new OrganizationSupplierRegisteredEvent(registeredOrgId));
         return buildOrganizationResponse(OrganizationMapping.toDto(savedCustomer));
     }
 
@@ -782,6 +799,10 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (organizationRepository.findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED).isPresent()) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
+        }
+        OrganizationResponse contactEmailConflict = validateSupplierRegisteredContactEmail(request, locale, null, null);
+        if (contactEmailConflict != null) {
+            return contactEmailConflict;
         }
         Optional<Organization> deletedTransporter = organizationRepository.findByEmail(normalizedEmail)
                 .filter(organization -> organization.getEntityStatus() == EntityStatus.DELETED);
@@ -896,7 +917,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         organizationServiceAuditable.save(supplier);
 
         final Long registeredOrgId = savedTransporter.getId();
-        afterCommit(() -> supplierRegisteredOrganizationOnboardingSupport.completeOnboarding(registeredOrgId));
+        applicationEventPublisher.publishEvent(new OrganizationSupplierRegisteredEvent(registeredOrgId));
         OrganizationDto dto = OrganizationMapping.toDto(savedTransporter);
         applyTransporterContractMetadata(dto, link);
         return buildOrganizationResponse(dto);
@@ -950,7 +971,9 @@ public class OrganizationServiceImpl implements OrganizationService {
     public OrganizationResponse getCustomer(Long customerId, Locale locale, String username) {
         Organization supplier = loadForUser(username);
         Organization customer = requireLinkedCustomer(supplier, customerId, locale);
-        return buildOrganizationResponse(OrganizationMapping.toDto(customer));
+        OrganizationDto dto = OrganizationMapping.toDto(customer);
+        organizationRegistrationAddressSupport.enrichOrganizationAddress(dto, locale);
+        return buildOrganizationResponse(dto);
     }
 
     @Override
@@ -986,6 +1009,12 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (emailOwner.isPresent() && !emailOwner.get().getId().equals(customerId)) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
+        }
+
+        OrganizationResponse contactEmailConflict = validateSupplierRegisteredContactEmail(
+                request, locale, customerId, customer.getContactPersonUserId());
+        if (contactEmailConflict != null) {
+            return contactEmailConflict;
         }
 
         customer.setName(request.getName().trim());
@@ -1068,6 +1097,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
 
         organizationServiceAuditable.save(customer);
+        organizationContactPersonProvisioningSupport.syncContactPersonFromOrganization(customer);
         return buildOrganizationResponse(OrganizationMapping.toDto(customer));
     }
 
@@ -2400,6 +2430,84 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
     }
 
+    @Override
+    public OrganizationResponse completeSupplierRegisteredOnboarding(Long organizationId, Locale locale) {
+        if (organizationId == null || organizationId < 1) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_NOT_FOUND.getCode(), new String[] {}, locale)));
+        }
+        Organization org = organizationRepository.findByIdAndEntityStatusNot(organizationId, EntityStatus.DELETED).orElse(null);
+        if (org == null) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_NOT_FOUND.getCode(), new String[] {}, locale)));
+        }
+        if (Boolean.TRUE.equals(org.getCreatedViaSignup())) {
+            return buildOrganizationResponseWithErrors(
+                    List.of("Onboarding retry is only supported for supplier-registered customers and transporters."));
+        }
+        SupplierRegisteredOnboardingResult outcome =
+                supplierRegisteredOrganizationOnboardingSupport.completeOnboarding(org);
+        if (!outcome.contactCredentialsQueued()) {
+            return buildOrganizationResponseWithErrors(List.of(outcome.detailMessage()));
+        }
+        OrganizationResponse response = buildOrganizationResponse(OrganizationMapping.toDto(org));
+        response.setMessage(outcome.detailMessage());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse retryCustomerOnboarding(Long customerId, Locale locale, String username) {
+        Organization customer = requireLinkedCustomer(loadForUser(username), customerId, locale);
+        if (Boolean.TRUE.equals(customer.getCreatedViaSignup())) {
+            return buildOrganizationResponseWithErrors(
+                    List.of("Onboarding email retry applies to supplier-registered customers only."));
+        }
+        return completeSupplierRegisteredOnboarding(customer.getId(), locale);
+    }
+
+    /**
+     * Rejects supplier registration when the contact email already belongs to a user linked to another organisation.
+     */
+    private OrganizationResponse validateSupplierRegisteredContactEmail(
+            RegisterOrganizationRequest request, Locale locale, Long organizationId, Long linkedContactUserId) {
+        if (request == null || !StringUtils.hasText(request.getContactPersonEmail())) {
+            return null;
+        }
+        String normalizedEmail = request.getContactPersonEmail().trim().toLowerCase(Locale.ROOT);
+        try {
+            UsersMultipleFiltersFeignRequest filters = new UsersMultipleFiltersFeignRequest();
+            filters.setPage(0);
+            filters.setSize(5);
+            filters.setSearchValue(normalizedEmail);
+            var response = userManagementServiceClient.findUsersByMultipleFilters(filters);
+            if (response == null || !response.isSuccess() || response.getUserDtoPage() == null) {
+                return null;
+            }
+            for (UserDto user : response.getUserDtoPage().getContent()) {
+                if (user == null || user.getEmail() == null) {
+                    continue;
+                }
+                if (!normalizedEmail.equals(user.getEmail().trim().toLowerCase(Locale.ROOT))) {
+                    continue;
+                }
+                if (linkedContactUserId != null && linkedContactUserId.equals(user.getId())) {
+                    continue;
+                }
+                Long linkedOrgId = user.getOrganizationId();
+                if (linkedOrgId != null && linkedOrgId > 0
+                        && (organizationId == null || !linkedOrgId.equals(organizationId))) {
+                    return buildOrganizationResponseWithErrors(
+                            List.of(messageService.getMessage(
+                                    I18Code.ORG_CONTACT_EMAIL_LINKED.getCode(), new String[] {}, locale)));
+                }
+            }
+        } catch (Exception ex) {
+            log.warn("Could not validate contact person email {} during supplier registration: {}", normalizedEmail,
+                    ex.getMessage());
+        }
+        return null;
+    }
+
     protected OrganizationResponse buildOrganizationResponse(OrganizationDto dto) {
         OrganizationResponse r = new OrganizationResponse();
         r.setSuccess(true);
@@ -2704,5 +2812,458 @@ public class OrganizationServiceImpl implements OrganizationService {
             return true;
         }
         return !Boolean.TRUE.equals(org.getCreatedViaSignup());
+    }
+
+    // =========================================================
+    // updateTransporter
+    // =========================================================
+    @Override
+    public OrganizationResponse updateTransporter(
+            Long transporterId, RegisterOrganizationRequest request, Locale locale, String username) {
+        request.setOrganizationClassification(OrganizationClassification.TRANSPORT_COMPANY);
+        if (request.getOrganizationType() == null) {
+            request.setOrganizationType(OrganizationType.PRIVATE);
+        }
+        request.setCreatedViaSignup(false);
+
+        Organization supplier = loadForUser(username);
+        Organization transporter = requireLinkedTransportPartner(supplier, transporterId, locale);
+        primeExistingCustomerUploadIds(transporter, request);
+
+        ValidatorDto v = organizationServiceValidator.validateRegister(request, locale);
+        if (Boolean.FALSE.equals(v.getSuccess())) {
+            return buildOrganizationResponseWithErrors(v.getErrorMessages());
+        }
+
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+        Optional<Organization> emailOwner = organizationRepository.findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED);
+        if (emailOwner.isPresent() && !emailOwner.get().getId().equals(transporterId)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
+        }
+
+        OrganizationResponse contactEmailConflict = validateSupplierRegisteredContactEmail(
+                request, locale, transporterId, transporter.getContactPersonUserId());
+        if (contactEmailConflict != null) {
+            return contactEmailConflict;
+        }
+
+        if (StringUtils.hasText(request.getContractStartDate()) || StringUtils.hasText(request.getContractEndDate())) {
+            ValidatorDto contractValidation = organizationServiceValidator.validateTransporterContract(
+                    request.getContractStartDate(), request.getContractEndDate(), locale);
+            if (Boolean.FALSE.equals(contractValidation.getSuccess())) {
+                return buildOrganizationResponseWithErrors(contractValidation.getErrorMessages());
+            }
+        }
+
+        transporter.setName(request.getName().trim());
+        transporter.setEmail(normalizedEmail);
+        transporter.setPhoneNumber(request.getPhoneNumber());
+        if (request.getOrganizationType() != null) {
+            transporter.setOrganizationType(request.getOrganizationType());
+        }
+        if (request.getIndustryId() != null) {
+            industryRepository.findByIdAndEntityStatusNot(request.getIndustryId(), EntityStatus.DELETED)
+                    .ifPresent(transporter::setIndustry);
+        }
+        transporter.setContactPersonFirstName(request.getContactPersonFirstName());
+        transporter.setContactPersonLastName(request.getContactPersonLastName());
+        transporter.setContactPersonEmail(StringUtils.hasText(request.getContactPersonEmail())
+                ? request.getContactPersonEmail().trim().toLowerCase()
+                : null);
+        transporter.setContactPersonPhoneNumber(request.getContactPersonPhoneNumber());
+        if (request.getContactPersonGender() != null) {
+            transporter.setContactPersonGender(request.getContactPersonGender());
+        }
+        if (StringUtils.hasText(request.getContactPersonDateOfBirth())) {
+            transporter.setContactPersonDateOfBirth(request.getContactPersonDateOfBirth().trim());
+        }
+        if (StringUtils.hasText(request.getContactPersonNationalIdNumber())) {
+            transporter.setContactPersonNationalIdNumber(request.getContactPersonNationalIdNumber().trim());
+        }
+        if (StringUtils.hasText(request.getContactPersonPassportNumber())) {
+            transporter.setContactPersonPassportNumber(request.getContactPersonPassportNumber().trim());
+        }
+        if (request.getRegistrationNumber() != null) {
+            transporter.setRegistrationNumber(request.getRegistrationNumber().trim());
+        }
+        if (request.getTaxNumber() != null) {
+            transporter.setTaxNumber(request.getTaxNumber().trim());
+        }
+        OrganizationResponse locationResponse = applyRegistrationLocationId(transporter, request, locale);
+        if (locationResponse != null) {
+            return locationResponse;
+        }
+        transporter.setModifiedAt(LocalDateTime.now());
+        transporter.setModifiedBy(username);
+        organizationServiceAuditable.save(transporter);
+
+        UploadOutcome uploadOutcome = organizationFileUploadHelper.processUploads(
+                transporter,
+                List.of(new UploadPart(
+                        request.getTaxClearanceCertificateUpload(),
+                        request.getTaxClearanceCertificateUploadId(),
+                        FileType.TAX_CLEARANCE_CERTIFICATE,
+                        null,
+                        transporter::setTaxClearanceCertificateUploadId)),
+                locale,
+                true);
+        if (!uploadOutcome.success()) {
+            return buildOrganizationResponseWithErrors(uploadOutcome.errorMessages());
+        }
+
+        UploadOutcome contactIdOutcome = organizationFileUploadHelper.processUploads(
+                transporter,
+                List.of(
+                        contactUploadPart(
+                                request.getContactPersonNationalIdUpload(),
+                                request.getContactPersonNationalIdUploadId(),
+                                FileType.NATIONAL_ID,
+                                transporter,
+                                transporter::setContactPersonNationalIdUploadId,
+                                request.getContactPersonNationalIdExpiryDate()),
+                        contactUploadPart(
+                                request.getContactPersonPassportUpload(),
+                                request.getContactPersonPassportUploadId(),
+                                FileType.PASSPORT,
+                                transporter,
+                                transporter::setContactPersonPassportUploadId,
+                                request.getContactPersonPassportExpiryDate())),
+                locale,
+                true);
+        if (!contactIdOutcome.success()) {
+            return buildOrganizationResponseWithErrors(contactIdOutcome.errorMessages());
+        }
+
+        organizationServiceAuditable.save(transporter);
+
+        // Update contract dates if supplied
+        if (StringUtils.hasText(request.getContractStartDate())) {
+            createTransporterContractLink(
+                    supplier,
+                    transporter,
+                    request.getContractStartDate(),
+                    request.getContractEndDate(),
+                    username);
+        }
+
+        organizationContactPersonProvisioningSupport.syncContactPersonFromOrganization(transporter);
+
+        OrganizationDto dto = OrganizationMapping.toDto(transporter);
+        resolveTransporterContractMetadata(supplier, transporter, dto);
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(200);
+        res.setMessage(messageService.getMessage(I18Code.TRANSPORTER_UPDATED.getCode(), new String[]{}, locale));
+        res.setOrganizationDto(dto);
+        return res;
+    }
+
+    // =========================================================
+    // deleteTransporter
+    // =========================================================
+    @Override
+    public OrganizationResponse deleteTransporter(Long transporterId, Locale locale, String username) {
+        Organization supplier = loadForUser(username);
+        Organization transporter = requireLinkedTransportPartner(supplier, transporterId, locale);
+
+        // Soft-delete the contract link
+        contractedTransporterLinkRepository
+                .findByOrganizationIdAndTransporterId(supplier.getId(), transporter.getId())
+                .ifPresent(link -> {
+                    link.setEntityStatus(EntityStatus.DELETED);
+                    link.setModifiedAt(LocalDateTime.now());
+                    link.setModifiedBy(username);
+                    contractedTransporterLinkRepository.save(link);
+                });
+
+        // Soft-delete the transporter organisation if it was supplier-registered and has no remaining active links
+        boolean hasOtherActiveLinks = contractedTransporterLinkRepository
+                .findByTransporterIdAndEntityStatusNotOrderByLinkedAtDesc(transporter.getId(), EntityStatus.DELETED)
+                .stream()
+                .anyMatch(link -> !link.getOrganizationId().equals(supplier.getId()));
+
+        if (!hasOtherActiveLinks && !Boolean.TRUE.equals(transporter.getCreatedViaSignup())) {
+            transporter.setEntityStatus(EntityStatus.DELETED);
+            transporter.setModifiedAt(LocalDateTime.now());
+            transporter.setModifiedBy(username);
+            organizationServiceAuditable.save(transporter);
+        }
+
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(200);
+        res.setMessage(messageService.getMessage(I18Code.TRANSPORTER_DELETED.getCode(), new String[]{}, locale));
+        return res;
+    }
+
+    // =========================================================
+    // Fleet vehicle management
+    // =========================================================
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse listFleetVehicles(Locale locale, String username) {
+        Organization org = loadForUser(username);
+        List<FleetVehicle> vehicles = fleetVehicleRepository
+                .findByOrganizationIdAndEntityStatusNotOrderByCreatedAtDesc(org.getId(), EntityStatus.DELETED);
+        List<FleetVehicleDto> dtos = vehicles.stream()
+                .map(vehicle -> enrichFleetVehicleDto(vehicle, locale))
+                .collect(java.util.stream.Collectors.toList());
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(200);
+        res.setFleetVehicleDtoList(dtos);
+        return res;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse listTransporterFleetVehicles(Long transporterId, Locale locale, String username) {
+        Organization caller = loadForUser(username);
+        Organization partner = requireLinkedTransportPartner(caller, transporterId, locale);
+
+        List<FleetVehicleDto> dtos = new ArrayList<>();
+
+        if (caller.getOrganizationClassification() == OrganizationClassification.SUPPLIER
+                && partner.getOrganizationClassification() == OrganizationClassification.TRANSPORT_COMPANY) {
+            List<FleetVehicle> partnerOwned = fleetVehicleRepository
+                    .findByOrganizationIdAndOwnershipTypeAndEntityStatusNotOrderByCreatedAtDesc(
+                            partner.getId(), FleetVehicleOwnershipType.OWNED.name(), EntityStatus.DELETED);
+            for (FleetVehicle vehicle : partnerOwned) {
+                FleetVehicleDto dto = enrichFleetVehicleDto(vehicle, locale);
+                dto.setContractedTransporterOrganizationId(partner.getId());
+                dto.setContractedTransporterOrganizationName(partner.getName());
+                dtos.add(dto);
+            }
+
+            List<FleetVehicle> contractedTagged = fleetVehicleRepository
+                    .findByOrganizationIdAndContractedTransporterOrganizationIdAndEntityStatusNotOrderByCreatedAtDesc(
+                            caller.getId(), partner.getId(), EntityStatus.DELETED);
+            for (FleetVehicle vehicle : contractedTagged) {
+                dtos.add(enrichFleetVehicleDto(vehicle, locale));
+            }
+        }
+
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(200);
+        res.setFleetVehicleDtoList(dtos);
+        return res;
+    }
+
+    @Override
+    public OrganizationResponse createFleetVehicle(CreateFleetVehicleRequest request, Locale locale, String username) {
+        if (request == null || !StringUtils.hasText(request.getRegistration())
+                || !StringUtils.hasText(request.getMakeModel())
+                || !StringUtils.hasText(request.getVehicleType())) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.FLEET_VEHICLE_VALIDATION_FAILED.getCode(), new String[]{}, locale)));
+        }
+
+        Organization org = loadForUser(username);
+        OrganizationResponse ownershipError = resolveFleetOwnershipForWrite(org, request.getOwnershipType(),
+                request.getContractedTransporterOrganizationId(), locale);
+        if (ownershipError != null) {
+            return ownershipError;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        FleetVehicleOwnershipType ownershipType = normalizeFleetOwnershipType(request.getOwnershipType());
+
+        FleetVehicle vehicle = new FleetVehicle();
+        vehicle.setOrganizationId(org.getId());
+        vehicle.setOwnershipType(ownershipType.name());
+        vehicle.setContractedTransporterOrganizationId(
+                ownershipType == FleetVehicleOwnershipType.CONTRACTED
+                        ? request.getContractedTransporterOrganizationId()
+                        : null);
+        vehicle.setRegistration(request.getRegistration().trim().toUpperCase());
+        vehicle.setMakeModel(request.getMakeModel().trim());
+        vehicle.setVehicleType(request.getVehicleType().trim().toLowerCase());
+        vehicle.setStatus(StringUtils.hasText(request.getStatus()) ? request.getStatus().trim().toLowerCase() : "available");
+        vehicle.setDriverName(request.getDriverName());
+        vehicle.setUtilizationPct(request.getUtilizationPct() != null ? request.getUtilizationPct() : java.math.BigDecimal.ZERO);
+        vehicle.setLastTripAt(request.getLastTripAt());
+        vehicle.setEntityStatus(EntityStatus.ACTIVE);
+        vehicle.setCreatedAt(now);
+        vehicle.setCreatedBy(username);
+
+        FleetVehicle saved = fleetVehicleRepository.save(vehicle);
+
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(201);
+        res.setMessage(messageService.getMessage(I18Code.FLEET_VEHICLE_CREATED.getCode(), new String[]{}, locale));
+        res.setFleetVehicleDto(enrichFleetVehicleDto(saved, locale));
+        return res;
+    }
+
+    @Override
+    public OrganizationResponse updateFleetVehicle(Long id, EditFleetVehicleRequest request, Locale locale, String username) {
+        Organization org = loadForUser(username);
+        FleetVehicle vehicle = fleetVehicleRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED)
+                .orElseThrow(() -> new projectlx.co.zw.organizationmanagement.utils.exceptions.BusinessRuleException(
+                        messageService.getMessage(I18Code.FLEET_VEHICLE_NOT_FOUND.getCode(), new String[]{}, locale),
+                        I18Code.FLEET_VEHICLE_NOT_FOUND));
+
+        if (!vehicle.getOrganizationId().equals(org.getId())) {
+            throw new projectlx.co.zw.organizationmanagement.utils.exceptions.BusinessRuleException(
+                    messageService.getMessage(I18Code.FLEET_VEHICLE_NOT_FOUND.getCode(), new String[]{}, locale),
+                    I18Code.FLEET_VEHICLE_NOT_FOUND);
+        }
+
+        if (request != null) {
+            OrganizationResponse ownershipError = resolveFleetOwnershipForWrite(org, request.getOwnershipType(),
+                    request.getContractedTransporterOrganizationId(), locale);
+            if (ownershipError != null) {
+                return ownershipError;
+            }
+            if (StringUtils.hasText(request.getOwnershipType())) {
+                FleetVehicleOwnershipType ownershipType = normalizeFleetOwnershipType(request.getOwnershipType());
+                vehicle.setOwnershipType(ownershipType.name());
+                vehicle.setContractedTransporterOrganizationId(
+                        ownershipType == FleetVehicleOwnershipType.CONTRACTED
+                                ? request.getContractedTransporterOrganizationId()
+                                : null);
+            } else if (request.getContractedTransporterOrganizationId() != null
+                    && FleetVehicleOwnershipType.CONTRACTED.name().equals(vehicle.getOwnershipType())) {
+                OrganizationResponse ownershipErrorOnTransporter = resolveFleetOwnershipForWrite(
+                        org, FleetVehicleOwnershipType.CONTRACTED.name(),
+                        request.getContractedTransporterOrganizationId(), locale);
+                if (ownershipErrorOnTransporter != null) {
+                    return ownershipErrorOnTransporter;
+                }
+                vehicle.setContractedTransporterOrganizationId(request.getContractedTransporterOrganizationId());
+            }
+        }
+
+        if (request != null && StringUtils.hasText(request.getRegistration())) {
+            vehicle.setRegistration(request.getRegistration().trim().toUpperCase());
+        }
+        if (request != null && StringUtils.hasText(request.getMakeModel())) {
+            vehicle.setMakeModel(request.getMakeModel().trim());
+        }
+        if (request != null && StringUtils.hasText(request.getVehicleType())) {
+            vehicle.setVehicleType(request.getVehicleType().trim().toLowerCase());
+        }
+        if (request != null && StringUtils.hasText(request.getStatus())) {
+            vehicle.setStatus(request.getStatus().trim().toLowerCase());
+        }
+        if (request != null && request.getDriverName() != null) {
+            vehicle.setDriverName(request.getDriverName());
+        }
+        if (request != null && request.getUtilizationPct() != null) {
+            vehicle.setUtilizationPct(request.getUtilizationPct());
+        }
+        if (request != null && request.getLastTripAt() != null) {
+            vehicle.setLastTripAt(request.getLastTripAt());
+        }
+        vehicle.setModifiedAt(LocalDateTime.now());
+        vehicle.setModifiedBy(username);
+
+        FleetVehicle saved = fleetVehicleRepository.save(vehicle);
+
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(200);
+        res.setMessage(messageService.getMessage(I18Code.FLEET_VEHICLE_UPDATED.getCode(), new String[]{}, locale));
+        res.setFleetVehicleDto(enrichFleetVehicleDto(saved, locale));
+        return res;
+    }
+
+    @Override
+    public OrganizationResponse deleteFleetVehicle(Long id, Locale locale, String username) {
+        Organization org = loadForUser(username);
+        FleetVehicle vehicle = fleetVehicleRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED)
+                .orElseThrow(() -> new projectlx.co.zw.organizationmanagement.utils.exceptions.BusinessRuleException(
+                        messageService.getMessage(I18Code.FLEET_VEHICLE_NOT_FOUND.getCode(), new String[]{}, locale),
+                        I18Code.FLEET_VEHICLE_NOT_FOUND));
+
+        if (!vehicle.getOrganizationId().equals(org.getId())) {
+            throw new projectlx.co.zw.organizationmanagement.utils.exceptions.BusinessRuleException(
+                    messageService.getMessage(I18Code.FLEET_VEHICLE_NOT_FOUND.getCode(), new String[]{}, locale),
+                    I18Code.FLEET_VEHICLE_NOT_FOUND);
+        }
+
+        vehicle.setEntityStatus(EntityStatus.DELETED);
+        vehicle.setModifiedAt(LocalDateTime.now());
+        vehicle.setModifiedBy(username);
+        fleetVehicleRepository.save(vehicle);
+
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(200);
+        res.setMessage(messageService.getMessage(I18Code.FLEET_VEHICLE_DELETED.getCode(), new String[]{}, locale));
+        return res;
+    }
+
+    private FleetVehicleDto toFleetVehicleDto(FleetVehicle vehicle) {
+        FleetVehicleDto dto = new FleetVehicleDto();
+        dto.setId(vehicle.getId());
+        dto.setOrganizationId(vehicle.getOrganizationId());
+        dto.setOwnershipType(StringUtils.hasText(vehicle.getOwnershipType())
+                ? vehicle.getOwnershipType()
+                : FleetVehicleOwnershipType.OWNED.name());
+        dto.setContractedTransporterOrganizationId(vehicle.getContractedTransporterOrganizationId());
+        dto.setRegistration(vehicle.getRegistration());
+        dto.setMakeModel(vehicle.getMakeModel());
+        dto.setVehicleType(vehicle.getVehicleType());
+        dto.setStatus(vehicle.getStatus());
+        dto.setDriverName(vehicle.getDriverName());
+        dto.setUtilizationPct(vehicle.getUtilizationPct());
+        dto.setLastTripAt(vehicle.getLastTripAt());
+        dto.setCreatedAt(vehicle.getCreatedAt());
+        dto.setCreatedBy(vehicle.getCreatedBy());
+        dto.setModifiedAt(vehicle.getModifiedAt());
+        dto.setModifiedBy(vehicle.getModifiedBy());
+        return dto;
+    }
+
+    private FleetVehicleDto enrichFleetVehicleDto(FleetVehicle vehicle, Locale locale) {
+        FleetVehicleDto dto = toFleetVehicleDto(vehicle);
+        if (vehicle.getContractedTransporterOrganizationId() != null) {
+            organizationRepository.findByIdAndEntityStatusNot(
+                            vehicle.getContractedTransporterOrganizationId(), EntityStatus.DELETED)
+                    .ifPresent(transporter -> dto.setContractedTransporterOrganizationName(transporter.getName()));
+        }
+        return dto;
+    }
+
+    private FleetVehicleOwnershipType normalizeFleetOwnershipType(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return FleetVehicleOwnershipType.OWNED;
+        }
+        try {
+            return FleetVehicleOwnershipType.valueOf(raw.trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return FleetVehicleOwnershipType.OWNED;
+        }
+    }
+
+    private OrganizationResponse resolveFleetOwnershipForWrite(
+            Organization org,
+            String ownershipTypeRaw,
+            Long contractedTransporterOrganizationId,
+            Locale locale) {
+        FleetVehicleOwnershipType ownershipType = normalizeFleetOwnershipType(ownershipTypeRaw);
+        if (ownershipType == FleetVehicleOwnershipType.OWNED) {
+            return null;
+        }
+        if (org.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.FLEET_VEHICLE_VALIDATION_FAILED.getCode(), new String[]{}, locale)));
+        }
+        if (contractedTransporterOrganizationId == null || contractedTransporterOrganizationId <= 0) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_REQUIRED.getCode(), new String[]{}, locale)));
+        }
+        try {
+            requireLinkedTransportPartner(org, contractedTransporterOrganizationId, locale);
+        } catch (RuntimeException ex) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_INVALID.getCode(), new String[]{}, locale)));
+        }
+        return null;
     }
 }

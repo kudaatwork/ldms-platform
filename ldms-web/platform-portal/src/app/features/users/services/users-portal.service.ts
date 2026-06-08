@@ -7,6 +7,7 @@ import { collectUploadIdsFromJsonTree } from '../../../shared/utils/collect-uplo
 import { resolveFilePreview } from '../../../shared/utils/file-upload-preview';
 import { LxExportFormat, exportFormatToApiParam } from '../../../shared/utils/lx-export.util';
 import { OrgContextService } from '../../../core/services/org-context.service';
+import { shouldBootstrapUserTypes } from '../utils/user-type-workspace.util';
 
 export interface UsersQuery {
   page: number;
@@ -888,6 +889,71 @@ export class UsersPortalService {
     isTwoFactorEnabled: boolean;
   }): Observable<unknown> {
     return this.http.put(`${this.base}/user-security/me`, payload);
+  }
+
+  beginMyAuthenticatorSetup(): Observable<{
+    secret: string;
+    otpAuthUri: string;
+    qrCodeDataUrl: string;
+  }> {
+    return this.http
+      .post<unknown>(`${this.base}/user-security/me/two-factor/begin-authenticator`, {})
+      .pipe(map((resp) => this.mapAuthenticatorSetupResponse(resp)));
+  }
+
+  confirmMyAuthenticatorSetup(otp: string): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.base}/user-security/me/two-factor/confirm-authenticator`, { otp })
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  enableMySmsTwoFactor(): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.base}/user-security/me/two-factor/enable-sms`, {})
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  requestMyTwoFactorDisableOtp(): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.base}/user-security/me/two-factor/request-disable-otp`, {})
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  disableMyTwoFactor(otp: string): Observable<boolean> {
+    return this.http
+      .post<unknown>(`${this.base}/user-security/me/two-factor/disable`, { otp })
+      .pipe(map((resp) => this.assertSuccessResponse(resp)));
+  }
+
+  private mapAuthenticatorSetupResponse(resp: unknown): {
+    secret: string;
+    otpAuthUri: string;
+    qrCodeDataUrl: string;
+  } {
+    const obj = this.assertApiObject(resp);
+    return {
+      secret: String(obj['authenticatorSetupSecret'] ?? '').trim(),
+      otpAuthUri: String(obj['authenticatorSetupOtpAuthUri'] ?? '').trim(),
+      qrCodeDataUrl: String(obj['authenticatorSetupQrCodeDataUrl'] ?? '').trim(),
+    };
+  }
+
+  private assertSuccessResponse(resp: unknown): boolean {
+    this.assertApiObject(resp);
+    return true;
+  }
+
+  private assertApiObject(resp: unknown): Record<string, unknown> {
+    const obj = this.toObj(this.parsePossiblyStringifiedJson(resp));
+    if (!obj || obj['success'] === false) {
+      const msgs = obj?.['errorMessages'];
+      const detail =
+        Array.isArray(msgs) && msgs.length
+          ? msgs.map((m) => String(m)).join(' ')
+          : String(obj?.['message'] ?? 'Request failed');
+      throw new Error(detail);
+    }
+    return obj;
   }
 
   /** Files stored against this user (`OwnerType.USER`). */
@@ -1885,12 +1951,15 @@ export class UsersPortalService {
   private buildUserTypesFilterBody(q: UsersQuery): Record<string, unknown> {
     const userTypeName = this.normalizedFilter(q.columnFilters['userTypeName']);
     const description = this.normalizedFilter(q.columnFilters['description']);
+    const orgId = this.orgContext.organizationId;
+    const bootstrapDefaultsOnly = shouldBootstrapUserTypes(orgId);
     return {
       page: q.page,
       size: q.size,
       searchValue: q.searchQuery.trim(),
       ...(userTypeName ? { userTypeName } : {}),
       ...(description ? { description } : {}),
+      ...(bootstrapDefaultsOnly ? { bootstrapDefaultsOnly: true } : {}),
     };
   }
 

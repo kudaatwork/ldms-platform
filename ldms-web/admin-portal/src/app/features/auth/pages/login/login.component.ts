@@ -25,6 +25,10 @@ export class LoginComponent implements AfterViewInit {
   showPass = false;
   error = '';
   infoMessage = '';
+  twoFactorStep = false;
+  mfaChallengeToken = '';
+  twoFactorOtp = '';
+  twoFactorMethod: 'SMS' | 'AUTHENTICATOR_APP' = 'SMS';
 
   readonly mockCreds = [...MOCK_DEMO_CREDENTIALS];
   readonly showMockCredentials = environment.authUseMocks || environment.useMocks;
@@ -116,11 +120,79 @@ export class LoginComponent implements AfterViewInit {
     const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
     const target = resolveAdminPostLoginUrl(returnUrl);
     this.auth.login(usernameOrEmail, password).subscribe({
-      next: () => {
+      next: (outcome) => {
+        if (outcome.kind === 'two_factor_required') {
+          this.loading = false;
+          this.twoFactorStep = true;
+          this.mfaChallengeToken = outcome.mfaChallengeToken;
+          this.twoFactorMethod =
+            outcome.twoFactorMethod === 'AUTHENTICATOR_APP' ? 'AUTHENTICATOR_APP' : 'SMS';
+          this.cdr.markForCheck();
+          return;
+        }
         void this.navigateAfterLogin(target);
       },
       error: (e: Error) => this.failSignIn(e.message || 'Invalid credentials'),
     });
+  }
+
+  submitTwoFactor(): void {
+    const otp = this.twoFactorOtp.trim();
+    if (!/^\d{6}$/.test(otp)) {
+      this.error =
+        this.twoFactorMethod === 'AUTHENTICATOR_APP'
+          ? 'Enter the 6-digit code from your authenticator app.'
+          : 'Enter the 6-digit security code from your SMS.';
+      this.cdr.markForCheck();
+      return;
+    }
+    this.beginSignIn();
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    const target = resolveAdminPostLoginUrl(returnUrl);
+    this.auth.verifyTwoFactor(this.mfaChallengeToken, otp).subscribe({
+      next: () => void this.navigateAfterLogin(target),
+      error: (e: Error) => this.failSignIn(e.message || 'Invalid security code'),
+    });
+  }
+
+  backToPasswordStep(): void {
+    this.twoFactorStep = false;
+    this.twoFactorOtp = '';
+    this.mfaChallengeToken = '';
+    this.error = '';
+    this.cdr.markForCheck();
+  }
+
+  twoFactorMethodLabel(): string {
+    return this.twoFactorMethod === 'AUTHENTICATOR_APP' ? 'Authenticator app' : 'SMS text message';
+  }
+
+  twoFactorStepHeadline(): string {
+    return this.twoFactorMethod === 'AUTHENTICATOR_APP'
+      ? 'Use your authenticator app'
+      : 'Check your phone for a text message';
+  }
+
+  twoFactorStepInstruction(): string {
+    return this.twoFactorMethod === 'AUTHENTICATOR_APP'
+      ? 'Open the authenticator app you used when you set up two-step verification (for example Google Authenticator, Authy, or Microsoft Authenticator). Enter the current 6-digit code shown for your account.'
+      : 'We sent a 6-digit security code by SMS to the phone number on your account. Enter that code below to complete sign-in.';
+  }
+
+  twoFactorStepHint(): string {
+    return this.twoFactorMethod === 'AUTHENTICATOR_APP'
+      ? 'Forgot which app? Look for an entry named LDMS or Project LX. Codes refresh every 30 seconds — use the latest one.'
+      : 'Did not receive the text? Wait a minute, check signal strength, then use Back to sign in and try again to get a new code.';
+  }
+
+  twoFactorInputLabel(): string {
+    return this.twoFactorMethod === 'AUTHENTICATOR_APP' ? 'Authenticator code' : 'SMS security code';
+  }
+
+  twoFactorInputPlaceholder(): string {
+    return this.twoFactorMethod === 'AUTHENTICATOR_APP'
+      ? '6-digit code from your app'
+      : '6-digit code from your text message';
   }
 
   private beginSignIn(): void {

@@ -82,7 +82,6 @@ public class UserGroupServiceImpl implements UserGroupService {
     private final UserRoleRepository userRoleRepository;
     private final UserServiceAuditable userServiceAuditable;
     private final OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport;
-    private final OrganizationWorkspaceProvisioner organizationWorkspaceProvisioner;
 
     private static final String[] HEADERS = {
             "ID", "NAME", "DESCRIPTION", "USER ROLES"
@@ -112,13 +111,11 @@ public class UserGroupServiceImpl implements UserGroupService {
         Long workspaceOrganizationId = resolveOrganizationIdForWorkspaceMutation(
                 username, createUserGroupRequest.getOrganizationId());
 
-        if (workspaceOrganizationId != null
-                && workspaceOrganizationId > 0
-                && OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(normalizedName)) {
+        if (OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(normalizedName)) {
             message = messageService.getMessage(I18Code.MESSAGE_CREATE_USER_GROUP_INVALID_REQUEST.getCode(),
                     new String[]{}, locale);
             return buildUserGroupResponseWithErrors(400, false, message, null, null,
-                    List.of("The Administrator group is provisioned automatically for your organisation."));
+                    List.of("The Administrator group is provisioned automatically. New roles are added to it as they are introduced."));
         }
 
         Optional<UserGroup> userGroupRetrieved = existingActiveGroupByName(normalizedName, workspaceOrganizationId);
@@ -392,9 +389,7 @@ public class UserGroupServiceImpl implements UserGroupService {
         Optional<Long> workspaceOrganizationId = resolveWorkspaceOrganizationFilter(
                 username, userGroupMultipleFiltersRequest);
         if (workspaceOrganizationId.isPresent()) {
-            long organizationId = workspaceOrganizationId.get();
-            organizationWorkspaceProvisioner.ensureAdministratorGroup(organizationId);
-            spec = addToSpec(organizationId, spec, UserGroupSpecification::organizationIdEquals);
+            spec = addToSpec(workspaceOrganizationId.get(), spec, UserGroupSpecification::organizationIdEquals);
         }
 
         Page<UserGroup> result = userGroupRepository.findAll(spec, pageable);

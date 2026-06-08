@@ -20,6 +20,13 @@ public class AuthenticationServiceValidatorImpl implements AuthenticationService
             return false;
         }
 
+        if (authRequest.getUsername() != null) {
+            authRequest.setUsername(authRequest.getUsername().trim());
+        }
+        if (authRequest.getPassword() != null) {
+            authRequest.setPassword(authRequest.getPassword().trim());
+        }
+
         if (!StringUtils.hasText(authRequest.getUsername()) || !StringUtils.hasText(authRequest.getPassword())) {
             logger.info("Validation failed: Username/email or password is blank");
             return false;

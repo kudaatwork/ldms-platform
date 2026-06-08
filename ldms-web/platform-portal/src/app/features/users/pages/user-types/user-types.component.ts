@@ -12,6 +12,11 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import { OrgContextService } from '../../../../core/services/org-context.service';
+import {
+  shouldBootstrapUserTypes,
+  unlockUserTypeCatalog,
+} from '../../utils/user-type-workspace.util';
 
 interface UserTypeRow {
   id: number;
@@ -65,9 +70,14 @@ export class UserTypesComponent implements OnInit {
     return this.createMode === 'view';
   }
 
+  get bootstrapLocked(): boolean {
+    return shouldBootstrapUserTypes(this.orgContext.organizationId);
+  }
+
   constructor(
     private readonly title: Title,
     private readonly usersService: UsersPortalService,
+    private readonly orgContext: OrgContextService,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
@@ -75,7 +85,9 @@ export class UserTypesComponent implements OnInit {
 
   ngOnInit(): void {
     this.title.setTitle('User Types | LX Admin');
-    this.restoreCachedRows();
+    if (!this.bootstrapLocked) {
+      this.restoreCachedRows();
+    }
     this.reload$.pipe(debounceTime(150)).subscribe(() => this.loadRows());
     this.reload$.next();
   }
@@ -270,6 +282,7 @@ export class UserTypesComponent implements OnInit {
         this.pendingUserTypeMutation = false;
         const createdId = submittedMode === 'create' ? this.extractCreatedUserTypeId(response) : null;
         if (submittedMode === 'create') {
+          unlockUserTypeCatalog(this.orgContext.organizationId);
           if (createdId !== null) {
             this.finalizeOptimisticCreate(createdId, userTypeName, description);
           } else {
@@ -277,6 +290,7 @@ export class UserTypesComponent implements OnInit {
             this.loadRows();
           }
           this.pendingCreateTempId = null;
+          this.loadRows({ suppressSpinner: true });
         } else {
           this.applySuccessfulSaveToVisibleRows(submittedMode, submittedModel, response, createdId);
         }

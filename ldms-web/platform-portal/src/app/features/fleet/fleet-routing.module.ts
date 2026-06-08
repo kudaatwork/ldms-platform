@@ -8,6 +8,16 @@ const routes: Routes = [
     component: FleetWorkspaceComponent,
     data: { title: 'Fleet & Transporters', breadcrumb: 'Fleet & Transporters' },
   },
+  {
+    path: 'drivers',
+    component: FleetWorkspaceComponent,
+    data: { title: 'Drivers', breadcrumb: 'Drivers', tab: 'drivers' },
+  },
+  {
+    path: 'compliance',
+    component: FleetWorkspaceComponent,
+    data: { title: 'Compliance', breadcrumb: 'Compliance', tab: 'compliance' },
+  },
 ];
 
 @NgModule({

@@ -11,10 +11,14 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.IndexedColors;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import projectlx.co.zw.audittrail.utils.export.AuditActionHighlight;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -45,6 +49,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     private static final String[] EXPORT_HEADERS = {
         "id",
         "action",
+        "actionKind",
         "serviceName",
         "username",
         "eventType",
@@ -301,6 +306,7 @@ public class AuditLogServiceImpl implements AuditLogService {
         for (AuditLogDto log : items) {
             sb.append(log.id()).append(",")
                     .append(safeCsv(log.action())).append(",")
+                    .append(safeCsv(AuditActionHighlight.label(log.action()))).append(",")
                     .append(safeCsv(log.serviceName())).append(",")
                     .append(safeCsv(log.username())).append(",")
                     .append(log.eventType() != null ? log.eventType().name() : "").append(",")
@@ -328,21 +334,21 @@ public class AuditLogServiceImpl implements AuditLogService {
             header.createCell(i).setCellValue(EXPORT_HEADERS[i]);
         }
 
+        CellStyle createStyle = buildExcelHighlightStyle(workbook, IndexedColors.LIGHT_YELLOW);
+        CellStyle changeStyle = buildExcelHighlightStyle(workbook, IndexedColors.CORAL);
+
         int rowIdx = 1;
         for (AuditLogDto log : items) {
             Row row = sheet.createRow(rowIdx++);
-            row.createCell(0).setCellValue(log.id() != null ? log.id() : 0L);
-            row.createCell(1).setCellValue(safeCsv(log.action()));
-            row.createCell(2).setCellValue(safeCsv(log.serviceName()));
-            row.createCell(3).setCellValue(safeCsv(log.username()));
-            row.createCell(4).setCellValue(log.eventType() != null ? log.eventType().name() : "");
-            row.createCell(5).setCellValue(safeCsv(log.httpMethod()));
-            row.createCell(6).setCellValue(log.httpStatusCode() != null ? log.httpStatusCode() : 0);
-            row.createCell(7).setCellValue(log.requestTimestamp() != null ? log.requestTimestamp().toString() : "");
-            row.createCell(8).setCellValue(safeCsv(log.traceId()));
-            row.createCell(9).setCellValue(log.responseTimeMs() != null ? log.responseTimeMs() : 0L);
-            row.createCell(10).setCellValue(safeCsv(log.clientIpAddress()));
-            row.createCell(11).setCellValue(safeCsv(log.clientPlatform()));
+            String[] cells = toExportCells(log);
+            CellStyle rowStyle = excelRowStyle(AuditActionHighlight.classify(log.action()), createStyle, changeStyle);
+            for (int col = 0; col < cells.length; col++) {
+                var cell = row.createCell(col);
+                cell.setCellValue(cells[col]);
+                if (rowStyle != null) {
+                    cell.setCellStyle(rowStyle);
+                }
+            }
         }
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -353,31 +359,16 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     public byte[] exportToPdf(List<AuditLogDto> items) throws DocumentException {
-        List<String[]> rows = new ArrayList<>();
-        for (AuditLogDto log : items) {
-            rows.add(new String[]{
-                    String.valueOf(log.id()),
-                    safeCsv(log.action()),
-                    safeCsv(log.serviceName()),
-                    safeCsv(log.username()),
-                    log.eventType() != null ? log.eventType().name() : "",
-                    safeCsv(log.httpMethod()),
-                    log.httpStatusCode() != null ? String.valueOf(log.httpStatusCode()) : "",
-                    log.requestTimestamp() != null ? log.requestTimestamp().toString() : "",
-                    safeCsv(log.traceId()),
-                    log.responseTimeMs() != null ? String.valueOf(log.responseTimeMs()) : "",
-                    safeCsv(log.clientIpAddress()),
-                    safeCsv(log.clientPlatform())
-            });
-        }
-        return LdmsPdfReportWriter.write(LdmsExportReport.builder()
+        LdmsExportReport.Builder builder = LdmsExportReport.builder()
                 .title("Audit Request Log")
                 .reportCode("AUD-LOG")
-                .subtitle("Audit trail request log export")
+                .subtitle("Audit trail request log export — amber = created, red = updated/deleted")
                 .columnHeaders(EXPORT_HEADERS)
-                .rows(rows)
-                .landscape(true)
-                .build());
+                .landscape(true);
+        for (AuditLogDto log : items) {
+            builder.addRow(AuditActionHighlight.pdfHighlight(log.action()), toExportCells(log));
+        }
+        return LdmsPdfReportWriter.write(builder.build());
     }
 
     @Override
@@ -455,6 +446,44 @@ public class AuditLogServiceImpl implements AuditLogService {
                 .rows(rows)
                 .landscape(true)
                 .build());
+    }
+
+    private static String[] toExportCells(AuditLogDto log) {
+        return new String[]{
+                String.valueOf(log.id() != null ? log.id() : ""),
+                safeCsv(log.action()),
+                safeCsv(AuditActionHighlight.label(log.action())),
+                safeCsv(log.serviceName()),
+                safeCsv(log.username()),
+                log.eventType() != null ? log.eventType().name() : "",
+                safeCsv(log.httpMethod()),
+                log.httpStatusCode() != null ? String.valueOf(log.httpStatusCode()) : "",
+                log.requestTimestamp() != null ? log.requestTimestamp().toString() : "",
+                safeCsv(log.traceId()),
+                log.responseTimeMs() != null ? String.valueOf(log.responseTimeMs()) : "",
+                safeCsv(log.clientIpAddress()),
+                safeCsv(log.clientPlatform())
+        };
+    }
+
+    private static CellStyle buildExcelHighlightStyle(Workbook workbook, IndexedColors color) {
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(color.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        return style;
+    }
+
+    private static CellStyle excelRowStyle(
+            AuditActionHighlight.Kind kind,
+            CellStyle createStyle,
+            CellStyle changeStyle) {
+        if (kind == AuditActionHighlight.Kind.CREATE) {
+            return createStyle;
+        }
+        if (kind == AuditActionHighlight.Kind.UPDATE || kind == AuditActionHighlight.Kind.DELETE) {
+            return changeStyle;
+        }
+        return null;
     }
 
     private static String safeCsv(String value) {

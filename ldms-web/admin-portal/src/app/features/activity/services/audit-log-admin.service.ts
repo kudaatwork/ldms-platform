@@ -1,6 +1,11 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, map, of, throwError } from 'rxjs';
+import { Observable, catchError, from, map, of, switchMap, throwError } from 'rxjs';
+import {
+  LxExportFormat,
+  mapExportHttpError,
+  validateExportBlob,
+} from '../../../shared/utils/lx-export.util';
 import {
   extractPagedResult,
   isApiFailureEnvelope,
@@ -29,6 +34,8 @@ export interface AuditLogMultipleFiltersRequest {
   clientPlatform?: string;
   actionsIn?: string[];
   excludeActions?: string[];
+  /** When non-empty, only rows whose username is in this list are returned. */
+  usernamesIn?: string[];
 }
 
 export const LOGIN_AUDIT_ACTIONS = ['USER_AUTHENTICATION', 'USER_AUTHENTICATION_GOOGLE'] as const;
@@ -174,14 +181,13 @@ export class AuditLogAdminService {
     request: AuditLogMultipleFiltersRequest,
     username: string,
   ): Observable<{ rows: AuditLogDto[]; totalElements: number }> {
+    const trimmed = username?.trim() ?? '';
     const payload: AuditLogMultipleFiltersRequest = {
       ...request,
-      // Do not enforce actor scoping here: several services can persist SYSTEM for request-level
-      // audits, and strict user filtering hides cross-module activity in the Login & Activity view.
-      username: '',
-      // Include both SERVICE_METHOD and WEB_REQUEST events so endpoint activity is visible
-      // even when some services only emit request-level audits.
-      eventType: request.eventType?.trim() ?? '',
+      username: trimmed,
+      usernamesIn: trimmed ? [trimmed] : undefined,
+      // SERVICE_METHOD rows carry @Auditable CREATE_/UPDATE_/DELETE_ actions.
+      eventType: request.eventType?.trim() || 'SERVICE_METHOD',
       excludeActions: [...USER_ACTIVITY_EXCLUDED_ACTIONS],
     };
     return this.queryAuditLogPage(payload);
@@ -215,14 +221,83 @@ export class AuditLogAdminService {
    * Same filter body as {@link findByMultipleFilters}; `format` is `csv`, `xlsx`, or `pdf`
    * (gateway maps to audit-trail `/export?format=`).
    */
-  exportAuditLogs(request: AuditLogMultipleFiltersRequest, format: 'csv' | 'xlsx' | 'pdf'): Observable<Blob> {
+  exportAuditLogs(request: AuditLogMultipleFiltersRequest, format: LxExportFormat): Observable<Blob> {
     const url = this.url('export');
     const apiFormat = format === 'xlsx' ? 'xlsx' : format;
     const params = new HttpParams().set('format', apiFormat);
-    return this.http.post(url, request, {
-      params,
-      responseType: 'blob',
-    });
+    return this.http
+      .post(url, request, {
+        params,
+        responseType: 'blob',
+      })
+      .pipe(
+        switchMap((blob) => from(validateExportBlob(blob, format))),
+        catchError((err: unknown) => {
+          if (err instanceof HttpErrorResponse) {
+            return mapExportHttpError(err);
+          }
+          return throwError(() => (err instanceof Error ? err : new Error('Export failed.')));
+        }),
+      );
+  }
+
+  /** Sign-in history export — same action scope as {@link queryLoginEventsPage}. */
+  exportLoginEvents(
+    request: AuditLogMultipleFiltersRequest,
+    format: LxExportFormat,
+  ): Observable<Blob> {
+    return this.exportAuditLogs(this.shapeLoginExportRequest(request), format);
+  }
+
+  /** Per-user activity export — same scope as {@link queryUserActivityPage}. */
+  exportUserActivity(
+    request: AuditLogMultipleFiltersRequest,
+    username: string,
+    format: LxExportFormat,
+  ): Observable<Blob> {
+    const trimmed = username?.trim() ?? '';
+    if (!trimmed) {
+      return throwError(() => new Error('Select a user from sign-in history before exporting activity.'));
+    }
+    return this.exportAuditLogs(this.shapeActivityExportRequest(request, trimmed), format);
+  }
+
+  private shapeLoginExportRequest(request: AuditLogMultipleFiltersRequest): AuditLogMultipleFiltersRequest {
+    const username = request.username?.trim() ?? '';
+    const usernamesIn =
+      request.usernamesIn && request.usernamesIn.length > 0
+        ? request.usernamesIn
+        : username
+          ? [username]
+          : undefined;
+    return {
+      ...request,
+      page: 0,
+      size: request.size > 0 ? Math.min(request.size, 5000) : 5000,
+      eventType: 'SERVICE_METHOD',
+      serviceName: request.serviceName?.trim() ?? '',
+      username,
+      usernamesIn,
+      actionsIn:
+        request.actionsIn && request.actionsIn.length > 0
+          ? request.actionsIn
+          : [...LOGIN_AUDIT_ACTIONS],
+    };
+  }
+
+  private shapeActivityExportRequest(
+    request: AuditLogMultipleFiltersRequest,
+    username: string,
+  ): AuditLogMultipleFiltersRequest {
+    return {
+      ...request,
+      page: 0,
+      size: request.size > 0 ? Math.min(request.size, 5000) : 5000,
+      username,
+      usernamesIn: [username],
+      eventType: 'SERVICE_METHOD',
+      excludeActions: [...USER_ACTIVITY_EXCLUDED_ACTIONS],
+    };
   }
 
   churnOutRequestLogs(): Observable<AuditLogResponse> {

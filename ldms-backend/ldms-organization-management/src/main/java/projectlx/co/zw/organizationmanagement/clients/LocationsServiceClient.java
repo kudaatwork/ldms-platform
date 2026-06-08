@@ -1,5 +1,7 @@
 package projectlx.co.zw.organizationmanagement.clients;
 
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -19,5 +21,10 @@ public interface LocationsServiceClient {
     @PostMapping(ADDRESS_SYSTEM_API_BASE + "/create")
     LocationAddressResponse create(
             @RequestBody LocationAddressCreateRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
+
+    @GetMapping(ADDRESS_SYSTEM_API_BASE + "/find-by-id/{id}")
+    LocationAddressResponse findById(
+            @PathVariable("id") Long id,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
 }

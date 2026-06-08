@@ -1,8 +1,10 @@
 import {
+  ArcElement,
   BarController,
   BarElement,
   CategoryScale,
   Chart,
+  DoughnutController,
   Legend,
   LinearScale,
   Tooltip,
@@ -10,11 +12,20 @@ import {
 
 let registered = false;
 
-/** Registers only the bar chart pieces the dashboard uses (avoids heavy full registerables on login). */
+/** Registers chart pieces the dashboard uses (avoids heavy full registerables on login). */
 export function ensureChartJsRegistered(): void {
   if (registered) {
     return;
   }
-  Chart.register(BarController, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+  Chart.register(
+    BarController,
+    BarElement,
+    DoughnutController,
+    ArcElement,
+    CategoryScale,
+    LinearScale,
+    Tooltip,
+    Legend,
+  );
   registered = true;
 }

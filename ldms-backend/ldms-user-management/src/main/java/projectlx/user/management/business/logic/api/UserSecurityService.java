@@ -2,6 +2,7 @@ package projectlx.user.management.business.logic.api;
 
 import projectlx.user.management.utils.requests.CreateUserSecurityRequest;
 import projectlx.user.management.utils.requests.EditUserSecurityRequest;
+import projectlx.user.management.utils.requests.TwoFactorOtpRequest;
 import projectlx.user.management.utils.requests.UserSecurityMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserSecurityResponse;
 import java.util.Locale;
@@ -21,4 +22,23 @@ public interface UserSecurityService {
 
     /** Creates or updates security for the signed-in user only. */
     UserSecurityResponse saveMySecurity(EditUserSecurityRequest request, Locale locale, String sessionUsername);
+
+    UserSecurityResponse beginMyAuthenticatorSetup(Locale locale, String sessionUsername);
+
+    UserSecurityResponse confirmMyAuthenticatorSetup(TwoFactorOtpRequest request, Locale locale, String sessionUsername);
+
+    UserSecurityResponse enableMySmsTwoFactor(Locale locale, String sessionUsername);
+
+    UserSecurityResponse requestMyTwoFactorDisableOtp(Locale locale, String sessionUsername);
+
+    UserSecurityResponse disableMyTwoFactor(TwoFactorOtpRequest request, Locale locale, String sessionUsername);
+
+    UserSecurityResponse adminBeginAuthenticatorSetup(Long userId, Locale locale, String actor);
+
+    UserSecurityResponse adminConfirmAuthenticatorSetup(Long userId, TwoFactorOtpRequest request, Locale locale,
+                                                        String actor);
+
+    UserSecurityResponse adminEnableSmsTwoFactor(Long userId, Locale locale, String actor);
+
+    UserSecurityResponse adminDisableTwoFactor(Long userId, Locale locale, String actor);
 }

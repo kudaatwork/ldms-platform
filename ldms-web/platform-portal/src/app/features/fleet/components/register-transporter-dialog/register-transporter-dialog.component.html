@@ -9,7 +9,17 @@
     </button>
   </div>
 
-  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
+  <div class="lx-dialog-loading" *ngIf="loadingPartner">
+    <mat-progress-spinner diameter="36" mode="indeterminate"></mat-progress-spinner>
+    <p>Loading partner details…</p>
+  </div>
+
+  <div class="lx-list-error lx-dialog-load-error" *ngIf="loadPartnerError && !loadingPartner">
+    <mat-icon>warning_amber</mat-icon>
+    {{ loadPartnerError }}
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()" *ngIf="!loadingPartner">
     <div class="lx-form-grid">
       <div class="lx-form-section span-2">
         <div class="lx-form-section-title">Contract terms</div>
@@ -355,7 +365,7 @@
     <div class="lx-dialog-actions">
       <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
       <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
-        {{ submitting ? 'Registering…' : 'Register partner' }}
+        {{ submitting ? (isEdit ? 'Saving…' : 'Registering…') : (isEdit ? 'Save changes' : 'Register partner') }}
       </button>
     </div>
   </form>

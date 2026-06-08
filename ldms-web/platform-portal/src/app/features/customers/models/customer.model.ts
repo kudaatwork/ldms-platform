@@ -55,6 +55,17 @@ export interface CustomerEditDetail {
   taxClearanceCertificateUploadId?: number;
   contactPersonNationalIdUploadId?: number;
   contactPersonPassportUploadId?: number;
+  /** ldms-locations address id when the organisation has a physical address. */
+  locationId?: number;
+  addressLine1?: string;
+  addressLine2?: string;
+  postalCode?: string;
+  suburbId?: number;
+  cityId?: number;
+  cityName?: string;
+  districtId?: number;
+  provinceId?: number;
+  countryId?: number;
 }
 
 /** Multipart payload — mirrors admin Add organisation (classification fixed to CUSTOMER on server). */
@@ -86,6 +97,10 @@ export interface RegisterCustomerPayload {
   addressLine2?: string;
   postalCode?: string;
   suburbId?: number;
+  /** Selected city when saving address (persisted on the ldms-locations address row). */
+  cityId?: number;
+  /** Existing ldms-locations address id — omit when the user changes address fields on edit. */
+  locationId?: number;
 }
 
 export interface CustomerPageMetrics {

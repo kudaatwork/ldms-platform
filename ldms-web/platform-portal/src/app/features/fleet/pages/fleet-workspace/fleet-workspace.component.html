@@ -6,11 +6,21 @@
     [lead]="heroLead"
     hubIcon="local_shipping"
     [orbitIcons]="['route', 'verified', 'speed']"
-    note="Own fleet cards are a live preview until Fleet Management connects. Contracted transporters are real partner links with stored contract dates."
+    note="Own fleet and contracted transporters are managed live — add vehicles and partners below."
   >
     <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="fetching">
       <mat-icon>refresh</mat-icon>
       Refresh
+    </button>
+    <button
+      type="button"
+      lxWorkspaceHeroActions
+      class="lx-btn lx-btn-ghost lx-btn-sm"
+      (click)="openAddVehicle()"
+      [disabled]="fetching"
+    >
+      <mat-icon>add</mat-icon>
+      Add vehicle
     </button>
     <button
       type="button"
@@ -49,6 +59,20 @@
         <small>Under contract</small>
       </span>
     </button>
+    <button type="button" class="flt-tabs__btn" [class.is-on]="activeTab === 'drivers'" (click)="setTab('drivers')">
+      <mat-icon>badge</mat-icon>
+      <span class="flt-tabs__copy">
+        <span>Drivers</span>
+        <small>Roster &amp; licenses</small>
+      </span>
+    </button>
+    <button type="button" class="flt-tabs__btn" [class.is-on]="activeTab === 'compliance'" (click)="setTab('compliance')">
+      <mat-icon>verified</mat-icon>
+      <span class="flt-tabs__copy">
+        <span>Compliance</span>
+        <small>Docs &amp; expiry</small>
+      </span>
+    </button>
   </nav>
 
   <div class="flt-alert lx-card" *ngIf="loadError" role="alert">
@@ -71,7 +95,7 @@
               <p class="flt-runway__eyebrow"><mat-icon>garage</mat-icon> Own fleet</p>
               <h2>{{ convoyTitle }}</h2>
             </div>
-            <span class="flt-runway__badge flt-runway__badge--preview">Preview data</span>
+            <span class="flt-runway__badge flt-runway__badge--contract">{{ metrics.ownFleetTotal }} vehicles</span>
           </header>
           <p class="flt-runway__lead">{{ convoySectionLead }}</p>
           <div class="flt-runway__strip">
@@ -86,6 +110,17 @@
               </span>
               <span class="flt-vehicle__reg">{{ v.registration }}</span>
               <span class="flt-vehicle__util" [style.--pct]="v.utilizationPct + '%'"></span>
+            </button>
+            <button
+              type="button"
+              class="flt-vehicle flt-vehicle--compact flt-vehicle--add"
+              (click)="openAddVehicle()"
+              title="Add vehicle"
+            >
+              <span class="flt-vehicle__icon-wrap">
+                <mat-icon>add</mat-icon>
+              </span>
+              <span class="flt-vehicle__reg">Add</span>
             </button>
           </div>
         </div>
@@ -126,7 +161,13 @@
             <h2>{{ convoyTitle }}</h2>
             <p>{{ convoySectionLead }}</p>
           </div>
-          <span class="flt-section-head__stat">{{ metrics.available }} ready / yard</span>
+          <div class="flt-section-head__actions">
+            <span class="flt-section-head__stat">{{ metrics.available }} ready / yard</span>
+            <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddVehicle()">
+              <mat-icon>add</mat-icon>
+              Add vehicle
+            </button>
+          </div>
         </header>
         <div class="flt-convoy__grid">
           <button
@@ -137,7 +178,7 @@
             [style.--flt-hue]="v.accentHue"
             (click)="selectVehicle(v)"
           >
-            <span class="flt-vehicle__kind">Own asset</span>
+            <span class="flt-vehicle__kind">{{ v.ownershipLabel }}</span>
             <span class="flt-vehicle__ring" [class]="vehicleRingClass(v.status)"></span>
             <div class="flt-vehicle__top">
               <span class="flt-vehicle__icon-wrap">
@@ -154,6 +195,33 @@
               <span><mat-icon>person</mat-icon>{{ v.driverName }}</span>
               <span><mat-icon>history</mat-icon>{{ v.lastTripLabel }}</span>
             </div>
+            <div class="flt-vehicle__actions" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm"
+                title="Edit vehicle"
+                (click)="openEditVehicle(v, $event)"
+              >
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger"
+                title="Remove vehicle"
+                (click)="confirmDeleteVehicle(v, $event)"
+              >
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </div>
+          </button>
+        </div>
+        <div class="lx-empty lx-empty--compact" *ngIf="!ownFleet.length && !fetching">
+          <mat-icon class="lx-empty-icon">garage</mat-icon>
+          <div class="lx-empty-title">No vehicles yet</div>
+          <div class="lx-empty-sub">Add your first owned or operated vehicle to start tracking utilisation.</div>
+          <button type="button" class="lx-btn lx-btn-primary" (click)="openAddVehicle()">
+            <mat-icon>add</mat-icon>
+            Add vehicle
           </button>
         </div>
       </section>
@@ -203,6 +271,24 @@
               <span><mat-icon>link</mat-icon>Linked {{ p.linkedSinceLabel }}</span>
               <span><mat-icon>verified</mat-icon>{{ p.kycStatusLabel }}</span>
             </div>
+            <div class="flt-partner-card__actions" *ngIf="canLinkTransporter" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm"
+                title="Edit partner"
+                (click)="openEditTransporter(p, $event)"
+              >
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger"
+                title="Remove partner"
+                (click)="confirmDeleteTransporter(p, $event)"
+              >
+                <mat-icon>link_off</mat-icon>
+              </button>
+            </div>
           </button>
         </div>
 
@@ -224,6 +310,149 @@
           </button>
         </div>
       </section>
+
+      <!-- Drivers -->
+      <section class="flt-drivers" *ngIf="activeTab === 'drivers'">
+        <header class="flt-section-head">
+          <div>
+            <h2>Driver roster</h2>
+            <p>Licensed drivers for {{ orgName }} — link platform users when available.</p>
+          </div>
+          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddDriver()">
+            <mat-icon>person_add</mat-icon>
+            Add driver
+          </button>
+        </header>
+
+        <div class="flt-drivers__loading" *ngIf="driversLoading" role="status">
+          <lx-table-loading [busy]="true" message="Loading driver roster…"></lx-table-loading>
+        </div>
+
+        <p class="flt-alert lx-card" *ngIf="driversError" role="alert">
+          <mat-icon>error_outline</mat-icon>
+          {{ driversError }}
+        </p>
+
+        <div class="flt-drivers__grid" *ngIf="!driversLoading && drivers.length">
+          <article class="flt-driver-card" *ngFor="let d of drivers; trackBy: trackByDriverId">
+            <div class="flt-driver-card__avatar" [ngStyle]="avatarStyle(d)">{{ d.initials }}</div>
+            <div class="flt-driver-card__body">
+              <h3>{{ d.fullName }}</h3>
+              <p><mat-icon>phone</mat-icon>{{ d.phoneNumber }}</p>
+              <p><mat-icon>credit_card</mat-icon>{{ d.licenseNumber }} · Class {{ d.licenseClass }}</p>
+            </div>
+            <div class="flt-driver-card__actions">
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditDriver(d, $event)">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger" (click)="confirmDeleteDriver(d, $event)">
+                <mat-icon>delete_outline</mat-icon>
+              </button>
+            </div>
+          </article>
+        </div>
+
+        <div class="lx-empty lx-empty--compact" *ngIf="!driversLoading && !drivers.length && !driversError">
+          <mat-icon class="lx-empty-icon">badge</mat-icon>
+          <div class="lx-empty-title">No drivers yet</div>
+          <div class="lx-empty-sub">Add your first driver to track licenses and compliance documents.</div>
+          <button type="button" class="lx-btn lx-btn-primary" (click)="openAddDriver()">
+            <mat-icon>person_add</mat-icon>
+            Add driver
+          </button>
+        </div>
+      </section>
+
+      <!-- Compliance -->
+      <section class="flt-compliance" *ngIf="activeTab === 'compliance'">
+        <header class="flt-section-head">
+          <div>
+            <h2>Compliance register</h2>
+            <p>Insurance, licenses, roadworthiness, and maintenance records for assets and drivers.</p>
+          </div>
+          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddCompliance()">
+            <mat-icon>add</mat-icon>
+            Add record
+          </button>
+        </header>
+
+        <div class="flt-compliance__toolbar lx-card">
+          <button
+            type="button"
+            class="flt-tabs__btn flt-tabs__btn--inline"
+            [class.is-on]="complianceFilter === 'all'"
+            (click)="setComplianceFilter('all')"
+          >
+            All records
+          </button>
+          <button
+            type="button"
+            class="flt-tabs__btn flt-tabs__btn--inline"
+            [class.is-on]="complianceFilter === 'expiring'"
+            (click)="setComplianceFilter('expiring')"
+          >
+            Expiring (30 days)
+            <span class="flt-runway__badge" *ngIf="metrics.expiringComplianceTotal">{{ metrics.expiringComplianceTotal }}</span>
+          </button>
+        </div>
+
+        <div class="flt-compliance__loading" *ngIf="complianceLoading" role="status">
+          <lx-table-loading [busy]="true" message="Loading compliance records…"></lx-table-loading>
+        </div>
+
+        <p class="flt-alert lx-card" *ngIf="complianceError" role="alert">
+          <mat-icon>error_outline</mat-icon>
+          {{ complianceError }}
+        </p>
+
+        <div class="flt-compliance__table lx-card" *ngIf="!complianceLoading && visibleCompliance.length">
+          <table>
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Type</th>
+                <th>Expires</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of visibleCompliance; trackBy: trackByComplianceId">
+                <td>
+                  <span class="flt-compliance__subject">{{ row.subjectLabel || ('#' + row.subjectId) }}</span>
+                  <small>{{ row.subjectTypeLabel }}</small>
+                </td>
+                <td>{{ row.complianceTypeLabel }}</td>
+                <td>
+                  <span [ngClass]="expiryPillClass(row.expiryStatus)">{{ row.expiresLabel }}</span>
+                </td>
+                <td>{{ row.statusLabel }}</td>
+                <td class="flt-compliance__actions">
+                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditCompliance(row, $event)">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="lx-empty lx-empty--compact" *ngIf="!complianceLoading && !visibleCompliance.length && !complianceError">
+          <mat-icon class="lx-empty-icon">verified</mat-icon>
+          <div class="lx-empty-title">{{ complianceFilter === 'expiring' ? 'Nothing expiring soon' : 'No compliance records' }}</div>
+          <div class="lx-empty-sub">
+            {{
+              complianceFilter === 'expiring'
+                ? 'No documents expire within the next 30 days.'
+                : 'Track insurance, licenses, and maintenance against fleet assets or drivers.'
+            }}
+          </div>
+          <button type="button" class="lx-btn lx-btn-primary" *ngIf="complianceFilter === 'all'" (click)="openAddCompliance()">
+            <mat-icon>add</mat-icon>
+            Add record
+          </button>
+        </div>
+      </section>
     </main>
 
     <aside class="flt-spotlight lx-card" [class.is-open]="!!selectedVehicle || !!selectedPartner">
@@ -233,7 +462,7 @@
             <mat-icon>{{ vehicleIcon(unit.type) }}</mat-icon>
           </span>
           <div>
-            <p class="flt-spotlight__eyebrow">Own fleet · unit spotlight</p>
+            <p class="flt-spotlight__eyebrow">Fleet unit · spotlight</p>
             <h2>{{ unit.registration }}</h2>
           </div>
           <button type="button" mat-icon-button aria-label="Close" (click)="selectedVehicleId = null">
@@ -241,6 +470,10 @@
           </button>
         </header>
         <dl class="flt-spotlight__facts">
+          <div><dt>Ownership</dt><dd>{{ unit.ownershipLabel }}</dd></div>
+          <div *ngIf="unit.contractedTransporterOrganizationName">
+            <dt>Transporter</dt><dd>{{ unit.contractedTransporterOrganizationName }}</dd>
+          </div>
           <div><dt>Model</dt><dd>{{ unit.makeModel }}</dd></div>
           <div><dt>Status</dt><dd>{{ unit.statusLabel }}</dd></div>
           <div><dt>Driver</dt><dd>{{ unit.driverName }}</dd></div>
@@ -251,7 +484,17 @@
           <div class="flt-pulse-ring" [style.--pct]="unit.utilizationPct + '%'">
             <span>{{ unit.utilizationPct }}%</span>
           </div>
-          <p>Telemetry preview — GPS, fuel, and trip history sync when Fleet Management launches.</p>
+          <p>Select edit to update vehicle details or remove this unit from your fleet.</p>
+        </div>
+        <div class="flt-spotlight__actions">
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditVehicle(unit)">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger" (click)="confirmDeleteVehicle(unit)">
+            <mat-icon>delete_outline</mat-icon>
+            Delete
+          </button>
         </div>
       </ng-container>
 
@@ -280,6 +523,17 @@
           </span>
         </div>
 
+        <div class="flt-spotlight__actions" *ngIf="canLinkTransporter">
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditTransporter(partner)">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger" (click)="confirmDeleteTransporter(partner)">
+            <mat-icon>link_off</mat-icon>
+            Unlink
+          </button>
+        </div>
+
         <div class="flt-spotlight__metadata">
           <lx-organization-metadata-panel
             [metadata]="partnerMetadata"
@@ -288,6 +542,24 @@
             emptyMessage="No metadata is linked to this partner yet."
           ></lx-organization-metadata-panel>
         </div>
+
+        <section class="flt-spotlight__fleet" *ngIf="isSupplier">
+          <header class="flt-spotlight__fleet-head">
+            <h3>Partner fleet</h3>
+            <span>{{ partnerFleet.length }} vehicles</span>
+          </header>
+          <div class="flt-spotlight__fleet-loading" *ngIf="partnerFleetLoading" role="status">Loading partner fleet…</div>
+          <p class="flt-spotlight__fleet-error" *ngIf="partnerFleetError">{{ partnerFleetError }}</p>
+          <ul class="flt-spotlight__fleet-list" *ngIf="!partnerFleetLoading && partnerFleet.length">
+            <li *ngFor="let v of partnerFleet; trackBy: trackByVehicleId">
+              <span class="flt-spotlight__fleet-reg">{{ v.registration }}</span>
+              <span class="flt-spotlight__fleet-meta">{{ v.makeModel }} · {{ v.ownershipLabel }}</span>
+            </li>
+          </ul>
+          <p class="flt-spotlight__fleet-empty" *ngIf="!partnerFleetLoading && !partnerFleetError && !partnerFleet.length">
+            No vehicles registered for this partner yet.
+          </p>
+        </section>
       </ng-container>
 
       <div class="flt-spotlight__idle" *ngIf="!selectedVehicle && !selectedPartner">

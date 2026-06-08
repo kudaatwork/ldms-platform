@@ -18,4 +18,8 @@ public class UserSecurityResponse extends CommonResponse {
     private List<UserSecurityDto> userSecurityDtoList;
     private Page<UserSecurityDto> userSecurityDtoPage;
     private List<String> errorMessages;
+    /** Present only during authenticator-app enrollment (before confirmation). */
+    private String authenticatorSetupSecret;
+    private String authenticatorSetupOtpAuthUri;
+    private String authenticatorSetupQrCodeDataUrl;
 }

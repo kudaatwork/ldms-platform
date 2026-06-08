@@ -58,6 +58,10 @@
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
         </dependency>
         <dependency>
+            <groupId>dev.samstevens.totp</groupId>
+            <artifactId>totp</artifactId>
+        </dependency>
+        <dependency>
             <groupId>net.sf.jmimemagic</groupId>
             <artifactId>jmimemagic</artifactId>
             <version>${jmimemagic.version}</version>

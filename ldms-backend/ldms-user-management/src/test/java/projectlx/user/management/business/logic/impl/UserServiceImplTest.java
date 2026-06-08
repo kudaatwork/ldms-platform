@@ -138,6 +138,8 @@ class UserServiceImplTest {
                 "http://localhost:4200", "http://localhost:4201");
         var organizationWorkspaceAccessSupport =
                 mock(projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport.class);
+        var phoneVerificationSupport =
+                mock(projectlx.user.management.business.logic.support.PhoneVerificationSupport.class);
 
         userService = new UserServiceImpl(
                 userServiceValidator,
@@ -166,7 +168,8 @@ class UserServiceImplTest {
                 tokenService,
                 emailVerificationLinkProperties,
                 passwordResetLinkProperties,
-                organizationWorkspaceAccessSupport
+                organizationWorkspaceAccessSupport,
+                phoneVerificationSupport
         );
 
         // Set the objectMapper field using reflection

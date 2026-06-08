@@ -29,6 +29,7 @@ export class CustomersListComponent implements OnInit, OnDestroy {
 
   fetching = true;
   loadError = '';
+  retryingOnboardingId: number | null = null;
   searchQuery = '';
   statusFilter: CustomerStatusFilter = 'ALL';
   viewMode: CustomerViewMode = 'atlas';
@@ -199,6 +200,33 @@ export class CustomersListComponent implements OnInit, OnDestroy {
               this.notifications.error(err.message ?? 'Could not delete customer.');
             },
           });
+      });
+  }
+
+  canRetryOnboarding(row: CustomerListRow): boolean {
+    return String(row.kycStatus ?? '').toUpperCase() === 'APPROVED';
+  }
+
+  retryOnboardingEmails(row: CustomerListRow, event: Event): void {
+    event.stopPropagation();
+    if (!this.canRetryOnboarding(row) || this.retryingOnboardingId === row.id) {
+      return;
+    }
+    this.retryingOnboardingId = row.id;
+    this.customers
+      .retryOnboardingEmails(row.id)
+      .pipe(
+        finalize(() => {
+          this.retryingOnboardingId = null;
+          this.cdr.detectChanges();
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (message) => this.notifications.success(message),
+        error: (err: Error) => {
+          this.notifications.error(err.message ?? 'Could not resend onboarding emails.');
+        },
       });
   }
 

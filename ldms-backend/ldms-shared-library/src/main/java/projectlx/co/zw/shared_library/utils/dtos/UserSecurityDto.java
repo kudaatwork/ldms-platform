@@ -1,6 +1,8 @@
 package projectlx.co.zw.shared_library.utils.dtos;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import projectlx.co.zw.shared_library.utils.enums.TwoFactorMethod;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
@@ -16,5 +18,7 @@ public class UserSecurityDto {
     private String securityQuestion_2;
     private String securityAnswer_2;
     private String twoFactorAuthSecret;
+    @JsonProperty("isTwoFactorEnabled")
     private Boolean isTwoFactorEnabled;
+    private TwoFactorMethod twoFactorMethod;
 }

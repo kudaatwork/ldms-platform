@@ -9,6 +9,8 @@ export interface UserEditSecurityDialogData {
   userId: number;
   /** `recovery` from Preferences (Q&A); `full` from Security details (all fields). */
   emphasis?: 'recovery' | 'full';
+  /** My Account: use {@code /user-security/me} (no admin security roles in JWT). */
+  selfService?: boolean;
 }
 
 function coerceSecurityRecord(raw: unknown): Record<string, unknown> {
@@ -31,6 +33,7 @@ export class UserEditSecurityDialogComponent implements OnInit {
 
   readonly emphasis: 'recovery' | 'full';
   readonly dialogTitle: string;
+  private readonly selfService: boolean;
 
   securityQuestion_1 = '';
   securityAnswer_1 = '';
@@ -51,6 +54,7 @@ export class UserEditSecurityDialogComponent implements OnInit {
     const safeData = data ?? { security: {}, userId: 0 };
     const security = coerceSecurityRecord(safeData.security);
     this.emphasis = safeData.emphasis ?? 'full';
+    this.selfService = safeData.selfService === true;
     this.dialogTitle =
       this.emphasis === 'recovery'
         ? 'Edit security questions & answers'
@@ -61,6 +65,20 @@ export class UserEditSecurityDialogComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    if (this.selfService) {
+      this.usersAdmin.getMyUserSecurity().subscribe({
+        next: (row) => {
+          if (row) {
+            this.applySecurityRecord(row);
+          }
+          this.loading = false;
+        },
+        error: () => {
+          this.loading = false;
+        },
+      });
+      return;
+    }
     if (Number.isFinite(this.securityId) && this.securityId > 0) {
       this.usersAdmin.getUserSecurityById(this.securityId).subscribe({
         next: (row) => {
@@ -116,7 +134,7 @@ export class UserEditSecurityDialogComponent implements OnInit {
       this.error = 'Question 1, answer 1, and answer 2 are required.';
       return;
     }
-    if (!this.twoFactorAuthSecret.trim()) {
+    if (!this.selfService && !this.twoFactorAuthSecret.trim()) {
       this.error =
         'Two-factor secret is required by the API. If it stayed empty after load, refresh the profile or paste the current base32 secret.';
       return;
@@ -132,8 +150,16 @@ export class UserEditSecurityDialogComponent implements OnInit {
       twoFactorAuthSecret: this.twoFactorAuthSecret.trim(),
       isTwoFactorEnabled: this.isTwoFactorEnabled,
     };
-    const save$ =
-      Number.isFinite(this.securityId) && this.securityId > 0
+    const save$ = this.selfService
+      ? this.usersAdmin.saveMyUserSecurity({
+          securityQuestion_1: basePayload.securityQuestion_1,
+          securityAnswer_1: basePayload.securityAnswer_1,
+          securityQuestion_2: basePayload.securityQuestion_2,
+          securityAnswer_2: basePayload.securityAnswer_2,
+          twoFactorAuthSecret: basePayload.twoFactorAuthSecret,
+          isTwoFactorEnabled: basePayload.isTwoFactorEnabled,
+        })
+      : Number.isFinite(this.securityId) && this.securityId > 0
         ? this.usersAdmin.updateUserSecurity({ id: this.securityId, ...basePayload })
         : this.usersAdmin.createUserSecurity(basePayload);
     const okMessage =

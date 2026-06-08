@@ -122,6 +122,19 @@ spring:
           uri: http://${ORGANIZATION_MANAGEMENT_HOST:127.0.0.1}:${ORGANIZATION_MANAGEMENT_PORT:8087}
           predicates:
             - Path=/ldms-organization-management/v1/backoffice/**
+        # Fallback when Config Server is down. Live routes use LdmsFleetManagementGatewayRoutesConfiguration.
+        - id: local-system-fleet-management
+          uri: http://${FLEET_MANAGEMENT_HOST:127.0.0.1}:${FLEET_MANAGEMENT_PORT:8088}
+          predicates:
+            - Path=/ldms-fleet-management/v1/system/**
+        - id: local-frontend-fleet-management
+          uri: http://${FLEET_MANAGEMENT_HOST:127.0.0.1}:${FLEET_MANAGEMENT_PORT:8088}
+          predicates:
+            - Path=/ldms-fleet-management/v1/frontend/**
+        - id: local-backoffice-fleet-management
+          uri: http://${FLEET_MANAGEMENT_HOST:127.0.0.1}:${FLEET_MANAGEMENT_PORT:8088}
+          predicates:
+            - Path=/ldms-fleet-management/v1/backoffice/**
         # ldms-authentication (login, refresh, Google) — see LdmsAuthenticationGatewayRoutesConfiguration (order -100).
         - id: local-authentication
           uri: http://${AUTHENTICATION_HOST:127.0.0.1}:${AUTHENTICATION_PORT:8083}
@@ -187,6 +200,11 @@ ldms:
         eureka-name: ldms-audit-trail
         host: ${AUDIT_TRAIL_HOST:127.0.0.1}
         port: ${AUDIT_TRAIL_PORT:8099}
+      - id: fleet-management
+        display-name: Fleet Management
+        eureka-name: fleet-management-service
+        host: ${FLEET_MANAGEMENT_HOST:127.0.0.1}
+        port: ${FLEET_MANAGEMENT_PORT:8088}
       - id: file-upload
         display-name: File Upload
         eureka-name: file-upload-service
@@ -206,6 +224,10 @@ ldms:
       routes-enabled: true
       host: ${AUDIT_TRAIL_HOST:127.0.0.1}
       port: ${AUDIT_TRAIL_PORT:8099}
+    fleet-management:
+      routes-enabled: true
+      host: ${FLEET_MANAGEMENT_HOST:127.0.0.1}
+      port: ${FLEET_MANAGEMENT_PORT:8088}
     authentication:
       routes-enabled: true
       # Downstream ldms-authentication (default 8083). Gateway listens on 8091.
