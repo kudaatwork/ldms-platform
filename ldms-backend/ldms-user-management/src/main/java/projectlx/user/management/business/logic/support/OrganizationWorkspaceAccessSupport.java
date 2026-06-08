@@ -26,6 +26,8 @@ public class OrganizationWorkspaceAccessSupport {
     private static final String ORGANIZATION_ADMINISTRATOR = "ORGANIZATION_ADMINISTRATOR";
     /** Admin portal backoffice surface passes this actor when no JWT principal is present. */
     private static final String BACKOFFICE_ACTOR = "BACKOFFICE";
+    /** Inter-service system API calls from organisation-management and other LDMS services. */
+    private static final String SYSTEM_ACTOR = "SYSTEM";
 
     private final UserRepository userRepository;
 
@@ -37,7 +39,7 @@ public class OrganizationWorkspaceAccessSupport {
         if (!StringUtils.hasText(sessionUsername) || targetUserId == null || targetUserId <= 0) {
             return false;
         }
-        if (isTrustedBackofficeActor(sessionUsername)
+        if (isTrustedServiceActorInternal(sessionUsername)
                 || hasWorkspaceSuperRole()
                 || hasRole(UserRoles.VIEW_USER_BY_ID.getRoleName())) {
             return true;
@@ -61,7 +63,7 @@ public class OrganizationWorkspaceAccessSupport {
         if (!StringUtils.hasText(sessionUsername) || organizationId == null || organizationId <= 0) {
             return false;
         }
-        if (isTrustedBackofficeActor(sessionUsername)
+        if (isTrustedServiceActorInternal(sessionUsername)
                 || hasWorkspaceSuperRole()
                 || hasRole(UserRoles.VIEW_USERS_BY_ORGANIZATION.getRoleName())) {
             return true;
@@ -90,10 +92,17 @@ public class OrganizationWorkspaceAccessSupport {
                 .orElse(false);
     }
 
+    public boolean isTrustedServiceActor(String sessionUsername) {
+        return isTrustedServiceActorInternal(sessionUsername);
+    }
+
     /** Direct {@code organization_id} on the user row, else the linked workspace group's organisation. */
-    private static boolean isTrustedBackofficeActor(String sessionUsername) {
-        return StringUtils.hasText(sessionUsername)
-                && BACKOFFICE_ACTOR.equalsIgnoreCase(sessionUsername.trim());
+    private static boolean isTrustedServiceActorInternal(String sessionUsername) {
+        if (!StringUtils.hasText(sessionUsername)) {
+            return false;
+        }
+        String actor = sessionUsername.trim();
+        return BACKOFFICE_ACTOR.equalsIgnoreCase(actor) || SYSTEM_ACTOR.equalsIgnoreCase(actor);
     }
 
     private Optional<Long> effectiveOrganizationId(User user) {

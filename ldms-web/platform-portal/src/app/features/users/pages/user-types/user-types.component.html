@@ -31,6 +31,14 @@
           <mat-icon>info_outline</mat-icon>
         </button>
       </div>
+      <p class="lx-controls-hint" *ngIf="bootstrapLocked">
+        <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+        <span>
+          <strong>First-time setup:</strong>
+          Only the default <em>System Administrator</em> type is shown until you add your first custom user type.
+          Create additional types (for example Driver or Receiver) to assign them when adding users.
+        </span>
+      </p>
       <p class="lx-controls-hint" *ngIf="showSampleCsvInfo">
         <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
       <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }} The download includes the header row and 2 example rows you can copy or replace.</span>

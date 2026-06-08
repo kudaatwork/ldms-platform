@@ -8,7 +8,20 @@ export interface AuthTokenResponse {
   accessToken?: string;
   refreshToken?: string;
   token?: string;
+  mustChangeCredentials?: boolean;
+  requiresTwoFactor?: boolean;
+  mfaChallengeToken?: string;
+  twoFactorMethod?: string;
 }
+
+export type AuthLoginOutcome =
+  | { kind: 'authenticated' }
+  | {
+      kind: 'two_factor_required';
+      mfaChallengeToken: string;
+      message?: string;
+      twoFactorMethod?: string;
+    };
 
 export function isAuthSuccess(res: AuthTokenResponse): boolean {
   if (res.success === true || res.isSuccess === true) {

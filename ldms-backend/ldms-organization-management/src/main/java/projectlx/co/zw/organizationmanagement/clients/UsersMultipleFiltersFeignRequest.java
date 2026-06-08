@@ -12,5 +12,6 @@ public class UsersMultipleFiltersFeignRequest {
     private int page;
     private int size;
     private String searchValue;
+    private String email;
     private Long organizationId;
 }

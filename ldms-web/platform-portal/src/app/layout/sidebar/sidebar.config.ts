@@ -92,7 +92,7 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
   TRANSPORT_COMPANY: [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
     { label: 'Fleet & Transporters', route: '/fleet', icon: 'local_shipping' },
-    { label: 'Drivers', route: '/drivers', icon: 'badge' },
+    { label: 'Drivers', route: '/fleet/drivers', icon: 'badge' },
     { label: 'Trips', route: '/trips', icon: 'route' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
     { label: 'Billing', route: '/billing', icon: 'receipt_long' },

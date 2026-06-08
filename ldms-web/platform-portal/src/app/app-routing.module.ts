@@ -72,7 +72,7 @@ const routes: Routes = [
       },
       { path: 'deliveries', component: PlaceholderPageComponent, data: { title: 'Deliveries', breadcrumb: 'Deliveries' } },
       { path: 'invoices', component: PlaceholderPageComponent, data: { title: 'Invoices', breadcrumb: 'Invoices' } },
-      { path: 'drivers', component: PlaceholderPageComponent, data: { title: 'Drivers', breadcrumb: 'Drivers' } },
+      { path: 'drivers', redirectTo: 'fleet/drivers', pathMatch: 'full' },
       { path: 'trips', component: PlaceholderPageComponent, data: { title: 'Trips', breadcrumb: 'Trips' } },
       {
         path: 'active-clearances',

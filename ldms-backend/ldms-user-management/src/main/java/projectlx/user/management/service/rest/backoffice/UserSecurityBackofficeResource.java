@@ -5,6 +5,7 @@ import projectlx.co.zw.shared_library.utils.constants.Constants;
 import projectlx.user.management.service.processor.api.UserSecurityServiceProcessor;
 import projectlx.user.management.utils.requests.CreateUserSecurityRequest;
 import projectlx.user.management.utils.requests.EditUserSecurityRequest;
+import projectlx.user.management.utils.requests.TwoFactorOtpRequest;
 import projectlx.user.management.utils.requests.UserSecurityMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserSecurityResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,6 +15,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -124,5 +127,50 @@ public class UserSecurityBackofficeResource {
                                                            defaultValue = Constants.DEFAULT_LOCALE) final Locale locale)
     {
         return userSecurityServiceProcessor.findByMultipleFilters(userSecurityMultipleFiltersRequest, "BACKOFFICE", locale);
+    }
+
+    @Auditable(action = "ADMIN_BEGIN_USER_AUTHENTICATOR_TWO_FACTOR")
+    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserSecurityRoles).UPDATE_USER_SECURITY.toString())")
+    @PostMapping("/{userId}/two-factor/begin-authenticator")
+    @Operation(summary = "Begin authenticator 2FA for a user", description = "Admin: generates TOTP setup for the target user.")
+    public UserSecurityResponse adminBeginAuthenticatorSetup(
+            @PathVariable("userId") final Long userId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String actor = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.adminBeginAuthenticatorSetup(userId, locale, actor);
+    }
+
+    @Auditable(action = "ADMIN_CONFIRM_USER_AUTHENTICATOR_TWO_FACTOR")
+    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserSecurityRoles).UPDATE_USER_SECURITY.toString())")
+    @PostMapping("/{userId}/two-factor/confirm-authenticator")
+    @Operation(summary = "Confirm authenticator 2FA for a user", description = "Admin: verifies TOTP and enables authenticator 2FA.")
+    public UserSecurityResponse adminConfirmAuthenticatorSetup(
+            @PathVariable("userId") final Long userId,
+            @Valid @RequestBody final TwoFactorOtpRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String actor = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.adminConfirmAuthenticatorSetup(userId, request, locale, actor);
+    }
+
+    @Auditable(action = "ADMIN_ENABLE_USER_SMS_TWO_FACTOR")
+    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserSecurityRoles).UPDATE_USER_SECURITY.toString())")
+    @PostMapping("/{userId}/two-factor/enable-sms")
+    @Operation(summary = "Enable SMS 2FA for a user", description = "Admin: enables SMS two-step verification when the user's phone is verified.")
+    public UserSecurityResponse adminEnableSmsTwoFactor(
+            @PathVariable("userId") final Long userId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String actor = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.adminEnableSmsTwoFactor(userId, locale, actor);
+    }
+
+    @Auditable(action = "ADMIN_DISABLE_USER_TWO_FACTOR")
+    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserSecurityRoles).UPDATE_USER_SECURITY.toString())")
+    @PostMapping("/{userId}/two-factor/disable")
+    @Operation(summary = "Disable 2FA for a user", description = "Admin: turns off two-step verification without an end-user OTP.")
+    public UserSecurityResponse adminDisableTwoFactor(
+            @PathVariable("userId") final Long userId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String actor = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.adminDisableTwoFactor(userId, locale, actor);
     }
 }

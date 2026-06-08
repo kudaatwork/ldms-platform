@@ -29,4 +29,6 @@ public class ProvisionOrganizationContactPersonRequest {
     private Boolean viaSignup;
     /** When false, skips the contact-person verification email (credentials are emailed separately). */
     private Boolean sendVerificationEmail;
+    /** When set, updates this existing user instead of creating a duplicate by email. */
+    private Long contactUserId;
 }

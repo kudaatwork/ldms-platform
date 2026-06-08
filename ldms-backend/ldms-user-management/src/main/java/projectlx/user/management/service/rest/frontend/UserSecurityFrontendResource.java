@@ -25,6 +25,7 @@ import projectlx.co.zw.shared_library.utils.constants.Constants;
 import projectlx.user.management.service.processor.api.UserSecurityServiceProcessor;
 import projectlx.user.management.utils.requests.CreateUserSecurityRequest;
 import projectlx.user.management.utils.requests.EditUserSecurityRequest;
+import projectlx.user.management.utils.requests.TwoFactorOtpRequest;
 import projectlx.user.management.utils.requests.UserSecurityMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserSecurityResponse;
 
@@ -106,6 +107,58 @@ public class UserSecurityFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userSecurityServiceProcessor.saveMySecurity(request, locale, username);
+    }
+
+    @Auditable(action = "BEGIN_MY_AUTHENTICATOR_TWO_FACTOR")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/me/two-factor/begin-authenticator")
+    @Operation(summary = "Begin authenticator-app 2FA setup", description = "Generates a TOTP secret and QR payload for the signed-in user.")
+    public UserSecurityResponse beginMyAuthenticatorSetup(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.beginMyAuthenticatorSetup(locale, username);
+    }
+
+    @Auditable(action = "CONFIRM_MY_AUTHENTICATOR_TWO_FACTOR")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/me/two-factor/confirm-authenticator")
+    @Operation(summary = "Confirm authenticator-app 2FA", description = "Verifies a TOTP code and enables authenticator-app 2FA.")
+    public UserSecurityResponse confirmMyAuthenticatorSetup(
+            @Valid @RequestBody final TwoFactorOtpRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.confirmMyAuthenticatorSetup(request, locale, username);
+    }
+
+    @Auditable(action = "ENABLE_MY_SMS_TWO_FACTOR")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/me/two-factor/enable-sms")
+    @Operation(summary = "Enable SMS 2FA", description = "Enables SMS two-step verification when the phone number is verified.")
+    public UserSecurityResponse enableMySmsTwoFactor(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.enableMySmsTwoFactor(locale, username);
+    }
+
+    @Auditable(action = "REQUEST_MY_TWO_FACTOR_DISABLE_OTP")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/me/two-factor/request-disable-otp")
+    @Operation(summary = "Request SMS code to disable 2FA", description = "Sends a step-up SMS OTP before disabling SMS-based 2FA.")
+    public UserSecurityResponse requestMyTwoFactorDisableOtp(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.requestMyTwoFactorDisableOtp(locale, username);
+    }
+
+    @Auditable(action = "DISABLE_MY_TWO_FACTOR")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/me/two-factor/disable")
+    @Operation(summary = "Disable 2FA", description = "Disables two-step verification after verifying SMS or authenticator code.")
+    public UserSecurityResponse disableMyTwoFactor(
+            @Valid @RequestBody final TwoFactorOtpRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userSecurityServiceProcessor.disableMyTwoFactor(request, locale, username);
     }
 
     @Auditable(action = "FIND_USER_SECURITY_BY_ID")

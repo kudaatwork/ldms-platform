@@ -4,6 +4,7 @@ import projectlx.user.management.business.logic.api.UserSecurityService;
 import projectlx.user.management.service.processor.api.UserSecurityServiceProcessor;
 import projectlx.user.management.utils.requests.CreateUserSecurityRequest;
 import projectlx.user.management.utils.requests.EditUserSecurityRequest;
+import projectlx.user.management.utils.requests.TwoFactorOtpRequest;
 import projectlx.user.management.utils.requests.UserSecurityMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserSecurityResponse;
 import lombok.RequiredArgsConstructor;
@@ -97,6 +98,54 @@ public class UserSecurityServiceProcessorImpl implements UserSecurityServiceProc
         UserSecurityResponse response = userSecurityService.saveMySecurity(request, locale, sessionUsername);
         logger.info("Outgoing saveMySecurity statusCode={}", response.getStatusCode());
         return response;
+    }
+
+    @Override
+    public UserSecurityResponse beginMyAuthenticatorSetup(Locale locale, String sessionUsername) {
+        return userSecurityService.beginMyAuthenticatorSetup(locale, sessionUsername);
+    }
+
+    @Override
+    public UserSecurityResponse confirmMyAuthenticatorSetup(TwoFactorOtpRequest request, Locale locale,
+                                                            String sessionUsername) {
+        return userSecurityService.confirmMyAuthenticatorSetup(request, locale, sessionUsername);
+    }
+
+    @Override
+    public UserSecurityResponse enableMySmsTwoFactor(Locale locale, String sessionUsername) {
+        return userSecurityService.enableMySmsTwoFactor(locale, sessionUsername);
+    }
+
+    @Override
+    public UserSecurityResponse requestMyTwoFactorDisableOtp(Locale locale, String sessionUsername) {
+        return userSecurityService.requestMyTwoFactorDisableOtp(locale, sessionUsername);
+    }
+
+    @Override
+    public UserSecurityResponse disableMyTwoFactor(TwoFactorOtpRequest request, Locale locale,
+                                                   String sessionUsername) {
+        return userSecurityService.disableMyTwoFactor(request, locale, sessionUsername);
+    }
+
+    @Override
+    public UserSecurityResponse adminBeginAuthenticatorSetup(Long userId, Locale locale, String actor) {
+        return userSecurityService.adminBeginAuthenticatorSetup(userId, locale, actor);
+    }
+
+    @Override
+    public UserSecurityResponse adminConfirmAuthenticatorSetup(Long userId, TwoFactorOtpRequest request, Locale locale,
+                                                               String actor) {
+        return userSecurityService.adminConfirmAuthenticatorSetup(userId, request, locale, actor);
+    }
+
+    @Override
+    public UserSecurityResponse adminEnableSmsTwoFactor(Long userId, Locale locale, String actor) {
+        return userSecurityService.adminEnableSmsTwoFactor(userId, locale, actor);
+    }
+
+    @Override
+    public UserSecurityResponse adminDisableTwoFactor(Long userId, Locale locale, String actor) {
+        return userSecurityService.adminDisableTwoFactor(userId, locale, actor);
     }
 
     @Override

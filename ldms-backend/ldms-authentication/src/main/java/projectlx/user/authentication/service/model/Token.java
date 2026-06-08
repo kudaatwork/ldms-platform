@@ -30,6 +30,7 @@ public class Token {
     private String token;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "token_type", nullable = false, length = 50)
     private TokenType tokenType = TokenType.BEARER;
 
     private boolean revoked;

@@ -1,0 +1,21 @@
+package projectlx.co.zw.fleetmanagement.utils.requests;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
+import java.math.BigDecimal;
+
+@Getter
+@Setter
+@ToString
+public class CreateFleetAssetRequest {
+    private String assetType;
+    private String ownershipType;
+    private Long contractedTransporterOrganizationId;
+    private String registration;
+    private String makeModel;
+    private String status;
+    private String driverName;
+    private BigDecimal utilizationPct;
+}

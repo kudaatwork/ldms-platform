@@ -171,8 +171,12 @@
       </div>
 
       <app-user-address-cascade-fields
+        *ngIf="!loadingCustomer"
         class="span-2"
         [(suburbId)]="suburbIdStr"
+        [(cityId)]="cityIdStr"
+        [seedSuburbId]="seedSuburbId"
+        [seedAddressHierarchy]="addressSeed"
         [disabled]="submitting"
       ></app-user-address-cascade-fields>
 

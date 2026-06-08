@@ -63,6 +63,9 @@ public class OrganizationContactPersonProvisioningSupport {
         request.setPassportUploadId(org.getContactPersonPassportUploadId());
         request.setViaSignup(viaSignup);
         request.setSendVerificationEmail(sendVerificationEmail);
+        if (org.getContactPersonUserId() != null && org.getContactPersonUserId() > 0) {
+            request.setContactUserId(org.getContactPersonUserId());
+        }
         try {
             UserResponse response = userManagementServiceClient.provisionOrganizationContactPerson(request);
             Long id = extractUserId(response);
@@ -103,6 +106,20 @@ public class OrganizationContactPersonProvisioningSupport {
     }
 
     /**
+     * Keeps the linked contact person user aligned when a supplier edits customer contact details.
+     */
+    public void syncContactPersonFromOrganization(Organization org) {
+        if (org == null || org.getId() == null || org.getContactPersonUserId() == null || org.getContactPersonUserId() <= 0) {
+            return;
+        }
+        if (!StringUtils.hasText(org.getContactPersonEmail())) {
+            return;
+        }
+        boolean viaSignup = Boolean.TRUE.equals(org.getCreatedViaSignup());
+        provisionContactPersonUser(org, viaSignup, false);
+    }
+
+    /**
      * Finds an active user already linked to this organisation with the contact email (avoids duplicate create).
      */
     private Long resolveLinkedContactUserId(Long organizationId, String normalizedEmail) {
@@ -113,7 +130,11 @@ public class OrganizationContactPersonProvisioningSupport {
         if (fromOrganizationLookup != null) {
             return fromOrganizationLookup;
         }
-        return resolveFromMultipleFilters(organizationId, normalizedEmail);
+        Long fromMultipleFilters = resolveFromMultipleFilters(organizationId, normalizedEmail);
+        if (fromMultipleFilters != null) {
+            return fromMultipleFilters;
+        }
+        return resolveFromEmailLinkedToOrganization(organizationId, normalizedEmail);
     }
 
     private Long resolveFromOrganizationUserList(Long organizationId, String normalizedEmail) {
@@ -153,6 +174,34 @@ public class OrganizationContactPersonProvisioningSupport {
                     e.getMessage());
             return null;
         }
+    }
+
+    private Long resolveFromEmailLinkedToOrganization(Long organizationId, String normalizedEmail) {
+        try {
+            UsersMultipleFiltersFeignRequest filters = new UsersMultipleFiltersFeignRequest();
+            filters.setPage(0);
+            filters.setSize(5);
+            filters.setEmail(normalizedEmail);
+            UserResponse response = userManagementServiceClient.findUsersByMultipleFilters(filters);
+            if (response == null || !response.isSuccess() || response.getUserDtoPage() == null) {
+                return null;
+            }
+            for (UserDto dto : response.getUserDtoPage().getContent()) {
+                if (dto == null || dto.getId() == null || dto.getOrganizationId() == null) {
+                    continue;
+                }
+                String candidate = dto.getEmail() != null ? dto.getEmail().trim().toLowerCase(Locale.ROOT) : "";
+                if (normalizedEmail.equals(candidate) && organizationId.equals(dto.getOrganizationId())) {
+                    return dto.getId();
+                }
+            }
+        } catch (Exception e) {
+            log.debug(
+                    "Could not resolve existing contact user for organisation {} via email lookup: {}",
+                    organizationId,
+                    e.getMessage());
+        }
+        return null;
     }
 
     private static Long matchContactEmail(List<UserDto> users, String normalizedEmail) {

@@ -1,9 +1,13 @@
 import { Component, Inject } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { finalize, switchMap } from 'rxjs/operators';
 import { of, throwError } from 'rxjs';
 import { UsersAdminService } from '../../services/users-admin.service';
+import {
+  PhoneVerificationDialogComponent,
+  PhoneVerificationDialogData,
+} from '../../../../shared/components/phone-verification-dialog/phone-verification-dialog.component';
 import {
   dateOfBirthMinimumAgeMessage,
   isDateOfBirthAtLeastMinimumAge,
@@ -25,6 +29,7 @@ export interface UserEditProfileDialogData {
 export class UserEditProfileDialogComponent {
   saving = false;
   error = '';
+  sendingVerificationEmail = false;
 
   username = '';
   email = '';
@@ -32,6 +37,8 @@ export class UserEditProfileDialogComponent {
   lastName = '';
   gender = '';
   phoneNumber = '';
+  emailVerified = false;
+  phoneVerified = false;
   dateOfBirth = '';
   nationalIdNumber = '';
   nationalIdExpiryDate = '';
@@ -90,10 +97,19 @@ export class UserEditProfileDialogComponent {
     return maximumDateOfBirthInput();
   }
 
+  get showVerifyEmail(): boolean {
+    return this.usersAdmin.needsEmailVerification(this.emailVerified) && this.email.trim().length > 0;
+  }
+
+  get showVerifyPhone(): boolean {
+    return this.usersAdmin.needsPhoneVerification(this.phoneVerified, this.phoneNumber);
+  }
+
   constructor(
     private readonly dialogRef: MatDialogRef<UserEditProfileDialogComponent, boolean>,
     private readonly usersAdmin: UsersAdminService,
     private readonly snackBar: MatSnackBar,
+    private readonly dialog: MatDialog,
     @Inject(MAT_DIALOG_DATA) data: UserEditProfileDialogData,
   ) {
     this.scope = data.scope === 'profile-only' ? 'profile-only' : 'full';
@@ -110,6 +126,8 @@ export class UserEditProfileDialogComponent {
     const rawGender = String(u['gender'] ?? '').trim().toUpperCase();
     this.gender = rawGender === 'OTHER' ? 'PREFER_NOT_TO_SAY' : rawGender;
     this.phoneNumber = String(u['phoneNumber'] ?? '').trim();
+    this.emailVerified = u['emailVerified'] === true;
+    this.phoneVerified = u['phoneVerified'] === true;
     this.dateOfBirth = this.dateOfBirthToInput(u['dateOfBirth']);
     this.nationalIdNumber = String(u['nationalIdNumber'] ?? '').trim();
     this.nationalIdExpiryDate = this.dateToInput(u['nationalIdExpiryDate']);
@@ -172,6 +190,66 @@ export class UserEditProfileDialogComponent {
 
   close(): void {
     this.dialogRef.close(false);
+  }
+
+  verifyEmail(): void {
+    const email = this.email.trim();
+    if (!email || this.sendingVerificationEmail || !this.showVerifyEmail) {
+      return;
+    }
+    this.sendingVerificationEmail = true;
+    this.usersAdmin
+      .resendVerificationEmail(email)
+      .pipe(finalize(() => (this.sendingVerificationEmail = false)))
+      .subscribe({
+        next: (resp) => {
+          if (this.usersAdmin.isUserMutationFailure(resp)) {
+            this.snackBar.open(
+              this.usersAdmin.formatUserMutationError(resp, 'Could not send verification email.'),
+              'Close',
+              { duration: 6000, panelClass: ['app-snackbar-error'] },
+            );
+            return;
+          }
+          this.snackBar.open(`Verification email sent to ${email}.`, 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-success'],
+          });
+        },
+        error: () => {
+          this.snackBar.open('Failed to send verification email.', 'Close', {
+            duration: 5000,
+            panelClass: ['app-snackbar-error'],
+          });
+        },
+      });
+  }
+
+  verifyPhone(): void {
+    if (!this.showVerifyPhone || !Number.isFinite(this.userId) || this.userId <= 0) {
+      return;
+    }
+    const data: PhoneVerificationDialogData = {
+      userId: this.userId,
+      title: 'Verify phone number',
+      lead: `Send an SMS code to ${this.phoneNumber.trim()}, then enter the code below to verify this user's phone number.`,
+    };
+    this.dialog
+      .open(PhoneVerificationDialogComponent, {
+        width: '480px',
+        maxWidth: '92vw',
+        data,
+      })
+      .afterClosed()
+      .subscribe((verified) => {
+        if (verified === true) {
+          this.phoneVerified = true;
+          this.snackBar.open('Phone number verified.', 'Close', {
+            duration: 4000,
+            panelClass: ['app-snackbar-success'],
+          });
+        }
+      });
   }
 
   onNationalFile(ev: Event): void {

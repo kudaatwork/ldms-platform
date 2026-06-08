@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.domain.Page;
+import projectlx.co.zw.organizationmanagement.utils.dtos.FleetVehicleDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryUsageDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.KycApprovalPolicyDto;
@@ -30,4 +31,6 @@ public class OrganizationManagementResponse extends OrganizationResponse {
     private AgentDto agentDto;
     private KycApprovalPolicyDto kycApprovalPolicyDto;
     private OnboardingStatusDto onboardingStatusDto;
+    private FleetVehicleDto fleetVehicleDto;
+    private List<FleetVehicleDto> fleetVehicleDtoList;
 }

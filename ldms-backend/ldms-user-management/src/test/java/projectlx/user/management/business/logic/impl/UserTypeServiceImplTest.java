@@ -13,6 +13,7 @@ import org.springframework.data.jpa.domain.Specification;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.management.business.auditable.api.UserTypeServiceAuditable;
+import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
 import projectlx.user.management.business.logic.api.UserTypeService;
 import projectlx.user.management.business.validator.api.UserTypeServiceValidator;
 import projectlx.user.management.model.EntityStatus;
@@ -59,6 +60,7 @@ class UserTypeServiceImplTest {
     private UserTypeRepository userTypeRepository;
     private UserRepository userRepository;
     private UserTypeServiceAuditable userTypeServiceAuditable;
+    private OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport;
     private MessageService messageService;
     private ModelMapper modelMapper;
     private Configuration configurationMock;
@@ -83,6 +85,7 @@ class UserTypeServiceImplTest {
         userTypeRepository = mock(UserTypeRepository.class);
         userRepository = mock(UserRepository.class);
         userTypeServiceAuditable = mock(UserTypeServiceAuditable.class);
+        organizationWorkspaceAccessSupport = mock(OrganizationWorkspaceAccessSupport.class);
         messageService = mock(MessageService.class);
         modelMapper = mock(ModelMapper.class);
         configurationMock = mock(Configuration.class);
@@ -94,8 +97,11 @@ class UserTypeServiceImplTest {
                 modelMapper,
                 userTypeRepository,
                 userRepository,
-                userTypeServiceAuditable
+                userTypeServiceAuditable,
+                organizationWorkspaceAccessSupport
         );
+
+        when(organizationWorkspaceAccessSupport.isTrustedServiceActor(anyString())).thenReturn(true);
 
         // Common mock setup for ModelMapper configuration
         when(modelMapper.getConfiguration()).thenReturn(configurationMock);

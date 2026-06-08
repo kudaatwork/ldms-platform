@@ -11,4 +11,5 @@ public class LocationAddressCreateRequest {
     private String line2;
     private String postalCode;
     private Long suburbId;
+    private Long cityId;
 }

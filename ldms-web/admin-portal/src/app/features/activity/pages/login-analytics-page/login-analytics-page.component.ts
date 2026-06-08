@@ -33,6 +33,16 @@ import {
   AuditLogMultipleFiltersRequest,
   USER_ACTIVITY_EXCLUDED_ACTIONS,
 } from '../../services/audit-log-admin.service';
+import {
+  auditActionKindBadge,
+  auditActionPillClass,
+  auditActionRowClass,
+  humanizeAuditAction,
+} from '../../utils/audit-action-style.util';
+
+function exportActionKindLabel(action: string): string {
+  return auditActionKindBadge(action) || '';
+}
 
 export interface LoginEventRow {
   id: number;
@@ -370,15 +380,49 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  /** Username applied to sign-in export: selected row wins, then the Username column filter. */
+  loginExportUsernameScope(): string {
+    return (this.selectedUsername ?? this.loginColumnFilters.username).trim();
+  }
+
+  /** Summary of what the sign-in export will include (shown near Export). */
+  loginExportScopeLabel(): string {
+    const user = this.loginExportUsernameScope();
+    if (user) {
+      return `Sign-in export: ${user} (plus any active date/platform/method filters).`;
+    }
+    if (this.loginFiltersActive()) {
+      return 'Sign-in export: current table filters.';
+    }
+    return 'Sign-in export: all sign-in events in the default date window.';
+  }
+
+  /** Summary of what the activity export will include. */
+  activityExportScopeLabel(): string {
+    const user = this.selectedUsername?.trim();
+    if (!user) {
+      return '';
+    }
+    if (this.activityFiltersActive()) {
+      return `Activity export: ${user} with current activity filters applied.`;
+    }
+    return `Activity export: all audited actions for ${user}.`;
+  }
+
   exportLoginLogs(format: LxExportFormat): void {
     if (environment.useMocks) {
       this.exportLoginClientSide(format);
       return;
     }
     this.loginExporting = true;
-    const payload = this.buildLoginPayload(0, 5000);
+    const scope = this.loginExportUsernameScope();
+    const lead = scope
+      ? `Preparing ${format.toUpperCase()} export for ${scope}…`
+      : `Preparing ${format.toUpperCase()} export…`;
+    this.snackBar.open(lead, 'Dismiss', { duration: 2500 });
+    const payload = this.buildLoginExportPayload();
     this.auditLogAdmin
-      .exportAuditLogs(payload, format === 'xlsx' ? 'xlsx' : format)
+      .exportLoginEvents(payload, format)
       .pipe(
         finalize(() => {
           this.loginExporting = false;
@@ -388,15 +432,21 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (blob) => {
-          downloadBlob(blob, exportFilename('login-audit-events', format));
-          this.snackBar.open(`Exported sign-in history as ${format.toUpperCase()}.`, 'Dismiss', {
+          const base = scope ? `login-audit-events-${scope.replace(/[^a-zA-Z0-9._-]+/g, '_')}` : 'login-audit-events';
+          downloadBlob(blob, exportFilename(base, format));
+          this.snackBar.open(
+            scope
+              ? `Sign-in history for ${scope} downloaded as ${format.toUpperCase()}.`
+              : `Sign-in history downloaded as ${format.toUpperCase()}.`,
+            'Dismiss',
+            {
             duration: 3500,
             panelClass: ['app-snackbar-success'],
           });
         },
-        error: () => {
-          this.snackBar.open('Export failed. Check filters and try again.', 'Dismiss', {
-            duration: 5000,
+        error: (err: Error) => {
+          this.snackBar.open(err.message || 'Export failed. Check filters and try again.', 'Dismiss', {
+            duration: 6000,
             panelClass: ['app-snackbar-error'],
           });
         },
@@ -406,6 +456,10 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
   exportActivityLogs(format: LxExportFormat): void {
     const username = this.selectedUsername?.trim();
     if (!username) {
+      this.snackBar.open('Select a user from sign-in history before exporting activity.', 'Dismiss', {
+        duration: 4500,
+        panelClass: ['app-snackbar-error'],
+      });
       return;
     }
     if (environment.useMocks) {
@@ -413,9 +467,10 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
       return;
     }
     this.activityExporting = true;
-    const payload = this.buildActivityPayload(0, 5000);
+    this.snackBar.open(`Preparing ${format.toUpperCase()} export for ${username}…`, 'Dismiss', { duration: 2500 });
+    const payload = this.buildActivityExportPayload();
     this.auditLogAdmin
-      .exportAuditLogs(payload, format === 'xlsx' ? 'xlsx' : format)
+      .exportUserActivity(payload, username, format)
       .pipe(
         finalize(() => {
           this.activityExporting = false;
@@ -427,14 +482,14 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
         next: (blob) => {
           const safeUser = username.replace(/[^a-zA-Z0-9._-]+/g, '_');
           downloadBlob(blob, exportFilename(`user-activity-${safeUser}`, format));
-          this.snackBar.open(`Exported activity for ${username} as ${format.toUpperCase()}.`, 'Dismiss', {
+          this.snackBar.open(`Activity for ${username} downloaded as ${format.toUpperCase()}.`, 'Dismiss', {
             duration: 3500,
             panelClass: ['app-snackbar-success'],
           });
         },
-        error: () => {
-          this.snackBar.open('Export failed. Check filters and try again.', 'Dismiss', {
-            duration: 5000,
+        error: (err: Error) => {
+          this.snackBar.open(err.message || 'Export failed. Check filters and try again.', 'Dismiss', {
+            duration: 6000,
             panelClass: ['app-snackbar-error'],
           });
         },
@@ -474,6 +529,10 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
   methodPillClass(action: string): string {
     return action === 'USER_AUTHENTICATION_GOOGLE' ? 'lx-method-pill--google' : 'lx-method-pill--password';
   }
+
+  readonly auditActionPillClass = auditActionPillClass;
+  readonly auditActionRowClass = auditActionRowClass;
+  readonly auditActionKindBadge = auditActionKindBadge;
 
   trackByLoginId(_index: number, row: LoginEventRow): number {
     return row.id;
@@ -522,6 +581,7 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
       { header: 'audit_id', value: (r) => r.id },
       { header: 'timestamp', value: (r) => r.time },
       { header: 'action', value: (r) => r.action },
+      { header: 'action_kind', value: (r) => exportActionKindLabel(r.action) },
       { header: 'service', value: (r) => r.serviceName },
       { header: 'resource', value: (r) => r.resource },
       { header: 'platform', value: (r) => r.platform },
@@ -607,6 +667,22 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
         }
       }),
     );
+  }
+
+  /** Export payload for sign-in history — scopes to selected user or Username filter when set. */
+  private buildLoginExportPayload(): AuditLogMultipleFiltersRequest {
+    const payload = this.buildLoginPayload(0, 5000);
+    const user = this.loginExportUsernameScope();
+    if (user) {
+      payload.username = user;
+      payload.usernamesIn = [user];
+    }
+    return payload;
+  }
+
+  /** Export payload for activity timeline — same filters as the on-screen table. */
+  private buildActivityExportPayload(): AuditLogMultipleFiltersRequest {
+    return this.buildActivityPayload(0, 5000);
   }
 
   private buildLoginPayload(page = this.loginPageIndex, size = this.loginPageSize): AuditLogMultipleFiltersRequest {
@@ -735,7 +811,7 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
   }
 
   private humanizeAction(action: string): string {
-    return action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+    return humanizeAuditAction(action);
   }
 
   private formatTimestamp(value?: string): string {

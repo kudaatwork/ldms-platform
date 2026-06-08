@@ -8,7 +8,7 @@ import projectlx.user.management.model.User;
 import projectlx.user.management.model.UserGroup;
 
 /**
- * Links organisation contact users to their organisation-scoped {@code Administrator} user group.
+ * Links organisation contact users to the platform-wide {@code Administrator} user group.
  */
 @Component
 @RequiredArgsConstructor
@@ -50,9 +50,9 @@ public class OrganizationContactAdministratorGroupSupport {
         }
         user.setUserGroup(adminGroup);
         log.info(
-                "Assigned organisation contact user {} to Administrator group {} for organisation {}",
+                "Assigned organisation contact user {} to platform Administrator group {} (organisation {} on user row)",
                 user.getId(),
                 adminGroup.getId(),
-                adminGroup.getOrganizationId());
+                user.getOrganizationId());
     }
 }

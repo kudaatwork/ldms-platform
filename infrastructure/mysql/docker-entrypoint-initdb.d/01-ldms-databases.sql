@@ -4,4 +4,9 @@ CREATE DATABASE IF NOT EXISTS ldms_location_management
   CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 GRANT ALL PRIVILEGES ON ldms_location_management.* TO 'developer'@'%';
+
+CREATE DATABASE IF NOT EXISTS ldms_fleet_management
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+GRANT ALL PRIVILEGES ON ldms_fleet_management.* TO 'developer'@'%';
 FLUSH PRIVILEGES;

@@ -38,6 +38,7 @@ const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { prefix: '/help', public: true },
   { prefix: '/settings', anyAssignedRole: true },
   { prefix: '/documents', orgWorkspace: true },
+  { prefix: '/fleet', orgWorkspace: true },
   { prefix: '/users/roles', orgWorkspace: true },
   { prefix: '/users/groups', orgWorkspace: true },
   { prefix: '/users/types', orgWorkspace: true },

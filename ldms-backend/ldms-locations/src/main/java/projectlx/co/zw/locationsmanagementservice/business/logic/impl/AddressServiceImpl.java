@@ -193,7 +193,10 @@ public class AddressServiceImpl implements AddressService {
                     null, validatorDto.getErrorMessages());
         }
 
-        Optional<Address> addressRetrieved = addressRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED);
+        Optional<Address> addressRetrieved = addressRepository.findByIdFetchingContext(id, EntityStatus.DELETED);
+        if (addressRetrieved.isEmpty()) {
+            addressRetrieved = addressRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED);
+        }
 
         if (addressRetrieved.isEmpty()) {
 
@@ -604,11 +607,11 @@ public class AddressServiceImpl implements AddressService {
             }
         }
 
-        if (addressDto.getCityName() == null || addressDto.getCityName().isBlank()) {
-            if (address.getCity() != null) {
-                addressDto.setCityId(address.getCity().getId());
-                addressDto.setCityName(address.getCity().getName());
-            }
+        // Always override cityId/cityName from the denormalized Address.city when present —
+        // this is the authoritative source set during create/update via attachDenormalizedCity.
+        if (address.getCity() != null) {
+            addressDto.setCityId(address.getCity().getId());
+            addressDto.setCityName(address.getCity().getName());
         }
 
         return addressDto;
@@ -674,14 +677,15 @@ public class AddressServiceImpl implements AddressService {
         if (suburb == null) {
             return;
         }
-        if (suburb.getCityLocationNode() != null) {
-            addressDto.setCityId(suburb.getCityLocationNode().getId());
-            addressDto.setCityName(suburb.getCityLocationNode().getName());
-            return;
-        }
+        // Prefer first-class City entity; fall back to legacy cityLocationNode
         if (suburb.getCity() != null) {
             addressDto.setCityId(suburb.getCity().getId());
             addressDto.setCityName(suburb.getCity().getName());
+            return;
+        }
+        if (suburb.getCityLocationNode() != null) {
+            addressDto.setCityId(suburb.getCityLocationNode().getId());
+            addressDto.setCityName(suburb.getCityLocationNode().getName());
         }
     }
 

@@ -36,6 +36,8 @@ public final class LdmsPdfReportWriter {
     private static final Color BRAND_ACCENT = new Color(59, 130, 246);
     private static final Color TEXT_MUTED = new Color(100, 116, 139);
     private static final Color ZEBRA = new Color(248, 250, 252);
+    private static final Color HIGHLIGHT_WARNING = new Color(254, 243, 199);
+    private static final Color HIGHLIGHT_DANGER = new Color(254, 226, 226);
     private static final Color BORDER = new Color(226, 232, 240);
     private static final DateTimeFormatter DOC_ID_TIME = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm");
     private static final DateTimeFormatter GENERATED_AT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss 'UTC'");
@@ -155,13 +157,18 @@ public final class LdmsPdfReportWriter {
         }
 
         List<String[]> rows = report.getRows();
+        List<LdmsExportRowHighlight> rowHighlights = report.getRowHighlights();
+        boolean useHighlights = rowHighlights != null
+                && rowHighlights.size() == rows.size()
+                && rowHighlights.stream().anyMatch(h -> h != LdmsExportRowHighlight.NONE);
         for (int r = 0; r < rows.size(); r++) {
             String[] row = rows.get(r);
-            boolean zebra = r % 2 == 1;
+            boolean zebra = !useHighlights && r % 2 == 1;
+            LdmsExportRowHighlight highlight = useHighlights ? rowHighlights.get(r) : LdmsExportRowHighlight.NONE;
             for (int c = 0; c < columns; c++) {
                 String value = row != null && c < row.length ? nullToEmpty(row[c]) : "";
                 PdfPCell cell = new PdfPCell(new Phrase(truncate(value, 512), bodyFont));
-                styleBodyCell(cell, zebra);
+                styleBodyCell(cell, zebra, highlight);
                 table.addCell(cell);
             }
         }
@@ -169,7 +176,7 @@ public final class LdmsPdfReportWriter {
         if (rows.isEmpty()) {
             PdfPCell empty = new PdfPCell(new Phrase("No records match the selected filters.", bodyFont));
             empty.setColspan(columns);
-            styleBodyCell(empty, false);
+            styleBodyCell(empty, false, LdmsExportRowHighlight.NONE);
             empty.setHorizontalAlignment(Element.ALIGN_CENTER);
             empty.setPadding(12f);
             table.addCell(empty);
@@ -188,8 +195,13 @@ public final class LdmsPdfReportWriter {
         cell.setVerticalAlignment(Element.ALIGN_MIDDLE);
     }
 
-    private static void styleBodyCell(PdfPCell cell, boolean zebra) {
-        cell.setBackgroundColor(zebra ? ZEBRA : Color.WHITE);
+    private static void styleBodyCell(PdfPCell cell, boolean zebra, LdmsExportRowHighlight highlight) {
+        Color background = switch (highlight) {
+            case WARNING -> HIGHLIGHT_WARNING;
+            case DANGER -> HIGHLIGHT_DANGER;
+            default -> zebra ? ZEBRA : Color.WHITE;
+        };
+        cell.setBackgroundColor(background);
         cell.setPaddingTop(3.5f);
         cell.setPaddingBottom(3.5f);
         cell.setPaddingLeft(4f);

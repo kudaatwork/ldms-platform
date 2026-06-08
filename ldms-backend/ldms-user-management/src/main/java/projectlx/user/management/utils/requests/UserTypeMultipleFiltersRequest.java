@@ -11,4 +11,6 @@ import projectlx.co.zw.shared_library.utils.requests.MultipleFiltersRequest;
 public class UserTypeMultipleFiltersRequest extends MultipleFiltersRequest {
     private String userTypeName;
     private String description;
+    /** When true, organisation workspace users see only the bootstrap {@code System Administrator} type. */
+    private Boolean bootstrapDefaultsOnly;
 }

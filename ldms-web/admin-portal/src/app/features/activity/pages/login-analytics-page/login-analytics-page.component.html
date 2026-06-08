@@ -31,7 +31,11 @@
     <section class="audit-section" aria-labelledby="login-analytics-heading">
       <div class="lx-card lx-card--subsection">
         <h3 class="lx-controls-title">Table controls</h3>
-        <p class="lx-controls-subtitle">Filter sign-in events, export for compliance packs, or open a user timeline.</p>
+        <p class="lx-controls-subtitle">
+          Filter sign-in events, export for compliance packs, or open a user timeline. Export uses the selected user
+          (if any), Username filter, and other active sign-in filters.
+        </p>
+        <p class="lx-export-scope-hint">{{ loginExportScopeLabel() }}</p>
         <div class="lx-data-toolbar">
           <div class="lx-data-toolbar__actions">
             <button type="button" class="lx-btn lx-btn-ghost" (click)="refreshLoginEvents()" [disabled]="loginLoading">
@@ -289,8 +293,10 @@
             <div>
               <h2 class="lc-title" id="user-activity-heading">Activity timeline</h2>
               <p class="lc-lead lx-drilldown-user">
-                <strong>{{ selectedUsername }}</strong> — audited service actions (excludes sign-in, refresh, raw HTTP).
+                <strong>{{ selectedUsername }}</strong> — creates, updates, deletes, and other audited actions performed by this account.
+                Export below includes only this user and respects any activity filters you apply.
               </p>
+              <p class="lx-export-scope-hint" *ngIf="activityExportScopeLabel()">{{ activityExportScopeLabel() }}</p>
             </div>
           </div>
           <button type="button" class="lx-btn lx-btn-ghost" (click)="clearSelectedUser()">
@@ -430,6 +436,17 @@
           </div>
         </div>
 
+        <div class="lx-audit-legend" aria-label="Action colour legend">
+          <span class="lx-audit-legend__item">
+            <span class="lx-audit-legend__swatch lx-audit-legend__swatch--create" aria-hidden="true"></span>
+            <strong>Created</strong> — new records (warning)
+          </span>
+          <span class="lx-audit-legend__item">
+            <span class="lx-audit-legend__swatch lx-audit-legend__swatch--update" aria-hidden="true"></span>
+            <strong>Updated / deleted</strong> — changes and removals (red)
+          </span>
+        </div>
+
         <lx-table-loading
           [busy]="activityLoading && activityTableDataSource.data.length === 0"
           message="Loading user activity…"
@@ -454,7 +471,10 @@
               <ng-container matColumnDef="action">
                 <th mat-header-cell *matHeaderCellDef>Action</th>
                 <td mat-cell *matCellDef="let row">
-                  <span class="lx-action-code" [title]="row.action">{{ row.actionLabel }}</span>
+                  <span [ngClass]="auditActionPillClass(row.action)" [title]="row.action">
+                    <span class="lx-audit-action-pill__badge" *ngIf="auditActionKindBadge(row.action) as badge">{{ badge }}</span>
+                    <span>{{ row.actionLabel }}</span>
+                  </span>
                 </td>
               </ng-container>
               <ng-container matColumnDef="serviceName">
@@ -496,7 +516,11 @@
                 </td>
               </ng-container>
               <tr mat-header-row *matHeaderRowDef="activityDisplayedColumns; sticky: true"></tr>
-              <tr mat-row *matRowDef="let row; columns: activityDisplayedColumns"></tr>
+              <tr
+                mat-row
+                *matRowDef="let row; columns: activityDisplayedColumns"
+                [ngClass]="auditActionRowClass(row.action)"
+              ></tr>
             </table>
           </div>
           <mat-paginator
@@ -513,7 +537,9 @@
         <div class="lx-empty lx-empty--compact" *ngIf="!activityLoading && activityTableDataSource.data.length === 0">
           <mat-icon class="lx-empty-icon">history</mat-icon>
           <div class="lx-empty-title">No audited actions</div>
-          <div class="lx-empty-sub">This user has no matching service actions in the retention window.</div>
+          <div class="lx-empty-sub">
+            No CREATE, UPDATE, DELETE, or other audited actions for this user in the retention window. Try widening the date filters or confirm RabbitMQ and ldms-audit-trail are running.
+          </div>
         </div>
       </div>
     </section>

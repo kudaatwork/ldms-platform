@@ -80,6 +80,8 @@ export function buildPreviewFleet(organizationId: number, organizationName: stri
       type,
       status,
       statusLabel: statusLabel(status),
+      ownershipType: i % 4 === 0 ? 'contracted' : 'owned',
+      ownershipLabel: i % 4 === 0 ? 'Contracted asset' : 'Own asset',
       utilizationPct: Math.min(98, util),
       lastTripLabel: daysAgoLabel(s),
       driverName: pick(DRIVERS, s, 4),

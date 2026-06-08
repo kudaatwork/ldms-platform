@@ -7,7 +7,9 @@ import lombok.RequiredArgsConstructor;
 @Getter
 public enum OwnerType {
     USER("USER"),
-    ORGANIZATION("ORGANIZATION");
+    ORGANIZATION("ORGANIZATION"),
+    FLEET_ASSET("FLEET_ASSET"),
+    FLEET_DRIVER("FLEET_DRIVER");
 
     private final String ownerType;
 }

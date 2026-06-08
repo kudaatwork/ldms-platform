@@ -87,6 +87,12 @@ public class User {
     
     private Boolean emailVerified = false;  // Whether the user's email has been verified
 
+    @jakarta.persistence.Column(name = "phone_verified", nullable = false)
+    private Boolean phoneVerified = false;  // Whether the user's phone number has been verified
+
+    @jakarta.persistence.Column(name = "last_phone_verified_at")
+    private LocalDateTime lastPhoneVerifiedAt;  // Timestamp of the most recent phone verification
+
     /** When true, the user must choose a permanent username and password before using the portal. */
     @jakarta.persistence.Column(name = "must_change_credentials", nullable = false)
     private Boolean mustChangeCredentials = false;

@@ -7,6 +7,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.Authentication;
@@ -16,7 +18,10 @@ import org.springframework.security.oauth2.jwt.JwtException;
 import projectlx.co.zw.shared_library.business.logic.api.JwtService;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.co.zw.shared_library.utils.dtos.UserDto;
+import projectlx.co.zw.shared_library.utils.dtos.UserSecurityDto;
+import projectlx.co.zw.shared_library.utils.enums.TwoFactorMethod;
 import projectlx.co.zw.shared_library.utils.responses.UserResponse;
+import projectlx.co.zw.shared_library.utils.security.TotpSupport;
 import projectlx.user.authentication.service.business.auditable.api.AuthenticationServiceAuditable;
 import projectlx.user.authentication.service.business.logic.api.AuthenticationService;
 import projectlx.user.authentication.service.business.logic.support.LoginIdentifierResolver;
@@ -32,6 +37,7 @@ import projectlx.user.authentication.service.utils.oauth.GoogleOAuthSupport;
 import projectlx.user.authentication.service.utils.requests.AuthRequest;
 import projectlx.user.authentication.service.utils.requests.GoogleLoginRequest;
 import projectlx.user.authentication.service.utils.requests.RefreshTokenRequest;
+import projectlx.user.authentication.service.utils.requests.VerifyTwoFactorRequest;
 import projectlx.user.authentication.service.utils.responses.AuthResponse;
 import feign.FeignException;
 import java.util.HashMap;
@@ -93,6 +99,43 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             Authentication authentication = authManager.authenticate(
                     new UsernamePasswordAuthenticationToken(resolvedUsername, authRequest.getPassword()));
             UserDetails user = (UserDetails) authentication.getPrincipal();
+
+            // ============================================================
+            // STEP: Check if 2FA is enabled for this user
+            // ============================================================
+            if (isTwoFactorEnabled(resolvedLogin.userDto(), resolvedUsername)) {
+                TwoFactorMethod twoFactorMethod = resolveTwoFactorMethod(resolvedLogin.userDto(), resolvedUsername);
+                String mfaChallengeToken = java.util.UUID.randomUUID().toString();
+                Token challengeToken = new Token();
+                challengeToken.setToken(mfaChallengeToken);
+                challengeToken.setTokenType(TokenType.MFA_CHALLENGE);
+                challengeToken.setExpired(false);
+                challengeToken.setRevoked(false);
+                challengeToken.setUsername(resolvedUsername);
+                try {
+                    authenticationServiceAuditable.create(challengeToken, locale, username);
+                } catch (Exception ex) {
+                    logger.error("Failed to persist MFA challenge token for {}", resolvedUsername, ex);
+                    message = messageService.getMessage(I18Code.MESSAGE_USER_MANAGEMENT_UNAVAILABLE.getCode(),
+                            new String[]{}, locale);
+                    return buildAuthResponse(503, false, message, null, null, null, null, null);
+                }
+
+                if (twoFactorMethod == TwoFactorMethod.SMS) {
+                    try {
+                        userManagementServiceClient.generateLoginOtp(resolvedUsername);
+                    } catch (FeignException ex) {
+                        logger.error("Failed to trigger login OTP for {}", resolvedUsername, ex);
+                    }
+                }
+
+                final I18Code twoFactorRequiredCode = twoFactorMethod == TwoFactorMethod.AUTHENTICATOR_APP
+                        ? I18Code.MESSAGE_TWO_FACTOR_REQUIRED_AUTHENTICATOR
+                        : I18Code.MESSAGE_TWO_FACTOR_REQUIRED_SMS;
+                message = messageService.getMessage(twoFactorRequiredCode.getCode(), new String[]{}, locale);
+                return buildAuthResponseWithMfa(200, true, message, mfaChallengeToken, twoFactorMethod);
+            }
+
             Map<String, Object> claims = buildTokenClaims(resolvedLogin.userDto(), resolvedUsername);
 
             String accessToken = jwtService.generateToken(user, claims);
@@ -118,6 +161,16 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_BAD_CREDENTIALS.getCode(),
                     new String[]{}, locale);
             return buildAuthResponse(401, false, message, null, null, null, null, null);
+        } catch (DisabledException ex) {
+            logger.warn("Disabled account for {}", resolvedUsername);
+            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_ACCOUNT_DISABLED.getCode(),
+                    new String[]{}, locale);
+            return buildAuthResponse(403, false, message, null, null, null, null, null);
+        } catch (LockedException ex) {
+            logger.warn("Locked account for {}", resolvedUsername);
+            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_ACCOUNT_LOCKED.getCode(),
+                    new String[]{}, locale);
+            return buildAuthResponse(403, false, message, null, null, null, null, null);
         } catch (UsernameNotFoundException ex) {
             logger.warn("User profile unavailable for {}: {}", resolvedUsername, ex.getMessage());
             message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_USER_NOT_FOUND.getCode(),
@@ -125,7 +178,7 @@ public class AuthenticationServiceImpl implements AuthenticationService {
             return buildAuthResponse(401, false, message, null, null, null, null, null);
         } catch (AuthenticationException ex) {
             logger.warn("Authentication failed for {}: {}", resolvedUsername, ex.getMessage());
-            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_INVALID_REQUEST.getCode(),
+            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_BAD_CREDENTIALS.getCode(),
                     new String[]{}, locale);
             return buildAuthResponse(401, false, message, null, null, null, null, null);
         } catch (Exception ex) {
@@ -353,5 +406,167 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         authResponse.setMustChangeCredentials(mustChangeCredentials);
 
         return authResponse;
+    }
+
+    private AuthResponse buildAuthResponseWithMfa(int statusCode, boolean isSuccess, String message,
+                                                   String mfaChallengeToken, TwoFactorMethod twoFactorMethod) {
+        AuthResponse authResponse = new AuthResponse();
+        authResponse.setStatusCode(statusCode);
+        authResponse.setSuccess(isSuccess);
+        authResponse.setMessage(message);
+        authResponse.setRequiresTwoFactor(true);
+        authResponse.setMfaChallengeToken(mfaChallengeToken);
+        authResponse.setTwoFactorMethod(twoFactorMethod != null ? twoFactorMethod.name() : TwoFactorMethod.SMS.name());
+        return authResponse;
+    }
+
+    /**
+     * Resolves the 2FA flag from the cached login lookup, re-fetching security settings when Feign/Jackson
+     * omitted {@link UserSecurityDto} from the initial user-management response.
+     */
+    private TwoFactorMethod resolveTwoFactorMethod(UserDto cachedUser, String resolvedUsername) {
+        UserSecurityDto security = null;
+        if (cachedUser != null && cachedUser.getUserSecurityDto() != null) {
+            security = cachedUser.getUserSecurityDto();
+        } else {
+            try {
+                UserResponse refreshed = userManagementServiceClient.findByUsername(resolvedUsername);
+                if (refreshed != null && refreshed.isSuccess() && refreshed.getUserDto() != null) {
+                    security = refreshed.getUserDto().getUserSecurityDto();
+                }
+            } catch (FeignException ex) {
+                logger.warn("Could not refresh 2FA method for {}: {}", resolvedUsername, ex.getMessage());
+            }
+        }
+        if (security != null && security.getTwoFactorMethod() != null) {
+            return security.getTwoFactorMethod();
+        }
+        return TwoFactorMethod.SMS;
+    }
+
+    private boolean isTwoFactorEnabled(UserDto cachedUser, String resolvedUsername) {
+        if (cachedUser != null && cachedUser.getUserSecurityDto() != null
+                && Boolean.TRUE.equals(cachedUser.getUserSecurityDto().getIsTwoFactorEnabled())) {
+            return true;
+        }
+        try {
+            UserResponse refreshed = userManagementServiceClient.findByUsername(resolvedUsername);
+            if (refreshed == null || !refreshed.isSuccess() || refreshed.getUserDto() == null) {
+                return false;
+            }
+            UserSecurityDto security = refreshed.getUserDto().getUserSecurityDto();
+            return security != null && Boolean.TRUE.equals(security.getIsTwoFactorEnabled());
+        } catch (FeignException ex) {
+            logger.warn("Could not refresh 2FA settings for {}: {}", resolvedUsername, ex.getMessage());
+            return false;
+        }
+    }
+
+    // ============================================================
+    //  Two-factor authentication: second step
+    // ============================================================
+
+    @Override
+    public AuthResponse verifyTwoFactor(VerifyTwoFactorRequest request, Locale locale) {
+        String message;
+
+        if (request == null
+                || !StringUtils.hasText(request.getMfaChallengeToken())
+                || !StringUtils.hasText(request.getOtp())) {
+            message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_REQUEST_INVALID.getCode(),
+                    new String[]{}, locale);
+            return buildAuthResponse(400, false, message, null, null, null, null, null);
+        }
+
+        // ============================================================
+        // STEP 1: Validate the MFA challenge token
+        // ============================================================
+        Optional<Token> challengeOpt = tokenRepository.findByToken(request.getMfaChallengeToken());
+        if (challengeOpt.isEmpty()
+                || challengeOpt.get().isRevoked()
+                || challengeOpt.get().isExpired()
+                || challengeOpt.get().getTokenType() != TokenType.MFA_CHALLENGE) {
+            message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_CHALLENGE_INVALID.getCode(),
+                    new String[]{}, locale);
+            return buildAuthResponse(401, false, message, null, null, null, null, null);
+        }
+
+        Token challengeToken = challengeOpt.get();
+        String resolvedUsername = challengeToken.getUsername();
+
+        // ============================================================
+        // STEP 2: Verify OTP (SMS via user-management or TOTP locally)
+        // ============================================================
+        UserResponse userResponseForSecurity = userManagementServiceClient.findByUsername(resolvedUsername);
+        UserDto userDtoForSecurity =
+                (userResponseForSecurity != null && userResponseForSecurity.isSuccess())
+                        ? userResponseForSecurity.getUserDto()
+                        : null;
+        TwoFactorMethod method = resolveTwoFactorMethod(userDtoForSecurity, resolvedUsername);
+
+        if (method == TwoFactorMethod.AUTHENTICATOR_APP) {
+            String secret = userDtoForSecurity != null && userDtoForSecurity.getUserSecurityDto() != null
+                    ? userDtoForSecurity.getUserSecurityDto().getTwoFactorAuthSecret()
+                    : null;
+            if (!TotpSupport.verifyCode(secret, request.getOtp())) {
+                message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_OTP_INVALID.getCode(),
+                        new String[]{}, locale);
+                return buildAuthResponse(401, false, message, null, null, null, null, null);
+            }
+        } else {
+            final UserResponse otpResult;
+            try {
+                otpResult = userManagementServiceClient.verifyLoginOtp(resolvedUsername, request.getOtp());
+            } catch (FeignException ex) {
+                logger.error("User-management unavailable during 2FA OTP verification for {}", resolvedUsername, ex);
+                message = messageService.getMessage(I18Code.MESSAGE_USER_MANAGEMENT_UNAVAILABLE.getCode(),
+                        new String[]{}, locale);
+                return buildAuthResponse(503, false, message, null, null, null, null, null);
+            }
+
+            if (otpResult == null || !otpResult.isSuccess()) {
+                message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_OTP_INVALID.getCode(),
+                        new String[]{}, locale);
+                return buildAuthResponse(401, false, message, null, null, null, null, null);
+            }
+        }
+
+        // ============================================================
+        // STEP 3: Revoke the MFA challenge token
+        // ============================================================
+        challengeToken.setRevoked(true);
+        challengeToken.setExpired(true);
+        tokenRepository.save(challengeToken);
+
+        // ============================================================
+        // STEP 4: Issue full access + refresh tokens
+        // ============================================================
+        final UserDetails userDetails;
+        try {
+            userDetails = userDetailsService.loadUserByUsername(resolvedUsername);
+        } catch (UsernameNotFoundException ex) {
+            message = messageService.getMessage(I18Code.MESSAGE_AUTHENTICATION_USER_NOT_FOUND.getCode(),
+                    new String[]{}, locale);
+            return buildAuthResponse(401, false, message, null, null, null, null, null);
+        }
+
+        UserResponse userResponse = userResponseForSecurity != null && userResponseForSecurity.isSuccess()
+                ? userResponseForSecurity
+                : userManagementServiceClient.findByUsername(resolvedUsername);
+        UserDto userDto =
+                (userResponse != null && userResponse.isSuccess()) ? userResponse.getUserDto() : null;
+
+        Map<String, Object> claims = buildTokenClaims(userDto, resolvedUsername);
+        String accessToken  = jwtService.generateToken(userDetails, claims);
+        String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+        Token refreshTokenToBeSaved = buildToken(refreshToken, resolvedUsername);
+        tokenRepository.save(refreshTokenToBeSaved);
+
+        message = messageService.getMessage(I18Code.MESSAGE_TWO_FACTOR_VERIFIED_SUCCESSFULLY.getCode(),
+                new String[]{}, locale);
+
+        boolean mustChangeCredentials = userDto != null && Boolean.TRUE.equals(userDto.getMustChangeCredentials());
+        return buildAuthResponse(200, true, message, null, null, null, accessToken, refreshToken, mustChangeCredentials);
     }
 }

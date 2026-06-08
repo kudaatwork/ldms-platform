@@ -12,7 +12,12 @@ import { UserEditAccountDialogComponent } from '../../components/user-edit-accou
 import { UserEditAddressDialogComponent } from '../../components/user-edit-address-dialog/user-edit-address-dialog.component';
 import { UserEditProfileDialogComponent } from '../../components/user-edit-profile-dialog/user-edit-profile-dialog.component';
 import { UserEditSecurityDialogComponent } from '../../components/user-edit-security-dialog/user-edit-security-dialog.component';
+import { TwoFactorSetupDialogComponent } from '../../components/two-factor-setup-dialog/two-factor-setup-dialog.component';
 import { UserAssignUserGroupDialogComponent } from '../../components/user-assign-user-group-dialog/user-assign-user-group-dialog.component';
+import {
+  PhoneVerificationDialogComponent,
+  PhoneVerificationDialogData,
+} from '../../../../shared/components/phone-verification-dialog/phone-verification-dialog.component';
 import { UsersAdminService, UserFileUploadSummary, UserProfileBundle } from '../../services/users-admin.service';
 import { isLdmsPasswordValid, LDMS_PASSWORD_INVALID_MESSAGE } from '@core/utils/ldms-password.util';
 
@@ -194,11 +199,70 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     return this.secretConfigured(s['twoFactorAuthSecret']);
   }
 
+  twoFactorMethodLabel(s: Record<string, unknown> | null): string {
+    if (!s || s['isTwoFactorEnabled'] !== true) {
+      return '—';
+    }
+    const method = String(s['twoFactorMethod'] ?? '').trim().toUpperCase();
+    if (method === 'AUTHENTICATOR_APP') {
+      return 'Authenticator app';
+    }
+    if (method === 'SMS') {
+      return 'SMS';
+    }
+    return '—';
+  }
+
+  openManageTwoFactor(): void {
+    if (!Number.isFinite(this.userIdNumber) || this.userIdNumber <= 0) {
+      return;
+    }
+    const label = this.headingName() ?? this.headingSubtitle() ?? `User ${this.userIdNumber}`;
+    this.dialog
+      .open(TwoFactorSetupDialogComponent, {
+        width: '720px',
+        maxWidth: '96vw',
+        maxHeight: '90vh',
+        autoFocus: 'first-tabbable',
+        hasBackdrop: true,
+        panelClass: 'lx-location-dialog-panel',
+        data: {
+          security: this.securityPolicyRecord() ?? {},
+          user: this.bundle.user,
+          adminMode: true,
+          targetUserId: this.userIdNumber,
+          targetUserLabel: label,
+        },
+      })
+      .afterClosed()
+      .subscribe((saved) => {
+        if (saved) {
+          this.loadBundle();
+        }
+      });
+  }
+
   asRecord(v: unknown): Record<string, unknown> | null {
     if (v !== null && typeof v === 'object' && !Array.isArray(v)) {
       return v as Record<string, unknown>;
     }
     return null;
+  }
+
+  canVerifyEmail(): boolean {
+    const u = this.bundle.user;
+    if (!u) {
+      return false;
+    }
+    return this.usersService.needsEmailVerification(u['emailVerified']) && String(u['email'] ?? '').trim().length > 0;
+  }
+
+  canVerifyPhone(): boolean {
+    const u = this.bundle.user;
+    if (!u) {
+      return false;
+    }
+    return this.usersService.needsPhoneVerification(u['phoneVerified'], u['phoneNumber']);
   }
 
   canResendVerificationEmail(): boolean {
@@ -209,10 +273,10 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     return this.usersService.canResendVerificationEmail(u['emailVerified'], u['createdAt']);
   }
 
-  resendVerificationEmail(): void {
+  verifyEmail(): void {
     const u = this.bundle.user;
     const email = String(u?.['email'] ?? '').trim();
-    if (!email || !this.canResendVerificationEmail()) {
+    if (!email || !this.canVerifyEmail()) {
       return;
     }
     this.resendingVerificationEmail = true;
@@ -245,6 +309,35 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
             panelClass: ['app-snackbar-error'],
           });
         },
+      });
+  }
+
+  verifyPhone(): void {
+    const u = this.bundle.user;
+    if (!u || !this.canVerifyPhone() || this.userIdNumber <= 0) {
+      return;
+    }
+    const phone = String(u['phoneNumber'] ?? '').trim();
+    const data: PhoneVerificationDialogData = {
+      userId: this.userIdNumber,
+      title: 'Verify phone number',
+      lead: `Send an SMS code to ${phone}, then enter the code below to verify this user's phone number.`,
+    };
+    this.dialog
+      .open(PhoneVerificationDialogComponent, {
+        width: '480px',
+        maxWidth: '92vw',
+        data,
+      })
+      .afterClosed()
+      .subscribe((verified) => {
+        if (verified === true) {
+          this.snackBar.open('Phone number verified.', 'Close', {
+            duration: 4000,
+            panelClass: ['app-snackbar-success'],
+          });
+          this.loadBundle();
+        }
       });
   }
 

@@ -613,6 +613,13 @@
   background: color-mix(in srgb, var(--flt-teal) 12%, var(--surface));
 }
 
+.flt-section-head__actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 10px;
+}
+
 .flt-convoy__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -986,6 +993,15 @@
   }
 }
 
+.flt-vehicle__actions,
+.flt-partner-card__actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--gray-200);
+}
+
 /* ── Spotlight ─────────────────────────────────── */
 .flt-spotlight {
   position: sticky;
@@ -1001,6 +1017,12 @@
   &.is-open {
     box-shadow: var(--card-shadow-hover);
   }
+}
+
+.flt-spotlight__actions {
+  display: flex;
+  gap: 8px;
+  padding: 8px 18px 0;
 }
 
 .flt-spotlight__head {
@@ -1077,6 +1099,72 @@
   min-height: 0;
   overflow: auto;
   padding-top: 8px;
+}
+
+.flt-spotlight__fleet {
+  margin: 0 14px 18px;
+  padding: 14px;
+  border-radius: 14px;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.flt-spotlight__fleet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+
+  h3 {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 700;
+  }
+
+  span {
+    font-size: 0.72rem;
+    color: var(--gray-500);
+  }
+}
+
+.flt-spotlight__fleet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.flt-spotlight__fleet-list li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid var(--gray-200);
+}
+
+.flt-spotlight__fleet-reg {
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+.flt-spotlight__fleet-meta {
+  font-size: 0.72rem;
+  color: var(--gray-500);
+}
+
+.flt-spotlight__fleet-loading,
+.flt-spotlight__fleet-empty,
+.flt-spotlight__fleet-error {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--gray-500);
+}
+
+.flt-spotlight__fleet-error {
+  color: var(--danger-600, #b91c1c);
 }
 
 .flt-spotlight__pulse {
@@ -1211,4 +1299,121 @@
   .flt-orbit__node {
     animation: none;
   }
+}
+
+/* ── Drivers & compliance ───────────────────────── */
+.flt-tabs__btn--inline {
+  flex: 0 0 auto;
+  padding: 8px 14px;
+}
+
+.flt-drivers__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.flt-driver-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 16px;
+  border-radius: var(--card-radius);
+  background: var(--surface-1);
+  border: 1px solid var(--gray-200);
+}
+
+.flt-driver-card__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+}
+
+.flt-driver-card__body h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+}
+
+.flt-driver-card__body p {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 4px;
+  color: var(--gray-600);
+  font-size: 0.875rem;
+
+  mat-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+}
+
+.flt-compliance__toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  margin-bottom: 16px;
+}
+
+.flt-compliance__table {
+  overflow-x: auto;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th,
+  td {
+    padding: 12px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  th {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-500);
+  }
+}
+
+.flt-compliance__subject {
+  display: block;
+  font-weight: 600;
+}
+
+.flt-compliance__actions {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.flt-pill--expiry {
+  font-size: 0.75rem;
+}
+
+.flt-pill--expiry-ok {
+  background: rgba(20, 184, 166, 0.12);
+  color: #0f766e;
+}
+
+.flt-pill--expiry-expiring {
+  background: rgba(245, 158, 11, 0.15);
+  color: #b45309;
+}
+
+.flt-pill--expiry-expired {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.flt-pill--expiry-none {
+  background: var(--gray-100);
+  color: var(--gray-600);
 }

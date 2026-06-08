@@ -51,4 +51,53 @@ public interface UserService {
     UserResponse listOperationalIssueHandlers(Locale locale);
 
     UserResponse setOperationalIssueHandler(Long id, boolean enabled, Locale locale, String username);
+
+    // ============================================================
+    //  Phone verification & 2FA step-up
+    // ============================================================
+
+    /**
+     * Generates a PHONE_VERIFICATION OTP and delivers it via SMS to the authenticated user's
+     * registered phone number.  Returns a 400 if the phone is already verified.
+     */
+    UserResponse requestPhoneVerification(String username, Locale locale);
+
+    /**
+     * Confirms a PHONE_VERIFICATION OTP submitted by the authenticated user.
+     * On success marks {@code phoneVerified=true} and stamps {@code lastPhoneVerifiedAt}.
+     *
+     * @param username the authenticated user
+     * @param otp      the 6-digit code submitted by the user
+     */
+    UserResponse confirmPhoneVerification(String username, String otp, Locale locale);
+
+    /**
+     * Generates a STEP_UP OTP and delivers it via SMS.  Used before sensitive portal actions.
+     */
+    UserResponse requestStepUpVerification(String username, Locale locale);
+
+    /**
+     * Confirms a STEP_UP OTP.  Does NOT permanently mark the phone as verified.
+     *
+     * @param username the authenticated user
+     * @param otp      the 6-digit code submitted by the user
+     */
+    UserResponse confirmStepUpVerification(String username, String otp, Locale locale);
+
+    /**
+     * System-only: generates a LOGIN_2FA OTP and delivers it via SMS.
+     * Called by ldms-authentication after successful password validation.
+     *
+     * @param usernameOrPhone the login identifier of the user
+     */
+    UserResponse generateLoginOtp(String usernameOrPhone, Locale locale);
+
+    /**
+     * System-only: verifies a LOGIN_2FA OTP.
+     * Called by ldms-authentication during the 2FA challenge step.
+     *
+     * @param usernameOrPhone the login identifier of the user
+     * @param otp             the 6-digit code submitted by the user
+     */
+    UserResponse verifyLoginOtp(String usernameOrPhone, String otp, Locale locale);
 }

@@ -111,7 +111,7 @@ export class UserEditSecurityDialogComponent implements OnInit {
   }
 
   private ensureCreateDefaults(): void {
-    if (!this.twoFactorAuthSecret.trim()) {
+    if (!this.selfService && !this.twoFactorAuthSecret.trim()) {
       this.generateTwoFactorSecret(true);
     }
   }
@@ -156,7 +156,7 @@ export class UserEditSecurityDialogComponent implements OnInit {
       this.error = 'Question 1, answer 1, and answer 2 are required.';
       return;
     }
-    if (!this.twoFactorAuthSecret.trim()) {
+    if (!this.selfService && !this.twoFactorAuthSecret.trim()) {
       this.error =
         'Two-factor secret is required by the API. If it stayed empty after load, refresh the profile or paste the current base32 secret.';
       return;
