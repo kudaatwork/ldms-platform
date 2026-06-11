@@ -1,0 +1,24 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ data.title }}</h2>
+      <p class="lx-dialog-subtitle" *ngIf="data.subtitle">{{ data.subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content inv-detail-body">
+    <dl class="inv-detail-grid">
+      <ng-container *ngFor="let field of data.fields">
+        <dt>{{ field.label }}</dt>
+        <dd>{{ field.value || '—' }}</dd>
+      </ng-container>
+    </dl>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-primary" (click)="close()">Close</button>
+    </div>
+  </div>
+</div>

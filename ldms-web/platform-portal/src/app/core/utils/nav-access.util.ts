@@ -44,6 +44,8 @@ const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { prefix: '/users/types', orgWorkspace: true },
   { prefix: '/users', orgWorkspace: true },
   { prefix: '/activity', orgWorkspace: true },
+  { prefix: '/products-inventory', orgWorkspace: true },
+  { prefix: '/my-orders', orgWorkspace: true },
   { prefix: '/dashboard', anyAssignedRole: true },
 ];
 

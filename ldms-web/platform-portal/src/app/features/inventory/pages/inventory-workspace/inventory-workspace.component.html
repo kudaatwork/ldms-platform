@@ -1,0 +1,2219 @@
+<div class="lx-page inv">
+  <lx-workspace-hero
+    variant="cyan"
+    eyebrow="Inventory control"
+    eyebrowIcon="inventory_2"
+    title="Inventory management"
+    [lead]="'Stock catalogue, warehouse locations, and transfer tracking for ' + orgName + '.'"
+    hubIcon="inventory_2"
+    [orbitIcons]="['storefront', 'warehouse', 'sync_alt']"
+    note="Manage your full product catalogue and track stock across all warehouse locations."
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="fetching">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button
+      type="button"
+      lxWorkspaceHeroActions
+      class="lx-btn lx-btn-primary lx-btn-sm lx-btn-accent"
+      *ngIf="canManageProductCatalogue"
+      (click)="openAddProduct()"
+      [disabled]="fetching"
+    >
+      <mat-icon>add</mat-icon>
+      Add product
+    </button>
+
+    <lx-workspace-hero-stat [value]="metrics.totalProducts" label="Products" icon="category" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.totalCategories" label="Categories" icon="folder_open" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.totalWarehouses" label="Warehouses" icon="warehouse" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.lowStockItems" label="Low stock" icon="warning_amber" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.pendingTransfers" label="Active transfers" icon="sync_alt" theme="violet"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <!-- Tab navigation -->
+  <nav class="inv-tabs lx-card" aria-label="Inventory views">
+    <button type="button" class="inv-tabs__btn" [class.is-on]="activeTab === 'warehouses'" (click)="setTab('warehouses')">
+      <mat-icon>warehouse</mat-icon>
+      <span class="inv-tabs__copy">
+        <span>Warehouses</span>
+        <small>Locations</small>
+      </span>
+    </button>
+    <button type="button" class="inv-tabs__btn" [class.is-on]="activeTab === 'categories'" (click)="setTab('categories')">
+      <mat-icon>folder_open</mat-icon>
+      <span class="inv-tabs__copy">
+        <span>Product categories</span>
+        <small>Taxonomy</small>
+      </span>
+    </button>
+    <button type="button" class="inv-tabs__btn" [class.is-on]="activeTab === 'products'" (click)="setTab('products')">
+      <mat-icon>category</mat-icon>
+      <span class="inv-tabs__copy">
+        <span>Products</span>
+        <small>Catalogue</small>
+      </span>
+    </button>
+    <button type="button" class="inv-tabs__btn" [class.is-on]="activeTab === 'stock'" (click)="setTab('stock')">
+      <mat-icon>inventory</mat-icon>
+      <span class="inv-tabs__copy">
+        <span>Stock levels</span>
+        <small>On-hand &amp; reserved</small>
+      </span>
+    </button>
+    <button type="button" class="inv-tabs__btn" [class.is-on]="activeTab === 'transfers'" (click)="setTab('transfers')">
+      <mat-icon>sync_alt</mat-icon>
+      <span class="inv-tabs__copy">
+        <span>Transfers</span>
+        <small>Warehouse moves</small>
+      </span>
+    </button>
+    <button type="button" class="inv-tabs__btn" *ngIf="isSupplier" [class.is-on]="activeTab === 'requisitions'" (click)="setTab('requisitions')">
+      <mat-icon>fact_check</mat-icon>
+      <span class="inv-tabs__copy">
+        <span>Requisitions</span>
+        <small>Awaiting quote</small>
+      </span>
+    </button>
+    <button type="button" class="inv-tabs__btn" *ngIf="isSupplier" [class.is-on]="activeTab === 'quotations'" (click)="setTab('quotations')">
+      <mat-icon>description</mat-icon>
+      <span class="inv-tabs__copy">
+        <span>Quotations</span>
+        <small>Submitted quotes</small>
+      </span>
+      <span class="inv-tabs__badge" *ngIf="supplierQuotations.length">{{ supplierQuotations.length }}</span>
+    </button>
+    <button type="button" class="inv-tabs__btn" *ngIf="isSupplier" [class.is-on]="activeTab === 'purchase-orders'" (click)="setTab('purchase-orders')">
+      <mat-icon>shopping_cart</mat-icon>
+      <span class="inv-tabs__copy">
+        <span>Purchase orders</span>
+        <small>Customer demand</small>
+      </span>
+    </button>
+    <button type="button" class="inv-tabs__btn" *ngIf="isSupplier" [class.is-on]="activeTab === 'sales-orders'" (click)="setTab('sales-orders')">
+      <mat-icon>sell</mat-icon>
+      <span class="inv-tabs__copy">
+        <span>Sales orders</span>
+        <small>Fulfillment</small>
+      </span>
+      <span class="inv-tabs__badge" *ngIf="salesOrders.length">{{ salesOrders.length }}</span>
+    </button>
+  </nav>
+
+  <!-- Global error -->
+  <div class="inv-alert lx-card" *ngIf="loadError" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ loadError }}</span>
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()">Retry</button>
+  </div>
+
+  <!-- Initial loading -->
+  <div class="inv-loading" *ngIf="fetching" role="status">
+    <lx-table-loading [busy]="true" message="Loading inventory data…"></lx-table-loading>
+  </div>
+
+  <!-- Tab content -->
+  <div class="inv-layout" *ngIf="!fetching">
+
+    <!-- ── Products tab ─────────────────────────────────────── -->
+    <section class="inv-section" *ngIf="activeTab === 'products'">
+      <header class="inv-section__head">
+        <div>
+          <h2>Product catalogue</h2>
+          <p>All products registered for {{ orgName }}.</p>
+        </div>
+        <div class="inv-section__head-actions" *ngIf="canManageProductCatalogue">
+          <button
+            type="button"
+            mat-icon-button
+            class="lx-controls-head__info-btn"
+            [class.is-on]="showProductCsvInfo"
+            (click)="showProductCsvInfo = !showProductCsvInfo"
+            [attr.aria-pressed]="showProductCsvInfo"
+            aria-label="Toggle CSV import information"
+          >
+            <mat-icon>info_outline</mat-icon>
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadProductSampleCsv()">Sample CSV</button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="triggerProductImport()" [disabled]="productsImporting">
+            {{ productsImporting ? 'Importing…' : 'Import CSV' }}
+          </button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm lx-export-trigger"
+            [matMenuTriggerFor]="productExportMenu"
+            [disabled]="productsExporting || !products.length"
+          >
+            {{ productsExporting ? 'Exporting…' : 'Export' }}
+          </button>
+          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddProduct()">
+            <mat-icon>add</mat-icon>
+            Add product
+          </button>
+        </div>
+      </header>
+
+      <input
+        #productImportInput
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        (change)="onProductImportSelected($event)"
+      />
+
+      <p class="lx-controls-hint lx-card" *ngIf="showProductCsvInfo && canManageProductCatalogue">
+        <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+        <span><strong>Sample CSV:</strong> {{ productSampleCsvDescription }}</span>
+      </p>
+      <p class="lx-controls-hint lx-card lx-import-disclaimer" *ngIf="showProductCsvInfo && canManageProductCatalogue">
+        <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+        <span>{{ productImportCsvDisclaimer }}</span>
+      </p>
+
+      <mat-menu #productExportMenu="matMenu" panelClass="lx-export-menu">
+        <button mat-menu-item class="lx-export-option--pdf" (click)="exportProductsAs('pdf')" [disabled]="productsExporting">
+          <mat-icon>picture_as_pdf</mat-icon>
+          <span>Export PDF</span>
+        </button>
+        <button mat-menu-item class="lx-export-option--csv" (click)="exportProductsAs('csv')" [disabled]="productsExporting">
+          <mat-icon>table_view</mat-icon>
+          <span>Export CSV</span>
+        </button>
+        <button mat-menu-item class="lx-export-option--xlsx" (click)="exportProductsAs('xlsx')" [disabled]="productsExporting">
+          <mat-icon>grid_on</mat-icon>
+          <span>Export XLSX</span>
+        </button>
+      </mat-menu>
+
+      <div class="inv-toolbar lx-card">
+        <div class="inv-search lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input
+            [(ngModel)]="productSearch"
+            (ngModelChange)="productsPage.reset()"
+            placeholder="Search products…"
+            autocomplete="off"
+          />
+        </div>
+        <span class="inv-toolbar__count" *ngIf="products.length">{{ filteredProducts.length }} of {{ products.length }}</span>
+      </div>
+
+      <div class="inv-loading" *ngIf="productsLoading" role="status">
+        <lx-table-loading [busy]="true" message="Loading products…"></lx-table-loading>
+      </div>
+
+      <p class="inv-alert lx-card" *ngIf="productsError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ productsError }}
+      </p>
+
+      <div class="inv-table-card lx-card lx-table-card" *ngIf="!productsLoading">
+        <div class="inv-table-card__bar" *ngIf="filteredProducts.length">
+          <span class="inv-table-card__summary">{{ pageSummary(productsPage, filteredProducts.length) }}</span>
+        </div>
+        <div class="lx-table-wrap inv-table-scroll">
+          <table class="lx-data-table inv-products-table">
+            <colgroup>
+              <col class="inv-products-col inv-products-col--name" />
+              <col class="inv-products-col inv-products-col--code" />
+              <col class="inv-products-col inv-products-col--category" />
+              <col class="inv-products-col inv-products-col--subcategory" />
+              <col class="inv-products-col inv-products-col--price" />
+              <col class="inv-products-col inv-products-col--uom" />
+              <col class="inv-products-col inv-products-col--status" />
+              <col class="inv-products-col inv-products-col--created" />
+              <col class="inv-products-col inv-products-col--actions" />
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Code</th>
+                <th>Category</th>
+                <th>Subcategory</th>
+                <th>Unit price</th>
+                <th>UOM</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th class="inv-table__actions-head">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of paginatedProducts; trackBy: trackByProductId" class="inv-row--drillable">
+                <td class="inv-products-cell--name">
+                  <div class="inv-name-cell">
+                    <span class="inv-product-card__avatar inv-name-cell__avatar" [ngStyle]="avatarStyle(p)">{{ p.initials }}</span>
+                    <button
+                      type="button"
+                      class="inv-drill-link inv-name-cell__link"
+                      (click)="viewProductStock(p)"
+                      [title]="p.name"
+                      [attr.aria-label]="'View stock levels for ' + p.name"
+                    >
+                      <span class="inv-name-cell__text">{{ p.name }}</span>
+                    </button>
+                  </div>
+                </td>
+                <td class="inv-cell-ellipsis" [title]="p.code || ''"><span class="inv-mono">{{ p.code || '—' }}</span></td>
+                <td class="inv-cell-ellipsis" [title]="p.categoryName || ''">{{ p.categoryName || '—' }}</td>
+                <td class="inv-cell-ellipsis" [title]="p.subcategoryName || ''">{{ p.subcategoryName || '—' }}</td>
+                <td class="inv-amount">{{ p.unitPriceLabel }}</td>
+                <td>{{ p.unitOfMeasure || '—' }}</td>
+                <td>
+                  <span class="lx-status" [ngClass]="'lx-status-' + entityStatusClass(p.entityStatus)">
+                    {{ entityStatusText(p.entityStatus) }}
+                  </span>
+                </td>
+                <td>{{ p.createdAtLabel }}</td>
+                <td class="inv-table__actions lx-actions-cell">
+                  <button
+                    type="button"
+                    mat-icon-button
+                    class="inv-row-actions-trigger"
+                    [matMenuTriggerFor]="productActionsMenu"
+                    (click)="actionProduct = p"
+                    aria-label="Product actions"
+                  >
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="!filteredProducts.length && !productsError">
+                <td colspan="9" class="inv-table-empty">
+                  <div class="inv-table-empty__inner">
+                    <mat-icon>category</mat-icon>
+                    <span>{{ products.length ? 'No products match your search.' : 'No products yet — add your first product to start building your catalogue.' }}</span>
+                    <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" *ngIf="canManageProductCatalogue && !products.length" (click)="openAddProduct()">
+                      <mat-icon>add</mat-icon>
+                      Add product
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <mat-paginator
+          *ngIf="filteredProducts.length"
+          class="lx-table-paginator"
+          [length]="filteredProducts.length"
+          [pageIndex]="productsPage.index"
+          [pageSize]="productsPage.size"
+          [pageSizeOptions]="pageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="productsPage.onPage($event)"
+        ></mat-paginator>
+      </div>
+    </section>
+
+    <!-- ── Product categories tab ───────────────────────────── -->
+    <section class="inv-section" *ngIf="activeTab === 'categories'">
+      <header class="inv-section__head">
+        <div>
+          <h2>Product taxonomy</h2>
+          <p *ngIf="catalogView === 'categories'">Browse categories, then drill into subcategories for finer product grouping.</p>
+          <p *ngIf="catalogView === 'subcategories' && selectedDrillCategory">
+            Subcategories under <strong>{{ selectedDrillCategory.name }}</strong>.
+          </p>
+          <p *ngIf="catalogView === 'subcategories' && !selectedDrillCategory">
+            Optional finer grouping under each category — filter by parent or open a category to drill down.
+          </p>
+        </div>
+        <div class="inv-section__head-actions" *ngIf="canManageProductCatalogue">
+          <ng-container *ngIf="catalogView === 'categories'">
+            <button
+              type="button"
+              mat-icon-button
+              class="lx-controls-head__info-btn"
+              [class.is-on]="showCategoryCsvInfo"
+              (click)="showCategoryCsvInfo = !showCategoryCsvInfo"
+              [attr.aria-pressed]="showCategoryCsvInfo"
+              aria-label="Toggle CSV import information"
+            >
+              <mat-icon>info_outline</mat-icon>
+            </button>
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadCategorySampleCsv()">Sample CSV</button>
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="triggerCategoryImport()" [disabled]="categoriesImporting">
+              {{ categoriesImporting ? 'Importing…' : 'Import CSV' }}
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm lx-export-trigger"
+              [matMenuTriggerFor]="categoryExportMenu"
+              [disabled]="categoriesExporting || !categoryRows.length"
+            >
+              {{ categoriesExporting ? 'Exporting…' : 'Export' }}
+            </button>
+            <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddCategory()">
+              <mat-icon>add</mat-icon>
+              Add category
+            </button>
+          </ng-container>
+          <ng-container *ngIf="catalogView === 'subcategories'">
+            <button
+              type="button"
+              mat-icon-button
+              class="lx-controls-head__info-btn"
+              [class.is-on]="showSubcategoryCsvInfo"
+              (click)="showSubcategoryCsvInfo = !showSubcategoryCsvInfo"
+              [attr.aria-pressed]="showSubcategoryCsvInfo"
+              aria-label="Toggle CSV import information"
+            >
+              <mat-icon>info_outline</mat-icon>
+            </button>
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadSubcategorySampleCsv()">Sample CSV</button>
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="triggerSubcategoryImport()" [disabled]="subcategoriesImporting">
+              {{ subcategoriesImporting ? 'Importing…' : 'Import CSV' }}
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm lx-export-trigger"
+              [matMenuTriggerFor]="subcategoryExportMenu"
+              [disabled]="subcategoriesExporting || !subcategoryRows.length"
+            >
+              {{ subcategoriesExporting ? 'Exporting…' : 'Export' }}
+            </button>
+            <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddSubcategory()">
+              <mat-icon>bookmark_add</mat-icon>
+              Add subcategory
+            </button>
+          </ng-container>
+        </div>
+      </header>
+
+      <input
+        #categoryImportInput
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        (change)="onCategoryImportSelected($event)"
+      />
+      <input
+        #subcategoryImportInput
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        (change)="onSubcategoryImportSelected($event)"
+      />
+
+      <p class="lx-controls-hint lx-card" *ngIf="showCategoryCsvInfo && canManageProductCatalogue && catalogView === 'categories'">
+        <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+        <span><strong>Sample CSV:</strong> {{ categorySampleCsvDescription }}</span>
+      </p>
+      <p class="lx-controls-hint lx-card lx-import-disclaimer" *ngIf="showCategoryCsvInfo && canManageProductCatalogue && catalogView === 'categories'">
+        <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+        <span>{{ categoryImportCsvDisclaimer }}</span>
+      </p>
+
+      <p class="lx-controls-hint lx-card" *ngIf="showSubcategoryCsvInfo && canManageProductCatalogue && catalogView === 'subcategories'">
+        <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+        <span><strong>Sample CSV:</strong> {{ subcategorySampleCsvDescription }}</span>
+      </p>
+      <p class="lx-controls-hint lx-card lx-import-disclaimer" *ngIf="showSubcategoryCsvInfo && canManageProductCatalogue && catalogView === 'subcategories'">
+        <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+        <span>{{ subcategoryImportCsvDisclaimer }}</span>
+      </p>
+
+      <mat-menu #categoryExportMenu="matMenu" panelClass="lx-export-menu">
+        <button mat-menu-item class="lx-export-option--pdf" (click)="exportCategoriesAs('pdf')" [disabled]="categoriesExporting">
+          <mat-icon>picture_as_pdf</mat-icon>
+          <span>Export PDF</span>
+        </button>
+        <button mat-menu-item class="lx-export-option--csv" (click)="exportCategoriesAs('csv')" [disabled]="categoriesExporting">
+          <mat-icon>table_view</mat-icon>
+          <span>Export CSV</span>
+        </button>
+        <button mat-menu-item class="lx-export-option--xlsx" (click)="exportCategoriesAs('xlsx')" [disabled]="categoriesExporting">
+          <mat-icon>grid_on</mat-icon>
+          <span>Export XLSX</span>
+        </button>
+      </mat-menu>
+
+      <mat-menu #subcategoryExportMenu="matMenu" panelClass="lx-export-menu">
+        <button mat-menu-item class="lx-export-option--pdf" (click)="exportSubcategoriesAs('pdf')" [disabled]="subcategoriesExporting">
+          <mat-icon>picture_as_pdf</mat-icon>
+          <span>Export PDF</span>
+        </button>
+        <button mat-menu-item class="lx-export-option--csv" (click)="exportSubcategoriesAs('csv')" [disabled]="subcategoriesExporting">
+          <mat-icon>table_view</mat-icon>
+          <span>Export CSV</span>
+        </button>
+        <button mat-menu-item class="lx-export-option--xlsx" (click)="exportSubcategoriesAs('xlsx')" [disabled]="subcategoriesExporting">
+          <mat-icon>grid_on</mat-icon>
+          <span>Export XLSX</span>
+        </button>
+      </mat-menu>
+
+      <nav class="inv-segmented lx-card" aria-label="Category views">
+        <button
+          type="button"
+          class="inv-segmented__btn"
+          [class.is-on]="catalogView === 'categories'"
+          (click)="setCatalogView('categories')"
+        >
+          <mat-icon>folder_open</mat-icon>
+          <span>Categories</span>
+          <span class="inv-segmented__badge">{{ categoryRows.length }}</span>
+        </button>
+        <button
+          type="button"
+          class="inv-segmented__btn"
+          [class.is-on]="catalogView === 'subcategories'"
+          (click)="setCatalogView('subcategories')"
+        >
+          <mat-icon>bookmark</mat-icon>
+          <span>Subcategories</span>
+          <span class="inv-segmented__badge">{{ subcategoryRows.length }}</span>
+        </button>
+      </nav>
+
+      <nav class="inv-taxonomy-crumb lx-card" *ngIf="catalogView === 'subcategories' && selectedDrillCategory" aria-label="Category drill-down">
+        <button type="button" class="inv-taxonomy-crumb__link" (click)="backToCategoriesFromDrill()">
+          <mat-icon>folder_open</mat-icon>
+          Categories
+        </button>
+        <mat-icon class="inv-taxonomy-crumb__sep" aria-hidden="true">chevron_right</mat-icon>
+        <span class="inv-taxonomy-crumb__current">{{ selectedDrillCategory.name }}</span>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm inv-taxonomy-crumb__clear" (click)="clearSubcategoryDrillDown()">
+          Show all subcategories
+        </button>
+      </nav>
+
+      <div class="inv-loading" *ngIf="catalogLoading" role="status">
+        <lx-table-loading [busy]="true" message="Loading taxonomy…"></lx-table-loading>
+      </div>
+
+      <p class="inv-alert lx-card" *ngIf="catalogError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ catalogError }}
+      </p>
+
+      <ng-container *ngIf="!catalogLoading">
+        <div class="inv-toolbar lx-card" *ngIf="catalogView === 'categories'">
+          <div class="inv-search lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">search</mat-icon>
+            <input
+              [(ngModel)]="categorySearch"
+              (ngModelChange)="categoriesPage.reset()"
+              placeholder="Search categories…"
+              autocomplete="off"
+            />
+          </div>
+          <span class="inv-toolbar__count" *ngIf="categoryRows.length">{{ filteredCategories.length }} of {{ categoryRows.length }}</span>
+        </div>
+
+        <div class="inv-toolbar lx-card" *ngIf="catalogView === 'subcategories'">
+          <div class="inv-search lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">search</mat-icon>
+            <input
+              [(ngModel)]="subcategorySearch"
+              (ngModelChange)="subcategoriesPage.reset()"
+              placeholder="Search subcategories…"
+              autocomplete="off"
+            />
+          </div>
+          <div class="inv-filter lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">filter_list</mat-icon>
+            <select
+              [(ngModel)]="subcategoryCategoryFilter"
+              (ngModelChange)="onSubcategoryFilterChange()"
+              aria-label="Filter by parent category"
+            >
+              <option [ngValue]="0">All categories</option>
+              <option *ngFor="let c of categoryRows" [ngValue]="c.id">{{ c.name }}</option>
+            </select>
+          </div>
+          <span class="inv-toolbar__count" *ngIf="subcategoryRows.length">{{ filteredSubcategories.length }} of {{ subcategoryRows.length }}</span>
+        </div>
+
+        <div class="inv-table-card lx-card lx-table-card" *ngIf="catalogView === 'categories'">
+          <div class="inv-table-card__bar" *ngIf="filteredCategories.length">
+            <span class="inv-table-card__summary">{{ pageSummary(categoriesPage, filteredCategories.length) }}</span>
+          </div>
+          <div class="lx-table-wrap inv-table-scroll">
+            <table class="lx-data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th>Subcategories</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th class="inv-table__actions-head">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of paginatedCategories; trackBy: trackByCategoryId" class="inv-row--drillable">
+                  <td class="inv-cell-ellipsis">
+                    <button
+                      type="button"
+                      class="inv-drill-link inv-drill-link--truncate"
+                      (click)="drillIntoCategorySubcategories(c)"
+                      [title]="c.name"
+                      [attr.aria-label]="'View subcategories in ' + c.name"
+                    >
+                      <span class="inv-drill-link__text">{{ c.name }}</span>
+                      <mat-icon>chevron_right</mat-icon>
+                    </button>
+                  </td>
+                  <td class="inv-cell-ellipsis" [title]="c.description || ''">{{ c.description || '—' }}</td>
+                  <td>
+                    <button
+                      type="button"
+                      class="inv-subcat-count"
+                      (click)="drillIntoCategorySubcategories(c)"
+                      [attr.aria-label]="'View ' + subcategoryCountForCategory(c.id) + ' subcategories in ' + c.name"
+                    >
+                      <mat-icon>bookmark</mat-icon>
+                      {{ subcategoryCountForCategory(c.id) }}
+                    </button>
+                  </td>
+                  <td>
+                    <span class="lx-status" [ngClass]="'lx-status-' + entityStatusClass(c.entityStatus)">
+                      {{ entityStatusText(c.entityStatus) }}
+                    </span>
+                  </td>
+                  <td>{{ c.createdAtLabel }}</td>
+                  <td class="inv-table__actions lx-actions-cell">
+                    <button
+                      type="button"
+                      mat-icon-button
+                      class="inv-row-actions-trigger"
+                      [matMenuTriggerFor]="categoryActionsMenu"
+                      (click)="actionCategory = c"
+                      aria-label="Category actions"
+                    >
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                  </td>
+                </tr>
+                <tr *ngIf="!filteredCategories.length && !catalogError">
+                  <td colspan="6" class="inv-table-empty">
+                    <div class="inv-table-empty__inner">
+                      <mat-icon>folder_open</mat-icon>
+                      <span>{{ categoryRows.length ? 'No categories match your search.' : 'No categories yet — add your first category before creating products.' }}</span>
+                      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" *ngIf="canManageProductCatalogue && !categoryRows.length" (click)="openAddCategory()">
+                        <mat-icon>add</mat-icon>
+                        Add category
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <mat-paginator
+            *ngIf="filteredCategories.length"
+            class="lx-table-paginator"
+            [length]="filteredCategories.length"
+            [pageIndex]="categoriesPage.index"
+            [pageSize]="categoriesPage.size"
+            [pageSizeOptions]="pageSizeOptions"
+            [showFirstLastButtons]="true"
+            (page)="categoriesPage.onPage($event)"
+          ></mat-paginator>
+        </div>
+
+        <div class="inv-table-card lx-card lx-table-card" *ngIf="catalogView === 'subcategories'">
+          <div class="inv-table-card__bar" *ngIf="filteredSubcategories.length">
+            <span class="inv-table-card__summary">{{ pageSummary(subcategoriesPage, filteredSubcategories.length) }}</span>
+          </div>
+          <div class="lx-table-wrap inv-table-scroll">
+            <table class="lx-data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Parent category</th>
+                  <th>Description</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th class="inv-table__actions-head">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let s of paginatedSubcategories; trackBy: trackBySubCategoryId">
+                  <td class="inv-cell-ellipsis" [title]="s.name"><strong>{{ s.name }}</strong></td>
+                  <td class="inv-cell-ellipsis">
+                    <button
+                      type="button"
+                      class="inv-drill-link inv-drill-link--muted inv-drill-link--truncate"
+                      *ngIf="s.categoryId"
+                      (click)="drillIntoCategoryById(s.categoryId)"
+                      [title]="s.categoryName || ''"
+                    >
+                      <span class="inv-drill-link__text">{{ s.categoryName || '—' }}</span>
+                    </button>
+                    <span *ngIf="!s.categoryId" [title]="s.categoryName || ''">{{ s.categoryName || '—' }}</span>
+                  </td>
+                  <td class="inv-cell-ellipsis" [title]="s.description || ''">{{ s.description || '—' }}</td>
+                  <td>
+                    <span class="lx-status" [ngClass]="'lx-status-' + entityStatusClass(s.entityStatus)">
+                      {{ entityStatusText(s.entityStatus) }}
+                    </span>
+                  </td>
+                  <td>{{ s.createdAtLabel }}</td>
+                  <td class="inv-table__actions lx-actions-cell">
+                    <button
+                      type="button"
+                      mat-icon-button
+                      class="inv-row-actions-trigger"
+                      [matMenuTriggerFor]="subcategoryActionsMenu"
+                      (click)="actionSubCategory = s"
+                      aria-label="Subcategory actions"
+                    >
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                  </td>
+                </tr>
+                <tr *ngIf="!filteredSubcategories.length">
+                  <td colspan="6" class="inv-table-empty">
+                    <div class="inv-table-empty__inner">
+                      <mat-icon>bookmark_border</mat-icon>
+                      <span>
+                        {{
+                          subcategoryRows.length
+                            ? 'No subcategories match your filters.'
+                            : 'No subcategories yet — optional finer grouping under each category.'
+                        }}
+                      </span>
+                      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" *ngIf="canManageProductCatalogue && categoryRows.length" (click)="openAddSubcategory()">
+                        <mat-icon>add</mat-icon>
+                        Add subcategory
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <mat-paginator
+            *ngIf="filteredSubcategories.length"
+            class="lx-table-paginator"
+            [length]="filteredSubcategories.length"
+            [pageIndex]="subcategoriesPage.index"
+            [pageSize]="subcategoriesPage.size"
+            [pageSizeOptions]="pageSizeOptions"
+            [showFirstLastButtons]="true"
+            (page)="subcategoriesPage.onPage($event)"
+          ></mat-paginator>
+        </div>
+      </ng-container>
+    </section>
+
+    <!-- ── Warehouses tab ───────────────────────────────────── -->
+    <section class="inv-section" *ngIf="activeTab === 'warehouses'">
+      <header class="inv-section__head">
+        <div>
+          <h2>Warehouse locations</h2>
+          <p>Physical and virtual storage locations used to track stock levels.</p>
+        </div>
+        <div class="inv-section__head-actions">
+          <button
+            type="button"
+            mat-icon-button
+            class="lx-controls-head__info-btn"
+            [class.is-on]="showWarehouseCsvInfo"
+            (click)="showWarehouseCsvInfo = !showWarehouseCsvInfo"
+            [attr.aria-pressed]="showWarehouseCsvInfo"
+            aria-label="Toggle CSV import information"
+          >
+            <mat-icon>info_outline</mat-icon>
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadWarehouseSampleCsv()">Sample CSV</button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="triggerWarehouseImport()" [disabled]="warehousesImporting">
+            {{ warehousesImporting ? 'Importing…' : 'Import CSV' }}
+          </button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm lx-export-trigger"
+            [matMenuTriggerFor]="warehouseExportMenu"
+            [disabled]="warehousesExporting || !warehouses.length"
+          >
+            {{ warehousesExporting ? 'Exporting…' : 'Export' }}
+          </button>
+          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddWarehouse()">
+            <mat-icon>add</mat-icon>
+            Add warehouse
+          </button>
+        </div>
+      </header>
+
+      <input
+        #warehouseImportInput
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        (change)="onWarehouseImportSelected($event)"
+      />
+
+      <p class="lx-controls-hint lx-card" *ngIf="showWarehouseCsvInfo">
+        <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+        <span><strong>Sample CSV:</strong> {{ warehouseSampleCsvDescription }}</span>
+      </p>
+      <p class="lx-controls-hint lx-card lx-import-disclaimer" *ngIf="showWarehouseCsvInfo">
+        <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+        <span>{{ warehouseImportCsvDisclaimer }}</span>
+      </p>
+
+      <mat-menu #warehouseExportMenu="matMenu" panelClass="lx-export-menu">
+        <button mat-menu-item class="lx-export-option--pdf" (click)="exportWarehousesAs('pdf')" [disabled]="warehousesExporting">
+          <mat-icon>picture_as_pdf</mat-icon>
+          <span>Export PDF</span>
+        </button>
+        <button mat-menu-item class="lx-export-option--csv" (click)="exportWarehousesAs('csv')" [disabled]="warehousesExporting">
+          <mat-icon>table_view</mat-icon>
+          <span>Export CSV</span>
+        </button>
+        <button mat-menu-item class="lx-export-option--xlsx" (click)="exportWarehousesAs('xlsx')" [disabled]="warehousesExporting">
+          <mat-icon>grid_on</mat-icon>
+          <span>Export XLSX</span>
+        </button>
+      </mat-menu>
+
+      <div class="inv-loading" *ngIf="warehousesLoading" role="status">
+        <lx-table-loading [busy]="true" message="Loading warehouses…"></lx-table-loading>
+      </div>
+
+      <p class="inv-alert lx-card" *ngIf="warehousesError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ warehousesError }}
+      </p>
+
+      <div class="inv-toolbar lx-card" *ngIf="!warehousesLoading">
+        <div class="inv-search lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input
+            [(ngModel)]="warehouseSearch"
+            (ngModelChange)="warehousesPage.reset()"
+            placeholder="Search warehouses…"
+            autocomplete="off"
+          />
+        </div>
+        <span class="inv-toolbar__count" *ngIf="warehouses.length">{{ filteredWarehouses.length }} of {{ warehouses.length }}</span>
+      </div>
+
+      <div class="inv-table-card lx-card lx-table-card" *ngIf="!warehousesLoading">
+        <div class="inv-table-card__bar" *ngIf="filteredWarehouses.length">
+          <span class="inv-table-card__summary">{{ pageSummary(warehousesPage, filteredWarehouses.length) }}</span>
+        </div>
+        <div class="lx-table-wrap inv-table-scroll">
+        <table class="lx-data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Type</th>
+              <th>Address</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th class="inv-table__actions-head">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let w of paginatedWarehouses; trackBy: trackByWarehouseId" class="inv-row--drillable">
+              <td class="inv-cell-ellipsis inv-products-cell--name" [title]="w.name">
+                <button
+                  type="button"
+                  class="inv-drill-link inv-drill-link--truncate"
+                  (click)="viewWarehouseStock(w)"
+                  [title]="w.name"
+                  [attr.aria-label]="'View stock at ' + w.name"
+                >
+                  <span class="inv-drill-link__text">{{ w.name }}</span>
+                </button>
+              </td>
+              <td class="inv-cell-ellipsis" [title]="w.description || ''">{{ w.description || '—' }}</td>
+              <td>{{ warehouseTypeLabel(w.warehouseType) }}</td>
+              <td class="inv-address">{{ w.addressLabel || '—' }}</td>
+              <td>
+                <span class="lx-status" [ngClass]="'lx-status-' + entityStatusClass(w.entityStatus)">
+                  {{ entityStatusText(w.entityStatus) }}
+                </span>
+              </td>
+              <td>{{ w.createdAtLabel }}</td>
+              <td class="inv-table__actions lx-actions-cell">
+                <button
+                  type="button"
+                  mat-icon-button
+                  class="inv-row-actions-trigger"
+                  [matMenuTriggerFor]="warehouseActionsMenu"
+                  (click)="actionWarehouse = w"
+                  aria-label="Warehouse actions"
+                >
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="!filteredWarehouses.length && !warehousesError">
+              <td colspan="7" class="inv-table-empty">
+                <div class="inv-table-empty__inner">
+                  <mat-icon>warehouse</mat-icon>
+                  <span>{{ warehouses.length ? 'No warehouses match your search.' : 'No warehouses yet — add a location or import from CSV.' }}</span>
+                  <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" *ngIf="!warehouses.length" (click)="openAddWarehouse()">
+                    <mat-icon>add</mat-icon>
+                    Add warehouse
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <mat-paginator
+          *ngIf="filteredWarehouses.length"
+          class="lx-table-paginator"
+          [length]="filteredWarehouses.length"
+          [pageIndex]="warehousesPage.index"
+          [pageSize]="warehousesPage.size"
+          [pageSizeOptions]="pageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="warehousesPage.onPage($event)"
+        ></mat-paginator>
+      </div>
+    </section>
+
+    <!-- ── Stock levels tab ─────────────────────────────────── -->
+    <section class="inv-section" *ngIf="activeTab === 'stock'">
+      <header class="inv-section__head">
+        <div>
+          <h2>Stock levels</h2>
+          <p *ngIf="showingWarehouseStockProductDrill && selectedDrillWarehouse">
+            Products with stock at <strong>{{ selectedDrillWarehouse.name }}</strong>. Select a product for line details.
+          </p>
+          <p *ngIf="selectedDrillProduct && selectedDrillWarehouse">
+            Stock for <strong>{{ selectedDrillProduct.name }}</strong> at <strong>{{ selectedDrillWarehouse.name }}</strong>.
+          </p>
+          <p *ngIf="showingProductStockWarehouseDrill && selectedDrillProduct">
+            Warehouses with stock for <strong>{{ selectedDrillProduct.name }}</strong>. Select a warehouse for line details.
+          </p>
+          <p *ngIf="!selectedDrillProduct && !selectedDrillWarehouse">
+            Current on-hand and available quantities per product per warehouse.
+          </p>
+        </div>
+        <div class="inv-section__head-actions">
+          <button
+            type="button"
+            mat-icon-button
+            class="lx-controls-head__info-btn"
+            [class.is-on]="showStockCsvInfo"
+            (click)="showStockCsvInfo = !showStockCsvInfo"
+            [attr.aria-pressed]="showStockCsvInfo"
+            aria-label="Toggle CSV import information"
+          >
+            <mat-icon>info_outline</mat-icon>
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadStockSampleCsv()">Sample CSV</button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm"
+            (click)="triggerStockImport()"
+            [disabled]="stockImporting || !canManageProductCatalogue"
+          >
+            {{ stockImporting ? 'Importing…' : 'Import CSV' }}
+          </button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm lx-export-trigger"
+            [matMenuTriggerFor]="stockExportMenu"
+            [disabled]="stockExporting || !stock.length"
+          >
+            {{ stockExporting ? 'Exporting…' : 'Export' }}
+          </button>
+          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openInitialStock()" *ngIf="canManageProductCatalogue && hasInitialStockTargets">
+            <mat-icon>add</mat-icon>
+            Record initial stock
+          </button>
+        </div>
+      </header>
+
+      <nav
+        class="inv-taxonomy-crumb lx-card"
+        *ngIf="selectedDrillProduct || selectedDrillWarehouse"
+        aria-label="Stock drill-down"
+      >
+        <button
+          type="button"
+          class="inv-taxonomy-crumb__link"
+          (click)="setTab(stockDrillOrigin === 'product' ? 'products' : 'warehouses')"
+        >
+          <mat-icon>{{ stockDrillOrigin === 'product' ? 'inventory_2' : 'warehouse' }}</mat-icon>
+          {{ stockDrillOrigin === 'product' ? 'Products' : 'Warehouses' }}
+        </button>
+        <ng-container *ngIf="stockDrillOrigin === 'product' && selectedDrillProduct">
+          <mat-icon class="inv-taxonomy-crumb__sep" aria-hidden="true">chevron_right</mat-icon>
+          <button
+            type="button"
+            class="inv-taxonomy-crumb__link"
+            *ngIf="selectedDrillWarehouse"
+            (click)="clearStockWarehouseDrill()"
+          >
+            {{ selectedDrillProduct.name }}
+          </button>
+          <span class="inv-taxonomy-crumb__current" *ngIf="!selectedDrillWarehouse">{{ selectedDrillProduct.name }}</span>
+          <ng-container *ngIf="selectedDrillWarehouse">
+            <mat-icon class="inv-taxonomy-crumb__sep" aria-hidden="true">chevron_right</mat-icon>
+            <span class="inv-taxonomy-crumb__current">{{ selectedDrillWarehouse.name }}</span>
+          </ng-container>
+        </ng-container>
+        <ng-container *ngIf="stockDrillOrigin === 'warehouse' && selectedDrillWarehouse">
+          <mat-icon class="inv-taxonomy-crumb__sep" aria-hidden="true">chevron_right</mat-icon>
+          <button
+            type="button"
+            class="inv-taxonomy-crumb__link"
+            *ngIf="selectedDrillProduct"
+            (click)="clearStockProductDrill()"
+          >
+            {{ selectedDrillWarehouse.name }}
+          </button>
+          <span class="inv-taxonomy-crumb__current" *ngIf="!selectedDrillProduct">{{ selectedDrillWarehouse.name }}</span>
+          <ng-container *ngIf="selectedDrillProduct">
+            <mat-icon class="inv-taxonomy-crumb__sep" aria-hidden="true">chevron_right</mat-icon>
+            <span class="inv-taxonomy-crumb__current">{{ selectedDrillProduct.name }}</span>
+          </ng-container>
+        </ng-container>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm inv-taxonomy-crumb__clear" (click)="clearStockDrillDown()">
+          Show all stock
+        </button>
+      </nav>
+
+      <input
+        #stockImportInput
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        (change)="onStockImportSelected($event)"
+      />
+
+      <p class="lx-controls-hint lx-card lx-import-disclaimer" *ngIf="showStockCsvInfo">
+        {{ stockImportCsvDisclaimer }}
+        <span class="lx-controls-hint__detail">{{ stockSampleCsvDescription }}</span>
+      </p>
+
+      <mat-menu #stockExportMenu="matMenu" panelClass="lx-export-menu">
+        <button mat-menu-item class="lx-export-option--pdf" (click)="exportStockAs('pdf')" [disabled]="stockExporting">
+          PDF
+        </button>
+        <button mat-menu-item class="lx-export-option--csv" (click)="exportStockAs('csv')" [disabled]="stockExporting">
+          CSV
+        </button>
+        <button mat-menu-item class="lx-export-option--xlsx" (click)="exportStockAs('xlsx')" [disabled]="stockExporting">
+          Excel
+        </button>
+      </mat-menu>
+
+      <div class="inv-toolbar lx-card">
+        <div class="inv-search lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input
+            [(ngModel)]="stockSearch"
+            (ngModelChange)="onStockSearchChanged()"
+            placeholder="Search stock…"
+            autocomplete="off"
+          />
+        </div>
+        <div class="inv-filter lx-input-shell">
+          <select [(ngModel)]="stockStatusFilter" (ngModelChange)="onStockFiltersChanged()" aria-label="Filter by status">
+            <option *ngFor="let opt of stockStatusFilterOptions" [ngValue]="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+        <div class="inv-filter lx-input-shell" *ngIf="!showingProductStockWarehouseDrill && !showingWarehouseStockProductDrill">
+          <select [(ngModel)]="stockWarehouseFilter" (ngModelChange)="onStockFiltersChanged()" aria-label="Filter by warehouse">
+            <option [ngValue]="0">All warehouses</option>
+            <option *ngFor="let w of stockWarehouseFilterOptions" [ngValue]="w.id">{{ w.name }}</option>
+          </select>
+        </div>
+        <span class="inv-toolbar__count" *ngIf="stock.length">
+          <ng-container *ngIf="showingProductStockWarehouseDrill">{{ warehousesWithProductStock.length }} warehouse(s) with stock</ng-container>
+          <ng-container *ngIf="showingWarehouseStockProductDrill">{{ productsWithWarehouseStock.length }} product(s) with stock</ng-container>
+          <ng-container *ngIf="!showingProductStockWarehouseDrill && !showingWarehouseStockProductDrill">{{ filteredStock.length }} of {{ stock.length }}</ng-container>
+        </span>
+      </div>
+
+      <div class="inv-loading" *ngIf="stockLoading" role="status">
+        <lx-table-loading [busy]="true" message="Loading stock levels…"></lx-table-loading>
+      </div>
+
+      <p class="inv-alert lx-card" *ngIf="stockError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ stockError }}
+      </p>
+
+      <!-- Product drill-down: warehouses with stock -->
+      <div class="inv-table-card lx-card lx-table-card" *ngIf="showingProductStockWarehouseDrill && !stockLoading">
+        <div class="inv-table-card__bar" *ngIf="warehousesWithProductStock.length">
+          <span class="inv-table-card__summary">{{ pageSummary(productStockWarehousesPage, warehousesWithProductStock.length) }}</span>
+        </div>
+        <div class="lx-table-wrap inv-table-scroll">
+          <table class="lx-data-table inv-stock-table">
+            <thead>
+              <tr>
+                <th>Warehouse</th>
+                <th class="inv-table__qty-head">On hand</th>
+                <th class="inv-table__qty-head">Reserved</th>
+                <th class="inv-table__qty-head">Available</th>
+                <th>UOM</th>
+                <th class="inv-table__qty-head">Reorder at</th>
+                <th>Status</th>
+                <th class="inv-table__actions-head">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let s of paginatedProductStockWarehouses; trackBy: trackByStockId"
+                class="inv-row--drillable"
+                [class.inv-row--low-stock]="s.isLowStock"
+              >
+                <td class="inv-stock-cell inv-stock-cell--warehouse">
+                  <button
+                    type="button"
+                    class="inv-drill-link inv-drill-link--truncate"
+                    (click)="viewProductStockAtWarehouse(s.warehouseLocationId)"
+                    [title]="s.warehouseName"
+                    [attr.aria-label]="'View stock at ' + s.warehouseName"
+                  >
+                    <span class="inv-drill-link__text">{{ s.warehouseName }}</span>
+                  </button>
+                </td>
+                <td class="inv-qty">{{ s.quantityOnHand }}</td>
+                <td class="inv-qty inv-qty--reserved">{{ s.reservedQuantity }}</td>
+                <td class="inv-qty inv-qty--available">{{ s.availableQuantity }}</td>
+                <td>{{ s.unitOfMeasure || '—' }}</td>
+                <td class="inv-qty">{{ s.reorderPoint > 0 ? s.reorderPoint : '—' }}</td>
+                <td>
+                  <span class="lx-status" [ngClass]="'lx-status-' + stockStatusClass(s.status)">{{ s.statusLabel }}</span>
+                </td>
+                <td class="inv-table__actions lx-actions-cell">
+                  <button
+                    type="button"
+                    mat-icon-button
+                    class="inv-row-actions-trigger"
+                    [matMenuTriggerFor]="stockActionsMenu"
+                    (click)="actionStock = s"
+                    aria-label="Stock actions"
+                  >
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="!warehousesWithProductStock.length && !stockError">
+                <td colspan="8" class="inv-table-empty">
+                  <div class="inv-table-empty__inner">
+                    <mat-icon>warehouse</mat-icon>
+                    <span>No warehouses have on-hand stock for this product yet.</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <mat-paginator
+          *ngIf="warehousesWithProductStock.length"
+          class="lx-table-paginator"
+          [length]="warehousesWithProductStock.length"
+          [pageIndex]="productStockWarehousesPage.index"
+          [pageSize]="productStockWarehousesPage.size"
+          [pageSizeOptions]="pageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="productStockWarehousesPage.onPage($event)"
+        ></mat-paginator>
+      </div>
+
+      <!-- Warehouse drill-down: products with stock -->
+      <div class="inv-table-card lx-card lx-table-card" *ngIf="showingWarehouseStockProductDrill && !stockLoading">
+        <div class="inv-table-card__bar" *ngIf="productsWithWarehouseStock.length">
+          <span class="inv-table-card__summary">{{ pageSummary(warehouseStockProductsPage, productsWithWarehouseStock.length) }}</span>
+        </div>
+        <div class="lx-table-wrap inv-table-scroll">
+          <table class="lx-data-table inv-stock-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Code</th>
+                <th>Barcode</th>
+                <th class="inv-table__qty-head">On hand</th>
+                <th class="inv-table__qty-head">Reserved</th>
+                <th class="inv-table__qty-head">Available</th>
+                <th>UOM</th>
+                <th class="inv-table__qty-head">Reorder at</th>
+                <th>Status</th>
+                <th class="inv-table__actions-head">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let s of paginatedWarehouseStockProducts; trackBy: trackByStockId"
+                class="inv-row--drillable"
+                [class.inv-row--low-stock]="s.isLowStock"
+              >
+                <td class="inv-stock-cell inv-stock-cell--product">
+                  <button
+                    type="button"
+                    class="inv-drill-link inv-drill-link--truncate"
+                    (click)="viewWarehouseStockAtProduct(s.productId)"
+                    [title]="s.productName"
+                    [attr.aria-label]="'View stock for ' + s.productName"
+                  >
+                    <span class="inv-drill-link__text">{{ s.productName }}</span>
+                  </button>
+                </td>
+                <td><span class="inv-mono">{{ s.productCode || '—' }}</span></td>
+                <td><span class="inv-mono">{{ s.productBarcode || '—' }}</span></td>
+                <td class="inv-qty">{{ s.quantityOnHand }}</td>
+                <td class="inv-qty inv-qty--reserved">{{ s.reservedQuantity }}</td>
+                <td class="inv-qty inv-qty--available">{{ s.availableQuantity }}</td>
+                <td>{{ s.unitOfMeasure || '—' }}</td>
+                <td class="inv-qty">{{ s.reorderPoint > 0 ? s.reorderPoint : '—' }}</td>
+                <td>
+                  <span class="lx-status" [ngClass]="'lx-status-' + stockStatusClass(s.status)">{{ s.statusLabel }}</span>
+                </td>
+                <td class="inv-table__actions lx-actions-cell">
+                  <button
+                    type="button"
+                    mat-icon-button
+                    class="inv-row-actions-trigger"
+                    [matMenuTriggerFor]="stockActionsMenu"
+                    (click)="actionStock = s"
+                    aria-label="Stock actions"
+                  >
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="!productsWithWarehouseStock.length && !stockError">
+                <td colspan="9" class="inv-table-empty">
+                  <div class="inv-table-empty__inner">
+                    <mat-icon>inventory_2</mat-icon>
+                    <span>No products have on-hand stock at this warehouse yet.</span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <mat-paginator
+          *ngIf="productsWithWarehouseStock.length"
+          class="lx-table-paginator"
+          [length]="productsWithWarehouseStock.length"
+          [pageIndex]="warehouseStockProductsPage.index"
+          [pageSize]="warehouseStockProductsPage.size"
+          [pageSizeOptions]="pageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="warehouseStockProductsPage.onPage($event)"
+        ></mat-paginator>
+      </div>
+
+      <div class="inv-table-card lx-card lx-table-card" *ngIf="!showingProductStockWarehouseDrill && !showingWarehouseStockProductDrill && !stockLoading">
+        <div class="inv-table-card__bar" *ngIf="filteredStock.length">
+          <span class="inv-table-card__summary">{{ pageSummary(stockPage, filteredStock.length) }}</span>
+        </div>
+        <div class="lx-table-wrap inv-table-scroll">
+        <table class="lx-data-table inv-stock-table">
+          <colgroup>
+            <col class="inv-stock-col inv-stock-col--product" />
+            <col class="inv-stock-col inv-stock-col--code" />
+            <col class="inv-stock-col inv-stock-col--code" />
+            <col class="inv-stock-col inv-stock-col--warehouse" />
+            <col class="inv-stock-col inv-stock-col--qty" />
+            <col class="inv-stock-col inv-stock-col--qty" />
+            <col class="inv-stock-col inv-stock-col--qty" />
+            <col class="inv-stock-col inv-stock-col--uom" />
+            <col class="inv-stock-col inv-stock-col--qty" />
+            <col class="inv-stock-col inv-stock-col--status" />
+            <col class="inv-stock-col inv-stock-col--actions" />
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Code</th>
+              <th>Barcode</th>
+              <th>Warehouse</th>
+              <th class="inv-table__qty-head">On hand</th>
+              <th class="inv-table__qty-head">Reserved</th>
+              <th class="inv-table__qty-head">Available</th>
+              <th>UOM</th>
+              <th class="inv-table__qty-head">Reorder at</th>
+              <th>Status</th>
+              <th class="inv-table__actions-head">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of paginatedStock; trackBy: trackByStockId" [class.inv-row--low-stock]="s.isLowStock">
+              <td class="inv-stock-cell inv-stock-cell--product"><strong>{{ s.productName }}</strong></td>
+              <td><span class="inv-mono">{{ s.productCode || '—' }}</span></td>
+              <td><span class="inv-mono">{{ s.productBarcode || '—' }}</span></td>
+              <td class="inv-stock-cell inv-stock-cell--warehouse">{{ s.warehouseName }}</td>
+              <td class="inv-qty">{{ s.quantityOnHand }}</td>
+              <td class="inv-qty inv-qty--reserved">{{ s.reservedQuantity }}</td>
+              <td class="inv-qty inv-qty--available">{{ s.availableQuantity }}</td>
+              <td>{{ s.unitOfMeasure || '—' }}</td>
+              <td class="inv-qty">{{ s.reorderPoint > 0 ? s.reorderPoint : '—' }}</td>
+              <td>
+                <span class="lx-status" [ngClass]="'lx-status-' + stockStatusClass(s.status)">{{ s.statusLabel }}</span>
+              </td>
+              <td class="inv-table__actions lx-actions-cell">
+                <button
+                  type="button"
+                  mat-icon-button
+                  class="inv-row-actions-trigger"
+                  [matMenuTriggerFor]="stockActionsMenu"
+                  (click)="actionStock = s"
+                  aria-label="Stock actions"
+                >
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="!filteredStock.length && !stockError">
+              <td colspan="10" class="inv-table-empty">
+                <div class="inv-table-empty__inner">
+                  <mat-icon>inventory</mat-icon>
+                  <span>{{ stock.length ? 'No stock matches your search.' : 'No stock recorded yet — record initial stock for opening balance, or receive goods against a purchase order.' }}</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <mat-paginator
+          *ngIf="filteredStock.length"
+          class="lx-table-paginator"
+          [length]="filteredStock.length"
+          [pageIndex]="stockPage.index"
+          [pageSize]="stockPage.size"
+          [pageSizeOptions]="pageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="stockPage.onPage($event)"
+        ></mat-paginator>
+      </div>
+    </section>
+
+    <!-- ── Transfers tab ────────────────────────────────────── -->
+    <section class="inv-section" *ngIf="activeTab === 'transfers'">
+      <header class="inv-section__head">
+        <div>
+          <h2>Inventory transfers</h2>
+          <p>Move stock between warehouse locations with approval workflow.</p>
+        </div>
+        <div class="inv-section__head-actions">
+          <button
+            type="button"
+            mat-icon-button
+            class="lx-controls-head__info-btn"
+            [class.is-on]="showTransferCsvInfo"
+            (click)="showTransferCsvInfo = !showTransferCsvInfo"
+            [attr.aria-pressed]="showTransferCsvInfo"
+            aria-label="Toggle CSV import information"
+          >
+            <mat-icon>info_outline</mat-icon>
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadTransferSampleCsv()">Sample CSV</button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm"
+            (click)="triggerTransferImport()"
+            [disabled]="transfersImporting || !canManageProductCatalogue"
+          >
+            {{ transfersImporting ? 'Importing…' : 'Import CSV' }}
+          </button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm lx-export-trigger"
+            [matMenuTriggerFor]="transferExportMenu"
+            [disabled]="transfersExporting || !transfers.length"
+          >
+            {{ transfersExporting ? 'Exporting…' : 'Export' }}
+          </button>
+          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" *ngIf="canManageProductCatalogue" (click)="openCreateTransfer()">
+            <mat-icon>add</mat-icon>
+            New transfer
+          </button>
+        </div>
+      </header>
+
+      <input
+        #transferImportInput
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        (change)="onTransferImportSelected($event)"
+      />
+
+      <p class="lx-controls-hint lx-card lx-import-disclaimer" *ngIf="showTransferCsvInfo">
+        {{ transferImportCsvDisclaimer }}
+        <span class="lx-controls-hint__detail">{{ transferSampleCsvDescription }}</span>
+      </p>
+
+      <mat-menu #transferExportMenu="matMenu" panelClass="lx-export-menu">
+        <button mat-menu-item class="lx-export-option--pdf" (click)="exportTransfersAs('pdf')" [disabled]="transfersExporting">
+          PDF
+        </button>
+        <button mat-menu-item class="lx-export-option--csv" (click)="exportTransfersAs('csv')" [disabled]="transfersExporting">
+          CSV
+        </button>
+        <button mat-menu-item class="lx-export-option--xlsx" (click)="exportTransfersAs('xlsx')" [disabled]="transfersExporting">
+          Excel
+        </button>
+      </mat-menu>
+
+      <div class="inv-loading" *ngIf="transfersLoading" role="status">
+        <lx-table-loading [busy]="true" message="Loading transfers…"></lx-table-loading>
+      </div>
+
+      <p class="inv-alert lx-card" *ngIf="transfersError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ transfersError }}
+      </p>
+
+      <div class="lx-data-toolbar lx-card inv-transfers-toolbar" *ngIf="!transfersLoading">
+        <div class="lx-data-toolbar__actions">
+          <span class="inv-transfers-toolbar__count" *ngIf="transfers.length">
+            {{ filteredTransfers.length }} of {{ transfers.length }} transfers
+          </span>
+        </div>
+        <div class="lx-data-toolbar__search">
+          <div class="lx-input-shell lx-search-field">
+            <mat-icon class="lx-input-shell__icon">search</mat-icon>
+            <input
+              [(ngModel)]="transferSearch"
+              (ngModelChange)="onTransferSearchChanged()"
+              placeholder="Search transfers…"
+              autocomplete="off"
+            />
+          </div>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+            (click)="transferFiltersOpen = !transferFiltersOpen"
+            [class.lx-btn-filter--on]="transferFiltersOpen || hasTransferFilters"
+          >
+            <mat-icon>tune</mat-icon>
+            Filters
+          </button>
+        </div>
+      </div>
+
+      <div class="lx-filter-panel lx-card inv-transfers-filters" *ngIf="!transfersLoading && transferFiltersOpen">
+        <span class="lx-filter-panel__label">Transfer filters</span>
+        <div class="lx-filter-fields inv-transfers-filters__grid">
+          <div class="lx-filter-field-wrap">
+            <div class="lx-field-label">Status</div>
+            <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">flag</mat-icon>
+              <select [(ngModel)]="transferStatusFilter" (ngModelChange)="onTransferFiltersChanged()" aria-label="Filter by status">
+                <option *ngFor="let opt of transferStatusFilterOptions" [ngValue]="opt.value">{{ opt.label }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="lx-filter-field-wrap">
+            <div class="lx-field-label">Product</div>
+            <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">inventory_2</mat-icon>
+              <select [(ngModel)]="transferProductFilter" (ngModelChange)="onTransferFiltersChanged()" aria-label="Filter by product">
+                <option [ngValue]="0">All products</option>
+                <option *ngFor="let p of products" [ngValue]="p.id">{{ p.name }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="lx-filter-field-wrap">
+            <div class="lx-field-label">From warehouse</div>
+            <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">warehouse</mat-icon>
+              <select [(ngModel)]="transferFromWarehouseFilter" (ngModelChange)="onTransferFiltersChanged()" aria-label="Filter by source warehouse">
+                <option [ngValue]="0">All from warehouses</option>
+                <option *ngFor="let w of warehouses" [ngValue]="w.id">{{ w.name }}</option>
+              </select>
+            </div>
+          </div>
+          <div class="lx-filter-field-wrap">
+            <div class="lx-field-label">To warehouse</div>
+            <div class="lx-input-shell lx-filter-field">
+              <mat-icon class="lx-input-shell__icon">move_to_inbox</mat-icon>
+              <select [(ngModel)]="transferToWarehouseFilter" (ngModelChange)="onTransferFiltersChanged()" aria-label="Filter by destination warehouse">
+                <option [ngValue]="0">All to warehouses</option>
+                <option *ngFor="let w of warehouses" [ngValue]="w.id">{{ w.name }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inv-table-card lx-card lx-table-card" *ngIf="!transfersLoading">
+        <div class="inv-table-card__bar" *ngIf="filteredTransfers.length">
+          <span class="inv-table-card__summary">{{ pageSummary(transfersPage, filteredTransfers.length) }}</span>
+        </div>
+        <div class="lx-table-wrap inv-table-scroll">
+        <table class="lx-data-table inv-transfers-table">
+          <thead>
+            <tr>
+              <th class="inv-transfers-col inv-transfers-col--ref">Reference</th>
+              <th class="inv-transfers-col inv-transfers-col--product">Product</th>
+              <th class="inv-transfers-col inv-transfers-col--qty">Qty</th>
+              <th class="inv-transfers-col inv-transfers-col--warehouse">From</th>
+              <th class="inv-transfers-col inv-transfers-col--warehouse">To</th>
+              <th class="inv-transfers-col inv-transfers-col--status">Status</th>
+              <th class="inv-transfers-col inv-transfers-col--date">Date</th>
+              <th class="inv-table__actions-head inv-transfers-col inv-transfers-col--actions">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let t of paginatedTransfers; trackBy: trackByTransferId">
+              <td class="inv-transfers-cell inv-transfers-cell--ref">
+                <button type="button" class="inv-transfer-ref-pill" (click)="viewTransfer(t)" [attr.title]="'View ' + t.transferNumber">
+                  {{ t.transferNumber }}
+                </button>
+              </td>
+              <td class="inv-transfers-cell inv-transfers-cell--product">
+                <span class="inv-transfers-product">{{ t.productName || '—' }}</span>
+                <span class="inv-transfers-rejection" *ngIf="t.status === 'REJECTED' && t.rejectionReason?.trim()" [matTooltip]="t.rejectionReason">
+                  {{ t.rejectionReason }}
+                </span>
+              </td>
+              <td class="inv-qty inv-transfers-cell inv-transfers-cell--qty">{{ t.quantity }}</td>
+              <td class="inv-transfers-cell inv-transfers-cell--warehouse">{{ t.fromWarehouse || '—' }}</td>
+              <td class="inv-transfers-cell inv-transfers-cell--warehouse">{{ t.toWarehouse || '—' }}</td>
+              <td class="inv-transfers-cell inv-transfers-cell--status">
+                <span class="lx-status" [ngClass]="'lx-status-' + transferStatusClass(t.status)">{{ t.statusLabel }}</span>
+              </td>
+              <td class="inv-transfers-cell inv-transfers-cell--date">{{ t.createdAtLabel }}</td>
+              <td class="inv-table__actions lx-actions-cell">
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-ghost lx-btn-sm"
+                  *ngIf="canStartTransferTransit(t)"
+                  (click)="onStartTransferTransit(t)"
+                  title="Start transit"
+                >
+                  <mat-icon>local_shipping</mat-icon>
+                  Dispatch
+                </button>
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-ghost lx-btn-sm"
+                  *ngIf="canCompleteTransfer(t)"
+                  (click)="onCompleteTransfer(t)"
+                  title="Mark complete"
+                >
+                  <mat-icon>done_all</mat-icon>
+                  Complete
+                </button>
+                <button
+                  type="button"
+                  mat-icon-button
+                  class="inv-row-actions-trigger"
+                  [matMenuTriggerFor]="transferActionsMenu"
+                  (click)="actionTransfer = t"
+                  aria-label="Transfer actions"
+                >
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="!filteredTransfers.length && !transfersError">
+              <td colspan="8" class="inv-table-empty">
+                <div class="inv-table-empty__inner">
+                  <mat-icon>sync_alt</mat-icon>
+                  <span>{{ transfers.length ? 'No transfers match your filters.' : 'No transfers yet — create one to move stock between warehouses.' }}</span>
+                  <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" *ngIf="canManageProductCatalogue && !transfers.length" (click)="openCreateTransfer()">
+                    <mat-icon>add</mat-icon>
+                    New transfer
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <mat-paginator
+          *ngIf="filteredTransfers.length"
+          class="lx-table-paginator"
+          [length]="filteredTransfers.length"
+          [pageIndex]="transfersPage.index"
+          [pageSize]="transfersPage.size"
+          [pageSizeOptions]="pageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="transfersPage.onPage($event)"
+        ></mat-paginator>
+      </div>
+    </section>
+
+    <!-- ── Requisition approvals tab (supplier) ─────────────── -->
+    <section class="inv-section" *ngIf="activeTab === 'requisitions'">
+      <header class="inv-section__head">
+        <div>
+          <h2>Customer requisitions</h2>
+          <p>Purchase requisitions published to your organisation for quoting. Submit unit prices to progress the workflow.</p>
+        </div>
+        <div class="inv-section__head-actions">
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm lx-export-trigger"
+            [matMenuTriggerFor]="requisitionExportMenu"
+            [disabled]="requisitionsExporting || !pendingRequisitions.length"
+          >
+            {{ requisitionsExporting ? 'Exporting…' : 'Export' }}
+          </button>
+        </div>
+      </header>
+
+      <mat-menu #requisitionExportMenu="matMenu" panelClass="lx-export-menu">
+        <button mat-menu-item class="lx-export-option--csv" (click)="exportRequisitionsAs('csv')" [disabled]="requisitionsExporting">
+          CSV
+        </button>
+        <button mat-menu-item class="lx-export-option--xlsx" (click)="exportRequisitionsAs('xlsx')" [disabled]="requisitionsExporting">
+          Excel
+        </button>
+        <button mat-menu-item class="lx-export-option--pdf" (click)="exportRequisitionsAs('pdf')" [disabled]="requisitionsExporting">
+          PDF
+        </button>
+      </mat-menu>
+
+      <div class="inv-loading" *ngIf="requisitionsLoading" role="status">
+        <lx-table-loading [busy]="true" message="Loading pending requisitions…"></lx-table-loading>
+      </div>
+
+      <p class="inv-alert lx-card" *ngIf="requisitionsError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ requisitionsError }}
+      </p>
+
+      <div class="inv-toolbar lx-card" *ngIf="!requisitionsLoading">
+        <div class="inv-search lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input
+            [(ngModel)]="requisitionSearch"
+            (ngModelChange)="onRequisitionFiltersChanged()"
+            placeholder="Search requisitions…"
+            autocomplete="off"
+          />
+        </div>
+        <div class="inv-filter lx-input-shell">
+          <select
+            [(ngModel)]="requisitionStatusFilter"
+            (ngModelChange)="onRequisitionFiltersChanged()"
+            aria-label="Filter requisitions by status"
+          >
+            <option *ngFor="let opt of supplierRequisitionStatusFilterOptions" [ngValue]="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+        <span class="inv-toolbar__count" *ngIf="pendingRequisitions.length">{{ filteredRequisitions.length }} of {{ pendingRequisitions.length }}</span>
+      </div>
+
+      <div class="inv-table-card lx-card lx-table-card" *ngIf="!requisitionsLoading">
+        <div class="inv-table-card__bar" *ngIf="filteredRequisitions.length">
+          <span class="inv-table-card__summary">{{ pageSummary(requisitionsPage, filteredRequisitions.length) }}</span>
+        </div>
+        <div class="lx-table-wrap inv-table-scroll">
+        <table class="lx-data-table">
+          <thead>
+            <tr>
+              <th>Reference</th>
+              <th>Purpose</th>
+              <th>Priority</th>
+              <th>Lines</th>
+              <th>Est. total</th>
+              <th>Required by</th>
+              <th>Status</th>
+              <th class="inv-table__actions-head">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of paginatedRequisitions; trackBy: trackByRequisitionId">
+              <td><span class="inv-mono">{{ r.requisitionNumber }}</span></td>
+              <td>{{ r.purpose || '—' }}</td>
+              <td>{{ r.priorityLabel }}</td>
+              <td>{{ r.lineCount }}</td>
+              <td class="inv-amount">{{ r.totalAmountLabel }}</td>
+              <td>{{ r.requiredByDateLabel }}</td>
+              <td>
+                <span class="lx-status" [ngClass]="'lx-status-' + requisitionStatusClass(r.status)">{{ r.statusLabel }}</span>
+              </td>
+              <td class="inv-table__actions lx-actions-cell">
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-ghost lx-btn-sm"
+                  *ngIf="r.status === 'PUBLISHED_TO_SUPPLIER'"
+                  (click)="onSubmitQuote(r)"
+                  title="Submit quote with unit prices"
+                >
+                  <mat-icon>request_quote</mat-icon>
+                  Submit quote
+                </button>
+                <span *ngIf="r.status !== 'PUBLISHED_TO_SUPPLIER'" class="lx-status lx-status-muted inv-no-action">
+                  {{ r.statusLabel }}
+                </span>
+              </td>
+            </tr>
+            <tr *ngIf="!filteredRequisitions.length && !requisitionsError">
+              <td colspan="8" class="inv-table-empty">
+                <div class="inv-table-empty__inner">
+                  <mat-icon>fact_check</mat-icon>
+                  <span>{{ pendingRequisitions.length ? 'No requisitions match your search.' : 'No requisitions visible to you yet — customer requisitions published to your organisation appear here for quoting.' }}</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <mat-paginator
+          *ngIf="filteredRequisitions.length"
+          class="lx-table-paginator"
+          [length]="filteredRequisitions.length"
+          [pageIndex]="requisitionsPage.index"
+          [pageSize]="requisitionsPage.size"
+          [pageSizeOptions]="pageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="requisitionsPage.onPage($event)"
+        ></mat-paginator>
+      </div>
+    </section>
+
+    <!-- ── Quotations tab (supplier) ──────────────────────── -->
+    <section class="inv-section" *ngIf="activeTab === 'quotations'">
+      <header class="inv-section__head">
+        <div>
+          <h2>Submitted quotations</h2>
+          <p>Quotes you have sent to customers. Raise a new quote against a published requisition or review submissions below.</p>
+        </div>
+        <div class="inv-section__head-actions">
+          <button
+            type="button"
+            mat-icon-button
+            class="lx-controls-head__info-btn"
+            [class.is-on]="showQuotationCsvInfo"
+            (click)="showQuotationCsvInfo = !showQuotationCsvInfo"
+            [attr.aria-pressed]="showQuotationCsvInfo"
+            aria-label="Toggle CSV import information"
+          >
+            <mat-icon>info_outline</mat-icon>
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadQuotationSampleCsv()">Sample CSV</button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm"
+            (click)="triggerQuotationImport()"
+            [disabled]="quotationsImporting"
+          >
+            {{ quotationsImporting ? 'Importing…' : 'Import CSV' }}
+          </button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm lx-export-trigger"
+            [matMenuTriggerFor]="quotationExportMenu"
+            [disabled]="quotationsExporting || !supplierQuotations.length"
+          >
+            {{ quotationsExporting ? 'Exporting…' : 'Export' }}
+          </button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-primary lx-btn-sm"
+            [matMenuTriggerFor]="submitQuoteMenu"
+            (click)="onRaiseQuotation()"
+          >
+            <mat-icon>request_quote</mat-icon>
+            Submit quote
+          </button>
+        </div>
+      </header>
+
+      <input
+        #quotationImportInput
+        type="file"
+        accept=".csv,text/csv"
+        hidden
+        (change)="onQuotationImportSelected($event)"
+      />
+
+      <p class="lx-controls-hint lx-card lx-import-disclaimer" *ngIf="showQuotationCsvInfo">
+        {{ quotationImportCsvDisclaimer }}
+        <span class="lx-controls-hint__detail">{{ quotationSampleCsvDescription }}</span>
+      </p>
+
+      <mat-menu #submitQuoteMenu="matMenu" panelClass="lx-row-actions-menu">
+        <button
+          mat-menu-item
+          type="button"
+          *ngFor="let r of quoteableRequisitions; trackBy: trackByRequisitionId"
+          (click)="onSubmitQuote(r)"
+        >
+          <mat-icon>description</mat-icon>
+          {{ r.requisitionNumber }} — {{ r.purpose || 'Requisition' }}
+        </button>
+        <button mat-menu-item type="button" disabled *ngIf="!quoteableRequisitions.length">
+          No requisitions awaiting quote
+        </button>
+      </mat-menu>
+
+      <mat-menu #quotationExportMenu="matMenu" panelClass="lx-export-menu">
+        <button mat-menu-item class="lx-export-option--csv" (click)="exportQuotationsAs('csv')" [disabled]="quotationsExporting">
+          CSV
+        </button>
+        <button mat-menu-item class="lx-export-option--xlsx" (click)="exportQuotationsAs('xlsx')" [disabled]="quotationsExporting">
+          Excel
+        </button>
+        <button mat-menu-item class="lx-export-option--pdf" (click)="exportQuotationsAs('pdf')" [disabled]="quotationsExporting">
+          PDF
+        </button>
+      </mat-menu>
+
+      <div class="inv-toolbar lx-card" *ngIf="!quotationsLoading">
+        <div class="inv-search lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input
+            [(ngModel)]="quotationSearch"
+            (ngModelChange)="onQuotationFiltersChanged()"
+            placeholder="Search quotations…"
+            autocomplete="off"
+          />
+        </div>
+        <div class="inv-filter lx-input-shell">
+          <select
+            [(ngModel)]="quotationStatusFilter"
+            (ngModelChange)="onQuotationFiltersChanged()"
+            aria-label="Filter quotations by status"
+          >
+            <option *ngFor="let opt of supplierQuoteStatusFilterOptions" [ngValue]="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+        <div class="inv-filter lx-input-shell">
+          <select
+            [(ngModel)]="quotationSourceFilter"
+            (ngModelChange)="onQuotationFiltersChanged()"
+            aria-label="Filter quotations by source"
+          >
+            <option *ngFor="let opt of quoteSourceFilterOptions" [ngValue]="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+        <span class="inv-toolbar__count" *ngIf="supplierQuotations.length">{{ filteredSupplierQuotations.length }} of {{ supplierQuotations.length }}</span>
+      </div>
+
+      <div class="inv-loading" *ngIf="quotationsLoading" role="status">
+        <lx-table-loading [busy]="true" message="Loading quotations…"></lx-table-loading>
+      </div>
+
+      <p class="inv-alert lx-card" *ngIf="quotationsError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ quotationsError }}
+      </p>
+
+      <div class="inv-table-card lx-card lx-table-card" *ngIf="!quotationsLoading">
+        <div class="inv-table-card__bar" *ngIf="filteredSupplierQuotations.length">
+          <span class="inv-table-card__summary">{{ pageSummary(quotationsPage, filteredSupplierQuotations.length) }}</span>
+        </div>
+        <div class="lx-table-wrap inv-table-scroll">
+          <table class="lx-data-table">
+            <thead>
+              <tr>
+                <th>Quote no.</th>
+                <th>Requisition</th>
+                <th>Status</th>
+                <th>Source</th>
+                <th>Total</th>
+                <th>Valid until</th>
+                <th>Submitted</th>
+                <th class="inv-table__actions-head">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let q of paginatedSupplierQuotations; trackBy: trackByQuoteId">
+                <td><span class="inv-mono">{{ q.quoteNumber }}</span></td>
+                <td>{{ q.requisitionNumber }}</td>
+                <td><span class="lx-status lx-status-warn">{{ q.statusLabel }}</span></td>
+                <td>{{ q.quoteSourceLabel }}</td>
+                <td class="inv-amount">{{ q.totalAmountLabel }}</td>
+                <td>{{ q.validityUntilLabel }}</td>
+                <td>{{ q.submittedAtLabel }}</td>
+                <td class="inv-table__actions lx-actions-cell">
+                  <button
+                    type="button"
+                    class="lx-btn lx-btn-ghost lx-btn-sm"
+                    (click)="openViewQuote(q.purchaseRequisitionId, q.requisitionNumber)"
+                    title="View quotation detail"
+                  >
+                    <mat-icon>visibility</mat-icon>
+                    View
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="!filteredSupplierQuotations.length && !quotationsError">
+                <td colspan="8" class="inv-table-empty">
+                  <div class="inv-table-empty__inner">
+                    <mat-icon>description</mat-icon>
+                    <span>
+                      {{
+                        supplierQuotations.length
+                          ? 'No quotations match your filters.'
+                          : 'No quotations submitted yet — use Submit quote to respond to a published customer requisition.'
+                      }}
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <mat-paginator
+          *ngIf="filteredSupplierQuotations.length"
+          class="lx-table-paginator"
+          [length]="filteredSupplierQuotations.length"
+          [pageIndex]="quotationsPage.index"
+          [pageSize]="quotationsPage.size"
+          [pageSizeOptions]="pageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="quotationsPage.onPage($event)"
+        ></mat-paginator>
+      </div>
+    </section>
+
+    <!-- ── Sales orders tab (supplier) ──────────────────────── -->
+    <section class="inv-section" *ngIf="activeTab === 'sales-orders'">
+      <header class="inv-section__head">
+        <div>
+          <h2>Sales orders</h2>
+          <p>Fulfillment orders created after customer payment is verified on approved purchase orders.</p>
+        </div>
+      </header>
+
+      <div class="inv-loading" *ngIf="salesOrdersLoading" role="status">
+        <lx-table-loading [busy]="true" message="Loading sales orders…"></lx-table-loading>
+      </div>
+
+      <p class="inv-alert lx-card" *ngIf="salesOrdersError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ salesOrdersError }}
+      </p>
+
+      <div class="inv-table-card lx-card lx-table-card" *ngIf="!salesOrdersLoading && salesOrders.length">
+        <div class="lx-table-wrap">
+          <table class="lx-data-table">
+            <thead>
+              <tr>
+                <th>SO no.</th>
+                <th>Purchase order</th>
+                <th>Status</th>
+                <th>Stage</th>
+                <th>Total</th>
+                <th>Expected delivery</th>
+                <th>Created</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let o of salesOrders; trackBy: trackBySalesOrderId">
+                <td><span class="inv-mono">{{ o.salesOrderNumber }}</span></td>
+                <td><span class="inv-mono">{{ o.purchaseOrderNumber }}</span></td>
+                <td>
+                  <span class="lx-status" [ngClass]="'lx-status-' + salesOrderStatusClass(o.status)">{{ o.statusLabel }}</span>
+                </td>
+                <td>
+                  <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openSalesOrderJourney(o)" title="View workflow stages">
+                    {{ o.stageProgressLabel }}
+                  </button>
+                </td>
+                <td class="inv-amount">{{ o.totalAmountLabel }}</td>
+                <td>{{ o.expectedDeliveryLabel }}</td>
+                <td>{{ o.createdAtLabel }}</td>
+                <td class="inv-table__actions">
+                  <button
+                    type="button"
+                    class="lx-btn lx-btn-ghost lx-btn-sm"
+                    *ngIf="o.status === 'PENDING_APPROVAL'"
+                    (click)="onApproveSalesOrderStage(o)"
+                    title="Approve sales order stage"
+                  >
+                    <mat-icon>check_circle</mat-icon>
+                    Approve
+                  </button>
+                  <button
+                    type="button"
+                    class="lx-btn lx-btn-ghost lx-btn-sm"
+                    (click)="openSalesOrderJourney(o)"
+                    title="View fulfillment stages"
+                  >
+                    <mat-icon>timeline</mat-icon>
+                    Stages
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="lx-empty lx-empty--compact" *ngIf="!salesOrdersLoading && !salesOrders.length && !salesOrdersError">
+        <mat-icon class="lx-empty-icon">sell</mat-icon>
+        <div class="lx-empty-title">No sales orders yet</div>
+        <div class="lx-empty-sub">Sales orders are created automatically when customer payment is verified.</div>
+      </div>
+    </section>
+
+    <!-- ── Purchase orders tab (supplier) ───────────────────── -->
+    <section class="inv-section" *ngIf="activeTab === 'purchase-orders'">
+      <header class="inv-section__head">
+        <div>
+          <h2>Purchase orders</h2>
+          <p>Customer purchase orders linked to your organisation.</p>
+        </div>
+      </header>
+
+      <div class="inv-loading" *ngIf="poLoading" role="status">
+        <lx-table-loading [busy]="true" message="Loading purchase orders…"></lx-table-loading>
+      </div>
+
+      <p class="inv-alert lx-card" *ngIf="poError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ poError }}
+      </p>
+
+      <div class="inv-toolbar lx-card" *ngIf="!poLoading">
+        <div class="inv-search lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input
+            [(ngModel)]="poSearch"
+            (ngModelChange)="purchaseOrdersPage.reset()"
+            placeholder="Search purchase orders…"
+            autocomplete="off"
+          />
+        </div>
+        <span class="inv-toolbar__count" *ngIf="purchaseOrders.length">{{ filteredPurchaseOrders.length }} of {{ purchaseOrders.length }}</span>
+      </div>
+
+      <div class="inv-table-card lx-card lx-table-card" *ngIf="!poLoading">
+        <div class="inv-table-card__bar" *ngIf="filteredPurchaseOrders.length">
+          <span class="inv-table-card__summary">{{ pageSummary(purchaseOrdersPage, filteredPurchaseOrders.length) }}</span>
+        </div>
+        <div class="lx-table-wrap inv-table-scroll">
+        <table class="lx-data-table">
+          <thead>
+            <tr>
+              <th>Order no.</th>
+              <th>Customer</th>
+              <th>Status</th>
+              <th>Total</th>
+              <th>Expected delivery</th>
+              <th>Created</th>
+              <th class="inv-table__actions-head">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let o of paginatedPurchaseOrders; trackBy: trackByPoId">
+              <td><span class="inv-mono">{{ o.orderNumber }}</span></td>
+              <td>{{ o.customerName || '—' }}</td>
+              <td>
+                <span class="lx-status" [ngClass]="'lx-status-' + purchaseOrderStatusClass(o.status)">{{ o.statusLabel }}</span>
+              </td>
+              <td class="inv-amount">{{ o.totalAmountLabel }}</td>
+              <td>{{ o.expectedDeliveryLabel }}</td>
+              <td>{{ o.createdAtLabel }}</td>
+              <td class="inv-table__actions lx-actions-cell">
+                <button
+                  type="button"
+                  mat-icon-button
+                  class="inv-row-actions-trigger"
+                  [matMenuTriggerFor]="purchaseOrderActionsMenu"
+                  (click)="actionPurchaseOrder = o"
+                  aria-label="Purchase order actions"
+                >
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="!filteredPurchaseOrders.length && !poError">
+              <td colspan="7" class="inv-table-empty">
+                <div class="inv-table-empty__inner">
+                  <mat-icon>shopping_cart</mat-icon>
+                  <span>{{ purchaseOrders.length ? 'No purchase orders match your search.' : 'No purchase orders yet — orders from linked customers appear here once requisitions are approved.' }}</span>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        </div>
+        <mat-paginator
+          *ngIf="filteredPurchaseOrders.length"
+          class="lx-table-paginator"
+          [length]="filteredPurchaseOrders.length"
+          [pageIndex]="purchaseOrdersPage.index"
+          [pageSize]="purchaseOrdersPage.size"
+          [pageSizeOptions]="pageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="purchaseOrdersPage.onPage($event)"
+        ></mat-paginator>
+      </div>
+    </section>
+  </div>
+
+  <mat-menu #categoryActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearActionMenus()">
+    <button mat-menu-item type="button" [disabled]="!actionCategory" (click)="actionCategory && viewCategory(actionCategory)">
+      <mat-icon>visibility</mat-icon>
+      View
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionCategory" (click)="actionCategory && drillIntoCategorySubcategories(actionCategory)">
+      <mat-icon>bookmark</mat-icon>
+      View subcategories
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionCategory" (click)="actionCategory && openEditCategory(actionCategory)">
+      <mat-icon>edit</mat-icon>
+      Edit
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionCategory" (click)="actionCategory && openAddSubcategory(actionCategory.id)">
+      <mat-icon>bookmark_add</mat-icon>
+      Add subcategory
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionCategory" (click)="actionCategory && onDeleteCategory(actionCategory)">
+      <mat-icon>delete</mat-icon>
+      Delete
+    </button>
+  </mat-menu>
+
+  <mat-menu #subcategoryActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearActionMenus()">
+    <button mat-menu-item type="button" [disabled]="!actionSubCategory" (click)="actionSubCategory && viewSubcategory(actionSubCategory)">
+      <mat-icon>visibility</mat-icon>
+      View
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionSubCategory" (click)="actionSubCategory && openEditSubcategory(actionSubCategory)">
+      <mat-icon>edit</mat-icon>
+      Edit
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionSubCategory" (click)="actionSubCategory && onDeleteSubcategory(actionSubCategory)">
+      <mat-icon>delete</mat-icon>
+      Delete
+    </button>
+  </mat-menu>
+
+  <mat-menu #productActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearActionMenus()">
+    <button mat-menu-item type="button" [disabled]="!actionProduct" (click)="actionProduct && viewProduct(actionProduct)">
+      <mat-icon>visibility</mat-icon>
+      View
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionProduct" (click)="actionProduct && openEditProduct(actionProduct)">
+      <mat-icon>edit</mat-icon>
+      Edit
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionProduct" (click)="actionProduct && onDeleteProduct(actionProduct)">
+      <mat-icon>delete</mat-icon>
+      Delete
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionProduct" (click)="actionProduct && viewProductStock(actionProduct)">
+      <mat-icon>inventory_2</mat-icon>
+      View stock levels
+    </button>
+  </mat-menu>
+
+  <mat-menu #warehouseActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearActionMenus()">
+    <button mat-menu-item type="button" [disabled]="!actionWarehouse" (click)="actionWarehouse && viewWarehouse(actionWarehouse)">
+      <mat-icon>visibility</mat-icon>
+      View
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionWarehouse" (click)="actionWarehouse && openEditWarehouse(actionWarehouse)">
+      <mat-icon>edit</mat-icon>
+      Edit
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionWarehouse" (click)="actionWarehouse && onDeleteWarehouse(actionWarehouse)">
+      <mat-icon>delete</mat-icon>
+      Delete
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionWarehouse" (click)="actionWarehouse && viewWarehouseStock(actionWarehouse)">
+      <mat-icon>inventory</mat-icon>
+      View stock at warehouse
+    </button>
+  </mat-menu>
+
+  <mat-menu #stockActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearActionMenus()">
+    <button mat-menu-item type="button" [disabled]="!actionStock" (click)="actionStock && viewStockItem(actionStock)">
+      <mat-icon>visibility</mat-icon>
+      View
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionStock" (click)="actionStock && onDeleteStockItem(actionStock)">
+      <mat-icon>delete</mat-icon>
+      Delete
+    </button>
+    <button
+      mat-menu-item
+      type="button"
+      [disabled]="!actionStock"
+      (click)="actionStock && openCreateTransfer({ productId: actionStock.productId, fromLocationId: actionStock.warehouseLocationId })"
+    >
+      <mat-icon>sync_alt</mat-icon>
+      Create transfer
+    </button>
+    <button
+      mat-menu-item
+      type="button"
+      [disabled]="!actionStock || !canReplenishStock(actionStock)"
+      (click)="actionStock && openReplenishStock(actionStock)"
+    >
+      <mat-icon>add_shopping_cart</mat-icon>
+      Replenish stock
+    </button>
+    <button
+      mat-menu-item
+      type="button"
+      [disabled]="!actionStock || !canRecordInitialStockForRow(actionStock)"
+      (click)="actionStock && openInitialStock({ productId: actionStock.productId, warehouseLocationId: actionStock.warehouseLocationId })"
+    >
+      <mat-icon>add</mat-icon>
+      Record initial stock
+    </button>
+  </mat-menu>
+
+  <mat-menu #transferActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearActionMenus()">
+    <button mat-menu-item type="button" [disabled]="!actionTransfer" (click)="actionTransfer && viewTransfer(actionTransfer)">
+      <mat-icon>visibility</mat-icon>
+      View
+    </button>
+    <button
+      mat-menu-item
+      type="button"
+      [disabled]="!actionTransfer || !canCancelTransfer(actionTransfer)"
+      (click)="actionTransfer && onCancelTransfer(actionTransfer)"
+    >
+      <mat-icon>delete</mat-icon>
+      Cancel transfer
+    </button>
+    <button
+      mat-menu-item
+      type="button"
+      [disabled]="!actionTransfer || !canStartTransferTransit(actionTransfer)"
+      (click)="actionTransfer && onStartTransferTransit(actionTransfer)"
+    >
+      <mat-icon>local_shipping</mat-icon>
+      Dispatch
+    </button>
+    <button
+      mat-menu-item
+      type="button"
+      [disabled]="!actionTransfer || !canCompleteTransfer(actionTransfer)"
+      (click)="actionTransfer && onCompleteTransfer(actionTransfer)"
+    >
+      <mat-icon>done_all</mat-icon>
+      Complete
+    </button>
+  </mat-menu>
+
+  <mat-menu #requisitionActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearActionMenus()">
+    <button mat-menu-item type="button" [disabled]="!actionRequisition" (click)="actionRequisition && viewRequisition(actionRequisition)">
+      <mat-icon>visibility</mat-icon>
+      View
+    </button>
+    <button
+      mat-menu-item
+      type="button"
+      [disabled]="!actionRequisition || actionRequisition.status !== 'PUBLISHED_TO_SUPPLIER'"
+      (click)="actionRequisition && onSubmitQuote(actionRequisition)"
+    >
+      <mat-icon>request_quote</mat-icon>
+      Submit quote
+    </button>
+  </mat-menu>
+
+  <mat-menu #purchaseOrderActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearActionMenus()">
+    <button mat-menu-item type="button" [disabled]="!actionPurchaseOrder" (click)="actionPurchaseOrder && viewPurchaseOrderDetails(actionPurchaseOrder)">
+      <mat-icon>visibility</mat-icon>
+      View
+    </button>
+    <button mat-menu-item type="button" [disabled]="!actionPurchaseOrder" (click)="actionPurchaseOrder && onDeletePurchaseOrder(actionPurchaseOrder)">
+      <mat-icon>delete</mat-icon>
+      Delete
+    </button>
+  </mat-menu>
+</div>

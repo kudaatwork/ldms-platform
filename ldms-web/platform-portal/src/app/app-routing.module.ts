@@ -1,12 +1,18 @@
-import { NgModule } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
+import { inject, NgModule } from '@angular/core';
+import { CanActivateFn, Router, RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
 import { ClassificationGuard } from './core/guards/classification.guard';
 import { RoleGuard } from './core/guards/role.guard';
+import { SupplierClassificationGuard } from './core/guards/supplier-classification.guard';
 import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.component';
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
 import { LandingComponent } from './features/landing/pages/landing/landing.component';
 import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
+
+const redirectBillingToSettings: CanActivateFn = () => {
+  void inject(Router).navigate(['/settings'], { queryParams: { section: 'billing' } });
+  return false;
+};
 
 const routes: Routes = [
   { path: 'welcome', component: LandingComponent },
@@ -38,15 +44,22 @@ const routes: Routes = [
       },
       {
         path: 'products-inventory',
-        component: PlaceholderPageComponent,
-        data: { title: 'Products / Inventory', breadcrumb: 'Products / Inventory' },
+        canActivate: [SupplierClassificationGuard],
+        loadChildren: () =>
+          import('./features/inventory/inventory.module').then((m) => m.InventoryModule),
+        data: { breadcrumb: 'Inventory management' },
       },
       {
         path: 'purchase-orders',
-        component: PlaceholderPageComponent,
-        data: { title: 'Purchase Orders', breadcrumb: 'Purchase Orders' },
+        redirectTo: 'products-inventory/purchase-orders',
+        pathMatch: 'full',
       },
-      { path: 'shipments', component: PlaceholderPageComponent, data: { title: 'Shipments', breadcrumb: 'Shipments' } },
+      {
+        path: 'shipments',
+        loadChildren: () =>
+          import('./features/trip-tracking/trip-tracking.module').then((m) => m.TripTrackingModule),
+        data: { breadcrumb: 'Shipments & Trips' },
+      },
       {
         path: 'fleet',
         loadChildren: () => import('./features/fleet/fleet.module').then((m) => m.FleetModule),
@@ -62,18 +75,33 @@ const routes: Routes = [
         loadChildren: () => import('./features/documents/documents.module').then((m) => m.DocumentsModule),
         data: { breadcrumb: 'Documents' },
       },
-      { path: 'billing', component: PlaceholderPageComponent, data: { title: 'Billing', breadcrumb: 'Billing' } },
-      { path: 'reports', component: PlaceholderPageComponent, data: { title: 'Reports', breadcrumb: 'Reports' } },
-      { path: 'my-orders', component: PlaceholderPageComponent, data: { title: 'My Orders', breadcrumb: 'My Orders' } },
+      { path: 'billing', canActivate: [redirectBillingToSettings], children: [] },
+      {
+        path: 'reports',
+        loadChildren: () => import('./features/reports/reports.module').then((m) => m.ReportsModule),
+        data: { breadcrumb: 'Reports' },
+      },
+      {
+        path: 'my-orders',
+        loadChildren: () =>
+          import('./features/inventory/orders.module').then((m) => m.OrdersModule),
+        data: { breadcrumb: 'My Orders' },
+      },
       {
         path: 'track-shipments',
-        component: PlaceholderPageComponent,
-        data: { title: 'Track Shipments', breadcrumb: 'Track Shipments' },
+        loadChildren: () =>
+          import('./features/trip-tracking/trip-tracking.module').then((m) => m.TripTrackingModule),
+        data: { breadcrumb: 'Track Shipments' },
       },
-      { path: 'deliveries', component: PlaceholderPageComponent, data: { title: 'Deliveries', breadcrumb: 'Deliveries' } },
+      { path: 'deliveries', redirectTo: 'my-orders/deliveries', pathMatch: 'full' },
       { path: 'invoices', component: PlaceholderPageComponent, data: { title: 'Invoices', breadcrumb: 'Invoices' } },
       { path: 'drivers', redirectTo: 'fleet/drivers', pathMatch: 'full' },
-      { path: 'trips', component: PlaceholderPageComponent, data: { title: 'Trips', breadcrumb: 'Trips' } },
+      {
+        path: 'trips',
+        loadChildren: () =>
+          import('./features/trip-tracking/trip-tracking.module').then((m) => m.TripTrackingModule),
+        data: { breadcrumb: 'Trips' },
+      },
       {
         path: 'active-clearances',
         component: PlaceholderPageComponent,

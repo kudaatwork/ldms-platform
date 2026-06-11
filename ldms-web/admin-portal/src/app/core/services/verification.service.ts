@@ -9,6 +9,7 @@ export interface VerificationUserFlags {
   phoneVerified: boolean;
   phoneVerificationDue: boolean;
   phoneNumber: string;
+  smsDeliveryEnabled: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -98,7 +99,7 @@ export class VerificationService {
         return new VerificationFlowError(
           this.messageFrom(err.error) ??
             'SMS verification is currently disabled. You can continue without verifying your phone number for now.',
-          true,
+          false,
         );
       }
       if (err.status === 0) {
@@ -116,7 +117,7 @@ export class VerificationService {
         (typeof err.error === 'string' ? err.error : null) ??
         err.message ??
         'Could not send verification code.';
-      return new VerificationFlowError(msg, dismissOnUnavailable && this.isSmsDisabledBody(err.error));
+      return new VerificationFlowError(msg, dismissOnUnavailable && !this.isSmsDisabledBody(err.error));
     }
     if (err instanceof Error) {
       return err;
@@ -130,7 +131,7 @@ export class VerificationService {
       (this.isSmsDisabledBody(response)
         ? 'SMS verification is currently disabled. You can continue without verifying your phone number for now.'
         : 'Could not complete phone verification.');
-    return new VerificationFlowError(message, this.isSmsDisabledBody(response) || this.isUnavailableBody(response));
+    return new VerificationFlowError(message, this.isUnavailableBody(response));
   }
 
   private isSmsDisabledBody(response: unknown): boolean {
@@ -165,6 +166,7 @@ export class VerificationService {
       phoneVerified: user['phoneVerified'] === true,
       phoneVerificationDue: user['phoneVerificationDue'] === true,
       phoneNumber: String(user['phoneNumber'] ?? '').trim(),
+      smsDeliveryEnabled: user['smsDeliveryEnabled'] !== false,
     };
   }
 

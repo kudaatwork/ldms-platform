@@ -1,0 +1,88 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Record initial stock</h2>
+      <p class="lx-dialog-subtitle">Set opening balance once for a product at a warehouse. After that, use replenishment or goods receipt.</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()" [disabled]="submitting">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="onSubmit()" novalidate>
+    <div class="lx-form-grid">
+      <div class="lx-field span-2">
+        <app-searchable-product-picker
+          formControlName="productId"
+          [products]="availableProducts"
+          [required]="true"
+          [disabled]="submitting"
+          (selectionChange)="onProductChange()"
+        />
+      </div>
+
+      <div class="lx-field span-2">
+        <app-searchable-warehouse-picker
+          formControlName="warehouseLocationId"
+          [warehouses]="data.warehouses"
+          [required]="true"
+          [disabled]="submitting || !productSelected"
+          [emptyHint]="warehousePickerHint"
+          [optionDisabled]="isWarehouseIneligible"
+        />
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Quantity <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">pin</mat-icon>
+          <input type="number" formControlName="quantity" min="0.01" step="0.01" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Unit cost <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">payments</mat-icon>
+          <input type="number" formControlName="unitCost" min="0" step="0.01" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Min stock level</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">warning_amber</mat-icon>
+          <input type="number" formControlName="minStockLevel" min="0" step="0.01" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Reorder quantity</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">autorenew</mat-icon>
+          <input type="number" formControlName="reorderQuantity" min="0" step="0.01" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Notes</label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="notes" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="submitError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ submitError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+        {{ submitting ? 'Saving…' : 'Record stock' }}
+      </button>
+    </div>
+  </form>
+</div>

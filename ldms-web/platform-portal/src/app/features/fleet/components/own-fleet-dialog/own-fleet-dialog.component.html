@@ -1,4 +1,4 @@
-<div class="lx-dialog-shell">
+<div class="lx-dialog-shell lx-dialog-shell--wide">
   <div class="lx-dialog-header">
     <div class="lx-header-text">
       <h2 class="lx-dialog-title">{{ title }}</h2>
@@ -9,34 +9,57 @@
     </button>
   </div>
 
-  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
+  <!-- Step indicator (create-only) -->
+  <div class="lx-wizard-steps" *ngIf="!isEdit">
+    <div class="lx-step" [class.lx-step--active]="currentStep === 1" [class.lx-step--done]="currentStep === 2">
+      <span class="lx-step__dot">
+        <mat-icon *ngIf="currentStep === 2">check</mat-icon>
+        <span *ngIf="currentStep === 1">1</span>
+      </span>
+      <span class="lx-step__label">Vehicle details</span>
+    </div>
+    <span class="lx-step__connector"></span>
+    <div class="lx-step" [class.lx-step--active]="currentStep === 2">
+      <span class="lx-step__dot">2</span>
+      <span class="lx-step__label">Required papers</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       STEP 1 — Vehicle details
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <form [formGroup]="detailsForm" class="lx-step-content" (ngSubmit)="saveDetails()" *ngIf="currentStep === 1">
     <div class="lx-form-grid">
 
-      <div class="lx-form-section span-2" *ngIf="isSupplier">
-        <div class="lx-form-section-title">Asset ownership</div>
-      </div>
+      <!-- Ownership type — only shown when org can contract fleet -->
+      <ng-container *ngIf="showOwnershipPicker">
+        <div class="lx-form-section span-2">
+          <div class="lx-form-section-title">Asset ownership</div>
+        </div>
 
-      <div class="lx-field span-2" *ngIf="isSupplier">
-        <label class="lx-field-label">Ownership <span class="req">*</span></label>
-        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('ownershipType', 'required')">
-          <mat-icon class="lx-input-shell__icon">category</mat-icon>
-          <select formControlName="ownershipType" aria-label="Vehicle ownership">
-            <option *ngFor="let o of ownershipTypes" [ngValue]="o.value">{{ o.label }}</option>
-          </select>
+        <div class="lx-field span-2">
+          <label class="lx-field-label">Ownership <span class="req">*</span></label>
+          <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError(detailsForm, 'ownershipType', 'required')">
+            <mat-icon class="lx-input-shell__icon">category</mat-icon>
+            <select formControlName="ownershipType" aria-label="Vehicle ownership">
+              <option *ngFor="let o of ownershipTypes" [ngValue]="o.value">{{ o.label }}</option>
+            </select>
+          </div>
+          <div class="lx-field-hint" *ngIf="detailsForm.get('ownershipType')?.value === 'owned'">
+            Vehicle owned and operated directly by your organisation.
+          </div>
+          <div class="lx-field-hint" *ngIf="detailsForm.get('ownershipType')?.value === 'contracted'">
+            Vehicle operated under a contracted transporter link.
+          </div>
         </div>
-        <div class="lx-field-hint" *ngIf="form.get('ownershipType')?.value === 'owned'">
-          Vehicle owned and operated directly by your organisation.
-        </div>
-        <div class="lx-field-hint" *ngIf="form.get('ownershipType')?.value === 'contracted'">
-          Vehicle operated under a contracted transporter link.
-        </div>
-      </div>
+      </ng-container>
 
+      <!-- Contracted transporter picker -->
       <div class="lx-field span-2" *ngIf="showTransporterPicker">
         <label class="lx-field-label">Contracted transporter <span class="req">*</span></label>
         <div
           class="lx-input-shell"
-          [class.lx-input-shell--invalid]="hasError('contractedTransporterOrganizationId', 'required')"
+          [class.lx-input-shell--invalid]="hasError(detailsForm, 'contractedTransporterOrganizationId', 'required')"
         >
           <mat-icon class="lx-input-shell__icon">handshake</mat-icon>
           <select formControlName="contractedTransporterOrganizationId" aria-label="Contracted transporter">
@@ -44,12 +67,39 @@
             <option *ngFor="let p of transporterOptions" [ngValue]="p.id">{{ p.name }}</option>
           </select>
         </div>
-        <div class="lx-field-error" *ngIf="hasError('contractedTransporterOrganizationId', 'required')">
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'contractedTransporterOrganizationId', 'required')">
           Select the contracted transporter operating this vehicle.
         </div>
         <div class="lx-field-hint" *ngIf="!transporterOptions.length">
           Contract a transporter first, then tag vehicles under that partner.
         </div>
+      </div>
+
+      <!-- Contract scope -->
+      <div class="lx-field" [class.span-2]="!showJobReference" *ngIf="showContractScopePicker">
+        <label class="lx-field-label">Contract scope <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">contract</mat-icon>
+          <select formControlName="contractScope" aria-label="Contract scope">
+            <option *ngFor="let s of contractScopes" [ngValue]="s.value">{{ s.label }}</option>
+          </select>
+        </div>
+        <div class="lx-field-hint">
+          <ng-container *ngFor="let s of contractScopes">
+            <span *ngIf="detailsForm.get('contractScope')?.value === s.value">{{ s.hint }}</span>
+          </ng-container>
+        </div>
+      </div>
+
+      <!-- Job reference (only when scope=job) -->
+      <div class="lx-field" *ngIf="showJobReference">
+        <label class="lx-field-label">Job reference <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError(detailsForm, 'jobReference', 'required')">
+          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+          <input formControlName="jobReference" placeholder="e.g. JOB-2024-001" autocomplete="off" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'jobReference', 'required')">Job reference is required for job-specific contracts.</div>
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'jobReference', 'maxlength')">Maximum 100 characters.</div>
       </div>
 
       <div class="lx-form-section span-2">
@@ -59,47 +109,47 @@
       <!-- Registration plate -->
       <div class="lx-field">
         <label class="lx-field-label">Registration plate <span class="req">*</span></label>
-        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('registration', 'required') || hasError('registration', 'maxlength')">
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError(detailsForm, 'registration', 'required') || hasError(detailsForm, 'registration', 'maxlength')">
           <mat-icon class="lx-input-shell__icon">pin</mat-icon>
           <input formControlName="registration" placeholder="e.g. ADX 1234" autocomplete="off" />
         </div>
-        <div class="lx-field-error" *ngIf="hasError('registration', 'required')">Registration plate is required</div>
-        <div class="lx-field-error" *ngIf="hasError('registration', 'maxlength')">Maximum 20 characters</div>
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'registration', 'required')">Registration plate is required</div>
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'registration', 'maxlength')">Maximum 20 characters</div>
       </div>
 
       <!-- Make & model -->
       <div class="lx-field">
         <label class="lx-field-label">Make &amp; model <span class="req">*</span></label>
-        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('makeModel', 'required') || hasError('makeModel', 'maxlength')">
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError(detailsForm, 'makeModel', 'required') || hasError(detailsForm, 'makeModel', 'maxlength')">
           <mat-icon class="lx-input-shell__icon">directions_car</mat-icon>
           <input formControlName="makeModel" placeholder="e.g. Volvo FH16" autocomplete="off" />
         </div>
-        <div class="lx-field-error" *ngIf="hasError('makeModel', 'required')">Make and model is required</div>
-        <div class="lx-field-error" *ngIf="hasError('makeModel', 'maxlength')">Maximum 100 characters</div>
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'makeModel', 'required')">Make and model is required</div>
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'makeModel', 'maxlength')">Maximum 100 characters</div>
       </div>
 
       <!-- Vehicle type -->
       <div class="lx-field">
         <label class="lx-field-label">Vehicle type <span class="req">*</span></label>
-        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('type', 'required')">
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError(detailsForm, 'type', 'required')">
           <mat-icon class="lx-input-shell__icon">local_shipping</mat-icon>
           <select formControlName="type" aria-label="Vehicle type">
             <option *ngFor="let t of vehicleTypes" [ngValue]="t.value">{{ t.label }}</option>
           </select>
         </div>
-        <div class="lx-field-error" *ngIf="hasError('type', 'required')">Vehicle type is required</div>
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'type', 'required')">Vehicle type is required</div>
       </div>
 
       <!-- Status -->
       <div class="lx-field">
         <label class="lx-field-label">Status <span class="req">*</span></label>
-        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('status', 'required')">
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError(detailsForm, 'status', 'required')">
           <mat-icon class="lx-input-shell__icon">radio_button_checked</mat-icon>
           <select formControlName="status" aria-label="Vehicle status">
             <option *ngFor="let s of vehicleStatuses" [ngValue]="s.value">{{ s.label }}</option>
           </select>
         </div>
-        <div class="lx-field-error" *ngIf="hasError('status', 'required')">Status is required</div>
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'status', 'required')">Status is required</div>
       </div>
 
       <div class="lx-form-section span-2">
@@ -119,12 +169,12 @@
       <!-- Utilisation -->
       <div class="lx-field">
         <label class="lx-field-label">Utilisation %</label>
-        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('utilizationPct', 'min') || hasError('utilizationPct', 'max')">
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError(detailsForm, 'utilizationPct', 'min') || hasError(detailsForm, 'utilizationPct', 'max')">
           <mat-icon class="lx-input-shell__icon">insights</mat-icon>
           <input type="number" formControlName="utilizationPct" placeholder="0" min="0" max="100" />
         </div>
         <div class="lx-field-hint">0–100. Average utilisation over recent trips.</div>
-        <div class="lx-field-error" *ngIf="hasError('utilizationPct', 'min') || hasError('utilizationPct', 'max')">
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'utilizationPct', 'min') || hasError(detailsForm, 'utilizationPct', 'max')">
           Utilisation must be between 0 and 100
         </div>
       </div>
@@ -138,9 +188,101 @@
 
     <div class="lx-dialog-actions">
       <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
-      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
-        {{ submitting ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save changes' : 'Add vehicle') }}
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || detailsForm.invalid">
+        <span *ngIf="!submitting">{{ isEdit ? 'Save changes' : 'Continue to papers' }}</span>
+        <span *ngIf="submitting">{{ isEdit ? 'Saving…' : 'Creating…' }}</span>
       </button>
     </div>
   </form>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       STEP 2 — Required compliance papers (create-only)
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="lx-step-content" *ngIf="currentStep === 2">
+    <p class="lx-papers-lead">
+      Upload the three required compliance documents for this vehicle. Each file is stored against the asset record.
+    </p>
+
+    <div class="lx-doc-slots">
+      <div class="lx-doc-slot" *ngFor="let slot of docSlots">
+        <div class="lx-doc-slot__header">
+          <mat-icon class="lx-doc-slot__icon">{{ slot.icon }}</mat-icon>
+          <div class="lx-doc-slot__meta">
+            <span class="lx-doc-slot__label">{{ slot.label }} <span class="req">*</span></span>
+            <span class="lx-doc-slot__status lx-doc-slot__status--ok" *ngIf="slot.fileUploadId">
+              <mat-icon>check_circle</mat-icon> Uploaded
+            </span>
+            <span class="lx-doc-slot__status lx-doc-slot__status--uploading" *ngIf="slot.uploading">
+              <mat-icon>sync</mat-icon> Uploading…
+            </span>
+            <span class="lx-doc-slot__status lx-doc-slot__status--error" *ngIf="slot.uploadError && !slot.uploading">
+              <mat-icon>error_outline</mat-icon> {{ slot.uploadError }}
+            </span>
+          </div>
+        </div>
+
+        <div class="lx-doc-slot__body">
+          <!-- File picker -->
+          <div class="lx-doc-slot__file-row">
+            <label class="lx-file-pick-btn" [class.lx-file-pick-btn--done]="!!slot.fileUploadId">
+              <mat-icon>{{ slot.fileUploadId ? 'description' : 'upload_file' }}</mat-icon>
+              <span>{{ slot.fileName || 'Choose file' }}</span>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                class="lx-file-input-hidden"
+                [disabled]="slot.uploading || stepTwoSubmitting"
+                (change)="onFileSelected(slot, $event)"
+              />
+            </label>
+            <button
+              type="button"
+              class="lx-btn-icon-ghost"
+              *ngIf="slot.file && !slot.uploading"
+              (click)="clearFile(slot)"
+              title="Remove file"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+
+          <!-- Expiry date -->
+          <div class="lx-doc-slot__expiry">
+            <label class="lx-field-label">Expiry date <span class="req">*</span></label>
+            <div class="lx-input-shell lx-input-shell--compact" [class.lx-input-shell--invalid]="!slot.expiresAt && slot.fileUploadId">
+              <mat-icon class="lx-input-shell__icon">event</mat-icon>
+              <input
+                type="date"
+                [(ngModel)]="slot.expiresAt"
+                [ngModelOptions]="{ standalone: true }"
+                [min]="today"
+                [disabled]="stepTwoSubmitting"
+                [attr.aria-label]="'Expiry date for ' + slot.label"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="saveError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ saveError }}
+    </p>
+
+    <div class="lx-dialog-actions lx-dialog-actions--spread">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="goToStep(1)" [disabled]="stepTwoSubmitting">
+        Back
+      </button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-primary"
+        (click)="completeRegistration()"
+        [disabled]="!docsComplete || stepTwoSubmitting"
+      >
+        <span *ngIf="!submitting">Complete registration</span>
+        <span *ngIf="submitting">Finishing…</span>
+      </button>
+    </div>
+  </div>
 </div>

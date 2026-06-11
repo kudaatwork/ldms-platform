@@ -28,6 +28,16 @@
         <div class="lx-field-error" *ngIf="hasError('organizationClassification', 'required')">Classification is required</div>
       </div>
 
+      <div class="lx-field span-2" *ngIf="showDuplexOption">
+        <label class="lx-duplex-toggle">
+          <input type="checkbox" formControlName="duplexMode" />
+          <span>
+            <strong>Duplex mode</strong> — same legal entity can operate as both supplier and customer. Primary
+            classification above is unchanged; trading links define each relationship.
+          </span>
+        </label>
+      </div>
+
       <div class="lx-field span-2">
         <label class="lx-field-label">Organisation type <span class="req">*</span></label>
         <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('organizationType', 'required')">

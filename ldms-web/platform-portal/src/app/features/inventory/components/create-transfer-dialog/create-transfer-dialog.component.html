@@ -1,0 +1,188 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">New inventory transfer</h2>
+      <p class="lx-dialog-subtitle">Move stock between warehouse locations. Transfers require approval before dispatch.</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()" [disabled]="submitting">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="onSubmit()" novalidate>
+    <div class="lx-form-grid">
+      <div class="lx-field span-2">
+        <app-searchable-product-picker
+          formControlName="productId"
+          [products]="products"
+          [required]="true"
+          [invalid]="hasError('productId', 'required')"
+          [disabled]="submitting"
+          (selectionChange)="onProductChange()"
+        />
+      </div>
+
+      <div class="transfer-stock-panel lx-card span-2" *ngIf="productSelected">
+        <div class="transfer-stock-panel__head">
+          <mat-icon aria-hidden="true">inventory_2</mat-icon>
+          <div>
+            <strong class="transfer-stock-panel__title">Current stock for {{ selectedProduct?.name }}</strong>
+            <p class="transfer-stock-panel__lead" *ngIf="productStockLocations.length">
+              Stored at {{ productStockLocations.length }} warehouse(s). Click a row to set the source warehouse.
+            </p>
+            <p class="transfer-stock-panel__lead transfer-stock-panel__lead--warn" *ngIf="!productStockLocations.length">
+              No on-hand stock is recorded for this product. You cannot create a transfer until stock exists.
+            </p>
+          </div>
+        </div>
+
+        <div class="lx-table-wrap transfer-stock-panel__table" *ngIf="productStockLocations.length">
+          <table class="lx-data-table transfer-stock-table">
+            <thead>
+              <tr>
+                <th>Warehouse</th>
+                <th class="inv-table__qty-head">On hand</th>
+                <th class="inv-table__qty-head">Reserved</th>
+                <th class="inv-table__qty-head">Available</th>
+                <th>UOM</th>
+                <th class="inv-table__qty-head">Unit cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let row of productStockLocations"
+                class="transfer-stock-table__row"
+                [class.transfer-stock-table__row--selected]="isFromWarehouseSelected(row.warehouseLocationId)"
+              >
+                <td>
+                  <button
+                    type="button"
+                    class="transfer-stock-table__pick"
+                    (click)="selectFromWarehouse(row.warehouseLocationId)"
+                    [disabled]="submitting"
+                    [attr.aria-pressed]="isFromWarehouseSelected(row.warehouseLocationId)"
+                  >
+                    {{ row.warehouseName }}
+                  </button>
+                </td>
+                <td class="inv-qty">{{ row.quantityOnHand }}</td>
+                <td class="inv-qty inv-qty--reserved">{{ row.reservedQuantity }}</td>
+                <td class="inv-qty inv-qty--available">{{ row.availableQuantity }}</td>
+                <td>{{ row.unitOfMeasure || '—' }}</td>
+                <td class="inv-amount">{{ row.unitCost > 0 ? row.unitCostLabel : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="transfer-form-row span-2">
+        <div class="lx-field transfer-form-row__cell">
+          <app-searchable-warehouse-picker
+            formControlName="fromLocationId"
+            [warehouses]="fromWarehouses"
+            label="From warehouse"
+            ariaLabel="From warehouse"
+            searchPlaceholder="Type to search source warehouse…"
+            [emptyHint]="fromWarehouseHint"
+            [required]="true"
+            [invalid]="hasError('fromLocationId', 'required')"
+            [disabled]="submitting || !productSelected || !productStockLocations.length"
+            (selectionChange)="onFromWarehouseChange()"
+          />
+        </div>
+
+        <div class="lx-field transfer-form-row__cell">
+          <app-searchable-warehouse-picker
+            formControlName="toLocationId"
+            [warehouses]="toWarehouses"
+            label="To warehouse"
+            ariaLabel="To warehouse"
+            searchPlaceholder="Type to search destination warehouse…"
+            [emptyHint]="toWarehouseHint"
+            [required]="true"
+            [invalid]="hasError('toLocationId', 'required')"
+            [disabled]="submitting || !fromWarehouseSelected"
+          />
+        </div>
+      </div>
+
+      <div class="lx-field span-2" *ngIf="selectedFromStock">
+        <p class="transfer-stock-panel__availability">
+          <mat-icon aria-hidden="true">info_outline</mat-icon>
+          <span class="transfer-stock-panel__availability-text">
+            Available to transfer from <strong>{{ selectedFromStock.warehouseName }}</strong>:
+            <strong>{{ selectedFromStock.availableQuantity }} {{ selectedFromStock.unitOfMeasure }}</strong>
+            <span class="transfer-stock-panel__availability-meta">
+              ({{ selectedFromStock.quantityOnHand }} on hand, {{ selectedFromStock.reservedQuantity }} reserved
+              <ng-container *ngIf="selectedFromStock.unitCost > 0">
+                · captured unit cost {{ selectedFromStock.unitCostLabel }}
+              </ng-container>
+              )
+            </span>
+          </span>
+        </p>
+      </div>
+
+      <div class="transfer-form-row span-2">
+        <div class="lx-field transfer-form-row__cell">
+          <label class="lx-field-label">Quantity <span class="req">*</span></label>
+          <div
+            class="lx-input-shell"
+            [class.lx-input-shell--invalid]="hasError('quantity', 'required') || hasError('quantity', 'min') || hasError('quantity', 'max')"
+          >
+            <mat-icon class="lx-input-shell__icon">pin</mat-icon>
+            <input
+              type="number"
+              formControlName="quantity"
+              min="0.01"
+              step="0.01"
+              [attr.max]="maxTransferQuantity ?? null"
+              [placeholder]="maxTransferQuantity != null ? 'Max ' + maxTransferQuantity : 'Enter quantity'"
+            />
+          </div>
+          <p class="lx-field-hint transfer-form-row__hint" *ngIf="maxTransferQuantity != null">
+            Maximum transferable quantity: {{ maxTransferQuantity }}
+            <ng-container *ngIf="selectedFromStock as fromStock"> {{ fromStock.unitOfMeasure }}</ng-container>
+          </p>
+          <p class="lx-field-error" *ngIf="hasError('quantity', 'max')">
+            Quantity cannot exceed available stock ({{ maxTransferQuantity }}).
+          </p>
+        </div>
+
+        <div class="lx-field transfer-form-row__cell">
+          <label class="lx-field-label">Unit cost</label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">payments</mat-icon>
+            <input type="number" formControlName="unitCost" min="0" step="0.01" />
+          </div>
+          <p class="lx-field-hint transfer-form-row__hint" *ngIf="selectedFromStock as fromStock">
+            <ng-container *ngIf="fromStock.unitCost > 0">
+              Pre-filled from stock capture: {{ fromStock.unitCostLabel }} per {{ fromStock.unitOfMeasure || 'unit' }}.
+            </ng-container>
+          </p>
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Reference</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+          <input formControlName="reference" placeholder="Optional reference or note" />
+        </div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="submitError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ submitError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+        {{ submitting ? 'Creating…' : 'Create transfer' }}
+      </button>
+    </div>
+  </form>
+</div>

@@ -1,0 +1,129 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()" [disabled]="submitting">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="onSubmit()" id="addProductForm" novalidate>
+    <div class="lx-form-grid">
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Product identification</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Product name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required') || hasError('name', 'maxlength')">
+          <mat-icon class="lx-input-shell__icon">inventory_2</mat-icon>
+          <input formControlName="name" placeholder="e.g. Industrial lubricant 5L" autocomplete="off" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required</div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'maxlength')">Maximum 150 characters</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Product code / SKU <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('code', 'required') || hasError('code', 'maxlength')">
+          <mat-icon class="lx-input-shell__icon">qr_code_2</mat-icon>
+          <input formControlName="code" placeholder="e.g. LUB-5L-001" autocomplete="off" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('code', 'required')">Code is required</div>
+        <div class="lx-field-error" *ngIf="hasError('code', 'maxlength')">Maximum 60 characters</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Barcode</label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('barcode', 'maxlength')">
+          <mat-icon class="lx-input-shell__icon">barcode_reader</mat-icon>
+          <input formControlName="barcode" placeholder="Optional — EAN, UPC, or custom" autocomplete="off" />
+        </div>
+        <div class="lx-field-hint">Optional. Used for scanner lookup on stock, transfers, and CSV import.</div>
+        <div class="lx-field-error" *ngIf="hasError('barcode', 'maxlength')">Maximum 100 characters</div>
+      </div>
+
+      <div class="lx-field" *ngIf="data.categories.length">
+        <label class="lx-field-label">Category <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('categoryId', 'required')">
+          <mat-icon class="lx-input-shell__icon">label_outline</mat-icon>
+          <select formControlName="categoryId" aria-label="Product category">
+            <option [ngValue]="null">— Select category —</option>
+            <option *ngFor="let cat of data.categories" [ngValue]="cat.id">{{ cat.name }}</option>
+          </select>
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('categoryId', 'required')">Category is required</div>
+      </div>
+
+      <div class="lx-field" *ngIf="form.get('categoryId')?.value">
+        <label class="lx-field-label">Subcategory</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">bookmark_border</mat-icon>
+          <select formControlName="subcategoryId" aria-label="Product subcategory" [disabled]="subcategoriesLoading">
+            <option [ngValue]="null">{{ subcategoriesLoading ? 'Loading…' : '— Optional —' }}</option>
+            <option *ngFor="let sub of subcategories" [ngValue]="sub.id">{{ sub.name }}</option>
+          </select>
+        </div>
+        <div class="lx-field-hint" *ngIf="!subcategoriesLoading && !subcategories.length">
+          No subcategories for this category yet. Add them under Inventory → Product categories.
+        </div>
+      </div>
+
+      <p class="lx-field-error span-2" *ngIf="!data.categories.length">
+        No product categories are available yet. Add product categories under Inventory → Product categories before adding products.
+      </p>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Pricing &amp; units</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Unit of measure <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('unitOfMeasure', 'required')">
+          <mat-icon class="lx-input-shell__icon">straighten</mat-icon>
+          <select formControlName="unitOfMeasure" aria-label="Unit of measure">
+            <option *ngFor="let u of unitOptions" [ngValue]="u.value">{{ u.label }}</option>
+          </select>
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('unitOfMeasure', 'required')">Unit is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Unit price <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('unitPrice', 'required') || hasError('unitPrice', 'min')">
+          <mat-icon class="lx-input-shell__icon">payments</mat-icon>
+          <input type="number" min="0" step="0.01" formControlName="unitPrice" placeholder="0.00" />
+        </div>
+        <div class="lx-field-hint">Enter the standard unit price in your organisation currency.</div>
+        <div class="lx-field-error" *ngIf="hasError('unitPrice', 'required')">Price is required</div>
+        <div class="lx-field-error" *ngIf="hasError('unitPrice', 'min')">Must be ≥ 0</div>
+      </div>
+
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Additional details</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Description</label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="description" rows="3" placeholder="Short description of the product"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="submitError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ submitError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid || !data.categories.length">
+        {{ submitting ? 'Saving…' : (isEdit ? 'Save changes' : 'Add product') }}
+      </button>
+    </div>
+  </form>
+</div>

@@ -20,14 +20,21 @@ import { decodeJwtPayload } from '../../core/utils/jwt.util';
 import { StorageService } from '../../core/services/storage.service';
 import { UserProfileService } from '../../core/services/user-profile.service';
 import { SessionIdleService } from '../../core/services/session-idle.service';
+import { SessionExpiryService } from '../../core/services/session-expiry.service';
 import { AuthenticatedHistoryService } from '../../core/services/authenticated-history.service';
 import { PhoneVerificationPromptService } from '../../core/services/phone-verification-prompt.service';
+import { CurrencyContextService } from '../../core/services/currency-context.service';
+import { PlatformWalletService, type OrganizationBillingMode, type PlatformWalletSummary } from '../../core/services/platform-wallet.service';
+import { DuplexTradingModeService } from '../../core/services/duplex-trading-mode.service';
 import { portalHomeRoute } from '../../core/utils/portal-navigation.util';
+import { isDuplexTradingOrg, type TradingWorkspaceMode } from '../../core/utils/org-classification.util';
 import {
   AUDIT_LOG_NAV_ITEM,
   NAV_CONFIG,
   NavItem,
   withAuditLogNav,
+  withInventoryNav,
+  withMyOrdersNav,
   withUsersNavAfterDocuments,
 } from '../sidebar/sidebar.config';
 
@@ -54,6 +61,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   currentUser: CurrentUser | null = null;
   navItems: NavItem[] = [];
+  activeTradingMode: TradingWorkspaceMode | null = null;
 
   collapsed = false;
   mobileSidebarOpen = false;
@@ -68,6 +76,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   profileOpen = false;
   sessionWarningVisible = false;
   sessionSecondsRemaining = 0;
+  walletSummary: PlatformWalletSummary | null = null;
   topNotifications: ShellNotification[] = [
     {
       id: 'p1',
@@ -100,8 +109,12 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     readonly theme: ThemeService,
     private readonly sessionIdle: SessionIdleService,
+    private readonly sessionExpiry: SessionExpiryService,
     private readonly authenticatedHistory: AuthenticatedHistoryService,
     private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
+    private readonly currencyContext: CurrencyContextService,
+    private readonly platformWallet: PlatformWalletService,
+    private readonly duplexTradingMode: DuplexTradingModeService,
   ) {}
 
   ngOnInit(): void {
@@ -112,14 +125,42 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     } else {
       this.authService.bootstrapFromStorage();
     }
-    this.navItems = this.currentUser ? this.workspaceNav(this.currentUser.orgClassification) : [];
+    this.refreshWorkspaceNav();
+
+    this.duplexTradingMode.activeMode$.pipe(takeUntil(this.destroy$)).subscribe((mode) => {
+      this.activeTradingMode = mode;
+      this.refreshWorkspaceNav();
+      this.cdr.markForCheck();
+    });
 
     this.authState.currentUser$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
       this.currentUser = user;
-      this.navItems = user ? this.workspaceNav(user.orgClassification) : [];
+      this.duplexTradingMode.syncFromUser(user);
       if (user) {
         this.shellUserService.syncFromAuthState(user);
+        this.currencyContext.load().subscribe();
+        this.platformWallet.refreshSummary().pipe(takeUntil(this.destroy$)).subscribe({
+          next: (summary) => {
+            this.walletSummary = summary;
+            this.cdr.markForCheck();
+          },
+          error: () => {
+            this.walletSummary = {
+              balanceCents: 0,
+              currencyCode: 'USD',
+              billingMode: 'PREPAID_WALLET',
+            };
+            this.cdr.markForCheck();
+          },
+        });
+        this.platformWallet.summary$.pipe(takeUntil(this.destroy$)).subscribe((summary) => {
+          if (summary) {
+            this.walletSummary = summary;
+            this.cdr.markForCheck();
+          }
+        });
       }
+      this.refreshWorkspaceNav();
       this.syncChromeFromUrl();
       this.cdr.markForCheck();
     });
@@ -190,11 +231,11 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   }
 
   private startAuthenticatedSessionGuards(): void {
-    const homeCommands = portalHomeRoute(this.currentUser);
+    const homeCommands = portalHomeRoute(this.currentUser, this.activeTradingMode);
     const homePath = `/${homeCommands.filter((s) => s && s !== '/').join('/')}` || '/dashboard';
     const workspaceUrl = this.router.url.startsWith('/auth') ? homePath : this.router.url;
     this.authenticatedHistory.enable(workspaceUrl);
-    this.sessionIdle.activate(() => this.logout(true));
+    this.sessionIdle.activate(() => this.sessionExpiry.handleSessionExpired('inactivity'));
   }
 
   get shellUser() {
@@ -250,6 +291,14 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   get notificationCount(): number {
     return this.topNotifications.length;
+  }
+
+  get isInventoryWorkspace(): boolean {
+    return (
+      this.currentUrl.startsWith('/products-inventory') ||
+      this.currentUrl.startsWith('/purchase-orders') ||
+      this.currentUrl.startsWith('/my-orders')
+    );
   }
 
   trackByRoute(_index: number, item: NavItem): string {
@@ -341,13 +390,15 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   logout(fromInactivity = false): void {
     this.profileOpen = false;
     this.notificationsOpen = false;
+    if (fromInactivity) {
+      this.sessionExpiry.handleSessionExpired('inactivity');
+      this.cdr.markForCheck();
+      return;
+    }
     this.sessionIdle.deactivate();
     this.authenticatedHistory.disable();
     this.authService.logout();
-    void this.router.navigate(['/auth/login'], {
-      replaceUrl: true,
-      queryParams: fromInactivity ? { reason: 'inactivity' } : undefined,
-    });
+    void this.router.navigate(['/auth/login'], { replaceUrl: true });
     this.cdr.markForCheck();
   }
 
@@ -444,8 +495,33 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     }
   }
 
-  private workspaceNav(classification: NonNullable<CurrentUser>['orgClassification']): NavItem[] {
-    const base = withAuditLogNav(withUsersNavAfterDocuments(NAV_CONFIG[classification] ?? []));
+  get showDuplexSwitcher(): boolean {
+    return isDuplexTradingOrg(this.currentUser);
+  }
+
+  switchTradingMode(mode: TradingWorkspaceMode): void {
+    if (!this.currentUser || mode === this.activeTradingMode) {
+      return;
+    }
+    this.duplexTradingMode.setMode(mode, this.currentUser);
+    const home = portalHomeRoute(this.currentUser, mode);
+    void this.router.navigate(home);
+  }
+
+  private refreshWorkspaceNav(): void {
+    const classification = this.duplexTradingMode.effectiveClassification(this.currentUser);
+    this.navItems = this.currentUser ? this.workspaceNav(classification) : [];
+  }
+
+  private workspaceNav(classification: CurrentUser['orgClassification']): NavItem[] {
+    const fallback: NavItem[] = [{ label: 'Dashboard', route: '/dashboard', icon: 'dashboard' }];
+    const base = withAuditLogNav(
+      withMyOrdersNav(
+        withInventoryNav(
+          withUsersNavAfterDocuments(classification ? (NAV_CONFIG[classification] ?? fallback) : fallback),
+        ),
+      ),
+    );
     return this.navAccess.filterNavItems(base);
   }
 
@@ -525,7 +601,13 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     }
     for (const item of this.navItems) {
       for (const child of item.children ?? []) {
-        if (url === child.route || (child.route !== '/users' && url.startsWith(child.route + '/'))) {
+        if (
+          url === child.route ||
+          (child.route !== '/users' &&
+            !child.route.startsWith('/products-inventory/') &&
+            !child.route.startsWith('/my-orders/') &&
+            url.startsWith(child.route + '/'))
+        ) {
           return child.label;
         }
       }
@@ -597,5 +679,33 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     }
 
     this.breadcrumbs = [{ label: 'Home', url: '/dashboard' }, ...crumbs];
+  }
+
+  get walletLabel(): string {
+    const summary = this.walletSummary ?? {
+      balanceCents: 0,
+      currencyCode: 'USD',
+      billingMode: 'PREPAID_WALLET' as const,
+    };
+    if (summary.billingMode === 'PREMIUM_SUBSCRIPTION') {
+      return summary.subscriptionPackageName ?? 'Premium';
+    }
+    return this.platformWallet.formatCents(
+      summary.balanceCents ?? 0,
+      summary.currencyCode ?? 'USD',
+    );
+  }
+
+  get walletLowBalance(): boolean {
+    const summary = this.walletSummary;
+    return summary?.billingMode === 'PREPAID_WALLET' && summary.lowBalance === true;
+  }
+
+  get walletBillingMode(): OrganizationBillingMode {
+    return this.walletSummary?.billingMode ?? 'PREPAID_WALLET';
+  }
+
+  goWalletSettings(): void {
+    void this.router.navigate(['/settings'], { queryParams: { section: 'billing' } });
   }
 }

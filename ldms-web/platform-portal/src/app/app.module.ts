@@ -11,6 +11,8 @@ import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.compone
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
 import { LandingComponent } from './features/landing/pages/landing/landing.component';
 import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
+import { OfflinePageComponent } from './shared/components/offline-page/offline-page.component';
+import { LxRouteProgressComponent } from './shared/components/lx-route-progress/lx-route-progress.component';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
 
@@ -42,6 +44,8 @@ export function initPlatformSession(auth: AuthService): () => void {
     CoreModule,
     SharedModule,
     AppRoutingModule,
+    OfflinePageComponent,
+    LxRouteProgressComponent,
   ],
   providers: [
     {

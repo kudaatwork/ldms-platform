@@ -1,0 +1,50 @@
+<div class="offline-page" role="alert" aria-live="assertive">
+  <button
+    type="button"
+    class="offline-page__theme-toggle"
+    (click)="toggleTheme()"
+    [matTooltip]="theme.dark() ? 'Light mode' : 'Dark mode'"
+    [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+  >
+    <mat-icon>{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+  </button>
+
+  <div class="offline-page__backdrop" aria-hidden="true">
+    <div class="offline-page__orb offline-page__orb--1"></div>
+    <div class="offline-page__orb offline-page__orb--2"></div>
+    <div class="offline-page__orb offline-page__orb--3"></div>
+    <div class="offline-page__grid"></div>
+  </div>
+
+  <div class="offline-page__panel">
+    <div class="offline-page__visual" aria-hidden="true">
+      <span class="offline-page__ring offline-page__ring--a"></span>
+      <span class="offline-page__ring offline-page__ring--b"></span>
+      <span class="offline-page__ring offline-page__ring--c"></span>
+
+      <div class="offline-page__icon-stage">
+        <mat-icon class="offline-page__icon-cloud">cloud</mat-icon>
+        <mat-icon class="offline-page__icon-slash">link_off</mat-icon>
+      </div>
+
+      <div class="offline-page__signal">
+        <span class="offline-page__bar"></span>
+        <span class="offline-page__bar"></span>
+        <span class="offline-page__bar"></span>
+        <span class="offline-page__bar offline-page__bar--dim"></span>
+      </div>
+    </div>
+
+    <p class="offline-page__eyebrow">No connection</p>
+    <h1 class="offline-page__title">You are offline</h1>
+    <p class="offline-page__message">
+      We cannot reach the network right now. Your work is safe — we will pick up where you left off as soon as you are back online.
+    </p>
+
+    <div class="offline-page__status">
+      <span class="offline-page__dot"></span>
+      <span class="offline-page__status-text">Waiting for network</span>
+      <span class="offline-page__ellipsis" aria-hidden="true"><span>.</span><span>.</span><span>.</span></span>
+    </div>
+  </div>
+</div>

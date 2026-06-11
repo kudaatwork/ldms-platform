@@ -56,8 +56,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
       });
       this.classification = user?.orgClassification ?? '';
       this.classificationLabel = this.formatClassification(this.classification);
-      this.cards = user ? PLATFORM_KPI_CONFIG[user.orgClassification] : [];
-      this.charts = user ? PLATFORM_CHART_CONFIG[user.orgClassification] : [];
+      const orgClass = user?.orgClassification;
+      this.cards = orgClass ? (PLATFORM_KPI_CONFIG[orgClass] ?? []) : [];
+      this.charts = orgClass ? (PLATFORM_CHART_CONFIG[orgClass] ?? []) : [];
       if (this.isSupplier) {
         this.selectedShipmentId = this.filteredShipments[0]?.id ?? null;
       }

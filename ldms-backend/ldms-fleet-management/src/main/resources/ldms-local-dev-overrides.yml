@@ -1,0 +1,9 @@
+# Loaded after Config Server so local LDMS port map and Feign URLs win.
+server:
+  port: ${FLEET_MANAGEMENT_PORT:8088}
+
+clients:
+  baseUrl:
+    apiGateway: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+    userManagementService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+    fileUploadService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}

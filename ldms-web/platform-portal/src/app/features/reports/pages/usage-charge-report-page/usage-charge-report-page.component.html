@@ -1,0 +1,279 @@
+<div class="lx-page usage-report-page">
+  <lx-workspace-hero
+    variant="violet"
+    eyebrow="Reports"
+    eyebrowIcon="insights"
+    title="Platform usage charges"
+    lead="Review platform action usage for your organisation — charges deducted on prepaid wallet or tracked on subscription. Filter by trip, season, or date range."
+    hubIcon="bar_chart"
+    [orbitIcons]="['trip_origin', 'calendar_month', 'payments']"
+  ></lx-workspace-hero>
+
+  <div class="lx-card lx-card--subsection usage-report-controls">
+    <div class="lx-controls-head">
+      <div class="lx-controls-head__text">
+        <h3 class="lx-controls-title">Report controls</h3>
+        <p class="lx-controls-subtitle">Set scope filters and run the usage charge report for your organisation.</p>
+      </div>
+      <button
+        type="button"
+        mat-icon-button
+        class="lx-controls-head__info-btn"
+        [class.is-on]="showReportHint"
+        (click)="showReportHint = !showReportHint"
+        aria-label="Toggle report information"
+      >
+        <mat-icon>info_outline</mat-icon>
+      </button>
+    </div>
+
+    <p class="lx-controls-hint" *ngIf="showReportHint">
+      <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+      <span>
+        <strong>Prepaid wallet:</strong> “Actually deducted” reflects charges taken from your balance.
+        <strong>Subscription:</strong> actions are tracked for transparency without per-use deductions.
+      </span>
+    </p>
+
+    <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="loadReport()" [disabled]="loading">
+          {{ loading ? 'Running…' : 'Refresh' }}
+        </button>
+        <button type="button" class="lx-btn lx-btn-success" (click)="exportCsv()" [disabled]="!report?.records?.length || exporting">
+          {{ exporting ? 'Exporting…' : 'Export CSV' }}
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="loadReport()" [disabled]="loading">
+          Run report
+        </button>
+      </div>
+      <div class="lx-data-toolbar__search">
+        <div class="lx-input-shell lx-search-field">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input
+            [(ngModel)]="tableSearchQuery"
+            placeholder="Search line items…"
+            [disabled]="!report?.records?.length"
+          />
+        </div>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+          (click)="filterFieldsOpen = !filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen || hasActiveFilters"
+        >
+          <mat-icon>tune</mat-icon>
+          Filters
+        </button>
+      </div>
+    </div>
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+      <span class="lx-filter-panel__label">Report scope</span>
+      <div class="lx-filter-fields usage-report-filters__grid">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Trip ID</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">trip_origin</mat-icon>
+            <input type="number" min="0" [(ngModel)]="tripIdInput" placeholder="Any trip" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Season ID</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">calendar_month</mat-icon>
+            <input type="number" min="0" [(ngModel)]="seasonIdInput" placeholder="Any season" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">From date</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">event</mat-icon>
+            <input type="date" [(ngModel)]="from" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">To date</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">event</mat-icon>
+            <input type="date" [(ngModel)]="to" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Action code</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input [(ngModel)]="actionFilter" placeholder="e.g. TRIP_TRACK" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Deduction</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">payments</mat-icon>
+            <select [(ngModel)]="deductedFilter" aria-label="Deduction filter">
+              <option value="">Any</option>
+              <option value="yes">Deducted only</option>
+              <option value="no">Tracked only</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="usage-report-filters__actions">
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="clearFilters()">Clear filters</button>
+        <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="loadReport()" [disabled]="loading">Apply &amp; run</button>
+      </div>
+    </div>
+  </div>
+
+  <lx-inline-busy *ngIf="loading && !report" message="Building usage report…" />
+
+  <p class="usage-report-error lx-card" *ngIf="error" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    {{ error }}
+  </p>
+
+  <ng-container *ngIf="report">
+    <section class="usage-report-kpis">
+      <article class="usage-report-kpi lx-card" [class.usage-report-kpi--mode]="true">
+        <span class="usage-report-kpi__icon"><mat-icon>account_balance_wallet</mat-icon></span>
+        <div>
+          <span class="usage-report-kpi__label">Billing mode</span>
+          <strong>{{ billingModeLabel }}</strong>
+        </div>
+      </article>
+      <article class="usage-report-kpi lx-card">
+        <span class="usage-report-kpi__icon usage-report-kpi__icon--primary"><mat-icon>receipt_long</mat-icon></span>
+        <div>
+          <span class="usage-report-kpi__label">Total chargeable usage</span>
+          <strong>{{ formatMoney(report.totalChargeCents) }}</strong>
+        </div>
+      </article>
+      <article class="usage-report-kpi lx-card">
+        <span class="usage-report-kpi__icon usage-report-kpi__icon--success"><mat-icon>check_circle</mat-icon></span>
+        <div>
+          <span class="usage-report-kpi__label">Actually deducted</span>
+          <strong>{{ formatMoney(report.deductedChargeCents) }}</strong>
+        </div>
+      </article>
+      <article class="usage-report-kpi lx-card">
+        <span class="usage-report-kpi__icon usage-report-kpi__icon--muted"><mat-icon>insights</mat-icon></span>
+        <div>
+          <span class="usage-report-kpi__label">Hypothetical (all actions)</span>
+          <strong>{{ formatMoney(report.hypotheticalChargeCents) }}</strong>
+        </div>
+      </article>
+    </section>
+
+    <section class="usage-report-charts">
+      <article class="usage-report-chart lx-card">
+        <header class="usage-report-chart__head">
+          <div>
+            <h2>Daily usage</h2>
+            <p>Charge volume by day in your selected period</p>
+          </div>
+        </header>
+        <div class="usage-report-chart__bars" *ngIf="report.dailyTotalsCents?.length; else emptyDaily">
+          <div
+            class="usage-report-chart__bar"
+            *ngFor="let v of report.dailyTotalsCents; let i = index"
+            [style.height.%]="chartBarHeight(v, report.dailyTotalsCents)"
+            [attr.title]="(report.dailyLabels?.[i] ?? '') + ': ' + formatMoney(v)"
+          ></div>
+        </div>
+        <ng-template #emptyDaily>
+          <div class="usage-report-chart__empty">No daily totals for this period.</div>
+        </ng-template>
+        <div class="usage-report-chart__labels" *ngIf="report.dailyLabels?.length">
+          <span *ngFor="let label of report.dailyLabels">{{ label | slice:5 }}</span>
+        </div>
+      </article>
+
+      <article class="usage-report-chart lx-card">
+        <header class="usage-report-chart__head">
+          <div>
+            <h2>By action type</h2>
+            <p>Breakdown of chargeable events</p>
+          </div>
+        </header>
+        <div class="usage-report-donut-wrap" *ngIf="report.breakdown?.length; else emptyBreakdown">
+          <div class="usage-report-donut" [style.background]="donutGradient()"></div>
+          <ul class="usage-report-legend">
+            <li *ngFor="let row of report.breakdown; let i = index">
+              <span class="usage-report-legend__dot" [style.background]="legendColor(i)"></span>
+              <span class="usage-report-legend__name">{{ row.actionDisplayName || row.actionCode }}</span>
+              <span class="usage-report-legend__meta">{{ formatMoney(row.totalChargeCents) }} · {{ row.eventCount }} events</span>
+            </li>
+          </ul>
+        </div>
+        <ng-template #emptyBreakdown>
+          <div class="usage-report-chart__empty">No action breakdown yet.</div>
+        </ng-template>
+      </article>
+    </section>
+  </ng-container>
+
+  <div class="lx-card usage-report-table-card" *ngIf="report">
+    <div class="lx-table-header">
+      <div>
+        <p class="lx-table-meta">Usage charge line items</p>
+        <p class="usage-report-table__summary" *ngIf="report.records?.length">
+          {{ filteredRecords.length }} of {{ report.records?.length ?? 0 }} records
+        </p>
+      </div>
+      <span class="lx-fetch-hint" *ngIf="loading">Refreshing…</span>
+    </div>
+
+    <lx-table-loading [busy]="loading" message="Refreshing report…"></lx-table-loading>
+
+    <ng-container *ngIf="filteredRecords.length; else emptyTable">
+      <div class="lx-table-wrap">
+        <table mat-table [dataSource]="filteredRecords" class="lx-mat-table usage-report-table__grid">
+          <ng-container matColumnDef="time">
+            <th mat-header-cell *matHeaderCellDef>Time</th>
+            <td mat-cell *matCellDef="let row">{{ row.createdAt || '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="action">
+            <th mat-header-cell *matHeaderCellDef>Action</th>
+            <td mat-cell *matCellDef="let row">
+              <strong>{{ row.actionDisplayName || row.actionCode }}</strong>
+              <code class="usage-report-table__code">{{ row.actionCode }}</code>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="charge">
+            <th mat-header-cell *matHeaderCellDef>Charge</th>
+            <td mat-cell *matCellDef="let row">{{ formatMoney(row.chargeCents) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="deducted">
+            <th mat-header-cell *matHeaderCellDef>Deducted</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="lx-status" [ngClass]="row.deducted ? 'lx-status-active' : 'lx-status-pending'">
+                {{ row.deducted ? 'Deducted' : 'Tracked only' }}
+              </span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="trip">
+            <th mat-header-cell *matHeaderCellDef>Trip</th>
+            <td mat-cell *matCellDef="let row">{{ row.tripId || '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="season">
+            <th mat-header-cell *matHeaderCellDef>Season</th>
+            <td mat-cell *matCellDef="let row">{{ row.seasonId || '—' }}</td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        </table>
+      </div>
+    </ng-container>
+
+    <ng-template #emptyTable>
+      <div class="lx-empty lx-empty--compact">
+        <mat-icon class="lx-empty-icon">search_off</mat-icon>
+        <div class="lx-empty-title">{{ report.records?.length ? 'No matching line items' : 'No usage records yet' }}</div>
+        <div class="lx-empty-sub">
+          {{ report.records?.length ? 'Adjust search or filters.' : 'Run the report after platform actions occur.' }}
+        </div>
+      </div>
+    </ng-template>
+  </div>
+</div>

@@ -1,0 +1,279 @@
+<section class="cur-shell">
+  <lx-table-loading [busy]="loading" message="Loading currency settings..."></lx-table-loading>
+
+  <div class="lx-empty" *ngIf="!loading && error">
+    <mat-icon class="lx-empty-icon">error_outline</mat-icon>
+    <div class="lx-empty-title">{{ error }}</div>
+  </div>
+
+  <ng-container *ngIf="!loading && !error">
+    <article class="cur-hero lx-card">
+      <div class="cur-hero__grid">
+        <div class="cur-hero__copy">
+          <p class="cur-hero__eyebrow">{{ adminMode ? 'Platform finance' : 'Organisation finance' }}</p>
+          <h2>Currency &amp; exchange rates</h2>
+          <p>
+            Multicurrency done the accounting way: pick a <strong>functional currency</strong> for your books,
+            trade in other currencies when needed, and lock exchange rates on each transaction so history never changes.
+          </p>
+        </div>
+        <div class="cur-hero__badge" *ngIf="!adminMode">
+          <span class="cur-hero__badge-label">Your books</span>
+          <span class="cur-hero__badge-value">{{ functionalCurrencyCode }}</span>
+          <span class="cur-hero__badge-hint">Used in inventory &amp; purchasing</span>
+        </div>
+      </div>
+    </article>
+
+    <nav class="cur-tabs" aria-label="Currency sections">
+      @for (tab of tabs; track tab.id) {
+        <button
+          type="button"
+          class="cur-tabs__item"
+          [class.cur-tabs__item--active]="activeTab === tab.id"
+          (click)="selectTab(tab.id)"
+        >
+          <mat-icon>{{ tab.icon }}</mat-icon>
+          {{ tab.label }}
+        </button>
+      }
+    </nav>
+
+  @if (activeTab === 'guide') {
+    <div class="cur-guide-grid">
+      <article class="lx-card cur-guide-card">
+        <mat-icon class="cur-guide-card__icon">account_balance</mat-icon>
+        <h3>Functional currency (your books)</h3>
+        <p>
+          This is the currency your organisation uses for internal records — inventory unit prices, purchase requisitions,
+          purchase orders, and financial reports. In Zimbabwe many companies keep their <em>books in USD</em> even when
+          paying suppliers in ZWG.
+        </p>
+      </article>
+      <article class="lx-card cur-guide-card">
+        <mat-icon class="cur-guide-card__icon">receipt_long</mat-icon>
+        <h3>Transaction currency</h3>
+        <p>
+          When you buy or sell in another currency (e.g. ZWG), the document stores the amount in that currency.
+          The system converts to your functional currency using the <strong>rate locked at transaction time</strong>.
+        </p>
+      </article>
+      <article class="lx-card cur-guide-card">
+        <mat-icon class="cur-guide-card__icon">history</mat-icon>
+        <h3>Rate changes never rewrite history</h3>
+        <p>
+          Updating an exchange rate (e.g. USD/ZWG from 26.8 to 28.0) applies only to <strong>new</strong> transactions.
+          Invoices, payments, and GRV-linked bills already recorded keep their original converted amounts.
+        </p>
+      </article>
+      <article class="lx-card cur-guide-card">
+        <mat-icon class="cur-guide-card__icon">payments</mat-icon>
+        <h3>Payment settlement &amp; exchange gain/loss (IFRS 21)</h3>
+        <p>
+          All amounts are recorded in the organisation <strong>functional currency</strong> using the spot rate on the
+          <strong>transaction date</strong>. On payment, the <strong>settlement-date rate</strong> is applied and
+          <strong>realized exchange gain or loss</strong> is stored for audit.
+        </p>
+      </article>
+      <article class="lx-card cur-guide-card cur-guide-card--highlight">
+        <mat-icon class="cur-guide-card__icon">flag</mat-icon>
+        <h3>Zimbabwe example</h3>
+        <p>
+          Platform default: <strong>USD</strong> as country base currency. Reference rate:
+          <strong>1 USD = 26.8 ZWG</strong>. Your organisation can still choose USD or ZWG as functional currency
+          depending on how you run your company.
+        </p>
+        @if (adminMode) {
+          <button type="button" class="lx-btn lx-btn-primary cur-guide-card__action" (click)="applyZimbabwePreset()" [disabled]="applyingZwPreset">
+            {{ applyingZwPreset ? 'Applying…' : 'Apply Zimbabwe preset' }}
+          </button>
+        }
+      </article>
+    </div>
+  }
+
+  @if (activeTab === 'organization' && !adminMode) {
+    <section class="lx-card cur-org-card">
+      <header class="cur-card__head">
+        <mat-icon>corporate_fare</mat-icon>
+        <div>
+          <h3>Your organisation&apos;s functional currency</h3>
+          <p>
+            This drives inventory pricing, requisitions, purchase orders, and billing conversions for
+            <strong>{{ organizationName || 'your company' }}</strong>.
+          </p>
+        </div>
+      </header>
+
+      <div class="cur-org-picker">
+        <label class="cur-org-picker__field">
+          <span>Functional currency</span>
+          <select class="cur-select cur-select--large" [(ngModel)]="functionalCurrencyCode">
+            @for (code of currencyOptions(); track code) {
+              <option [value]="code">{{ code }} — {{ currencyName(code) }}</option>
+            }
+          </select>
+        </label>
+        <div class="cur-org-picker__meta">
+          <div class="cur-stat">
+            <span class="cur-stat__label">Country platform default</span>
+            <span class="cur-stat__value">{{ countryDefaultCurrency }}</span>
+          </div>
+          <div class="cur-stat">
+            <span class="cur-stat__label">Affects</span>
+            <span class="cur-stat__value">Inventory · PO · PR · Invoices</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="cur-org-actions">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="saveOrganizationCurrency()" [disabled]="savingOrg">
+          {{ savingOrg ? 'Saving…' : 'Save functional currency' }}
+        </button>
+      </div>
+
+      @if (relevantRates().length) {
+        <div class="cur-rate-chips">
+          <span class="cur-rate-chips__title">Active rates involving {{ functionalCurrencyCode }}</span>
+          @for (rate of relevantRates(); track rate.id) {
+            <span class="cur-rate-chip">{{ rateLabel(rate) }}</span>
+          }
+        </div>
+      }
+    </section>
+  }
+
+  @if (activeTab === 'countries' && adminMode) {
+    <section class="lx-card cur-card">
+      <header class="cur-card__head">
+        <mat-icon>public</mat-icon>
+        <div>
+          <h3>Country default currencies</h3>
+          <p>
+            Suggested functional currency for new organisations in each country ({{ countryRows.length }} countries).
+            Each company can override this in their own settings.
+          </p>
+        </div>
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="applyZimbabwePreset()" [disabled]="applyingZwPreset">
+          {{ applyingZwPreset ? 'Applying…' : 'Zimbabwe preset' }}
+        </button>
+      </header>
+
+      <div class="cur-toolbar">
+        <input
+          class="cur-search"
+          type="search"
+          placeholder="Search country, ISO code, or currency…"
+          [(ngModel)]="countrySearch"
+          (ngModelChange)="onCountrySearchChange()"
+        />
+        <span class="cur-toolbar__count">{{ filteredCountryRows.length }} countries</span>
+      </div>
+
+      <div class="cur-table-wrap">
+        <table class="cur-table">
+          <thead>
+            <tr>
+              <th>Country</th>
+              <th>ISO</th>
+              <th>Location default</th>
+              <th>Platform base currency</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of pagedCountryRows; track row.countryId) {
+              <tr>
+                <td>{{ row.countryName }}</td>
+                <td><code>{{ row.countryIsoAlpha2 }}</code></td>
+                <td>{{ row.defaultCurrencyCode }}</td>
+                <td>
+                  <select class="cur-select" [(ngModel)]="row.baseCurrencyCode">
+                    @for (code of currencyOptions(); track code) {
+                      <option [value]="code">{{ code }}</option>
+                    }
+                  </select>
+                </td>
+                <td>
+                  <button type="button" class="lx-btn lx-btn-secondary" (click)="saveCountryBaseCurrency(row)" [disabled]="row.saving">
+                    {{ row.saving ? 'Saving…' : 'Save' }}
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <div class="cur-pager" *ngIf="countryPageCount > 1">
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="prevCountryPage()" [disabled]="countryPage === 0">Previous</button>
+        <span>Page {{ countryPage + 1 }} of {{ countryPageCount }}</span>
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="nextCountryPage()" [disabled]="countryPage >= countryPageCount - 1">Next</button>
+      </div>
+    </section>
+  }
+
+  @if (activeTab === 'rates') {
+    <section class="lx-card cur-card">
+      <header class="cur-card__head">
+        <mat-icon>currency_exchange</mat-icon>
+        <div>
+          <h3>Exchange rates</h3>
+          <p>
+            Enter rates as <strong>1 unit of “From” equals X units of “To”</strong>.
+            Example: From USD, To ZWG, Rate 26.8 means <strong>1 USD = 26.8 ZWG</strong>.
+          </p>
+        </div>
+      </header>
+
+      <form class="cur-rate-form" (ngSubmit)="addExchangeRate()">
+        <div class="cur-rate-form__equation">
+          <span class="cur-rate-form__one">1</span>
+          <select class="cur-select" [(ngModel)]="newRateFrom" name="fromCurrency">
+            @for (code of currencyOptions(); track code) {
+              <option [value]="code">{{ code }}</option>
+            }
+          </select>
+          <span class="cur-rate-form__equals">=</span>
+          <input class="cur-input" type="number" min="0.00000001" step="0.0001" [(ngModel)]="newRateValue" name="rate" />
+          <select class="cur-select" [(ngModel)]="newRateTo" name="toCurrency">
+            @for (code of currencyOptions(); track code) {
+              <option [value]="code">{{ code }}</option>
+            }
+          </select>
+        </div>
+        @if (adminMode) {
+          <button type="submit" class="lx-btn lx-btn-primary" [disabled]="savingRate">
+            {{ savingRate ? 'Saving…' : 'Publish new rate' }}
+          </button>
+        } @else {
+          <p class="cur-rate-form__note">Exchange rates are managed by platform administrators. Contact your LDMS admin to update rates.</p>
+        }
+      </form>
+
+      <div class="cur-table-wrap">
+        <table class="cur-table">
+          <thead>
+            <tr>
+              <th>Rate</th>
+              <th>Effective from</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (rate of exchangeRates; track rate.id) {
+              <tr>
+                <td><strong>{{ rateLabel(rate) }}</strong></td>
+                <td>{{ rate.effectiveFrom | date: 'medium' }}</td>
+                <td>
+                  <span class="cur-pill" [class.cur-pill--active]="rate.current">{{ rate.current ? 'Current' : 'Historical' }}</span>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+  </ng-container>
+</section>

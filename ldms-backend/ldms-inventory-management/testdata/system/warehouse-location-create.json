@@ -1,0 +1,10 @@
+{
+  "line1": "12 Warehouse Lane",
+  "line2": "Bay 3",
+  "postalCode": "00263",
+  "suburbId": "{{suburbId}}",
+  "geoCoordinatesId": "{{geoCoordinatesId}}",
+  "name": "Main Warehouse",
+  "description": "Primary receiving warehouse",
+  "supplierId": 8
+}

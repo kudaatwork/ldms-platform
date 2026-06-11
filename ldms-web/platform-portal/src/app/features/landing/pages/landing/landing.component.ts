@@ -789,10 +789,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     void this.router.navigate(['/signup']);
   }
 
-  goPlatformLogin(): void {
-    void this.router.navigate(['/auth/login']);
-  }
-
   goBookDemo(): void {
     void this.router.navigate(['/contact']);
   }

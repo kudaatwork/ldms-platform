@@ -1,0 +1,83 @@
+<div class="lx-dialog-shell" [class.is-edit]="isEdit" [class.is-view]="isView">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
+    <div class="lx-form-grid">
+      <div class="lx-field">
+        <label class="lx-field-label">Package code <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('code', 'required')">
+          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+          <input formControlName="code" placeholder="e.g. GROWTH" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('code', 'required')">Code is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Sort order</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">sort</mat-icon>
+          <input type="number" min="0" formControlName="sortOrder" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required')">
+          <mat-icon class="lx-input-shell__icon">workspace_premium</mat-icon>
+          <input formControlName="name" placeholder="e.g. Growth" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Description</label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="description" rows="2" placeholder="Marketing description"></textarea>
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Monthly price (cents) <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">payments</mat-icon>
+          <input type="number" min="0" formControlName="monthlyPriceCents" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Currency <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">currency_exchange</mat-icon>
+          <input formControlName="currencyCode" maxlength="3" placeholder="USD" />
+        </div>
+        <div class="lx-field-hint">3-letter ISO 4217 code.</div>
+      </div>
+
+      <div class="lx-field lx-field--toggle">
+        <span class="lx-field-label">Featured</span>
+        <mat-slide-toggle formControlName="featured">Highlight in billing settings</mat-slide-toggle>
+      </div>
+
+      <div class="lx-field lx-field--toggle">
+        <span class="lx-field-label">Active</span>
+        <mat-slide-toggle formControlName="active">Available for selection</mat-slide-toggle>
+      </div>
+    </div>
+
+    <div class="lx-step-actions">
+      <button type="button" mat-button (click)="cancel()">{{ isView ? 'Close' : 'Cancel' }}</button>
+      <button *ngIf="!isView" type="submit" mat-raised-button color="primary">
+        {{ isEdit ? 'Save changes' : 'Create package' }}
+      </button>
+    </div>
+  </form>
+</div>

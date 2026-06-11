@@ -1,0 +1,7 @@
+{
+  "inventoryItemId": "{{inventoryItemId1}}",
+  "quantityDelta": -1,
+  "reason": "Cylinder valve damage",
+  "adjustedByUserId": 22,
+  "unitCost": 120.0
+}

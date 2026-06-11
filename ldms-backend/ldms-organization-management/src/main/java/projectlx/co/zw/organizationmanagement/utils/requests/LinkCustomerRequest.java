@@ -8,4 +8,7 @@ import lombok.Setter;
 public class LinkCustomerRequest {
 
     private Long customerOrganizationId;
+
+    /** When linking a supplier organisation as a customer, set true to enable duplex mode. */
+    private Boolean enableDuplexMode;
 }

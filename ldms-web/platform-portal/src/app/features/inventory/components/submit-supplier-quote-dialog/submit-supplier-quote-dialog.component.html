@@ -1,0 +1,113 @@
+<div class="lx-dialog-shell lx-dialog-shell--wide">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Submit supplier quote</h2>
+      <p class="lx-dialog-subtitle">
+        {{ data.requisition.requisitionNumber }} — build the quote in LX or upload one from another system. Both options
+        create an equally valid record when metadata is complete.
+      </p>
+    </div>
+    <button type="button" class="lx-close-button" aria-label="Close" (click)="cancel()" [disabled]="submitting">×</button>
+  </div>
+
+  <div class="quote-loading" *ngIf="loading">Loading requisition lines…</div>
+  <div class="quote-error" *ngIf="!loading && loadError">{{ loadError }}</div>
+
+  <ng-container *ngIf="!loading && !loadError">
+    <div class="quote-mode-grid">
+      <button
+        type="button"
+        class="quote-mode-card"
+        *ngFor="let mode of captureModes"
+        [class.quote-mode-card--active]="captureMode === mode.id"
+        (click)="setCaptureMode(mode.id)"
+      >
+        <strong>{{ mode.title }}</strong>
+        <span>{{ mode.description }}</span>
+      </button>
+    </div>
+
+    <form [formGroup]="form" class="quote-form" (ngSubmit)="submit()">
+      <div class="quote-form-grid">
+        <div class="quote-field">
+          <label>Currency</label>
+          <input class="lx-input" formControlName="currency" />
+        </div>
+        <div class="quote-field">
+          <label>Payment terms</label>
+          <select class="lx-input" formControlName="paymentTerm">
+            <option value="NET_7">Net 7</option>
+            <option value="NET_14">Net 14</option>
+            <option value="NET_30">Net 30</option>
+            <option value="NET_60">Net 60</option>
+            <option value="COD">Cash on delivery</option>
+            <option value="PREPAID">Prepaid</option>
+          </select>
+        </div>
+        <div class="quote-field">
+          <label>Valid until</label>
+          <input class="lx-input" type="date" formControlName="validityUntil" />
+        </div>
+        <div class="quote-field">
+          <label>Tax amount</label>
+          <input class="lx-input" type="number" min="0" step="0.01" formControlName="taxAmount" />
+        </div>
+        <div class="quote-field quote-field--wide">
+          <label>Delivery terms</label>
+          <textarea class="lx-input" rows="2" formControlName="deliveryTerms"></textarea>
+        </div>
+        <div class="quote-field quote-field--wide">
+          <label>Notes</label>
+          <textarea class="lx-input" rows="2" formControlName="notes"></textarea>
+        </div>
+      </div>
+
+      <div class="quote-upload" *ngIf="captureMode === 'EXTERNAL_UPLOAD'">
+        <label>Quote document (PDF, JPG, or PNG)</label>
+        <label class="lx-btn lx-btn-ghost lx-btn-sm">
+          <span class="material-icons">attach_file</span>
+          {{ uploadLabel || 'Choose file…' }}
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onQuoteFileSelected($event)" hidden />
+        </label>
+      </div>
+
+      <div class="quote-lines">
+        <h3>Line pricing (required for both options)</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Line</th>
+              <th>Product</th>
+              <th>Qty</th>
+              <th>Unit price</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let line of lines">
+              <td>{{ line.lineNumber }}</td>
+              <td>{{ line.productDescription }}</td>
+              <td>{{ line.requestedQuantity }}</td>
+              <td>
+                <input
+                  class="lx-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  [(ngModel)]="linePrices[line.id]"
+                  [ngModelOptions]="{ standalone: true }"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="lx-dialog-actions">
+        <button type="button" class="lx-btn lx-btn--ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+        <button type="submit" class="lx-btn lx-btn--primary" [disabled]="submitting">
+          {{ submitting ? 'Submitting…' : 'Submit quote' }}
+        </button>
+      </div>
+    </form>
+  </ng-container>
+</div>

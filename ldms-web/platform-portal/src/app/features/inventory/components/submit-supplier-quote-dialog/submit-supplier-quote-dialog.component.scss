@@ -1,0 +1,83 @@
+.quote-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding: 0 1.5rem 1rem;
+}
+
+.quote-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  background: var(--gray-50);
+  cursor: pointer;
+
+  &--active {
+    border-color: var(--brand-primary, #1d4ed8);
+    box-shadow: 0 0 0 1px var(--brand-primary, #1d4ed8);
+  }
+
+  span {
+    font-size: 0.8125rem;
+    color: var(--gray-600);
+    line-height: 1.45;
+  }
+}
+
+.quote-form {
+  padding: 0 1.5rem 1.5rem;
+}
+
+.quote-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.quote-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  &--wide {
+    grid-column: 1 / -1;
+  }
+}
+
+.quote-upload,
+.quote-lines {
+  margin-top: 1rem;
+}
+
+.quote-lines table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.quote-lines th,
+.quote-lines td {
+  padding: 0.45rem 0.35rem;
+  border-bottom: 1px solid var(--gray-200);
+  text-align: left;
+}
+
+.lx-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.quote-loading,
+.quote-error {
+  padding: 1rem 1.5rem;
+}
+
+.quote-error {
+  color: #b42318;
+}

@@ -1,0 +1,96 @@
+<section class="pa-shell">
+  <lx-table-loading [busy]="loading" message="Loading procurement approval settings..."></lx-table-loading>
+
+  <div class="lx-empty" *ngIf="!loading && error">
+    <mat-icon class="lx-empty-icon">error_outline</mat-icon>
+    <div class="lx-empty-title">{{ error }}</div>
+  </div>
+
+  <ng-container *ngIf="!loading && !error">
+    <article class="pa-hero lx-card">
+      <div class="pa-hero__copy">
+        <p class="pa-hero__eyebrow">Organisation default</p>
+        <h2>Procurement approval pipeline</h2>
+        <p>
+          Choose how many sequential approvers are required before a purchase requisition is approved.
+          Stages range from a single reviewer up to three.
+        </p>
+      </div>
+
+      <div class="pa-stage-picker">
+        @for (option of stageOptions; track option.value) {
+          <button
+            type="button"
+            class="pa-stage-card"
+            [class.pa-stage-card--active]="draftStages === option.value"
+            (click)="selectStages(option.value)"
+          >
+            <div class="pa-stage-card__visual" [attr.data-stages]="option.value">
+              @for (step of stageDots(option.value); track step) {
+                <span class="pa-stage-card__dot">{{ step }}</span>
+              }
+            </div>
+            <div class="pa-stage-card__label">{{ option.label }}</div>
+            <div class="pa-stage-card__hint">{{ option.hint }}</div>
+          </button>
+        }
+      </div>
+
+      <div class="pa-hero__actions">
+        <button
+          type="button"
+          class="lx-btn lx-btn-primary"
+          (click)="savePolicy()"
+          [disabled]="saving || draftStages === policy.defaultRequiredApprovalStages"
+        >
+          {{ saving ? 'Saving…' : 'Save procurement policy' }}
+        </button>
+        <span class="pa-hero__current">
+          Active default:
+          <strong>{{ policy.defaultRequiredApprovalStages }} approver{{ policy.defaultRequiredApprovalStages === 1 ? '' : 's' }}</strong>
+        </span>
+      </div>
+    </article>
+
+    <div class="pa-info lx-card">
+      <header class="pa-info__head">
+        <mat-icon>info</mat-icon>
+        <div>
+          <h3>How procurement approvals work</h3>
+          <p>
+            When a requisition is submitted, it moves through the configured number of approval stages in sequence.
+            Each stage must be completed by a different approver before the requisition advances.
+            Once all stages are approved the requisition is marked <strong>Approved</strong> and a purchase order is generated.
+          </p>
+        </div>
+      </header>
+      <ul class="pa-info__steps">
+        @for (step of stageDots(policy.defaultRequiredApprovalStages); track step) {
+          <li class="pa-info__step">
+            <span class="pa-info__step-num">{{ step }}</span>
+            <span>Stage {{ step }} approval</span>
+          </li>
+        }
+        <li class="pa-info__step pa-info__step--final">
+          <mat-icon>check_circle</mat-icon>
+          <span>Requisition approved → PO generated</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="pa-info lx-card pa-info--billing">
+      <header class="pa-info__head">
+        <mat-icon>account_balance_wallet</mat-icon>
+        <div>
+          <h3>Platform billing for procurement</h3>
+          <p>
+            Each approval stage on a requisition, purchase order, or sales order is tracked as a platform action.
+            On a <strong>prepaid wallet</strong>, a small charge is deducted from your balance every time an approver completes a stage
+            (see <strong>Settings → Platform billing → Usage &amp; deductions</strong>).
+            Subscription organisations still see these events in usage reports without per-action deductions.
+          </p>
+        </div>
+      </header>
+    </div>
+  </ng-container>
+</section>

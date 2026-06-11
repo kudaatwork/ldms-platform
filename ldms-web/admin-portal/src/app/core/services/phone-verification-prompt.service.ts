@@ -37,13 +37,16 @@ export class PhoneVerificationPromptService {
         if (!flags?.phoneNumber) {
           return of(false);
         }
+        const smsEnabled = flags.smsDeliveryEnabled !== false;
         const shouldPrompt =
           forceAfterSetup || flags.phoneVerificationDue || !flags.phoneVerified;
         if (!shouldPrompt) {
           return of(false);
         }
+        const requireVerify = (forceAfterSetup || flags.phoneVerificationDue) && smsEnabled;
         return this.openDialog({
-          required: forceAfterSetup || flags.phoneVerificationDue,
+          required: requireVerify,
+          smsDeliveryEnabled: smsEnabled,
           title: flags.phoneVerified ? 'Re-verify your phone number' : 'Verify your phone number',
           lead: flags.phoneVerified
             ? 'For your security, confirm your phone number again with the SMS code we send you.'
@@ -57,7 +60,7 @@ export class PhoneVerificationPromptService {
     const ref = this.dialog.open(PhoneVerificationDialogComponent, {
       width: '480px',
       maxWidth: '92vw',
-      disableClose: data?.required === true,
+      disableClose: data?.required === true && data?.smsDeliveryEnabled !== false,
       data: data ?? {},
     });
     return ref.afterClosed().pipe(

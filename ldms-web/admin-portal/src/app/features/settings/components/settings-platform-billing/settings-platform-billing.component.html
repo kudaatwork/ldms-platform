@@ -1,0 +1,425 @@
+<div class="pb-shell" *ngIf="!loading; else loadingTpl">
+  <header class="pb-head">
+    <div>
+      <h2 class="pb-head__title">Platform billing</h2>
+      <p class="pb-head__lead">
+        Configure per-module action charges (trips, notifications, procurement, etc.), subscription packages,
+        and confirm organisation wallet top-ups.
+      </p>
+    </div>
+  </header>
+
+  <nav class="pb-tabs" aria-label="Platform billing sections">
+    <button type="button" [class.active]="activeTab === 'charges'" (click)="switchTab('charges')">
+      <mat-icon>apps</mat-icon>
+      Module charges
+    </button>
+    <button type="button" [class.active]="activeTab === 'packages'" (click)="switchTab('packages')">
+      <mat-icon>workspace_premium</mat-icon>
+      Subscription packages
+    </button>
+    <button type="button" [class.active]="activeTab === 'deposits'" (click)="switchTab('deposits')">
+      <mat-icon>account_balance_wallet</mat-icon>
+      Pending deposits ({{ pendingDeposits.length }})
+    </button>
+  </nav>
+
+  <div class="pb-controls lx-card lx-card--subsection">
+    <div class="lx-controls-head">
+      <div class="lx-controls-head__text">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">
+          Search, filter, and manage
+          {{ activeTab === 'charges' ? 'module action charges' : activeTab === 'packages' ? 'subscription packages' : 'pending deposits' }}.
+        </p>
+      </div>
+      <button
+        *ngIf="supportsImportExport"
+        type="button"
+        mat-icon-button
+        class="lx-controls-head__info-btn"
+        [class.is-on]="showSampleCsvInfo"
+        (click)="showSampleCsvInfo = !showSampleCsvInfo"
+        aria-label="Toggle sample CSV information"
+      >
+        <mat-icon>info_outline</mat-icon>
+      </button>
+    </div>
+
+    <p class="lx-controls-hint" *ngIf="showSampleCsvInfo && supportsImportExport">
+      <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+      <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }} The download includes the header row and 2 example rows.</span>
+    </p>
+    <p class="lx-controls-hint lx-import-disclaimer" *ngIf="supportsImportExport">
+      <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+      <span>{{ importDisclaimer }}</span>
+    </p>
+
+    <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="reload()" [disabled]="importing">Refresh</button>
+        <button
+          *ngIf="supportsImportExport"
+          type="button"
+          class="lx-btn lx-btn-ghost"
+          (click)="triggerImport()"
+          [disabled]="importing"
+        >
+          {{ importing ? 'Importing…' : 'Import' }}
+        </button>
+        <button *ngIf="supportsImportExport" type="button" class="lx-btn lx-btn-ghost" (click)="downloadSampleCsv()">Sample CSV</button>
+        <button type="button" class="lx-btn lx-btn-success" (click)="exportCsv()" [disabled]="exporting">
+          Export{{ exporting ? '…' : '' }}
+        </button>
+        <button
+          *ngIf="activeTab === 'charges'"
+          type="button"
+          class="lx-btn lx-btn-primary"
+          (click)="openChargeDialog('create')"
+        >
+          Add action charge
+        </button>
+        <button
+          *ngIf="activeTab === 'packages'"
+          type="button"
+          class="lx-btn lx-btn-primary"
+          (click)="openPackageDialog('create')"
+        >
+          Add package
+        </button>
+      </div>
+      <div class="lx-data-toolbar__search">
+        <div class="lx-input-shell lx-search-field">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input [(ngModel)]="searchQuery" placeholder="Search…" />
+        </div>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+          (click)="filterFieldsOpen = !filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen"
+        >
+          <mat-icon>tune</mat-icon>
+          Filters
+        </button>
+      </div>
+    </div>
+
+    <input #chargeCsvInput type="file" accept=".csv,text/csv" hidden (change)="onChargeImportSelected($event)" />
+    <input #packageCsvInput type="file" accept=".csv,text/csv" hidden (change)="onPackageImportSelected($event)" />
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen && activeTab === 'charges'">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Action code</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input [(ngModel)]="chargeFilters.actionCode" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Display name</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">label</mat-icon>
+            <input [(ngModel)]="chargeFilters.displayName" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Category</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">category</mat-icon>
+            <input [(ngModel)]="chargeFilters.category" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Active (true/false)</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">toggle_on</mat-icon>
+            <input [(ngModel)]="chargeFilters.active" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen && activeTab === 'packages'">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Code</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input [(ngModel)]="packageFilters.code" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Name</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">workspace_premium</mat-icon>
+            <input [(ngModel)]="packageFilters.name" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Featured</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">star</mat-icon>
+            <input [(ngModel)]="packageFilters.featured" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Active</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">toggle_on</mat-icon>
+            <input [(ngModel)]="packageFilters.active" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen && activeTab === 'deposits'">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Organisation ID</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">business</mat-icon>
+            <input [(ngModel)]="depositFilters.organizationId" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Reference</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">receipt</mat-icon>
+            <input [(ngModel)]="depositFilters.referenceNumber" />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="pb-modules" *ngIf="activeTab === 'charges'">
+    <div class="pb-modules__grid">
+      @for (mod of billingModules; track mod.category) {
+        <article class="pb-module-card">
+          <header class="pb-module-card__head">
+            <span class="pb-module-card__icon">
+              <mat-icon>{{ mod.icon }}</mat-icon>
+            </span>
+            <div class="pb-module-card__copy">
+              <h3>{{ mod.label }}</h3>
+              <p>{{ mod.description }}</p>
+            </div>
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm pb-module-card__add" (click)="openChargeDialog('create', undefined, mod.category)">
+              <mat-icon>add</mat-icon>
+              Add
+            </button>
+          </header>
+
+          @if (chargesForModule(mod.category).length) {
+            <ul class="pb-module-card__list">
+              @for (row of chargesForModule(mod.category); track row.actionCode) {
+                <li>
+                  <button type="button" class="pb-module-card__action" (click)="openChargeDialog('edit', row)">
+                    <span class="pb-module-card__action-copy">
+                      <strong>{{ row.displayName }}</strong>
+                      <code>{{ row.actionCode }}</code>
+                    </span>
+                    <span class="pb-module-card__action-meta">
+                      <span class="pb-module-card__price">{{ formatMoney(row.chargeCents) }}</span>
+                      <span class="lx-status lx-status-sm" [class.lx-status-active]="row.active !== false" [class.lx-status-inactive]="row.active === false">
+                        {{ row.active !== false ? 'Active' : 'Off' }}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="pb-module-card__empty">No charges configured for this module.</p>
+          }
+        </article>
+      }
+    </div>
+  </section>
+
+  <div class="lx-card pb-table-card" *ngIf="activeTab === 'charges'">
+    <div class="lx-table-header">
+      <p class="lx-table-meta">All action charges (table view)</p>
+    </div>
+    <ng-container *ngIf="filteredActionCharges.length; else emptyCharges">
+      <div class="lx-table-wrap">
+        <table mat-table [dataSource]="filteredActionCharges" class="lx-mat-table">
+          <ng-container matColumnDef="action">
+            <th mat-header-cell *matHeaderCellDef>Action</th>
+            <td mat-cell *matCellDef="let row">
+              <strong>{{ row.displayName }}</strong>
+              <div class="muted"><code>{{ row.actionCode }}</code></div>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="category">
+            <th mat-header-cell *matHeaderCellDef>Module</th>
+            <td mat-cell *matCellDef="let row">{{ moduleLabel(row.category) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="charge">
+            <th mat-header-cell *matHeaderCellDef>Charge</th>
+            <td mat-cell *matCellDef="let row">{{ formatMoney(row.chargeCents) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="active">
+            <th mat-header-cell *matHeaderCellDef>Active</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="lx-status" [class.lx-status-active]="row.active !== false" [class.lx-status-inactive]="row.active === false">
+                {{ yesNo(row.active) }}
+              </span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+              <button type="button" mat-icon-button [matMenuTriggerFor]="chargeRowMenu" [matMenuTriggerData]="{ chargeRow: row }">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="chargeColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: chargeColumns"></tr>
+        </table>
+      </div>
+    </ng-container>
+    <mat-menu #chargeRowMenu="matMenu" panelClass="lx-row-actions-menu">
+      <ng-template matMenuContent let-chargeRow="chargeRow">
+        <button mat-menu-item type="button" class="lx-action-view" (click)="openChargeDialog('view', chargeRow)">
+          <mat-icon>visibility</mat-icon> View
+        </button>
+        <button mat-menu-item type="button" class="lx-action-edit" (click)="openChargeDialog('edit', chargeRow)">
+          <mat-icon>edit</mat-icon> Edit
+        </button>
+      </ng-template>
+    </mat-menu>
+    <ng-template #emptyCharges>
+      <div class="lx-empty">
+        <mat-icon class="lx-empty-icon">inbox</mat-icon>
+        <div class="lx-empty-title">No action charges match</div>
+        <div class="lx-empty-sub">Add a charge or import from CSV.</div>
+      </div>
+    </ng-template>
+  </div>
+
+  <div class="lx-card pb-table-card" *ngIf="activeTab === 'packages'">
+    <div class="lx-table-header">
+      <p class="lx-table-meta">Monthly subscription packages</p>
+    </div>
+    <ng-container *ngIf="filteredPackages.length; else emptyPackages">
+      <div class="lx-table-wrap">
+        <table mat-table [dataSource]="filteredPackages" class="lx-mat-table">
+          <ng-container matColumnDef="code">
+            <th mat-header-cell *matHeaderCellDef>Code</th>
+            <td mat-cell *matCellDef="let row"><code>{{ row.code }}</code></td>
+          </ng-container>
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>Name</th>
+            <td mat-cell *matCellDef="let row">
+              <strong>{{ row.name }}</strong>
+              <div class="muted">{{ row.description }}</div>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="price">
+            <th mat-header-cell *matHeaderCellDef>Monthly</th>
+            <td mat-cell *matCellDef="let row">{{ formatMoney(row.monthlyPriceCents, row.currencyCode) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="featured">
+            <th mat-header-cell *matHeaderCellDef>Featured</th>
+            <td mat-cell *matCellDef="let row">{{ yesNo(row.featured) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="active">
+            <th mat-header-cell *matHeaderCellDef>Active</th>
+            <td mat-cell *matCellDef="let row">
+              <span class="lx-status" [class.lx-status-active]="row.active !== false">{{ yesNo(row.active) }}</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+              <button type="button" mat-icon-button [matMenuTriggerFor]="packageRowMenu" [matMenuTriggerData]="{ packageRow: row }">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="packageColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: packageColumns"></tr>
+        </table>
+      </div>
+    </ng-container>
+    <mat-menu #packageRowMenu="matMenu" panelClass="lx-row-actions-menu">
+      <ng-template matMenuContent let-packageRow="packageRow">
+        <button mat-menu-item type="button" class="lx-action-view" (click)="openPackageDialog('view', packageRow)">
+          <mat-icon>visibility</mat-icon> View
+        </button>
+        <button mat-menu-item type="button" class="lx-action-edit" (click)="openPackageDialog('edit', packageRow)">
+          <mat-icon>edit</mat-icon> Edit
+        </button>
+      </ng-template>
+    </mat-menu>
+    <ng-template #emptyPackages>
+      <div class="lx-empty">
+        <mat-icon class="lx-empty-icon">inbox</mat-icon>
+        <div class="lx-empty-title">No packages match</div>
+        <div class="lx-empty-sub">Add a package or import from CSV.</div>
+      </div>
+    </ng-template>
+  </div>
+
+  <div class="lx-card pb-table-card" *ngIf="activeTab === 'deposits'">
+    <div class="lx-table-header">
+      <p class="lx-table-meta">Awaiting administrator confirmation</p>
+    </div>
+    <ng-container *ngIf="filteredDeposits.length; else emptyDeposits">
+      <div class="lx-table-wrap">
+        <table mat-table [dataSource]="filteredDeposits" class="lx-mat-table">
+          <ng-container matColumnDef="org">
+            <th mat-header-cell *matHeaderCellDef>Organisation</th>
+            <td mat-cell *matCellDef="let row">#{{ row.organizationId }}</td>
+          </ng-container>
+          <ng-container matColumnDef="amount">
+            <th mat-header-cell *matHeaderCellDef>Amount</th>
+            <td mat-cell *matCellDef="let row">{{ formatMoney(row.amountCents, row.currencyCode) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="ref">
+            <th mat-header-cell *matHeaderCellDef>Reference</th>
+            <td mat-cell *matCellDef="let row">{{ row.referenceNumber || '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="createdAt">
+            <th mat-header-cell *matHeaderCellDef>Submitted</th>
+            <td mat-cell *matCellDef="let row">{{ row.createdAt || '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <td mat-cell *matCellDef="let row" class="lx-actions-cell">
+              <button
+                type="button"
+                class="lx-btn lx-btn-sm lx-btn-primary"
+                [disabled]="confirmingDepositId === row.id"
+                (click)="confirmDeposit(row)"
+              >
+                Confirm
+              </button>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="depositColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: depositColumns"></tr>
+        </table>
+      </div>
+    </ng-container>
+    <ng-template #emptyDeposits>
+      <div class="lx-empty">
+        <mat-icon class="lx-empty-icon">inbox</mat-icon>
+        <div class="lx-empty-title">No pending deposits</div>
+      </div>
+    </ng-template>
+  </div>
+</div>
+
+<ng-template #loadingTpl>
+  <div class="pb-shell">
+    <lx-inline-busy message="Loading platform billing…" />
+  </div>
+</ng-template>

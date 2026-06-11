@@ -1,0 +1,211 @@
+<div class="lx-dialog-shell inv-transfer-dialog">
+  <div class="inv-transfer-hero" [ngClass]="'inv-transfer-hero--' + statusClass">
+    <div class="inv-transfer-hero__glow" aria-hidden="true"></div>
+    <div class="inv-transfer-hero__top">
+      <div class="inv-transfer-hero__identity">
+        <span class="inv-transfer-hero__eyebrow">
+          <mat-icon>sync_alt</mat-icon>
+          Inventory transfer
+        </span>
+        <h2 class="inv-transfer-hero__ref">{{ transfer.transferNumber }}</h2>
+        <p class="inv-transfer-hero__product">{{ transfer.productName || 'Unknown product' }}</p>
+      </div>
+      <div class="inv-transfer-hero__status-wrap">
+        <span class="lx-status inv-transfer-hero__status" [ngClass]="'lx-status-' + statusClass">
+          {{ transfer.statusLabel }}
+        </span>
+        <button mat-icon-button class="lx-close-button inv-transfer-hero__close" type="button" aria-label="Close dialog" (click)="close()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="lx-step-content inv-transfer-view-body">
+    <div class="inv-transfer-route-card">
+      <div class="inv-transfer-route-card__endpoint">
+        <span class="inv-transfer-route-card__label">From</span>
+        <strong>{{ transfer.fromWarehouse || '—' }}</strong>
+        <span class="inv-transfer-route-card__meta" *ngIf="transfer.fromLocationId > 0">Location #{{ transfer.fromLocationId }}</span>
+      </div>
+      <div class="inv-transfer-route-card__bridge" aria-hidden="true">
+        <div class="inv-transfer-route-card__qty">
+          <mat-icon>inventory_2</mat-icon>
+          <span>{{ quantityLabel }}</span>
+        </div>
+        <div class="inv-transfer-route-card__line">
+          <span class="inv-transfer-route-card__dot"></span>
+          <mat-icon>east</mat-icon>
+          <span class="inv-transfer-route-card__dot inv-transfer-route-card__dot--end"></span>
+        </div>
+      </div>
+      <div class="inv-transfer-route-card__endpoint inv-transfer-route-card__endpoint--dest">
+        <span class="inv-transfer-route-card__label">To</span>
+        <strong>{{ transfer.toWarehouse || '—' }}</strong>
+        <span class="inv-transfer-route-card__meta" *ngIf="transfer.toLocationId > 0">Location #{{ transfer.toLocationId }}</span>
+      </div>
+    </div>
+
+    <div class="inv-transfer-timeline" [class.inv-transfer-timeline--rejected]="isRejected">
+      <div
+        class="inv-transfer-timeline__step"
+        *ngFor="let step of workflowSteps; let last = last"
+        [ngClass]="'inv-transfer-timeline__step--' + workflowStepState(step)"
+      >
+        <div class="inv-transfer-timeline__node">
+          <mat-icon>{{ step.icon }}</mat-icon>
+        </div>
+        <span class="inv-transfer-timeline__label">{{ step.label }}</span>
+        <span class="inv-transfer-timeline__connector" *ngIf="!last" aria-hidden="true"></span>
+      </div>
+      <div class="inv-transfer-timeline__terminal inv-transfer-timeline__terminal--rejected" *ngIf="isRejected">
+        <div class="inv-transfer-timeline__node">
+          <mat-icon>block</mat-icon>
+        </div>
+        <span class="inv-transfer-timeline__label">Rejected</span>
+      </div>
+      <div class="inv-transfer-timeline__terminal inv-transfer-timeline__terminal--cancelled" *ngIf="isCancelled">
+        <div class="inv-transfer-timeline__node">
+          <mat-icon>cancel</mat-icon>
+        </div>
+        <span class="inv-transfer-timeline__label">Cancelled</span>
+      </div>
+    </div>
+
+    <section class="inv-transfer-rejection-banner" *ngIf="isRejected && transfer.rejectionReason?.trim()" role="alert">
+      <div class="inv-transfer-rejection-banner__icon">
+        <mat-icon>report</mat-icon>
+      </div>
+      <div class="inv-transfer-rejection-banner__body">
+        <h3>Transfer rejected</h3>
+        <p>{{ transfer.rejectionReason }}</p>
+        <span class="inv-transfer-rejection-banner__when" *ngIf="transfer.rejectedAtLabel">
+          {{ transfer.rejectedAtLabel }}
+        </span>
+      </div>
+    </section>
+
+    <div class="inv-transfer-stats">
+      <article class="inv-transfer-stat">
+        <mat-icon>payments</mat-icon>
+        <div>
+          <span class="inv-transfer-stat__label">Unit cost</span>
+          <strong>{{ transfer.unitCostLabel || '—' }}</strong>
+        </div>
+      </article>
+      <article class="inv-transfer-stat">
+        <mat-icon>person</mat-icon>
+        <div>
+          <span class="inv-transfer-stat__label">Requested by</span>
+          <strong>{{ transfer.requestedBy || '—' }}</strong>
+        </div>
+      </article>
+      <article class="inv-transfer-stat">
+        <mat-icon>event</mat-icon>
+        <div>
+          <span class="inv-transfer-stat__label">Created</span>
+          <strong>{{ transfer.createdAtLabel || '—' }}</strong>
+        </div>
+      </article>
+      <article class="inv-transfer-stat" *ngIf="transfer.reference?.trim()">
+        <mat-icon>sticky_note_2</mat-icon>
+        <div>
+          <span class="inv-transfer-stat__label">Notes</span>
+          <strong>{{ transfer.reference }}</strong>
+        </div>
+      </article>
+    </div>
+
+    <section class="inv-shipment-track-panel" *ngIf="canTrackShipment">
+      <div class="inv-shipment-track-panel__header">
+        <mat-icon>local_shipping</mat-icon>
+        <span>Shipment tracking</span>
+        <span class="inv-shipment-track-panel__loading" *ngIf="shipmentLoading">
+          <mat-spinner diameter="14"></mat-spinner>
+        </span>
+      </div>
+      <ng-container *ngIf="!shipmentLoading">
+        <div class="inv-shipment-track-panel__found" *ngIf="shipment">
+          <span class="inv-shipment-track-panel__number">{{ shipment.shipmentNumber }}</span>
+          <span class="inv-shipment-track-panel__status inv-shipment-track-panel__status--{{ shipment.statusTone }}">
+            {{ shipment.statusLabel }}
+          </span>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm inv-shipment-track-panel__btn" (click)="trackShipment()">
+            <mat-icon>open_in_new</mat-icon>
+            Track shipment
+          </button>
+        </div>
+        <div class="inv-shipment-track-panel__none" *ngIf="!shipment">
+          No shipment dispatched yet.
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="trackShipment()">
+            <mat-icon>add_circle_outline</mat-icon>
+            Go to shipments
+          </button>
+        </div>
+      </ng-container>
+    </section>
+
+    <details class="inv-transfer-meta" open>
+      <summary>
+        <mat-icon>info</mat-icon>
+        Additional details
+      </summary>
+      <dl class="inv-transfer-meta__grid">
+        <ng-container *ngFor="let field of metadataFields">
+          <dt>{{ field.label }}</dt>
+          <dd>{{ field.value || '—' }}</dd>
+        </ng-container>
+      </dl>
+    </details>
+
+    <section class="inv-transfer-reject-panel" *ngIf="rejectMode">
+      <div class="inv-transfer-reject-panel__head">
+        <mat-icon>block</mat-icon>
+        <div>
+          <h3>Reject this transfer</h3>
+          <p>The requester will see your reason on this transfer record.</p>
+        </div>
+      </div>
+      <div class="lx-input-shell inv-transfer-reject-panel__field">
+        <mat-icon class="lx-input-shell__icon">edit_note</mat-icon>
+        <textarea
+          id="transfer-rejection-reason"
+          rows="4"
+          maxlength="500"
+          [(ngModel)]="rejectionReason"
+          placeholder="Explain why this transfer cannot be approved…"
+        ></textarea>
+      </div>
+      <p class="inv-transfer-reject-panel__hint">{{ rejectionReason.length }}/500 characters</p>
+      <p class="inv-transfer-reject-panel__error" *ngIf="rejectionError" role="alert">{{ rejectionError }}</p>
+    </section>
+
+    <div class="lx-dialog-actions inv-transfer-view-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="close()">Close</button>
+
+      <ng-container *ngIf="showWorkflowActions && !rejectMode">
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-danger inv-transfer-reject-btn"
+          *ngIf="data.canReject"
+          (click)="startReject()"
+        >
+          <mat-icon>block</mat-icon>
+          Reject
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary" *ngIf="data.canApprove" (click)="approve()">
+          <mat-icon>check_circle</mat-icon>
+          Approve transfer
+        </button>
+      </ng-container>
+
+      <ng-container *ngIf="rejectMode">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="cancelReject()">Back</button>
+        <button type="button" class="lx-btn lx-btn-danger" (click)="confirmReject()">
+          <mat-icon>block</mat-icon>
+          Confirm rejection
+        </button>
+      </ng-container>
+    </div>
+  </div>
+</div>

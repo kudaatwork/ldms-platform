@@ -2602,6 +2602,7 @@ public class UserServiceImpl implements UserService {
         dto.setOrganizationKycApprover(user.isOrganizationKycApprover());
         dto.setOperationalIssueHandler(user.isOperationalIssueHandler());
         dto.setPhoneVerificationDue(phoneVerificationSupport.isPhoneVerificationDue(user));
+        dto.setSmsDeliveryEnabled(phoneVerificationSupport.isSmsDeliveryEnabled());
         return dto;
     }
 

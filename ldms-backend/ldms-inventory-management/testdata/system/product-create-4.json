@@ -1,0 +1,12 @@
+{
+  "name": "LPG Cylinder 14kg",
+  "description": "LPG cylinder, 14kg",
+  "productCode": "GAS-LPG-14KG",
+  "price": 60.0,
+  "unitOfMeasure": "CYLINDER",
+  "productCategoryId": "{{categoryId1}}",
+  "productSubCategoryId": "{{subCategoryId1}}",
+  "supplierId": 8,
+  "manufacturer": "LX Gases",
+  "expiresAt": "2030-12-31"
+}

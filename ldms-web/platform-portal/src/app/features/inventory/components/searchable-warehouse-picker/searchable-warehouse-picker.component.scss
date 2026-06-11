@@ -1,0 +1,53 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.searchable-warehouse-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.searchable-warehouse-picker__input input {
+  cursor: text;
+}
+
+.searchable-warehouse-picker__hint {
+  margin: 0;
+}
+
+.searchable-warehouse-picker__option {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  line-height: 1.3;
+  padding: 0.1rem 0;
+}
+
+.searchable-warehouse-picker__option-name {
+  font-weight: 500;
+}
+
+.searchable-warehouse-picker__option-meta {
+  font-size: 0.78rem;
+  opacity: 0.72;
+}
+
+.searchable-warehouse-picker__badge {
+  font-weight: 400;
+  opacity: 0.72;
+}
+
+.searchable-warehouse-picker__search-blob {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

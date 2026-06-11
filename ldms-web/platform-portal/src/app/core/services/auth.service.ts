@@ -28,16 +28,20 @@ import type { UserProfileSummary } from './user-profile.service';
 import { AuthStateService } from './auth-state.service';
 import { OrganizationService, OrganizationSummary } from './organization.service';
 import { StorageService } from './storage.service';
+import { DuplexTradingModeService } from './duplex-trading-mode.service';
+import { SessionExpiryService } from './session-expiry.service';
 import { portalHomeRoute } from '../utils/portal-navigation.util';
+import { isJwtExpired } from '../utils/jwt.util';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   /** Via API Gateway: {@code http://localhost:8091/ldms-authentication/v1/auth} (not :4201). */
   private readonly authBase = ldmsApiUrl('/ldms-authentication/v1/auth');
-  /** Avoid long blank UI when profile/org APIs are slow or unavailable. */
-  private static readonly SESSION_ENRICHMENT_TIMEOUT_MS = 8_000;
+  /** Background profile/org fetch — must not block sign-in navigation. */
+  private static readonly SESSION_ENRICHMENT_TIMEOUT_MS = 3_000;
 
   private sessionInit$?: Observable<void>;
+  private sessionEnrichment$?: Observable<CurrentUser | null>;
 
   constructor(
     private readonly http: HttpClient,
@@ -45,6 +49,8 @@ export class AuthService {
     private readonly authState: AuthStateService,
     private readonly organizationService: OrganizationService,
     private readonly userProfile: UserProfileService,
+    private readonly duplexTradingMode: DuplexTradingModeService,
+    private readonly sessionExpiry: SessionExpiryService,
   ) {}
 
   loginWithGoogleIdToken(idToken: string): Observable<void> {
@@ -129,22 +135,38 @@ export class AuthService {
     const token = this.storage.getToken();
     if (!token || token.startsWith('mock.')) {
       this.clearSessionCache();
+      this.sessionExpiry.clearWatch();
       this.authState.setCurrentUser(null);
       return of(undefined);
     }
+    if (isJwtExpired(token)) {
+      this.sessionExpiry.scheduleHandleSessionExpired('expired');
+      return of(undefined);
+    }
+    this.sessionExpiry.watchToken(token);
     if (!this.sessionInit$) {
-      this.primeUserFromJwt(token);
-      this.sessionInit$ = this.loadSessionUser(
-        token,
-        decodeJwtPayload(token)?.mustChangeCredentials === true,
-      ).pipe(
-        tap((user) => this.authState.setCurrentUser(user)),
-        map(() => undefined),
-        shareReplay(1),
-        finalize(() => {
-          this.sessionInit$ = undefined;
-        }),
-      );
+      const mustChangeCredentials = decodeJwtPayload(token)?.mustChangeCredentials === true;
+      this.applyInitialSessionUser(token, mustChangeCredentials);
+      const jwtUser = currentUserFromJwt(token);
+      const jwtHasOrgContext = !!String(jwtUser?.orgClassification ?? '').trim();
+      if (jwtHasOrgContext) {
+        this.sessionInit$ = of(undefined).pipe(
+          tap(() => this.enqueueSessionEnrichment(token, mustChangeCredentials)),
+          shareReplay(1),
+          finalize(() => {
+            this.sessionInit$ = undefined;
+          }),
+        );
+      } else {
+        this.sessionInit$ = this.loadSessionUser(token, mustChangeCredentials).pipe(
+          tap((user) => this.authState.setCurrentUser(user)),
+          map(() => undefined),
+          shareReplay(1),
+          finalize(() => {
+            this.sessionInit$ = undefined;
+          }),
+        );
+      }
     }
     return this.sessionInit$;
   }
@@ -152,6 +174,11 @@ export class AuthService {
   bootstrapFromStorage(): void {
     const token = this.storage.getToken();
     if (token && !token.startsWith('mock.')) {
+      if (isJwtExpired(token)) {
+        this.sessionExpiry.scheduleHandleSessionExpired('expired');
+        return;
+      }
+      this.sessionExpiry.watchToken(token);
       this.primeUserFromJwt(token);
     }
     void this.initializeSession().subscribe();
@@ -162,11 +189,12 @@ export class AuthService {
     if (this.authState.currentUser?.mustChangeCredentials) {
       return ['/auth/setup-credentials'];
     }
-    return portalHomeRoute(this.authState.currentUser);
+    return portalHomeRoute(this.authState.currentUser, this.duplexTradingMode.activeMode);
   }
 
   logout(): void {
     this.clearSessionCache();
+    this.sessionExpiry.clearWatch();
     this.storage.clearSession();
     this.authState.setCurrentUser(null);
   }
@@ -174,13 +202,10 @@ export class AuthService {
   private completeLogin(token: string, mustChangeCredentials = false): Observable<void> {
     this.clearSessionCache();
     this.storage.setToken(token);
-    const jwtUser = currentUserFromJwt(token);
-    if (jwtUser?.roles?.length) {
-      this.storage.setUser({ roles: jwtUser.roles });
-    }
+    this.sessionExpiry.watchToken(token);
     return this.loadSessionUser(token, mustChangeCredentials).pipe(
       tap((user) => this.authState.setCurrentUser(user)),
-      map(() => void 0),
+      map(() => undefined),
     );
   }
 
@@ -204,14 +229,53 @@ export class AuthService {
   }
 
   private primeUserFromJwt(token: string): void {
-    const jwtUser = currentUserFromJwt(token);
-    if (!jwtUser) {
+    this.applyInitialSessionUser(
+      token,
+      decodeJwtPayload(token)?.mustChangeCredentials === true,
+    );
+  }
+
+  /** Immediate session from JWT so sign-in and guards never wait on profile/org HTTP. */
+  private applyInitialSessionUser(token: string, mustChangeCredentials = false): void {
+    let user = currentUserFromJwt(token);
+    if (!user) {
       return;
     }
-    this.authState.setCurrentUser(jwtUser);
-    if (jwtUser.roles?.length) {
-      this.storage.setUser({ roles: jwtUser.roles });
+    if (mustChangeCredentials) {
+      user = { ...user, mustChangeCredentials: true };
     }
+    const local = (user.email ?? '').split('@')[0];
+    const firstName = (user.firstName ?? '').trim() || local || 'User';
+    user = {
+      ...user,
+      firstName,
+      displayName: this.buildDisplayName(firstName, user.lastName ?? '', local),
+      welcomeMessage: this.buildWelcomeMessage(firstName, user.lastName ?? '', local),
+    };
+    this.authState.setCurrentUser(user);
+    if (user.roles?.length) {
+      this.storage.setUser({ roles: user.roles });
+    }
+  }
+
+  private enqueueSessionEnrichment(token: string, mustChangeCredentials = false): void {
+    if (this.sessionEnrichment$) {
+      return;
+    }
+    this.sessionEnrichment$ = this.loadSessionUser(token, mustChangeCredentials).pipe(
+      tap((user) => {
+        if (user) {
+          this.duplexTradingMode.syncFromUser(user);
+        }
+        this.authState.setCurrentUser(user);
+      }),
+      catchError(() => of(null)),
+      shareReplay(1),
+      finalize(() => {
+        this.sessionEnrichment$ = undefined;
+      }),
+    );
+    this.sessionEnrichment$.subscribe();
   }
 
   private shouldFetchOrganization(token: string): boolean {
@@ -227,13 +291,13 @@ export class AuthService {
 
   private clearSessionCache(): void {
     this.sessionInit$ = undefined;
+    this.sessionEnrichment$ = undefined;
   }
 
   private mergeOrgContext(token: string, org: OrganizationSummary | null): CurrentUser {
     const base = currentUserFromJwt(token) ?? {
       userId: '',
       organizationId: '',
-      orgClassification: 'SUPPLIER' as OrganizationClassification,
       orgName: '',
       roles: [],
     };
@@ -245,6 +309,7 @@ export class AuthService {
       organizationId: String(org.id ?? base.organizationId),
       orgClassification: org.organizationClassification ?? base.orgClassification,
       orgName: org.name ?? base.orgName,
+      duplexMode: org.duplexMode ?? base.duplexMode,
     };
   }
 

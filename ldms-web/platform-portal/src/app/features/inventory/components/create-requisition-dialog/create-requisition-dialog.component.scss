@@ -1,0 +1,78 @@
+@use '../../../../shared/styles/lx-dialog-form-shell';
+
+.req-dialog {
+  max-height: min(90vh, 920px);
+  overflow: auto;
+}
+
+.req-loading {
+  padding: 24px;
+  margin-bottom: 12px;
+}
+
+.req-lines-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.req-line-card {
+  padding: 14px 16px;
+  margin-bottom: 4px;
+}
+
+.req-line-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.req-line-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+
+.req-line-grid .span-2 {
+  grid-column: span 2;
+}
+
+.req-checkbox-field {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.req-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.875rem;
+  cursor: pointer;
+
+  input {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.lx-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-100, #f1f5f9);
+}
+
+@media (max-width: 640px) {
+  .req-line-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .req-line-grid .span-2 {
+    grid-column: span 1;
+  }
+}

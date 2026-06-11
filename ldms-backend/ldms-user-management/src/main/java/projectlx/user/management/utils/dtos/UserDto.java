@@ -50,6 +50,8 @@ public class UserDto {
     private LocalDateTime lastPhoneVerifiedAt;
     /** Computed — true when phone is not yet verified and the account is at least 14 days old. */
     private Boolean phoneVerificationDue;
+    /** Whether OTP SMS delivery is enabled on this platform (from server config). */
+    private Boolean smsDeliveryEnabled;
     private Boolean mustChangeCredentials;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -1,4 +1,4 @@
-import { Component, Inject, Optional } from '@angular/core';
+import { Component, Inject, OnInit, Optional } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { VerificationService } from '../../../core/services/verification.service';
@@ -9,6 +9,7 @@ export interface PhoneVerificationDialogData {
   required?: boolean;
   title?: string;
   lead?: string;
+  smsDeliveryEnabled?: boolean;
 }
 
 @Component({
@@ -17,15 +18,20 @@ export interface PhoneVerificationDialogData {
   styleUrl: './phone-verification-dialog.component.scss',
   standalone: false,
 })
-export class PhoneVerificationDialogComponent {
+export class PhoneVerificationDialogComponent implements OnInit {
   otp = '';
   sending = false;
   confirming = false;
+  loading = true;
   error = '';
   codeSent = false;
+  smsDeliveryEnabled = true;
+  smsDisabledRevealed = false;
+  phoneNumber = '';
   readonly title: string;
-  readonly lead: string;
   readonly required: boolean;
+  private readonly initialLead: string;
+  lead: string;
 
   constructor(
     private readonly dialogRef: MatDialogRef<PhoneVerificationDialogComponent, boolean>,
@@ -35,17 +41,53 @@ export class PhoneVerificationDialogComponent {
   ) {
     this.required = data?.required === true;
     this.title = data?.title?.trim() || 'Verify your phone number';
-    this.lead =
+    this.initialLead =
       data?.lead?.trim() ||
       'We sent a 6-digit code by SMS. Enter it below to confirm your phone number and keep your account secure.';
+    this.lead = this.initialLead;
+    if (data?.smsDeliveryEnabled === false) {
+      this.smsDeliveryEnabled = false;
+    }
+  }
+
+  ngOnInit(): void {
+    if (!this.loading) {
+      return;
+    }
+    this.verification.fetchVerificationFlags().subscribe({
+      next: (flags) => {
+        this.loading = false;
+        if (!flags) {
+          return;
+        }
+        this.phoneNumber = flags.phoneNumber;
+        this.smsDeliveryEnabled = flags.smsDeliveryEnabled;
+      },
+      error: () => {
+        this.loading = false;
+      },
+    });
+  }
+
+  get canSendSms(): boolean {
+    return !this.smsDisabledRevealed && !this.loading;
+  }
+
+  get canDismiss(): boolean {
+    return !this.required || this.smsDisabledRevealed;
   }
 
   sendCode(): void {
-    if (this.sending) {
+    if (!this.canSendSms || this.sending) {
       return;
     }
     this.error = '';
     this.sending = true;
+    if (!this.smsDeliveryEnabled) {
+      this.sending = false;
+      this.revealSmsDisabled();
+      return;
+    }
     this.verification.requestPhoneVerification().subscribe({
       next: () => {
         this.sending = false;
@@ -59,6 +101,9 @@ export class PhoneVerificationDialogComponent {
   }
 
   confirm(): void {
+    if (!this.canSendSms) {
+      return;
+    }
     const code = this.otp.trim();
     if (!/^\d{6}$/.test(code)) {
       this.error = 'Enter the 6-digit code from your SMS.';
@@ -86,10 +131,21 @@ export class PhoneVerificationDialogComponent {
   }
 
   dismiss(): void {
-    if (this.required) {
+    if (!this.canDismiss) {
       return;
     }
     this.dialogRef.close(false);
+  }
+
+  private revealSmsDisabled(): void {
+    this.smsDisabledRevealed = true;
+    this.applySmsDisabledState();
+  }
+
+  private applySmsDisabledState(): void {
+    this.lead = this.phoneNumber
+      ? `SMS delivery is turned off, so we cannot send a code to ${this.phoneNumber} right now. You can continue using the portal and verify later when SMS is available.`
+      : 'SMS delivery is turned off in this environment, so verification codes cannot be sent. You can continue using the portal and verify later when SMS is available.';
   }
 
   private handleRequestError(err: unknown): void {
@@ -103,6 +159,10 @@ export class PhoneVerificationDialogComponent {
       });
       this.dialogRef.close(false);
       return;
+    }
+    if (message.toLowerCase().includes('sms')) {
+      this.smsDeliveryEnabled = false;
+      this.revealSmsDisabled();
     }
     this.error = message;
   }

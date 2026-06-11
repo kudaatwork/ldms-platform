@@ -15,11 +15,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.unit.DataSize;
 import org.springframework.web.multipart.MultipartFile;
-import net.sf.jmimemagic.Magic;
-import net.sf.jmimemagic.MagicException;
-import net.sf.jmimemagic.MagicMatch;
-import net.sf.jmimemagic.MagicMatchNotFoundException;
-import net.sf.jmimemagic.MagicParseException;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -431,21 +426,7 @@ public class UserServiceValidatorImpl implements UserServiceValidator {
     }
 
     private Optional<String> normalizedMime(byte[] fileData, String declaredContentType) {
-        try {
-            MagicMatch match = Magic.getMagicMatch(fileData, false);
-            String mt = match.getMimeType();
-            if (StringUtils.hasText(mt)) {
-                String base = mt.toLowerCase(Locale.ROOT).split(";")[0].trim();
-                return Optional.of(base);
-            }
-        } catch (MagicParseException | MagicMatchNotFoundException | MagicException e) {
-            logger.debug("Could not sniff MIME for identification upload: {}", e.getMessage());
-        }
-        if (StringUtils.hasText(declaredContentType)) {
-            String base = declaredContentType.toLowerCase(Locale.ROOT).split(";")[0].trim();
-            return Optional.of(base);
-        }
-        return Optional.empty();
+        return Validators.sniffMimeBase(fileData, declaredContentType);
     }
 
     private static boolean mimeLooksDangerous(String mimeBase) {

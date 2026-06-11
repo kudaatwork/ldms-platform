@@ -34,7 +34,10 @@ export const ORG_TYPES: readonly OrgTypeOption[] = [
 
 export interface CurrentUser {
   userId: string;
-  orgClassification: OrganizationClassification;
+  /** Resolved from GET /organization/my when absent from JWT. */
+  orgClassification?: OrganizationClassification;
+  /** When true, org may use both supplier and customer workspaces (primary classification unchanged). */
+  duplexMode?: boolean;
   organizationId: string;
   orgName: string;
   roles: string[];

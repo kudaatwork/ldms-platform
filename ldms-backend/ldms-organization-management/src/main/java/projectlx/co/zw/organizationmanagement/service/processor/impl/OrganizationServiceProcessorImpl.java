@@ -137,6 +137,25 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     }
 
     @Override
+    public OrganizationResponse checkCustomerRegistrationEmail(String email, Locale locale, String username) {
+        log.info("Incoming request: checkCustomerRegistrationEmail user={}", username);
+        OrganizationResponse response = organizationService.checkCustomerRegistrationEmail(email, locale, username);
+        log.info("Outgoing response: checkCustomerRegistrationEmail success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse linkExistingOrganizationAsCustomer(
+            projectlx.co.zw.organizationmanagement.utils.requests.LinkExistingOrganizationAsCustomerRequest request,
+            Locale locale,
+            String username) {
+        log.info("Incoming request: linkExistingOrganizationAsCustomer user={}", username);
+        OrganizationResponse response = organizationService.linkExistingOrganizationAsCustomer(request, locale, username);
+        log.info("Outgoing response: linkExistingOrganizationAsCustomer success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
     public OrganizationResponse registerTransporter(RegisterOrganizationRequest request, Locale locale, String username) {
         log.info("Incoming request: registerTransporter user={}", username);
         OrganizationResponse response = organizationService.registerTransporter(request, locale, username);
@@ -613,6 +632,18 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     }
 
     @Override
+    public OrganizationResponse notifyFleetRegistered(
+            projectlx.co.zw.organizationmanagement.utils.requests.FleetRegisteredNotificationRequest request,
+            Locale locale) {
+        log.info(
+                "Incoming request: notifyFleetRegistered registeringOrgId={}",
+                request != null ? request.getRegisteringOrganizationId() : null);
+        OrganizationResponse response = organizationService.notifyFleetRegistered(request, locale);
+        log.info("Outgoing response: notifyFleetRegistered success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
     public OrganizationResponse updateFleetVehicle(Long id, EditFleetVehicleRequest request, Locale locale, String username) {
         log.info("Incoming request: updateFleetVehicle id={} user={}", id, username);
         OrganizationResponse response = organizationService.updateFleetVehicle(id, request, locale, username);
@@ -625,6 +656,18 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         log.info("Incoming request: deleteFleetVehicle id={} user={}", id, username);
         OrganizationResponse response = organizationService.deleteFleetVehicle(id, locale, username);
         log.info("Outgoing response: deleteFleetVehicle success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse validateFleetOwnership(
+            projectlx.co.zw.organizationmanagement.utils.requests.ValidateFleetOwnershipRequest request,
+            Locale locale) {
+        log.info("Incoming request: validateFleetOwnership orgId={} ownershipType={}",
+                request != null ? request.getRegisteringOrganizationId() : null,
+                request != null ? request.getOwnershipType() : null);
+        OrganizationResponse response = organizationService.validateFleetOwnership(request, locale);
+        log.info("Outgoing response: validateFleetOwnership success={}", response.isSuccess());
         return response;
     }
 }

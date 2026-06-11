@@ -1,0 +1,221 @@
+.pb-shell {
+  padding: 1.35rem 1.5rem 1.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.pb-head {
+  &__title {
+    margin: 0 0 0.45rem;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--gray-900, #0f172a);
+  }
+
+  &__lead {
+    margin: 0;
+    max-width: 52rem;
+    line-height: 1.6;
+    color: var(--gray-600, #64748b);
+  }
+}
+
+.pb-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.875rem;
+    transition: border-color 0.15s ease, background 0.15s ease;
+
+    mat-icon {
+      width: 18px;
+      height: 18px;
+      font-size: 18px;
+    }
+  }
+
+  button.active {
+    border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+    background: color-mix(in srgb, var(--primary-light, #eef2ff) 70%, var(--surface));
+    color: var(--primary-dark, var(--primary));
+    font-weight: 600;
+  }
+}
+
+.pb-controls {
+  padding: 1.15rem 1.25rem;
+}
+
+.pb-table-card {
+  padding: 0;
+  overflow: hidden;
+
+  .lx-table-header {
+    padding: 1rem 1.25rem 0;
+  }
+
+  .lx-table-wrap {
+    padding: 0 0.25rem 0.5rem;
+  }
+}
+
+.pb-modules__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 0.9rem;
+}
+
+.pb-module-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius, 14px);
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  &__icon {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--primary) 12%, white);
+    color: var(--primary);
+    flex-shrink: 0;
+
+    mat-icon {
+      width: 20px;
+      height: 20px;
+      font-size: 20px;
+    }
+  }
+
+  &__copy {
+    flex: 1;
+    min-width: 0;
+
+    h3 {
+      margin: 0 0 0.2rem;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--gray-900, #0f172a);
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.4;
+      color: var(--text-muted);
+    }
+  }
+
+  &__add {
+    flex-shrink: 0;
+  }
+
+  &__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 0.45rem;
+    border-top: 1px solid var(--border-subtle, rgba(15, 23, 42, 0.08));
+    padding-top: 0.65rem;
+  }
+
+  &__action {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.65rem 0.7rem;
+    border: 1px solid var(--border-subtle, rgba(15, 23, 42, 0.08));
+    border-radius: 10px;
+    background: var(--gray-50, #f8fafc);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.15s ease, background 0.15s ease;
+
+    &:hover {
+      border-color: color-mix(in srgb, var(--primary) 25%, var(--border));
+      background: color-mix(in srgb, var(--primary) 5%, white);
+    }
+  }
+
+  &__action-copy {
+    min-width: 0;
+
+    strong {
+      display: block;
+      font-size: 0.875rem;
+      color: var(--gray-900, #0f172a);
+    }
+
+    code {
+      display: block;
+      margin-top: 0.15rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+  }
+
+  &__action-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    flex-shrink: 0;
+  }
+
+  &__price {
+    font-weight: 700;
+    color: var(--primary-dark, var(--primary));
+    font-size: 0.875rem;
+  }
+
+  &__empty {
+    margin: 0;
+    padding: 0.65rem 0.2rem 0.2rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-style: italic;
+    border-top: 1px solid var(--border-subtle, rgba(15, 23, 42, 0.08));
+  }
+}
+
+.muted {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.15rem;
+}
+
+code {
+  font-size: 0.82rem;
+}
+
+@media (max-width: 640px) {
+  .pb-shell {
+    padding: 1.1rem 1.15rem 1.35rem;
+  }
+}

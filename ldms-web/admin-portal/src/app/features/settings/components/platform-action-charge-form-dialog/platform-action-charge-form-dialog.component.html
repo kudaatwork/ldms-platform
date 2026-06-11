@@ -1,0 +1,73 @@
+<div class="lx-dialog-shell" [class.is-edit]="isEdit" [class.is-view]="isView">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
+    <div class="lx-form-grid">
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Action code <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('actionCode', 'required')">
+          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+          <input formControlName="actionCode" placeholder="e.g. TRIP_TRACK" />
+        </div>
+        <div class="lx-field-hint">Unique uppercase token referenced by platform services when recording usage.</div>
+        <div class="lx-field-error" *ngIf="hasError('actionCode', 'required')">Action code is required</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Display name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('displayName', 'required')">
+          <mat-icon class="lx-input-shell__icon">label</mat-icon>
+          <input formControlName="displayName" placeholder="e.g. Trip tracking ping" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('displayName', 'required')">Display name is required</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Description</label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="description" rows="2" placeholder="When this charge applies"></textarea>
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Charge (cents) <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('chargeCents', 'required') || hasError('chargeCents', 'min')">
+          <mat-icon class="lx-input-shell__icon">payments</mat-icon>
+          <input type="number" min="0" formControlName="chargeCents" />
+        </div>
+        <div class="lx-field-hint">Amount deducted per occurrence on prepaid wallets.</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Category <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">category</mat-icon>
+          <select formControlName="category" aria-label="Category">
+            <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lx-field lx-field--toggle span-2">
+        <span class="lx-field-label">Active</span>
+        <mat-slide-toggle formControlName="active">Charge is applied when active</mat-slide-toggle>
+      </div>
+    </div>
+
+    <div class="lx-step-actions">
+      <button type="button" mat-button (click)="cancel()">{{ isView ? 'Close' : 'Cancel' }}</button>
+      <button *ngIf="!isView" type="submit" mat-raised-button color="primary">
+        {{ isEdit ? 'Save changes' : 'Create charge' }}
+      </button>
+    </div>
+  </form>
+</div>

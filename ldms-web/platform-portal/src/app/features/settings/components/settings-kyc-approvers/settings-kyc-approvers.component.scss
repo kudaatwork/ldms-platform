@@ -1,13 +1,13 @@
 .ka-shell {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
 .ka-hero {
   display: grid;
-  gap: 1.1rem;
-  padding: 1.25rem 1.35rem 1.35rem;
+  gap: 1.25rem;
+  padding: 1.5rem 1.65rem 1.55rem;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--primary-500, #2563eb) 12%, transparent), transparent 55%),
     linear-gradient(180deg, var(--raised), color-mix(in srgb, var(--gray-50) 70%, var(--raised)));
@@ -44,7 +44,7 @@
 .ka-stage-card {
   border: 1px solid var(--gray-200);
   border-radius: 16px;
-  padding: 0.95rem 1rem;
+  padding: 1.1rem 1.2rem;
   background: var(--raised);
   text-align: left;
   cursor: pointer;
@@ -124,7 +124,7 @@
 }
 
 .ka-card {
-  padding: 1rem 1.1rem 1.1rem;
+  padding: 1.25rem 1.4rem 1.35rem;
 }
 
 .ka-card__head {

@@ -26,6 +26,7 @@ import projectlx.co.zw.organizationmanagement.business.logic.support.Organizatio
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationApprovedCredentialsSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationContactPersonProvisioningSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryNotifier;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationFleetNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationKycNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationAddressSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationNotifier;
@@ -113,6 +114,7 @@ public class BusinessConfig {
             OrganizationKycNotifier organizationKycNotifier,
             OrganizationApprovedCredentialsSupport organizationApprovedCredentialsSupport,
             OrganizationDirectoryNotifier organizationDirectoryNotifier,
+            OrganizationFleetNotifier organizationFleetNotifier,
             OrganizationRegistrationAddressSupport organizationRegistrationAddressSupport,
             projectlx.co.zw.organizationmanagement.business.logic.support.SupplierRegisteredOrganizationOnboardingSupport
                     supplierRegisteredOrganizationOnboardingSupport,
@@ -145,6 +147,7 @@ public class BusinessConfig {
                 organizationKycNotifier,
                 organizationApprovedCredentialsSupport,
                 organizationDirectoryNotifier,
+                organizationFleetNotifier,
                 organizationRegistrationAddressSupport,
                 supplierRegisteredOrganizationOnboardingSupport,
                 applicationEventPublisher,

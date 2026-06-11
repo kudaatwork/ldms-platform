@@ -1,0 +1,136 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ data.trip.tripNumber }}</h2>
+      <p class="lx-dialog-subtitle">{{ data.trip.route }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content trt-trip-view-body">
+
+    <!-- Loading state -->
+    <div class="trt-trip-view-loading" *ngIf="detailLoading">
+      <lx-inline-busy message="Loading trip timeline…"></lx-inline-busy>
+    </div>
+
+    <!-- Error state -->
+    <div class="trt-trip-view-error" *ngIf="!detailLoading && detailError" role="alert">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ detailError }}</span>
+    </div>
+
+    <ng-container *ngIf="!detailLoading && !detailError && detail">
+      <!-- Status & meta row -->
+      <div class="trt-trip-meta lx-card--subsection">
+        <div class="trt-trip-meta__row">
+          <span class="trt-badge" [class]="statusClass(detail.statusTone)">{{ detail.statusLabel }}</span>
+          <span class="trt-trip-meta__kv"><mat-icon>badge</mat-icon> {{ detail.driverName }}</span>
+          <span class="trt-trip-meta__kv"><mat-icon>local_shipping</mat-icon> {{ detail.vehicleRegistration }}</span>
+        </div>
+        <div class="trt-trip-meta__timestamps">
+          <span *ngIf="detail.startedAtLabel"><strong>Started:</strong> {{ detail.startedAtLabel }}</span>
+          <span *ngIf="detail.arrivedAtLabel"><strong>Arrived:</strong> {{ detail.arrivedAtLabel }}</span>
+          <span *ngIf="detail.deliveredAtLabel"><strong>Delivered:</strong> {{ detail.deliveredAtLabel }}</span>
+        </div>
+      </div>
+
+      <!-- OTP entry panel -->
+      <section class="trt-otp-panel" *ngIf="otpMode">
+        <label class="trt-otp-panel__label" for="trt-otp-input">Delivery OTP</label>
+        <input
+          id="trt-otp-input"
+          class="trt-otp-panel__input"
+          type="text"
+          maxlength="6"
+          autocomplete="one-time-code"
+          inputmode="numeric"
+          [(ngModel)]="otp"
+          placeholder="Enter OTP from receiver…"
+        />
+        <p class="trt-otp-panel__error" *ngIf="otpError" role="alert">{{ otpError }}</p>
+      </section>
+
+      <!-- Timeline -->
+      <div class="trt-timeline">
+        <h3 class="trt-timeline__heading">
+          <mat-icon>timeline</mat-icon>
+          Trip timeline
+        </h3>
+
+        <div class="trt-timeline__empty" *ngIf="!detail.timeline.length">
+          No events recorded yet.
+        </div>
+
+        <ol class="trt-timeline__list" *ngIf="detail.timeline.length">
+          <li class="trt-timeline__item" *ngFor="let event of detail.timeline; let last = last">
+            <div class="trt-timeline__connector" [class.is-last]="last"></div>
+            <div class="trt-timeline__dot">
+              <mat-icon>{{ eventIcon(event.eventType) }}</mat-icon>
+            </div>
+            <div class="trt-timeline__content">
+              <p class="trt-timeline__event-type">{{ event.eventTypeLabel }}</p>
+              <p class="trt-timeline__notes" *ngIf="event.notes">{{ event.notes }}</p>
+              <p class="trt-timeline__meta">
+                {{ event.recordedAtLabel }}
+                <span *ngIf="event.latitude">&nbsp;·&nbsp;
+                  <a
+                    [href]="'https://maps.google.com/?q=' + event.latitude + ',' + event.longitude"
+                    target="_blank"
+                    rel="noopener"
+                    class="trt-timeline__map-link"
+                  >View on map</a>
+                </span>
+              </p>
+              <p class="trt-timeline__by">{{ event.recordedBy }}</p>
+            </div>
+          </li>
+        </ol>
+      </div>
+    </ng-container>
+  </div>
+
+  <!-- Actions footer -->
+  <div class="lx-dialog-actions trt-trip-view-actions">
+    <button type="button" class="lx-btn lx-btn-ghost" (click)="close()">Close</button>
+
+    <ng-container *ngIf="!otpMode">
+      <button
+        type="button"
+        class="lx-btn lx-btn-ghost"
+        *ngIf="canTriggerArrival"
+        [disabled]="actionBusy"
+        (click)="triggerArrival()"
+      >
+        <mat-spinner *ngIf="actionBusy" diameter="16"></mat-spinner>
+        <mat-icon *ngIf="!actionBusy">place</mat-icon>
+        Confirm arrival
+      </button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-primary"
+        *ngIf="canVerifyOtp"
+        (click)="startOtpEntry()"
+      >
+        <mat-icon>verified</mat-icon>
+        Verify delivery OTP
+      </button>
+    </ng-container>
+
+    <ng-container *ngIf="otpMode">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancelOtp()">Back</button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-primary"
+        [disabled]="actionBusy || otp.trim().length < 4"
+        (click)="verifyOtp()"
+      >
+        <mat-spinner *ngIf="actionBusy" diameter="16"></mat-spinner>
+        <mat-icon *ngIf="!actionBusy">check_circle</mat-icon>
+        Verify OTP
+      </button>
+    </ng-container>
+  </div>
+</div>
