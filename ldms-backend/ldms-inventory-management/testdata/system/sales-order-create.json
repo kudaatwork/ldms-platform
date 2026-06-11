@@ -1,0 +1,41 @@
+{
+  "customerId": "{{customerId}}",
+  "status": "PENDING",
+  "orderDate": "2025-02-01",
+  "expectedDeliveryDate": "2025-02-05",
+  "notes": "Test sales order for gas products",
+  "createdByUserId": 22,
+  "paymentTerm": "NET_30",
+  "lines": [
+    {
+      "productId": "{{productId1}}",
+      "quantity": 2,
+      "unitPrice": 120.0,
+      "unitOfMeasure": "CYLINDER"
+    },
+    {
+      "productId": "{{productId2}}",
+      "quantity": 1,
+      "unitPrice": 145.0,
+      "unitOfMeasure": "CYLINDER"
+    },
+    {
+      "productId": "{{productId3}}",
+      "quantity": 1,
+      "unitPrice": 110.0,
+      "unitOfMeasure": "CYLINDER"
+    },
+    {
+      "productId": "{{productId4}}",
+      "quantity": 3,
+      "unitPrice": 60.0,
+      "unitOfMeasure": "CYLINDER"
+    },
+    {
+      "productId": "{{productId5}}",
+      "quantity": 2,
+      "unitPrice": 35.0,
+      "unitOfMeasure": "EACH"
+    }
+  ]
+}

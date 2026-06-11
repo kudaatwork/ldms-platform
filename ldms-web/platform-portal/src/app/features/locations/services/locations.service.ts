@@ -312,6 +312,18 @@ export class LocationsService {
     );
   }
 
+  /** Full country catalog for currency admin (not limited to table page size). */
+  getAllCountries(): Observable<Country[]> {
+    if (environment.useMocks) {
+      return of([...MOCK_COUNTRIES]);
+    }
+    const body = { ...this.countryFilterBody(), page: 0, size: 500 };
+    return this.http.post<CountryListResponse>(this.url('country', 'find-by-multiple-filters'), body).pipe(
+      map((r) => this.extractEntityRows<Country>(r, 'countryDtoPage', 'countryDtoList')),
+      catchError((err) => this.emptyOnNotFound<Country>(err)),
+    );
+  }
+
   getProvinces(): Observable<Province[]> {
     if (environment.useMocks) {
       return of([...MOCK_PROVINCES]);

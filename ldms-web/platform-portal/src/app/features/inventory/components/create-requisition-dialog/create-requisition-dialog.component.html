@@ -1,0 +1,296 @@
+<div class="lx-dialog-shell req-dialog">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">New purchase requisition</h2>
+      <p class="lx-dialog-subtitle">Request stock from your supplier with purpose, delivery details, and line items.</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()" [disabled]="submitting">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="req-loading lx-card" *ngIf="loadingOptions" role="status">
+    <lx-table-loading [busy]="true" message="Loading catalogue and departments…"></lx-table-loading>
+  </div>
+
+  <p class="lx-list-error" *ngIf="optionsError && !loadingOptions">
+    <mat-icon>warning_amber</mat-icon>
+    {{ optionsError }}
+  </p>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="onSubmit()" novalidate *ngIf="!loadingOptions">
+    <div class="lx-form-grid">
+      <!-- Purpose & priority -->
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Purpose &amp; priority</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Purpose <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('purpose', 'required')">
+          <mat-icon class="lx-input-shell__icon">flag</mat-icon>
+          <input formControlName="purpose" placeholder="e.g. Q2 cylinder replenishment" autocomplete="off" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('purpose', 'required')">Purpose is required</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Justification</label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">description</mat-icon>
+          <textarea formControlName="justification" rows="2" placeholder="Why is this stock needed?"></textarea>
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Priority <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">priority_high</mat-icon>
+          <select formControlName="priority" aria-label="Priority">
+            <option *ngFor="let p of priorityOptions" [ngValue]="p.value">{{ p.label }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Department <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('departmentId', 'required')">
+          <mat-icon class="lx-input-shell__icon">corporate_fare</mat-icon>
+          <select formControlName="departmentId" aria-label="Department">
+            <option [ngValue]="null">— Select department —</option>
+            <option *ngFor="let d of departments" [ngValue]="d.id">{{ d.name }}</option>
+          </select>
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('departmentId', 'required')">Department is required</div>
+      </div>
+
+      <!-- Dates & fulfillment -->
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Dates &amp; fulfillment</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Required by</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <input type="date" formControlName="requiredByDate" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Expiry date</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event_busy</mat-icon>
+          <input type="date" formControlName="expiryDate" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Default fulfillment</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">local_shipping</mat-icon>
+          <select formControlName="defaultFulfillmentMethod" aria-label="Default fulfillment method">
+            <option *ngFor="let f of fulfillmentOptions" [ngValue]="f.value">{{ f.label }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Target warehouse</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">warehouse</mat-icon>
+          <select formControlName="targetWarehouseId" aria-label="Target warehouse">
+            <option [ngValue]="null">— None —</option>
+            <option *ngFor="let w of warehouses" [ngValue]="w.id">{{ w.name }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Financial -->
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Financial &amp; coding</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Currency</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">payments</mat-icon>
+          <input formControlName="currency" placeholder="USD" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Preferred supplier ID</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">store</mat-icon>
+          <input type="number" min="1" formControlName="preferredSupplierId" placeholder="Optional org id" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Cost centre</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">account_balance</mat-icon>
+          <input formControlName="costCenter" placeholder="e.g. OPS-001" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Project code</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">code</mat-icon>
+          <input formControlName="projectCode" placeholder="e.g. PRJ-GAS-2025" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Budget code</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">savings</mat-icon>
+          <input formControlName="budgetCode" placeholder="Optional" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="lx-field req-checkbox-field">
+        <label class="req-checkbox">
+          <input type="checkbox" formControlName="budgetAvailable" />
+          <span>Budget confirmed available</span>
+        </label>
+      </div>
+
+      <!-- Line items -->
+      <div class="lx-form-section span-2 req-lines-head">
+        <div>
+          <div class="lx-form-section-title">Line items</div>
+          <p class="lx-form-section-lead">Select products, quantities, and optional specifications for each item.</p>
+        </div>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="addLine()" [disabled]="submitting">
+          <mat-icon>add</mat-icon>
+          Add line
+        </button>
+      </div>
+
+      <div class="req-line-card span-2 lx-card" *ngFor="let line of lines.controls; let i = index" [formGroup]="$any(line)">
+        <header class="req-line-card__head">
+          <strong>Line {{ i + 1 }}</strong>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="removeLine(i)" [disabled]="lines.length <= 1 || submitting">
+            <mat-icon>delete_outline</mat-icon>
+            Remove
+          </button>
+        </header>
+
+        <div class="req-line-grid">
+          <div class="lx-field span-2">
+            <app-searchable-product-picker
+              formControlName="productId"
+              [products]="products"
+              [required]="true"
+              [invalid]="lineHasError(i, 'productId', 'required')"
+              [disabled]="submitting"
+              [inputId]="'req-line-product-' + i"
+              placeholder="— Select product —"
+              (selectionChange)="onProductSelected(i)"
+            />
+          </div>
+
+          <div class="lx-field">
+            <label class="lx-field-label">Quantity <span class="req">*</span></label>
+            <div class="lx-input-shell" [class.lx-input-shell--invalid]="lineHasError(i, 'requestedQuantity', 'required') || lineHasError(i, 'requestedQuantity', 'min')">
+              <mat-icon class="lx-input-shell__icon">pin</mat-icon>
+              <input type="number" min="0.01" step="0.01" formControlName="requestedQuantity" />
+            </div>
+          </div>
+
+          <div class="lx-field">
+            <label class="lx-field-label">Unit of measure <span class="req">*</span></label>
+            <div class="lx-input-shell">
+              <mat-icon class="lx-input-shell__icon">straighten</mat-icon>
+              <select formControlName="unitOfMeasure" aria-label="Unit of measure">
+                <option *ngFor="let u of unitOptions" [ngValue]="u.value">{{ u.label }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="lx-field">
+            <label class="lx-field-label">Est. unit price</label>
+            <div class="lx-input-shell">
+              <mat-icon class="lx-input-shell__icon">attach_money</mat-icon>
+              <input type="number" min="0" step="0.01" formControlName="estimatedUnitPrice" />
+            </div>
+          </div>
+
+          <div class="lx-field">
+            <label class="lx-field-label">Fulfillment</label>
+            <div class="lx-input-shell">
+              <mat-icon class="lx-input-shell__icon">local_shipping</mat-icon>
+              <select formControlName="fulfillmentMethod" aria-label="Line fulfillment method">
+                <option value="">Use default</option>
+                <option *ngFor="let f of fulfillmentOptions" [ngValue]="f.value">{{ f.label }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="lx-field span-2">
+            <label class="lx-field-label">Description</label>
+            <div class="lx-input-shell">
+              <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+              <input formControlName="productDescription" placeholder="Product description for approver" />
+            </div>
+          </div>
+
+          <div class="lx-field span-2">
+            <label class="lx-field-label">Specifications</label>
+            <div class="lx-input-shell">
+              <mat-icon class="lx-input-shell__icon">tune</mat-icon>
+              <input formControlName="specifications" placeholder="e.g. Industrial grade, HP compatible" />
+            </div>
+          </div>
+
+          <div class="lx-field">
+            <label class="lx-field-label">Preferred brand</label>
+            <div class="lx-input-shell">
+              <mat-icon class="lx-input-shell__icon">sell</mat-icon>
+              <input formControlName="preferredBrand" placeholder="Optional" />
+            </div>
+          </div>
+
+          <div class="lx-field req-checkbox-field">
+            <label class="req-checkbox">
+              <input type="checkbox" formControlName="isSubstituteAcceptable" />
+              <span>Substitutes acceptable</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Additional notes</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Notes</label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="notes" rows="3" placeholder="Delivery instructions or approval context…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="submitError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ submitError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button
+        type="submit"
+        class="lx-btn lx-btn-primary"
+        [disabled]="submitting || form.invalid || !!optionsError || !products.length"
+      >
+        {{ submitting ? 'Creating…' : 'Create draft requisition' }}
+      </button>
+    </div>
+  </form>
+</div>

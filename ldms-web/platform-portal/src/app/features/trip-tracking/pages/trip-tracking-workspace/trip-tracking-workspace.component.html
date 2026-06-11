@@ -1,0 +1,247 @@
+<div class="lx-page trt">
+  <!-- ── Hero ── -->
+  <lx-workspace-hero
+    eyebrow="Corridor tracking"
+    eyebrowIcon="route"
+    title="Shipments &amp; Trips"
+    lead="Monitor live shipments, allocate drivers, and track trips from dispatch to delivery."
+    hubIcon="local_shipping"
+    [orbitIcons]="['route', 'place', 'verified']"
+    note="Shipments link inventory transfers to drivers. Start a trip once a shipment is allocated."
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="fetching">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+
+    <lx-workspace-hero-stat [value]="metrics.totalShipments" label="Shipments" icon="inventory_2" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.allocatedShipments" label="Allocated" icon="assignment_ind" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.activeTrips" label="Active trips" icon="near_me" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.deliveredToday" label="Delivered" icon="check_circle" theme="violet"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <!-- ── Tabs ── -->
+  <nav class="trt-tabs lx-card" aria-label="Tracking views">
+    <button type="button" class="trt-tabs__btn" [class.is-on]="isTab('shipments')" (click)="setTab('shipments')">
+      <mat-icon>inventory_2</mat-icon>
+      <span class="trt-tabs__copy">
+        <span>Shipments</span>
+        <small>Dispatch &amp; allocation</small>
+      </span>
+    </button>
+    <button type="button" class="trt-tabs__btn" [class.is-on]="isTab('trips')" (click)="setTab('trips')">
+      <mat-icon>near_me</mat-icon>
+      <span class="trt-tabs__copy">
+        <span>Active trips</span>
+        <small>Live tracking</small>
+      </span>
+    </button>
+  </nav>
+
+  <!-- ── Error banner ── -->
+  <div class="trt-alert lx-card" *ngIf="loadError" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ loadError }}</span>
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()">Retry</button>
+  </div>
+
+  <!-- ── Loading state ── -->
+  <div class="trt-loading" *ngIf="fetching && !shipments.length && !trips.length" role="status">
+    <lx-table-loading [busy]="true" message="Loading shipments and trips…"></lx-table-loading>
+  </div>
+
+  <!-- ── Content ── -->
+  <div class="trt-content" *ngIf="!fetching || shipments.length || trips.length">
+
+    <!-- ════════════════════ SHIPMENTS TAB ════════════════════ -->
+    <section *ngIf="isTab('shipments')">
+      <!-- Toolbar -->
+      <div class="trt-toolbar lx-card">
+        <div class="trt-toolbar__left">
+          <mat-form-field appearance="outline" class="trt-search-field" subscriptSizing="dynamic">
+            <mat-label>Search shipments</mat-label>
+            <mat-icon matPrefix>search</mat-icon>
+            <input
+              matInput
+              [(ngModel)]="shipmentSearch"
+              (ngModelChange)="onShipmentSearchChange()"
+              placeholder="Shipment number, transfer ref…"
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="trt-filter-field" subscriptSizing="dynamic">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="shipmentStatusFilter" (ngModelChange)="onShipmentStatusChange()">
+              <mat-option *ngFor="let opt of shipmentStatusOptions" [value]="opt.value">{{ opt.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div class="trt-section-error" *ngIf="shipmentsError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ shipmentsError }}
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()">Retry</button>
+      </div>
+
+      <!-- Table -->
+      <div class="lx-table-card lx-card trt-table-card" *ngIf="!shipmentsError">
+        <lx-table-loading [busy]="shipmentsLoading"></lx-table-loading>
+        <div class="lx-table-wrap">
+          <table class="lx-data-table">
+            <thead>
+              <tr>
+                <th>Shipment #</th>
+                <th>Transfer ref</th>
+                <th>Route</th>
+                <th>Product</th>
+                <th>Status</th>
+                <th>Driver</th>
+                <th>Vehicle</th>
+                <th>Created</th>
+                <th class="trt-col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of shipments">
+                <td class="trt-cell-mono">{{ s.shipmentNumber }}</td>
+                <td class="trt-cell-mono">{{ s.transferReference }}</td>
+                <td>
+                  <span class="trt-route">
+                    <span class="trt-route__from">{{ s.fromWarehouse }}</span>
+                    <mat-icon class="trt-route__arrow">arrow_forward</mat-icon>
+                    <span class="trt-route__to">{{ s.toWarehouse }}</span>
+                  </span>
+                </td>
+                <td>
+                  <span class="trt-cell-product">{{ s.productName }}</span>
+                  <span class="trt-cell-sub">{{ s.quantity | number }} {{ s.unitOfMeasure }}</span>
+                </td>
+                <td>
+                  <span class="trt-status-badge" [class]="statusBadgeClass(s.statusTone)">{{ s.statusLabel }}</span>
+                </td>
+                <td>{{ s.driverName }}</td>
+                <td>{{ s.vehicleRegistration }}</td>
+                <td>{{ s.createdAtLabel }}</td>
+                <td class="trt-col-actions">
+                  <div class="trt-actions">
+                    <button
+                      type="button"
+                      class="lx-btn lx-btn-ghost lx-btn-sm"
+                      *ngIf="s.canAllocate"
+                      (click)="openAllocate(s)"
+                      matTooltip="Allocate driver & vehicle"
+                    >
+                      <mat-icon>assignment_ind</mat-icon>
+                      Allocate
+                    </button>
+                    <button
+                      type="button"
+                      class="lx-btn lx-btn-primary lx-btn-sm"
+                      *ngIf="s.canStartTrip"
+                      (click)="startTrip(s)"
+                      matTooltip="Start trip for this shipment"
+                    >
+                      <mat-icon>play_arrow</mat-icon>
+                      Start trip
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="!shipmentsLoading && !shipments.length">
+                <td colspan="9" class="trt-empty-row">No shipments found.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════ TRIPS TAB ════════════════════ -->
+    <section *ngIf="isTab('trips')">
+      <!-- Toolbar -->
+      <div class="trt-toolbar lx-card">
+        <div class="trt-toolbar__left">
+          <mat-form-field appearance="outline" class="trt-search-field" subscriptSizing="dynamic">
+            <mat-label>Search trips</mat-label>
+            <mat-icon matPrefix>search</mat-icon>
+            <input
+              matInput
+              [(ngModel)]="tripSearch"
+              (ngModelChange)="onTripSearchChange()"
+              placeholder="Trip number, driver, route…"
+            />
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="trt-filter-field" subscriptSizing="dynamic">
+            <mat-label>Status</mat-label>
+            <mat-select [(ngModel)]="tripStatusFilter" (ngModelChange)="onTripStatusChange()">
+              <mat-option *ngFor="let opt of tripStatusOptions" [value]="opt.value">{{ opt.label }}</mat-option>
+            </mat-select>
+          </mat-form-field>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div class="trt-section-error" *ngIf="tripsError" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        {{ tripsError }}
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()">Retry</button>
+      </div>
+
+      <!-- Table -->
+      <div class="lx-table-card lx-card trt-table-card" *ngIf="!tripsError">
+        <lx-table-loading [busy]="tripsLoading"></lx-table-loading>
+        <div class="lx-table-wrap">
+          <table class="lx-data-table">
+            <thead>
+              <tr>
+                <th>Trip #</th>
+                <th>Shipment #</th>
+                <th>Route</th>
+                <th>Driver</th>
+                <th>Vehicle</th>
+                <th>Status</th>
+                <th>Last event</th>
+                <th>Started</th>
+                <th class="trt-col-actions">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let t of trips">
+                <td class="trt-cell-mono">{{ t.tripNumber }}</td>
+                <td class="trt-cell-mono">{{ t.shipmentNumber }}</td>
+                <td>{{ t.route }}</td>
+                <td>{{ t.driverName }}</td>
+                <td>{{ t.vehicleRegistration }}</td>
+                <td>
+                  <span class="trt-status-badge" [class]="statusBadgeClass(t.statusTone)">{{ t.statusLabel }}</span>
+                </td>
+                <td>
+                  <span class="trt-cell-product">{{ t.lastEventLabel }}</span>
+                  <span class="trt-cell-sub" *ngIf="t.lastEventAt !== '—'">{{ t.lastEventAt }}</span>
+                </td>
+                <td>{{ t.startedAtLabel }}</td>
+                <td class="trt-col-actions">
+                  <button
+                    type="button"
+                    class="lx-btn lx-btn-ghost lx-btn-sm"
+                    (click)="viewTrip(t)"
+                    matTooltip="View timeline &amp; actions"
+                  >
+                    <mat-icon>open_in_new</mat-icon>
+                    Track
+                  </button>
+                </td>
+              </tr>
+              <tr *ngIf="!tripsLoading && !trips.length">
+                <td colspan="9" class="trt-empty-row">No trips found.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>

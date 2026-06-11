@@ -1,0 +1,30 @@
+package projectlx.trip.tracking.business.logic.api;
+
+import projectlx.trip.tracking.utils.requests.RecordLocationRequest;
+import projectlx.trip.tracking.utils.requests.RecordTripEventRequest;
+import projectlx.trip.tracking.utils.requests.StartTripRequest;
+import projectlx.trip.tracking.utils.requests.TriggerArrivalRequest;
+import projectlx.trip.tracking.utils.requests.TripFilterRequest;
+import projectlx.trip.tracking.utils.requests.VerifyDeliveryOtpRequest;
+import projectlx.trip.tracking.utils.responses.TripResponse;
+
+import java.util.Locale;
+
+public interface TripService {
+
+    TripResponse startTrip(StartTripRequest request, Locale locale, String username);
+
+    TripResponse recordEvent(RecordTripEventRequest request, Locale locale, String username);
+
+    TripResponse recordLocation(RecordLocationRequest request, Locale locale, String username);
+
+    TripResponse triggerArrival(TriggerArrivalRequest request, Locale locale, String username);
+
+    TripResponse verifyDeliveryOtp(VerifyDeliveryOtpRequest request, Locale locale, String username);
+
+    TripResponse findById(Long id, Locale locale, String username);
+
+    TripResponse findByMultipleFilters(TripFilterRequest request, Locale locale, String username);
+
+    TripResponse track(Long id, Locale locale);
+}

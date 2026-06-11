@@ -1,0 +1,13 @@
+{
+  "purchaseOrderId": "{{purchaseOrderId}}",
+  "warehouseLocationId": "{{warehouseLocationId}}",
+  "returnedByUserId": 22,
+  "reason": "Damaged cylinder cap",
+  "returnedLineItems": [
+    {
+      "productId": "{{productId3}}",
+      "quantityReturned": 1,
+      "unitCost": 110.0
+    }
+  ]
+}

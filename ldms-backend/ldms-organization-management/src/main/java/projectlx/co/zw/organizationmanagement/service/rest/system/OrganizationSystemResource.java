@@ -33,6 +33,8 @@ import projectlx.co.zw.organizationmanagement.utils.requests.AgentMultipleFilter
 import projectlx.co.zw.organizationmanagement.utils.requests.BranchMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateBranchRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.FleetRegisteredNotificationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.ValidateFleetOwnershipRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateIndustryRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.IndustryMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycActionRequest;
@@ -81,6 +83,30 @@ public class OrganizationSystemResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         return organizationServiceProcessor.verifyOrganizationEmail(email, token, locale);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_NOTIFY_FLEET_REGISTERED")
+    @PostMapping("/fleet-registered/notify")
+    @Operation(summary = "Dispatch fleet registration emails to registering organisation and transport company")
+    public OrganizationResponse notifyFleetRegistered(
+            @RequestBody FleetRegisteredNotificationRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.notifyFleetRegistered(request, locale);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_VALIDATE_FLEET_OWNERSHIP")
+    @PostMapping("/fleet-ownership/validate")
+    @Operation(summary = "Validate fleet ownership eligibility",
+            description = "Called by fleet-management to verify that the registering organisation "
+                    + "is permitted to register an asset with the given ownership type. "
+                    + "OWNED is allowed for SUPPLIER, TRANSPORT_COMPANY and CUSTOMER. "
+                    + "CONTRACTED is allowed for SUPPLIER and CUSTOMER only.")
+    public OrganizationResponse validateFleetOwnership(
+            @RequestBody ValidateFleetOwnershipRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.validateFleetOwnership(request, locale);
     }
 
     @Auditable(action = "ORG_SYSTEM_COMPLETE_SUPPLIER_ONBOARDING")

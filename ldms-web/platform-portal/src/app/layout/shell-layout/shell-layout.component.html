@@ -2,6 +2,7 @@
   class="shell"
   [class.collapsed]="collapsed"
   [class.sidebar-mobile-open]="mobileSidebarOpen"
+  [class.shell--inventory]="isInventoryWorkspace"
 >
   <div
     class="sidebar-backdrop"
@@ -30,12 +31,31 @@
     </div>
 
     <div class="sb-section-label">Workspace</div>
+    <div class="sb-duplex-switch" *ngIf="showDuplexSwitcher && !collapsed">
+      <button
+        type="button"
+        class="sb-duplex-btn"
+        [class.sb-duplex-btn--active]="activeTradingMode === 'SUPPLIER'"
+        (click)="switchTradingMode('SUPPLIER')"
+      >
+        Supplier
+      </button>
+      <button
+        type="button"
+        class="sb-duplex-btn"
+        [class.sb-duplex-btn--active]="activeTradingMode === 'CUSTOMER'"
+        (click)="switchTradingMode('CUSTOMER')"
+      >
+        Customer
+      </button>
+    </div>
     <nav class="sb-nav">
       <ng-container *ngFor="let item of navItems; trackBy: trackByRoute">
         <ng-container *ngIf="!item.children?.length">
           <a
             class="sb-item"
             [routerLink]="item.route"
+            [queryParams]="item.queryParams"
             routerLinkActive="active"
             [attr.title]="collapsed ? item.label : null"
           >
@@ -84,7 +104,13 @@
                 class="sb-subitem"
                 [routerLink]="child.route"
                 routerLinkActive="active"
-                [routerLinkActiveOptions]="child.route === '/users' ? { exact: true } : { exact: false }"
+                [routerLinkActiveOptions]="
+                  child.route === '/users' ||
+                  child.route.startsWith('/products-inventory/') ||
+                  child.route.startsWith('/my-orders/')
+                    ? { exact: true }
+                    : { exact: false }
+                "
               >
                 <div class="sb-subicon">
                   <span class="material-icons sb-mi" aria-hidden="true">{{ child.icon }}</span>
@@ -230,6 +256,18 @@
           </div>
         </div>
         <div class="tb-profile-wrap">
+          <button
+            type="button"
+            class="tb-wallet"
+            (click)="goWalletSettings()"
+            [class.tb-wallet--low]="walletLowBalance"
+            [attr.title]="walletBillingMode === 'PREPAID_WALLET' ? 'Prepaid wallet balance — open billing settings' : 'Subscription plan — open billing settings'"
+          >
+            <span class="material-icons tb-mi" aria-hidden="true">{{
+              walletBillingMode === 'PREPAID_WALLET' ? 'account_balance_wallet' : 'workspace_premium'
+            }}</span>
+            <span class="tb-wallet__amount">{{ walletLabel }}</span>
+          </button>
           <button
             type="button"
             class="tb-profile"

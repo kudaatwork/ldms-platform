@@ -1,0 +1,12 @@
+{
+  "salesOrderId": "{{salesOrderId}}",
+  "warehouseLocationId": "{{warehouseLocationId}}",
+  "fulfilledByUserId": 22,
+  "fulfilledItems": [
+    {
+      "salesOrderLineId": "{{salesOrderLineId1}}",
+      "quantityFulfilled": 2
+    }
+  ],
+  "idempotencyKey": "SO-GAS-0001"
+}

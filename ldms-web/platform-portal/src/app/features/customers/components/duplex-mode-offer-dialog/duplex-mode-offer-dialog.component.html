@@ -1,0 +1,45 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title" *ngIf="isDuplexOffer">Enable duplex mode?</h2>
+      <h2 class="lx-dialog-title" *ngIf="!isDuplexOffer">Link existing customer</h2>
+      <p class="lx-dialog-subtitle" *ngIf="isDuplexOffer">
+        <strong>{{ data.organizationName }}</strong> is already registered as a supplier on LX.
+      </p>
+      <p class="lx-dialog-subtitle" *ngIf="!isDuplexOffer">
+        <strong>{{ data.organizationName }}</strong> already exists as a customer organisation.
+      </p>
+    </div>
+  </div>
+
+  <div class="duplex-body" *ngIf="isDuplexOffer">
+    <p>
+      Duplex mode lets one legal entity operate as both supplier and customer under a single organisation account.
+      Your trading relationship with them stays intact: where they supply you they remain your supplier; where you
+      register them here they become your customer.
+    </p>
+    <ul>
+      <li>Primary classification stays <strong>Supplier</strong> — no duplicate organisation is created.</li>
+      <li>They can be linked to many suppliers and customers across the platform.</li>
+      <li>They may switch between supplier and customer workspaces after sign-in.</li>
+    </ul>
+    <p class="duplex-hint">Choose whether to enable duplex mode before linking them to your supplier workspace.</p>
+  </div>
+
+  <div class="duplex-body" *ngIf="!isDuplexOffer">
+    <p>
+      Link this existing customer to your supplier workspace instead of creating a duplicate profile. Trading
+      relationships are maintained separately for each supplier–customer link.
+    </p>
+  </div>
+
+  <div class="lx-dialog-actions">
+    <button type="button" class="lx-btn lx-btn--ghost" (click)="cancel()">Cancel</button>
+    <button type="button" class="lx-btn lx-btn--primary" *ngIf="isDuplexOffer" (click)="linkWithDuplex()">
+      Enable duplex &amp; link
+    </button>
+    <button type="button" class="lx-btn lx-btn--primary" *ngIf="!isDuplexOffer" (click)="linkExistingCustomer()">
+      Link customer
+    </button>
+  </div>
+</div>

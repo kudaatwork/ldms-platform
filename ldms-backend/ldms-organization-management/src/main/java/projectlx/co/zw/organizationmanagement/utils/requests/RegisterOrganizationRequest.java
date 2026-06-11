@@ -50,6 +50,12 @@ public class RegisterOrganizationRequest {
     /** When false, organisation was registered by an administrator (not public signup). */
     private Boolean createdViaSignup;
 
+    /**
+     * Duplex mode: organisation both buys and sells. Primary {@link #organizationClassification} is unchanged;
+     * trading relationships define who is customer vs supplier in each link.
+     */
+    private Boolean duplexMode;
+
     /** ZIMRA / tax clearance certificate scan (multipart, same pattern as user national ID upload). */
     private MultipartFile taxClearanceCertificateUpload;
     /** Pre-uploaded file-upload row id when the client uploaded via file-upload-service first. */

@@ -1,0 +1,8 @@
+{
+  "purchaseOrderId": "{{purchaseOrderId}}",
+  "productId": "{{productId1}}",
+  "unitOfMeasure": "CYLINDER",
+  "quantity": 5,
+  "unitPrice": 120.0,
+  "receivedQuantity": 0
+}

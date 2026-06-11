@@ -1,0 +1,24 @@
+.inv-detail-body {
+  padding-top: 0;
+}
+
+.inv-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(8rem, 34%) 1fr;
+  gap: 0.65rem 1rem;
+  margin: 0 0 1.25rem;
+
+  dt {
+    margin: 0;
+    color: var(--lx-text-muted, #64748b);
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+
+  dd {
+    margin: 0;
+    color: var(--lx-text-primary, #0f172a);
+    font-size: 0.9375rem;
+    word-break: break-word;
+  }
+}

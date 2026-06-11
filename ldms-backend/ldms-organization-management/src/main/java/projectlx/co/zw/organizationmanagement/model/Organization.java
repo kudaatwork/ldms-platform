@@ -55,6 +55,10 @@ public class Organization {
     @Column(name = "organization_classification", nullable = false, length = 50)
     private OrganizationClassification organizationClassification;
 
+    /** When true, the org may buy from and sell to different partners; classification is the primary portal role. */
+    @Column(name = "duplex_mode", nullable = false)
+    private boolean duplexMode = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "industry_id")
     private Industry industry;

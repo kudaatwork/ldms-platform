@@ -1,0 +1,14 @@
+{
+  "productId": "{{productId5}}",
+  "warehouseLocationId": "{{warehouseLocationId}}",
+  "supplierId": 8,
+  "createdByUserId": 22,
+  "currentStock": 80,
+  "minStockLevel": 20,
+  "reorderQuantity": 40,
+  "batchLot": "LOT-REG-001",
+  "serialNumber": "SN-REG-001",
+  "expiresAt": "2030-12-31",
+  "unitCost": 22.0,
+  "lastPurchaseCost": 22.0
+}

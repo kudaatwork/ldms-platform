@@ -1,0 +1,33 @@
+{
+  "id": "{{purchaseRequisitionId}}",
+  "approvedByUserId": 22,
+  "approvalNotes": "Approved for test cycle",
+  "lineApprovals": [
+    {
+      "lineId": "{{prLineId1}}",
+      "approvedQuantity": 12,
+      "fulfillmentMethod": "PURCHASE"
+    },
+    {
+      "lineId": "{{prLineId2}}",
+      "approvedQuantity": 10,
+      "fulfillmentMethod": "PURCHASE"
+    },
+    {
+      "lineId": "{{prLineId3}}",
+      "approvedQuantity": 8,
+      "fulfillmentMethod": "PURCHASE"
+    },
+    {
+      "lineId": "{{prLineId4}}",
+      "approvedQuantity": 15,
+      "fulfillmentMethod": "PURCHASE"
+    },
+    {
+      "lineId": "{{prLineId5}}",
+      "approvedQuantity": 18,
+      "fulfillmentMethod": "PURCHASE",
+      "quantityAdjustmentReason": "Adjusted for budget"
+    }
+  ]
+}

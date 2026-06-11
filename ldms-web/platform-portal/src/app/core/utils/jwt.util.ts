@@ -11,6 +11,26 @@ export interface LdmsJwtPayload {
   orgName?: string;
   roles?: string[];
   mustChangeCredentials?: boolean;
+  /** Seconds since Unix epoch (standard JWT {@code exp} claim). */
+  exp?: number;
+}
+
+/** Milliseconds when the access token expires, or null when {@code exp} is absent. */
+export function jwtExpiresAtMs(token: string): number | null {
+  const exp = decodeJwtPayload(token)?.exp;
+  if (typeof exp !== 'number' || !Number.isFinite(exp) || exp <= 0) {
+    return null;
+  }
+  return exp * 1000;
+}
+
+/** True when the token is past its expiry (optional skew avoids edge-of-expiry races). */
+export function isJwtExpired(token: string, skewSeconds = 30): boolean {
+  const expiresAt = jwtExpiresAtMs(token);
+  if (expiresAt == null) {
+    return false;
+  }
+  return Date.now() >= expiresAt - skewSeconds * 1000;
 }
 
 export function decodeJwtPayload(token: string): LdmsJwtPayload | null {
@@ -54,8 +74,7 @@ export function currentUserFromJwt(token: string): CurrentUser | null {
   return {
     userId: payload.userId != null ? String(payload.userId) : '',
     organizationId: payload.organizationId != null ? String(payload.organizationId) : '',
-    orgClassification:
-      (payload.orgClassification as OrganizationClassification | undefined) ?? 'SUPPLIER',
+    orgClassification: payload.orgClassification as OrganizationClassification | undefined,
     orgName: String(payload.orgName ?? ''),
     roles: normalizeJwtRoles(payload.roles),
     email: email || undefined,

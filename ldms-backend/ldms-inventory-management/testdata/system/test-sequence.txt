@@ -1,0 +1,172 @@
+Inventory Management System Test Sequence (Gas Products)
+
+Note: Replace {{placeholders}} with real IDs from prior responses.
+Base URL: http://localhost:8012 (adjust for your gateway/service setup)
+Headers: Content-Type: application/json
+
+1) Create product categories
+   - POST /api/v1/system/product-category/create
+   - Files: product-category-create-1.json, product-category-create-2.json
+   - curl examples:
+     curl -X POST "$BASE_URL/api/v1/system/product-category/create" \
+       -H "Content-Type: application/json" \
+       -d @product-category-create-1.json
+     curl -X POST "$BASE_URL/api/v1/system/product-category/create" \
+       -H "Content-Type: application/json" \
+       -d @product-category-create-2.json
+
+2) Create product subcategories
+   - POST /api/v1/system/product-sub-category/create
+   - Files: product-subcategory-create-1.json, product-subcategory-create-2.json
+   - curl examples:
+     curl -X POST "$BASE_URL/api/v1/system/product-sub-category/create" \
+       -H "Content-Type: application/json" \
+       -d @product-subcategory-create-1.json
+     curl -X POST "$BASE_URL/api/v1/system/product-sub-category/create" \
+       -H "Content-Type: application/json" \
+       -d @product-subcategory-create-2.json
+
+3) Create 5 gas products (multipart/form-data if attaching files)
+   - POST /api/v1/system/product/create
+   - Files: product-create-1.json ... product-create-5.json
+   - curl example (JSON only fields; add -F imageUpload=@file if needed):
+     curl -X POST "$BASE_URL/api/v1/system/product/create" \
+       -H "Content-Type: application/json" \
+       -d @product-create-1.json
+
+4) Create warehouse location
+   - POST /api/v1/system/warehouse-locations/create
+   - File: warehouse-location-create.json
+   - curl example:
+     curl -X POST "$BASE_URL/api/v1/system/warehouse-locations/create" \
+       -H "Content-Type: application/json" \
+       -d @warehouse-location-create.json
+
+5) Create inventory items or initial stock (choose one path)
+   - Inventory items: POST /api/v1/system/inventory-item/create
+     - Files: inventory-item-create-1.json ... inventory-item-create-5.json
+     - curl example:
+       curl -X POST "$BASE_URL/api/v1/system/inventory-item/create" \
+         -H "Content-Type: application/json" \
+         -d @inventory-item-create-1.json
+   - Initial stock (optional alternative): POST /api/v1/system/inventory-item/initial-stock
+
+6) Create purchase requisition
+   - POST /api/v1/system/purchase-requisition/create
+   - File: purchase-requisition-create.json
+   - curl example:
+     curl -X POST "$BASE_URL/api/v1/system/purchase-requisition/create" \
+       -H "Content-Type: application/json" \
+       -d @purchase-requisition-create.json
+
+7) Submit purchase requisition
+   - POST /api/v1/system/purchase-requisition/submit/{id}?submittedByUserId=22
+   - curl example:
+     curl -X POST "$BASE_URL/api/v1/system/purchase-requisition/submit/{{purchaseRequisitionId}}?submittedByUserId=22"
+
+8) Approve purchase requisition
+   - POST /api/v1/system/purchase-requisition/approve
+   - File: purchase-requisition-approve.json
+   - curl example:
+     curl -X POST "$BASE_URL/api/v1/system/purchase-requisition/approve" \
+       -H "Content-Type: application/json" \
+       -d @purchase-requisition-approve.json
+
+9) Create PO from PR (or direct PO)
+   - From PR: POST /api/v1/system/purchase-requisition/create-po
+     - File: purchase-requisition-create-po.json
+     - curl example:
+       curl -X POST "$BASE_URL/api/v1/system/purchase-requisition/create-po" \
+         -H "Content-Type: application/json" \
+         -d @purchase-requisition-create-po.json
+   - Direct PO: POST /api/v1/system/purchase-order/create
+     - File: purchase-order-create.json
+     - curl example:
+       curl -X POST "$BASE_URL/api/v1/system/purchase-order/create" \
+         -H "Content-Type: application/json" \
+         -d @purchase-order-create.json
+
+10) Create sales order and lines
+    - POST /api/v1/system/sales-order/create
+      - File: sales-order-create.json
+      - curl example:
+        curl -X POST "$BASE_URL/api/v1/system/sales-order/create" \
+          -H "Content-Type: application/json" \
+          -d @sales-order-create.json
+    - Optional line add: POST /api/v1/system/sales-order-line/create
+      - File: sales-order-line-create.json
+      - curl example:
+        curl -X POST "$BASE_URL/api/v1/system/sales-order-line/create" \
+          -H "Content-Type: application/json" \
+          -d @sales-order-line-create.json
+
+11) Reserve inventory and check availability
+    - Reserve: POST /api/v1/system/inventory-allocations/reserve
+      - File: inventory-allocation-reserve.json
+      - curl example:
+        curl -X POST "$BASE_URL/api/v1/system/inventory-allocations/reserve" \
+          -H "Content-Type: application/json" \
+          -d @inventory-allocation-reserve.json
+    - Availability: POST /api/v1/system/inventory-allocations/availability
+      - File: inventory-availability.json
+      - curl example:
+        curl -X POST "$BASE_URL/api/v1/system/inventory-allocations/availability" \
+          -H "Content-Type: application/json" \
+          -d @inventory-availability.json
+
+12) Fulfill sales order after delivery
+    - PUT /api/v1/system/sales-order/fulfill
+    - File: sales-order-fulfill.json
+    - curl example:
+      curl -X PUT "$BASE_URL/api/v1/system/sales-order/fulfill" \
+        -H "Content-Type: application/json" \
+        -d @sales-order-fulfill.json
+
+13) Optional operational steps
+    - Stock adjustment: POST /api/v1/system/stock-adjustment/create
+      - File: stock-adjustment-create.json
+      - curl example:
+        curl -X POST "$BASE_URL/api/v1/system/stock-adjustment/create" \
+          -H "Content-Type: application/json" \
+          -d @stock-adjustment-create.json
+    - Inventory transfer: POST /api/v1/system/inventory-transfer/create
+      - File: inventory-transfer-create.json
+      - curl example:
+        curl -X POST "$BASE_URL/api/v1/system/inventory-transfer/create" \
+          -H "Content-Type: application/json" \
+          -d @inventory-transfer-create.json
+    - Transfer approve: POST /api/v1/system/inventory-transfer/approve
+      - File: inventory-transfer-approve.json
+      - curl example:
+        curl -X POST "$BASE_URL/api/v1/system/inventory-transfer/approve" \
+          -H "Content-Type: application/json" \
+          -d @inventory-transfer-approve.json
+    - Transfer start transit: POST /api/v1/system/inventory-transfer/start-transit
+      - File: inventory-transfer-start-transit.json
+      - curl example:
+        curl -X POST "$BASE_URL/api/v1/system/inventory-transfer/start-transit" \
+          -H "Content-Type: application/json" \
+          -d @inventory-transfer-start-transit.json
+    - Transfer complete: POST /api/v1/system/inventory-transfer/complete
+      - File: inventory-transfer-complete.json
+      - curl example:
+        curl -X POST "$BASE_URL/api/v1/system/inventory-transfer/complete" \
+          -H "Content-Type: application/json" \
+          -d @inventory-transfer-complete.json
+    - Purchase return: POST /api/v1/system/purchase-return/create
+      - File: purchase-return-create.json
+      - curl example:
+        curl -X POST "$BASE_URL/api/v1/system/purchase-return/create" \
+          -H "Content-Type: application/json" \
+          -d @purchase-return-create.json
+
+14) Receive goods (GRV) last
+    - POST /api/v1/system/purchase-orders/{purchaseOrderId}/receive
+    - File: goods-receipt-receive.json
+    - curl example:
+      curl -X POST "$BASE_URL/api/v1/system/purchase-orders/{{purchaseOrderId}}/receive" \
+        -H "Content-Type: application/json" \
+        -d @goods-receipt-receive.json
+
+15) Verify in DB
+    - File: verify_inventory_cycle.sql

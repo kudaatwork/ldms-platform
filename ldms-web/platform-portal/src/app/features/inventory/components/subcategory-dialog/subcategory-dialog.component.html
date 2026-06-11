@@ -1,0 +1,63 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()" [disabled]="submitting">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="onSubmit()" id="subcategoryForm" novalidate>
+    <div class="lx-form-grid">
+      <div class="lx-field span-2" *ngIf="data.categories.length">
+        <label class="lx-field-label">Parent category <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('categoryId', 'required')">
+          <mat-icon class="lx-input-shell__icon">folder_open</mat-icon>
+          <select formControlName="categoryId" aria-label="Parent category">
+            <option [ngValue]="null">— Select category —</option>
+            <option *ngFor="let cat of data.categories" [ngValue]="cat.id">{{ cat.name }}</option>
+          </select>
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('categoryId', 'required')">Parent category is required</div>
+      </div>
+
+      <p class="lx-field-error span-2" *ngIf="!data.categories.length">
+        Add at least one product category before creating subcategories.
+      </p>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Subcategory name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required') || hasError('name', 'maxlength')">
+          <mat-icon class="lx-input-shell__icon">label_outline</mat-icon>
+          <input formControlName="name" placeholder="e.g. Engine oils" autocomplete="off" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required</div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'maxlength')">Maximum 200 characters</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Description <span class="req">*</span></label>
+        <div class="lx-input-shell lx-input-shell--textarea" [class.lx-input-shell--invalid]="hasError('description', 'required') || hasError('description', 'maxlength')">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="description" rows="3" placeholder="Describe this subcategory"></textarea>
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('description', 'required')">Description is required</div>
+        <div class="lx-field-error" *ngIf="hasError('description', 'maxlength')">Maximum 500 characters</div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="submitError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ submitError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid || !data.categories.length">
+        {{ submitting ? 'Saving…' : (isEdit ? 'Save changes' : 'Add subcategory') }}
+      </button>
+    </div>
+  </form>
+</div>

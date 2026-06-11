@@ -1,0 +1,11 @@
+{
+  "transferNumber": "TR-GAS-0001",
+  "productId": "{{productId4}}",
+  "fromLocationId": "{{warehouseLocationId}}",
+  "toLocationId": "{{warehouseLocationId2}}",
+  "quantity": 6,
+  "unitCost": 60.0,
+  "status": "REQUESTED",
+  "reference": "Internal transfer gas cylinders",
+  "createdByUserId": 22
+}

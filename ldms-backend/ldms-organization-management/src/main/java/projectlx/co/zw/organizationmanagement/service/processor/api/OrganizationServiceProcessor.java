@@ -61,6 +61,13 @@ public interface OrganizationServiceProcessor {
 
     OrganizationResponse registerCustomer(RegisterOrganizationRequest request, Locale locale, String username);
 
+    OrganizationResponse checkCustomerRegistrationEmail(String email, Locale locale, String username);
+
+    OrganizationResponse linkExistingOrganizationAsCustomer(
+            projectlx.co.zw.organizationmanagement.utils.requests.LinkExistingOrganizationAsCustomerRequest request,
+            Locale locale,
+            String username);
+
     OrganizationResponse registerTransporter(RegisterOrganizationRequest request, Locale locale, String username);
 
     OrganizationResponse verifyOrganizationEmail(String email, String token, Locale locale);
@@ -201,7 +208,15 @@ public interface OrganizationServiceProcessor {
 
     OrganizationResponse createFleetVehicle(CreateFleetVehicleRequest request, Locale locale, String username);
 
+    OrganizationResponse notifyFleetRegistered(
+            projectlx.co.zw.organizationmanagement.utils.requests.FleetRegisteredNotificationRequest request,
+            Locale locale);
+
     OrganizationResponse updateFleetVehicle(Long id, EditFleetVehicleRequest request, Locale locale, String username);
 
     OrganizationResponse deleteFleetVehicle(Long id, Locale locale, String username);
+
+    OrganizationResponse validateFleetOwnership(
+            projectlx.co.zw.organizationmanagement.utils.requests.ValidateFleetOwnershipRequest request,
+            Locale locale);
 }

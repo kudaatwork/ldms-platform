@@ -1,6 +1,6 @@
 import { Component, Input } from '@angular/core';
 
-export type LxWorkspaceHeroVariant = 'teal' | 'brand' | 'violet' | 'emerald' | 'amber' | 'rose' | 'slate';
+export type LxWorkspaceHeroVariant = 'teal' | 'brand' | 'violet' | 'emerald' | 'amber' | 'rose' | 'slate' | 'cyan';
 
 /**
  * LxWorkspaceHeroComponent

@@ -1,0 +1,14 @@
+{
+  "productId": "{{productId2}}",
+  "warehouseLocationId": "{{warehouseLocationId}}",
+  "supplierId": 8,
+  "createdByUserId": 22,
+  "currentStock": 30,
+  "minStockLevel": 8,
+  "reorderQuantity": 15,
+  "batchLot": "LOT-C2H2-001",
+  "serialNumber": "SN-C2H2-001",
+  "expiresAt": "2030-12-31",
+  "unitCost": 115.0,
+  "lastPurchaseCost": 115.0
+}

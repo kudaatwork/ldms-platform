@@ -1,0 +1,48 @@
+<div class="searchable-product-picker">
+  <label class="lx-field-label" *ngIf="label" [attr.for]="inputElementId">
+    {{ label }} <span class="req" *ngIf="required">*</span>
+  </label>
+
+  <div class="lx-input-shell searchable-product-picker__input" [class.lx-input-shell--invalid]="invalid">
+    <mat-icon class="lx-input-shell__icon" aria-hidden="true">search</mat-icon>
+    <input
+      [id]="inputElementId"
+      type="text"
+      [(ngModel)]="searchText"
+      [ngModelOptions]="{ standalone: true }"
+      [matAutocomplete]="productAuto"
+      [placeholder]="searchPlaceholder"
+      [disabled]="disabled"
+      autocomplete="off"
+      [attr.aria-label]="ariaLabel"
+      (ngModelChange)="onSearchInput()"
+      (focus)="onInputFocus()"
+      (blur)="onBlur()"
+      (keydown.enter)="onSearchKeydown($event)"
+    />
+  </div>
+
+  <mat-autocomplete
+    #productAuto="matAutocomplete"
+    class="searchable-product-picker__panel"
+    [autoActiveFirstOption]="true"
+    (optionSelected)="onProductPicked($event)"
+  >
+    <mat-option *ngFor="let p of filteredProducts" [value]="p">
+      <span class="searchable-product-picker__option">
+        <span class="searchable-product-picker__option-name">{{ productLabel(p) }}</span>
+        <span class="searchable-product-picker__option-meta" *ngIf="p.categoryName">{{ p.categoryName }}</span>
+      </span>
+    </mat-option>
+    <mat-option disabled *ngIf="searchText.trim() && totalFilteredCount === 0">
+      No products match your search.
+    </mat-option>
+    <mat-option disabled *ngIf="hasMoreResults">
+      {{ totalFilteredCount - maxVisibleResults }} more — refine your search to see them.
+    </mat-option>
+  </mat-autocomplete>
+
+  <p class="lx-field-hint searchable-product-picker__hint" *ngIf="!searchText.trim() && !value && products.length">
+    Start typing to filter {{ products.length }} products.
+  </p>
+</div>

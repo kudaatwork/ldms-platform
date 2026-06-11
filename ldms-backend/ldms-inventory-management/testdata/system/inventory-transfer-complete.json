@@ -1,0 +1,5 @@
+{
+  "transferId": "{{transferId}}",
+  "updatedByUserId": 22,
+  "idempotencyKey": "IT-GAS-0001"
+}

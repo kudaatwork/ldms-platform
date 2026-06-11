@@ -1,0 +1,17 @@
+package projectlx.inventory.management.utils.requests;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
+import projectlx.co.zw.shared_library.utils.requests.MultipleFiltersRequest;
+
+@Getter
+@Setter
+@ToString
+public class ProductSubCategoryMultipleFiltersRequest extends MultipleFiltersRequest {
+
+    private Long categoryId;
+    private String name;
+    private EntityStatus entityStatus;
+}

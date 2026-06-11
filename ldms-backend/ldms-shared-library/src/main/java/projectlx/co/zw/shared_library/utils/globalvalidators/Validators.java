@@ -21,6 +21,8 @@ import java.time.LocalDateTime;
 import java.time.Period;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -318,5 +320,26 @@ public class Validators {
         }
 
         return capitalized.toString().trim();
+    }
+
+    /**
+     * Sniffs MIME from file bytes when possible, otherwise normalizes the declared content type.
+     */
+    public static Optional<String> sniffMimeBase(byte[] fileData, String declaredContentType) {
+        if (fileData != null && fileData.length > 0) {
+            try {
+                MagicMatch match = Magic.getMagicMatch(fileData, false);
+                String mimeType = match.getMimeType();
+                if (mimeType != null && !mimeType.isBlank()) {
+                    return Optional.of(mimeType.toLowerCase(Locale.ROOT).split(";")[0].trim());
+                }
+            } catch (MagicParseException | MagicMatchNotFoundException | MagicException ignored) {
+                // fall through to declared content type
+            }
+        }
+        if (declaredContentType != null && !declaredContentType.isBlank()) {
+            return Optional.of(declaredContentType.toLowerCase(Locale.ROOT).split(";")[0].trim());
+        }
+        return Optional.empty();
     }
 }

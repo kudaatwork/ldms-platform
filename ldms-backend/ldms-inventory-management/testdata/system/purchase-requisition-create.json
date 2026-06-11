@@ -1,0 +1,78 @@
+{
+  "organizationId": "{{organizationId}}",
+  "departmentId": "{{departmentId}}",
+  "requestedByUserId": 22,
+  "costCenter": "OPS-001",
+  "projectCode": "PRJ-GAS-TEST",
+  "purpose": "Replenish gas cylinder inventory",
+  "justification": "Stock levels below reorder point",
+  "priority": "NORMAL",
+  "requisitionDate": "2025-01-15",
+  "requiredByDate": "2025-01-30",
+  "expiryDate": "2025-02-28",
+  "defaultFulfillmentMethod": "PURCHASE",
+  "targetWarehouseId": "{{warehouseLocationId}}",
+  "preferredSupplierId": 8,
+  "currency": "USD",
+  "budgetAvailable": true,
+  "budgetCode": "BUD-GAS-2025",
+  "notes": "System test requisition for gas products",
+  "lines": [
+    {
+      "productId": "{{productId1}}",
+      "productDescription": "Oxygen Cylinder 50L",
+      "unitOfMeasure": "CYLINDER",
+      "requestedQuantity": 12,
+      "estimatedUnitPrice": 120.0,
+      "fulfillmentMethod": "PURCHASE",
+      "specifications": "Industrial oxygen",
+      "preferredBrand": "LX Gases",
+      "isSubstituteAcceptable": true
+    },
+    {
+      "productId": "{{productId2}}",
+      "productDescription": "Acetylene Cylinder 40L",
+      "unitOfMeasure": "CYLINDER",
+      "requestedQuantity": 10,
+      "estimatedUnitPrice": 145.0,
+      "fulfillmentMethod": "PURCHASE",
+      "specifications": "Welding grade",
+      "preferredBrand": "LX Gases",
+      "isSubstituteAcceptable": true
+    },
+    {
+      "productId": "{{productId3}}",
+      "productDescription": "Carbon Dioxide Cylinder 45kg",
+      "unitOfMeasure": "CYLINDER",
+      "requestedQuantity": 8,
+      "estimatedUnitPrice": 110.0,
+      "fulfillmentMethod": "PURCHASE",
+      "specifications": "Food grade",
+      "preferredBrand": "LX Gases",
+      "isSubstituteAcceptable": true
+    },
+    {
+      "productId": "{{productId4}}",
+      "productDescription": "LPG Cylinder 14kg",
+      "unitOfMeasure": "CYLINDER",
+      "requestedQuantity": 15,
+      "estimatedUnitPrice": 60.0,
+      "fulfillmentMethod": "PURCHASE",
+      "specifications": "Standard 14kg",
+      "preferredBrand": "LX Gases",
+      "isSubstituteAcceptable": true
+    },
+    {
+      "productId": "{{productId5}}",
+      "productDescription": "Gas Regulator Set",
+      "unitOfMeasure": "EACH",
+      "requestedQuantity": 20,
+      "estimatedUnitPrice": 35.0,
+      "fulfillmentMethod": "PURCHASE",
+      "specifications": "Dual gauge",
+      "preferredBrand": "LX Gases",
+      "isSubstituteAcceptable": true
+    }
+  ],
+  "createdByUserId": 22
+}

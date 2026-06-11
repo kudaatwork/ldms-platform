@@ -206,6 +206,7 @@ class UserAccountServiceImplTest {
     @Test
     public void create_shouldReturnFalseAnd400IfPhoneNumberExists() {
         ValidatorDto validatorDto = new ValidatorDto(true, null, null);
+        createUserAccountRequest.setUserId(2L);
 
         when(userAccountServiceValidator.isCreateUserRequestValid(any(CreateUserAccountRequest.class), any(Locale.class)))
                 .thenReturn(validatorDto);

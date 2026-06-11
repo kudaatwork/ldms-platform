@@ -1,7 +1,7 @@
 import { Component, Inject, OnDestroy, OnInit, Optional } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { Subject, finalize, takeUntil } from 'rxjs';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { Subject, debounceTime, distinctUntilChanged, finalize, takeUntil } from 'rxjs';
 import { ORG_TYPES, type OrganizationType } from '../../../../core/models/auth.model';
 import {
   dateOfBirthMinimumAgeMessage,
@@ -15,7 +15,16 @@ import {
   IndustrySelectOption,
   RegisterCustomerPayload,
 } from '../../models/customer.model';
-import { CustomersPortalService } from '../../services/customers-portal.service';
+import {
+  CustomerRegistrationConflictError,
+  CustomerRegistrationEmailCheck,
+  CustomersPortalService,
+} from '../../services/customers-portal.service';
+import {
+  DuplexModeOfferDialogComponent,
+  type DuplexModeOfferDialogData,
+  type DuplexModeOfferDialogResult,
+} from '../duplex-mode-offer-dialog/duplex-mode-offer-dialog.component';
 
 const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY'] as const;
 
@@ -63,6 +72,9 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
   seedSuburbId: number | null = null;
   addressSeed: AddressHierarchySeed | null = null;
   addressError = '';
+  emailCheckLoading = false;
+  emailCheckMessage = '';
+  pendingLinkCheck: CustomerRegistrationEmailCheck | null = null;
 
   private existingLocationId?: number;
   private loadedAddress: {
@@ -78,6 +90,7 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
     private readonly fb: FormBuilder,
     private readonly dialogRef: MatDialogRef<RegisterCustomerDialogComponent, CustomerListRow | undefined>,
     private readonly customers: CustomersPortalService,
+    private readonly dialog: MatDialog,
     @Optional() @Inject(MAT_DIALOG_DATA) data: RegisterCustomerDialogData | null,
   ) {
     this.customerId = data?.customerId;
@@ -125,6 +138,12 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
           this.taxUploadMissing = false;
         }
       });
+    if (!this.isEdit) {
+      this.form
+        .get('email')
+        ?.valueChanges.pipe(debounceTime(450), distinctUntilChanged(), takeUntil(this.destroy$))
+        .subscribe((raw) => this.checkRegistrationEmail(String(raw ?? '').trim()));
+    }
   }
 
   ngOnDestroy(): void {
@@ -275,9 +294,92 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (row) => this.dialogRef.close(row),
         error: (err: Error) => {
+          if (err instanceof CustomerRegistrationConflictError) {
+            this.openLinkOfferDialog(err.conflict);
+            return;
+          }
           this.saveError =
             err.message ?? (this.isEdit ? 'Could not update customer.' : 'Could not register customer.');
         },
+      });
+  }
+
+  private checkRegistrationEmail(email: string): void {
+    this.pendingLinkCheck = null;
+    this.emailCheckMessage = '';
+    if (!email || this.form.get('email')?.invalid) {
+      return;
+    }
+    this.emailCheckLoading = true;
+    this.customers
+      .checkCustomerRegistrationEmail(email)
+      .pipe(
+        finalize(() => (this.emailCheckLoading = false)),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (check) => {
+          this.pendingLinkCheck =
+            check.status === 'DUPLEX_OFFERED' || check.status === 'LINKABLE_CUSTOMER' ? check : null;
+          if (check.status === 'AVAILABLE') {
+            this.emailCheckMessage = '';
+            return;
+          }
+          if (check.status === 'DUPLEX_OFFERED' || check.status === 'LINKABLE_CUSTOMER') {
+            this.emailCheckMessage = check.message;
+            return;
+          }
+          this.emailCheckMessage = check.message;
+        },
+        error: () => {
+          this.emailCheckMessage = '';
+        },
+      });
+  }
+
+  offerLinkExisting(): void {
+    if (!this.pendingLinkCheck?.existingOrganizationId) {
+      return;
+    }
+    this.openLinkOfferDialog({
+      ...this.pendingLinkCheck,
+      existingOrganizationId: this.pendingLinkCheck.existingOrganizationId,
+    });
+  }
+
+  private openLinkOfferDialog(
+    check: CustomerRegistrationEmailCheck & { existingOrganizationId: number },
+  ): void {
+    const data: DuplexModeOfferDialogData = {
+      organizationName: check.existingOrganizationName ?? 'Existing organisation',
+      organizationEmail: check.existingOrganizationEmail,
+      linkMode: check.status === 'LINKABLE_CUSTOMER' ? 'LINKABLE_CUSTOMER' : 'DUPLEX_OFFERED',
+    };
+    this.dialog
+      .open<DuplexModeOfferDialogComponent, DuplexModeOfferDialogData, DuplexModeOfferDialogResult>(
+        DuplexModeOfferDialogComponent,
+        { data, width: '560px', maxWidth: '95vw' },
+      )
+      .afterClosed()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((result) => {
+        if (!result || result.action !== 'link') {
+          return;
+        }
+        this.submitting = true;
+        this.saveError = '';
+        this.customers
+          .linkExistingOrganizationAsCustomer(check.existingOrganizationId, result.enableDuplexMode)
+          .pipe(
+            finalize(() => (this.submitting = false)),
+            takeUntil(this.destroy$),
+          )
+          .subscribe({
+            next: (row) => this.dialogRef.close(row),
+            error: (err: Error) => {
+              this.saveError = err.message ?? 'Could not link existing organisation.';
+            },
+          });
       });
   }
 

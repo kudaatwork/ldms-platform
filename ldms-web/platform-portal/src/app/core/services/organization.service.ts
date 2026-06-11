@@ -26,6 +26,7 @@ export interface RegisterOrganizationPayload {
   taxNumber?: string;
   taxClearanceCertificateUpload?: File;
   createdViaSignup?: boolean;
+  duplexMode?: boolean;
 }
 
 export interface OrganizationSummary {
@@ -34,7 +35,8 @@ export interface OrganizationSummary {
   email: string;
   kycStatus: string;
   isVerified: boolean;
-  organizationClassification: OrganizationClassification;
+  organizationClassification?: OrganizationClassification;
+  duplexMode?: boolean;
 }
 
 /** Public onboarding tracker (limited fields from GET onboarding-status). */
@@ -91,6 +93,9 @@ export class OrganizationService {
     this.appendFormValue(form, 'registrationNumber', payload.registrationNumber);
     this.appendFormValue(form, 'taxNumber', payload.taxNumber);
     this.appendFormValue(form, 'createdViaSignup', true);
+    if (payload.duplexMode) {
+      this.appendFormValue(form, 'duplexMode', true);
+    }
     this.appendFormFile(form, 'contactPersonNationalIdUpload', payload.contactPersonNationalIdUpload);
     this.appendFormFile(form, 'contactPersonPassportUpload', payload.contactPersonPassportUpload);
     this.appendFormFile(form, 'taxClearanceCertificateUpload', payload.taxClearanceCertificateUpload);
@@ -159,16 +164,32 @@ export class OrganizationService {
   }
 
   private mapSummary(dto: Record<string, unknown>): OrganizationSummary {
+    const organizationClassification = this.readOrganizationClassification(dto);
     return {
       id: Number(dto['id'] ?? 0),
       name: String(dto['name'] ?? ''),
       email: String(dto['email'] ?? ''),
       kycStatus: String(dto['kycStatus'] ?? 'DRAFT'),
       isVerified: Boolean(dto['isVerified']),
-      organizationClassification: String(
-        dto['organizationClassification'] ?? 'SUPPLIER',
-      ) as OrganizationClassification,
+      organizationClassification,
+      duplexMode: Boolean(dto['duplexMode']),
     };
+  }
+
+  private readOrganizationClassification(
+    dto: Record<string, unknown>,
+  ): OrganizationClassification | undefined {
+    const raw = dto['organizationClassification'];
+    if (typeof raw === 'string' && raw.trim()) {
+      return raw.trim().toUpperCase() as OrganizationClassification;
+    }
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const nested = String((raw as Record<string, unknown>)['name'] ?? '').trim();
+      if (nested) {
+        return nested.toUpperCase() as OrganizationClassification;
+      }
+    }
+    return undefined;
   }
 
   private extractDto(response: unknown): Record<string, unknown> {

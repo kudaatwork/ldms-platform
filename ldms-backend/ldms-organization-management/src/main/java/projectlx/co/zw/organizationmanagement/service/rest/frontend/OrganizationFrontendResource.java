@@ -180,6 +180,30 @@ public class OrganizationFrontendResource {
         return organizationServiceProcessor.listActiveIndustriesForPlatform(locale);
     }
 
+    @Auditable(action = "ORG_CHECK_CUSTOMER_REGISTRATION_EMAIL")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).REGISTER_CUSTOMER.toString())")
+    @GetMapping("/customers/check-registration-email")
+    @Operation(summary = "Check whether a customer registration email is available or can be linked (duplex offer)")
+    public OrganizationResponse checkCustomerRegistrationEmail(
+            @RequestParam String email,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.checkCustomerRegistrationEmail(email, locale, username);
+    }
+
+    @Auditable(action = "ORG_LINK_EXISTING_CUSTOMER")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).REGISTER_CUSTOMER.toString())")
+    @PostMapping("/customers/link-existing")
+    @Operation(summary = "Link an existing organisation as a customer (enables duplex when target is a supplier)")
+    public OrganizationResponse linkExistingOrganizationAsCustomer(
+            @Valid @RequestBody projectlx.co.zw.organizationmanagement.utils.requests.LinkExistingOrganizationAsCustomerRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.linkExistingOrganizationAsCustomer(request, locale, username);
+    }
+
     @Auditable(action = "ORG_REGISTER_CUSTOMER")
     @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).REGISTER_CUSTOMER.toString())")
     @PostMapping(value = "/customers/register", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)

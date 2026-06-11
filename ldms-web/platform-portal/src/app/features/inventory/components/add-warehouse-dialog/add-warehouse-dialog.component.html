@@ -1,0 +1,106 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()" [disabled]="submitting">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="onSubmit()" id="addWarehouseForm" novalidate>
+    <div class="lx-form-grid">
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Warehouse details</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required') || hasError('name', 'maxlength')">
+          <mat-icon class="lx-input-shell__icon">warehouse</mat-icon>
+          <input formControlName="name" placeholder="e.g. Main distribution centre" autocomplete="off" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Type <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">category</mat-icon>
+          <select formControlName="warehouseType" aria-label="Warehouse type">
+            <option *ngFor="let opt of warehouseTypeOptions" [ngValue]="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Description <span class="req">*</span></label>
+        <div class="lx-input-shell lx-input-shell--textarea" [class.lx-input-shell--invalid]="hasError('description', 'required')">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="description" rows="2" placeholder="What is stored or handled at this location?"></textarea>
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('description', 'required')">Description is required</div>
+      </div>
+
+      <ng-container *ngIf="!isEdit">
+        <div class="lx-form-section span-2">
+          <div class="lx-form-section-title">Physical address</div>
+          <p class="lx-form-section-lead">Street address and suburb are required. The location service stores the address before the warehouse is created.</p>
+        </div>
+
+        <div class="lx-field span-2">
+          <label class="lx-field-label">Address line 1 <span class="req">*</span></label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">home</mat-icon>
+            <input [(ngModel)]="addressLine1" [ngModelOptions]="{ standalone: true }" placeholder="Street address" />
+          </div>
+        </div>
+
+        <div class="lx-field span-2">
+          <label class="lx-field-label">Address line 2</label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">home_work</mat-icon>
+            <input [(ngModel)]="addressLine2" [ngModelOptions]="{ standalone: true }" placeholder="Optional" />
+          </div>
+        </div>
+
+        <div class="lx-field">
+          <label class="lx-field-label">Postal code</label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon>
+            <input [(ngModel)]="postalCode" [ngModelOptions]="{ standalone: true }" placeholder="e.g. 00263" />
+          </div>
+        </div>
+
+        <app-user-address-cascade-fields
+          class="span-2"
+          [(suburbId)]="suburbIdStr"
+          [disabled]="submitting"
+        ></app-user-address-cascade-fields>
+
+        <p class="lx-field-error span-2" *ngIf="addressError">{{ addressError }}</p>
+      </ng-container>
+
+      <div class="lx-field span-2" *ngIf="isEdit">
+        <label class="lx-field-label">Physical address</label>
+        <div class="lx-input-shell lx-input-shell--readonly">
+          <mat-icon class="lx-input-shell__icon">location_on</mat-icon>
+          <span>{{ addressReadOnly }}</span>
+        </div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="submitError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ submitError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+        {{ submitting ? 'Saving…' : (isEdit ? 'Save changes' : 'Add warehouse') }}
+      </button>
+    </div>
+  </form>
+</div>

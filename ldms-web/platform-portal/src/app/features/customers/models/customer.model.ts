@@ -11,6 +11,13 @@ export type CustomerKycStatus =
 
 export type CustomerViewMode = 'atlas' | 'ledger';
 
+export type CustomerRegistrationEmailStatus =
+  | 'AVAILABLE'
+  | 'LINKABLE_CUSTOMER'
+  | 'DUPLEX_OFFERED'
+  | 'ALREADY_LINKED'
+  | 'NOT_LINKABLE';
+
 export type CustomerStatusFilter = 'ALL' | 'VERIFIED' | 'PENDING_KYC' | 'DRAFT';
 
 export interface CustomerListRow {

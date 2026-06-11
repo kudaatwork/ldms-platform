@@ -1,0 +1,78 @@
+export interface PlatformBillingModuleMeta {
+  category: string;
+  label: string;
+  description: string;
+  icon: string;
+}
+
+/** Display order for wallet usage modules shown to organisations. */
+export const PLATFORM_BILLING_MODULES: PlatformBillingModuleMeta[] = [
+  {
+    category: 'TRIPS',
+    label: 'Trips & tracking',
+    description: 'Trip creation, GPS pings, and completion events',
+    icon: 'local_shipping',
+  },
+  {
+    category: 'NOTIFICATIONS',
+    label: 'Notifications',
+    description: 'Email, SMS, and push messages',
+    icon: 'notifications',
+  },
+  {
+    category: 'LOGISTICS',
+    label: 'Shipments',
+    description: 'Shipment status updates and logistics events',
+    icon: 'inventory_2',
+  },
+  {
+    category: 'ORDERS',
+    label: 'Orders & procurement',
+    description: 'Orders and procurement approval stages',
+    icon: 'shopping_cart',
+  },
+  {
+    category: 'DOCUMENTS',
+    label: 'Documents',
+    description: 'Uploads and document sharing',
+    icon: 'folder',
+  },
+  {
+    category: 'BILLING',
+    label: 'Billing documents',
+    description: 'Invoice and billing document generation',
+    icon: 'receipt_long',
+  },
+  {
+    category: 'IOT',
+    label: 'GPS & IoT',
+    description: 'Telemetry and location pings',
+    icon: 'gps_fixed',
+  },
+  {
+    category: 'PLATFORM',
+    label: 'Platform audit',
+    description: 'Audit trail and platform writes',
+    icon: 'policy',
+  },
+  {
+    category: 'PROCUREMENT',
+    label: 'Procurement',
+    description: 'Dedicated procurement workflow actions',
+    icon: 'approval',
+  },
+  {
+    category: 'GENERAL',
+    label: 'General',
+    description: 'Other platform actions',
+    icon: 'apps',
+  },
+];
+
+export function moduleLabel(category: string): string {
+  const match = PLATFORM_BILLING_MODULES.find((m) => m.category === category);
+  if (match) {
+    return match.label;
+  }
+  return category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}

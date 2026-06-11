@@ -1,0 +1,12 @@
+{
+  "name": "Acetylene Cylinder 40L",
+  "description": "Acetylene cylinder, 40L",
+  "productCode": "GAS-C2H2-40L",
+  "price": 145.0,
+  "unitOfMeasure": "CYLINDER",
+  "productCategoryId": "{{categoryId1}}",
+  "productSubCategoryId": "{{subCategoryId1}}",
+  "supplierId": 8,
+  "manufacturer": "LX Gases",
+  "expiresAt": "2030-12-31"
+}

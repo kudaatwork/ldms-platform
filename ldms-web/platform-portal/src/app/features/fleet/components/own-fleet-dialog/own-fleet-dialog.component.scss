@@ -1,5 +1,266 @@
 @use '../../../../shared/styles/lx-dialog-form-shell';
 
+// ── Wizard step indicator ──────────────────────────────────────────────────
+.lx-wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 24px 20px;
+}
+
+.lx-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &__dot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--gray-100, #f1f5f9);
+    color: var(--gray-400, #94a3b8);
+    font-size: 13px;
+    font-weight: 600;
+    border: 2px solid var(--gray-200, #e2e8f0);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  &__label {
+    font-size: 13px;
+    color: var(--gray-400, #94a3b8);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  &__connector {
+    flex: 1;
+    height: 2px;
+    background: var(--gray-200, #e2e8f0);
+    margin: 0 12px;
+    min-width: 32px;
+  }
+
+  &--active {
+    .lx-step__dot {
+      background: var(--primary-600, #0ea5e9);
+      color: #fff;
+      border-color: var(--primary-600, #0ea5e9);
+    }
+
+    .lx-step__label {
+      color: var(--primary-700, #0369a1);
+      font-weight: 600;
+    }
+  }
+
+  &--done {
+    .lx-step__dot {
+      background: var(--emerald-500, #10b981);
+      color: #fff;
+      border-color: var(--emerald-500, #10b981);
+    }
+
+    .lx-step__label {
+      color: var(--emerald-700, #047857);
+    }
+  }
+}
+
+// ── Step 2 — papers ────────────────────────────────────────────────────────
+.lx-papers-lead {
+  font-size: 13.5px;
+  color: var(--gray-500, #64748b);
+  margin: 0 0 20px;
+  line-height: 1.55;
+}
+
+.lx-doc-slots {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.lx-doc-slot {
+  border: 1px solid var(--gray-200, #e2e8f0);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--gray-50, #f8fafc);
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  &__icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: var(--primary-500, #38bdf8);
+    margin-top: 1px;
+    flex-shrink: 0;
+  }
+
+  &__meta {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  &__label {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--gray-700, #334155);
+
+    .req {
+      color: var(--red-500, #ef4444);
+    }
+  }
+
+  &__status {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 500;
+
+    mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+
+    &--ok {
+      color: var(--emerald-600, #059669);
+    }
+
+    &--uploading {
+      color: var(--primary-500, #38bdf8);
+    }
+
+    &--error {
+      color: var(--red-500, #ef4444);
+    }
+  }
+
+  &__body {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+  }
+
+  &__file-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 200px;
+  }
+
+  &__expiry {
+    flex: 0 0 160px;
+  }
+}
+
+// ── File pick button ───────────────────────────────────────────────────────
+.lx-file-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1.5px dashed var(--gray-300, #cbd5e1);
+  background: #fff;
+  color: var(--gray-500, #64748b);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+
+  span {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    border-color: var(--primary-400, #38bdf8);
+    color: var(--primary-600, #0ea5e9);
+    background: var(--primary-50, #f0f9ff);
+  }
+
+  &--done {
+    border-style: solid;
+    border-color: var(--emerald-400, #34d399);
+    color: var(--emerald-700, #047857);
+    background: var(--emerald-50, #ecfdf5);
+  }
+}
+
+.lx-file-input-hidden {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+// ── Icon-only ghost button ─────────────────────────────────────────────────
+.lx-btn-icon-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--gray-400, #94a3b8);
+  padding: 0;
+  flex-shrink: 0;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &:hover {
+    background: var(--gray-100, #f1f5f9);
+    color: var(--red-500, #ef4444);
+  }
+}
+
+// ── Compact input shell override ───────────────────────────────────────────
+.lx-input-shell--compact {
+  input[type='date'] {
+    padding: 8px 10px 8px 4px;
+  }
+}
+
+// ── Dialog actions ─────────────────────────────────────────────────────────
 .lx-dialog-actions {
   display: flex;
   justify-content: flex-end;
@@ -7,4 +268,8 @@
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--gray-100, #f1f5f9);
+
+  &--spread {
+    justify-content: space-between;
+  }
 }

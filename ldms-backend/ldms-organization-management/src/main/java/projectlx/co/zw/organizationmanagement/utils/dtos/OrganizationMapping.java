@@ -125,6 +125,7 @@ public final class OrganizationMapping {
         dto.setLastRejectionReason(o.getLastRejectionReason());
         dto.setResubmissionCount(o.getResubmissionCount());
         dto.setIsVerified(o.isVerified());
+        dto.setDuplexMode(o.isDuplexMode());
         dto.setCreatedViaSignup(o.getCreatedViaSignup());
         dto.setCreatedAt(o.getCreatedAt());
         dto.setUpdatedAt(o.getModifiedAt());

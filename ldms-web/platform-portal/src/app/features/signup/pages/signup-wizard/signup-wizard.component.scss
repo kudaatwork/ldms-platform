@@ -664,6 +664,34 @@
   }
 }
 
+.su-duplex-panel {
+  margin-top: 1.25rem;
+  padding: 1rem 1.1rem;
+  border-radius: 12px;
+  border: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.su-duplex-toggle {
+  display: flex;
+  gap: 0.65rem;
+  align-items: flex-start;
+  cursor: pointer;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+
+  input {
+    margin-top: 0.2rem;
+  }
+}
+
+.su-duplex-copy {
+  margin: 0.65rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--gray-600);
+  line-height: 1.5;
+}
+
 @media (max-width: 640px) {
   .su-form {
     grid-template-columns: 1fr;

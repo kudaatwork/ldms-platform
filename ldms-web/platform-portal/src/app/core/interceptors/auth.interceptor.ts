@@ -3,6 +3,8 @@ import { Injectable } from '@angular/core';
 import { Observable, throwError } from 'rxjs';
 import { isLdmsApiRequest } from '../utils/api-url.util';
 import { isPublicLdmsApiRequest } from '../utils/public-api.util';
+import { isJwtExpired } from '../utils/jwt.util';
+import { SessionExpiryService } from '../services/session-expiry.service';
 import { StorageService } from '../services/storage.service';
 
 function normalizeAccessToken(raw: string | null | undefined): string | null {
@@ -21,7 +23,10 @@ function normalizeAccessToken(raw: string | null | undefined): string | null {
 
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
-  constructor(private readonly storage: StorageService) {}
+  constructor(
+    private readonly storage: StorageService,
+    private readonly sessionExpiry: SessionExpiryService,
+  ) {}
 
   intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
     if (!isLdmsApiRequest(req.url)) {
@@ -40,6 +45,18 @@ export class AuthInterceptor implements HttpInterceptor {
             statusText: 'Unauthorized',
             url: req.url,
             error: { message: 'Not signed in. Log in again to continue.' },
+          }),
+      );
+    }
+    if (isJwtExpired(token)) {
+      this.sessionExpiry.scheduleHandleSessionExpired('expired');
+      return throwError(
+        () =>
+          new HttpErrorResponse({
+            status: 401,
+            statusText: 'Unauthorized',
+            url: req.url,
+            error: { message: 'Your session has expired. Please sign in again.' },
           }),
       );
     }

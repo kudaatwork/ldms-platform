@@ -653,6 +653,9 @@ export class OrganizationsAdminService {
     this.appendFormValue(form, 'registrationNumber', payload.registrationNumber);
     this.appendFormValue(form, 'taxNumber', payload.taxNumber);
     this.appendFormValue(form, 'createdViaSignup', payload.createdViaSignup ?? false);
+    if (payload.duplexMode) {
+      this.appendFormValue(form, 'duplexMode', true);
+    }
     this.appendFormValue(form, 'taxClearanceCertificateUploadId', payload.taxClearanceCertificateUploadId);
     this.appendFormFile(form, 'taxClearanceCertificateUpload', payload.taxClearanceCertificateUpload);
     return this.http.post<unknown>(this.url('register'), form).pipe(

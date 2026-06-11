@@ -1,0 +1,14 @@
+{
+  "productId": "{{productId4}}",
+  "warehouseLocationId": "{{warehouseLocationId}}",
+  "supplierId": 8,
+  "createdByUserId": 22,
+  "currentStock": 60,
+  "minStockLevel": 15,
+  "reorderQuantity": 30,
+  "batchLot": "LOT-LPG-001",
+  "serialNumber": "SN-LPG-001",
+  "expiresAt": "2030-12-31",
+  "unitCost": 45.0,
+  "lastPurchaseCost": 45.0
+}

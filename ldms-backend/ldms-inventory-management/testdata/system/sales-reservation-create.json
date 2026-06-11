@@ -1,0 +1,14 @@
+{
+  "inventoryItemId": "{{inventoryItemId1}}",
+  "quantityReserved": 2,
+  "reservedForType": "SALES_ORDER",
+  "reservedForId": "{{salesOrderId}}",
+  "expiresAt": "2025-02-10T23:59:59",
+  "notes": "Reservation for gas order",
+  "reservedByUserId": 22,
+  "productId": "{{productId1}}",
+  "warehouseLocationId": "{{warehouseLocationId}}",
+  "customerId": "{{customerId}}",
+  "reservedUntil": "2025-02-10T23:59:59",
+  "createdByUserId": 22
+}

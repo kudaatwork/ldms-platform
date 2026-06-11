@@ -1,0 +1,8 @@
+{
+  "page": 0,
+  "size": 50,
+  "inventoryItemId": "{{inventoryItemId1}}",
+  "transactionType": "STOCK_IN",
+  "performedByUserId": 22,
+  "referenceDocumentType": "GOODS_RECEIVED_VOUCHER"
+}

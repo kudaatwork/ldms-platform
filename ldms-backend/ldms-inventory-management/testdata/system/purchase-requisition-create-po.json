@@ -1,0 +1,46 @@
+{
+  "purchaseRequisitionId": "{{purchaseRequisitionId}}",
+  "supplierId": 8,
+  "supplierContact": "Supplier Desk",
+  "buyerContact": "Procurement",
+  "currency": "USD",
+  "paymentTerm": "NET_30",
+  "paymentDueDate": "2025-02-15",
+  "taxRate": 15.0,
+  "shipFromLocationId": "{{shipFromLocationId}}",
+  "shipToLocationId": "{{shipToLocationId}}",
+  "receivingWarehouseId": "{{warehouseLocationId}}",
+  "freightTerms": "FOB",
+  "shipMode": "ROAD",
+  "shippingInstructions": "Deliver to receiving bay",
+  "expectedDate": "2025-02-10",
+  "notes": "PO from PR for gas products",
+  "lineSelections": [
+    {
+      "prLineId": "{{prLineId1}}",
+      "quantityToOrder": 12,
+      "unitPrice": 120.0
+    },
+    {
+      "prLineId": "{{prLineId2}}",
+      "quantityToOrder": 10,
+      "unitPrice": 145.0
+    },
+    {
+      "prLineId": "{{prLineId3}}",
+      "quantityToOrder": 8,
+      "unitPrice": 110.0
+    },
+    {
+      "prLineId": "{{prLineId4}}",
+      "quantityToOrder": 15,
+      "unitPrice": 60.0
+    },
+    {
+      "prLineId": "{{prLineId5}}",
+      "quantityToOrder": 18,
+      "unitPrice": 35.0
+    }
+  ],
+  "createdByUserId": 22
+}

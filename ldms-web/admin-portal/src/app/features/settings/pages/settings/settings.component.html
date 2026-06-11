@@ -35,5 +35,11 @@
     @if (activeSection === 'kyc-approvers') {
       <app-settings-kyc-approvers />
     }
+    @if (activeSection === 'currency') {
+      <app-settings-currency [adminMode]="true" />
+    }
+    @if (activeSection === 'platform-billing') {
+      <app-settings-platform-billing />
+    }
   </div>
 </div>

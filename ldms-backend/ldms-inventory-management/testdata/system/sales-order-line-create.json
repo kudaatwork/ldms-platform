@@ -1,0 +1,8 @@
+{
+  "salesOrderId": "{{salesOrderId}}",
+  "productId": "{{productId5}}",
+  "quantity": 1,
+  "unitPrice": 35.0,
+  "unitOfMeasure": "EACH",
+  "createdByUserId": 22
+}

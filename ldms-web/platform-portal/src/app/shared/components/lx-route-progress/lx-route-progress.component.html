@@ -1,0 +1,20 @@
+@if (progress.visible()) {
+  <div
+    class="lx-beam"
+    [class.lx-beam--finishing]="progress.finishing()"
+    role="progressbar"
+    aria-label="Loading page"
+    aria-busy="true"
+    [attr.aria-valuenow]="progress.progress()"
+    aria-valuemin="0"
+    aria-valuemax="100"
+  >
+    <div class="lx-beam__rail" aria-hidden="true">
+      <div class="lx-beam__runner" [style.transform]="'scaleX(' + scale() + ')'">
+        <div class="lx-beam__core">
+          <span class="lx-beam__sheen"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,14 @@
+{
+  "productId": "{{productId3}}",
+  "warehouseLocationId": "{{warehouseLocationId}}",
+  "supplierId": 8,
+  "createdByUserId": 22,
+  "currentStock": 35,
+  "minStockLevel": 10,
+  "reorderQuantity": 18,
+  "batchLot": "LOT-CO2-001",
+  "serialNumber": "SN-CO2-001",
+  "expiresAt": "2030-12-31",
+  "unitCost": 85.0,
+  "lastPurchaseCost": 85.0
+}

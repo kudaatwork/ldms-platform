@@ -118,6 +118,18 @@ public class GatewayDownstreamErrorWebExceptionHandler implements ErrorWebExcept
         if (path.startsWith("/ldms-notifications")) {
             return "Notifications service is not running. Start ldms-notifications, then retry.";
         }
+        if (path.startsWith("/ldms-fleet-management")) {
+            return "Fleet management service is not running. Start ldms-fleet-management on port 8088, then retry.";
+        }
+        if (path.startsWith("/ldms-inventory-management")) {
+            return "Inventory management service is not running. Start ldms-inventory-management on port 8013, then retry.";
+        }
+        if (path.startsWith("/ldms-shipment-management")) {
+            return "Shipment management service is not running. Start ldms-shipment-management on port 8015, then retry.";
+        }
+        if (path.startsWith("/ldms-trip-tracking")) {
+            return "Trip tracking service is not running. Start ldms-trip-tracking on port 8016, then retry.";
+        }
         if (path.startsWith("/ldms-audit-trail")) {
             return "Audit trail service is not running. Start ldms-audit-trail on port "
                     + auditTrailPort + ", then retry.";

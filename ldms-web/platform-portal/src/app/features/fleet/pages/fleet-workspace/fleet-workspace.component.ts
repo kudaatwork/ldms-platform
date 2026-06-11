@@ -113,6 +113,15 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
     return this.classification === 'TRANSPORT_COMPANY';
   }
 
+  get isCustomer(): boolean {
+    return this.classification === 'CUSTOMER';
+  }
+
+  /** Suppliers and customers can both link contracted transporters. */
+  get canContractFleet(): boolean {
+    return this.isSupplier || this.isCustomer;
+  }
+
   get canLinkTransporter(): boolean {
     return this.isSupplier;
   }
@@ -144,6 +153,9 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
   get heroLead(): string {
     if (this.isTransportCompany) {
       return `Command centre for ${this.orgName} — utilisation, corridor readiness, and shipper relationships in one sweep.`;
+    }
+    if (this.isCustomer) {
+      return `Fleet overview for ${this.orgName} — manage your delivery vehicles and contracted transporters in one place.`;
     }
     return `Corridor control for ${this.orgName} — your owned assets and contracted transporters on one live board.`;
   }
@@ -246,11 +258,13 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
   openAddVehicle(): void {
     this.dialog
       .open(OwnFleetDialogComponent, {
-        width: '540px',
+        width: '580px',
         maxWidth: '95vw',
         disableClose: true,
         data: {
           isSupplier: this.isSupplier,
+          isCustomer: this.isCustomer,
+          canContractFleet: this.canContractFleet,
           transporterOptions: this.partners,
         } satisfies OwnFleetDialogData,
       })
@@ -268,12 +282,14 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
     event?.stopPropagation();
     this.dialog
       .open(OwnFleetDialogComponent, {
-        width: '540px',
+        width: '580px',
         maxWidth: '95vw',
         disableClose: true,
         data: {
           vehicle,
           isSupplier: this.isSupplier,
+          isCustomer: this.isCustomer,
+          canContractFleet: this.canContractFleet,
           transporterOptions: this.partners,
         } satisfies OwnFleetDialogData,
       })

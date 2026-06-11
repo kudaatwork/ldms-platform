@@ -97,6 +97,7 @@ export class SignupWizardComponent {
   ];
 
   classification: OrganizationClassification | null = null;
+  duplexMode = false;
   submitting = false;
   complete = false;
   submitError = '';
@@ -156,6 +157,18 @@ export class SignupWizardComponent {
 
   selectClassification(c: OrganizationClassification): void {
     this.classification = c;
+    if (c !== 'SUPPLIER' && c !== 'CUSTOMER') {
+      this.duplexMode = false;
+    }
+    this.cdr.markForCheck();
+  }
+
+  get showDuplexOption(): boolean {
+    return this.classification === 'SUPPLIER' || this.classification === 'CUSTOMER';
+  }
+
+  toggleDuplexMode(): void {
+    this.duplexMode = !this.duplexMode;
     this.cdr.markForCheck();
   }
 
@@ -263,6 +276,7 @@ export class SignupWizardComponent {
       registrationNumber: String(org.registrationNumber ?? '').trim() || undefined,
       taxNumber: String(org.taxNumber ?? '').trim(),
       taxClearanceCertificateUpload: this.taxClearanceUpload ?? undefined,
+      duplexMode: this.duplexMode && this.showDuplexOption ? true : undefined,
     };
     this.orgService.register(payload).subscribe({
       next: (summary) => {
@@ -272,7 +286,10 @@ export class SignupWizardComponent {
         sessionStorage.setItem(STORAGE_ORG_ID, String(summary.id));
         sessionStorage.setItem(STORAGE_ORG_NAME, summary.name);
         sessionStorage.setItem(STORAGE_ORG_KYC, summary.kycStatus);
-        sessionStorage.setItem(STORAGE_ORG_CLASSIFICATION, summary.organizationClassification);
+        sessionStorage.setItem(
+          STORAGE_ORG_CLASSIFICATION,
+          summary.organizationClassification ?? this.classification ?? '',
+        );
         this.currentStep = 3;
         this.cdr.markForCheck();
       },

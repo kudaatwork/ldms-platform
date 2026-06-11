@@ -1,0 +1,34 @@
+{
+  "purchaseOrderId": "{{purchaseOrderId}}",
+  "warehouseLocationId": "{{warehouseLocationId}}",
+  "receivedByUserId": 22,
+  "receivedItems": [
+    {
+      "purchaseOrderLineId": "{{poLineId1}}",
+      "quantityReceived": 12,
+      "reason": "Full delivery"
+    },
+    {
+      "purchaseOrderLineId": "{{poLineId2}}",
+      "quantityReceived": 10,
+      "reason": "Full delivery"
+    },
+    {
+      "purchaseOrderLineId": "{{poLineId3}}",
+      "quantityReceived": 8,
+      "reason": "Full delivery"
+    },
+    {
+      "purchaseOrderLineId": "{{poLineId4}}",
+      "quantityReceived": 15,
+      "reason": "Full delivery"
+    },
+    {
+      "purchaseOrderLineId": "{{poLineId5}}",
+      "quantityReceived": 20,
+      "reason": "Full delivery"
+    }
+  ],
+  "notes": "Test receipt of gas products",
+  "idempotencyKey": "GRV-GAS-001"
+}

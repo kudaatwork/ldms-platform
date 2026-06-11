@@ -90,6 +90,7 @@ class UserServiceImplTest {
     private Configuration configurationMock = null;
     private org.springframework.amqp.rabbit.core.RabbitTemplate rabbitTemplate = null;
     private TokenService tokenService = null;
+    private projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport = null;
     private final Locale locale = Locale.ENGLISH;
     private final String username = "SYSTEM";
 
@@ -138,6 +139,8 @@ class UserServiceImplTest {
                 "http://localhost:4200", "http://localhost:4201");
         var organizationWorkspaceAccessSupport =
                 mock(projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport.class);
+        this.organizationWorkspaceAccessSupport = organizationWorkspaceAccessSupport;
+        when(organizationWorkspaceAccessSupport.canReadUser(anyString(), anyLong())).thenReturn(true);
         var phoneVerificationSupport =
                 mock(projectlx.user.management.business.logic.support.PhoneVerificationSupport.class);
 

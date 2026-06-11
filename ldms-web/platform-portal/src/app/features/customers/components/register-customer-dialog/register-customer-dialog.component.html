@@ -93,6 +93,14 @@
         </div>
         <div class="lx-field-error" *ngIf="hasError('email', 'required')">Email is required</div>
         <div class="lx-field-error" *ngIf="hasError('email', 'email')">Enter a valid email address</div>
+        <div class="lx-field-hint lx-field-hint--loading" *ngIf="emailCheckLoading && !isEdit">Checking email…</div>
+        <div class="lx-field-hint lx-field-hint--warn" *ngIf="!isEdit && emailCheckMessage && pendingLinkCheck">
+          {{ emailCheckMessage }}
+          <button type="button" class="lx-inline-link" (click)="offerLinkExisting()">Review link options</button>
+        </div>
+        <div class="lx-field-hint lx-field-hint--warn" *ngIf="!isEdit && emailCheckMessage && !pendingLinkCheck && !emailCheckLoading">
+          {{ emailCheckMessage }}
+        </div>
       </div>
 
       <div class="lx-field">

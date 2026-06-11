@@ -1,0 +1,59 @@
+{
+  "externalId": "EXT-PO-GAS-001",
+  "organizationId": "{{organizationId}}",
+  "supplierId": 8,
+  "buyerContact": "Procurement",
+  "supplierContact": "Supplier Desk",
+  "createdByUserId": 22,
+  "currency": "USD",
+  "paymentTerm": "NET_30",
+  "paymentDueDate": "2025-02-15",
+  "taxRate": 15.0,
+  "earlyPaymentDiscountPct": 2.5,
+  "earlyPaymentDiscountUntil": "2025-02-05",
+  "prepaymentRequired": false,
+  "prepaymentPercent": 0,
+  "shipFromLocationId": "{{shipFromLocationId}}",
+  "shipToLocationId": "{{shipToLocationId}}",
+  "receivingWarehouseId": "{{warehouseLocationId}}",
+  "freightTerms": "FOB",
+  "shipMode": "ROAD",
+  "shippingInstructions": "Deliver to receiving bay",
+  "isImport": false,
+  "status": "DRAFT",
+  "orderDate": "2025-02-01",
+  "expectedDate": "2025-02-10",
+  "notes": "Direct PO test for gas products",
+  "lines": [
+    {
+      "productId": "{{productId1}}",
+      "unitOfMeasure": "CYLINDER",
+      "quantity": 12,
+      "unitPrice": 120.0
+    },
+    {
+      "productId": "{{productId2}}",
+      "unitOfMeasure": "CYLINDER",
+      "quantity": 10,
+      "unitPrice": 145.0
+    },
+    {
+      "productId": "{{productId3}}",
+      "unitOfMeasure": "CYLINDER",
+      "quantity": 8,
+      "unitPrice": 110.0
+    },
+    {
+      "productId": "{{productId4}}",
+      "unitOfMeasure": "CYLINDER",
+      "quantity": 15,
+      "unitPrice": 60.0
+    },
+    {
+      "productId": "{{productId5}}",
+      "unitOfMeasure": "EACH",
+      "quantity": 20,
+      "unitPrice": 35.0
+    }
+  ]
+}
