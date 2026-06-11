@@ -4,7 +4,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.mock.web.MockMultipartFile;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.management.business.validator.api.UserServiceValidator;
 import projectlx.user.management.business.validator.impl.UserServiceValidatorImpl;
@@ -107,23 +106,7 @@ class UserServiceValidatorImplTest {
         createUserRequest.setDateOfBirth("2000-01-01");
         createUserRequest.setPassword("Password123!");
         createUserRequest.setNationalIdNumber("12-1234567A12");
-
-        // Create mock files for uploads
-        MockMultipartFile nationalIdFile = new MockMultipartFile(
-                "nationalIdUpload",
-                "nationalId.jpg",
-                "image/jpeg",
-                "national id content".getBytes()
-        );
-
-        MockMultipartFile passportFile = new MockMultipartFile(
-                "passportUpload",
-                "passport.jpg",
-                "image/jpeg",
-                "passport content".getBytes()
-        );
-
-        createUserRequest.setNationalIdUpload(nationalIdFile);
+        createUserRequest.setNationalIdUploadId(99L);
 
         // Setup EditUserRequest with valid data
         editUserRequest = new EditUserRequest();
@@ -136,7 +119,7 @@ class UserServiceValidatorImplTest {
         editUserRequest.setGender("MALE");
         editUserRequest.setDateOfBirth("2000-01-01");
         editUserRequest.setNationalIdNumber("12-1234567A12");
-        editUserRequest.setNationalIdUpload(nationalIdFile);
+        editUserRequest.setNationalIdUploadId(99L);
 
         // Setup UsersMultipleFiltersRequest with valid data
         usersMultipleFiltersRequest = new UsersMultipleFiltersRequest();

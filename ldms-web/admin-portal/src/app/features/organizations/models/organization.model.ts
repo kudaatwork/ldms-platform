@@ -209,6 +209,7 @@ export interface RegisterOrganizationPayload {
   /** ZIMRA / tax clearance certificate (multipart — same pattern as user national ID upload). */
   taxClearanceCertificateUpload?: File;
   taxClearanceCertificateUploadId?: number;
+  duplexMode?: boolean;
 }
 
 export interface KycDecisionPayload {

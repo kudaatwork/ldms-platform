@@ -52,14 +52,14 @@
         <module>ldms-organization-management</module>
         <module>ldms-locations</module>
         <!-- <module>ldms-reference-config</module> -->
-        <!-- <module>ldms-inventory-management</module> -->
-        <!-- <module>ldms-shipment-management</module> -->
+        <module>ldms-inventory-management</module>
+        <module>ldms-shipment-management</module>
         <!-- <module>ldms-documents-management</module> -->
         <module>ldms-fleet-management</module>
-        <!-- <module>ldms-trip-tracking</module> -->
+        <module>ldms-trip-tracking</module>
         <!-- <module>ldms-roadside-support</module> -->
         <!-- <module>ldms-fuel-expenses</module> -->
-        <!-- <module>ldms-billing-payments</module> -->
+        <module>ldms-billing-payments</module>
         <module>ldms-notifications</module>
         <!-- <module>ldms-messaging-bot</module> -->
         <!-- <module>ldms-platform-admin</module> -->

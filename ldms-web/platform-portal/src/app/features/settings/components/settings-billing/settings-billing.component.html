@@ -1,0 +1,200 @@
+<section class="settings-billing bl-shell" *ngIf="!loading; else loadingTpl">
+  <header class="settings-billing__head bl-head">
+    <div>
+      <h2 class="settings-billing__title">Platform billing</h2>
+      <p class="settings-billing__lead">
+        Top up your prepaid wallet and review usage charges. Platform actions such as trips, notifications,
+        and procurement approvals deduct from your balance when billing mode is prepaid.
+      </p>
+    </div>
+  </header>
+
+  <article class="settings-billing__panel settings-billing__balance">
+    <div class="settings-billing__balance-copy">
+      <p class="settings-billing__eyebrow">Current balance</p>
+      <h3>{{ formatMoney(walletSummary?.balanceCents ?? 0) }}</h3>
+      <p class="settings-billing__hint" *ngIf="billingMode === 'PREPAID_WALLET'">
+        Shown in the top bar beside your name. Zero balance is normal until a deposit is confirmed.
+      </p>
+      <p class="settings-billing__hint" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION'">
+        Subscription mode — usage is tracked but not deducted from a wallet balance.
+      </p>
+    </div>
+    <div class="settings-billing__balance-actions">
+      <button type="button" class="lx-btn lx-btn-secondary" (click)="openUsageReport()">View usage report</button>
+    </div>
+  </article>
+
+  <section class="settings-billing__section">
+    <h3 class="settings-billing__section-title">1. Billing mode</h3>
+    <div class="settings-billing__mode">
+      <label class="settings-billing__mode-card" [class.settings-billing__mode-card--active]="billingMode === 'PREPAID_WALLET'">
+        <input type="radio" name="billingMode" value="PREPAID_WALLET" [(ngModel)]="billingMode" />
+        <span class="material-icons" aria-hidden="true">account_balance_wallet</span>
+        <span class="settings-billing__mode-label">Prepaid wallet</span>
+        <span class="settings-billing__mode-hint">Pay as you go — default for all organisations</span>
+      </label>
+      <label class="settings-billing__mode-card" [class.settings-billing__mode-card--active]="billingMode === 'PREMIUM_SUBSCRIPTION'">
+        <input type="radio" name="billingMode" value="PREMIUM_SUBSCRIPTION" [(ngModel)]="billingMode" />
+        <span class="material-icons" aria-hidden="true">workspace_premium</span>
+        <span class="settings-billing__mode-label">Monthly subscription</span>
+        <span class="settings-billing__mode-hint">Flat monthly fee with usage tracked for transparency</span>
+      </label>
+    </div>
+  </section>
+
+  <section class="settings-billing__section" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION'">
+    <h3 class="settings-billing__section-title">2. Subscription package</h3>
+    <div class="settings-billing__panel">
+      <div class="settings-billing__packages">
+        @for (pkg of packages; track pkg.id) {
+          <label class="settings-billing__package" [class.settings-billing__package--featured]="pkg.featured">
+            <input type="radio" name="subscriptionPackage" [value]="pkg.id" [(ngModel)]="subscriptionPackageId" />
+            <span class="settings-billing__package-name">{{ pkg.name }}</span>
+            <span class="settings-billing__package-price">{{ packagePrice(pkg) }}/mo</span>
+            <span class="settings-billing__package-desc">{{ pkg.description }}</span>
+          </label>
+        }
+      </div>
+    </div>
+  </section>
+
+  <section class="settings-billing__section" *ngIf="billingMode === 'PREPAID_WALLET'">
+    <h3 class="settings-billing__section-title">2. Top up wallet</h3>
+    <div class="settings-billing__panel">
+      <p class="settings-billing__hint">
+        Record a deposit you have sent to LX. An administrator confirms the payment before it is credited to your balance
+        and reflected in the top bar.
+      </p>
+      <div class="settings-billing__deposit-form lx-form-grid">
+        <div class="lx-field">
+          <label class="lx-field-label">Amount (major units) <span class="req">*</span></label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">payments</mat-icon>
+            <input type="number" min="0" step="0.01" [(ngModel)]="depositAmount" placeholder="e.g. 100.00" />
+          </div>
+        </div>
+        <div class="lx-field">
+          <label class="lx-field-label">Payment reference</label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">receipt</mat-icon>
+            <input [(ngModel)]="depositReference" placeholder="Bank reference" />
+          </div>
+        </div>
+        <div class="lx-field span-2">
+          <label class="lx-field-label">Notes</label>
+          <div class="lx-input-shell lx-input-shell--textarea">
+            <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+            <textarea rows="2" [(ngModel)]="depositNotes" placeholder="Optional payment notes"></textarea>
+          </div>
+        </div>
+        <div class="settings-billing__deposit-actions span-2">
+          <button type="button" class="lx-btn lx-btn-primary" [disabled]="submittingDeposit" (click)="submitDeposit()">
+            Submit deposit
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-billing__deposits" *ngIf="recentDeposits.length">
+        <h4>Recent deposits</h4>
+        <ul>
+          @for (d of recentDeposits; track d.id) {
+            <li>
+              <span>{{ formatMoney(d.amountCents) }}</span>
+              <span class="settings-billing__status">{{ d.status }}</span>
+              <span class="settings-billing__time">{{ d.createdAt }}</span>
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="settings-billing__section">
+    <h3 class="settings-billing__section-title">3. What gets charged</h3>
+    <div class="settings-billing__panel settings-billing__panel--modules">
+      <p class="settings-billing__hint">
+        Per-action rates are set by LX administrators. Each module below lists actions that deduct from your prepaid wallet.
+      </p>
+
+      @if (!actionCharges.length) {
+        <p class="settings-billing__empty">Charge catalog unavailable — ensure ldms-billing-payments is running.</p>
+      } @else {
+        <div class="settings-billing__module-grid">
+          @for (mod of billingModules; track mod.category) {
+            @if (chargesForModule(mod.category).length) {
+              <article class="settings-billing__module-card">
+                <header class="settings-billing__module-head">
+                  <span class="settings-billing__module-icon">
+                    <mat-icon>{{ mod.icon }}</mat-icon>
+                  </span>
+                  <div>
+                    <h4>{{ mod.label }}</h4>
+                    <p>{{ mod.description }}</p>
+                  </div>
+                </header>
+                <ul class="settings-billing__module-actions">
+                  @for (row of chargesForModule(mod.category); track row.actionCode) {
+                    <li>
+                      <span class="settings-billing__module-action-name">{{ row.displayName }}</span>
+                      <span class="settings-billing__charge-amount">{{ formatMoney(row.chargeCents) }}</span>
+                    </li>
+                  }
+                </ul>
+              </article>
+            }
+          }
+        </div>
+      }
+    </div>
+  </section>
+
+  <section class="settings-billing__section" *ngIf="billingMode === 'PREPAID_WALLET'">
+    <h3 class="settings-billing__section-title">4. Wallet activity</h3>
+    <div class="settings-billing__panel">
+      <p class="settings-billing__hint">Recent deductions and top-ups applied to your prepaid balance.</p>
+      @if (!transactions.length) {
+        <p class="settings-billing__empty">No wallet transactions yet.</p>
+      } @else {
+        <ul class="settings-billing__activity">
+          @for (tx of transactions; track tx.id) {
+            <li>
+              <div>
+                <strong>{{ transactionLabel(tx) }}</strong>
+                <span class="settings-billing__time">{{ tx.createdAt }}</span>
+              </div>
+              <span [class.settings-billing__tx-debit]="isDebit(tx)" [class.settings-billing__tx-credit]="!isDebit(tx)">
+                {{ isDebit(tx) ? '−' : '+' }}{{ formatMoney(absCents(tx.amountCents)) }}
+              </span>
+              <span class="settings-billing__time">Bal {{ formatMoney(tx.balanceAfterCents) }}</span>
+            </li>
+          }
+        </ul>
+      }
+    </div>
+  </section>
+
+  <section class="settings-billing__section" *ngIf="billingMode === 'PREPAID_WALLET'">
+    <h3 class="settings-billing__section-title">5. Alerts</h3>
+    <div class="settings-billing__panel">
+      <div class="lx-field settings-billing__threshold">
+        <label class="lx-field-label">Low balance threshold (cents)</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">warning_amber</mat-icon>
+          <input type="number" min="0" [(ngModel)]="lowBalanceThresholdCents" />
+        </div>
+        <div class="lx-field-hint">We highlight your wallet in the top bar when balance falls below this amount.</div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="settings-billing__actions">
+    <button type="button" class="lx-btn lx-btn-primary" [disabled]="saving" (click)="save()">Save billing preferences</button>
+  </footer>
+</section>
+
+<ng-template #loadingTpl>
+  <div class="bl-shell">
+    <lx-inline-busy message="Loading billing settings…" />
+  </div>
+</ng-template>

@@ -1,0 +1,105 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Allocate driver &amp; vehicle</h2>
+      <p class="lx-dialog-subtitle">Shipment {{ data.shipment.shipmentNumber }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content trt-allocate-body">
+    <!-- Shipment summary -->
+    <div class="trt-allocate-summary lx-card--subsection">
+      <dl class="trt-allocate-summary__grid">
+        <dt>Route</dt>
+        <dd>{{ data.shipment.fromWarehouse }} → {{ data.shipment.toWarehouse }}</dd>
+        <dt>Product</dt>
+        <dd>{{ data.shipment.productName }}</dd>
+        <dt>Quantity</dt>
+        <dd>{{ data.shipment.quantity | number }} {{ data.shipment.unitOfMeasure }}</dd>
+        <dt>Transfer ref</dt>
+        <dd>{{ data.shipment.transferReference }}</dd>
+      </dl>
+    </div>
+
+    <div class="trt-allocate-loading" *ngIf="loading">
+      <lx-inline-busy message="Loading drivers and vehicles…"></lx-inline-busy>
+    </div>
+
+    <ng-container *ngIf="!loading">
+      <!-- Driver selection -->
+      <div class="trt-allocate-section">
+        <h3 class="trt-allocate-section__title">
+          <mat-icon>badge</mat-icon>
+          Select driver
+        </h3>
+        <div class="trt-allocate-list" *ngIf="drivers.length; else noDrivers">
+          <button
+            type="button"
+            class="trt-allocate-item"
+            [class.is-selected]="selectedDriverId === driver.id"
+            *ngFor="let driver of drivers"
+            (click)="selectedDriverId = driver.id"
+          >
+            <span class="trt-allocate-item__avatar" [style.--hue]="driver.accentHue + 'deg'">
+              {{ driver.initials }}
+            </span>
+            <span class="trt-allocate-item__info">
+              <span class="trt-allocate-item__name">{{ driver.fullName }}</span>
+              <span class="trt-allocate-item__sub">{{ driver.licenseClass }} · {{ driver.phoneNumber || '—' }}</span>
+            </span>
+            <mat-icon class="trt-allocate-item__check" *ngIf="selectedDriverId === driver.id">check_circle</mat-icon>
+          </button>
+        </div>
+        <ng-template #noDrivers>
+          <p class="trt-allocate-empty">No drivers found. Add drivers in Fleet management.</p>
+        </ng-template>
+      </div>
+
+      <!-- Vehicle selection -->
+      <div class="trt-allocate-section">
+        <h3 class="trt-allocate-section__title">
+          <mat-icon>local_shipping</mat-icon>
+          Select vehicle
+        </h3>
+        <div class="trt-allocate-list" *ngIf="vehicles.length; else noVehicles">
+          <button
+            type="button"
+            class="trt-allocate-item"
+            [class.is-selected]="selectedVehicleId === vehicle.id"
+            *ngFor="let vehicle of vehicles"
+            (click)="selectedVehicleId = +vehicle.id"
+          >
+            <span class="trt-allocate-item__icon">
+              <mat-icon>directions_car</mat-icon>
+            </span>
+            <span class="trt-allocate-item__info">
+              <span class="trt-allocate-item__name">{{ vehicle.registration }}</span>
+              <span class="trt-allocate-item__sub">{{ vehicle.makeModel }} · {{ vehicle.statusLabel }}</span>
+            </span>
+            <mat-icon class="trt-allocate-item__check" *ngIf="selectedVehicleId === vehicle.id">check_circle</mat-icon>
+          </button>
+        </div>
+        <ng-template #noVehicles>
+          <p class="trt-allocate-empty">No owned vehicles found. Add vehicles in Fleet management.</p>
+        </ng-template>
+      </div>
+    </ng-container>
+  </div>
+
+  <div class="lx-dialog-actions">
+    <button type="button" class="lx-btn lx-btn-ghost" (click)="close()">Cancel</button>
+    <button
+      type="button"
+      class="lx-btn lx-btn-primary"
+      [disabled]="!canSubmit"
+      (click)="confirm()"
+    >
+      <mat-spinner *ngIf="submitting" diameter="18"></mat-spinner>
+      <mat-icon *ngIf="!submitting">check_circle</mat-icon>
+      Allocate
+    </button>
+  </div>
+</div>

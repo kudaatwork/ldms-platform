@@ -43,6 +43,9 @@ public class GatewayStartupRoutesLogger {
                 || routeId.contains("locations")
                 || routeId.contains("notifications")
                 || routeId.contains("audit-trail")
-                || routeId.contains("organization-management");
+                || routeId.contains("organization-management")
+                || routeId.contains("fleet-management")
+                || routeId.contains("inventory-management")
+                || routeId.contains("billing-payments");
     }
 }

@@ -4,6 +4,8 @@ import org.springframework.data.domain.Pageable;
 import projectlx.co.zw.organizationmanagement.utils.dtos.ImportSummary;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateFleetVehicleRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.EditFleetVehicleRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.FleetRegisteredNotificationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.ValidateFleetOwnershipRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.AddBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateBranchRequest;
@@ -18,6 +20,7 @@ import projectlx.co.zw.organizationmanagement.utils.requests.KycActionRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycRejectRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkClearingAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkCustomerRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.LinkExistingOrganizationAsCustomerRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
@@ -60,6 +63,11 @@ public interface OrganizationService {
     OrganizationResponse searchTransportCompanyCandidates(String search, Locale locale, String username);
 
     OrganizationResponse registerCustomer(RegisterOrganizationRequest request, Locale locale, String username);
+
+    OrganizationResponse checkCustomerRegistrationEmail(String email, Locale locale, String username);
+
+    OrganizationResponse linkExistingOrganizationAsCustomer(
+            LinkExistingOrganizationAsCustomerRequest request, Locale locale, String username);
 
     OrganizationResponse registerTransporter(RegisterOrganizationRequest request, Locale locale, String username);
 
@@ -201,6 +209,10 @@ public interface OrganizationService {
     OrganizationResponse listTransporterFleetVehicles(Long transporterId, Locale locale, String username);
 
     OrganizationResponse createFleetVehicle(CreateFleetVehicleRequest request, Locale locale, String username);
+
+    OrganizationResponse notifyFleetRegistered(FleetRegisteredNotificationRequest request, Locale locale);
+
+    OrganizationResponse validateFleetOwnership(ValidateFleetOwnershipRequest request, Locale locale);
 
     OrganizationResponse updateFleetVehicle(Long id, EditFleetVehicleRequest request, Locale locale, String username);
 

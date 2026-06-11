@@ -22,6 +22,9 @@ export interface FleetVehicleRow {
   accentHue: number;
 }
 
+/** Contract scope for assets registered under a contracted transporter link. */
+export type FleetContractScope = 'long_term' | 'job';
+
 /** POST /fleet-vehicles — add a new owned vehicle. */
 export interface CreateFleetVehiclePayload {
   registration: string;
@@ -30,6 +33,10 @@ export interface CreateFleetVehiclePayload {
   status: FleetVehicleStatus;
   ownershipType?: FleetVehicleOwnershipType;
   contractedTransporterOrganizationId?: number;
+  /** Only present when ownershipType === 'contracted'. */
+  contractScope?: FleetContractScope;
+  /** Only present when contractScope === 'job'. */
+  jobReference?: string;
   driverName?: string;
   utilizationPct?: number;
 }
@@ -42,8 +49,25 @@ export interface EditFleetVehiclePayload {
   status: FleetVehicleStatus;
   ownershipType?: FleetVehicleOwnershipType;
   contractedTransporterOrganizationId?: number;
+  contractScope?: FleetContractScope;
+  jobReference?: string;
   driverName?: string;
   utilizationPct?: number;
+}
+
+/** Single document submitted during fleet asset registration (step 2). */
+export interface FleetRegistrationDocumentPayload {
+  /** Backend compliance type key — must be INSURANCE, ROADWORTHINESS, or PERMIT for registration. */
+  complianceType: 'INSURANCE' | 'ROADWORTHINESS' | 'PERMIT';
+  /** ID returned by POST /ldms-file-upload-service/v1/frontend/file-upload/upload. */
+  fileUploadId: number;
+  /** ISO date string (YYYY-MM-DD). */
+  expiresAt: string;
+}
+
+/** POST /assets/{id}/complete-registration */
+export interface CompleteFleetRegistrationPayload {
+  documents: FleetRegistrationDocumentPayload[];
 }
 
 export type TransporterContractStatus = 'active' | 'expired' | 'upcoming' | 'open_ended';

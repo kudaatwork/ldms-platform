@@ -1,0 +1,449 @@
+package projectlx.shipment.management.business.logic.impl;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
+import projectlx.shipment.management.business.auditable.api.ShipmentServiceAuditable;
+import projectlx.shipment.management.business.logic.api.ShipmentService;
+import projectlx.shipment.management.business.logic.support.CallerOrganizationResolver;
+import projectlx.shipment.management.business.logic.support.ShipmentMapper;
+import projectlx.shipment.management.business.validator.api.ShipmentServiceValidator;
+import projectlx.shipment.management.model.Shipment;
+import projectlx.shipment.management.repository.ShipmentRepository;
+import projectlx.shipment.management.utils.config.RabbitMQProducerConfig;
+import projectlx.shipment.management.utils.enums.I18Code;
+import projectlx.shipment.management.utils.enums.ShipmentSourceType;
+import projectlx.shipment.management.utils.enums.ShipmentStatus;
+import projectlx.shipment.management.utils.requests.AllocateShipmentRequest;
+import projectlx.shipment.management.utils.requests.ShipmentMultipleFiltersRequest;
+import projectlx.shipment.management.utils.requests.UpdateShipmentStatusRequest;
+import projectlx.shipment.management.utils.responses.ShipmentResponse;
+import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
+import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
+import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@Transactional
+@RequiredArgsConstructor
+@Slf4j
+public class ShipmentServiceImpl implements ShipmentService {
+
+    private final ShipmentServiceValidator shipmentServiceValidator;
+    private final ShipmentServiceAuditable shipmentServiceAuditable;
+    private final ShipmentRepository shipmentRepository;
+    private final CallerOrganizationResolver callerOrganizationResolver;
+    private final RabbitTemplate rabbitTemplate;
+    private final MessageService messageService;
+
+    // ============================================================
+    // EVENT-DRIVEN CREATION
+    // ============================================================
+
+    /**
+     * Create a shipment from an inventory.transfer.approved event.
+     *
+     * Flow:
+     * 1. Validate event payload has the minimum required fields
+     * 2. Check idempotency — skip if shipment already exists for this transfer
+     * 3. Persist the shipment as PENDING_ALLOCATION
+     */
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void createFromTransferApprovedEvent(Map<String, Object> event, Locale locale) {
+
+        // ============================================================
+        // STEP 1: Extract required fields from event payload
+        // ============================================================
+        if (event == null || !event.containsKey("transferId")) {
+            log.warn("inventory.transfer.approved event missing transferId; ignoring.");
+            return;
+        }
+
+        Long transferId = toLong(event.get("transferId"));
+        if (transferId == null) {
+            log.warn("inventory.transfer.approved event has null transferId; ignoring.");
+            return;
+        }
+
+        // ============================================================
+        // STEP 2: Idempotency check — skip if shipment already exists
+        // ============================================================
+        boolean alreadyExists = shipmentRepository.existsByInventoryTransferIdAndEntityStatusNot(
+                transferId, EntityStatus.DELETED);
+        if (alreadyExists) {
+            log.info("Shipment already exists for inventoryTransferId={}; skipping duplicate creation.", transferId);
+            return;
+        }
+
+        // ============================================================
+        // STEP 3: Build and persist the shipment
+        // ============================================================
+        String shipmentNumber = generateShipmentNumber();
+        Long organizationId = toLong(event.get("organizationId"));
+
+        Shipment shipment = new Shipment();
+        shipment.setShipmentNumber(shipmentNumber);
+        shipment.setOrganizationId(organizationId);
+        shipment.setSourceType(ShipmentSourceType.INVENTORY_TRANSFER);
+        shipment.setInventoryTransferId(transferId);
+        shipment.setFromWarehouseLocationId(toLong(event.get("fromWarehouseLocationId")));
+        shipment.setToWarehouseLocationId(toLong(event.get("toWarehouseLocationId")));
+        shipment.setFromWarehouseName(toStr(event.get("fromWarehouseName")));
+        shipment.setToWarehouseName(toStr(event.get("toWarehouseName")));
+        shipment.setProductId(toLong(event.get("productId")));
+        shipment.setProductName(toStr(event.get("productName")));
+        shipment.setProductCode(toStr(event.get("productCode")));
+
+        Object quantityObj = event.get("quantity");
+        BigDecimal quantity = quantityObj != null ? new BigDecimal(quantityObj.toString()) : BigDecimal.ZERO;
+        shipment.setQuantity(quantity);
+
+        shipment.setStatus(ShipmentStatus.PENDING_ALLOCATION);
+        shipment.setEntityStatus(EntityStatus.ACTIVE);
+        shipment.setCreatedAt(LocalDateTime.now());
+        shipment.setCreatedBy("system");
+
+        Shipment saved = shipmentServiceAuditable.create(shipment, locale, "system");
+        log.info("Shipment created from transfer approved event: id={} number={} transferId={}",
+                saved.getId(), saved.getShipmentNumber(), transferId);
+    }
+
+    // ============================================================
+    // QUERIES
+    // ============================================================
+
+    @Override
+    @Transactional(readOnly = true)
+    public ShipmentResponse findById(Long id, Locale locale, String username) {
+        Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
+        if (organizationId == null) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(), new String[]{}, locale));
+        }
+
+        Shipment shipment = shipmentRepository.findByIdAndOrganizationIdAndEntityStatusNot(
+                id, organizationId, EntityStatus.DELETED).orElse(null);
+        if (shipment == null) {
+            return errorResponse(404, messageService.getMessage(
+                    I18Code.MESSAGE_SHIPMENT_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+
+        ShipmentResponse response = successResponse(200, messageService.getMessage(
+                I18Code.MESSAGE_SHIPMENT_FIND_SUCCESS.getCode(), new String[]{}, locale));
+        response.setShipmentDto(ShipmentMapper.toDto(shipment));
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ShipmentResponse findByMultipleFilters(ShipmentMultipleFiltersRequest request, Locale locale, String username) {
+
+        // ============================================================
+        // STEP 1: Validate the filter request
+        // ============================================================
+        ValidatorDto validation = shipmentServiceValidator.isShipmentMultipleFiltersRequestValid(request, locale);
+        if (!validation.getSuccess()) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_REQUEST_NULL.getCode(), new String[]{}, locale), validation.getErrorMessages());
+        }
+
+        // ============================================================
+        // STEP 2: Resolve caller's organisation or honour explicit org filter
+        // ============================================================
+        Long resolvedOrgId = callerOrganizationResolver.requireCallerOrganizationId(username);
+        if (resolvedOrgId == null) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(), new String[]{}, locale));
+        }
+
+        Long orgId = (request != null && request.getOrganizationId() != null)
+                ? request.getOrganizationId()
+                : resolvedOrgId;
+
+        // ============================================================
+        // STEP 3: Load shipments — apply in-memory filters for now
+        // ============================================================
+        List<Shipment> all = shipmentRepository
+                .findByOrganizationIdAndEntityStatusNotOrderByIdDesc(orgId, EntityStatus.DELETED);
+
+        if (request != null) {
+            if (request.getStatus() != null && !request.getStatus().isBlank()) {
+                ShipmentStatus filterStatus = ShipmentStatus.valueOf(request.getStatus().trim().toUpperCase());
+                all = all.stream().filter(s -> s.getStatus() == filterStatus).collect(Collectors.toList());
+            }
+            if (request.getInventoryTransferId() != null) {
+                all = all.stream()
+                        .filter(s -> request.getInventoryTransferId().equals(s.getInventoryTransferId()))
+                        .collect(Collectors.toList());
+            }
+            if (request.getSearch() != null && !request.getSearch().isBlank()) {
+                String term = request.getSearch().trim().toLowerCase();
+                all = all.stream().filter(s ->
+                        (s.getShipmentNumber() != null && s.getShipmentNumber().toLowerCase().contains(term))
+                                || (s.getProductName() != null && s.getProductName().toLowerCase().contains(term))
+                                || (s.getProductCode() != null && s.getProductCode().toLowerCase().contains(term))
+                ).collect(Collectors.toList());
+            }
+        }
+
+        ShipmentResponse response = successResponse(200, messageService.getMessage(
+                I18Code.MESSAGE_SHIPMENT_LIST_SUCCESS.getCode(), new String[]{}, locale));
+        response.setShipmentDtoList(all.stream().map(ShipmentMapper::toDto).toList());
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ShipmentResponse findByTransferId(Long transferId, Locale locale, String username) {
+        Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
+        if (organizationId == null) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(), new String[]{}, locale));
+        }
+
+        Shipment shipment = shipmentRepository.findByInventoryTransferIdAndEntityStatusNot(
+                transferId, EntityStatus.DELETED).orElse(null);
+        if (shipment == null) {
+            return errorResponse(404, messageService.getMessage(
+                    I18Code.MESSAGE_SHIPMENT_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+
+        ShipmentResponse response = successResponse(200, messageService.getMessage(
+                I18Code.MESSAGE_SHIPMENT_FIND_SUCCESS.getCode(), new String[]{}, locale));
+        response.setShipmentDto(ShipmentMapper.toDto(shipment));
+        return response;
+    }
+
+    // ============================================================
+    // FLEET ALLOCATION
+    // ============================================================
+
+    /**
+     * Allocate a fleet driver and asset to a shipment.
+     *
+     * Flow:
+     * 1. Validate allocation request fields
+     * 2. Resolve caller's organisation and load the shipment
+     * 3. Guard: shipment must be PENDING_ALLOCATION
+     * 4. Apply allocation and transition status to ALLOCATED
+     * 5. Publish shipment.allocated event
+     */
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public ShipmentResponse allocateFleet(AllocateShipmentRequest request, Locale locale, String username) {
+
+        // ============================================================
+        // STEP 1: Validate the request
+        // ============================================================
+        ValidatorDto validation = shipmentServiceValidator.isAllocateShipmentRequestValid(request, locale);
+        if (!validation.getSuccess()) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_SHIPMENT_ALLOCATE_INVALID.getCode(), new String[]{}, locale),
+                    validation.getErrorMessages());
+        }
+
+        // ============================================================
+        // STEP 2: Resolve caller's organisation and load the shipment
+        // ============================================================
+        Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
+        if (organizationId == null) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(), new String[]{}, locale));
+        }
+
+        Shipment shipment = shipmentRepository.findByIdAndEntityStatusNot(
+                request.getShipmentId(), EntityStatus.DELETED).orElse(null);
+        if (shipment == null) {
+            return errorResponse(404, messageService.getMessage(
+                    I18Code.MESSAGE_SHIPMENT_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+
+        // ============================================================
+        // STEP 3: Guard — must be PENDING_ALLOCATION
+        // ============================================================
+        if (shipment.getStatus() != ShipmentStatus.PENDING_ALLOCATION) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_SHIPMENT_ALREADY_ALLOCATED.getCode(), new String[]{}, locale));
+        }
+
+        // ============================================================
+        // STEP 4: Apply allocation
+        // ============================================================
+        shipment.setFleetDriverId(request.getFleetDriverId());
+        shipment.setFleetAssetId(request.getFleetAssetId());
+        shipment.setStatus(ShipmentStatus.ALLOCATED);
+        shipment.setModifiedAt(LocalDateTime.now());
+        shipment.setModifiedBy(username);
+        Shipment saved = shipmentServiceAuditable.update(shipment, locale, username);
+        log.info("Shipment allocated: id={} driver={} asset={}", saved.getId(),
+                saved.getFleetDriverId(), saved.getFleetAssetId());
+
+        // ============================================================
+        // STEP 5: Publish shipment.allocated event
+        // ============================================================
+        try {
+            Map<String, Object> event = buildAllocatedEvent(saved);
+            rabbitTemplate.convertAndSend(RabbitMQProducerConfig.SHIPMENT_EXCHANGE,
+                    RabbitMQProducerConfig.SHIPMENT_ALLOCATED_ROUTING_KEY, event);
+            log.info("Published shipment.allocated event for shipmentId={}", saved.getId());
+        } catch (Exception ex) {
+            log.error("Failed to publish shipment.allocated event for shipmentId={}: {}",
+                    saved.getId(), ex.getMessage(), ex);
+        }
+
+        ShipmentResponse response = successResponse(200, messageService.getMessage(
+                I18Code.MESSAGE_SHIPMENT_ALLOCATE_SUCCESS.getCode(), new String[]{}, locale));
+        response.setShipmentDto(ShipmentMapper.toDto(saved));
+        return response;
+    }
+
+    // ============================================================
+    // STATUS UPDATES (from trip-tracking system calls)
+    // ============================================================
+
+    /**
+     * Update a shipment's status from a system/internal call (e.g. trip service).
+     * Allowed transitions: ALLOCATED → IN_TRANSIT → ARRIVED_PENDING_OTP → DELIVERED
+     *
+     * Flow:
+     * 1. Validate the request
+     * 2. Load the shipment by id
+     * 3. Validate the transition is legal
+     * 4. Apply and persist
+     */
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public ShipmentResponse updateStatus(UpdateShipmentStatusRequest request, Locale locale, String username) {
+
+        // ============================================================
+        // STEP 1: Validate the request
+        // ============================================================
+        ValidatorDto validation = shipmentServiceValidator.isUpdateShipmentStatusRequestValid(request, locale);
+        if (!validation.getSuccess()) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_SHIPMENT_ALLOCATE_INVALID.getCode(), new String[]{}, locale),
+                    validation.getErrorMessages());
+        }
+
+        ShipmentStatus newStatus;
+        try {
+            newStatus = ShipmentStatus.valueOf(request.getStatus().trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_SHIPMENT_INVALID_STATUS_TRANSITION.getCode(), new String[]{}, locale));
+        }
+
+        // ============================================================
+        // STEP 2: Load the shipment
+        // ============================================================
+        Shipment shipment = shipmentRepository.findByIdAndEntityStatusNot(
+                request.getShipmentId(), EntityStatus.DELETED).orElse(null);
+        if (shipment == null) {
+            return errorResponse(404, messageService.getMessage(
+                    I18Code.MESSAGE_SHIPMENT_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+
+        // ============================================================
+        // STEP 3: Validate the transition is legal
+        // ============================================================
+        if (!isValidTransition(shipment.getStatus(), newStatus)) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_SHIPMENT_INVALID_STATUS_TRANSITION.getCode(), new String[]{}, locale));
+        }
+
+        // ============================================================
+        // STEP 4: Apply and persist
+        // ============================================================
+        shipment.setStatus(newStatus);
+        if (request.getTripId() != null) {
+            shipment.setTripId(request.getTripId());
+        }
+        if (request.getNotes() != null && !request.getNotes().isBlank()) {
+            shipment.setNotes(request.getNotes());
+        }
+        shipment.setModifiedAt(LocalDateTime.now());
+        shipment.setModifiedBy(username);
+        Shipment saved = shipmentServiceAuditable.update(shipment, locale, username);
+        log.info("Shipment status updated: id={} newStatus={} by={}",
+                saved.getId(), saved.getStatus(), username);
+
+        ShipmentResponse response = successResponse(200, messageService.getMessage(
+                I18Code.MESSAGE_SHIPMENT_STATUS_UPDATE_SUCCESS.getCode(), new String[]{}, locale));
+        response.setShipmentDto(ShipmentMapper.toDto(saved));
+        return response;
+    }
+
+    // ============================================================
+    // Private helpers
+    // ============================================================
+
+    private boolean isValidTransition(ShipmentStatus current, ShipmentStatus next) {
+        return switch (current) {
+            case ALLOCATED -> next == ShipmentStatus.IN_TRANSIT || next == ShipmentStatus.CANCELLED;
+            case IN_TRANSIT -> next == ShipmentStatus.ARRIVED_PENDING_OTP || next == ShipmentStatus.CANCELLED;
+            case ARRIVED_PENDING_OTP -> next == ShipmentStatus.DELIVERED || next == ShipmentStatus.CANCELLED;
+            default -> false;
+        };
+    }
+
+    private Map<String, Object> buildAllocatedEvent(Shipment shipment) {
+        Map<String, Object> event = new HashMap<>();
+        event.put("shipmentId", shipment.getId());
+        event.put("shipmentNumber", shipment.getShipmentNumber());
+        event.put("organizationId", shipment.getOrganizationId());
+        event.put("inventoryTransferId", shipment.getInventoryTransferId());
+        event.put("fleetDriverId", shipment.getFleetDriverId());
+        event.put("fleetAssetId", shipment.getFleetAssetId());
+        event.put("status", shipment.getStatus().name());
+        return event;
+    }
+
+    private String generateShipmentNumber() {
+        return "SHP-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
+    }
+
+    private ShipmentResponse successResponse(int statusCode, String message) {
+        ShipmentResponse response = new ShipmentResponse();
+        response.setStatusCode(statusCode);
+        response.setSuccess(true);
+        response.setMessage(message);
+        return response;
+    }
+
+    private ShipmentResponse errorResponse(int statusCode, String message) {
+        return errorResponse(statusCode, message, new ArrayList<>());
+    }
+
+    private ShipmentResponse errorResponse(int statusCode, String message, List<String> errors) {
+        ShipmentResponse response = new ShipmentResponse();
+        response.setStatusCode(statusCode);
+        response.setSuccess(false);
+        response.setMessage(message);
+        response.setErrorMessages(errors);
+        return response;
+    }
+
+    private static Long toLong(Object value) {
+        if (value == null) return null;
+        try {
+            return Long.parseLong(value.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static String toStr(Object value) {
+        return value != null ? value.toString() : null;
+    }
+}

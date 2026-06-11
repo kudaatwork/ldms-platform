@@ -16,9 +16,33 @@ import {
   CustomerEditDetail,
   CustomerKycStatus,
   CustomerListRow,
+  CustomerRegistrationEmailStatus,
   IndustrySelectOption,
   RegisterCustomerPayload,
 } from '../models/customer.model';
+
+export type CustomerRegistrationEmailCheck = {
+  status: CustomerRegistrationEmailStatus;
+  message: string;
+  duplexLinkOffered?: boolean;
+  existingOrganizationId?: number;
+  existingOrganizationName?: string;
+  existingOrganizationEmail?: string;
+};
+
+export type CustomerRegistrationConflict = CustomerRegistrationEmailCheck & {
+  existingOrganizationId: number;
+};
+
+export class CustomerRegistrationConflictError extends Error {
+  readonly conflict: CustomerRegistrationConflict;
+
+  constructor(conflict: CustomerRegistrationConflict) {
+    super(conflict.message);
+    this.name = 'CustomerRegistrationConflictError';
+    this.conflict = conflict;
+  }
+}
 
 /** LDMS organization-management frontend customer APIs for supplier workspaces. */
 @Injectable({ providedIn: 'root' })
@@ -72,6 +96,39 @@ export class CustomersPortalService {
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
+  }
+
+  /** GET /customers/check-registration-email — pre-check before registering a buyer. */
+  checkCustomerRegistrationEmail(email: string): Observable<CustomerRegistrationEmailCheck> {
+    return this.http
+      .get<unknown>(`${this.base}/customers/check-registration-email`, { params: { email: email.trim() } })
+      .pipe(
+        map((resp) => this.mapRegistrationEmailCheck(resp)),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
+  }
+
+  /** POST /customers/link-existing — link an existing org as customer (duplex when target is supplier). */
+  linkExistingOrganizationAsCustomer(
+    existingOrganizationId: number,
+    enableDuplexMode: boolean,
+  ): Observable<CustomerListRow> {
+    return this.http
+      .post<unknown>(`${this.base}/customers/link-existing`, {
+        existingOrganizationId,
+        enableDuplexMode,
+      })
+      .pipe(
+        map((resp) => {
+          this.assertSuccess(resp);
+          const dto = this.extractSingleOrganization(resp);
+          if (!dto['id']) {
+            throw new Error('Organisation was linked but the response did not include an id.');
+          }
+          return this.mapCustomerRow(dto);
+        }),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
   }
 
   /** POST /customers/register (multipart) — full customer org + supplier link. */
@@ -364,8 +421,64 @@ export class CustomersPortalService {
       : null;
   }
 
+  parseRegistrationConflict(err: HttpErrorResponse | Error): CustomerRegistrationConflict | null {
+    if (!(err instanceof HttpErrorResponse) || err.status !== 409) {
+      return null;
+    }
+    const parsed = this.toObj(err.error);
+    if (!parsed) {
+      return null;
+    }
+    const existing = this.toObj(parsed['existingOrganizationForLink']);
+    const id = Number(existing?.['id'] ?? 0);
+    if (!id) {
+      return null;
+    }
+    const status = String(parsed['customerRegistrationEmailStatus'] ?? '').trim().toUpperCase();
+    return {
+      status: (status || 'DUPLEX_OFFERED') as CustomerRegistrationEmailStatus,
+      message: this.readMessage(parsed),
+      duplexLinkOffered: Boolean(parsed['duplexLinkOffered']),
+      existingOrganizationId: id,
+      existingOrganizationName: String(existing?.['name'] ?? '').trim() || 'Existing organisation',
+      existingOrganizationEmail: String(existing?.['email'] ?? '').trim() || undefined,
+    };
+  }
+
+  private mapRegistrationEmailCheck(response: unknown): CustomerRegistrationEmailCheck {
+    const parsed = this.unwrapEnvelope(response);
+    const status = String(parsed['customerRegistrationEmailStatus'] ?? 'AVAILABLE')
+      .trim()
+      .toUpperCase() as CustomerRegistrationEmailStatus;
+    const existing = this.toObj(parsed['existingOrganizationForLink']);
+    return {
+      status,
+      message: this.readMessage(parsed),
+      duplexLinkOffered: Boolean(parsed['duplexLinkOffered']),
+      existingOrganizationId: this.toPositiveId(existing?.['id']),
+      existingOrganizationName: String(existing?.['name'] ?? '').trim() || undefined,
+      existingOrganizationEmail: String(existing?.['email'] ?? '').trim() || undefined,
+    };
+  }
+
+  private readMessage(parsed: Record<string, unknown>): string {
+    const message = parsed['message'];
+    if (typeof message === 'string' && message.trim()) {
+      return message.trim();
+    }
+    const msgs = parsed['errorMessages'];
+    if (Array.isArray(msgs) && msgs.length) {
+      return msgs.map((m) => String(m)).join(' ');
+    }
+    return 'Registration could not continue for this email.';
+  }
+
   private toError(err: HttpErrorResponse | Error): Error {
     if (err instanceof HttpErrorResponse) {
+      const conflict = this.parseRegistrationConflict(err);
+      if (conflict) {
+        return new CustomerRegistrationConflictError(conflict);
+      }
       const body = err.error;
       if (isApiFailureEnvelope(body)) {
         return new Error(readApiFailureMessage(body, 'Request failed'));

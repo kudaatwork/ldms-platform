@@ -46,7 +46,7 @@ class UsernameUniquenessSupportTest {
     void isAvailable_returnsFalseWhenAnotherUserHasUsername() {
         User other = new User();
         other.setId(9L);
-        when(userRepository.findByUsernameIgnoreCaseAndEntityStatusNot("taken", EntityStatus.DELETED))
+        when(userRepository.findByUsernameIgnoreCaseAndEntityStatusNot("Taken", EntityStatus.DELETED))
                 .thenReturn(Optional.of(other));
 
         assertFalse(support.isAvailable("Taken", 5L));

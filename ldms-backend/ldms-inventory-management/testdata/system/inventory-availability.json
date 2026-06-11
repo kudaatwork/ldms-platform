@@ -1,0 +1,5 @@
+{
+  "productId": "{{productId1}}",
+  "warehouseId": "{{warehouseLocationId}}",
+  "requiredQuantity": 2
+}

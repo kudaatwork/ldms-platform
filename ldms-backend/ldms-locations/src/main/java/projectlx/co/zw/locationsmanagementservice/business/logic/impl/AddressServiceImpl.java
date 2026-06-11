@@ -687,6 +687,10 @@ public class AddressServiceImpl implements AddressService {
             addressDto.setCityId(suburb.getCityLocationNode().getId());
             addressDto.setCityName(suburb.getCityLocationNode().getName());
         }
+        if (suburb.getCityLocationNode() != null) {
+            addressDto.setCityId(suburb.getCityLocationNode().getId());
+            addressDto.setCityName(suburb.getCityLocationNode().getName());
+        }
     }
 
     @Override

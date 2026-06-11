@@ -1,0 +1,12 @@
+{
+  "name": "Oxygen Cylinder 50L",
+  "description": "Industrial oxygen cylinder, 50L",
+  "productCode": "GAS-O2-50L",
+  "price": 120.0,
+  "unitOfMeasure": "CYLINDER",
+  "productCategoryId": "{{categoryId1}}",
+  "productSubCategoryId": "{{subCategoryId1}}",
+  "supplierId": 8,
+  "manufacturer": "LX Gases",
+  "expiresAt": "2030-12-31"
+}

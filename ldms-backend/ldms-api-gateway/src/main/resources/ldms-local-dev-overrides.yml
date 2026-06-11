@@ -1,0 +1,34 @@
+# Loaded after Config Server — local LDMS port map for programmatic gateway routes.
+INVENTORY_MANAGEMENT_HOST: 127.0.0.1
+INVENTORY_MANAGEMENT_PORT: 8013
+FLEET_MANAGEMENT_HOST: 127.0.0.1
+FLEET_MANAGEMENT_PORT: 8088
+BILLING_PAYMENTS_HOST: 127.0.0.1
+BILLING_PAYMENTS_PORT: 8014
+SHIPMENT_MANAGEMENT_HOST: 127.0.0.1
+SHIPMENT_MANAGEMENT_PORT: 8015
+TRIP_TRACKING_HOST: 127.0.0.1
+TRIP_TRACKING_PORT: 8016
+
+ldms:
+  gateway:
+    inventory-management:
+      routes-enabled: true
+      host: 127.0.0.1
+      port: 8013
+    fleet-management:
+      routes-enabled: true
+      host: 127.0.0.1
+      port: 8088
+    billing-payments:
+      routes-enabled: true
+      host: 127.0.0.1
+      port: 8014
+    shipment-management:
+      routes-enabled: true
+      host: 127.0.0.1
+      port: 8015
+    trip-tracking:
+      routes-enabled: true
+      host: 127.0.0.1
+      port: 8016

@@ -13,6 +13,7 @@ import {
   mapOrganizationPartnerMetadata,
 } from '../../../shared/utils/map-organization-metadata.util';
 import {
+  CompleteFleetRegistrationPayload,
   CreateFleetCompliancePayload,
   CreateFleetDriverPayload,
   CreateFleetVehiclePayload,
@@ -39,6 +40,8 @@ export class FleetPortalService {
   private readonly orgBase = ldmsServiceUrl('organization-management', 'organization', undefined, 'frontend');
   /** Physical assets, drivers, and compliance live in fleet-management. */
   private readonly fleetBase = ldmsServiceUrl('fleet-management', 'fleet', undefined, 'frontend');
+  /** File-upload service — frontend surface. */
+  private readonly fileUploadBase = ldmsServiceUrl('file-upload-service', 'file-upload', undefined, 'frontend');
 
   constructor(private readonly http: HttpClient) {}
 
@@ -90,6 +93,50 @@ export class FleetPortalService {
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
+  }
+
+  /**
+   * Upload a compliance document for a fleet asset and return the numeric file-upload id.
+   * POST /ldms-file-upload-service/v1/frontend/file-upload/upload
+   * ownerType must be FLEET_ASSET so the backend helper resolves the correct owner bucket.
+   */
+  uploadFleetAssetDocument(assetId: number, file: File): Observable<number> {
+    const form = new FormData();
+    form.append('files', file, file.name);
+    form.append(
+      'fileUploadRequest',
+      JSON.stringify({
+        ownerType: 'FLEET_ASSET',
+        ownerId: assetId,
+        filesMetadata: [{ fileType: 'DOCUMENT' }],
+      }),
+    );
+    return this.http.post<unknown>(`${this.fileUploadBase}/upload`, form).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        const envelope = this.unwrapEnvelope(resp);
+        const dto = this.toObj(envelope['fileUploadDto']) ?? envelope;
+        const id = Number(dto['id'] ?? dto['fileUploadId'] ?? 0);
+        if (!id) {
+          throw new Error('File upload service did not return a file id.');
+        }
+        return id;
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** POST /assets/{id}/complete-registration — submit required compliance docs to finalise asset registration. */
+  completeFleetRegistration(assetId: number, payload: CompleteFleetRegistrationPayload): Observable<FleetVehicleRow> {
+    return this.http
+      .post<unknown>(`${this.fleetBase}/assets/${assetId}/complete-registration`, payload)
+      .pipe(
+        map((resp) => {
+          this.assertSuccess(resp);
+          return this.mapVehicleRow(this.extractSingleFleetVehicle(resp));
+        }),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
   }
 
   /** GET /transporters/{id}/fleet-vehicles — partner rolling stock + supplier-tagged contracted units. */
@@ -340,6 +387,12 @@ export class FleetPortalService {
     };
     if (ownershipType === 'contracted' && payload.contractedTransporterOrganizationId != null) {
       body['contractedTransporterOrganizationId'] = payload.contractedTransporterOrganizationId;
+    }
+    if (ownershipType === 'contracted' && payload.contractScope) {
+      body['contractScope'] = payload.contractScope.toUpperCase();
+    }
+    if (ownershipType === 'contracted' && payload.contractScope === 'job' && payload.jobReference) {
+      body['jobReference'] = payload.jobReference;
     }
     return body;
   }

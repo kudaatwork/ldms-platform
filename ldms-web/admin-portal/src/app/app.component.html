@@ -1,4 +1,10 @@
+<lx-route-progress />
+
 <div class="shell" [class.collapsed]="collapsed" [class.shell--auth]="!showShell">
+
+@if (!connectivity.isOnline()) {
+  <app-offline-page />
+}
 
   <!-- ═══ SIDEBAR ═══════════════════════════════════════════════════════ -->
   @if (showShell) {

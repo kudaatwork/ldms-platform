@@ -1,0 +1,12 @@
+{
+  "name": "Carbon Dioxide Cylinder 45kg",
+  "description": "CO2 cylinder, 45kg",
+  "productCode": "GAS-CO2-45KG",
+  "price": 110.0,
+  "unitOfMeasure": "CYLINDER",
+  "productCategoryId": "{{categoryId1}}",
+  "productSubCategoryId": "{{subCategoryId1}}",
+  "supplierId": 8,
+  "manufacturer": "LX Gases",
+  "expiresAt": "2030-12-31"
+}

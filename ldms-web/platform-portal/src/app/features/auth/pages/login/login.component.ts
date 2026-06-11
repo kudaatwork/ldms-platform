@@ -37,7 +37,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
 
   readonly showMockCredentials = environment.useMocks;
   readonly mockCreds: MockCredRow[] = MOCK_USERS.map((row) => ({
-    label: row.user.orgClassification.replace(/_/g, ' '),
+    label: (row.user.orgClassification ?? 'USER').replace(/_/g, ' '),
     email: row.email,
     pass: row.password,
   }));
@@ -64,8 +64,11 @@ export class LoginComponent implements OnInit, AfterViewInit {
     if (email) {
       this.form.patchValue({ usernameOrEmail: email });
     }
-    if (this.route.snapshot.queryParamMap.get('reason') === 'inactivity') {
+    const logoutReason = this.route.snapshot.queryParamMap.get('reason');
+    if (logoutReason === 'inactivity') {
       this.infoMessage = 'You were signed out after inactivity. Please sign in again.';
+    } else if (logoutReason === 'session_expired') {
+      this.infoMessage = 'Your session has expired. Please sign in again to continue.';
     }
     if (this.route.snapshot.queryParamMap.get('verified') === '1') {
       this.infoMessage = 'Your email is verified. Sign in to open your organisation workspace.';

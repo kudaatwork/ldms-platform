@@ -1,0 +1,7 @@
+# Loaded after Config Server — wins over ldms-config-repo for local LDMS port map.
+server:
+  port: 8016
+
+management:
+  server:
+    port: 9016

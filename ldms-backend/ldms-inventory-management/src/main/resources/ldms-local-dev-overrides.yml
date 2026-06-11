@@ -1,0 +1,20 @@
+# Loaded after Config Server — wins over ldms-config-repo for local LDMS port map.
+server:
+  port: 8013
+
+management:
+  server:
+    port: 9013
+
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: none
+
+clients:
+  baseUrl:
+    apiGateway: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+    userManagementService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+    organizationManagementService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+    locationsManagementService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+    fileUploadService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}

@@ -35,4 +35,13 @@ public class OrganizationResponse extends CommonResponse {
 
     private OrganizationVerificationStatus verificationStatus;
     private Long count;
+
+    /** Populated when supplier customer registration finds an existing org that can be linked via duplex. */
+    private Boolean duplexLinkOffered;
+
+    /** Summary of an existing org offered for duplex/customer link. */
+    private OrganizationDto existingOrganizationForLink;
+
+    /** Result of pre-checking customer registration email availability. */
+    private String customerRegistrationEmailStatus;
 }

@@ -20,6 +20,8 @@ import { ThemeService } from './core/services/theme.service';
 import { ORG_CLASSIFICATIONS } from './shared/models/org-classifications';
 import { isStoredSessionToken } from './core/utils/jwt.util';
 import { PhoneVerificationPromptService } from './core/services/phone-verification-prompt.service';
+import { NetworkConnectivityService } from './core/services/network-connectivity.service';
+import { OfflinePageComponent } from './shared/components/offline-page/offline-page.component';
 
 /** Leaf link or non-clickable section label inside a nav subsection. */
 type NavSubEntry =
@@ -229,6 +231,7 @@ export class AppComponent implements OnInit, OnDestroy {
     private readonly kycNotificationDismiss: KycNotificationDismissService,
     readonly theme: ThemeService,
     private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
+    readonly connectivity: NetworkConnectivityService,
   ) {
     this.showShell = !router.url.startsWith('/auth');
   }

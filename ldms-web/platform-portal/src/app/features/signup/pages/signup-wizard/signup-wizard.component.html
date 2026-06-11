@@ -79,6 +79,20 @@
             </ul>
           </button>
         </div>
+
+        <div class="su-duplex-panel" *ngIf="showDuplexOption">
+          <label class="su-duplex-toggle">
+            <input type="checkbox" [checked]="duplexMode" (change)="toggleDuplexMode()" />
+            <span>
+              <strong>Duplex mode</strong> — operate as both supplier and customer under one organisation
+            </span>
+          </label>
+          <p class="su-duplex-copy">
+            Your primary classification stays <strong>{{ classification === 'SUPPLIER' ? 'Supplier' : 'Customer' }}</strong>.
+            Duplex lets you buy from suppliers and sell to customers with the same legal entity. You can also be linked as a
+            transporter to many partners. Trading relationships are kept separate for each link.
+          </p>
+        </div>
       </section>
 
       <!-- Step 1 -->

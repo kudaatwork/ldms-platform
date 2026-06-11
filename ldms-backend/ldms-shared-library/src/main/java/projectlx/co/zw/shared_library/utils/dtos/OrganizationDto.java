@@ -63,6 +63,10 @@ public class OrganizationDto {
     }
 
     private OrganizationClassification organizationClassification;
+
+    /** When true, organisation both buys and sells; relationships define trading role per partner. */
+    private Boolean duplexMode;
+
     private Long industryId;
     private String industryName;
     private String industryCode;

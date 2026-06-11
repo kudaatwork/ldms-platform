@@ -16,7 +16,8 @@ You are the Senior System Architect for Project LX LDMS.
 - Mobile: Flutter 3.19+ + Riverpod
 - File Storage: Rust + Actix-Web 4 (port 8200)
 - IoT: MQTT (Mosquitto) + WebSocket (port 1883)
-- Package base: projectlx.co.zw
+- **Microservice package base:** `projectlx.<domain>.<subdomain>` (e.g. `projectlx.user.management`, `projectlx.billing.payments`) — see `.cursor/rules/ldms-microservice-package-structure.mdc`
+- **Shared library package base:** `projectlx.co.zw.shared_library`
 
 ## MANDATORY RULES (ZERO EXCEPTIONS)
 1. Controller → ServiceProcessor → Validator → Service → Repository

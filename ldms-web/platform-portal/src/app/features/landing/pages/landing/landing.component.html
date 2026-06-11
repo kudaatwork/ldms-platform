@@ -40,9 +40,7 @@
         </button>
         <a class="ldms-landing__link" [href]="adminUrl + '/auth/login'" rel="noopener">Admin</a>
         <a class="ldms-landing__link" routerLink="/contact">Demo</a>
-        <button type="button" class="lx-btn lx-btn-secondary ldms-landing__btn-ghost" (click)="goPlatformLogin()">
-          Sign in
-        </button>
+        <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__btn-ghost">Sign in</a>
         <button type="button" class="lx-btn lx-btn-primary ldms-landing__nav-cta" (click)="goSignup()">
           Get started
         </button>
@@ -73,9 +71,9 @@
         <a class="ldms-landing__mobile-link" href="#ldms-journey" (click)="closeMobileNav()">Journey</a>
         <a class="ldms-landing__mobile-link" href="#ldms-faq" (click)="closeMobileNav()">FAQ</a>
         <a class="ldms-landing__mobile-link" routerLink="/contact" (click)="closeMobileNav()">Book a demo</a>
-        <button type="button" class="lx-btn lx-btn-secondary ldms-landing__mobile-btn" (click)="goPlatformLogin(); closeMobileNav()">
+        <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__mobile-btn" (click)="closeMobileNav()">
           Organisation sign in
-        </button>
+        </a>
         <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup(); closeMobileNav()">Create account</button>
       </nav>
     </div>
@@ -654,7 +652,7 @@
             </ul>
             <div class="ldms-landing__card-actions">
               <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup()">Create account</button>
-              <button type="button" class="lx-btn lx-btn-ghost" (click)="goPlatformLogin()">Sign in</button>
+              <a routerLink="/auth/login" class="lx-btn lx-btn-ghost">Sign in</a>
             </div>
           </article>
 
@@ -712,9 +710,9 @@
           <button type="button" class="lx-btn lx-btn-primary ldms-landing__cta-band-btn" (click)="goSignup()">
             Create organisation account
           </button>
-          <button type="button" class="lx-btn lx-btn-secondary ldms-landing__cta-band-secondary" (click)="goPlatformLogin()">
+          <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__cta-band-secondary">
             Sign in to portal
-          </button>
+          </a>
           <button type="button" class="lx-btn lx-btn-secondary ldms-landing__cta-band-book" (click)="goBookDemo()">
             Book a demo
           </button>

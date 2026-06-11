@@ -4,11 +4,13 @@ import { ClientPlatformInterceptor } from './interceptors/client-platform.interc
 import { AuthInterceptor } from './interceptors/auth.interceptor';
 import { MockInterceptor } from './interceptors/mock.interceptor';
 import { SystemSurfaceInterceptor } from './interceptors/system-surface.interceptor';
+import { SessionExpiredInterceptor } from './interceptors/session-expired.interceptor';
 
 @NgModule({
   providers: [
     { provide: HTTP_INTERCEPTORS, useClass: ClientPlatformInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
+    { provide: HTTP_INTERCEPTORS, useClass: SessionExpiredInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: MockInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: SystemSurfaceInterceptor, multi: true },
   ],

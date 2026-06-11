@@ -9,6 +9,8 @@ import { CoreModule } from './core/core.module';
 import { SharedModule } from './shared/shared.module';
 import { AuthService } from './core/services/auth.service';
 import { ThemeService } from './core/services/theme.service';
+import { OfflinePageComponent } from './shared/components/offline-page/offline-page.component';
+import { LxRouteProgressComponent } from './shared/components/lx-route-progress/lx-route-progress.component';
 
 export function initAdminTheme(theme: ThemeService): () => void {
   return () => {
@@ -31,6 +33,8 @@ export function initAdminSession(auth: AuthService): () => void {
     CoreModule,
     SharedModule,
     AppRoutingModule,
+    OfflinePageComponent,
+    LxRouteProgressComponent,
   ],
   providers: [
     {

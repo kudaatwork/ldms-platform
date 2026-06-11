@@ -26,7 +26,9 @@ import projectlx.co.zw.organizationmanagement.business.kyc.OrganizationEventPubl
 import projectlx.co.zw.organizationmanagement.clients.UserManagementServiceClient;
 import projectlx.co.zw.organizationmanagement.business.logic.api.OrganizationService;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryAdminService;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationTradingCapabilitySupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryNotifier;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationFleetNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationFileUploadHelper;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationApprovedCredentialsSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationContactPersonProvisioningSupport;
@@ -80,6 +82,8 @@ import projectlx.co.zw.organizationmanagement.utils.exceptions.BusinessRuleExcep
 import projectlx.co.zw.organizationmanagement.utils.dtos.ImportSummary;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryDto;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateFleetVehicleRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.FleetRegisteredNotificationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.ValidateFleetOwnershipRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.EditFleetVehicleRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.AddBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateAgentRequest;
@@ -163,6 +167,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final OrganizationKycNotifier organizationKycNotifier;
     private final OrganizationApprovedCredentialsSupport organizationApprovedCredentialsSupport;
     private final OrganizationDirectoryNotifier organizationDirectoryNotifier;
+    private final OrganizationFleetNotifier organizationFleetNotifier;
     private final OrganizationRegistrationAddressSupport organizationRegistrationAddressSupport;
     private final SupplierRegisteredOrganizationOnboardingSupport supplierRegisteredOrganizationOnboardingSupport;
     private final ApplicationEventPublisher applicationEventPublisher;
@@ -191,6 +196,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         org.setEmail(normalizedEmail);
         org.setPhoneNumber(request.getPhoneNumber());
         org.setOrganizationClassification(request.getOrganizationClassification());
+        org.setDuplexMode(Boolean.TRUE.equals(request.getDuplexMode()));
         if (request.getOrganizationType() != null) {
             org.setOrganizationType(request.getOrganizationType());
         }
@@ -551,7 +557,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     @Transactional(readOnly = true)
     public OrganizationResponse listCustomers(Locale locale, String username) {
         Organization org = loadForUser(username);
-        if (org.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+        if (!OrganizationTradingCapabilitySupport.canActAsSupplier(org)) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_CUSTOMERS.getCode(), new String[]{}, locale)));
         }
@@ -571,7 +577,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     public OrganizationResponse listTransporters(Locale locale, String username) {
         Organization org = loadForUser(username);
         List<OrganizationDto> dtos = new ArrayList<>();
-        if (org.getOrganizationClassification() == OrganizationClassification.SUPPLIER) {
+        if (OrganizationTradingCapabilitySupport.canContractTransporters(org)) {
             List<ContractedTransporterLink> links = contractedTransporterLinkRepository
                     .findByOrganizationIdAndEntityStatusNotOrderByLinkedAtDesc(org.getId(), EntityStatus.DELETED);
             for (ContractedTransporterLink link : links) {
@@ -602,15 +608,15 @@ public class OrganizationServiceImpl implements OrganizationService {
     @Override
     @Transactional(readOnly = true)
     public OrganizationResponse searchTransportCompanyCandidates(String search, Locale locale, String username) {
-        Organization supplier = loadForUser(username);
-        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+        Organization caller = loadForUser(username);
+        if (!OrganizationTradingCapabilitySupport.canContractTransporters(caller)) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_TRANSPORTER_LINK.getCode(), new String[]{}, locale)));
         }
         java.util.Set<Long> exclude = new java.util.HashSet<>();
-        exclude.add(supplier.getId());
+        exclude.add(caller.getId());
         for (Organization linked : organizationRepository.findContractedTransportersForSupplier(
-                supplier.getId(), EntityStatus.DELETED)) {
+                caller.getId(), EntityStatus.DELETED)) {
             if (linked.getId() != null) {
                 exclude.add(linked.getId());
             }
@@ -647,14 +653,15 @@ public class OrganizationServiceImpl implements OrganizationService {
             return buildOrganizationResponseWithErrors(v.getErrorMessages());
         }
         Organization supplier = loadForUser(username);
-        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+        if (!OrganizationTradingCapabilitySupport.canActAsSupplier(supplier)) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_CUSTOMERS.getCode(), new String[]{}, locale)));
         }
         String normalizedEmail = request.getEmail().trim().toLowerCase();
-        if (organizationRepository.findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED).isPresent()) {
-            return buildOrganizationResponseWithErrors(
-                    List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
+        Optional<Organization> existingActive = organizationRepository
+                .findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED);
+        if (existingActive.isPresent()) {
+            return buildCustomerRegistrationConflictResponse(existingActive.get(), supplier, locale);
         }
         OrganizationResponse contactEmailConflict = validateSupplierRegisteredContactEmail(request, locale, null, null);
         if (contactEmailConflict != null) {
@@ -786,7 +793,7 @@ public class OrganizationServiceImpl implements OrganizationService {
             return buildOrganizationResponseWithErrors(v.getErrorMessages());
         }
         Organization supplier = loadForUser(username);
-        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+        if (!OrganizationTradingCapabilitySupport.canActAsSupplier(supplier)) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_TRANSPORTER_LINK.getCode(), new String[]{}, locale)));
         }
@@ -1132,6 +1139,10 @@ public class OrganizationServiceImpl implements OrganizationService {
             return buildOrganizationResponseWithErrors(v.getErrorMessages());
         }
         Organization org = loadForUser(username);
+        if (!OrganizationTradingCapabilitySupport.canContractTransporters(org)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_TRANSPORTER_LINK.getCode(), new String[]{}, locale)));
+        }
         Organization transporter = organizationRepository.findByIdAndEntityStatusNot(request.getTransporterOrganizationId(), EntityStatus.DELETED)
                 .orElseThrow(() -> notFound(locale));
         if (transporter.getOrganizationClassification() != OrganizationClassification.TRANSPORT_COMPANY) {
@@ -1165,15 +1176,19 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         Organization supplier = organizationRepository.findByIdAndEntityStatusNot(supplierId, EntityStatus.DELETED)
                 .orElseThrow(() -> notFound(locale));
-        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+        if (!OrganizationTradingCapabilitySupport.canActAsSupplier(supplier)) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_SUPPLIER_LINK.getCode(), new String[]{}, locale)));
         }
         Organization customer = organizationRepository.findByIdAndEntityStatusNot(request.getCustomerOrganizationId(), EntityStatus.DELETED)
                 .orElseThrow(() -> notFound(locale));
-        if (customer.getOrganizationClassification() != OrganizationClassification.CUSTOMER) {
+        boolean enableDuplex = Boolean.TRUE.equals(request.getEnableDuplexMode());
+        if (!OrganizationTradingCapabilitySupport.canBeLinkedAsCustomer(customer, enableDuplex || customer.isDuplexMode())) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_CUSTOMER_LINK.getCode(), new String[]{}, locale)));
+        }
+        if (customer.getOrganizationClassification() == OrganizationClassification.SUPPLIER && enableDuplex) {
+            customer.setDuplexMode(true);
         }
         if (!supplier.getCustomers().contains(customer)) {
             supplier.getCustomers().add(customer);
@@ -1198,7 +1213,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         Organization org = organizationRepository.findByIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
                 .orElseThrow(() -> notFound(locale));
-        if (org.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+        if (!OrganizationTradingCapabilitySupport.canContractTransporters(org)) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_SUPPLIER_LINK.getCode(), new String[]{}, locale)));
         }
@@ -1235,7 +1250,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         Organization supplier = organizationRepository.findByIdAndEntityStatusNot(supplierId, EntityStatus.DELETED)
                 .orElseThrow(() -> notFound(locale));
-        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+        if (!OrganizationTradingCapabilitySupport.canActAsSupplier(supplier)) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_SUPPLIER_LINK.getCode(), new String[]{}, locale)));
         }
@@ -2685,7 +2700,7 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     /**
      * Resolves the transport-company partner visible to the caller:
-     * - SUPPLIER: the target must be a TRANSPORT_COMPANY in the supplier's contractedTransporters.
+     * - SUPPLIER or CUSTOMER: the target must be a TRANSPORT_COMPANY in the caller's contractedTransporters.
      * - TRANSPORT_COMPANY: the target must be one of the shippers that have contracted this transporter
      *   (i.e. present in findContractingOrganizationsForTransporter).
      */
@@ -2693,7 +2708,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         Organization partner = organizationRepository.findByIdAndEntityStatusNot(transporterId, EntityStatus.DELETED)
                 .orElseThrow(() -> notFound(locale));
 
-        if (caller.getOrganizationClassification() == OrganizationClassification.SUPPLIER) {
+        if (OrganizationTradingCapabilitySupport.canContractTransporters(caller)) {
             if (partner.getOrganizationClassification() != OrganizationClassification.TRANSPORT_COMPANY) {
                 throw notFound(locale);
             }
@@ -2763,7 +2778,7 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     private void resolveTransporterContractMetadata(Organization caller, Organization partner, OrganizationDto dto) {
         ContractedTransporterLink link = null;
-        if (caller.getOrganizationClassification() == OrganizationClassification.SUPPLIER) {
+        if (OrganizationTradingCapabilitySupport.canContractTransporters(caller)) {
             link = contractedTransporterLinkRepository
                     .findByOrganizationIdAndTransporterId(caller.getId(), partner.getId())
                     .orElse(null);
@@ -2776,13 +2791,12 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     private Organization requireLinkedCustomer(Organization supplier, Long customerId, Locale locale) {
-        if (supplier.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+        if (!OrganizationTradingCapabilitySupport.canActAsSupplier(supplier)) {
             throw notFound(locale);
         }
         Organization customer = organizationRepository.findByIdAndEntityStatusNot(customerId, EntityStatus.DELETED)
                 .orElseThrow(() -> notFound(locale));
-        if (customer.getOrganizationClassification() != OrganizationClassification.CUSTOMER
-                || !supplier.getCustomers().contains(customer)) {
+        if (!supplier.getCustomers().contains(customer)) {
             throw notFound(locale);
         }
         return customer;
@@ -3025,7 +3039,7 @@ public class OrganizationServiceImpl implements OrganizationService {
 
         List<FleetVehicleDto> dtos = new ArrayList<>();
 
-        if (caller.getOrganizationClassification() == OrganizationClassification.SUPPLIER
+        if (OrganizationTradingCapabilitySupport.canActAsSupplier(caller)
                 && partner.getOrganizationClassification() == OrganizationClassification.TRANSPORT_COMPANY) {
             List<FleetVehicle> partnerOwned = fleetVehicleRepository
                     .findByOrganizationIdAndOwnershipTypeAndEntityStatusNotOrderByCreatedAtDesc(
@@ -3090,12 +3104,64 @@ public class OrganizationServiceImpl implements OrganizationService {
         vehicle.setCreatedBy(username);
 
         FleetVehicle saved = fleetVehicleRepository.save(vehicle);
+        dispatchFleetRegisteredNotifications(
+                org,
+                ownershipType,
+                saved.getContractedTransporterOrganizationId(),
+                saved.getRegistration(),
+                saved.getMakeModel(),
+                saved.getVehicleType(),
+                username);
 
         OrganizationManagementResponse res = new OrganizationManagementResponse();
         res.setSuccess(true);
         res.setStatusCode(201);
         res.setMessage(messageService.getMessage(I18Code.FLEET_VEHICLE_CREATED.getCode(), new String[]{}, locale));
         res.setFleetVehicleDto(enrichFleetVehicleDto(saved, locale));
+        return res;
+    }
+
+    @Override
+    public OrganizationResponse notifyFleetRegistered(FleetRegisteredNotificationRequest request, Locale locale) {
+        if (request == null
+                || request.getRegisteringOrganizationId() == null
+                || request.getRegisteringOrganizationId() < 1
+                || !StringUtils.hasText(request.getRegistration())) {
+            OrganizationManagementResponse res = new OrganizationManagementResponse();
+            res.setSuccess(true);
+            res.setStatusCode(200);
+            res.setMessage("Fleet registration notification skipped — insufficient data.");
+            return res;
+        }
+
+        Organization registeringOrg = organizationRepository
+                .findByIdAndEntityStatusNot(request.getRegisteringOrganizationId(), EntityStatus.DELETED)
+                .orElse(null);
+        if (registeringOrg == null) {
+            log.warn(
+                    "Fleet registration notification skipped — registering organisation {} not found",
+                    request.getRegisteringOrganizationId());
+            OrganizationManagementResponse res = new OrganizationManagementResponse();
+            res.setSuccess(true);
+            res.setStatusCode(200);
+            res.setMessage("Fleet registration notification skipped — organisation not found.");
+            return res;
+        }
+
+        FleetVehicleOwnershipType ownershipType = normalizeFleetOwnershipType(request.getOwnershipType());
+        dispatchFleetRegisteredNotifications(
+                registeringOrg,
+                ownershipType,
+                request.getContractedTransporterOrganizationId(),
+                request.getRegistration(),
+                request.getMakeModel(),
+                request.getAssetType(),
+                StringUtils.hasText(request.getPerformedBy()) ? request.getPerformedBy() : SYSTEM_MODIFIER);
+
+        OrganizationManagementResponse res = new OrganizationManagementResponse();
+        res.setSuccess(true);
+        res.setStatusCode(200);
+        res.setMessage("Fleet registration notification dispatched.");
         return res;
     }
 
@@ -3241,6 +3307,35 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
     }
 
+    private void dispatchFleetRegisteredNotifications(
+            Organization registeringOrg,
+            FleetVehicleOwnershipType ownershipType,
+            Long contractedTransporterOrganizationId,
+            String registration,
+            String makeModel,
+            String assetType,
+            String performedBy) {
+        if (registeringOrg == null) {
+            return;
+        }
+        Organization transporterOrg = null;
+        if (ownershipType == FleetVehicleOwnershipType.CONTRACTED
+                && contractedTransporterOrganizationId != null
+                && contractedTransporterOrganizationId > 0) {
+            transporterOrg = organizationRepository
+                    .findByIdAndEntityStatusNot(contractedTransporterOrganizationId, EntityStatus.DELETED)
+                    .orElse(null);
+        }
+        organizationFleetNotifier.sendFleetRegistered(
+                registeringOrg,
+                transporterOrg,
+                registration,
+                makeModel,
+                assetType,
+                ownershipType,
+                performedBy);
+    }
+
     private OrganizationResponse resolveFleetOwnershipForWrite(
             Organization org,
             String ownershipTypeRaw,
@@ -3250,7 +3345,12 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (ownershipType == FleetVehicleOwnershipType.OWNED) {
             return null;
         }
-        if (org.getOrganizationClassification() != OrganizationClassification.SUPPLIER) {
+        // CONTRACTED is permitted for SUPPLIER and CUSTOMER (not TRANSPORT_COMPANY)
+        if (org.getOrganizationClassification() == OrganizationClassification.TRANSPORT_COMPANY) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.FLEET_VEHICLE_VALIDATION_FAILED.getCode(), new String[]{}, locale)));
+        }
+        if (!OrganizationTradingCapabilitySupport.canContractTransporters(org)) {
             return buildOrganizationResponseWithErrors(
                     List.of(messageService.getMessage(I18Code.FLEET_VEHICLE_VALIDATION_FAILED.getCode(), new String[]{}, locale)));
         }
@@ -3265,5 +3365,192 @@ public class OrganizationServiceImpl implements OrganizationService {
                     I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_INVALID.getCode(), new String[]{}, locale)));
         }
         return null;
+    }
+
+    /**
+     * Fleet ownership validation endpoint called by fleet-management service.
+     *
+     * Rules:
+     * - OWNED: allowed for SUPPLIER, TRANSPORT_COMPANY, CUSTOMER
+     * - CONTRACTED: allowed for SUPPLIER and CUSTOMER only; transport companies may only register OWNED assets
+     */
+    @Override
+    public OrganizationResponse validateFleetOwnership(ValidateFleetOwnershipRequest request, Locale locale) {
+        if (request == null || request.getRegisteringOrganizationId() == null) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.FLEET_OWNERSHIP_ORG_NOT_FOUND.getCode(), new String[]{}, locale)));
+        }
+
+        Organization org = organizationRepository.findByIdAndEntityStatusNot(
+                request.getRegisteringOrganizationId(), EntityStatus.DELETED).orElse(null);
+        if (org == null) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.FLEET_OWNERSHIP_ORG_NOT_FOUND.getCode(), new String[]{}, locale)));
+        }
+
+        FleetVehicleOwnershipType ownershipType = normalizeFleetOwnershipType(request.getOwnershipType());
+
+        if (ownershipType == FleetVehicleOwnershipType.OWNED) {
+            OrganizationResponse res = buildOrganizationResponse(null);
+            res.setMessage(messageService.getMessage(I18Code.FLEET_OWNERSHIP_VALIDATION_OK.getCode(), new String[]{}, locale));
+            return res;
+        }
+
+        // CONTRACTED: only SUPPLIER and CUSTOMER permitted
+        if (org.getOrganizationClassification() == OrganizationClassification.TRANSPORT_COMPANY) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.FLEET_OWNERSHIP_CONTRACTED_NOT_ALLOWED.getCode(), new String[]{}, locale)));
+        }
+
+        if (!OrganizationTradingCapabilitySupport.canContractTransporters(org)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.FLEET_OWNERSHIP_CONTRACTED_NOT_ALLOWED.getCode(), new String[]{}, locale)));
+        }
+
+        if (request.getContractedTransporterOrganizationId() == null
+                || request.getContractedTransporterOrganizationId() <= 0) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_REQUIRED.getCode(), new String[]{}, locale)));
+        }
+
+        try {
+            requireLinkedTransportPartner(org, request.getContractedTransporterOrganizationId(), locale);
+        } catch (RuntimeException ex) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_INVALID.getCode(), new String[]{}, locale)));
+        }
+
+        OrganizationResponse res = buildOrganizationResponse(null);
+        res.setMessage(messageService.getMessage(I18Code.FLEET_OWNERSHIP_VALIDATION_OK.getCode(), new String[]{}, locale));
+        return res;
+    }
+
+    @Override
+    public OrganizationResponse checkCustomerRegistrationEmail(String email, Locale locale, String username) {
+        if (!StringUtils.hasText(email)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(), new String[]{"email"}, locale)));
+        }
+        Organization supplier = loadForUser(username);
+        if (!OrganizationTradingCapabilitySupport.canActAsSupplier(supplier)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_CUSTOMERS.getCode(), new String[]{}, locale)));
+        }
+        String normalizedEmail = email.trim().toLowerCase();
+        Optional<Organization> existing = organizationRepository
+                .findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED);
+        OrganizationResponse response = new OrganizationResponse();
+        response.setSuccess(true);
+        response.setStatusCode(200);
+        if (existing.isEmpty()) {
+            response.setCustomerRegistrationEmailStatus(
+                    projectlx.co.zw.organizationmanagement.utils.enums.CustomerRegistrationEmailStatus.AVAILABLE.name());
+            response.setMessage("Email is available for new customer registration.");
+            return response;
+        }
+        Organization target = existing.get();
+        if (supplier.getCustomers().contains(target)) {
+            response.setCustomerRegistrationEmailStatus(
+                    projectlx.co.zw.organizationmanagement.utils.enums.CustomerRegistrationEmailStatus.ALREADY_LINKED.name());
+            response.setMessage(messageService.getMessage(
+                    I18Code.ORG_CUSTOMER_REGISTRATION_ALREADY_LINKED.getCode(), new String[]{}, locale));
+            return response;
+        }
+        if (target.getOrganizationClassification() == OrganizationClassification.CUSTOMER
+                || OrganizationTradingCapabilitySupport.canBeLinkedAsCustomer(target, false)) {
+            if (target.getOrganizationClassification() == OrganizationClassification.SUPPLIER) {
+                response.setCustomerRegistrationEmailStatus(
+                        projectlx.co.zw.organizationmanagement.utils.enums.CustomerRegistrationEmailStatus.DUPLEX_OFFERED.name());
+                response.setDuplexLinkOffered(true);
+                response.setExistingOrganizationForLink(OrganizationMapping.toDto(target));
+                response.setMessage(messageService.getMessage(
+                        I18Code.ORG_CUSTOMER_REGISTRATION_DUPLEX_OFFERED.getCode(), new String[]{}, locale));
+            } else {
+                response.setCustomerRegistrationEmailStatus(
+                        projectlx.co.zw.organizationmanagement.utils.enums.CustomerRegistrationEmailStatus.LINKABLE_CUSTOMER.name());
+                response.setExistingOrganizationForLink(OrganizationMapping.toDto(target));
+                response.setMessage("Existing customer organisation can be linked to your supplier account.");
+            }
+            return response;
+        }
+        response.setCustomerRegistrationEmailStatus(
+                projectlx.co.zw.organizationmanagement.utils.enums.CustomerRegistrationEmailStatus.NOT_LINKABLE.name());
+        response.setMessage(messageService.getMessage(
+                I18Code.ORG_CUSTOMER_REGISTRATION_NOT_LINKABLE.getCode(), new String[]{}, locale));
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse linkExistingOrganizationAsCustomer(
+            projectlx.co.zw.organizationmanagement.utils.requests.LinkExistingOrganizationAsCustomerRequest request,
+            Locale locale,
+            String username) {
+        if (request == null || request.getExistingOrganizationId() == null) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(), new String[]{"existingOrganizationId"}, locale)));
+        }
+        Organization supplier = loadForUser(username);
+        if (!OrganizationTradingCapabilitySupport.canActAsSupplier(supplier)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_CUSTOMERS.getCode(), new String[]{}, locale)));
+        }
+        Organization target = organizationRepository
+                .findByIdAndEntityStatusNot(request.getExistingOrganizationId(), EntityStatus.DELETED)
+                .orElseThrow(() -> notFound(locale));
+        if (supplier.getCustomers().contains(target)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_CUSTOMER_REGISTRATION_ALREADY_LINKED.getCode(), new String[]{}, locale)));
+        }
+        boolean enableDuplex = request.getEnableDuplexMode() == null || Boolean.TRUE.equals(request.getEnableDuplexMode());
+        if (!OrganizationTradingCapabilitySupport.canBeLinkedAsCustomer(target, enableDuplex)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_CUSTOMER_REGISTRATION_NOT_LINKABLE.getCode(), new String[]{}, locale)));
+        }
+        if (target.getOrganizationClassification() == OrganizationClassification.SUPPLIER && enableDuplex) {
+            target.setDuplexMode(true);
+        }
+        supplier.getCustomers().add(target);
+        target.getSuppliers().add(supplier);
+        organizationServiceAuditable.save(target);
+        organizationServiceAuditable.save(supplier);
+        organizationDirectoryNotifier.sendCustomerLinked(supplier, target, username);
+        OrganizationResponse response = buildOrganizationResponse(OrganizationMapping.toDto(target));
+        response.setMessage(messageService.getMessage(I18Code.ORG_CUSTOMER_LINKED_SUCCESS.getCode(), new String[]{}, locale));
+        return response;
+    }
+
+    private OrganizationResponse buildCustomerRegistrationConflictResponse(
+            Organization existing,
+            Organization supplier,
+            Locale locale) {
+        if (supplier.getCustomers().contains(existing)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_CUSTOMER_REGISTRATION_ALREADY_LINKED.getCode(), new String[]{}, locale)));
+        }
+        if (existing.getOrganizationClassification() == OrganizationClassification.SUPPLIER) {
+            OrganizationResponse response = buildOrganizationResponse(null);
+            response.setSuccess(false);
+            response.setStatusCode(409);
+            response.setDuplexLinkOffered(true);
+            response.setExistingOrganizationForLink(OrganizationMapping.toDto(existing));
+            response.setCustomerRegistrationEmailStatus(
+                    projectlx.co.zw.organizationmanagement.utils.enums.CustomerRegistrationEmailStatus.DUPLEX_OFFERED.name());
+            response.setErrorMessages(List.of(messageService.getMessage(
+                    I18Code.ORG_CUSTOMER_REGISTRATION_DUPLEX_OFFERED.getCode(), new String[]{}, locale)));
+            return response;
+        }
+        if (existing.getOrganizationClassification() == OrganizationClassification.CUSTOMER) {
+            OrganizationResponse response = buildOrganizationResponse(null);
+            response.setSuccess(false);
+            response.setStatusCode(409);
+            response.setExistingOrganizationForLink(OrganizationMapping.toDto(existing));
+            response.setCustomerRegistrationEmailStatus(
+                    projectlx.co.zw.organizationmanagement.utils.enums.CustomerRegistrationEmailStatus.LINKABLE_CUSTOMER.name());
+            response.setErrorMessages(List.of(
+                    "This organisation already exists as a customer. Link them instead of creating a duplicate."));
+            return response;
+        }
+        return buildOrganizationResponseWithErrors(
+                List.of(messageService.getMessage(I18Code.ORG_CUSTOMER_REGISTRATION_NOT_LINKABLE.getCode(), new String[]{}, locale)));
     }
 }

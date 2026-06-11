@@ -1,0 +1,12 @@
+{
+  "name": "Gas Regulator Set",
+  "description": "Regulator set with hose and gauges",
+  "productCode": "GAS-REG-SET",
+  "price": 35.0,
+  "unitOfMeasure": "EACH",
+  "productCategoryId": "{{categoryId2}}",
+  "productSubCategoryId": "{{subCategoryId2}}",
+  "supplierId": 8,
+  "manufacturer": "LX Gases",
+  "expiresAt": "2030-12-31"
+}

@@ -5,7 +5,6 @@ import type { CurrentUser } from '../models/auth.model';
 import { AuthStateService } from '../services/auth-state.service';
 import { AuthService } from '../services/auth.service';
 import { StorageService } from '../services/storage.service';
-import { currentUserFromJwt } from '../utils/jwt.util';
 
 @Injectable({ providedIn: 'root' })
 export class ClassificationGuard implements CanActivate {
@@ -20,6 +19,10 @@ export class ClassificationGuard implements CanActivate {
     return this.ensureUserLoaded().pipe(
       map((user) => {
         if (!user?.orgClassification) {
+          const token = this.storage.getToken();
+          if (token && !token.startsWith('mock.')) {
+            return this.router.createUrlTree(['/auth/login']);
+          }
           return this.router.createUrlTree(['/welcome']);
         }
         return true;
@@ -28,18 +31,13 @@ export class ClassificationGuard implements CanActivate {
   }
 
   private ensureUserLoaded(): Observable<CurrentUser | null> {
-    if (this.authState.currentUser) {
-      return of(this.authState.currentUser);
+    const existing = this.authState.currentUser;
+    if (existing?.orgClassification) {
+      return of(existing);
     }
     const token = this.storage.getToken();
     if (!token || token.startsWith('mock.')) {
       return of(null);
-    }
-    const jwtUser = currentUserFromJwt(token);
-    if (jwtUser?.orgClassification) {
-      this.authState.setCurrentUser(jwtUser);
-      this.authService.bootstrapFromStorage();
-      return of(jwtUser);
     }
     return this.authService.initializeSession().pipe(map(() => this.authState.currentUser));
   }

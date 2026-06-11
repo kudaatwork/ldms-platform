@@ -123,7 +123,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>projectlx.co.zw.fleetmanagement.FleetManagementApplication</mainClass>
+                    <mainClass>projectlx.fleet.management.FleetManagementApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>

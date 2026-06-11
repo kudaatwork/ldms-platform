@@ -1,0 +1,6 @@
+{
+  "productId": "{{productId1}}",
+  "name": "Cylinder Test Certificate",
+  "description": "Pressure test certificate",
+  "expiresAt": "2030-12-31"
+}

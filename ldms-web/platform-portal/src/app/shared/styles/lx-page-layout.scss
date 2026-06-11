@@ -245,6 +245,7 @@
 /* Table cards: no lift on hover */
 .lx-page .lx-card:has(.mat-mdc-table),
 .lx-page .lx-card:has(.lx-mat-table),
+.lx-page .lx-card:has(.lx-data-table),
 .lx-page .lx-card.lx-card--flat {
   &:hover {
     transform: none;

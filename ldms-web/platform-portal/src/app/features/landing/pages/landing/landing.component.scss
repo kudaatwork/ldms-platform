@@ -647,6 +647,10 @@
   justify-content: flex-end;
   gap: 8px;
   flex-shrink: 0;
+
+  a.lx-btn {
+    text-decoration: none;
+  }
 }
 
 .ldms-landing__theme-toggle {

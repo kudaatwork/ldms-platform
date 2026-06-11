@@ -106,7 +106,13 @@ export class RegisterOrganizationDialogComponent implements OnInit, OnDestroy {
       contactPersonNationalIdExpiryDate: [''],
       contactPersonPassportNumber: [''],
       contactPersonPassportExpiryDate: [''],
+      duplexMode: [false],
     });
+  }
+
+  get showDuplexOption(): boolean {
+    const c = this.form.get('organizationClassification')?.value as OrganizationClassification | undefined;
+    return c === 'SUPPLIER' || c === 'CUSTOMER';
   }
 
   get maximumDateOfBirth(): string {
@@ -225,6 +231,7 @@ export class RegisterOrganizationDialogComponent implements OnInit, OnDestroy {
       taxNumber: taxNumber || undefined,
       taxClearanceCertificateUpload: this.taxClearanceCertificateUpload ?? undefined,
       createdViaSignup: false,
+      duplexMode: this.showDuplexOption && Boolean(v.duplexMode) ? true : undefined,
     };
 
     this.submitting = true;

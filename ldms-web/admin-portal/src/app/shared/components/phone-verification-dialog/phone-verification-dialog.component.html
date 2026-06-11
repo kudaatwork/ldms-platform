@@ -5,7 +5,7 @@
       <p class="lx-dialog-subtitle">{{ lead }}</p>
     </div>
     <button
-      *ngIf="!required"
+      *ngIf="canDismiss"
       mat-icon-button
       type="button"
       class="lx-close-button"
@@ -17,7 +17,23 @@
   </div>
 
   <div class="lx-step-content">
-    <div class="lx-field">
+    <div class="pv-sms-notice" *ngIf="smsDisabledRevealed" role="status">
+      <mat-icon aria-hidden="true">sms_failed</mat-icon>
+      <div>
+        <strong>SMS is not being sent</strong>
+        <p>
+          Verification codes are unavailable in this environment. Phone verification is optional for now —
+          try again when SMS is enabled on the server.
+        </p>
+      </div>
+    </div>
+
+    <div class="pv-loading" *ngIf="loading" aria-live="polite">
+      <mat-icon aria-hidden="true">hourglass_empty</mat-icon>
+      <span>Checking SMS availability…</span>
+    </div>
+
+    <div class="lx-field" *ngIf="canSendSms">
       <label class="lx-field-label">Verification code</label>
       <div class="lx-input-shell">
         <mat-icon class="lx-input-shell__icon">sms</mat-icon>
@@ -37,13 +53,28 @@
     </p>
 
     <div class="lx-step-actions">
-      <button mat-stroked-button type="button" (click)="sendCode()" [disabled]="sending">
+      <button
+        mat-stroked-button
+        type="button"
+        (click)="sendCode()"
+        [disabled]="!canSendSms || sending"
+        *ngIf="canSendSms"
+      >
         {{ sending ? 'Sending…' : codeSent ? 'Resend code' : 'Send code' }}
       </button>
-      <button mat-raised-button color="primary" type="button" (click)="confirm()" [disabled]="confirming">
+      <button
+        mat-raised-button
+        color="primary"
+        type="button"
+        (click)="confirm()"
+        [disabled]="!canSendSms || confirming"
+        *ngIf="canSendSms"
+      >
         {{ confirming ? 'Verifying…' : 'Verify phone' }}
       </button>
-      <button *ngIf="!required" mat-button type="button" (click)="dismiss()">Later</button>
+      <button *ngIf="canDismiss" mat-button type="button" (click)="dismiss()">
+        {{ smsDisabledRevealed ? 'Continue without verifying' : 'Later' }}
+      </button>
     </div>
   </div>
 </div>

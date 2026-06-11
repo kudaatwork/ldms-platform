@@ -1,0 +1,60 @@
+<div class="searchable-warehouse-picker">
+  <label class="lx-field-label" *ngIf="label" [attr.for]="inputElementId">
+    {{ label }} <span class="req" *ngIf="required">*</span>
+  </label>
+
+  <p class="lx-field-hint searchable-warehouse-picker__hint" *ngIf="emptyHint">{{ emptyHint }}</p>
+
+  <div class="lx-input-shell searchable-warehouse-picker__input" [class.lx-input-shell--invalid]="invalid">
+    <mat-icon class="lx-input-shell__icon" aria-hidden="true">warehouse</mat-icon>
+    <input
+      [id]="inputElementId"
+      type="text"
+      [(ngModel)]="searchText"
+      [ngModelOptions]="{ standalone: true }"
+      [matAutocomplete]="warehouseAuto"
+      [placeholder]="searchPlaceholder"
+      [disabled]="disabled"
+      autocomplete="off"
+      [attr.aria-label]="ariaLabel"
+      (ngModelChange)="onSearchInput()"
+      (focus)="onInputFocus()"
+      (blur)="onBlur()"
+    />
+  </div>
+
+  <mat-autocomplete
+    #warehouseAuto="matAutocomplete"
+    class="searchable-warehouse-picker__panel"
+    [autoActiveFirstOption]="true"
+    (optionSelected)="onWarehousePicked($event)"
+  >
+    <mat-option
+      *ngFor="let w of filteredWarehouses"
+      [value]="w"
+      [disabled]="isOptionDisabled(w)"
+    >
+      <span class="searchable-warehouse-picker__search-blob">{{ warehouseSearchBlob(w) }}</span>
+      <span class="searchable-warehouse-picker__option">
+        <span class="searchable-warehouse-picker__option-name">
+          {{ warehouseLabel(w) }}
+          <span class="searchable-warehouse-picker__badge" *ngIf="isOptionDisabled(w)"> — {{ disabledOptionSuffix }}</span>
+        </span>
+        <span class="searchable-warehouse-picker__option-meta" *ngIf="warehouseMeta(w)">{{ warehouseMeta(w) }}</span>
+      </span>
+    </mat-option>
+    <mat-option disabled *ngIf="searchText.trim() && !filteredWarehouses.length && warehouses.length">
+      No warehouses match your search.
+    </mat-option>
+    <mat-option disabled *ngIf="!warehouses.length && !emptyHint">
+      No warehouses available.
+    </mat-option>
+  </mat-autocomplete>
+
+  <p
+    class="lx-field-hint searchable-warehouse-picker__hint"
+    *ngIf="!emptyHint && !searchText.trim() && !value && warehouses.length && !disabled"
+  >
+    Click and type to search {{ warehouses.length }} warehouses.
+  </p>
+</div>

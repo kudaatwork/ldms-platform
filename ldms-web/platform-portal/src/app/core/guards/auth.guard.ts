@@ -3,7 +3,7 @@ import { CanActivate, Router, UrlTree } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { AuthStateService } from '../services/auth-state.service';
 import { StorageService } from '../services/storage.service';
-import { decodeJwtPayload } from '../utils/jwt.util';
+import { decodeJwtPayload, isJwtExpired } from '../utils/jwt.util';
 
 /** Requires a stored access token (real JWT or valid session). */
 @Injectable({ providedIn: 'root' })
@@ -19,6 +19,10 @@ export class AuthGuard implements CanActivate {
     const token = this.storage.getToken();
     if (!token || token.startsWith('mock.')) {
       return this.router.createUrlTree(['/auth/login']);
+    }
+    if (isJwtExpired(token)) {
+      this.authService.logout();
+      return this.router.createUrlTree(['/auth/login'], { queryParams: { reason: 'session_expired' } });
     }
     if (!this.authState.currentUser) {
       this.authService.bootstrapFromStorage();
