@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -45,11 +44,14 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/ldms-notifications/v1/frontend/notification-template")
 @Tag(name = "Notification Template Frontend Resource", description = "Operations related to managing notification templates")
-@RequiredArgsConstructor
 public class NotificationTemplateFrontendResource {
 
     private final NotificationTemplateProcessor notificationTemplateProcessor;
     private static final Logger logger = LoggerFactory.getLogger(NotificationTemplateFrontendResource.class);
+
+    public NotificationTemplateFrontendResource(NotificationTemplateProcessor notificationTemplateProcessor) {
+        this.notificationTemplateProcessor = notificationTemplateProcessor;
+    }
 
     @Auditable(action = "GET_ADD_TEMPLATE_METADATA")
     @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationTemplateRoles)." +

@@ -73,6 +73,13 @@
         <small>Docs &amp; expiry</small>
       </span>
     </button>
+    <button type="button" class="flt-tabs__btn" [class.is-on]="activeTab === 'tracking'" (click)="setTab('tracking')">
+      <mat-icon>sensors</mat-icon>
+      <span class="flt-tabs__copy">
+        <span>Installation</span>
+        <small>Devices &amp; IoT</small>
+      </span>
+    </button>
   </nav>
 
   <div class="flt-alert lx-card" *ngIf="loadError" role="alert">
@@ -169,33 +176,221 @@
             </button>
           </div>
         </header>
-        <div class="flt-convoy__grid">
+
+        <div class="lx-card lx-card--subsection flt-table-controls">
+          <div class="lx-controls-head">
+            <div class="lx-controls-head__text">
+              <h3 class="lx-controls-title">Table controls</h3>
+              <p class="lx-controls-subtitle">Search, filter, import, export, and manage fleet vehicles.</p>
+            </div>
+            <button
+              type="button"
+              mat-icon-button
+              class="lx-controls-head__info-btn"
+              [class.is-on]="showFleetCsvInfo"
+              (click)="showFleetCsvInfo = !showFleetCsvInfo"
+              [attr.aria-pressed]="showFleetCsvInfo"
+              aria-label="Toggle CSV import information"
+            >
+              <mat-icon>info_outline</mat-icon>
+            </button>
+          </div>
+
+          <p class="lx-controls-hint" *ngIf="showFleetCsvInfo">
+            <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+            <span><strong>Sample CSV:</strong> {{ fleetSampleCsvDescription }}</span>
+          </p>
+          <p class="lx-controls-hint lx-import-disclaimer">
+            <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+            <span>{{ fleetImportCsvDisclaimer }}</span>
+          </p>
+
+          <div class="lx-data-toolbar">
+            <div class="lx-data-toolbar__actions">
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="fetching">
+                <mat-icon>refresh</mat-icon>
+                Refresh
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm"
+                (click)="triggerFleetImport(fleetCsvInput)"
+                [disabled]="fleetImporting"
+              >
+                {{ fleetImporting ? 'Importing…' : 'Import' }}
+              </button>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadFleetSampleCsv()">
+                Sample CSV
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+                [matMenuTriggerFor]="fleetExportMenu"
+                [disabled]="fleetExporting || !filteredOwnFleet.length"
+              >
+                {{ fleetExporting ? 'Exporting…' : 'Export' }}
+              </button>
+            </div>
+            <div class="lx-data-toolbar__search">
+              <div class="lx-input-shell lx-search-field">
+                <mat-icon class="lx-input-shell__icon">search</mat-icon>
+                <input
+                  [(ngModel)]="vehicleSearch"
+                  (ngModelChange)="resetConvoyPaging()"
+                  placeholder="Search vehicles…"
+                  autocomplete="off"
+                  aria-label="Search fleet vehicles"
+                />
+              </div>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+                (click)="vehicleFiltersOpen = !vehicleFiltersOpen"
+                [class.lx-btn-filter--on]="vehicleFiltersOpen || hasVehicleScopeFilters"
+              >
+                <mat-icon>tune</mat-icon>
+                Filters
+              </button>
+            </div>
+          </div>
+
+          <mat-menu #fleetExportMenu="matMenu" panelClass="lx-export-menu">
+            <button mat-menu-item class="lx-export-option--pdf" (click)="exportFleetAs('pdf')" [disabled]="fleetExporting">
+              <mat-icon>picture_as_pdf</mat-icon>
+              <span>Export PDF</span>
+            </button>
+            <button mat-menu-item class="lx-export-option--csv" (click)="exportFleetAs('csv')" [disabled]="fleetExporting">
+              <mat-icon>table_view</mat-icon>
+              <span>Export CSV</span>
+            </button>
+            <button mat-menu-item class="lx-export-option--xlsx" (click)="exportFleetAs('xlsx')" [disabled]="fleetExporting">
+              <mat-icon>grid_on</mat-icon>
+              <span>Export XLSX</span>
+            </button>
+          </mat-menu>
+          <input
+            #fleetCsvInput
+            type="file"
+            accept=".csv,text/csv"
+            hidden
+            (change)="onFleetImportFileSelected($event)"
+          />
+
+          <div class="lx-filter-panel" *ngIf="vehicleFiltersOpen">
+            <span class="lx-filter-panel__label">Category</span>
+            <div class="flt-convoy__chips flt-convoy__chips--panel" role="tablist" aria-label="Vehicle categories">
+              <button
+                type="button"
+                class="flt-convoy__chip"
+                role="tab"
+                *ngFor="let category of vehicleCategories"
+                [class.is-active]="vehicleCategory === category.id"
+                (click)="setVehicleCategory(category.id)"
+              >
+                {{ category.label }}
+              </button>
+            </div>
+            <span class="lx-filter-panel__label">Column filters</span>
+            <div class="lx-filter-fields">
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Status</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">toggle_on</mat-icon>
+                  <select [(ngModel)]="vehicleStatusFilter" (ngModelChange)="resetConvoyPaging()">
+                    <option *ngFor="let opt of vehicleStatusOptions" [ngValue]="opt.id">{{ opt.label }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Registration</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">directions_car</mat-icon>
+                  <input [(ngModel)]="vehicleRegistrationFilter" (ngModelChange)="resetConvoyPaging()" placeholder="Contains…" />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Make / model</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">build</mat-icon>
+                  <input [(ngModel)]="vehicleMakeModelFilter" (ngModelChange)="resetConvoyPaging()" placeholder="Contains…" />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Driver</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">person</mat-icon>
+                  <input [(ngModel)]="vehicleDriverFilter" (ngModelChange)="resetConvoyPaging()" placeholder="Contains…" />
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              *ngIf="vehicleSearch || hasVehicleScopeFilters"
+              (click)="clearVehicleFilters()"
+            >
+              Clear all filters
+            </button>
+          </div>
+
+          <p class="flt-convoy__result-count" *ngIf="ownFleet.length">
+            {{ pageSummary(convoyPage, filteredOwnFleet.length) }}
+            <span *ngIf="filteredOwnFleet.length !== ownFleet.length"> · filtered from {{ ownFleet.length }}</span>
+          </p>
+        </div>
+
+        <div class="flt-convoy__grid" *ngIf="filteredOwnFleet.length; else noFleetMatches">
           <button
             type="button"
-            class="flt-vehicle flt-vehicle--own"
-            *ngFor="let v of ownFleet; trackBy: trackByVehicleId"
+            class="flt-asset-card"
+            *ngFor="let v of pagedOwnFleet; trackBy: trackByVehicleId"
             [class.is-selected]="selectedVehicleId === v.id"
+            [class.flt-asset-card--contracted]="v.ownershipType === 'contracted'"
             [style.--flt-hue]="v.accentHue"
             (click)="selectVehicle(v)"
           >
-            <span class="flt-vehicle__kind">{{ v.ownershipLabel }}</span>
-            <span class="flt-vehicle__ring" [class]="vehicleRingClass(v.status)"></span>
-            <div class="flt-vehicle__top">
-              <span class="flt-vehicle__icon-wrap">
-                <mat-icon>{{ vehicleIcon(v.type) }}</mat-icon>
-              </span>
-              <span class="flt-vehicle__status">{{ v.statusLabel }}</span>
+            <div class="flt-asset-card__glow" aria-hidden="true"></div>
+            <span class="flt-asset-card__status-ring" [class]="vehicleRingClass(v.status)" aria-hidden="true"></span>
+            <span class="flt-asset-card__kind" [ngClass]="assetKindClass(v)">{{ assetKindLabel(v) }}</span>
+            <div class="flt-asset-card__avatar" [ngStyle]="vehicleAvatarStyle(v)">
+              <mat-icon>{{ vehicleIcon(v.type) }}</mat-icon>
             </div>
-            <h3 class="flt-vehicle__reg">{{ v.registration }}</h3>
-            <p class="flt-vehicle__model">{{ v.makeModel }}</p>
-            <div class="flt-vehicle__meter">
-              <span class="flt-vehicle__meter-fill" [style.width.%]="v.utilizationPct"></span>
+            <h3>{{ v.registration }}</h3>
+            <p class="flt-asset-card__sub">{{ v.makeModel }}</p>
+            <div class="flt-asset-card__meta">
+              <span [ngClass]="vehicleStatusPillClass(v.status)">{{ v.statusLabel }}</span>
+              <span class="flt-pill flt-pill--type">{{ vehicleTypeLabel(v.type) }}</span>
             </div>
-            <div class="flt-vehicle__foot">
+            <div
+              class="flt-asset-card__highlight flt-asset-card__highlight--contract"
+              *ngIf="v.ownershipType === 'contracted'; else ownedUtilHighlight"
+            >
+              <span><mat-icon>handshake</mat-icon>{{ vehicleContractHighlight(v) }}</span>
+            </div>
+            <ng-template #ownedUtilHighlight>
+              <div class="flt-asset-card__highlight">
+                <div class="flt-asset-card__util-head">
+                  <span><mat-icon>insights</mat-icon>Corridor utilisation</span>
+                  <strong>{{ v.utilizationPct }}%</strong>
+                </div>
+                <div class="flt-asset-card__meter">
+                  <span class="flt-asset-card__meter-fill" [style.width.%]="v.utilizationPct"></span>
+                </div>
+              </div>
+            </ng-template>
+            <div class="flt-asset-card__foot">
               <span><mat-icon>person</mat-icon>{{ v.driverName }}</span>
-              <span><mat-icon>history</mat-icon>{{ v.lastTripLabel }}</span>
+              <span><mat-icon>history</mat-icon>Last movement · {{ v.lastTripLabel }}</span>
             </div>
-            <div class="flt-vehicle__actions" (click)="$event.stopPropagation()">
+            <div class="flt-asset-card__actions" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm"
+                title="Assign driver"
+                (click)="openAssignDriver(v, $event)"
+              >
+                <mat-icon>person_add</mat-icon>
+              </button>
               <button
                 type="button"
                 class="lx-btn lx-btn-ghost lx-btn-sm"
@@ -215,6 +410,24 @@
             </div>
           </button>
         </div>
+        <mat-paginator
+          *ngIf="filteredOwnFleet.length"
+          class="lx-table-paginator flt-paginator"
+          [length]="filteredOwnFleet.length"
+          [pageIndex]="convoyPage.index"
+          [pageSize]="convoyPage.size"
+          [pageSizeOptions]="cardPageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="convoyPage.onPage($event)"
+        ></mat-paginator>
+        <ng-template #noFleetMatches>
+          <div class="lx-empty lx-empty--compact" *ngIf="ownFleet.length && !fetching">
+            <mat-icon class="lx-empty-icon">search_off</mat-icon>
+            <div class="lx-empty-title">No matching vehicles</div>
+            <div class="lx-empty-sub">Try another search term or category filter.</div>
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="clearVehicleFilters()">Clear filters</button>
+          </div>
+        </ng-template>
         <div class="lx-empty lx-empty--compact" *ngIf="!ownFleet.length && !fetching">
           <mat-icon class="lx-empty-icon">garage</mat-icon>
           <div class="lx-empty-title">No vehicles yet</div>
@@ -239,18 +452,139 @@
           </button>
         </header>
 
-        <div class="flt-partners__toolbar lx-card">
-          <div class="flt-search lx-input-shell">
-            <mat-icon class="lx-input-shell__icon">search</mat-icon>
-            <input [(ngModel)]="partnerSearch" placeholder="Filter partners…" autocomplete="off" />
+        <div class="lx-card lx-card--subsection flt-table-controls">
+          <div class="lx-controls-head">
+            <div class="lx-controls-head__text">
+              <h3 class="lx-controls-title">Table controls</h3>
+              <p class="lx-controls-subtitle">Search, filter, export, and manage contracted transporters.</p>
+            </div>
+            <button
+              type="button"
+              mat-icon-button
+              class="lx-controls-head__info-btn"
+              [class.is-on]="showPartnerCsvInfo"
+              (click)="showPartnerCsvInfo = !showPartnerCsvInfo"
+              [attr.aria-pressed]="showPartnerCsvInfo"
+              aria-label="Toggle CSV information"
+            >
+              <mat-icon>info_outline</mat-icon>
+            </button>
           </div>
+
+          <p class="lx-controls-hint" *ngIf="showPartnerCsvInfo">
+            <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+            <span><strong>Sample CSV:</strong> {{ partnerSampleCsvDescription }}</span>
+          </p>
+          <p class="lx-controls-hint lx-import-disclaimer">
+            <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+            <span>{{ partnerImportCsvDisclaimer }}</span>
+          </p>
+
+          <div class="lx-data-toolbar">
+            <div class="lx-data-toolbar__actions">
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="fetching">
+                <mat-icon>refresh</mat-icon>
+                Refresh
+              </button>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="triggerPartnerImport(partnerCsvInput)">
+                Import
+              </button>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadPartnerSampleCsv()">
+                Sample CSV
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+                [matMenuTriggerFor]="partnerExportMenu"
+                [disabled]="partnerExporting || !filteredPartners.length"
+              >
+                {{ partnerExporting ? 'Exporting…' : 'Export' }}
+              </button>
+            </div>
+            <div class="lx-data-toolbar__search">
+              <div class="lx-input-shell lx-search-field">
+                <mat-icon class="lx-input-shell__icon">search</mat-icon>
+                <input [(ngModel)]="partnerSearch" (ngModelChange)="resetPartnerPaging()" placeholder="Search partners…" autocomplete="off" />
+              </div>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+                (click)="partnerFiltersOpen = !partnerFiltersOpen"
+                [class.lx-btn-filter--on]="partnerFiltersOpen || hasPartnerScopeFilters"
+              >
+                <mat-icon>tune</mat-icon>
+                Filters
+              </button>
+            </div>
+          </div>
+
+          <mat-menu #partnerExportMenu="matMenu" panelClass="lx-export-menu">
+            <button mat-menu-item class="lx-export-option--pdf" (click)="exportPartnersAs('pdf')" [disabled]="partnerExporting">
+              <mat-icon>picture_as_pdf</mat-icon>
+              <span>Export PDF</span>
+            </button>
+            <button mat-menu-item class="lx-export-option--csv" (click)="exportPartnersAs('csv')" [disabled]="partnerExporting">
+              <mat-icon>table_view</mat-icon>
+              <span>Export CSV</span>
+            </button>
+            <button mat-menu-item class="lx-export-option--xlsx" (click)="exportPartnersAs('xlsx')" [disabled]="partnerExporting">
+              <mat-icon>grid_on</mat-icon>
+              <span>Export XLSX</span>
+            </button>
+          </mat-menu>
+          <input
+            #partnerCsvInput
+            type="file"
+            accept=".csv,text/csv"
+            hidden
+            (change)="onPartnerImportFileSelected($event)"
+          />
+
+          <div class="lx-filter-panel" *ngIf="partnerFiltersOpen">
+            <span class="lx-filter-panel__label">Column filters</span>
+            <div class="lx-filter-fields">
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Contract</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">handshake</mat-icon>
+                  <select [(ngModel)]="partnerContractFilter" (ngModelChange)="resetPartnerPaging()">
+                    <option *ngFor="let opt of partnerContractOptions" [ngValue]="opt.id">{{ opt.label }}</option>
+                  </select>
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Verified</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">verified</mat-icon>
+                  <select [(ngModel)]="partnerVerifiedFilter" (ngModelChange)="resetPartnerPaging()">
+                    <option value="">Any</option>
+                    <option value="yes">Verified</option>
+                    <option value="no">Not verified</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              *ngIf="partnerSearch || hasPartnerScopeFilters"
+              (click)="clearPartnerFilters()"
+            >
+              Clear all filters
+            </button>
+          </div>
+
+          <p class="flt-convoy__result-count" *ngIf="partners.length">
+            {{ pageSummary(partnersPage, filteredPartners.length) }}
+            <span *ngIf="filteredPartners.length !== partners.length"> · filtered from {{ partners.length }}</span>
+          </p>
         </div>
 
         <div class="flt-partners__grid" *ngIf="filteredPartners.length">
           <button
             type="button"
             class="flt-partner-card"
-            *ngFor="let p of filteredPartners; trackBy: trackByPartnerId"
+            *ngFor="let p of pagedPartners; trackBy: trackByPartnerId"
             [class.is-selected]="selectedPartnerId === p.id"
             [style.--flt-hue]="p.accentHue"
             (click)="selectPartner(p)"
@@ -292,6 +626,17 @@
           </button>
         </div>
 
+        <mat-paginator
+          *ngIf="filteredPartners.length"
+          class="lx-table-paginator flt-paginator"
+          [length]="filteredPartners.length"
+          [pageIndex]="partnersPage.index"
+          [pageSize]="partnersPage.size"
+          [pageSizeOptions]="cardPageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="partnersPage.onPage($event)"
+        ></mat-paginator>
+
         <div class="lx-empty lx-empty--compact" *ngIf="!filteredPartners.length && !loadError">
           <mat-icon class="lx-empty-icon">explore_off</mat-icon>
           <div class="lx-empty-title">{{ partners.length ? 'No matches' : 'No partners on the board' }}</div>
@@ -316,13 +661,202 @@
         <header class="flt-section-head">
           <div>
             <h2>Driver roster</h2>
-            <p>Licensed drivers for {{ orgName }} — link platform users when available.</p>
+            <p>Licensed drivers for {{ orgName }} — employed staff and pool drivers you can assign to any vehicle.</p>
           </div>
           <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddDriver()">
             <mat-icon>person_add</mat-icon>
             Add driver
           </button>
         </header>
+
+        <div class="flt-drivers__stats lx-card" *ngIf="!driversLoading && drivers.length">
+          <article class="flt-drivers__stat">
+            <mat-icon>groups</mat-icon>
+            <div>
+              <strong>{{ driverRosterMetrics.total }}</strong>
+              <span>On roster</span>
+            </div>
+          </article>
+          <article class="flt-drivers__stat">
+            <mat-icon>link</mat-icon>
+            <div>
+              <strong>{{ driverRosterMetrics.linked }}</strong>
+              <span>Linked users</span>
+            </div>
+          </article>
+          <article class="flt-drivers__stat">
+            <mat-icon>credit_card</mat-icon>
+            <div>
+              <strong>{{ driverRosterMetrics.licensed }}</strong>
+              <span>Licences on file</span>
+            </div>
+          </article>
+          <article class="flt-drivers__stat">
+            <mat-icon>groups_2</mat-icon>
+            <div>
+              <strong>{{ driverRosterMetrics.pool }}</strong>
+              <span>Driver pool</span>
+            </div>
+          </article>
+        </div>
+
+        <div class="lx-card lx-card--subsection flt-table-controls">
+          <div class="lx-controls-head">
+            <div class="lx-controls-head__text">
+              <h3 class="lx-controls-title">Table controls</h3>
+              <p class="lx-controls-subtitle">Search, filter, import, export, and manage drivers.</p>
+            </div>
+            <button
+              type="button"
+              mat-icon-button
+              class="lx-controls-head__info-btn"
+              [class.is-on]="showDriverCsvInfo"
+              (click)="showDriverCsvInfo = !showDriverCsvInfo"
+              [attr.aria-pressed]="showDriverCsvInfo"
+              aria-label="Toggle CSV import information"
+            >
+              <mat-icon>info_outline</mat-icon>
+            </button>
+          </div>
+
+          <p class="lx-controls-hint" *ngIf="showDriverCsvInfo">
+            <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+            <span><strong>Sample CSV:</strong> {{ driverSampleCsvDescription }}</span>
+          </p>
+          <p class="lx-controls-hint lx-import-disclaimer">
+            <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+            <span>{{ driverImportCsvDisclaimer }}</span>
+          </p>
+
+          <div class="lx-data-toolbar">
+            <div class="lx-data-toolbar__actions">
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="driversLoading">
+                <mat-icon>refresh</mat-icon>
+                Refresh
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm"
+                (click)="triggerDriverImport(driverCsvInput)"
+                [disabled]="driverImporting"
+              >
+                {{ driverImporting ? 'Importing…' : 'Import' }}
+              </button>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadDriverSampleCsv()">
+                Sample CSV
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+                [matMenuTriggerFor]="driverExportMenu"
+                [disabled]="driverExporting || !filteredDrivers.length"
+              >
+                {{ driverExporting ? 'Exporting…' : 'Export' }}
+              </button>
+            </div>
+            <div class="lx-data-toolbar__search">
+              <div class="lx-input-shell lx-search-field">
+                <mat-icon class="lx-input-shell__icon">search</mat-icon>
+                <input
+                  [(ngModel)]="driverSearch"
+                  (ngModelChange)="resetDriverPaging()"
+                  placeholder="Search drivers…"
+                  autocomplete="off"
+                  aria-label="Search drivers"
+                />
+              </div>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+                (click)="driverFiltersOpen = !driverFiltersOpen"
+                [class.lx-btn-filter--on]="driverFiltersOpen || hasDriverScopeFilters"
+              >
+                <mat-icon>tune</mat-icon>
+                Filters
+              </button>
+            </div>
+          </div>
+
+          <mat-menu #driverExportMenu="matMenu" panelClass="lx-export-menu">
+            <button mat-menu-item class="lx-export-option--pdf" (click)="exportDriversAs('pdf')" [disabled]="driverExporting">
+              <mat-icon>picture_as_pdf</mat-icon>
+              <span>Export PDF</span>
+            </button>
+            <button mat-menu-item class="lx-export-option--csv" (click)="exportDriversAs('csv')" [disabled]="driverExporting">
+              <mat-icon>table_view</mat-icon>
+              <span>Export CSV</span>
+            </button>
+            <button mat-menu-item class="lx-export-option--xlsx" (click)="exportDriversAs('xlsx')" [disabled]="driverExporting">
+              <mat-icon>grid_on</mat-icon>
+              <span>Export XLSX</span>
+            </button>
+          </mat-menu>
+          <input
+            #driverCsvInput
+            type="file"
+            accept=".csv,text/csv"
+            hidden
+            (change)="onDriverImportFileSelected($event)"
+          />
+
+          <div class="lx-filter-panel" *ngIf="driverFiltersOpen">
+            <span class="lx-filter-panel__label">Column filters</span>
+            <div class="lx-filter-fields">
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Name</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">person</mat-icon>
+                  <input [(ngModel)]="driverNameFilter" (ngModelChange)="resetDriverPaging()" placeholder="Contains…" />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Phone</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+                  <input [(ngModel)]="driverPhoneFilter" (ngModelChange)="resetDriverPaging()" placeholder="Contains…" />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Licence number</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">credit_card</mat-icon>
+                  <input [(ngModel)]="driverLicenseFilter" (ngModelChange)="resetDriverPaging()" placeholder="Contains…" />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Licence class</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">school</mat-icon>
+                  <input [(ngModel)]="driverLicenseClassFilter" (ngModelChange)="resetDriverPaging()" placeholder="e.g. 2" />
+                </div>
+              </div>
+              <div class="lx-filter-field-wrap">
+                <div class="lx-field-label">Platform user</div>
+                <div class="lx-input-shell lx-filter-field">
+                  <mat-icon class="lx-input-shell__icon">link</mat-icon>
+                  <select [(ngModel)]="driverLinkedFilter" (ngModelChange)="resetDriverPaging()">
+                    <option value="">Any</option>
+                    <option value="yes">Linked</option>
+                    <option value="no">Manual only</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              *ngIf="driverSearch || hasDriverScopeFilters"
+              (click)="clearDriverFilters()"
+            >
+              Clear all filters
+            </button>
+          </div>
+
+          <p class="flt-drivers__result-count" *ngIf="drivers.length">
+            {{ pageSummary(driversPage, filteredDrivers.length) }}
+            <span *ngIf="filteredDrivers.length !== drivers.length"> · filtered from {{ drivers.length }}</span>
+          </p>
+        </div>
 
         <div class="flt-drivers__loading" *ngIf="driversLoading" role="status">
           <lx-table-loading [busy]="true" message="Loading driver roster…"></lx-table-loading>
@@ -333,23 +867,64 @@
           {{ driversError }}
         </p>
 
-        <div class="flt-drivers__grid" *ngIf="!driversLoading && drivers.length">
-          <article class="flt-driver-card" *ngFor="let d of drivers; trackBy: trackByDriverId">
+        <div class="flt-drivers__grid" *ngIf="!driversLoading && filteredDrivers.length">
+          <button
+            type="button"
+            class="flt-driver-card"
+            *ngFor="let d of pagedDrivers; trackBy: trackByDriverId"
+            [class.is-selected]="selectedDriverId === d.id"
+            [style.--flt-hue]="d.accentHue"
+            (click)="selectDriver(d)"
+          >
+            <div class="flt-driver-card__glow" aria-hidden="true"></div>
+            <span class="flt-driver-card__kind" [ngClass]="driverKindClass(d)">{{ driverKindLabel(d) }}</span>
             <div class="flt-driver-card__avatar" [ngStyle]="avatarStyle(d)">{{ d.initials }}</div>
-            <div class="flt-driver-card__body">
-              <h3>{{ d.fullName }}</h3>
-              <p><mat-icon>phone</mat-icon>{{ d.phoneNumber }}</p>
-              <p><mat-icon>credit_card</mat-icon>{{ d.licenseNumber }} · Class {{ d.licenseClass }}</p>
+            <h3>{{ d.fullName }}</h3>
+            <p class="flt-driver-card__phone">{{ d.phoneNumber }}</p>
+            <div class="flt-driver-card__meta">
+              <span class="flt-pill flt-pill--type">Class {{ d.licenseClass }}</span>
+              <span class="flt-pill" [ngClass]="driverEmploymentClass(d)">{{ driverEmploymentLabel(d) }}</span>
+              <span class="flt-pill" [class.flt-pill--ok]="!!d.userId">{{ d.userId ? 'Linked' : 'Manual' }}</span>
             </div>
-            <div class="flt-driver-card__actions">
-              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditDriver(d, $event)">
+            <div class="flt-driver-card__highlight">
+              <span><mat-icon>credit_card</mat-icon>{{ driverLicenseLabel(d) }}</span>
+            </div>
+            <div class="flt-driver-card__foot">
+              <span><mat-icon>badge</mat-icon>{{ driverIdentityLabel(d) }}</span>
+              <span><mat-icon>location_on</mat-icon>{{ driverAddressLine(d) }}</span>
+            </div>
+            <div class="flt-driver-card__actions" (click)="$event.stopPropagation()">
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" title="Edit driver" (click)="openEditDriver(d, $event)">
                 <mat-icon>edit</mat-icon>
               </button>
-              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger" (click)="confirmDeleteDriver(d, $event)">
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger"
+                title="Remove driver"
+                (click)="confirmDeleteDriver(d, $event)"
+              >
                 <mat-icon>delete_outline</mat-icon>
               </button>
             </div>
-          </article>
+          </button>
+        </div>
+
+        <mat-paginator
+          *ngIf="!driversLoading && filteredDrivers.length"
+          class="lx-table-paginator flt-paginator"
+          [length]="filteredDrivers.length"
+          [pageIndex]="driversPage.index"
+          [pageSize]="driversPage.size"
+          [pageSizeOptions]="cardPageSizeOptions"
+          [showFirstLastButtons]="true"
+          (page)="driversPage.onPage($event)"
+        ></mat-paginator>
+
+        <div class="lx-empty lx-empty--compact" *ngIf="!driversLoading && drivers.length && !filteredDrivers.length">
+          <mat-icon class="lx-empty-icon">search_off</mat-icon>
+          <div class="lx-empty-title">No matching drivers</div>
+          <div class="lx-empty-sub">Try another search term.</div>
+          <button type="button" class="lx-btn lx-btn-ghost" (click)="clearDriverFilters()">Clear search</button>
         </div>
 
         <div class="lx-empty lx-empty--compact" *ngIf="!driversLoading && !drivers.length && !driversError">
@@ -377,6 +952,24 @@
         </header>
 
         <div class="flt-compliance__toolbar lx-card">
+          <div class="flt-search lx-input-shell flt-compliance__search">
+            <mat-icon class="lx-input-shell__icon">search</mat-icon>
+            <input
+              [(ngModel)]="complianceSearch"
+              (ngModelChange)="resetCompliancePaging()"
+              placeholder="Search compliance — subject, type, status, expiry…"
+              autocomplete="off"
+              aria-label="Search compliance records"
+            />
+          </div>
+          <button
+            type="button"
+            class="lx-btn lx-btn-ghost lx-btn-sm"
+            *ngIf="complianceSearch"
+            (click)="clearComplianceSearch()"
+          >
+            Clear
+          </button>
           <button
             type="button"
             class="flt-tabs__btn flt-tabs__btn--inline"
@@ -394,6 +987,9 @@
             Expiring (30 days)
             <span class="flt-runway__badge" *ngIf="metrics.expiringComplianceTotal">{{ metrics.expiringComplianceTotal }}</span>
           </button>
+          <p class="flt-compliance__result-count" *ngIf="filteredCompliance.length">
+            {{ pageSummary(compliancePage, filteredCompliance.length) }}
+          </p>
         </div>
 
         <div class="flt-compliance__loading" *ngIf="complianceLoading" role="status">
@@ -405,7 +1001,7 @@
           {{ complianceError }}
         </p>
 
-        <div class="flt-compliance__table lx-card" *ngIf="!complianceLoading && visibleCompliance.length">
+        <div class="flt-compliance__table lx-card" *ngIf="!complianceLoading && filteredCompliance.length">
           <table>
             <thead>
               <tr>
@@ -417,7 +1013,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of visibleCompliance; trackBy: trackByComplianceId">
+              <tr *ngFor="let row of pagedCompliance; trackBy: trackByComplianceId">
                 <td>
                   <span class="flt-compliance__subject">{{ row.subjectLabel || ('#' + row.subjectId) }}</span>
                   <small>{{ row.subjectTypeLabel }}</small>
@@ -428,6 +1024,28 @@
                 </td>
                 <td>{{ row.statusLabel }}</td>
                 <td class="flt-compliance__actions">
+                  <ng-container *ngIf="isCompliancePendingReview(row)">
+                    <button
+                      type="button"
+                      class="lx-btn lx-btn-ghost lx-btn-sm flt-compliance__review-btn flt-compliance__review-btn--approve"
+                      title="Approve document"
+                      [disabled]="complianceReviewingId === row.id"
+                      (click)="approveCompliance(row, $event)"
+                    >
+                      <mat-icon>check_circle</mat-icon>
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      class="lx-btn lx-btn-ghost lx-btn-sm flt-compliance__review-btn flt-compliance__review-btn--reject"
+                      title="Reject document"
+                      [disabled]="complianceReviewingId === row.id"
+                      (click)="rejectCompliance(row, $event)"
+                    >
+                      <mat-icon>cancel</mat-icon>
+                      Reject
+                    </button>
+                  </ng-container>
                   <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditCompliance(row, $event)">
                     <mat-icon>edit</mat-icon>
                   </button>
@@ -435,67 +1053,324 @@
               </tr>
             </tbody>
           </table>
+          <mat-paginator
+            class="lx-table-paginator flt-paginator"
+            [length]="filteredCompliance.length"
+            [pageIndex]="compliancePage.index"
+            [pageSize]="compliancePage.size"
+            [pageSizeOptions]="tablePageSizeOptions"
+            [showFirstLastButtons]="true"
+            (page)="compliancePage.onPage($event)"
+          ></mat-paginator>
         </div>
 
-        <div class="lx-empty lx-empty--compact" *ngIf="!complianceLoading && !visibleCompliance.length && !complianceError">
+        <div class="lx-empty lx-empty--compact" *ngIf="!complianceLoading && !filteredCompliance.length && !complianceError">
           <mat-icon class="lx-empty-icon">verified</mat-icon>
-          <div class="lx-empty-title">{{ complianceFilter === 'expiring' ? 'Nothing expiring soon' : 'No compliance records' }}</div>
+          <div class="lx-empty-title">
+            {{ complianceSearch || complianceFilter === 'expiring' ? 'No matches' : 'No compliance records' }}
+          </div>
           <div class="lx-empty-sub">
             {{
-              complianceFilter === 'expiring'
-                ? 'No documents expire within the next 30 days.'
-                : 'Track insurance, licenses, and maintenance against fleet assets or drivers.'
+              complianceSearch
+                ? 'Try another search term.'
+                : complianceFilter === 'expiring'
+                  ? 'No documents expire within the next 30 days.'
+                  : 'Track insurance, licenses, and maintenance against fleet assets or drivers.'
             }}
           </div>
-          <button type="button" class="lx-btn lx-btn-primary" *ngIf="complianceFilter === 'all'" (click)="openAddCompliance()">
+          <button type="button" class="lx-btn lx-btn-ghost" *ngIf="complianceSearch" (click)="clearComplianceSearch()">
+            Clear search
+          </button>
+          <button type="button" class="lx-btn lx-btn-primary" *ngIf="complianceFilter === 'all' && !complianceSearch" (click)="openAddCompliance()">
             <mat-icon>add</mat-icon>
             Add record
           </button>
         </div>
       </section>
+
+      <!-- Tracking devices -->
+      <section class="flt-tracking" *ngIf="activeTab === 'tracking'">
+        <header class="flt-section-head">
+          <div>
+            <h2>Device installation</h2>
+            <p>
+              Install mobile phones and onboard hardware (OBD, GPS, fuel sensors) that push live telemetry into trip tracking.
+            </p>
+          </div>
+          <div class="flt-section-head__actions">
+            <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openInstallDevice()" [disabled]="trackingLoading">
+              <mat-icon>add</mat-icon>
+              Install device
+            </button>
+          </div>
+        </header>
+
+        <!-- Stats bar -->
+        <div class="flt-tracking__stats lx-card" *ngIf="!trackingLoading && trackingDevices.length">
+          <article class="flt-drivers__stat">
+            <mat-icon>devices</mat-icon>
+            <div>
+              <strong>{{ trackingMetrics.total }}</strong>
+              <span>Total</span>
+            </div>
+          </article>
+          <article class="flt-drivers__stat">
+            <mat-icon>check_circle</mat-icon>
+            <div>
+              <strong>{{ trackingMetrics.active }}</strong>
+              <span>Active</span>
+            </div>
+          </article>
+          <article class="flt-drivers__stat">
+            <mat-icon>smartphone</mat-icon>
+            <div>
+              <strong>{{ trackingMetrics.mobile }}</strong>
+              <span>Mobile</span>
+            </div>
+          </article>
+          <article class="flt-drivers__stat">
+            <mat-icon>gps_fixed</mat-icon>
+            <div>
+              <strong>{{ trackingMetrics.hardware }}</strong>
+              <span>Hardware</span>
+            </div>
+          </article>
+        </div>
+
+        <!-- Search bar -->
+        <div class="lx-card flt-tracking__controls" *ngIf="trackingDevices.length">
+          <div class="lx-input-shell lx-input-shell--search">
+            <mat-icon class="lx-input-shell__icon">search</mat-icon>
+            <input type="search" [(ngModel)]="trackingSearch" placeholder="Search devices…" aria-label="Search tracking devices" />
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div class="flt-drivers__loading" *ngIf="trackingLoading" role="status">
+          <lx-table-loading [busy]="true" message="Loading tracking devices…"></lx-table-loading>
+        </div>
+
+        <!-- Error -->
+        <p class="flt-alert lx-card" *ngIf="trackingError" role="alert">
+          <mat-icon>error_outline</mat-icon>
+          {{ trackingError }}
+        </p>
+
+        <!-- Device cards grid -->
+        <div class="flt-tracking__grid" *ngIf="!trackingLoading && filteredTrackingDevices.length">
+          <div class="flt-device-card lx-card" *ngFor="let d of filteredTrackingDevices">
+            <div class="flt-device-card__header">
+              <span class="flt-device-card__icon-wrap">
+                <mat-icon>{{ deviceTypeIcon(d.deviceType) }}</mat-icon>
+              </span>
+              <div class="flt-device-card__info">
+                <strong class="flt-device-card__label">{{ d.deviceLabel }}</strong>
+                <span class="flt-device-card__type">{{ d.deviceTypeLabel }}</span>
+              </div>
+              <span [ngClass]="deviceStatusPillClass(d.installStatus)">{{ d.installStatusLabel }}</span>
+            </div>
+
+            <div class="flt-device-card__body">
+              <div class="flt-device-card__fact" *ngIf="d.vehicleRegistration">
+                <mat-icon>local_shipping</mat-icon>
+                <span>{{ d.vehicleRegistration }}{{ d.vehicleMakeModel ? ' · ' + d.vehicleMakeModel : '' }}</span>
+              </div>
+              <div class="flt-device-card__fact">
+                <mat-icon>hub</mat-icon>
+                <span>{{ d.integrationProviderLabel }}</span>
+              </div>
+              <div class="flt-device-card__fact">
+                <mat-icon>gps_fixed</mat-icon>
+                <span>GPS {{ d.tracksGps ? 'on' : 'off' }} · Fuel {{ d.tracksFuel ? 'on' : 'off' }}</span>
+              </div>
+              <div class="flt-device-card__fact" *ngIf="d.lastTelemetryAt">
+                <mat-icon>sensors</mat-icon>
+                <span>Last ping {{ d.lastTelemetryAt | date: 'dd MMM HH:mm' }}</span>
+              </div>
+              <div class="flt-device-card__fact flt-device-card__fact--muted" *ngIf="!d.lastTelemetryAt">
+                <mat-icon>sensors_off</mat-icon>
+                <span>No telemetry received yet</span>
+              </div>
+            </div>
+
+            <div class="flt-device-card__actions">
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditDevice(d)">
+                <mat-icon>edit</mat-icon>
+                Edit
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm"
+                *ngIf="d.installStatus === 'ACTIVE'"
+                (click)="confirmSuspendDevice(d)"
+              >
+                <mat-icon>pause</mat-icon>
+                Suspend
+              </button>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger" (click)="confirmDeleteDevice(d)">
+                <mat-icon>delete_outline</mat-icon>
+                Remove
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="flt-tracking__empty lx-card" *ngIf="!trackingLoading && !trackingError && !trackingDevices.length">
+          <div class="flt-tracking__empty-icon">
+            <mat-icon>sensors</mat-icon>
+          </div>
+          <h3>No tracking devices installed</h3>
+          <p>
+            Add a <strong>mobile phone</strong> (driver uses the LDMS app) or an <strong>onboard hardware</strong> unit
+            (OBD telematics, dedicated GPS, or fuel sensor) to start receiving live telemetry on active trips.
+          </p>
+          <div class="flt-tracking__empty-options">
+            <div class="flt-tracking__empty-option">
+              <mat-icon>smartphone</mat-icon>
+              <div>
+                <strong>Mobile phone</strong>
+                <p>Driver installs the LDMS app and shares location via the REST ingest endpoint using a generated key.</p>
+              </div>
+            </div>
+            <div class="flt-tracking__empty-option">
+              <mat-icon>gps_fixed</mat-icon>
+              <div>
+                <strong>Onboard hardware</strong>
+                <p>OBD unit, GPS tracker, or fuel sensor publishes to the LDMS MQTT broker on a per-device topic.</p>
+              </div>
+            </div>
+          </div>
+          <button type="button" class="lx-btn lx-btn-primary" (click)="openInstallDevice()">
+            <mat-icon>add</mat-icon>
+            Install first device
+          </button>
+        </div>
+
+        <!-- No search results -->
+        <div class="flt-tracking__empty lx-card" *ngIf="!trackingLoading && trackingDevices.length && !filteredTrackingDevices.length">
+          <mat-icon>search_off</mat-icon>
+          <p>No devices match <strong>{{ trackingSearch }}</strong>.</p>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="trackingSearch = ''">Clear search</button>
+        </div>
+      </section>
     </main>
 
-    <aside class="flt-spotlight lx-card" [class.is-open]="!!selectedVehicle || !!selectedPartner">
+    <aside class="flt-spotlight lx-card" [class.is-open]="!!selectedVehicle || !!selectedPartner || !!selectedDriver">
       <ng-container *ngIf="selectedVehicle as unit">
-        <header class="flt-spotlight__head">
-          <span class="flt-spotlight__icon">
-            <mat-icon>{{ vehicleIcon(unit.type) }}</mat-icon>
-          </span>
-          <div>
-            <p class="flt-spotlight__eyebrow">Fleet unit · spotlight</p>
-            <h2>{{ unit.registration }}</h2>
+        <div class="flt-spotlight__scroll flt-spotlight__scroll--vehicle" [style.--flt-hue]="unit.accentHue">
+          <header class="flt-spotlight__head flt-spotlight__head--vehicle">
+            <div class="flt-spotlight__hero">
+              <span class="flt-spotlight__status-ring" [class]="vehicleRingClass(unit.status)" aria-hidden="true"></span>
+              <span class="flt-spotlight__avatar flt-spotlight__avatar--vehicle" [ngStyle]="vehicleAvatarStyle(unit)">
+                <mat-icon>{{ vehicleIcon(unit.type) }}</mat-icon>
+              </span>
+              <div class="flt-spotlight__titles">
+                <p class="flt-spotlight__eyebrow">Fleet unit · spotlight</p>
+                <h2>{{ unit.registration }}</h2>
+                <p class="flt-spotlight__subtitle">{{ unit.makeModel }}</p>
+              </div>
+            </div>
+            <button type="button" mat-icon-button class="flt-spotlight__close" aria-label="Close" (click)="selectedVehicleId = null">
+              <mat-icon>close</mat-icon>
+            </button>
+          </header>
+
+          <div class="flt-spotlight__quick">
+            <span class="flt-pill" [ngClass]="assetKindPillClass(unit)">{{ assetKindLabel(unit) }}</span>
+            <span [ngClass]="vehicleStatusPillClass(unit.status)">{{ unit.statusLabel }}</span>
+            <span class="flt-pill flt-pill--type">{{ vehicleTypeLabel(unit.type) }}</span>
           </div>
-          <button type="button" mat-icon-button aria-label="Close" (click)="selectedVehicleId = null">
-            <mat-icon>close</mat-icon>
-          </button>
-        </header>
-        <dl class="flt-spotlight__facts">
-          <div><dt>Ownership</dt><dd>{{ unit.ownershipLabel }}</dd></div>
-          <div *ngIf="unit.contractedTransporterOrganizationName">
-            <dt>Transporter</dt><dd>{{ unit.contractedTransporterOrganizationName }}</dd>
+
+          <div class="flt-spotlight__fact-grid">
+            <div class="flt-spotlight__fact" *ngIf="unit.contractedTransporterOrganizationName">
+              <span class="flt-spotlight__fact-icon"><mat-icon>handshake</mat-icon></span>
+              <div class="flt-spotlight__fact-copy">
+                <span class="flt-spotlight__fact-label">Transporter</span>
+                <span class="flt-spotlight__fact-value">{{ unit.contractedTransporterOrganizationName }}</span>
+              </div>
+            </div>
+            <div class="flt-spotlight__fact">
+              <span class="flt-spotlight__fact-icon"><mat-icon>person</mat-icon></span>
+              <div class="flt-spotlight__fact-copy">
+                <span class="flt-spotlight__fact-label">Driver</span>
+                <span class="flt-spotlight__fact-value" [class.is-empty]="isSpotlightPlaceholder(unit.driverName)">
+                  {{ unit.driverName }}
+                </span>
+              </div>
+            </div>
+            <div class="flt-spotlight__fact">
+              <span class="flt-spotlight__fact-icon"><mat-icon>history</mat-icon></span>
+              <div class="flt-spotlight__fact-copy">
+                <span class="flt-spotlight__fact-label">Last movement</span>
+                <span class="flt-spotlight__fact-value" [class.is-empty]="isSpotlightPlaceholder(unit.lastTripLabel)">
+                  {{ unit.lastTripLabel }}
+                </span>
+              </div>
+            </div>
+            <div class="flt-spotlight__fact" *ngIf="unit.ownershipType === 'contracted'">
+              <span class="flt-spotlight__fact-icon"><mat-icon>event</mat-icon></span>
+              <div class="flt-spotlight__fact-copy">
+                <span class="flt-spotlight__fact-label">Contract</span>
+                <span class="flt-spotlight__fact-value">{{ vehicleContractHighlight(unit) }}</span>
+              </div>
+            </div>
           </div>
-          <div><dt>Model</dt><dd>{{ unit.makeModel }}</dd></div>
-          <div><dt>Status</dt><dd>{{ unit.statusLabel }}</dd></div>
-          <div><dt>Driver</dt><dd>{{ unit.driverName }}</dd></div>
-          <div><dt>Last movement</dt><dd>{{ unit.lastTripLabel }}</dd></div>
-          <div><dt>Utilisation</dt><dd>{{ unit.utilizationPct }}%</dd></div>
-        </dl>
-        <div class="flt-spotlight__pulse">
-          <div class="flt-pulse-ring" [style.--pct]="unit.utilizationPct + '%'">
-            <span>{{ unit.utilizationPct }}%</span>
+
+          <div
+            class="flt-spotlight__highlight flt-spotlight__highlight--contract"
+            *ngIf="unit.ownershipType === 'contracted'"
+          >
+            <mat-icon>link</mat-icon>
+            <div>
+              <strong>Contracted corridor asset</strong>
+              <p>Operated under your transporter link — edit the vehicle to adjust scope or dates.</p>
+            </div>
           </div>
-          <p>Select edit to update vehicle details or remove this unit from your fleet.</p>
+
+          <div class="flt-spotlight__pulse" *ngIf="unit.ownershipType !== 'contracted'">
+            <div class="flt-spotlight__pulse-head">
+              <span><mat-icon>insights</mat-icon>Corridor utilisation</span>
+              <strong>{{ unit.utilizationPct }}%</strong>
+            </div>
+            <div class="flt-pulse-ring" [style.--pct]="unit.utilizationPct + '%'">
+              <span>{{ unit.utilizationPct }}%</span>
+            </div>
+            <div class="flt-spotlight__pulse-meter">
+              <span class="flt-spotlight__pulse-meter-fill" [style.width.%]="unit.utilizationPct"></span>
+            </div>
+            <p>Update vehicle details, assign a driver, or remove this unit from your fleet.</p>
+          </div>
+
+          <div class="flt-spotlight__pulse flt-spotlight__pulse--contracted" *ngIf="unit.ownershipType === 'contracted'">
+            <div class="flt-spotlight__pulse-head">
+              <span><mat-icon>insights</mat-icon>Corridor utilisation</span>
+              <strong>{{ unit.utilizationPct }}%</strong>
+            </div>
+            <div class="flt-spotlight__pulse-meter flt-spotlight__pulse-meter--wide">
+              <span class="flt-spotlight__pulse-meter-fill" [style.width.%]="unit.utilizationPct"></span>
+            </div>
+            <p>
+              Assign a driver from your organisation or the transport partner's pool. Pool drivers can be moved between
+              contracted vehicles at any time.
+            </p>
+          </div>
         </div>
-        <div class="flt-spotlight__actions">
-          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditVehicle(unit)">
+
+        <footer class="flt-spotlight__footer">
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm flt-spotlight__footer-btn" (click)="openAssignDriver(unit)">
+            <mat-icon>person_add</mat-icon>
+            Assign driver
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm flt-spotlight__footer-btn" (click)="openEditVehicle(unit)">
             <mat-icon>edit</mat-icon>
             Edit
           </button>
-          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger" (click)="confirmDeleteVehicle(unit)">
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger flt-spotlight__footer-btn" (click)="confirmDeleteVehicle(unit)">
             <mat-icon>delete_outline</mat-icon>
             Delete
           </button>
-        </div>
+        </footer>
       </ng-container>
 
       <ng-container *ngIf="selectedPartner as partner">
@@ -562,9 +1437,81 @@
         </section>
       </ng-container>
 
-      <div class="flt-spotlight__idle" *ngIf="!selectedVehicle && !selectedPartner">
+      <ng-container *ngIf="selectedDriver as driver">
+        <div class="flt-spotlight__scroll" [style.--flt-hue]="driver.accentHue">
+          <header class="flt-spotlight__head">
+            <span class="flt-spotlight__avatar" [ngStyle]="avatarStyle(driver)">{{ driver.initials }}</span>
+            <div>
+              <p class="flt-spotlight__eyebrow">Driver · spotlight</p>
+              <h2>{{ driver.fullName }}</h2>
+            </div>
+            <button type="button" mat-icon-button aria-label="Close" (click)="selectedDriverId = null">
+              <mat-icon>close</mat-icon>
+            </button>
+          </header>
+
+          <div class="flt-spotlight__quick">
+            <span class="flt-pill" [ngClass]="driverKindClass(driver)">{{ driverKindLabel(driver) }}</span>
+            <span class="flt-pill" [ngClass]="driverEmploymentClass(driver)">{{ driverEmploymentLabel(driver) }}</span>
+            <span class="flt-pill flt-pill--type">Class {{ driver.licenseClass }}</span>
+            <span class="flt-pill" [class.flt-pill--ok]="!!driver.userId">{{ driver.userId ? 'User linked' : 'Manual entry' }}</span>
+          </div>
+
+          <div class="flt-spotlight__fact-grid">
+            <div class="flt-spotlight__fact">
+              <span class="flt-spotlight__fact-icon"><mat-icon>phone</mat-icon></span>
+              <div class="flt-spotlight__fact-copy">
+                <span class="flt-spotlight__fact-label">Phone</span>
+                <span class="flt-spotlight__fact-value">{{ driver.phoneNumber }}</span>
+              </div>
+            </div>
+            <div class="flt-spotlight__fact">
+              <span class="flt-spotlight__fact-icon"><mat-icon>credit_card</mat-icon></span>
+              <div class="flt-spotlight__fact-copy">
+                <span class="flt-spotlight__fact-label">Licence</span>
+                <span class="flt-spotlight__fact-value">{{ driverLicenseLabel(driver) }}</span>
+              </div>
+            </div>
+            <div class="flt-spotlight__fact">
+              <span class="flt-spotlight__fact-icon"><mat-icon>badge</mat-icon></span>
+              <div class="flt-spotlight__fact-copy">
+                <span class="flt-spotlight__fact-label">Identity</span>
+                <span class="flt-spotlight__fact-value">{{ driverIdentityLabel(driver) }}</span>
+              </div>
+            </div>
+            <div class="flt-spotlight__fact">
+              <span class="flt-spotlight__fact-icon"><mat-icon>location_on</mat-icon></span>
+              <div class="flt-spotlight__fact-copy">
+                <span class="flt-spotlight__fact-label">Location</span>
+                <span class="flt-spotlight__fact-value">{{ driverAddressLine(driver) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="flt-spotlight__highlight">
+            <mat-icon>verified_user</mat-icon>
+            <div>
+              <strong>Compliance-ready profile</strong>
+              <p>Attach licence scans and medical certificates from the Compliance tab.</p>
+            </div>
+          </div>
+        </div>
+
+        <footer class="flt-spotlight__footer">
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm flt-spotlight__footer-btn" (click)="openEditDriver(driver)">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger flt-spotlight__footer-btn" (click)="confirmDeleteDriver(driver)">
+            <mat-icon>delete_outline</mat-icon>
+            Delete
+          </button>
+        </footer>
+      </ng-container>
+
+      <div class="flt-spotlight__idle" *ngIf="!selectedVehicle && !selectedPartner && !selectedDriver">
         <mat-icon>ads_click</mat-icon>
-        <p>Select a vehicle or partner to open the spotlight.</p>
+        <p>Select a vehicle, partner, or driver to open the spotlight.</p>
       </div>
     </aside>
   </div>

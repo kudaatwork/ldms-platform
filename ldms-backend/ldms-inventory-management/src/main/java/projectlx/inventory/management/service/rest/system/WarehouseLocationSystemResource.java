@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import projectlx.inventory.management.business.logic.support.WarehouseBranchBackfillSupport;
 import projectlx.inventory.management.service.processor.api.WarehouseLocationServiceProcessor;
 import projectlx.inventory.management.utils.dtos.ImportSummary;
 import projectlx.inventory.management.utils.dtos.WarehouseLocationDto;
@@ -40,6 +41,7 @@ import java.util.Locale;
 public class WarehouseLocationSystemResource {
 
     private final WarehouseLocationServiceProcessor warehouseLocationServiceProcessor;
+    private final WarehouseBranchBackfillSupport warehouseBranchBackfillSupport;
     private static final Logger logger = LoggerFactory.getLogger(WarehouseLocationSystemResource.class);
 
     @Auditable(action = "CREATE_WAREHOUSE_LOCATION")
@@ -191,5 +193,15 @@ public class WarehouseLocationSystemResource {
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(errorMsg.getBytes(StandardCharsets.UTF_8));
         }
+    }
+
+    @Auditable(action = "BACKFILL_WAREHOUSE_BRANCH_LINKS")
+    @PostMapping("/backfill-branch-links")
+    @Operation(summary = "Backfill branch_id on warehouses missing branch allocation")
+    public ResponseEntity<java.util.Map<String, Object>> backfillBranchLinks(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        int updated = warehouseBranchBackfillSupport.backfillMissingBranchLinks(locale, "SYSTEM");
+        return ResponseEntity.ok(java.util.Map.of("success", true, "updatedCount", updated));
     }
 }

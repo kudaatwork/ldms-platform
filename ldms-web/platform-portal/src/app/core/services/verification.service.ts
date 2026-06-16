@@ -9,6 +9,7 @@ export interface VerificationUserFlags {
   phoneVerified: boolean;
   phoneVerificationDue: boolean;
   phoneNumber: string;
+  email: string;
   smsDeliveryEnabled: boolean;
 }
 
@@ -160,6 +161,7 @@ export class VerificationService {
       phoneVerified: user['phoneVerified'] === true,
       phoneVerificationDue: user['phoneVerificationDue'] === true,
       phoneNumber: String(user['phoneNumber'] ?? '').trim(),
+      email: String(user['email'] ?? '').trim(),
       smsDeliveryEnabled: user['smsDeliveryEnabled'] !== false,
     };
   }

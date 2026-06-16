@@ -5,18 +5,38 @@ import { FleetWorkspaceComponent } from './pages/fleet-workspace/fleet-workspace
 const routes: Routes = [
   {
     path: '',
+    redirectTo: 'overview',
+    pathMatch: 'full',
+  },
+  {
+    path: 'overview',
     component: FleetWorkspaceComponent,
-    data: { title: 'Fleet & Transporters', breadcrumb: 'Fleet & Transporters' },
+    data: { tab: 'overview', title: 'Fleet overview', breadcrumb: 'Overview' },
+  },
+  {
+    path: 'convoy',
+    component: FleetWorkspaceComponent,
+    data: { tab: 'convoy', title: 'Own fleet', breadcrumb: 'Own fleet' },
+  },
+  {
+    path: 'partners',
+    component: FleetWorkspaceComponent,
+    data: { tab: 'partners', title: 'Contracted transporters', breadcrumb: 'Contracted transporters' },
   },
   {
     path: 'drivers',
     component: FleetWorkspaceComponent,
-    data: { title: 'Drivers', breadcrumb: 'Drivers', tab: 'drivers' },
+    data: { tab: 'drivers', title: 'Drivers', breadcrumb: 'Drivers' },
   },
   {
     path: 'compliance',
     component: FleetWorkspaceComponent,
-    data: { title: 'Compliance', breadcrumb: 'Compliance', tab: 'compliance' },
+    data: { tab: 'compliance', title: 'Fleet compliance', breadcrumb: 'Compliance' },
+  },
+  {
+    path: 'tracking',
+    component: FleetWorkspaceComponent,
+    data: { tab: 'tracking', title: 'Device installation', breadcrumb: 'Device installation' },
   },
 ];
 

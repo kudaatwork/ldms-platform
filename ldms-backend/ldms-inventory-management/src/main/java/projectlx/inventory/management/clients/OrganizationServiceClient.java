@@ -177,4 +177,14 @@ public interface OrganizationServiceClient {
                                                            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                                            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                                                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale);
+
+    @GetMapping("/ldms-organization-management/v1/system/organization/branches/{branchId}")
+    OrganizationResponse getBranchById(
+            @PathVariable("branchId") Long branchId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
+
+    @GetMapping("/ldms-organization-management/v1/system/organization/{organizationId}/head-office-branch")
+    OrganizationResponse getHeadOfficeBranch(
+            @PathVariable("organizationId") Long organizationId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
 }

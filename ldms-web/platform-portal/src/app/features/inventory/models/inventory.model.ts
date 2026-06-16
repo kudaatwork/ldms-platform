@@ -98,12 +98,24 @@ export interface WarehouseRow {
   warehouseType: string;
   locationId: string;
   supplierId: number;
+  branchId?: number;
+  branchLabel?: string;
+  organizationOwned?: boolean;
+  sharedAccess?: boolean;
+  callerAccessLevel?: 'READ' | 'FULFILL';
   addressLabel: string;
   entityStatus: string;
   createdAtLabel: string;
 }
 
-export type WarehouseLocationType = 'SUPPLIER' | 'CUSTOMER';
+export type WarehouseLocationType = 'SUPPLIER' | 'CUSTOMER' | 'TRANSIT';
+
+export interface WarehouseAccessGrant {
+  id?: number;
+  warehouseLocationId: number;
+  grantedOrganizationId: number;
+  accessLevel: 'READ' | 'FULFILL';
+}
 
 export interface WarehouseImportSummary {
   success: boolean;
@@ -280,6 +292,7 @@ export interface TransferRow {
   canStartTransit?: boolean;
   canComplete?: boolean;
   canCancel?: boolean;
+  crossBorder?: boolean;
 }
 
 /** PO line for goods receipt dialog. */
@@ -422,6 +435,7 @@ export interface CreateWarehouseLocationPayload {
   suburbId: number;
   geoCoordinatesId?: number;
   supplierId: number;
+  branchId: number;
   warehouseType: WarehouseLocationType;
 }
 
@@ -432,6 +446,7 @@ export interface EditWarehouseLocationPayload {
   description: string;
   locationId: string;
   supplierId: number;
+  branchId?: number;
   warehouseType: WarehouseLocationType;
 }
 
@@ -511,6 +526,7 @@ export interface CreateTransferPayload {
   unitCost?: number;
   status?: TransferStatus;
   reference?: string;
+  crossBorder?: boolean;
   createdByUserId: number;
 }
 

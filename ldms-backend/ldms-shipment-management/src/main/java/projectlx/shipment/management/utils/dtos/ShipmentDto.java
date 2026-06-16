@@ -17,6 +17,9 @@ public class ShipmentDto {
     private Long organizationId;
     private String sourceType;
     private Long inventoryTransferId;
+    private Long salesOrderId;
+    private Long purchaseOrderId;
+    private Long customerOrganizationId;
     private Long fromWarehouseLocationId;
     private Long toWarehouseLocationId;
     private String fromWarehouseName;
@@ -25,8 +28,11 @@ public class ShipmentDto {
     private String productName;
     private String productCode;
     private BigDecimal quantity;
+    private boolean crossBorder;
     private Long fleetDriverId;
     private Long fleetAssetId;
+    private Long transportCompanyOrganizationId;
+    private String transportCompanyName;
     private Long tripId;
     private String status;
     private String notes;

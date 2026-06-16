@@ -1,8 +1,8 @@
 package projectlx.co.zw.notifications.utils.config;
 
 import com.twilio.Twilio;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -11,15 +11,22 @@ import org.springframework.util.StringUtils;
  * {@link com.twilio.Twilio#init} must not run only at {@code @PostConstruct} because ldms-config-repo
  * secrets are often applied after the first environment pass.
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class OutboundTwilioInitializer {
+
+    private static final Logger log = LoggerFactory.getLogger(OutboundTwilioInitializer.class);
 
     private final LdmsConfigRepoSecretsResolver secretsResolver;
     private final OutboundMessagingReadiness outboundMessagingReadiness;
 
     private volatile String activeCredentialKey;
+
+    public OutboundTwilioInitializer(
+            LdmsConfigRepoSecretsResolver secretsResolver,
+            OutboundMessagingReadiness outboundMessagingReadiness) {
+        this.secretsResolver = secretsResolver;
+        this.outboundMessagingReadiness = outboundMessagingReadiness;
+    }
 
     public void ensureInitialized() {
         if (!outboundMessagingReadiness.isTwilioReady()) {

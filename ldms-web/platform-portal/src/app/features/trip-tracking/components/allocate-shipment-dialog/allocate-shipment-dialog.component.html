@@ -2,7 +2,10 @@
   <div class="lx-dialog-header">
     <div class="lx-header-text">
       <h2 class="lx-dialog-title">Allocate driver &amp; vehicle</h2>
-      <p class="lx-dialog-subtitle">Shipment {{ data.shipment.shipmentNumber }}</p>
+      <p class="lx-dialog-subtitle">
+        Shipment {{ data.shipment.shipmentNumber }}
+        <span *ngIf="data.shipment.transportCompanyName"> · {{ data.shipment.transportCompanyName }}</span>
+      </p>
     </div>
     <button mat-icon-button class="lx-close-button" type="button" aria-label="Close" (click)="close()">
       <mat-icon>close</mat-icon>
@@ -10,7 +13,6 @@
   </div>
 
   <div class="lx-step-content trt-allocate-body">
-    <!-- Shipment summary -->
     <div class="trt-allocate-summary lx-card--subsection">
       <dl class="trt-allocate-summary__grid">
         <dt>Route</dt>
@@ -29,18 +31,29 @@
     </div>
 
     <ng-container *ngIf="!loading">
-      <!-- Driver selection -->
       <div class="trt-allocate-section">
-        <h3 class="trt-allocate-section__title">
-          <mat-icon>badge</mat-icon>
-          Select driver
-        </h3>
-        <div class="trt-allocate-list" *ngIf="drivers.length; else noDrivers">
+        <div class="trt-allocate-section__head">
+          <h3 class="trt-allocate-section__title">
+            <mat-icon>badge</mat-icon>
+            Select driver
+          </h3>
+          <span class="trt-allocate-count" *ngIf="drivers.length">{{ filteredDrivers.length }} of {{ drivers.length }}</span>
+        </div>
+        <div class="trt-allocate-search lx-input-shell" *ngIf="drivers.length > 4">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input
+            [(ngModel)]="driverSearch"
+            placeholder="Search by name, licence class, or phone…"
+            autocomplete="off"
+            aria-label="Search drivers"
+          />
+        </div>
+        <div class="trt-allocate-list" *ngIf="filteredDrivers.length; else noDrivers">
           <button
             type="button"
             class="trt-allocate-item"
             [class.is-selected]="selectedDriverId === driver.id"
-            *ngFor="let driver of drivers"
+            *ngFor="let driver of filteredDrivers"
             (click)="selectedDriverId = driver.id"
           >
             <span class="trt-allocate-item__avatar" [style.--hue]="driver.accentHue + 'deg'">
@@ -54,36 +67,83 @@
           </button>
         </div>
         <ng-template #noDrivers>
-          <p class="trt-allocate-empty">No drivers found. Add drivers in Fleet management.</p>
+          <p class="trt-allocate-empty" *ngIf="drivers.length; else noDriversAtAll">
+            No drivers match your search.
+          </p>
+          <ng-template #noDriversAtAll>
+            <p class="trt-allocate-empty">No drivers found. Add drivers in Fleet management.</p>
+          </ng-template>
         </ng-template>
       </div>
 
-      <!-- Vehicle selection -->
-      <div class="trt-allocate-section">
-        <h3 class="trt-allocate-section__title">
-          <mat-icon>local_shipping</mat-icon>
-          Select vehicle
-        </h3>
-        <div class="trt-allocate-list" *ngIf="vehicles.length; else noVehicles">
+      <div class="trt-allocate-section trt-allocate-section--vehicles">
+        <div class="trt-allocate-section__head">
+          <h3 class="trt-allocate-section__title">
+            <mat-icon>local_shipping</mat-icon>
+            Select vehicle
+          </h3>
+          <span class="trt-allocate-count" *ngIf="vehicles.length">{{ filteredVehicles.length }} of {{ vehicles.length }}</span>
+        </div>
+
+        <div class="trt-allocate-toolbar lx-card--subsection" *ngIf="vehicles.length">
+          <div class="trt-allocate-search lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">search</mat-icon>
+            <input
+              [(ngModel)]="vehicleSearch"
+              placeholder="Search registration, model, type, status, ownership…"
+              autocomplete="off"
+              aria-label="Search vehicles"
+            />
+            <button
+              type="button"
+              class="trt-allocate-clear"
+              *ngIf="vehicleSearch || vehicleCategory !== 'all'"
+              (click)="clearVehicleFilters()"
+              aria-label="Clear vehicle filters"
+            >
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+          <div class="trt-allocate-chips" role="tablist" aria-label="Vehicle categories">
+            <button
+              type="button"
+              class="trt-allocate-chip"
+              role="tab"
+              *ngFor="let category of vehicleCategories"
+              [class.is-active]="vehicleCategory === category.id"
+              (click)="setVehicleCategory(category.id)"
+            >
+              {{ category.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="trt-allocate-grid" *ngIf="filteredVehicles.length; else noVehicles">
           <button
             type="button"
-            class="trt-allocate-item"
+            class="trt-allocate-vehicle"
             [class.is-selected]="selectedVehicleId === vehicle.id"
-            *ngFor="let vehicle of vehicles"
-            (click)="selectedVehicleId = +vehicle.id"
+            [style.--flt-hue]="vehicle.accentHue"
+            *ngFor="let vehicle of filteredVehicles"
+            (click)="selectedVehicleId = vehicle.id"
           >
-            <span class="trt-allocate-item__icon">
-              <mat-icon>directions_car</mat-icon>
+            <span class="trt-allocate-vehicle__kind">{{ vehicle.ownershipLabel }}</span>
+            <span class="trt-allocate-vehicle__icon-wrap">
+              <mat-icon>{{ vehicleIcon(vehicle.type) }}</mat-icon>
             </span>
-            <span class="trt-allocate-item__info">
-              <span class="trt-allocate-item__name">{{ vehicle.registration }}</span>
-              <span class="trt-allocate-item__sub">{{ vehicle.makeModel }} · {{ vehicle.statusLabel }}</span>
-            </span>
-            <mat-icon class="trt-allocate-item__check" *ngIf="selectedVehicleId === vehicle.id">check_circle</mat-icon>
+            <span class="trt-allocate-vehicle__reg">{{ vehicle.registration }}</span>
+            <span class="trt-allocate-vehicle__model">{{ vehicle.makeModel }}</span>
+            <span class="trt-allocate-vehicle__status">{{ vehicle.statusLabel }}</span>
+            <mat-icon class="trt-allocate-vehicle__check" *ngIf="selectedVehicleId === vehicle.id">check_circle</mat-icon>
           </button>
         </div>
         <ng-template #noVehicles>
-          <p class="trt-allocate-empty">No owned vehicles found. Add vehicles in Fleet management.</p>
+          <p class="trt-allocate-empty" *ngIf="vehicles.length; else noVehiclesAtAll">
+            No vehicles match your search or category.
+          </p>
+          <ng-template #noVehiclesAtAll>
+            <p class="trt-allocate-empty">No fleet vehicles found. Add vehicles in Fleet management.</p>
+          </ng-template>
         </ng-template>
       </div>
     </ng-container>
@@ -91,12 +151,7 @@
 
   <div class="lx-dialog-actions">
     <button type="button" class="lx-btn lx-btn-ghost" (click)="close()">Cancel</button>
-    <button
-      type="button"
-      class="lx-btn lx-btn-primary"
-      [disabled]="!canSubmit"
-      (click)="confirm()"
-    >
+    <button type="button" class="lx-btn lx-btn-primary" [disabled]="!canSubmit" (click)="confirm()">
       <mat-spinner *ngIf="submitting" diameter="18"></mat-spinner>
       <mat-icon *ngIf="!submitting">check_circle</mat-icon>
       Allocate

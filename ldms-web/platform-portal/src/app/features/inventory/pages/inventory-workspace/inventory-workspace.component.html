@@ -227,14 +227,54 @@
             </colgroup>
             <thead>
               <tr>
-                <th>Product</th>
-                <th>Code</th>
-                <th>Category</th>
-                <th>Subcategory</th>
-                <th>Unit price</th>
-                <th>UOM</th>
-                <th>Status</th>
-                <th>Created</th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="productSort.isActive('name')" (click)="toggleTableSort(productSort, 'name', productsPage)">
+                    Product
+                    <mat-icon>{{ productSort.icon('name') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="productSort.isActive('code')" (click)="toggleTableSort(productSort, 'code', productsPage)">
+                    Code
+                    <mat-icon>{{ productSort.icon('code') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="productSort.isActive('categoryName')" (click)="toggleTableSort(productSort, 'categoryName', productsPage)">
+                    Category
+                    <mat-icon>{{ productSort.icon('categoryName') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="productSort.isActive('subcategoryName')" (click)="toggleTableSort(productSort, 'subcategoryName', productsPage)">
+                    Subcategory
+                    <mat-icon>{{ productSort.icon('subcategoryName') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="productSort.isActive('unitPrice')" (click)="toggleTableSort(productSort, 'unitPrice', productsPage)">
+                    Unit price
+                    <mat-icon>{{ productSort.icon('unitPrice') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="productSort.isActive('unitOfMeasure')" (click)="toggleTableSort(productSort, 'unitOfMeasure', productsPage)">
+                    UOM
+                    <mat-icon>{{ productSort.icon('unitOfMeasure') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="productSort.isActive('entityStatus')" (click)="toggleTableSort(productSort, 'entityStatus', productsPage)">
+                    Status
+                    <mat-icon>{{ productSort.icon('entityStatus') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="productSort.isActive('createdAtLabel')" (click)="toggleTableSort(productSort, 'createdAtLabel', productsPage)">
+                    Created
+                    <mat-icon>{{ productSort.icon('createdAtLabel') }}</mat-icon>
+                  </button>
+                </th>
                 <th class="inv-table__actions-head">Actions</th>
               </tr>
             </thead>
@@ -534,11 +574,31 @@
             <table class="lx-data-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Description</th>
+                  <th>
+                    <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="categorySort.isActive('name')" (click)="toggleTableSort(categorySort, 'name', categoriesPage)">
+                      Name
+                      <mat-icon>{{ categorySort.icon('name') }}</mat-icon>
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="categorySort.isActive('description')" (click)="toggleTableSort(categorySort, 'description', categoriesPage)">
+                      Description
+                      <mat-icon>{{ categorySort.icon('description') }}</mat-icon>
+                    </button>
+                  </th>
                   <th>Subcategories</th>
-                  <th>Status</th>
-                  <th>Created</th>
+                  <th>
+                    <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="categorySort.isActive('entityStatus')" (click)="toggleTableSort(categorySort, 'entityStatus', categoriesPage)">
+                      Status
+                      <mat-icon>{{ categorySort.icon('entityStatus') }}</mat-icon>
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="categorySort.isActive('createdAtLabel')" (click)="toggleTableSort(categorySort, 'createdAtLabel', categoriesPage)">
+                      Created
+                      <mat-icon>{{ categorySort.icon('createdAtLabel') }}</mat-icon>
+                    </button>
+                  </th>
                   <th class="inv-table__actions-head">Actions</th>
                 </tr>
               </thead>
@@ -622,11 +682,36 @@
             <table class="lx-data-table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Parent category</th>
-                  <th>Description</th>
-                  <th>Status</th>
-                  <th>Created</th>
+                  <th>
+                    <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="subcategorySort.isActive('name')" (click)="toggleTableSort(subcategorySort, 'name', subcategoriesPage)">
+                      Name
+                      <mat-icon>{{ subcategorySort.icon('name') }}</mat-icon>
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="subcategorySort.isActive('categoryName')" (click)="toggleTableSort(subcategorySort, 'categoryName', subcategoriesPage)">
+                      Parent category
+                      <mat-icon>{{ subcategorySort.icon('categoryName') }}</mat-icon>
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="subcategorySort.isActive('description')" (click)="toggleTableSort(subcategorySort, 'description', subcategoriesPage)">
+                      Description
+                      <mat-icon>{{ subcategorySort.icon('description') }}</mat-icon>
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="subcategorySort.isActive('entityStatus')" (click)="toggleTableSort(subcategorySort, 'entityStatus', subcategoriesPage)">
+                      Status
+                      <mat-icon>{{ subcategorySort.icon('entityStatus') }}</mat-icon>
+                    </button>
+                  </th>
+                  <th>
+                    <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="subcategorySort.isActive('createdAtLabel')" (click)="toggleTableSort(subcategorySort, 'createdAtLabel', subcategoriesPage)">
+                      Created
+                      <mat-icon>{{ subcategorySort.icon('createdAtLabel') }}</mat-icon>
+                    </button>
+                  </th>
                   <th class="inv-table__actions-head">Actions</th>
                 </tr>
               </thead>
@@ -792,6 +877,13 @@
         <span class="inv-toolbar__count" *ngIf="warehouses.length">{{ filteredWarehouses.length }} of {{ warehouses.length }}</span>
       </div>
 
+      <div class="lx-card lx-card--subsection inv-branch-scope" *ngIf="warehouseBranchFilter > 0 && !warehousesLoading">
+        <p>
+          Showing warehouses allocated to <strong>{{ warehouseBranchFilterLabel }}</strong>.
+          <button type="button" class="lx-link-btn" (click)="clearWarehouseBranchFilter()">Show all warehouses</button>
+        </p>
+      </div>
+
       <div class="inv-table-card lx-card lx-table-card" *ngIf="!warehousesLoading">
         <div class="inv-table-card__bar" *ngIf="filteredWarehouses.length">
           <span class="inv-table-card__summary">{{ pageSummary(warehousesPage, filteredWarehouses.length) }}</span>
@@ -800,12 +892,48 @@
         <table class="lx-data-table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Description</th>
-              <th>Type</th>
-              <th>Address</th>
-              <th>Status</th>
-              <th>Created</th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="warehouseSort.isActive('name')" (click)="toggleTableSort(warehouseSort, 'name', warehousesPage)">
+                  Name
+                  <mat-icon>{{ warehouseSort.icon('name') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="warehouseSort.isActive('description')" (click)="toggleTableSort(warehouseSort, 'description', warehousesPage)">
+                  Description
+                  <mat-icon>{{ warehouseSort.icon('description') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="warehouseSort.isActive('branchLabel')" (click)="toggleTableSort(warehouseSort, 'branchLabel', warehousesPage)">
+                  Branch
+                  <mat-icon>{{ warehouseSort.icon('branchLabel') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="warehouseSort.isActive('warehouseType')" (click)="toggleTableSort(warehouseSort, 'warehouseType', warehousesPage)">
+                  Type
+                  <mat-icon>{{ warehouseSort.icon('warehouseType') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="warehouseSort.isActive('addressLabel')" (click)="toggleTableSort(warehouseSort, 'addressLabel', warehousesPage)">
+                  Address
+                  <mat-icon>{{ warehouseSort.icon('addressLabel') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="warehouseSort.isActive('entityStatus')" (click)="toggleTableSort(warehouseSort, 'entityStatus', warehousesPage)">
+                  Status
+                  <mat-icon>{{ warehouseSort.icon('entityStatus') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="warehouseSort.isActive('createdAtLabel')" (click)="toggleTableSort(warehouseSort, 'createdAtLabel', warehousesPage)">
+                  Created
+                  <mat-icon>{{ warehouseSort.icon('createdAtLabel') }}</mat-icon>
+                </button>
+              </th>
               <th class="inv-table__actions-head">Actions</th>
             </tr>
           </thead>
@@ -823,7 +951,23 @@
                 </button>
               </td>
               <td class="inv-cell-ellipsis" [title]="w.description || ''">{{ w.description || '—' }}</td>
-              <td>{{ warehouseTypeLabel(w.warehouseType) }}</td>
+              <td class="inv-cell-ellipsis" [title]="w.branchLabel || ''">
+                <button
+                  *ngIf="w.branchId; else branchDash"
+                  type="button"
+                  class="inv-drill-link inv-drill-link--truncate inv-drill-link--muted"
+                  (click)="openBranchInOrganizationManagement(w.branchId!)"
+                  [title]="w.branchLabel || ''"
+                  [attr.aria-label]="'View branch ' + (w.branchLabel || '')"
+                >
+                  <span class="inv-drill-link__text">{{ w.branchLabel }}</span>
+                </button>
+                <ng-template #branchDash>—</ng-template>
+              </td>
+              <td>
+                {{ warehouseTypeLabel(w.warehouseType) }}
+                <span class="inv-shared-badge" *ngIf="w.sharedAccess">Shared</span>
+              </td>
               <td class="inv-address">{{ w.addressLabel || '—' }}</td>
               <td>
                 <span class="lx-status" [ngClass]="'lx-status-' + entityStatusClass(w.entityStatus)">
@@ -845,7 +989,7 @@
               </td>
             </tr>
             <tr *ngIf="!filteredWarehouses.length && !warehousesError">
-              <td colspan="7" class="inv-table-empty">
+              <td colspan="8" class="inv-table-empty">
                 <div class="inv-table-empty__inner">
                   <mat-icon>warehouse</mat-icon>
                   <span>{{ warehouses.length ? 'No warehouses match your search.' : 'No warehouses yet — add a location or import from CSV.' }}</span>
@@ -1047,13 +1191,48 @@
           <table class="lx-data-table inv-stock-table">
             <thead>
               <tr>
-                <th>Warehouse</th>
-                <th class="inv-table__qty-head">On hand</th>
-                <th class="inv-table__qty-head">Reserved</th>
-                <th class="inv-table__qty-head">Available</th>
-                <th>UOM</th>
-                <th class="inv-table__qty-head">Reorder at</th>
-                <th>Status</th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('warehouseName')" (click)="toggleTableSort(stockSort, 'warehouseName', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Warehouse
+                    <mat-icon>{{ stockSort.icon('warehouseName') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('quantityOnHand')" (click)="toggleTableSort(stockSort, 'quantityOnHand', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    On hand
+                    <mat-icon>{{ stockSort.icon('quantityOnHand') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('reservedQuantity')" (click)="toggleTableSort(stockSort, 'reservedQuantity', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Reserved
+                    <mat-icon>{{ stockSort.icon('reservedQuantity') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('availableQuantity')" (click)="toggleTableSort(stockSort, 'availableQuantity', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Available
+                    <mat-icon>{{ stockSort.icon('availableQuantity') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('unitOfMeasure')" (click)="toggleTableSort(stockSort, 'unitOfMeasure', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    UOM
+                    <mat-icon>{{ stockSort.icon('unitOfMeasure') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('reorderPoint')" (click)="toggleTableSort(stockSort, 'reorderPoint', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Reorder at
+                    <mat-icon>{{ stockSort.icon('reorderPoint') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('statusLabel')" (click)="toggleTableSort(stockSort, 'statusLabel', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Status
+                    <mat-icon>{{ stockSort.icon('statusLabel') }}</mat-icon>
+                  </button>
+                </th>
                 <th class="inv-table__actions-head">Actions</th>
               </tr>
             </thead>
@@ -1127,15 +1306,60 @@
           <table class="lx-data-table inv-stock-table">
             <thead>
               <tr>
-                <th>Product</th>
-                <th>Code</th>
-                <th>Barcode</th>
-                <th class="inv-table__qty-head">On hand</th>
-                <th class="inv-table__qty-head">Reserved</th>
-                <th class="inv-table__qty-head">Available</th>
-                <th>UOM</th>
-                <th class="inv-table__qty-head">Reorder at</th>
-                <th>Status</th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('productName')" (click)="toggleTableSort(stockSort, 'productName', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Product
+                    <mat-icon>{{ stockSort.icon('productName') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('productCode')" (click)="toggleTableSort(stockSort, 'productCode', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Code
+                    <mat-icon>{{ stockSort.icon('productCode') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('productBarcode')" (click)="toggleTableSort(stockSort, 'productBarcode', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Barcode
+                    <mat-icon>{{ stockSort.icon('productBarcode') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('quantityOnHand')" (click)="toggleTableSort(stockSort, 'quantityOnHand', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    On hand
+                    <mat-icon>{{ stockSort.icon('quantityOnHand') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('reservedQuantity')" (click)="toggleTableSort(stockSort, 'reservedQuantity', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Reserved
+                    <mat-icon>{{ stockSort.icon('reservedQuantity') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('availableQuantity')" (click)="toggleTableSort(stockSort, 'availableQuantity', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Available
+                    <mat-icon>{{ stockSort.icon('availableQuantity') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('unitOfMeasure')" (click)="toggleTableSort(stockSort, 'unitOfMeasure', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    UOM
+                    <mat-icon>{{ stockSort.icon('unitOfMeasure') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('reorderPoint')" (click)="toggleTableSort(stockSort, 'reorderPoint', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Reorder at
+                    <mat-icon>{{ stockSort.icon('reorderPoint') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('statusLabel')" (click)="toggleTableSort(stockSort, 'statusLabel', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                    Status
+                    <mat-icon>{{ stockSort.icon('statusLabel') }}</mat-icon>
+                  </button>
+                </th>
                 <th class="inv-table__actions-head">Actions</th>
               </tr>
             </thead>
@@ -1223,16 +1447,66 @@
           </colgroup>
           <thead>
             <tr>
-              <th>Product</th>
-              <th>Code</th>
-              <th>Barcode</th>
-              <th>Warehouse</th>
-              <th class="inv-table__qty-head">On hand</th>
-              <th class="inv-table__qty-head">Reserved</th>
-              <th class="inv-table__qty-head">Available</th>
-              <th>UOM</th>
-              <th class="inv-table__qty-head">Reorder at</th>
-              <th>Status</th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('productName')" (click)="toggleTableSort(stockSort, 'productName', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                  Product
+                  <mat-icon>{{ stockSort.icon('productName') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('productCode')" (click)="toggleTableSort(stockSort, 'productCode', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                  Code
+                  <mat-icon>{{ stockSort.icon('productCode') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('productBarcode')" (click)="toggleTableSort(stockSort, 'productBarcode', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                  Barcode
+                  <mat-icon>{{ stockSort.icon('productBarcode') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('warehouseName')" (click)="toggleTableSort(stockSort, 'warehouseName', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                  Warehouse
+                  <mat-icon>{{ stockSort.icon('warehouseName') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-table__qty-head">
+                <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('quantityOnHand')" (click)="toggleTableSort(stockSort, 'quantityOnHand', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                  On hand
+                  <mat-icon>{{ stockSort.icon('quantityOnHand') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-table__qty-head">
+                <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('reservedQuantity')" (click)="toggleTableSort(stockSort, 'reservedQuantity', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                  Reserved
+                  <mat-icon>{{ stockSort.icon('reservedQuantity') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-table__qty-head">
+                <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('availableQuantity')" (click)="toggleTableSort(stockSort, 'availableQuantity', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                  Available
+                  <mat-icon>{{ stockSort.icon('availableQuantity') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('unitOfMeasure')" (click)="toggleTableSort(stockSort, 'unitOfMeasure', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                  UOM
+                  <mat-icon>{{ stockSort.icon('unitOfMeasure') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-table__qty-head">
+                <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="stockSort.isActive('reorderPoint')" (click)="toggleTableSort(stockSort, 'reorderPoint', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                  Reorder at
+                  <mat-icon>{{ stockSort.icon('reorderPoint') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="stockSort.isActive('statusLabel')" (click)="toggleTableSort(stockSort, 'statusLabel', stockPage, productStockWarehousesPage, warehouseStockProductsPage)">
+                  Status
+                  <mat-icon>{{ stockSort.icon('statusLabel') }}</mat-icon>
+                </button>
+              </th>
               <th class="inv-table__actions-head">Actions</th>
             </tr>
           </thead>
@@ -1445,21 +1719,62 @@
         <table class="lx-data-table inv-transfers-table">
           <thead>
             <tr>
-              <th class="inv-transfers-col inv-transfers-col--ref">Reference</th>
-              <th class="inv-transfers-col inv-transfers-col--product">Product</th>
-              <th class="inv-transfers-col inv-transfers-col--qty">Qty</th>
-              <th class="inv-transfers-col inv-transfers-col--warehouse">From</th>
-              <th class="inv-transfers-col inv-transfers-col--warehouse">To</th>
-              <th class="inv-transfers-col inv-transfers-col--status">Status</th>
-              <th class="inv-transfers-col inv-transfers-col--date">Date</th>
+              <th class="inv-transfers-col inv-transfers-col--ref">
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="transferSort.isActive('transferNumber')" (click)="toggleTableSort(transferSort, 'transferNumber', transfersPage)">
+                  Reference
+                  <mat-icon>{{ transferSort.icon('transferNumber') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-transfers-col inv-transfers-col--product">
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="transferSort.isActive('productName')" (click)="toggleTableSort(transferSort, 'productName', transfersPage)">
+                  Product
+                  <mat-icon>{{ transferSort.icon('productName') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-transfers-col inv-transfers-col--qty">
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="transferSort.isActive('quantity')" (click)="toggleTableSort(transferSort, 'quantity', transfersPage)">
+                  Qty
+                  <mat-icon>{{ transferSort.icon('quantity') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-transfers-col inv-transfers-col--warehouse">
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="transferSort.isActive('fromWarehouse')" (click)="toggleTableSort(transferSort, 'fromWarehouse', transfersPage)">
+                  From
+                  <mat-icon>{{ transferSort.icon('fromWarehouse') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-transfers-col inv-transfers-col--warehouse">
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="transferSort.isActive('toWarehouse')" (click)="toggleTableSort(transferSort, 'toWarehouse', transfersPage)">
+                  To
+                  <mat-icon>{{ transferSort.icon('toWarehouse') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-transfers-col inv-transfers-col--status">
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="transferSort.isActive('statusLabel')" (click)="toggleTableSort(transferSort, 'statusLabel', transfersPage)">
+                  Status
+                  <mat-icon>{{ transferSort.icon('statusLabel') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-transfers-col inv-transfers-col--date">
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="transferSort.isActive('createdAtLabel')" (click)="toggleTableSort(transferSort, 'createdAtLabel', transfersPage)">
+                  Date
+                  <mat-icon>{{ transferSort.icon('createdAtLabel') }}</mat-icon>
+                </button>
+              </th>
               <th class="inv-table__actions-head inv-transfers-col inv-transfers-col--actions">Actions</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let t of paginatedTransfers; trackBy: trackByTransferId">
               <td class="inv-transfers-cell inv-transfers-cell--ref">
-                <button type="button" class="inv-transfer-ref-pill" (click)="viewTransfer(t)" [attr.title]="'View ' + t.transferNumber">
-                  {{ t.transferNumber }}
+                <button
+                  type="button"
+                  class="inv-transfer-ref-link"
+                  (click)="viewTransfer(t)"
+                  [attr.title]="'View ' + t.transferNumber"
+                  [attr.aria-label]="'View transfer ' + t.transferNumber"
+                >
+                  <span class="inv-mono">{{ t.transferNumber }}</span>
                 </button>
               </td>
               <td class="inv-transfers-cell inv-transfers-cell--product">
@@ -1481,7 +1796,7 @@
                   class="lx-btn lx-btn-ghost lx-btn-sm"
                   *ngIf="canStartTransferTransit(t)"
                   (click)="onStartTransferTransit(t)"
-                  title="Start transit"
+                  title="Assign a transport company to dispatch this transfer"
                 >
                   <mat-icon>local_shipping</mat-icon>
                   Dispatch
@@ -1606,13 +1921,48 @@
         <table class="lx-data-table">
           <thead>
             <tr>
-              <th>Reference</th>
-              <th>Purpose</th>
-              <th>Priority</th>
-              <th>Lines</th>
-              <th>Est. total</th>
-              <th>Required by</th>
-              <th>Status</th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="requisitionSort.isActive('requisitionNumber')" (click)="toggleTableSort(requisitionSort, 'requisitionNumber', requisitionsPage)">
+                  Reference
+                  <mat-icon>{{ requisitionSort.icon('requisitionNumber') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="requisitionSort.isActive('purpose')" (click)="toggleTableSort(requisitionSort, 'purpose', requisitionsPage)">
+                  Purpose
+                  <mat-icon>{{ requisitionSort.icon('purpose') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="requisitionSort.isActive('priorityLabel')" (click)="toggleTableSort(requisitionSort, 'priorityLabel', requisitionsPage)">
+                  Priority
+                  <mat-icon>{{ requisitionSort.icon('priorityLabel') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-table__qty-head">
+                <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="requisitionSort.isActive('lineCount')" (click)="toggleTableSort(requisitionSort, 'lineCount', requisitionsPage)">
+                  Lines
+                  <mat-icon>{{ requisitionSort.icon('lineCount') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-table__qty-head">
+                <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="requisitionSort.isActive('totalAmount')" (click)="toggleTableSort(requisitionSort, 'totalAmount', requisitionsPage)">
+                  Est. total
+                  <mat-icon>{{ requisitionSort.icon('totalAmount') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="requisitionSort.isActive('requiredByDateLabel')" (click)="toggleTableSort(requisitionSort, 'requiredByDateLabel', requisitionsPage)">
+                  Required by
+                  <mat-icon>{{ requisitionSort.icon('requiredByDateLabel') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="requisitionSort.isActive('statusLabel')" (click)="toggleTableSort(requisitionSort, 'statusLabel', requisitionsPage)">
+                  Status
+                  <mat-icon>{{ requisitionSort.icon('statusLabel') }}</mat-icon>
+                </button>
+              </th>
               <th class="inv-table__actions-head">Actions</th>
             </tr>
           </thead>
@@ -1803,13 +2153,48 @@
           <table class="lx-data-table">
             <thead>
               <tr>
-                <th>Quote no.</th>
-                <th>Requisition</th>
-                <th>Status</th>
-                <th>Source</th>
-                <th>Total</th>
-                <th>Valid until</th>
-                <th>Submitted</th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="quoteSort.isActive('quoteNumber')" (click)="toggleTableSort(quoteSort, 'quoteNumber', quotationsPage)">
+                    Quote no.
+                    <mat-icon>{{ quoteSort.icon('quoteNumber') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="quoteSort.isActive('requisitionNumber')" (click)="toggleTableSort(quoteSort, 'requisitionNumber', quotationsPage)">
+                    Requisition
+                    <mat-icon>{{ quoteSort.icon('requisitionNumber') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="quoteSort.isActive('statusLabel')" (click)="toggleTableSort(quoteSort, 'statusLabel', quotationsPage)">
+                    Status
+                    <mat-icon>{{ quoteSort.icon('statusLabel') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="quoteSort.isActive('quoteSourceLabel')" (click)="toggleTableSort(quoteSort, 'quoteSourceLabel', quotationsPage)">
+                    Source
+                    <mat-icon>{{ quoteSort.icon('quoteSourceLabel') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="quoteSort.isActive('totalAmount')" (click)="toggleTableSort(quoteSort, 'totalAmount', quotationsPage)">
+                    Total
+                    <mat-icon>{{ quoteSort.icon('totalAmount') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="quoteSort.isActive('validityUntilLabel')" (click)="toggleTableSort(quoteSort, 'validityUntilLabel', quotationsPage)">
+                    Valid until
+                    <mat-icon>{{ quoteSort.icon('validityUntilLabel') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="quoteSort.isActive('submittedAtLabel')" (click)="toggleTableSort(quoteSort, 'submittedAtLabel', quotationsPage)">
+                    Submitted
+                    <mat-icon>{{ quoteSort.icon('submittedAtLabel') }}</mat-icon>
+                  </button>
+                </th>
                 <th class="inv-table__actions-head">Actions</th>
               </tr>
             </thead>
@@ -1887,18 +2272,53 @@
           <table class="lx-data-table">
             <thead>
               <tr>
-                <th>SO no.</th>
-                <th>Purchase order</th>
-                <th>Status</th>
-                <th>Stage</th>
-                <th>Total</th>
-                <th>Expected delivery</th>
-                <th>Created</th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="salesOrderSort.isActive('salesOrderNumber')" (click)="toggleTableSort(salesOrderSort, 'salesOrderNumber')">
+                    SO no.
+                    <mat-icon>{{ salesOrderSort.icon('salesOrderNumber') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="salesOrderSort.isActive('purchaseOrderNumber')" (click)="toggleTableSort(salesOrderSort, 'purchaseOrderNumber')">
+                    Purchase order
+                    <mat-icon>{{ salesOrderSort.icon('purchaseOrderNumber') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="salesOrderSort.isActive('statusLabel')" (click)="toggleTableSort(salesOrderSort, 'statusLabel')">
+                    Status
+                    <mat-icon>{{ salesOrderSort.icon('statusLabel') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="salesOrderSort.isActive('stageProgressLabel')" (click)="toggleTableSort(salesOrderSort, 'stageProgressLabel')">
+                    Stage
+                    <mat-icon>{{ salesOrderSort.icon('stageProgressLabel') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="salesOrderSort.isActive('totalAmount')" (click)="toggleTableSort(salesOrderSort, 'totalAmount')">
+                    Total
+                    <mat-icon>{{ salesOrderSort.icon('totalAmount') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="salesOrderSort.isActive('expectedDeliveryLabel')" (click)="toggleTableSort(salesOrderSort, 'expectedDeliveryLabel')">
+                    Expected delivery
+                    <mat-icon>{{ salesOrderSort.icon('expectedDeliveryLabel') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="salesOrderSort.isActive('createdAtLabel')" (click)="toggleTableSort(salesOrderSort, 'createdAtLabel')">
+                    Created
+                    <mat-icon>{{ salesOrderSort.icon('createdAtLabel') }}</mat-icon>
+                  </button>
+                </th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let o of salesOrders; trackBy: trackBySalesOrderId">
+              <tr *ngFor="let o of sortedSalesOrders; trackBy: trackBySalesOrderId">
                 <td><span class="inv-mono">{{ o.salesOrderNumber }}</span></td>
                 <td><span class="inv-mono">{{ o.purchaseOrderNumber }}</span></td>
                 <td>
@@ -1916,7 +2336,7 @@
                   <button
                     type="button"
                     class="lx-btn lx-btn-ghost lx-btn-sm"
-                    *ngIf="o.status === 'PENDING_APPROVAL'"
+                    *ngIf="o.status === 'PENDING_APPROVAL' && isProcurementApprover"
                     (click)="onApproveSalesOrderStage(o)"
                     title="Approve sales order stage"
                   >
@@ -1985,12 +2405,42 @@
         <table class="lx-data-table">
           <thead>
             <tr>
-              <th>Order no.</th>
-              <th>Customer</th>
-              <th>Status</th>
-              <th>Total</th>
-              <th>Expected delivery</th>
-              <th>Created</th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="purchaseOrderSort.isActive('orderNumber')" (click)="toggleTableSort(purchaseOrderSort, 'orderNumber', purchaseOrdersPage)">
+                  Order no.
+                  <mat-icon>{{ purchaseOrderSort.icon('orderNumber') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="purchaseOrderSort.isActive('customerName')" (click)="toggleTableSort(purchaseOrderSort, 'customerName', purchaseOrdersPage)">
+                  Customer
+                  <mat-icon>{{ purchaseOrderSort.icon('customerName') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="purchaseOrderSort.isActive('statusLabel')" (click)="toggleTableSort(purchaseOrderSort, 'statusLabel', purchaseOrdersPage)">
+                  Status
+                  <mat-icon>{{ purchaseOrderSort.icon('statusLabel') }}</mat-icon>
+                </button>
+              </th>
+              <th class="inv-table__qty-head">
+                <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="purchaseOrderSort.isActive('totalAmount')" (click)="toggleTableSort(purchaseOrderSort, 'totalAmount', purchaseOrdersPage)">
+                  Total
+                  <mat-icon>{{ purchaseOrderSort.icon('totalAmount') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="purchaseOrderSort.isActive('expectedDeliveryLabel')" (click)="toggleTableSort(purchaseOrderSort, 'expectedDeliveryLabel', purchaseOrdersPage)">
+                  Expected delivery
+                  <mat-icon>{{ purchaseOrderSort.icon('expectedDeliveryLabel') }}</mat-icon>
+                </button>
+              </th>
+              <th>
+                <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="purchaseOrderSort.isActive('createdAtLabel')" (click)="toggleTableSort(purchaseOrderSort, 'createdAtLabel', purchaseOrdersPage)">
+                  Created
+                  <mat-icon>{{ purchaseOrderSort.icon('createdAtLabel') }}</mat-icon>
+                </button>
+              </th>
               <th class="inv-table__actions-head">Actions</th>
             </tr>
           </thead>
@@ -2107,6 +2557,15 @@
     <button mat-menu-item type="button" [disabled]="!actionWarehouse" (click)="actionWarehouse && openEditWarehouse(actionWarehouse)">
       <mat-icon>edit</mat-icon>
       Edit
+    </button>
+    <button
+      mat-menu-item
+      type="button"
+      [disabled]="!actionWarehouse || !canManageWarehouseSharing(actionWarehouse!)"
+      (click)="actionWarehouse && openWarehouseSharing(actionWarehouse)"
+    >
+      <mat-icon>share</mat-icon>
+      Share with organisation
     </button>
     <button mat-menu-item type="button" [disabled]="!actionWarehouse" (click)="actionWarehouse && onDeleteWarehouse(actionWarehouse)">
       <mat-icon>delete</mat-icon>

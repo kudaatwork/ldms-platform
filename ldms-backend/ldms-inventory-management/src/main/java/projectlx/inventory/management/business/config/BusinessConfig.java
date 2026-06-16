@@ -77,6 +77,9 @@ import projectlx.inventory.management.business.logic.impl.PurchaseRequisitionSer
 import projectlx.inventory.management.business.logic.impl.PurchaseReturnServiceImpl;
 import projectlx.inventory.management.business.logic.impl.SalesOrderLineServiceImpl;
 import projectlx.inventory.management.business.logic.impl.SalesOrderServiceImpl;
+import projectlx.inventory.management.business.logic.impl.SalesOrderDispatchServiceImpl;
+import projectlx.inventory.management.business.logic.api.SalesOrderDispatchService;
+import projectlx.inventory.management.business.logic.support.SalesOrderDispatchSupport;
 import projectlx.inventory.management.business.logic.impl.SalesReservationServiceImpl;
 import projectlx.inventory.management.business.logic.impl.StockAdjustmentServiceImpl;
 import projectlx.inventory.management.business.logic.impl.StockTransactionHistoryServiceImpl;
@@ -133,7 +136,11 @@ import projectlx.inventory.management.repository.SalesOrderRepository;
 import projectlx.inventory.management.repository.SalesReservationRepository;
 import projectlx.inventory.management.repository.StockAdjustmentRepository;
 import projectlx.inventory.management.repository.StockTransactionHistoryRepository;
+import projectlx.inventory.management.business.logic.support.BranchAllocationSupport;
+import projectlx.inventory.management.business.logic.support.WarehouseAccessSupport;
+import projectlx.inventory.management.business.logic.support.WarehouseSharingSupport;
 import projectlx.inventory.management.repository.WarehouseLocationRepository;
+import projectlx.inventory.management.repository.WarehouseOrganizationAccessRepository;
 import projectlx.inventory.management.repository.InventoryReservationRepository;
 import projectlx.inventory.management.utils.CostCalculator;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
@@ -198,7 +205,12 @@ public class BusinessConfig {
             ModelMapper modelMapper,
             WarehouseLocationRepository repository,
             WarehouseLocationServiceAuditable auditable,
-            LocationsServiceClient locationsServiceClient
+            LocationsServiceClient locationsServiceClient,
+            BranchAllocationSupport branchAllocationSupport,
+            projectlx.inventory.management.clients.UserManagementServiceClient userManagementServiceClient,
+            WarehouseAccessSupport warehouseAccessSupport,
+            WarehouseSharingSupport warehouseSharingSupport,
+            WarehouseOrganizationAccessRepository warehouseOrganizationAccessRepository
     ) {
         return new WarehouseLocationServiceImpl(
                 validator,
@@ -206,7 +218,12 @@ public class BusinessConfig {
                 modelMapper,
                 repository,
                 auditable,
-                locationsServiceClient
+                locationsServiceClient,
+                branchAllocationSupport,
+                userManagementServiceClient,
+                warehouseAccessSupport,
+                warehouseSharingSupport,
+                warehouseOrganizationAccessRepository
         );
     }
 
@@ -475,6 +492,10 @@ public class BusinessConfig {
             RabbitTemplate rabbitTemplate,
             projectlx.inventory.management.business.logic.api.IdempotencyService idempotencyService,
             projectlx.inventory.management.clients.UserManagementServiceClient userManagementServiceClient,
+            projectlx.inventory.management.business.logic.support.ProcurementApproverSupport procurementApproverSupport,
+            projectlx.inventory.management.business.logic.support.TransferDispatchSupport transferDispatchSupport,
+            projectlx.inventory.management.business.logic.support.TransitWarehouseSupport transitWarehouseSupport,
+            projectlx.inventory.management.business.logic.support.StockTransferSupport stockTransferSupport,
             GoodsReceivedVoucherServiceAuditable goodsReceivedVoucherServiceAuditable,
             GoodsReceivedVoucherRepository goodsReceivedVoucherRepository
     ) {
@@ -492,6 +513,10 @@ public class BusinessConfig {
                 rabbitTemplate,
                 idempotencyService,
                 userManagementServiceClient,
+                procurementApproverSupport,
+                transferDispatchSupport,
+                transitWarehouseSupport,
+                stockTransferSupport,
                 goodsReceivedVoucherServiceAuditable,
                 goodsReceivedVoucherRepository
         );
@@ -773,6 +798,41 @@ public class BusinessConfig {
                 idempotencyService,
                 inventoryReservationRepository
         );
+    }
+
+    @Bean
+    public SalesOrderDispatchService salesOrderDispatchService(
+            SalesOrderRepository salesOrderRepository,
+            PurchaseOrderRepository purchaseOrderRepository,
+            WarehouseLocationRepository warehouseLocationRepository,
+            InventoryItemRepository inventoryItemRepository,
+            InventoryReservationRepository inventoryReservationRepository,
+            GoodsReceivedVoucherServiceAuditable goodsReceivedVoucherServiceAuditable,
+            projectlx.inventory.management.business.logic.api.SalesOrderStatusManager salesOrderStatusManager,
+            SalesOrderDispatchSupport salesOrderDispatchSupport,
+            projectlx.inventory.management.business.logic.support.StockTransferSupport stockTransferSupport,
+            projectlx.inventory.management.business.logic.support.TransitWarehouseSupport transitWarehouseSupport,
+            PurchaseOrderLineService purchaseOrderLineService,
+            projectlx.inventory.management.business.logic.api.IdempotencyService idempotencyService,
+            RabbitTemplate rabbitTemplate,
+            MessageService messageService,
+            ModelMapper modelMapper) {
+        return new SalesOrderDispatchServiceImpl(
+                salesOrderRepository,
+                purchaseOrderRepository,
+                warehouseLocationRepository,
+                inventoryItemRepository,
+                inventoryReservationRepository,
+                goodsReceivedVoucherServiceAuditable,
+                salesOrderStatusManager,
+                salesOrderDispatchSupport,
+                stockTransferSupport,
+                transitWarehouseSupport,
+                purchaseOrderLineService,
+                idempotencyService,
+                rabbitTemplate,
+                messageService,
+                modelMapper);
     }
 
     @Bean

@@ -1,10 +1,5 @@
 package projectlx.co.zw.notifications.utils.security;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-
-@RequiredArgsConstructor
-@Getter
 public enum NotificationLogRoles {
 
     SEARCH_NOTIFICATION_LOGS("SEARCH_NOTIFICATION_LOGS", "Search notification delivery log with filters"),
@@ -12,4 +7,17 @@ public enum NotificationLogRoles {
 
     private final String roleName;
     private final String description;
+
+    NotificationLogRoles(String roleName, String description) {
+        this.roleName = roleName;
+        this.description = description;
+    }
+
+    public String getRoleName() {
+        return roleName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
 }

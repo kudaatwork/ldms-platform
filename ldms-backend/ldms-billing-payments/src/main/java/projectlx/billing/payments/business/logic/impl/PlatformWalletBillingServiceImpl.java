@@ -623,7 +623,10 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         List<UsageChargeRecord> records = usageChargeRecordRepository.findForReport(
                 organizationId, from, to, tripId, seasonId, EntityStatus.DELETED);
 
-        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, "Organization", username);
+        OrganizationBillingMode billingMode = organizationBillingSettingRepository
+                .findByOrganizationIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
+                .map(OrganizationBillingSetting::getBillingMode)
+                .orElse(OrganizationBillingMode.PREPAID_WALLET);
         Map<String, UsageChargeBreakdownDto> breakdownMap = new LinkedHashMap<>();
         long total = 0L;
         long deducted = 0L;
@@ -647,6 +650,9 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
 
         Map<LocalDate, Long> daily = new HashMap<>();
         for (UsageChargeRecord record : records) {
+            if (record.getCreatedAt() == null) {
+                continue;
+            }
             LocalDate day = record.getCreatedAt().toLocalDate();
             daily.merge(day, record.getChargeCents(), Long::sum);
         }
@@ -663,7 +669,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
 
         UsageChargeReportDto report = new UsageChargeReportDto();
         report.setOrganizationId(organizationId);
-        report.setBillingMode(setting.getBillingMode().name());
+        report.setBillingMode(billingMode.name());
         report.setTripId(tripId);
         report.setSeasonId(seasonId);
         report.setPeriodFrom(from.format(ISO));

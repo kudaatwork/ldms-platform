@@ -147,7 +147,7 @@ public class FleetComplianceServiceImpl implements FleetComplianceService {
         if (request.getExpiresAt() != null) {
             record.setExpiresAt(request.getExpiresAt());
         } else if (request.getFileUploadId() != null) {
-            record.setExpiresAt(fleetFileUploadHelper.resolveExpiresAt(null, request.getFileUploadId()));
+            record.setExpiresAt(fleetFileUploadHelper.resolveExpiresAtFromFileUpload(request.getFileUploadId()));
         }
 
         if (request.getNotes() != null) {

@@ -282,6 +282,10 @@ public enum I18Code {
     MESSAGE_INVENTORY_TRANSFER_CREATED_SUCCESSFULLY("message.inventory.transfer.created.successfully"),
     MESSAGE_INVENTORY_TRANSFER_NOT_FOUND("message.inventory.transfer.not.found"),
     MESSAGE_INVENTORY_TRANSFER_NOT_IN_TRANSIT("message.inventory.transfer.not.in.transit"),
+    MESSAGE_INVENTORY_TRANSFER_TRANSIT_REQUIRES_DISPATCH("message.inventory.transfer.transit.requires.dispatch"),
+    MESSAGE_INVENTORY_TRANSFER_DISPATCH_NOT_READY("message.inventory.transfer.dispatch.not.ready"),
+    MESSAGE_INVENTORY_TRANSFER_COMPLETE_REQUIRES_RECEIVER_ACK("message.inventory.transfer.complete.requires.receiver.ack"),
+    MESSAGE_INVENTORY_TRANSFER_STATUS_CHANGE_NOT_ALLOWED("message.inventory.transfer.status.change.not.allowed"),
     MESSAGE_INVENTORY_TRANSFER_SOURCE_ITEM_NOT_FOUND("message.inventory.transfer.source.item.not.found"),
     MESSAGE_INVENTORY_TRANSFER_COMPLETED_SUCCESSFULLY("message.inventory.transfer.completed.successfully"),
     MESSAGE_INVENTORY_TRANSFER_RETRIEVED_SUCCESSFULLY("message.inventory.transfer.retrieved.successfully"),
@@ -345,6 +349,11 @@ public enum I18Code {
     MESSAGE_SALES_ORDER_INVALID_MULTIPLE_FILTERS_REQUEST("message.sales.order.invalid.multiple.filters.request"),
     MESSAGE_SALES_ORDER_PAGE_OUT_OF_BOUNDS("message.sales.order.page.out.of.bounds"),
     MESSAGE_SALES_ORDER_FULFILLMENT_FAILED("message.sales.order.fulfillment.failed"),
+    MESSAGE_SALES_ORDER_DISPATCH_NOT_READY("message.sales.order.dispatch.not.ready"),
+    MESSAGE_SALES_ORDER_DISPATCH_REQUIRES_TRIP("message.sales.order.dispatch.requires.trip"),
+    MESSAGE_SALES_ORDER_DISPATCH_STARTED("message.sales.order.dispatch.started"),
+    MESSAGE_SALES_ORDER_COMPLETE_REQUIRES_RECEIVER_ACK("message.sales.order.complete.requires.receiver.ack"),
+    MESSAGE_SALES_ORDER_DELIVERY_COMPLETED("message.sales.order.delivery.completed"),
 
     // Sales Reservation messages
     MESSAGE_CREATE_SALES_RESERVATION_INVALID_REQUEST("message.create.sales.reservation.invalid.request"),

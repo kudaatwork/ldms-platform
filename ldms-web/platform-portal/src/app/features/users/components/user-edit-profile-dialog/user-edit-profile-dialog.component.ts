@@ -55,6 +55,7 @@ export class UserEditProfileDialogComponent {
   preferredLanguage = '';
   timezone = '';
   organizationKycApprover = false;
+  procurementApprover = false;
   private readonly preferencesId: number;
   private readonly organizationId?: number;
 
@@ -94,6 +95,11 @@ export class UserEditProfileDialogComponent {
     return !this.organizationId;
   }
 
+  /** Procurement approver flag applies to organisation workspace users only. */
+  get canEditProcurementApprover(): boolean {
+    return !!this.organizationId;
+  }
+
   get maximumDateOfBirth(): string {
     return maximumDateOfBirthInput();
   }
@@ -111,6 +117,7 @@ export class UserEditProfileDialogComponent {
     const orgId = Number(u['organizationId'] ?? 0);
     this.organizationId = Number.isFinite(orgId) && orgId > 0 ? orgId : undefined;
     this.organizationKycApprover = this.readOrganizationKycApprover(u['organizationKycApprover']);
+    this.procurementApprover = this.readProcurementApprover(u['procurementApprover']);
     this.username = String(u['username'] ?? '').trim();
     this.email = String(u['email'] ?? '').trim();
     this.firstName = String(u['firstName'] ?? '').trim();
@@ -274,6 +281,19 @@ export class UserEditProfileDialogComponent {
             switchMap((kycResp) => {
               if (this.usersPortal.isUserMutationFailure(kycResp)) {
                 return throwError(() => kycResp);
+              }
+              return of(userResp);
+            }),
+          );
+        }),
+        switchMap((userResp) => {
+          if (this.scope === 'profile-only' || !this.canEditProcurementApprover) {
+            return of(userResp);
+          }
+          return this.usersPortal.setProcurementApprover(this.userId, this.procurementApprover).pipe(
+            switchMap((procResp) => {
+              if (this.usersPortal.isUserMutationFailure(procResp)) {
+                return throwError(() => procResp);
               }
               return of(userResp);
             }),
@@ -469,6 +489,14 @@ export class UserEditProfileDialogComponent {
   }
 
   private readOrganizationKycApprover(raw: unknown): boolean {
+    return this.readBooleanFlag(raw);
+  }
+
+  private readProcurementApprover(raw: unknown): boolean {
+    return this.readBooleanFlag(raw);
+  }
+
+  private readBooleanFlag(raw: unknown): boolean {
     if (raw === true) {
       return true;
     }

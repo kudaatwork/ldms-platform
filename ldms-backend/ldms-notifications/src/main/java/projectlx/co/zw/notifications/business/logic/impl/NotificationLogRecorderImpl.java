@@ -1,6 +1,5 @@
 package projectlx.co.zw.notifications.business.logic.impl;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.util.StringUtils;
 import projectlx.co.zw.notifications.business.auditable.api.NotificationLogServiceAuditable;
 import projectlx.co.zw.notifications.business.logic.api.NotificationLogRecorder;
@@ -11,11 +10,17 @@ import projectlx.co.zw.notifications.repository.NotificationLogRepository;
 import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
-@RequiredArgsConstructor
 public class NotificationLogRecorderImpl implements NotificationLogRecorder {
 
     private final NotificationLogRepository notificationLogRepository;
     private final NotificationLogServiceAuditable notificationLogServiceAuditable;
+
+    public NotificationLogRecorderImpl(
+            NotificationLogRepository notificationLogRepository,
+            NotificationLogServiceAuditable notificationLogServiceAuditable) {
+        this.notificationLogRepository = notificationLogRepository;
+        this.notificationLogServiceAuditable = notificationLogServiceAuditable;
+    }
 
     @Override
     public void recordQueued(NotificationRequest request, NotificationTemplate template) {

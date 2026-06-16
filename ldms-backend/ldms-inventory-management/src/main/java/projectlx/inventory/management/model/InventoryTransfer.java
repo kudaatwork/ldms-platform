@@ -52,6 +52,10 @@ public class InventoryTransfer {
     @Column(name = "reference")
     private String reference;
 
+    /** International transfer that requires border clearance before continuing. */
+    @Column(name = "cross_border", nullable = false)
+    private boolean crossBorder;
+
     // Set when this transfer is linked to a shipment/trip in the logistics service
     @Column(name = "shipment_id")
     private Long shipmentId;

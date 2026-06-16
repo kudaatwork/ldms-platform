@@ -1,7 +1,6 @@
 package projectlx.co.zw.notifications.service.processor.impl;
 
 import com.lowagie.text.DocumentException;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
@@ -26,11 +25,14 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-@RequiredArgsConstructor
 public class NotificationTemplateProcessorImpl implements NotificationTemplateProcessor {
 
     private final NotificationTemplateService notificationTemplateService;
     private final Logger logger = LoggerFactory.getLogger(NotificationTemplateProcessorImpl.class);
+
+    public NotificationTemplateProcessorImpl(NotificationTemplateService notificationTemplateService) {
+        this.notificationTemplateService = notificationTemplateService;
+    }
 
     @Override
     public TemplateResponse create(CreateTemplateRequest createTemplateRequest, Locale locale, String username) {

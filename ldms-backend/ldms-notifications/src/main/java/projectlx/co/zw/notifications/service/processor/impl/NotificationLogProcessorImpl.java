@@ -4,7 +4,6 @@ import com.lowagie.text.DocumentException;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.Locale;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import projectlx.co.zw.notifications.business.logic.api.NotificationLogService;
@@ -12,12 +11,15 @@ import projectlx.co.zw.notifications.service.processor.api.NotificationLogProces
 import projectlx.co.zw.notifications.utils.requests.NotificationLogMultipleFiltersRequest;
 import projectlx.co.zw.notifications.utils.responses.NotificationLogResponse;
 
-@RequiredArgsConstructor
 public class NotificationLogProcessorImpl implements NotificationLogProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationLogProcessorImpl.class);
 
     private final NotificationLogService notificationLogService;
+
+    public NotificationLogProcessorImpl(NotificationLogService notificationLogService) {
+        this.notificationLogService = notificationLogService;
+    }
 
     @Override
     public NotificationLogResponse findByMultipleFilters(

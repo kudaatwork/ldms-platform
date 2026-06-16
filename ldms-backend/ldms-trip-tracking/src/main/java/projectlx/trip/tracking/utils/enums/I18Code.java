@@ -26,6 +26,8 @@ public enum I18Code {
     MESSAGE_TRIP_FIND_SUCCESS("trip.find.success"),
     MESSAGE_TRIP_FIND_ALL_SUCCESS("trip.find.all.success"),
     MESSAGE_TRIP_TRACK_SUCCESS("trip.track.success"),
+    MESSAGE_TRIP_LIVE_SNAPSHOT_SUCCESS("trip.live.snapshot.success"),
+    MESSAGE_TRIP_DEMO_SIMULATION_STARTED("trip.demo.simulation.started"),
 
     // Status transition errors
     MESSAGE_TRIP_NOT_IN_TRANSIT("trip.not.in.transit"),

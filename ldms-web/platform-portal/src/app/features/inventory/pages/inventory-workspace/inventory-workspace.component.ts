@@ -2,10 +2,12 @@ import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild 
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
-import { Subject, debounceTime, firstValueFrom, forkJoin, of } from 'rxjs';
-import { catchError, finalize, map, takeUntil } from 'rxjs/operators';
+import { Subject, debounceTime, firstValueFrom, forkJoin, of, Observable } from 'rxjs';
+import { catchError, filter, finalize, map, switchMap, takeUntil } from 'rxjs/operators';
+import { DeleteConfirmDialogComponent } from '../../../../shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { AuthStateService } from '../../../../core/services/auth-state.service';
 import { OrgContextService } from '../../../../core/services/org-context.service';
+import { OrganizationService, BranchAllocationOption } from '../../../../core/services/organization.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { UserProfileService } from '../../../../core/services/user-profile.service';
 import { LocationsService } from '../../../locations/services/locations.service';
@@ -50,6 +52,8 @@ import {
 } from '../../components/inventory-detail-dialog/inventory-detail-dialog.component';
 import { ViewTransferDialogComponent } from '../../components/view-transfer-dialog/view-transfer-dialog.component';
 import type { ViewTransferDialogResult } from '../../components/view-transfer-dialog/view-transfer-dialog.component';
+import { WarehouseSharingDialogComponent } from '../../components/warehouse-sharing-dialog/warehouse-sharing-dialog.component';
+import type { WarehouseSharingDialogData } from '../../components/warehouse-sharing-dialog/warehouse-sharing-dialog.component';
 import {
   InventoryWorkspaceMetrics,
   InventoryWorkspaceTab,
@@ -84,6 +88,7 @@ import {
   downloadBlob,
   exportClientTableAsCsv,
   exportFilename,
+  exportFormatLabel,
   exportRowsAsCsv,
   type LxExportColumn,
 } from '../../../../shared/utils/lx-export.util';
@@ -92,6 +97,19 @@ import {
   InventoryTablePage,
   inventoryPageSummary,
 } from '../../utils/inventory-table-page.util';
+import {
+  CATEGORY_SORT_COMPARATORS,
+  createInventoryTableSortController,
+  PRODUCT_SORT_COMPARATORS,
+  PURCHASE_ORDER_SORT_COMPARATORS,
+  QUOTE_SORT_COMPARATORS,
+  REQUISITION_SORT_COMPARATORS,
+  SALES_ORDER_SORT_COMPARATORS,
+  STOCK_SORT_COMPARATORS,
+  SUBCATEGORY_SORT_COMPARATORS,
+  TRANSFER_SORT_COMPARATORS,
+  WAREHOUSE_SORT_COMPARATORS,
+} from '../../utils/inventory-table-sort.util';
 
 @Component({
   selector: 'app-inventory-workspace',
@@ -179,6 +197,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   requisitionsError = '';
 
   private userId = 0;
+  isProcurementApprover = false;
 
   categoryRows: ProductCategoryRow[] = [];
   subcategoryRows: ProductSubCategoryRow[] = [];
@@ -232,6 +251,10 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   readonly transferStatusFilterOptions = TRANSFER_STATUS_FILTER_OPTIONS;
 
   warehouseSearch = '';
+  /** When set, warehouses tab lists only locations allocated to this branch / sub-branch id. */
+  warehouseBranchFilter = 0;
+  private pendingOpenAddWarehouse = false;
+  private branchOptions: BranchAllocationOption[] = [];
   transferSearch = '';
   transferFiltersOpen = false;
   requisitionSearch = '';
@@ -250,6 +273,17 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   readonly quotationsPage = new InventoryTablePage();
   readonly purchaseOrdersPage = new InventoryTablePage();
 
+  readonly productSort = createInventoryTableSortController(PRODUCT_SORT_COMPARATORS, 'name', 'asc');
+  readonly categorySort = createInventoryTableSortController(CATEGORY_SORT_COMPARATORS, 'name', 'asc');
+  readonly subcategorySort = createInventoryTableSortController(SUBCATEGORY_SORT_COMPARATORS, 'name', 'asc');
+  readonly warehouseSort = createInventoryTableSortController(WAREHOUSE_SORT_COMPARATORS, 'name', 'asc');
+  readonly stockSort = createInventoryTableSortController(STOCK_SORT_COMPARATORS, 'productName', 'asc');
+  readonly transferSort = createInventoryTableSortController(TRANSFER_SORT_COMPARATORS, 'transferNumber', 'desc');
+  readonly requisitionSort = createInventoryTableSortController(REQUISITION_SORT_COMPARATORS, 'requisitionNumber', 'desc');
+  readonly quoteSort = createInventoryTableSortController(QUOTE_SORT_COMPARATORS, 'submittedAtLabel', 'desc');
+  readonly salesOrderSort = createInventoryTableSortController(SALES_ORDER_SORT_COMPARATORS, 'createdAtLabel', 'desc');
+  readonly purchaseOrderSort = createInventoryTableSortController(PURCHASE_ORDER_SORT_COMPARATORS, 'createdAtLabel', 'desc');
+
   actionProduct: ProductRow | null = null;
   actionCategory: ProductCategoryRow | null = null;
   actionSubCategory: ProductSubCategoryRow | null = null;
@@ -263,12 +297,14 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
   /** Prevents route sync from wiping product/warehouse drill filters after intentional navigation. */
   private preserveStockDrillOnRoute = false;
+  private branchLabelById = new Map<number, string>();
 
   constructor(
     private readonly title: Title,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly inventoryService: InventoryPortalService,
+    private readonly organizationService: OrganizationService,
     private readonly dialog: MatDialog,
     private readonly notifications: NotificationService,
     private readonly authState: AuthStateService,
@@ -286,6 +322,8 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((profile) => {
         this.userId = profile?.id ?? Number(this.authState.currentUser?.userId ?? 0);
+        this.isProcurementApprover =
+          profile?.procurementApprover === true || this.authState.currentUser?.procurementApprover === true;
         this.cdr.markForCheck();
       });
 
@@ -301,8 +339,17 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       if (tab && this.isValidTab(tab)) {
         this.applyRouteTab(tab);
       }
+      const branchId = Number(params.get('branchId'));
+      this.warehouseBranchFilter = Number.isFinite(branchId) && branchId > 0 ? Math.trunc(branchId) : 0;
+      this.pendingOpenAddWarehouse = params.get('openAdd') === '1';
+      if (this.pendingOpenAddWarehouse) {
+        this.applyRouteTab('warehouses');
+      }
+      this.warehousesPage.reset();
+      this.cdr.markForCheck();
     });
     this.reload$.pipe(debounceTime(120), takeUntil(this.destroy$)).subscribe(() => this.loadWorkspace());
+    this.loadBranchLabels();
     this.reload$.next();
   }
 
@@ -377,40 +424,71 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
     });
   }
 
+  get sortedProducts(): ProductRow[] {
+    return this.productSort.sort(this.filteredProducts);
+  }
+
   get paginatedProducts(): ProductRow[] {
-    this.productsPage.clamp(this.filteredProducts.length);
-    return this.productsPage.slice(this.filteredProducts);
+    this.productsPage.clamp(this.sortedProducts.length);
+    return this.productsPage.slice(this.sortedProducts);
+  }
+
+  get sortedCategories(): ProductCategoryRow[] {
+    return this.categorySort.sort(this.filteredCategories);
   }
 
   get paginatedCategories(): ProductCategoryRow[] {
-    this.categoriesPage.clamp(this.filteredCategories.length);
-    return this.categoriesPage.slice(this.filteredCategories);
+    this.categoriesPage.clamp(this.sortedCategories.length);
+    return this.categoriesPage.slice(this.sortedCategories);
+  }
+
+  get sortedSubcategories(): ProductSubCategoryRow[] {
+    return this.subcategorySort.sort(this.filteredSubcategories);
   }
 
   get paginatedSubcategories(): ProductSubCategoryRow[] {
-    this.subcategoriesPage.clamp(this.filteredSubcategories.length);
-    return this.subcategoriesPage.slice(this.filteredSubcategories);
+    this.subcategoriesPage.clamp(this.sortedSubcategories.length);
+    return this.subcategoriesPage.slice(this.sortedSubcategories);
   }
 
   get filteredWarehouses(): WarehouseRow[] {
+    let rows = this.warehouses;
+    if (this.warehouseBranchFilter > 0) {
+      rows = rows.filter((row) => row.branchId === this.warehouseBranchFilter);
+    }
     const q = this.warehouseSearch.trim().toLowerCase();
     if (!q) {
-      return this.warehouses;
+      return rows;
     }
-    return this.warehouses.filter((row) => {
-      const hay = `${row.name} ${row.description} ${row.addressLabel} ${row.warehouseType}`.toLowerCase();
+    return rows.filter((row) => {
+      const hay = `${row.name} ${row.description} ${row.addressLabel} ${row.warehouseType} ${row.branchLabel ?? ''}`.toLowerCase();
       return hay.includes(q);
     });
   }
 
+  get warehouseBranchFilterLabel(): string {
+    if (this.warehouseBranchFilter <= 0) {
+      return '';
+    }
+    return this.branchLabelById.get(this.warehouseBranchFilter) ?? `Branch #${this.warehouseBranchFilter}`;
+  }
+
+  get sortedWarehouses(): WarehouseRow[] {
+    return this.warehouseSort.sort(this.filteredWarehouses);
+  }
+
   get paginatedWarehouses(): WarehouseRow[] {
-    this.warehousesPage.clamp(this.filteredWarehouses.length);
-    return this.warehousesPage.slice(this.filteredWarehouses);
+    this.warehousesPage.clamp(this.sortedWarehouses.length);
+    return this.warehousesPage.slice(this.sortedWarehouses);
+  }
+
+  get sortedStock(): StockRow[] {
+    return this.stockSort.sort(this.filteredStock);
   }
 
   get paginatedStock(): StockRow[] {
-    this.stockPage.clamp(this.filteredStock.length);
-    return this.stockPage.slice(this.filteredStock);
+    this.stockPage.clamp(this.sortedStock.length);
+    return this.stockPage.slice(this.sortedStock);
   }
 
   /** True when viewing the warehouse list for a drilled-in product. */
@@ -429,21 +507,20 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       return [];
     }
     const q = this.stockSearch.trim().toLowerCase();
-    return this.stock
-      .filter((s) => {
-        if (s.productId !== this.stockProductFilter || s.quantityOnHand <= 0) {
-          return false;
-        }
-        if (this.stockStatusFilter && s.status !== this.stockStatusFilter) {
-          return false;
-        }
-        if (!q) {
-          return true;
-        }
-        const hay = `${s.warehouseName} ${s.statusLabel} ${s.unitOfMeasure}`.toLowerCase();
-        return hay.includes(q);
-      })
-      .sort((a, b) => a.warehouseName.localeCompare(b.warehouseName));
+    const filtered = this.stock.filter((s) => {
+      if (s.productId !== this.stockProductFilter || s.quantityOnHand <= 0) {
+        return false;
+      }
+      if (this.stockStatusFilter && s.status !== this.stockStatusFilter) {
+        return false;
+      }
+      if (!q) {
+        return true;
+      }
+      const hay = `${s.warehouseName} ${s.statusLabel} ${s.unitOfMeasure}`.toLowerCase();
+      return hay.includes(q);
+    });
+    return this.stockSort.sort(filtered);
   }
 
   get paginatedProductStockWarehouses(): StockRow[] {
@@ -457,21 +534,20 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       return [];
     }
     const q = this.stockSearch.trim().toLowerCase();
-    return this.stock
-      .filter((s) => {
-        if (s.warehouseLocationId !== this.stockWarehouseFilter || s.quantityOnHand <= 0) {
-          return false;
-        }
-        if (this.stockStatusFilter && s.status !== this.stockStatusFilter) {
-          return false;
-        }
-        if (!q) {
-          return true;
-        }
-        const hay = `${s.productName} ${s.productCode} ${s.productBarcode} ${s.statusLabel} ${s.unitOfMeasure}`.toLowerCase();
-        return hay.includes(q);
-      })
-      .sort((a, b) => a.productName.localeCompare(b.productName));
+    const filtered = this.stock.filter((s) => {
+      if (s.warehouseLocationId !== this.stockWarehouseFilter || s.quantityOnHand <= 0) {
+        return false;
+      }
+      if (this.stockStatusFilter && s.status !== this.stockStatusFilter) {
+        return false;
+      }
+      if (!q) {
+        return true;
+      }
+      const hay = `${s.productName} ${s.productCode} ${s.productBarcode} ${s.statusLabel} ${s.unitOfMeasure}`.toLowerCase();
+      return hay.includes(q);
+    });
+    return this.stockSort.sort(filtered);
   }
 
   get paginatedWarehouseStockProducts(): StockRow[] {
@@ -516,9 +592,13 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
     });
   }
 
+  get sortedTransfers(): TransferRow[] {
+    return this.transferSort.sort(this.filteredTransfers);
+  }
+
   get paginatedTransfers(): TransferRow[] {
-    this.transfersPage.clamp(this.filteredTransfers.length);
-    return this.transfersPage.slice(this.filteredTransfers);
+    this.transfersPage.clamp(this.sortedTransfers.length);
+    return this.transfersPage.slice(this.sortedTransfers);
   }
 
   get quoteableRequisitions(): PurchaseRequisitionRow[] {
@@ -557,14 +637,22 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
     });
   }
 
+  get sortedRequisitions(): PurchaseRequisitionRow[] {
+    return this.requisitionSort.sort(this.filteredRequisitions);
+  }
+
+  get sortedSupplierQuotations(): SupplierQuoteRow[] {
+    return this.quoteSort.sort(this.filteredSupplierQuotations);
+  }
+
   get paginatedSupplierQuotations(): SupplierQuoteRow[] {
-    this.quotationsPage.clamp(this.filteredSupplierQuotations.length);
-    return this.quotationsPage.slice(this.filteredSupplierQuotations);
+    this.quotationsPage.clamp(this.sortedSupplierQuotations.length);
+    return this.quotationsPage.slice(this.sortedSupplierQuotations);
   }
 
   get paginatedRequisitions(): PurchaseRequisitionRow[] {
-    this.requisitionsPage.clamp(this.filteredRequisitions.length);
-    return this.requisitionsPage.slice(this.filteredRequisitions);
+    this.requisitionsPage.clamp(this.sortedRequisitions.length);
+    return this.requisitionsPage.slice(this.sortedRequisitions);
   }
 
   get filteredPurchaseOrders(): PurchaseOrderRow[] {
@@ -578,9 +666,17 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
     });
   }
 
+  get sortedPurchaseOrders(): PurchaseOrderRow[] {
+    return this.purchaseOrderSort.sort(this.filteredPurchaseOrders);
+  }
+
   get paginatedPurchaseOrders(): PurchaseOrderRow[] {
-    this.purchaseOrdersPage.clamp(this.filteredPurchaseOrders.length);
-    return this.purchaseOrdersPage.slice(this.filteredPurchaseOrders);
+    this.purchaseOrdersPage.clamp(this.sortedPurchaseOrders.length);
+    return this.purchaseOrdersPage.slice(this.sortedPurchaseOrders);
+  }
+
+  get sortedSalesOrders(): SalesOrderRow[] {
+    return this.salesOrderSort.sort(this.salesOrders);
   }
 
   get metrics(): InventoryWorkspaceMetrics {
@@ -639,6 +735,16 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       return null;
     }
     return this.warehouses.find((warehouse) => warehouse.id === this.stockWarehouseFilter) ?? null;
+  }
+
+  toggleTableSort(
+    controller: { toggle(column: string): void },
+    column: string,
+    ...pages: InventoryTablePage[]
+  ): void {
+    controller.toggle(column);
+    pages.forEach((page) => page.reset());
+    this.cdr.markForCheck();
   }
 
   onStockFiltersChanged(): void {
@@ -849,16 +955,11 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   onDeleteCategory(category: ProductCategoryRow): void {
-    if (
-      !window.confirm(
-        `Delete category "${category.name}"? Subcategories under it may still exist and products may still reference it.`,
+    this.confirmDestructiveAction('category')
+      .pipe(
+        switchMap(() => this.inventoryService.deleteCategory(category.id)),
+        takeUntil(this.destroy$),
       )
-    ) {
-      return;
-    }
-    this.inventoryService
-      .deleteCategory(category.id)
-      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
           this.notifications.success(`Category "${category.name}" was deleted.`);
@@ -919,12 +1020,11 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   onDeleteSubcategory(subcategory: ProductSubCategoryRow): void {
-    if (!window.confirm(`Delete subcategory "${subcategory.name}"? Products may still reference it.`)) {
-      return;
-    }
-    this.inventoryService
-      .deleteSubCategory(subcategory.id)
-      .pipe(takeUntil(this.destroy$))
+    this.confirmDestructiveAction('subcategory')
+      .pipe(
+        switchMap(() => this.inventoryService.deleteSubCategory(subcategory.id)),
+        takeUntil(this.destroy$),
+      )
       .subscribe({
         next: () => {
           this.notifications.success(`Subcategory "${subcategory.name}" was deleted.`);
@@ -934,19 +1034,25 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       });
   }
 
-  openAddWarehouse(): void {
+  openAddWarehouse(preselectedBranchId?: number): void {
     const supplierId = this.orgContext.organizationId;
     if (supplierId == null) {
       this.notifications.error('Your session has no organisation id — sign in again or contact support.');
       return;
     }
+    const branchId =
+      preselectedBranchId && preselectedBranchId > 0
+        ? preselectedBranchId
+        : this.warehouseBranchFilter > 0
+          ? this.warehouseBranchFilter
+          : undefined;
     this.dialog
       .open(AddWarehouseDialogComponent, {
         width: '620px',
         maxWidth: '95vw',
         disableClose: true,
         panelClass: 'lx-location-dialog-panel',
-        data: { supplierId } satisfies AddWarehouseDialogData,
+        data: { supplierId, preselectedBranchId: branchId } satisfies AddWarehouseDialogData,
       })
       .afterClosed()
       .pipe(takeUntil(this.destroy$))
@@ -955,7 +1061,29 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
           this.notifications.success(`"${warehouse.name}" was added as a warehouse location.`);
           this.loadWarehouses();
         }
+        this.pendingOpenAddWarehouse = false;
       });
+  }
+
+  clearWarehouseBranchFilter(): void {
+    this.warehouseBranchFilter = 0;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { branchId: null, openAdd: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  openBranchInOrganizationManagement(branchId: number): void {
+    if (!branchId) {
+      return;
+    }
+    const branch = this.branchOptions.find((b) => b.id === branchId);
+    const segment = branch?.level === 'SUB_BRANCH' ? 'sub-branches' : 'branches';
+    void this.router.navigate(['/organization', segment], {
+      queryParams: { drillBranchId: branchId },
+    });
   }
 
   triggerWarehouseImport(): void {
@@ -1472,6 +1600,17 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
 
   // ── Row actions ───────────────────────────────────────────────────────────
 
+  private confirmDestructiveAction(entityLabel: string): Observable<boolean> {
+    return this.dialog
+      .open(DeleteConfirmDialogComponent, {
+        width: '420px',
+        maxWidth: '92vw',
+        data: { entityLabel },
+      })
+      .afterClosed()
+      .pipe(map((confirmed) => confirmed === true), filter(Boolean));
+  }
+
   private openDetail(data: InventoryDetailDialogData): void {
     this.dialog.open(InventoryDetailDialogComponent, {
       width: data.width ?? '520px',
@@ -1590,12 +1729,11 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   onDeleteProduct(product: ProductRow): void {
-    if (!window.confirm(`Delete product "${product.name}"? This removes it from your catalogue.`)) {
-      return;
-    }
-    this.inventoryService
-      .deleteProduct(product.id)
-      .pipe(takeUntil(this.destroy$))
+    this.confirmDestructiveAction('product')
+      .pipe(
+        switchMap(() => this.inventoryService.deleteProduct(product.id)),
+        takeUntil(this.destroy$),
+      )
       .subscribe({
         next: () => {
           this.notifications.success(`Product "${product.name}" was deleted.`);
@@ -1611,12 +1749,45 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       subtitle: 'Warehouse location',
       fields: [
         { label: 'Description', value: warehouse.description || '—' },
+        { label: 'Branch', value: warehouse.branchLabel || '—' },
         { label: 'Type', value: this.warehouseTypeLabel(warehouse.warehouseType) },
+        { label: 'Access', value: this.warehouseAccessLabel(warehouse) },
         { label: 'Address', value: warehouse.addressLabel || '—' },
         { label: 'Status', value: this.entityStatusText(warehouse.entityStatus) },
         { label: 'Created', value: warehouse.createdAtLabel },
       ],
     });
+  }
+
+  canManageWarehouseSharing(warehouse: WarehouseRow): boolean {
+    return warehouse.organizationOwned !== false && !warehouse.sharedAccess;
+  }
+
+  warehouseAccessLabel(warehouse: WarehouseRow): string {
+    if (warehouse.sharedAccess) {
+      return warehouse.callerAccessLevel === 'FULFILL' ? 'Shared — fulfill' : 'Shared — read only';
+    }
+    return 'Owned by your organisation';
+  }
+
+  openWarehouseSharing(warehouse: WarehouseRow): void {
+    if (!this.canManageWarehouseSharing(warehouse)) {
+      return;
+    }
+    this.dialog
+      .open(WarehouseSharingDialogComponent, {
+        width: '560px',
+        maxWidth: '95vw',
+        disableClose: true,
+        data: { warehouse } satisfies WarehouseSharingDialogData,
+      })
+      .afterClosed()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((changed) => {
+        if (changed) {
+          this.loadWarehouses(false);
+        }
+      });
   }
 
   openEditWarehouse(warehouse: WarehouseRow): void {
@@ -1644,12 +1815,11 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   onDeleteWarehouse(warehouse: WarehouseRow): void {
-    if (!window.confirm(`Delete warehouse "${warehouse.name}"? Stock records at this location may block deletion.`)) {
-      return;
-    }
-    this.inventoryService
-      .deleteWarehouse(warehouse.id)
-      .pipe(takeUntil(this.destroy$))
+    this.confirmDestructiveAction('warehouse')
+      .pipe(
+        switchMap(() => this.inventoryService.deleteWarehouse(warehouse.id)),
+        takeUntil(this.destroy$),
+      )
       .subscribe({
         next: () => {
           this.notifications.success(`Warehouse "${warehouse.name}" was deleted.`);
@@ -1677,16 +1847,11 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   onDeleteStockItem(stock: StockRow): void {
-    if (
-      !window.confirm(
-        `Delete stock record for "${stock.productName}" at ${stock.warehouseName}? This removes the inventory item entry.`,
+    this.confirmDestructiveAction('stock record')
+      .pipe(
+        switchMap(() => this.inventoryService.deleteStockItem(stock.id)),
+        takeUntil(this.destroy$),
       )
-    ) {
-      return;
-    }
-    this.inventoryService
-      .deleteStockItem(stock.id)
-      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: () => {
           this.notifications.success('Stock record deleted.');
@@ -1709,7 +1874,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
     const dialogRef = this.dialog.open(ViewTransferDialogComponent, {
       width: '840px',
       maxWidth: '95vw',
-      panelClass: ['lx-location-dialog-panel', 'inv-transfer-dialog-panel'],
+      panelClass: 'lx-location-dialog-panel',
       data: {
         transfer,
         fields: this.transferDetailFields(transfer),
@@ -1785,13 +1950,14 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   canApproveTransfer(transfer: TransferRow): boolean {
     return (
       transfer.status === 'REQUESTED' &&
+      this.isProcurementApprover &&
       this.canParticipateInTransferWorkflow() &&
       this.hasTransferPermission('APPROVE_INVENTORY_TRANSFER')
     );
   }
 
   canRejectTransfer(transfer: TransferRow): boolean {
-    if (transfer.status !== 'REQUESTED' || !this.canParticipateInTransferWorkflow()) {
+    if (transfer.status !== 'REQUESTED' || !this.isProcurementApprover || !this.canParticipateInTransferWorkflow()) {
       return false;
     }
     return (
@@ -1808,12 +1974,8 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
     );
   }
 
-  canCompleteTransfer(transfer: TransferRow): boolean {
-    return (
-      transfer.status === 'IN_TRANSIT' &&
-      this.canParticipateInTransferWorkflow() &&
-      this.hasTransferPermission('COMPLETE_INVENTORY_TRANSFER')
-    );
+  canCompleteTransfer(_transfer: TransferRow): boolean {
+    return false;
   }
 
   canCancelTransfer(transfer: TransferRow): boolean {
@@ -1827,12 +1989,11 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   onCancelTransfer(transfer: TransferRow): void {
-    if (!window.confirm(`Cancel transfer ${transfer.transferNumber}?`)) {
-      return;
-    }
-    this.inventoryService
-      .cancelTransfer(transfer.id)
-      .pipe(takeUntil(this.destroy$))
+    this.confirmDestructiveAction('transfer')
+      .pipe(
+        switchMap(() => this.inventoryService.cancelTransfer(transfer.id)),
+        takeUntil(this.destroy$),
+      )
       .subscribe({
         next: () => {
           this.notifications.success(`Transfer ${transfer.transferNumber} was cancelled.`);
@@ -1875,12 +2036,11 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   onDeletePurchaseOrder(order: PurchaseOrderRow): void {
-    if (!window.confirm(`Delete purchase order ${order.orderNumber}? Only draft orders can usually be removed.`)) {
-      return;
-    }
-    this.inventoryService
-      .deletePurchaseOrder(order.id)
-      .pipe(takeUntil(this.destroy$))
+    this.confirmDestructiveAction('purchase order')
+      .pipe(
+        switchMap(() => this.inventoryService.deletePurchaseOrder(order.id)),
+        takeUntil(this.destroy$),
+      )
       .subscribe({
         next: () => {
           this.notifications.success(`Purchase order ${order.orderNumber} was deleted.`);
@@ -2113,22 +2273,9 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   onStartTransferTransit(row: TransferRow): void {
-    if (!this.userId) {
-      this.notifications.error('Your user profile could not be loaded.');
-      return;
-    }
-    this.inventoryService
-      .startTransferTransit(row.id, this.userId)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.notifications.success(`Transfer ${row.transferNumber} is now in transit.`);
-          this.loadTransfers();
-        },
-        error: (err: Error) => {
-          this.notifications.error(err.message ?? 'Could not start transfer transit.');
-        },
-      });
+    void this.router.navigate(['/shipments/shipments'], {
+      queryParams: { transferId: row.id, assign: '1' },
+    });
   }
 
   onCompleteTransfer(row: TransferRow): void {
@@ -2258,7 +2405,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       this.notifications.success(message),
     );
     if (saved) {
-      this.notifications.success('Exported quotations as CSV.');
+      this.notifications.success(`Exported quotations as ${exportFormatLabel(format)}.`);
     }
     this.quotationsExporting = false;
     this.cdr.detectChanges();
@@ -2283,7 +2430,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       this.notifications.success(message),
     );
     if (saved) {
-      this.notifications.success('Exported requisitions as CSV.');
+      this.notifications.success(`Exported requisitions as ${exportFormatLabel(format)}.`);
     }
     this.requisitionsExporting = false;
     this.cdr.detectChanges();
@@ -2851,15 +2998,16 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
 
     const lookups = rows.map((row) => {
       const addressId = Number(row.locationId);
+      const withBranch = this.attachBranchLabel(row);
       if (!Number.isFinite(addressId) || addressId <= 0) {
-        return of({ ...row, addressLabel: '—' });
+        return of({ ...withBranch, addressLabel: '—' });
       }
       return this.locationsService.findLocationById('address', addressId).pipe(
         map((dto) => ({
-          ...row,
+          ...withBranch,
           addressLabel: dto ? formatInventoryAddressLabel(dto) : '—',
         })),
-        catchError(() => of({ ...row, addressLabel: '—' })),
+        catchError(() => of({ ...withBranch, addressLabel: '—' })),
       );
     });
 
@@ -2877,7 +3025,38 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
           canComplete: this.canCompleteTransfer(row),
           canCancel: this.canCancelTransfer(row),
         }));
+        if (this.pendingOpenAddWarehouse) {
+          const branchId = this.warehouseBranchFilter > 0 ? this.warehouseBranchFilter : undefined;
+          this.pendingOpenAddWarehouse = false;
+          setTimeout(() => this.openAddWarehouse(branchId), 0);
+        }
         this.cdr.markForCheck();
       });
+  }
+
+  private loadBranchLabels(): void {
+    this.organizationService
+      .listBranchesForAllocation()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (branches) => {
+          this.branchOptions = branches;
+          this.branchLabelById = new Map(branches.map((branch) => [branch.id, branch.label]));
+          if (this.warehouses.length) {
+            this.warehouses = this.warehouses.map((row) => this.attachBranchLabel(row));
+            this.cdr.markForCheck();
+          }
+        },
+      });
+  }
+
+  private attachBranchLabel(row: WarehouseRow): WarehouseRow {
+    if (!row.branchId) {
+      return { ...row, branchLabel: '—' };
+    }
+    return {
+      ...row,
+      branchLabel: this.branchLabelById.get(row.branchId) ?? `Branch #${row.branchId}`,
+    };
   }
 }

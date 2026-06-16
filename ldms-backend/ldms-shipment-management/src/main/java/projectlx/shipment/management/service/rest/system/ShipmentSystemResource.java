@@ -83,8 +83,23 @@ public class ShipmentSystemResource {
     public ResponseEntity<ShipmentResponse> findByTransferId(
             @PathVariable final Long transferId,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        ShipmentResponse response = shipmentServiceProcessor.findByTransferId(transferId, locale, username);
+        ShipmentResponse response = shipmentServiceProcessor.findByTransferId(transferId, locale, "SYSTEM");
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "SYSTEM_FIND_SHIPMENT_BY_SALES_ORDER")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/by-sales-order/{salesOrderId}")
+    @Operation(summary = "System: find shipment by sales order id",
+            description = "Returns the shipment linked to a bought-goods sales order.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Shipment found"),
+            @ApiResponse(responseCode = "404", description = "Shipment not found for the given sales order")
+    })
+    public ResponseEntity<ShipmentResponse> findBySalesOrderId(
+            @PathVariable final Long salesOrderId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        ShipmentResponse response = shipmentServiceProcessor.findBySalesOrderId(salesOrderId, locale, "SYSTEM");
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 

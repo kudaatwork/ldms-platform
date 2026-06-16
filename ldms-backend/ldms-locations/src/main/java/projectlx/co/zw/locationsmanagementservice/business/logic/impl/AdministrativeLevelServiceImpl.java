@@ -3,7 +3,6 @@ package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 import com.lowagie.text.DocumentException;
 import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
 import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
-import lombok.RequiredArgsConstructor;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -57,7 +56,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-@RequiredArgsConstructor
+
 public class AdministrativeLevelServiceImpl implements AdministrativeLevelService {
 
     private final AdministrativeLevelServiceValidator administrativeLevelServiceValidator;
@@ -66,6 +65,21 @@ public class AdministrativeLevelServiceImpl implements AdministrativeLevelServic
     private final CountryRepository countryRepository;
     private final AdministrativeLevelServiceAuditable administrativeLevelServiceAuditable;
     private final MessageService messageService;
+
+    public AdministrativeLevelServiceImpl(
+            AdministrativeLevelServiceValidator administrativeLevelServiceValidator,
+            AdministrativeLevelRepository administrativeLevelRepository,
+            GeoCoordinatesRepository geoCoordinatesRepository,
+            CountryRepository countryRepository,
+            AdministrativeLevelServiceAuditable administrativeLevelServiceAuditable,
+            MessageService messageService) {
+        this.administrativeLevelServiceValidator = administrativeLevelServiceValidator;
+        this.administrativeLevelRepository = administrativeLevelRepository;
+        this.geoCoordinatesRepository = geoCoordinatesRepository;
+        this.countryRepository = countryRepository;
+        this.administrativeLevelServiceAuditable = administrativeLevelServiceAuditable;
+        this.messageService = messageService;
+    }
 
     /** CSV/PDF/XLSX export columns (align with {@link #SUPPORTED_IMPORT_HEADERS} for re-import; COUNTRY = country name). */
     private static final String[] HEADERS = {

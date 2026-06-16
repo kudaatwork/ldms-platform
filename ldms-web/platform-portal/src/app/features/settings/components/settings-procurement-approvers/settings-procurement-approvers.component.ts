@@ -1,7 +1,9 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Subject, catchError, finalize, of, takeUntil } from 'rxjs';
+import { Subject, catchError, finalize, forkJoin, of, takeUntil } from 'rxjs';
+import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 import { ProcurementApprovalPolicy } from '../../../inventory/models/inventory.model';
+import { UserListRow, UsersPortalService } from '../../../users/services/users-portal.service';
 import { ProcurementSettingsService } from '../../services/procurement-settings.service';
 
 interface StageOption {
@@ -29,11 +31,15 @@ export class SettingsProcurementApproversComponent implements OnInit, OnDestroy 
 
   policy: ProcurementApprovalPolicy = { defaultRequiredApprovalStages: 1, minAllowedStages: 1, maxAllowedStages: 3 };
   draftStages = 1;
+  orgUsers: UserListRow[] = [];
+  orgUsersLoading = false;
+  orgUsersError = '';
 
   private readonly destroy$ = new Subject<void>();
 
   constructor(
     private readonly procurementSettings: ProcurementSettingsService,
+    private readonly users: UsersPortalService,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
   ) {}
@@ -70,6 +76,45 @@ export class SettingsProcurementApproversComponent implements OnInit, OnDestroy 
     this.cdr.markForCheck();
   }
 
+  toggleProcurementApprover(row: UserListRow, enabled: boolean): void {
+    if (!row.id) {
+      return;
+    }
+    row.procurementApprover = enabled;
+    this.cdr.markForCheck();
+    this.users
+      .setProcurementApprover(row.id, enabled)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (resp) => {
+          if (this.users.isUserMutationFailure(resp)) {
+            row.procurementApprover = !enabled;
+            this.cdr.markForCheck();
+            this.snackBar.open(this.users.formatUserMutationError(resp, 'Could not update procurement approver.'), 'Close', {
+              duration: 6000,
+            });
+            return;
+          }
+          row.procurementApproverEligibleLabel = enabled ? 'Eligible' : 'Not eligible';
+          this.snackBar.open(
+            enabled ? `${row.name} is now a procurement approver.` : `${row.name} is no longer a procurement approver.`,
+            'Close',
+            { duration: 3500, panelClass: ['app-snackbar-success'] },
+          );
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          row.procurementApprover = !enabled;
+          this.cdr.markForCheck();
+          this.snackBar.open('Could not update procurement approver.', 'Close', { duration: 6000 });
+        },
+      });
+  }
+
+  trackOrgUser(_index: number, row: UserListRow): number {
+    return row.id;
+  }
+
   savePolicy(): void {
     if (this.saving || this.draftStages === this.policy.defaultRequiredApprovalStages) {
       return;
@@ -102,27 +147,49 @@ export class SettingsProcurementApproversComponent implements OnInit, OnDestroy 
   private reload(): void {
     this.loading = true;
     this.error = '';
-    this.procurementSettings
-      .fetchApprovalPolicy()
-      .pipe(
-        takeUntil(this.destroy$),
+    this.orgUsersLoading = true;
+    this.orgUsersError = '';
+    forkJoin({
+      policy: this.procurementSettings.fetchApprovalPolicy().pipe(
         catchError(() => {
           this.error = 'Could not load procurement approval policy. Ensure ldms-inventory-management is running.';
           return of(null);
         }),
+      ),
+      users: this.users
+        .queryUsers({
+          page: 0,
+          size: DEFAULT_TABLE_PAGE_SIZE,
+          searchQuery: '',
+          columnFilters: {
+            email: '',
+            firstName: '',
+            lastName: '',
+            username: '',
+            phoneNumber: '',
+            nationalIdNumber: '',
+            passportNumber: '',
+            statusLabel: '',
+          },
+        })
+        .pipe(catchError(() => of({ rows: [] as UserListRow[], totalElements: 0 }))),
+    })
+      .pipe(
+        takeUntil(this.destroy$),
         finalize(() => {
           this.loading = false;
+          this.orgUsersLoading = false;
           this.cdr.markForCheck();
         }),
       )
       .subscribe({
-        next: (policy) => {
-          if (!policy) {
-            return;
+        next: ({ policy, users }) => {
+          if (policy) {
+            this.error = '';
+            this.policy = policy;
+            this.draftStages = policy.defaultRequiredApprovalStages;
           }
-          this.error = '';
-          this.policy = policy;
-          this.draftStages = policy.defaultRequiredApprovalStages;
+          this.orgUsers = users.rows;
         },
       });
   }

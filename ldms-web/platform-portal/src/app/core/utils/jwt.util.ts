@@ -11,6 +11,7 @@ export interface LdmsJwtPayload {
   orgName?: string;
   roles?: string[];
   mustChangeCredentials?: boolean;
+  procurementApprover?: boolean;
   /** Seconds since Unix epoch (standard JWT {@code exp} claim). */
   exp?: number;
 }
@@ -31,6 +32,15 @@ export function isJwtExpired(token: string, skewSeconds = 30): boolean {
     return false;
   }
   return Date.now() >= expiresAt - skewSeconds * 1000;
+}
+
+/** True when the token will expire within the next {@code withinSeconds} (active-session refresh window). */
+export function isJwtExpiringSoon(token: string, withinSeconds = 120, skewSeconds = 30): boolean {
+  const expiresAt = jwtExpiresAtMs(token);
+  if (expiresAt == null) {
+    return false;
+  }
+  return Date.now() >= expiresAt - (withinSeconds + skewSeconds) * 1000;
 }
 
 export function decodeJwtPayload(token: string): LdmsJwtPayload | null {
@@ -81,5 +91,6 @@ export function currentUserFromJwt(token: string): CurrentUser | null {
     firstName: firstName || undefined,
     lastName: lastName || undefined,
     mustChangeCredentials: payload.mustChangeCredentials === true,
+    procurementApprover: payload.procurementApprover === true,
   };
 }

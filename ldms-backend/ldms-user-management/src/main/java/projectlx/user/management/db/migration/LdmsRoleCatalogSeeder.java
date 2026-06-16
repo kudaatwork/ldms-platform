@@ -160,7 +160,7 @@ public final class LdmsRoleCatalogSeeder {
         if (existingId != null) {
             String update = """
                     UPDATE user_group
-                    SET description = 'Platform administrators with all LDMS permissions',
+                    SET description = 'Platform administrators — full LDMS catalog; effective JWT roles depend on user organisation scope',
                         organization_id = NULL,
                         entity_status = 'ACTIVE',
                         updated_at = NOW(6)
@@ -174,7 +174,7 @@ public final class LdmsRoleCatalogSeeder {
         }
         String insert = """
                 INSERT INTO user_group (name, description, organization_id, entity_status, created_at, updated_at)
-                VALUES (?, 'Platform administrators with all LDMS permissions', NULL, 'ACTIVE', NOW(6), NOW(6))
+                VALUES (?, 'Platform administrators — full LDMS catalog; effective JWT roles depend on user organisation scope', NULL, 'ACTIVE', NOW(6), NOW(6))
                 """;
         try (PreparedStatement ps = connection.prepareStatement(insert)) {
             ps.setString(1, ADMIN_GROUP_NAME);

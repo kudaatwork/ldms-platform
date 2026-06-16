@@ -1,6 +1,5 @@
 package projectlx.co.zw.notifications.business.validation.impl;
 
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import projectlx.co.zw.notifications.business.validation.api.NotificationTemplateServiceValidator;
@@ -20,11 +19,14 @@ import java.util.Map;
 
 import static projectlx.co.zw.shared_library.utils.globalvalidators.Validators.isNullOrLessThanOne;
 
-@RequiredArgsConstructor
 public class NotificationTemplateServiceValidatorImpl implements NotificationTemplateServiceValidator {
 
     private final MessageService messageService;
     private static final Logger logger = LoggerFactory.getLogger(NotificationTemplateServiceValidatorImpl.class);
+
+    public NotificationTemplateServiceValidatorImpl(MessageService messageService) {
+        this.messageService = messageService;
+    }
 
     @Override
     public ValidatorDto isCreateTemplateRequestValid(CreateTemplateRequest request, Locale locale) {

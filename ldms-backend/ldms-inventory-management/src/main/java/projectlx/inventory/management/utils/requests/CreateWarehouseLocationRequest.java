@@ -23,5 +23,7 @@ public class CreateWarehouseLocationRequest {
     // External references
     private Long supplierId;
 
+    private Long branchId;
+
     private WarehouseLocationType warehouseType;
 }

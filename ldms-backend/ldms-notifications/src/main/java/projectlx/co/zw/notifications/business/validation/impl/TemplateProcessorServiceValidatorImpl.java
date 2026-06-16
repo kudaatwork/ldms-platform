@@ -1,6 +1,5 @@
 package projectlx.co.zw.notifications.business.validation.impl;
 
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import projectlx.co.zw.notifications.business.validation.api.TemplateProcessorServiceValidator;
@@ -13,11 +12,14 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-@RequiredArgsConstructor
 public class TemplateProcessorServiceValidatorImpl implements TemplateProcessorServiceValidator {
 
     private final MessageService messageService;
     private static final Logger logger = LoggerFactory.getLogger(TemplateProcessorServiceValidatorImpl.class);
+
+    public TemplateProcessorServiceValidatorImpl(MessageService messageService) {
+        this.messageService = messageService;
+    }
 
     @Override
     public ValidatorDto isValidForProcessing(String templateContent, Map<String, Object> data, Locale locale) {

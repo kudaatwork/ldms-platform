@@ -19,4 +19,11 @@ public interface WarehouseLocationRepository extends JpaRepository<WarehouseLoca
     List<WarehouseLocation> findByEntityStatusNotOrderByIdAsc(EntityStatus entityStatus);
 
     Optional<WarehouseLocation> findFirstByEntityStatusNotOrderByIdAsc(EntityStatus entityStatus);
+
+    Optional<WarehouseLocation> findFirstBySupplierIdAndWarehouseTypeAndVirtualWarehouseTrueAndEntityStatusNot(
+            Long supplierId, projectlx.inventory.management.model.WarehouseLocationType warehouseType,
+            EntityStatus entityStatus);
+
+    java.util.List<WarehouseLocation> findBySupplierIdAndEntityStatusNotOrderByIdAsc(
+            Long supplierId, EntityStatus entityStatus);
 }

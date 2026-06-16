@@ -31,17 +31,20 @@ public class GatewayDownstreamErrorWebExceptionHandler implements ErrorWebExcept
     private final int authenticationPort;
     private final int locationsPort;
     private final int auditTrailPort;
+    private final int fleetManagementPort;
     private ErrorWebExceptionHandler delegate;
 
     public GatewayDownstreamErrorWebExceptionHandler(
             ObjectMapper objectMapper,
             @Value("${ldms.gateway.authentication.port:8083}") int authenticationPort,
             @Value("${ldms.gateway.locations.port:8084}") int locationsPort,
-            @Value("${ldms.gateway.audit-trail.port:8099}") int auditTrailPort) {
+            @Value("${ldms.gateway.audit-trail.port:8099}") int auditTrailPort,
+            @Value("${FLEET_MANAGEMENT_PORT:8089}") int fleetManagementPort) {
         this.objectMapper = objectMapper;
         this.authenticationPort = authenticationPort;
         this.locationsPort = locationsPort;
         this.auditTrailPort = auditTrailPort;
+        this.fleetManagementPort = fleetManagementPort;
     }
 
     @Override
@@ -119,7 +122,8 @@ public class GatewayDownstreamErrorWebExceptionHandler implements ErrorWebExcept
             return "Notifications service is not running. Start ldms-notifications, then retry.";
         }
         if (path.startsWith("/ldms-fleet-management")) {
-            return "Fleet management service is not running. Start ldms-fleet-management on port 8088, then retry.";
+            return "Fleet management service is not running. Start ldms-fleet-management on port "
+                    + fleetManagementPort + ", then retry.";
         }
         if (path.startsWith("/ldms-inventory-management")) {
             return "Inventory management service is not running. Start ldms-inventory-management on port 8013, then retry.";

@@ -10,6 +10,7 @@ import projectlx.inventory.management.clients.BillingPaymentsServiceClient;
 import projectlx.inventory.management.clients.FileUploadServiceClient;
 import projectlx.inventory.management.clients.LocationsServiceClient;
 import projectlx.inventory.management.clients.OrganizationServiceClient;
+import projectlx.inventory.management.clients.ShipmentManagementServiceClient;
 import projectlx.inventory.management.clients.UserManagementServiceClient;
 
 /**
@@ -72,6 +73,20 @@ public class InventoryFeignClientsConfiguration {
                 .forType(FileUploadServiceClient.class, "product-file-upload-service")
                 .inheritParentContext(true)
                 .contextId("inventory-file-upload-service")
+                .url(url)
+                .build();
+    }
+
+    @Bean
+    public ShipmentManagementServiceClient shipmentManagementServiceClient(ApplicationContext applicationContext) {
+        Environment env = applicationContext.getEnvironment();
+        String url = LdmsFeignUrls.resolveShipmentManagementServiceBaseUrl(env);
+        log.info("Shipment management Feign client base URL: {} (ldms.dev.force-local-feign-clients={})",
+                url, env.getProperty("ldms.dev.force-local-feign-clients", "false"));
+        return new FeignClientBuilder(applicationContext)
+                .forType(ShipmentManagementServiceClient.class, "shipment-management-service")
+                .inheritParentContext(true)
+                .contextId("inventory-shipment-management-service")
                 .url(url)
                 .build();
     }

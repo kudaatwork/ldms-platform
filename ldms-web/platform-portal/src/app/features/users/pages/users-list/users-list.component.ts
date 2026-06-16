@@ -78,9 +78,11 @@ export class UsersListComponent implements OnInit, OnDestroy {
   /** Columns shown in the users table (hides platform-only flags for organisation-scoped portal). */
   get tableColumns(): string[] {
     const cols = [...this.displayedColumns];
+    const statusIdx = cols.indexOf('status');
     if (!this.orgScopeLocked) {
-      const statusIdx = cols.indexOf('status');
       cols.splice(statusIdx, 0, 'kycApproverEligible');
+    } else {
+      cols.splice(statusIdx, 0, 'procurementApproverEligible');
     }
     return cols;
   }
@@ -123,6 +125,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
     organizationId: '',
     branchId: '',
     organizationKycApprover: false,
+    procurementApprover: false,
     username: '',
     email: '',
     firstName: '',
@@ -645,6 +648,8 @@ export class UsersListComponent implements OnInit, OnDestroy {
         branchId: this.parseLong(this.createModel.branchId),
         organizationKycApprover:
           !this.createModel.organizationId && this.createModel.organizationKycApprover,
+        procurementApprover:
+          !!this.createModel.organizationId && this.createModel.procurementApprover,
         username: this.createModel.username.trim(),
         email: this.createModel.email.trim(),
         firstName: this.createModel.firstName.trim(),
@@ -1212,6 +1217,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
       organizationId: '',
       branchId: '',
       organizationKycApprover: false,
+      procurementApprover: false,
       username: '',
       email: '',
       firstName: '',

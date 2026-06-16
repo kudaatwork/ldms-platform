@@ -1,6 +1,7 @@
 package projectlx.co.zw.notifications.business.logic.impl;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import projectlx.co.zw.notifications.business.logic.api.NotificationLogRecorder;
 import projectlx.co.zw.notifications.business.logic.api.NotificationService;
 import projectlx.co.zw.notifications.business.logic.api.NotificationProviderService;
@@ -20,8 +21,9 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@Slf4j
 public class NotificationServiceImpl implements NotificationService {
+
+    private static final Logger log = LoggerFactory.getLogger(NotificationServiceImpl.class);
 
     private final NotificationTemplateRepository templateRepository;
     private final UserNotificationPreferenceRepository preferenceRepository;

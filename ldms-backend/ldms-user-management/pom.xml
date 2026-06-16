@@ -11,9 +11,10 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>ldms-user-management-service</artifactId>
-    <name>ldms-user-management-service</name>
-    <description>ldms-user-management-service</description>
+    <artifactId>ldms-user-management</artifactId>
+    <packaging>jar</packaging>
+    <name>LDMS User Management</name>
+    <description>Users, roles, groups, authentication support, and organisation workspace access for Project LX LDMS</description>
 
     <properties>
         <projectlx.co.zw.version>1.0.0-SNAPSHOT</projectlx.co.zw.version>
@@ -25,6 +26,7 @@
         <commons-csv.version>1.14.0</commons-csv.version>
         <opencsv.version>5.11</opencsv.version>
         <easyexcel.version>3.3.3</easyexcel.version>
+        <jmimemagic.version>0.1.5</jmimemagic.version>
     </properties>
 
     <dependencies>
@@ -160,6 +162,12 @@
             <groupId>com.alibaba</groupId>
             <artifactId>easyexcel</artifactId>
             <version>${easyexcel.version}</version>
+        </dependency>
+        <!-- Required at runtime by shared-library Validators (identification MIME sniffing). -->
+        <dependency>
+            <groupId>net.sf.jmimemagic</groupId>
+            <artifactId>jmimemagic</artifactId>
+            <version>${jmimemagic.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>

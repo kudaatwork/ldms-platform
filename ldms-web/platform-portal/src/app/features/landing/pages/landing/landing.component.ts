@@ -5,6 +5,7 @@ import {
   ElementRef,
   NgZone,
   OnDestroy,
+  computed,
   signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
@@ -16,35 +17,26 @@ import { ThemeService } from '../../../../core/services/theme.service';
 const px = (id: number, w = 800, h = 1000) =>
   `https://images.pexels.com/photos/${id}/pexels-photo-${id}.jpeg?auto=compress&cs=tinysrgb&dpr=2&w=${w}&h=${h}&fit=crop`;
 
-/** Curated Pexels photo IDs — road freight, warehouses, containers, distribution. */
 const PEX = {
   truckHighway: 1562324,
   warehouseForklift: 979721,
   warehousePallets: 1267979,
-  warehouseAisle: 7688460,
   warehouseInterior: 7394214,
   warehouseScanning: 6195126,
-  warehouseCartons: 6347793,
-  shippingPort: 906494,
-  containerStack: 4483616,
   containerTerminal: 4480502,
   containersAerial: 5668772,
   truckHighwaySide: 4484079,
   truckFleet: 4391473,
   truckLoading: 4482144,
-  semiTruck: 4481923,
   highwayInterchange: 267583,
   distributionCenter: 6863332,
-  supplyChainCartons: 1095814,
   intermodalYard: 974314,
   yardForklifts: 5025514,
   inventoryScan: 4480362,
-  freightDocuments: 3635874,
   logisticsDashboard: 7688339,
-  packagingLine: 7658355,
-  loadingDock: 2802373,
   truckConvoy: 6770619,
   routePlanning: 4483775,
+  shippingPort: 906494,
 } as const;
 
 @Component({
@@ -58,32 +50,133 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   readonly adminUrl = environment.adminPortalOrigin;
   readonly platformOrigin = environment.platformPortalOrigin;
 
-  /** Touch / keyboard flip: which purpose cards are flipped open. */
-  private readonly flippedPurpose = signal<Set<number>>(new Set());
-  private readonly flippedMore = signal<Set<number>>(new Set());
   readonly mobileNavOpen = signal(false);
+  readonly activeFeatureTab = signal(0);
+  readonly activeFeature = computed(() => this.featureTabs[this.activeFeatureTab()]);
 
   readonly showcaseVideoSrc =
     'https://videos.pexels.com/video-files/4482437/4482437-hd_1920_1080_25fps.mp4';
   readonly showcaseVideoPoster = px(PEX.containerTerminal, 1200, 675);
-
-  readonly heroImage = px(PEX.truckHighway, 1600, 1067);
-
-  readonly introImage = px(PEX.warehouseInterior, 960, 1200);
-  readonly automationImage = px(PEX.warehouseForklift, 960, 960);
-
-  readonly splitNotifyImage = px(PEX.warehouseScanning, 960, 640);
-  readonly splitImpactImage = px(PEX.truckConvoy, 960, 640);
-
+  readonly heroImage = px(PEX.truckHighway, 1920, 1080);
   readonly journeyImage = px(PEX.highwayInterchange, 900, 1100);
-  readonly faqAsideImage = px(PEX.intermodalYard, 900, 1100);
   readonly ctaBandImage = px(PEX.yardForklifts, 1200, 800);
+  readonly accessPortalCardImage = px(PEX.warehousePallets, 800, 520);
+  readonly accessAdminCardImage = px(PEX.distributionCenter, 800, 520);
 
-  readonly heroChips = [
-    'Orders through trips in one narrative',
-    'Built for busy corridors and borders',
-    'Status without inbox overload',
-    'Scales from one lane to many',
+  readonly heroStats = [
+    { value: '23', suffix: '', label: 'Integrated microservices' },
+    { value: '7', suffix: '+', label: 'Actor roles on the corridor' },
+    { value: '12', suffix: '', label: 'On-platform lifecycle phases' },
+    { value: '24', suffix: '/7', label: 'Event-driven visibility' },
+  ] as const;
+
+  readonly platformModules = [
+    {
+      icon: 'apartment',
+      title: 'Organisation portal',
+      description:
+        'The cloud workspace for suppliers, customers, transporters, clearing agents, and partners — role-aware dashboards from order to settlement.',
+      cta: 'Create account',
+      action: 'signup' as const,
+    },
+    {
+      icon: 'admin_panel_settings',
+      title: 'Administrator console',
+      description:
+        'Platform operations, KYC review, organisation oversight, and cross-tenant monitoring — isolated for LX stewards.',
+      cta: 'Open admin',
+      action: 'admin' as const,
+    },
+    {
+      icon: 'phone_android',
+      title: 'Driver mobile',
+      description:
+        'Trips, GPS stops, fuel requests, and proof of delivery — built for crews on long-haul and cross-border lanes.',
+      cta: 'Learn more',
+      action: 'features' as const,
+    },
+    {
+      icon: 'map',
+      title: 'Ops mobile',
+      description:
+        'Live map, trip approvals, and exception handling for dispatchers who need the full corridor in their pocket.',
+      cta: 'Learn more',
+      action: 'features' as const,
+    },
+  ] as const;
+
+  readonly benefits = [
+    {
+      icon: 'hub',
+      title: 'Built for any corridor',
+      body: 'From local distribution to multi-country bulk programmes — orders, trips, compliance, and finance in one narrative.',
+    },
+    {
+      icon: 'devices',
+      title: 'Hardware-ready tracking',
+      body: 'Fleet assets, GPS devices, and telematics integrations designed for trucks, trailers, and mixed fleets on the road.',
+    },
+    {
+      icon: 'integration_instructions',
+      title: 'Open integrations',
+      body: 'Event-driven architecture with API gateway access — connect ERP, BI, accounting, and partner systems without brittle chains.',
+    },
+    {
+      icon: 'support_agent',
+      title: 'Guided implementation',
+      body: 'A twelve-phase on-platform path from organisation setup through go-live, settlements, and steady-state KPIs.',
+    },
+  ] as const;
+
+  readonly featureTabs = [
+    {
+      icon: 'my_location',
+      label: 'Live tracking',
+      title: 'Track every asset on the map',
+      body: 'Monitor trucks, trailers, and trips in near real time. Geofences, border posts, and weighbridges surface as events — not inbox noise.',
+      image: px(PEX.routePlanning, 960, 640),
+      imageAlt: 'Route planning and live corridor tracking',
+    },
+    {
+      icon: 'assignment',
+      label: 'Orders & inventory',
+      title: 'From purchase order to dispatch',
+      body: 'Reserve stock, approve programmes, and release shipments when documents and payments align — one connected inventory story.',
+      image: px(PEX.warehouseScanning, 960, 640),
+      imageAlt: 'Warehouse scanning and order fulfilment',
+    },
+    {
+      icon: 'local_shipping',
+      label: 'Trips & fleet',
+      title: 'Assign, comply, and depart',
+      body: 'Match drivers and assets, validate compliance, and start trips with confidence. Fuel, expenses, and roadside stops stay on the same thread.',
+      image: px(PEX.truckFleet, 960, 640),
+      imageAlt: 'Commercial fleet ready for corridor dispatch',
+    },
+    {
+      icon: 'verified_user',
+      label: 'Compliance & KYC',
+      title: 'Trust baked into every lane',
+      body: 'Organisation verification, document packs, and permit tracking — staged before cargo moves and auditable when regulators ask.',
+      image: px(PEX.containersAerial, 960, 640),
+      imageAlt: 'Container yard and compliance oversight',
+    },
+    {
+      icon: 'payments',
+      label: 'Billing & settlement',
+      title: 'Finance that follows the trip',
+      body: 'Invoices from proof of delivery, wallet settlements, and expense reconciliation — money moves with the operational story.',
+      image: px(PEX.logisticsDashboard, 960, 640),
+      imageAlt: 'Logistics finance and settlement dashboards',
+    },
+    {
+      icon: 'notifications_active',
+      label: 'Smart alerts',
+      title: 'Respond before exceptions escalate',
+      body: 'SLA breaches, approval reminders, and trip events routed to the right role — email, in-app, and mobile without duplicate logic.',
+      image: px(PEX.distributionCenter, 960, 640),
+      imageAlt: 'Distribution control centre with live notifications',
+    },
   ] as const;
 
   readonly pillars = [
@@ -93,427 +186,173 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     { icon: 'map', label: 'Maps & tracking' },
     { icon: 'payment', label: 'Payments & settlement' },
     { icon: 'dashboard', label: 'Dashboards & KPIs' },
+    { icon: 'inventory_2', label: 'Inventory & GRV' },
+    { icon: 'gavel', label: 'Clearing & borders' },
   ] as const;
 
-  /** Duplicated for seamless marquee loop. */
   readonly pillarsMarquee = [...this.pillars, ...this.pillars, ...this.pillars];
 
-  readonly introProof = [
-    'Fewer detours through spreadsheets, calls, and “who has the latest version?”',
-    'Leadership sees load, margin, and risk across partners and regions',
-    'Drivers, yards, and finance read the same trip and settlement story',
-    'Enterprise delivery today with room to grow as your programmes expand',
+  readonly industries = [
+    {
+      title: 'Bulk commodities',
+      body: 'Cement, fuel, minerals — high-volume lanes with weighbridge and border choreography.',
+      image: px(PEX.truckConvoy, 640, 480),
+      imageAlt: 'Bulk commodity trucks on a freight corridor',
+    },
+    {
+      title: 'Packaged goods',
+      body: 'Warehouse-to-customer programmes with reservations, GRV, and invoice alignment.',
+      image: px(PEX.warehousePallets, 640, 480),
+      imageAlt: 'Packaged goods staged in a distribution warehouse',
+    },
+    {
+      title: 'Cross-border freight',
+      body: 'Clearing agents, customs docs, and multi-jurisdiction compliance in one thread.',
+      image: px(PEX.intermodalYard, 640, 480),
+      imageAlt: 'Intermodal yard for cross-border logistics',
+    },
+    {
+      title: 'Fleet operators',
+      body: 'Asset registry, driver compliance, GPS devices, and utilisation across your network.',
+      image: px(PEX.truckHighwaySide, 640, 480),
+      imageAlt: 'Fleet vehicle on a long-haul highway route',
+    },
+    {
+      title: 'Fuel & roadside',
+      body: 'Operational fund requests, fuel sessions, and mechanic stops tied to active trips.',
+      image: px(PEX.truckLoading, 640, 480),
+      imageAlt: 'Truck loading at a fuel and roadside stop',
+    },
+    {
+      title: 'Public & institutional',
+      body: 'Government partners and regulated programmes with audit trails and role isolation.',
+      image: px(PEX.shippingPort, 640, 480),
+      imageAlt: 'Port and institutional logistics operations',
+    },
   ] as const;
 
-  readonly purposePalettes: ReadonlyArray<{
-    title: string;
-    accent: string;
-    tagline: string;
-    story: string;
-    image: string;
-    imageAlt: string;
-  }> = [
-    {
-      title: 'Relationships',
-      accent: '& revenue',
-      tagline: 'Winning lanes start with relationships that feel effortless.',
-      story:
-        'Give commercial teams a confident workspace where accounts, commitments, and promises stay aligned—so every load feels personal, not procedural.',
-      image: px(PEX.logisticsDashboard, 800, 1000),
-      imageAlt: 'Logistics planners reviewing distribution schedules on screen',
-    },
-    {
-      title: 'Confidence',
-      accent: 'on paper',
-      tagline: 'Compliance becomes a quiet superpower—not a Sunday scramble.',
-      story:
-        'Turn filings, permits, and approvals into a polished narrative partners trust. LDMS keeps the backstage tidy so your front stage shines.',
-      image: px(PEX.containerStack, 800, 1000),
-      imageAlt: 'Stacked shipping containers at an intermodal freight yard',
-    },
-    {
-      title: 'Fleet',
-      accent: 'in flow',
-      tagline: 'Capacity that feels orchestrated, not improvised.',
-      story:
-        'Blend crews, assets, and timing into one graceful motion. The platform celebrates your operators while protecting the standards you cannot bend.',
-      image: px(PEX.truckFleet, 800, 1000),
-      imageAlt: 'Commercial freight truck ready for corridor dispatch',
-    },
-    {
-      title: 'Live',
-      accent: 'perspective',
-      tagline: 'Everyone watches the same horizon—not their own guesswork.',
-      story:
-        'Bring near-real awareness to every stakeholder without drowning them in noise. Calm maps, crisp moments, and human-readable progress.',
-      image: px(PEX.routePlanning, 800, 1000),
-      imageAlt: 'Supply chain route planning and corridor visibility',
-    },
-    {
-      title: 'Together',
-      accent: 'on mission',
-      tagline: 'Agents, yards, and HQ finally speak the same language.',
-      story:
-        'Break silos with shared rituals: quick huddles, transparent handoffs, and celebrations when milestones land—because logistics is a team sport.',
-      image: px(PEX.warehouseScanning, 800, 1000),
-      imageAlt: 'Warehouse team scanning outbound distribution orders',
-    },
-    {
-      title: 'Capital',
-      accent: 'with clarity',
-      tagline: 'Money moves with the story—not against it.',
-      story:
-        'Match commercial creativity with guardrails finance loves. Flexible rhythms for how you collect, release, and reconcile—without losing the plot.',
-      image: px(PEX.freightDocuments, 800, 1000),
-      imageAlt: 'Freight documentation and customs paperwork for settlement',
-    },
-  ];
-
-  readonly personas: ReadonlyArray<{ role: string; detail: string; image: string; imageAlt: string }> = [
+  readonly personas = [
     {
       role: 'Suppliers',
-      detail: 'Shape demand, orchestrate promises, and look heroic to buyers.',
+      detail: 'Orchestrate demand, inventory, and customer promises from one portal.',
       image: px(PEX.warehousePallets, 640, 480),
-      imageAlt: 'Supplier pallets staged in a distribution warehouse',
+      imageAlt: 'Supplier distribution warehouse',
     },
     {
       role: 'Customers',
-      detail: 'Know what is coming, when it lands, and who stands behind it.',
-      image: px(PEX.supplyChainCartons, 640, 480),
-      imageAlt: 'Packaged goods prepared for customer delivery in the supply chain',
+      detail: 'Track orders, shipments, and proof of delivery with full transparency.',
+      image: px(PEX.warehouseInterior, 640, 480),
+      imageAlt: 'Customer-facing distribution operations',
+    },
+    {
+      role: 'Transporters',
+      detail: 'Show capacity, compliance, and trip performance as craft — not commodity tonnage.',
+      image: px(PEX.truckConvoy, 640, 480),
+      imageAlt: 'Transporter fleet on the corridor',
     },
     {
       role: 'Drivers',
-      detail: 'Stay focused on the road with guidance that respects their day.',
+      detail: 'Mobile-first trips, stops, fuel, and delivery confirmation on the road.',
       image: px(PEX.truckHighwaySide, 640, 480),
-      imageAlt: 'Heavy goods vehicle on a long-haul distribution route',
+      imageAlt: 'Driver on a distribution route',
     },
     {
-      role: 'Transport partners',
-      detail: 'Show capacity as craft—not just commodity tonnage.',
-      image: px(PEX.truckConvoy, 640, 480),
-      imageAlt: 'Fleet of freight trucks moving cargo along a corridor',
-    },
-    {
-      role: 'Clearing allies',
-      detail: 'Turn complexity into choreography everyone can follow.',
+      role: 'Clearing agents',
+      detail: 'Border documentation and status handoffs without chasing version chaos.',
       image: px(PEX.containersAerial, 640, 480),
-      imageAlt: 'Aerial view of container yard and customs checkpoint activity',
+      imageAlt: 'Clearing and customs at container yard',
     },
     {
-      role: 'Roadside partners',
-      detail: 'Be discoverable exactly when crews need you most.',
-      image: px(PEX.loadingDock, 640, 480),
-      imageAlt: 'Loading dock and yard operations supporting roadside logistics',
-    },
-    {
-      role: 'Platform stewards',
-      detail: 'Keep the ecosystem trustworthy without slowing innovators.',
+      role: 'Platform admin',
+      detail: 'KYC, organisations, and ecosystem health from a dedicated console.',
       image: px(PEX.distributionCenter, 640, 480),
-      imageAlt: 'Distribution control hub monitoring network-wide freight flow',
+      imageAlt: 'Platform operations control centre',
     },
-  ];
+  ] as const;
 
-  readonly deepDives: ReadonlyArray<{
-    kicker: string;
-    title: string;
-    lead: string;
-    bullets: readonly string[];
-    image: string;
-    imageAlt: string;
-  }> = [
-    {
-      kicker: 'Digital',
-      title: 'Orders that feel inevitable',
-      lead:
-        'Design a front office experience where quotes, confirmations, and commitments glide together—so customers feel certainty from the first hello.',
-      bullets: [
-        'Beautifully simple capture moments for repeat programmes',
-        'Guardrails that feel helpful—not heavy—to busy desks',
-        'Packaging of offers that mirrors how your best reps already sell',
-      ],
-      image: px(PEX.warehouseCartons, 900, 1100),
-      imageAlt: 'Cartons queued in a warehouse for order fulfilment',
-    },
-    {
-      kicker: 'Motion',
-      title: 'Trips that tell a story',
-      lead:
-        'Let dispatch paint the journey in vivid strokes: who moves, what moves, and why it matters—without losing the poetry of a well-run corridor.',
-      bullets: [
-        'Cinematic visibility tuned for executives and crews alike',
-        'Moments that celebrate progress—not just ping status',
-        'Breathing room for partners to add colour when reality shifts',
-      ],
-      image: px(PEX.truckLoading, 900, 1100),
-      imageAlt: 'Cargo being loaded onto a distribution truck at the yard',
-    },
-    {
-      kicker: 'Trust',
-      title: 'Paperwork with personality',
-      lead:
-        'Transform compliance into a signature experience: polished, predictable, and quietly reassuring to auditors who peek behind the curtain.',
-      bullets: [
-        'Narratives that read like strategy—not scavenger hunts',
-        'Signals that reassure before anyone has to ask',
-        'Archives that feel curated—not abandoned filing cabinets',
-      ],
-      image: px(PEX.containerTerminal, 900, 1100),
-      imageAlt: 'Container terminal and port logistics for compliant freight handling',
-    },
-    {
-      kicker: 'Flow',
-      title: 'Treasury that keeps pace',
-      lead:
-        'Mirror the ambition of your commercial team with experiences finance can embrace—transparent, tactile, and tuned for real-world logistics.',
-      bullets: [
-        'Rhythms that flex with programmes, seasons, and surprises',
-        'Language both CFOs and field leaders actually enjoy reading',
-        'Continuity between what was promised and what was collected',
-      ],
-      image: px(PEX.packagingLine, 900, 1100),
-      imageAlt: 'Distribution packaging line supporting invoicing and settlement workflows',
-    },
-  ];
-
-  readonly journeySteps: ReadonlyArray<{ n: number; title: string; detail: string }> = [
+  readonly journeySteps = [
     {
       n: 1,
-      title: 'Set the stage',
-      detail: 'Organisation setup, branding, and inviting your first corridor partners into the right portals.',
+      title: 'Organisation onboarding',
+      detail: 'Register, verify email, complete KYC, and invite corridor partners.',
     },
     {
       n: 2,
-      title: 'Grow familiar faces',
-      detail: 'Supplier and customer records, contacts, and relationship context—so every load has a face behind it.',
+      title: 'Master data & inventory',
+      detail: 'Warehouses, products, stock, and customer organisations in place.',
     },
     {
       n: 3,
-      title: 'Shape the promise',
-      detail: 'Programmes, pricing logic, and commercial terms your commercial and finance teams can defend together.',
+      title: 'Orders & reservations',
+      detail: 'Purchase orders, approvals, and stock reserved before dispatch.',
     },
     {
       n: 4,
-      title: 'Dress the details',
-      detail: 'KYC packs, permits, and trade documents staged and reviewed before the first shipment moves.',
+      title: 'Shipments & documents',
+      detail: 'Dispatch, compliance packs, and ready-for-release when finance aligns.',
     },
     {
       n: 5,
-      title: 'Choose your guides',
-      detail: 'Clearing agents, inspectors, and finance partners mapped to lanes, commodities, and jurisdictions.',
+      title: 'Trips & tracking',
+      detail: 'Assign fleet, start trips, record GPS stops, and manage expenses.',
     },
     {
       n: 6,
-      title: 'Curate the convoy',
-      detail: 'Trips, manifests, capacity, and driver assignments aligned to constraints everyone can see.',
+      title: 'Delivery & billing',
+      detail: 'GRV, proof of delivery, invoicing, and settlement — audit-ready.',
     },
-    {
-      n: 7,
-      title: 'Lift the curtain',
-      detail: 'Go-live: notifications, operating rhythms, and “who does what” so day one feels rehearsed, not improvised.',
-    },
-    {
-      n: 8,
-      title: 'Keep the pulse',
-      detail: 'Day-two support, SLAs, and escalations that stay tied to the order or trip—not lost threads.',
-    },
-    {
-      n: 9,
-      title: 'Own the thresholds',
-      detail: 'Border posts, weighbridges, and checkpoints with statuses crews, partners, and HQ all trust.',
-    },
-    {
-      n: 10,
-      title: 'Fuel the mission',
-      detail: 'Invoicing, settlements, proof of delivery, and audit trails with clean lineage for finance and regulators.',
-    },
-    {
-      n: 11,
-      title: 'Close with applause',
-      detail: 'Customer confirmations, handover rituals, and close-out reporting that finish the story professionally.',
-    },
-    {
-      n: 12,
-      title: 'Encore visibility',
-      detail: 'KPIs, exports, and leadership views that show the programme is under control—and where to act next.',
-    },
-  ];
-
-  readonly intelHighlights: ReadonlyArray<{
-    title: string;
-    body: string;
-    image: string;
-    imageAlt: string;
-  }> = [
-    {
-      title: 'Exception radar',
-      body: 'Catch the whispers before they become headlines—delays, tension points, and hero opportunities.',
-      image: px(PEX.routePlanning, 720, 480),
-      imageAlt: 'Route map and corridor planning for supply chain exceptions',
-    },
-    {
-      title: 'Network analytics',
-      body: 'Blend movement, margin, and momentum into boardroom-ready stories.',
-      image: px(PEX.distributionCenter, 720, 480),
-      imageAlt: 'Distribution centre overview for network-wide logistics KPIs',
-    },
-    {
-      title: 'Operational search',
-      body: 'Jump from spark to resolution with breadcrumbs everyone recognises.',
-      image: px(PEX.inventoryScan, 720, 480),
-      imageAlt: 'Warehouse supervisor scanning inventory on the distribution floor',
-    },
-  ];
-
-  readonly kpis = [
-    {
-      value: '12',
-      unit: 'phases',
-      label: 'Implementation arc',
-      hint: 'From first setup through go-live, settlements, and steady-state KPIs—mapped below.',
-    },
-    { value: '7+', unit: 'roles', label: 'Cast of characters', hint: 'Each player sees the lines they need.' },
-    { value: '2', unit: 'portals', label: 'Dual stages', hint: 'Operators shine while stewards keep balance.' },
-    { value: '24/7', unit: 'pulse', label: 'Always-on signals', hint: 'Momentum you can feel around the clock.' },
   ] as const;
 
-  readonly automationPoints = [
-    'Nudges when exceptions need attention—without burying teams in noise',
-    'Escalations that carry order, trip, and party context to the right owner',
-    'Reminders that read like tasks with owners, not anonymous alarms',
-    'Exports and handoffs formatted so partners and finance actually adopt them',
+  readonly testimonials = [
+    {
+      quote:
+        'LDMS gives us one workspace from PO through trip to invoice. Our commercial and operations teams finally read the same story.',
+      name: 'Operations director',
+      org: 'Regional bulk distributor',
+    },
+    {
+      quote:
+        'Cross-border used to mean spreadsheets and phone trees. Now border posts, clearing, and finance stay on the same trip thread.',
+      name: 'Logistics manager',
+      org: 'Multi-country transporter',
+    },
+    {
+      quote:
+        'The event-driven alerts mean we respond to SLA breaches before customers call — without drowning dispatch in noise.',
+      name: 'Supply chain lead',
+      org: 'Packaged goods supplier',
+    },
   ] as const;
 
-  readonly moreFeatures: ReadonlyArray<{
-    title: string;
-    detail: string;
-    pitch: string;
-    image: string;
-    imageAlt: string;
-  }> = [
-    {
-      title: 'Roles & permissions',
-      detail: 'Sculpt access like stage lighting—bright where needed, soft elsewhere.',
-      pitch: 'Give each persona a spotlight without stealing the show from anyone else.',
-      image: px(PEX.warehouseAisle, 640, 720),
-      imageAlt: 'Modern warehouse aisles in a distribution facility',
-    },
-    {
-      title: 'Beautiful history',
-      detail: 'Chronicles that read like a highlight reel—not a forensic dump.',
-      pitch: 'Let every decisive moment leave an elegant footprint you are proud to share.',
-      image: px(PEX.warehouseScanning, 640, 720),
-      imageAlt: 'Scanning and traceability on the warehouse floor',
-    },
-    {
-      title: 'Geospatial canvas',
-      detail: 'Maps that breathe with your operation—alive, layered, and legible.',
-      pitch: 'Anchor intuition to geography so nobody argues about where reality lives.',
-      image: px(PEX.highwayInterchange, 640, 720),
-      imageAlt: 'Aerial highway interchange for freight routing and corridors',
-    },
-    {
-      title: 'Conversation glue',
-      detail: 'Threads that cling to the work—not the void of a generic inbox.',
-      pitch: 'Keep context cuddled close to orders, trips, and promises.',
-      image: px(PEX.yardForklifts, 640, 720),
-      imageAlt: 'Forklifts coordinating inbound and outbound yard movements',
-    },
-    {
-      title: 'Commercial poetry',
-      detail: 'Credit stories that still feel crisp when spreadsheets come calling.',
-      pitch: 'Celebrate flexibility without letting discipline drift out of frame.',
-      image: px(PEX.shippingPort, 640, 720),
-      imageAlt: 'Port logistics and cargo vessels in the supply chain',
-    },
-    {
-      title: 'Partner constellations',
-      detail: 'Surface the helpers crews crave—fuel, fix, or fortify—exactly when stars align.',
-      pitch: 'Make roadside magic discoverable without breaking the narrative flow.',
-      image: px(PEX.semiTruck, 640, 720),
-      imageAlt: 'Semi-trailer truck on a long-distance distribution lane',
-    },
-    {
-      title: 'Regulated vistas',
-      detail: 'Views tuned for partners who need clarity without clutter.',
-      pitch: 'Invite governance into the story as a respected guest—not a gatecrasher.',
-      image: px(PEX.containersAerial, 640, 720),
-      imageAlt: 'Aerial container terminal for regulated freight oversight',
-    },
-    {
-      title: 'Story-ready exports',
-      detail: 'Spreadsheets and decks that feel designed—not dumped.',
-      pitch: 'Arm analysts with artefacts they actually want to present upstairs.',
-      image: px(PEX.logisticsDashboard, 640, 720),
-      imageAlt: 'Logistics dashboards prepared for executive supply chain reporting',
-    },
-  ];
-
-  readonly onboardingSteps: ReadonlyArray<{ title: string; detail: string; image: string; imageAlt: string }> = [
-    {
-      title: 'Compose your debut',
-      detail: 'Introduce your organisation with the same polish you show customers at the door.',
-      image: px(PEX.warehouseInterior, 720, 480),
-      imageAlt: 'Distribution warehouse interior ready for platform go-live',
-    },
-    {
-      title: 'Fill the canvas',
-      detail: 'Bring master data in like brush strokes—deliberate, vibrant, ready for motion.',
-      image: px(PEX.inventoryScan, 720, 480),
-      imageAlt: 'Inventory scanning and master data capture in the warehouse',
-    },
-    {
-      title: 'Premiere a corridor',
-      detail: 'Launch a pilot that feels exclusive, learn fast, then widen the aperture with swagger.',
-      image: px(PEX.truckHighway, 720, 480),
-      imageAlt: 'Freight trucks launching a pilot distribution corridor',
-    },
-  ];
-
-  readonly notificationChannels = [
-    'Moments that feel hand-written even when they scale',
-    'Cadence that mirrors how trips breathe in the real world',
-    'Harmony across suppliers, partners, and the people who steer trust',
+  readonly trustItems = [
+    { icon: 'security', title: 'Role-based access', detail: 'Isolated portals for operators and platform stewards.' },
+    { icon: 'cloud_done', title: 'Event-driven core', detail: 'RabbitMQ backbone — no brittle synchronous chains.' },
+    { icon: 'history', title: 'Audit trail ready', detail: 'Entity history and soft deletes across services.' },
   ] as const;
-
-  readonly impactPoints = [
-    { title: 'Time returned', detail: 'Fewer detours chasing ghosts in inboxes or voicemails.' },
-    { title: 'Trust amplified', detail: 'Everyone reads from the same beautifully lit script.' },
-    { title: 'Safety elevated', detail: 'Visibility that feels protective—not performative.' },
-    { title: 'Foresight sharpened', detail: 'Signals arrive while you still have room to choreograph.' },
-    { title: 'Margin protected', detail: 'Friction fades; the expensive surprises shrink.' },
-  ] as const;
-
-  readonly accessPortalCardImage = px(PEX.warehousePallets, 800, 520);
-  readonly accessAdminCardImage = px(PEX.distributionCenter, 800, 520);
 
   readonly faqs = [
     {
-      q: 'Where do our teams begin?',
-      a: 'Most corridors start in the organisation portal—the daily stage for suppliers, partners, and operators. LX stewards use a dedicated console to keep the ecosystem balanced without slowing innovators.',
+      q: 'Where do our teams sign in?',
+      a: 'Day-to-day users work in the organisation portal. LX administrators use the separate admin console for KYC, organisations, and monitoring.',
     },
     {
-      q: 'Is LDMS only for one type of cargo?',
-      a: 'LDMS is crafted for ambitious road programmes—bulk, packaged, or specialised—especially when geography adds drama. The story scales with you.',
+      q: 'Is LDMS only for one commodity type?',
+      a: 'No. LDMS supports bulk, packaged, and specialised road programmes — especially corridors that cross borders and regulatory boundaries.',
     },
     {
-      q: 'How do customers feel the magic at delivery?',
-      a: 'Handovers become rituals: confident confirmations, graceful notes, and mutual respect baked into the experience.',
+      q: 'How does implementation work?',
+      a: 'Follow the six-phase path on this page — from onboarding through master data, orders, trips, and billing. Your programme can align workshops to each phase.',
     },
     {
-      q: 'Can our commercial imagination breathe?',
-      a: 'Yes. LDMS embraces multiple commercial rhythms so finance and sales can dance together without stepping on toes.',
-    },
-    {
-      q: 'What about the serious side of compliance?',
-      a: 'Compliance is staged like premium theatre—visible, rehearsed, and worthy of the spotlight when regulators lean in.',
+      q: 'Can we integrate with existing systems?',
+      a: 'Yes. Services expose APIs through the gateway and publish domain events for ERP, BI, accounting, and partner integrations.',
     },
   ] as const;
 
-  /** Avoid nav class thrashing at the scroll threshold (reduces sticky-bar flicker). */
   private navScrolled = false;
   private navScrollRaf = 0;
   private scrollBarEl: HTMLElement | null = null;
+
   private readonly onWindowScroll = (): void => {
     if (this.navScrollRaf) {
       return;
@@ -523,27 +362,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       this.updateScrollChrome();
     });
   };
-
-  /** Passive window scroll: nav surface + top progress bar (single rAF path). */
-  private updateScrollChrome(): void {
-    const y = window.scrollY || document.documentElement.scrollTop || 0;
-    const shell = this.el.nativeElement.querySelector('.ldms-landing__nav-shell');
-    const nextNavScrolled = this.navScrolled ? y > 48 : y > 96;
-    if (shell && nextNavScrolled !== this.navScrolled) {
-      this.navScrolled = nextNavScrolled;
-      shell.classList.toggle('ldms-landing__nav-shell--scrolled', nextNavScrolled);
-    }
-
-    if (this.scrollBarEl) {
-      const max = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
-      this.scrollBarEl.style.transform = `scaleX(${Math.min(Math.max(y / max, 0), 1)})`;
-    }
-
-    const heroRoute = this.el.nativeElement.querySelector('.ldms-landing__hero-route') as HTMLElement | null;
-    if (heroRoute && y < window.innerHeight) {
-      heroRoute.style.transform = `translateY(${y * 0.12}px)`;
-    }
-  }
 
   constructor(
     private readonly router: Router,
@@ -556,11 +374,10 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     this.ngZone.runOutsideAngular(() => {
       this.initScrollBar();
       this.initHeroReveal();
-      this.initHeroArtMotion();
       this.initSectionReveals();
       this.initCounters();
       this.initNavScrollState();
-      this.initCardTilt();
+      this.initFeatureTabMotion();
     });
   }
 
@@ -571,102 +388,53 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  selectFeatureTab(index: number): void {
+    this.activeFeatureTab.set(index);
+    this.ngZone.runOutsideAngular(() => {
+      requestAnimationFrame(() => this.animateFeaturePanel());
+    });
+  }
+
+  onModuleAction(action: 'signup' | 'admin' | 'features'): void {
+    if (action === 'signup') {
+      this.goSignup();
+      return;
+    }
+    if (action === 'admin') {
+      window.open(`${this.adminUrl}/auth/login`, '_blank', 'noopener');
+      return;
+    }
+    this.scrollTo('ldms-features');
+  }
+
+  private animateFeaturePanel(): void {
+    const panel = this.el.nativeElement.querySelector('.ldms-feature-panel__visual');
+    if (panel) {
+      gsap.fromTo(panel, { opacity: 0, x: 24 }, { opacity: 1, x: 0, duration: 0.45, ease: 'power2.out' });
+    }
+  }
+
   private initScrollBar(): void {
     this.scrollBarEl = this.el.nativeElement.querySelector('.ldms-scroll-bar');
   }
 
   private initHeroReveal(): void {
-    const words = this.el.nativeElement.querySelectorAll('.ldms-word');
-    if (words.length) {
-      gsap.fromTo(
-        words,
-        { y: 52, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.85, stagger: 0.07, ease: 'power3.out', delay: 0.25 },
-      );
-    }
-    const heroSubs = this.el.nativeElement.querySelectorAll(
-      '.ldms-landing__hero-topline, .ldms-landing__lead, .ldms-landing__hero-cta, .ldms-landing__chips, .ldms-landing__stats',
+    const heroEls = this.el.nativeElement.querySelectorAll(
+      '.ldms-hero__eyebrow, .ldms-hero__title, .ldms-hero__lead, .ldms-hero__cta, .ldms-hero__visual',
     );
-    if (heroSubs.length) {
+    if (heroEls.length) {
       gsap.fromTo(
-        heroSubs,
-        { y: 24, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.7, stagger: 0.09, ease: 'power2.out', delay: 0.8 },
-      );
-    }
-  }
-
-  private initHeroArtMotion(): void {
-    const heroArt = this.el.nativeElement.querySelector('.ldms-landing__hero-art') as HTMLElement | null;
-    const heroImg = this.el.nativeElement.querySelector('.ldms-landing__hero-img');
-    const statCard = this.el.nativeElement.querySelector('.ldms-hero-stat-card');
-    const badge = this.el.nativeElement.querySelector('.ldms-hero-badge');
-
-    if (heroArt) {
-      gsap.fromTo(
-        heroArt,
-        { y: 48, opacity: 0, scale: 0.94 },
-        { y: 0, opacity: 1, scale: 1, duration: 1.05, ease: 'power3.out', delay: 0.45 },
-      );
-
-      heroArt.addEventListener('mousemove', (ev: MouseEvent) => {
-        const rect = heroArt.getBoundingClientRect();
-        const x = ((ev.clientX - rect.left) / rect.width) * 100;
-        const y = ((ev.clientY - rect.top) / rect.height) * 100;
-        heroArt.style.setProperty('--hero-spot-x', `${x}%`);
-        heroArt.style.setProperty('--hero-spot-y', `${y}%`);
-
-        const tiltX = (ev.clientX - rect.left) / rect.width - 0.5;
-        const tiltY = (ev.clientY - rect.top) / rect.height - 0.5;
-        gsap.to(heroArt, {
-          rotateX: -tiltY * 6,
-          rotateY: tiltX * 6,
-          duration: 0.45,
-          ease: 'power2.out',
-          transformPerspective: 900,
-        });
-      });
-
-      heroArt.addEventListener('mouseleave', () => {
-        gsap.to(heroArt, {
-          rotateX: 0,
-          rotateY: 0,
-          duration: 0.65,
-          ease: 'power2.out',
-        });
-      });
-    }
-
-    if (heroImg) {
-      gsap.fromTo(
-        heroImg,
-        { opacity: 0 },
-        { opacity: 1, duration: 1.1, ease: 'power2.out', delay: 0.55 },
-      );
-    }
-
-    if (statCard) {
-      gsap.fromTo(
-        statCard,
-        { x: 24, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.75, ease: 'power2.out', delay: 1.1 },
-      );
-    }
-
-    if (badge) {
-      gsap.fromTo(
-        badge,
-        { x: -24, opacity: 0 },
-        { x: 0, opacity: 1, duration: 0.75, ease: 'power2.out', delay: 1.25 },
+        heroEls,
+        { y: 36, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.85, stagger: 0.1, ease: 'power3.out', delay: 0.15 },
       );
     }
   }
 
   private initSectionReveals(): void {
     const reveals = this.el.nativeElement.querySelectorAll('.ldms-reveal');
-    const revealIn = (target: Element) => {
-      target.classList.add('ldms-reveal--in');
-    };
+    const revealIn = (target: Element) => target.classList.add('ldms-reveal--in');
+
     const io = new IntersectionObserver(
       (entries) => {
         requestAnimationFrame(() => {
@@ -684,8 +452,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     reveals.forEach((element: Element) => {
       const rect = element.getBoundingClientRect();
       const vh = window.innerHeight || document.documentElement.clientHeight || 0;
-      const bleed = vh * 0.06;
-      if (rect.top < vh - bleed && rect.bottom > bleed) {
+      if (rect.top < vh * 0.94 && rect.bottom > vh * 0.06) {
         revealIn(element);
       } else {
         io.observe(element);
@@ -694,25 +461,28 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   }
 
   private initCounters(): void {
-    const counters = this.el.nativeElement.querySelectorAll('.ldms-landing__kpi-num[data-count]');
-    if (!counters.length) return;
+    const counters = this.el.nativeElement.querySelectorAll('.ldms-stat__num[data-count]');
+    if (!counters.length) {
+      return;
+    }
     const io = new IntersectionObserver(
       (entries) => {
         entries.forEach((e) => {
-          if (e.isIntersecting) {
-            const targetEl = e.target as HTMLElement;
-            const target = parseFloat(targetEl.dataset['count'] ?? '0');
-            const obj = { val: 0 };
-            gsap.to(obj, {
-              val: target,
-              duration: 2,
-              ease: 'power2.out',
-              onUpdate: () => {
-                targetEl.textContent = String(Math.round(obj.val));
-              },
-            });
-            io.unobserve(targetEl);
+          if (!e.isIntersecting) {
+            return;
           }
+          const targetEl = e.target as HTMLElement;
+          const target = parseFloat(targetEl.dataset['count'] ?? '0');
+          const obj = { val: 0 };
+          gsap.to(obj, {
+            val: target,
+            duration: 2,
+            ease: 'power2.out',
+            onUpdate: () => {
+              targetEl.textContent = String(Math.round(obj.val));
+            },
+          });
+          io.unobserve(targetEl);
         });
       },
       { threshold: 0.5 },
@@ -725,52 +495,33 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     window.addEventListener('scroll', this.onWindowScroll, { passive: true });
   }
 
-  private initCardTilt(): void {
-    const cards = this.el.nativeElement.querySelectorAll('.ldms-landing__intel-card--tilt');
-    cards.forEach((card) => {
-      const el = card as HTMLElement;
-      el.addEventListener('mousemove', (ev: MouseEvent) => {
-        const rect = el.getBoundingClientRect();
-        const x = (ev.clientX - rect.left) / rect.width - 0.5;
-        const y = (ev.clientY - rect.top) / rect.height - 0.5;
-        gsap.to(el, { rotateX: -y * 10, rotateY: x * 10, duration: 0.4, ease: 'power2.out' });
-      });
-      el.addEventListener('mouseleave', () => {
-        gsap.to(el, { rotateX: 0, rotateY: 0, duration: 0.6, ease: 'power2.out' });
-      });
+  private initFeatureTabMotion(): void {
+    const tabs = this.el.nativeElement.querySelectorAll('.ldms-feature-tab');
+    tabs.forEach((tab: Element, i: number) => {
+      gsap.fromTo(
+        tab,
+        { opacity: 0, y: 12 },
+        { opacity: 1, y: 0, duration: 0.4, delay: 0.5 + i * 0.05, ease: 'power2.out' },
+      );
     });
   }
 
-  purposeFlipped(i: number): boolean {
-    return this.flippedPurpose().has(i);
+  private updateScrollChrome(): void {
+    const y = window.scrollY || document.documentElement.scrollTop || 0;
+    const shell = this.el.nativeElement.querySelector('.ldms-landing__nav-shell');
+    const nextNavScrolled = this.navScrolled ? y > 48 : y > 96;
+    if (shell && nextNavScrolled !== this.navScrolled) {
+      this.navScrolled = nextNavScrolled;
+      shell.classList.toggle('ldms-landing__nav-shell--scrolled', nextNavScrolled);
+    }
+    if (this.scrollBarEl) {
+      const max = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+      this.scrollBarEl.style.transform = `scaleX(${Math.min(Math.max(y / max, 0), 1)})`;
+    }
   }
 
-  togglePurposeFlip(i: number): void {
-    this.flippedPurpose.update((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) {
-        next.delete(i);
-      } else {
-        next.add(i);
-      }
-      return next;
-    });
-  }
-
-  moreFlipped(i: number): boolean {
-    return this.flippedMore().has(i);
-  }
-
-  toggleMoreFlip(i: number): void {
-    this.flippedMore.update((prev) => {
-      const next = new Set(prev);
-      if (next.has(i)) {
-        next.delete(i);
-      } else {
-        next.add(i);
-      }
-      return next;
-    });
+  scrollTo(id: string): void {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   toggleTheme(): void {

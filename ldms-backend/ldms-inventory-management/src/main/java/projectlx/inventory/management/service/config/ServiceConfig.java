@@ -93,6 +93,12 @@ public class ServiceConfig {
     }
 
     @Bean
+    public SalesOrderDispatchServiceProcessor salesOrderDispatchServiceProcessor(
+            SalesOrderDispatchService salesOrderDispatchService) {
+        return new SalesOrderDispatchServiceProcessorImpl(salesOrderDispatchService);
+    }
+
+    @Bean
     public SalesReservationServiceProcessor salesReservationServiceProcessor(SalesReservationService salesReservationService) {
         return new SalesReservationServiceProcessorImpl(salesReservationService);
     }

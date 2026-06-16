@@ -6,7 +6,8 @@ import com.sendgrid.Response;
 import com.sendgrid.helpers.mail.Mail;
 import com.sendgrid.helpers.mail.objects.Content;
 import com.sendgrid.helpers.mail.objects.Email;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.util.StringUtils;
 import projectlx.co.zw.notifications.utils.config.OutboundEmailClientSupplier;
@@ -29,8 +30,9 @@ import software.amazon.awssdk.services.ses.model.SendEmailResponse;
 import java.io.IOException;
 import java.util.Map;
 
-@Slf4j
 public class EmailNotificationProviderServiceImpl implements NotificationProviderService {
+
+    private static final Logger log = LoggerFactory.getLogger(EmailNotificationProviderServiceImpl.class);
 
     private final TemplateProcessorService templateProcessor;
     private final NotificationLogRecorder notificationLogRecorder;

@@ -1,6 +1,7 @@
 package projectlx.shipment.management.business.logic.api;
 
 import projectlx.shipment.management.utils.requests.AllocateShipmentRequest;
+import projectlx.shipment.management.utils.requests.AssignTransportCompanyRequest;
 import projectlx.shipment.management.utils.requests.ShipmentMultipleFiltersRequest;
 import projectlx.shipment.management.utils.requests.UpdateShipmentStatusRequest;
 import projectlx.shipment.management.utils.responses.ShipmentResponse;
@@ -16,11 +17,17 @@ public interface ShipmentService {
      */
     void createFromTransferApprovedEvent(Map<String, Object> event, Locale locale);
 
+    void createFromSalesOrderApprovedEvent(Map<String, Object> event, Locale locale);
+
     ShipmentResponse findById(Long id, Locale locale, String username);
 
     ShipmentResponse findByMultipleFilters(ShipmentMultipleFiltersRequest request, Locale locale, String username);
 
     ShipmentResponse findByTransferId(Long transferId, Locale locale, String username);
+
+    ShipmentResponse findBySalesOrderId(Long salesOrderId, Locale locale, String username);
+
+    ShipmentResponse assignTransportCompany(AssignTransportCompanyRequest request, Locale locale, String username);
 
     ShipmentResponse allocateFleet(AllocateShipmentRequest request, Locale locale, String username);
 

@@ -1,0 +1,68 @@
+<div class="lx-dialog-shell om-link-wh-dialog">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Link existing warehouse</h2>
+      <p class="lx-dialog-subtitle">
+        Assign an unlinked warehouse or move one from another branch to
+        <strong>{{ data.branch.branchName }}</strong>.
+      </p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close" (click)="close()" [disabled]="linkingId != null">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="om-link-wh-body" *ngIf="rows.length; else emptyState">
+    <div class="lx-input-shell lx-search-field om-link-wh-search">
+      <mat-icon class="lx-input-shell__icon">search</mat-icon>
+      <input [(ngModel)]="searchQuery" placeholder="Search warehouses…" autocomplete="off" />
+    </div>
+
+    <div class="om-link-wh-list">
+      <article class="om-link-wh-row" *ngFor="let row of filteredRows">
+        <div class="om-link-wh-row__icon" aria-hidden="true">
+          <mat-icon>warehouse</mat-icon>
+        </div>
+        <div class="om-link-wh-row__main">
+          <h3>{{ row.name }}</h3>
+          <p>{{ row.addressLabel || 'No address on file' }}</p>
+          <div class="om-link-wh-row__meta">
+            <span class="om-link-wh-pill">{{ row.warehouseType || 'SUPPLIER' }}</span>
+            <span class="om-link-wh-pill" [class.om-link-wh-pill--warn]="!row.branchId">
+              {{ branchLabel(row) }}
+            </span>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="lx-btn lx-btn-primary lx-btn-sm"
+          (click)="linkWarehouse(row)"
+          [disabled]="linkingId != null"
+        >
+          {{ linkingId === row.id ? 'Linking…' : 'Link here' }}
+        </button>
+      </article>
+    </div>
+
+    <p class="om-link-wh-empty-filter" *ngIf="!filteredRows.length && searchQuery.trim()">
+      No warehouses match your search.
+    </p>
+  </div>
+
+  <ng-template #emptyState>
+    <div class="om-link-wh-empty">
+      <mat-icon>inventory_2</mat-icon>
+      <p>Every warehouse is already allocated within this branch hierarchy, or you have none to link.</p>
+      <p class="om-link-wh-empty__hint">Create a new warehouse instead, or check the Products &amp; inventory workspace for locations assigned elsewhere.</p>
+    </div>
+  </ng-template>
+
+  <p class="lx-list-error" *ngIf="linkError">
+    <mat-icon>warning_amber</mat-icon>
+    {{ linkError }}
+  </p>
+
+  <div class="lx-dialog-actions">
+    <button type="button" class="lx-btn lx-btn-ghost" (click)="close()" [disabled]="linkingId != null">Close</button>
+  </div>
+</div>

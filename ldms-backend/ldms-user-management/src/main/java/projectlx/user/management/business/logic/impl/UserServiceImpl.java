@@ -250,6 +250,7 @@ public class UserServiceImpl implements UserService {
         User userToBeSaved = modelMapper.map(createUserRequest, User.class);
         applyOrganizationKycApproverFlag(userToBeSaved, createUserRequest);
         applyOperationalIssueHandlerFlag(userToBeSaved, createUserRequest);
+        applyProcurementApproverFlag(userToBeSaved, createUserRequest);
 
         if (createUserRequest.getUserTypeDetails() != null) {
 
@@ -727,6 +728,12 @@ public class UserServiceImpl implements UserService {
             return buildUserResponseWithErrors(400, false, message, null, null,
                     List.of(message));
         }
+        if (Boolean.TRUE.equals(resolveBooleanFormFlag(editUserRequest.getProcurementApprover()))
+                && organizationWorkspaceAccessSupport.effectiveOrganizationId(userToBeEdited).isEmpty()) {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_CREATE_USER_PROCUREMENT_APPROVER_REQUIRES_ORG.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
+        }
         String normalizedNewEmail = editUserRequest.getEmail() != null
                 ? editUserRequest.getEmail().trim().toLowerCase(Locale.ROOT)
                 : "";
@@ -797,6 +804,7 @@ public class UserServiceImpl implements UserService {
         }
         applyOrganizationKycApproverFlagOnUpdate(userToBeEdited, editUserRequest);
         applyOperationalIssueHandlerFlagOnUpdate(userToBeEdited, editUserRequest);
+        applyProcurementApproverFlagOnUpdate(userToBeEdited, editUserRequest);
 
         User userEdited = userServiceAuditable.update(userToBeEdited, locale, username);
         applyUserAddressOnUpdate(userEdited, editUserRequest, locale, username);
@@ -1682,6 +1690,80 @@ public class UserServiceImpl implements UserService {
 
     @Override
     @Transactional(readOnly = true)
+    public UserResponse listProcurementApprovers(Locale locale, String username) {
+        Optional<Long> organizationId = organizationWorkspaceAccessSupport.sessionOrganizationId(username);
+        if (organizationId.isEmpty()) {
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_CREATE_USER_PROCUREMENT_APPROVER_REQUIRES_ORG.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
+        }
+        List<User> approvers = userRepository.findProcurementApproversByOrganizationWorkspace(
+                organizationId.get(), EntityStatus.DELETED);
+        List<UserDto> dtos = new ArrayList<>();
+        for (User user : approvers) {
+            dtos.add(toUserDto(user));
+        }
+        String message = messageService.getMessage(
+                I18Code.MESSAGE_PROCUREMENT_APPROVERS_RETRIEVED.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, null, dtos, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse findFleetManagersByOrganization(Long organizationId, Locale locale) {
+        if (organizationId == null) {
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_USER_ID_SUPPLIED_INVALID.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+        List<String> fleetManagerRoles = List.of(
+                "ALLOCATE_SHIPMENT", "VIEW_FLEET_DRIVERS", "ORGANIZATION_ADMINISTRATOR");
+        List<User> managers = userRepository.findFleetManagersByOrganizationWorkspace(
+                organizationId, fleetManagerRoles, EntityStatus.DELETED);
+        List<UserDto> dtos = new ArrayList<>();
+        for (User user : managers) {
+            dtos.add(toUserDto(user));
+        }
+        String message = messageService.getMessage(
+                I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, null, dtos, null);
+    }
+
+    @Override
+    public UserResponse setProcurementApprover(Long id, boolean enabled, Locale locale, String username) {
+        ValidatorDto validation = userServiceValidator.isIdValid(id, locale);
+        if (!validation.getSuccess()) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_ID_SUPPLIED_INVALID.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, validation.getErrorMessages());
+        }
+        User user = userRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElse(null);
+        if (user == null) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(404, false, message, null, null, null);
+        }
+        if (!organizationWorkspaceAccessSupport.canReadUser(username, id)) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(404, false, message, null, null, null);
+        }
+        Optional<Long> targetOrg = organizationWorkspaceAccessSupport.effectiveOrganizationId(user);
+        if (enabled && targetOrg.isEmpty()) {
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_CREATE_USER_PROCUREMENT_APPROVER_REQUIRES_ORG.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
+        }
+        if (targetOrg.isPresent()
+                && !organizationWorkspaceAccessSupport.canReadOrganization(username, targetOrg.get())) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(404, false, message, null, null, null);
+        }
+        user.setProcurementApprover(enabled);
+        User saved = userServiceAuditable.update(user, locale, username);
+        String message = messageService.getMessage(I18Code.MESSAGE_USER_UPDATED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, toUserDto(saved), null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale) {
 
         String message = "";
@@ -2539,6 +2621,12 @@ public class UserServiceImpl implements UserService {
         user.setOperationalIssueHandler(handler);
     }
 
+    private void applyProcurementApproverFlag(User user, CreateUserRequest request) {
+        boolean approver = Boolean.TRUE.equals(request.getProcurementApprover())
+                && request.getOrganizationId() != null;
+        user.setProcurementApprover(approver);
+    }
+
     private void applyOrganizationKycApproverFlagOnUpdate(User user, EditUserRequest request) {
         Boolean flag = resolveOrganizationKycApproverFlag(request.getOrganizationKycApprover());
         if (flag == null) {
@@ -2559,6 +2647,16 @@ public class UserServiceImpl implements UserService {
                 && user.getOrganizationId() == null
                 && user.getBranchId() == null;
         user.setOperationalIssueHandler(handler);
+    }
+
+    private void applyProcurementApproverFlagOnUpdate(User user, EditUserRequest request) {
+        Boolean flag = resolveBooleanFormFlag(request.getProcurementApprover());
+        if (flag == null) {
+            return;
+        }
+        boolean approver = Boolean.TRUE.equals(flag)
+                && organizationWorkspaceAccessSupport.effectiveOrganizationId(user).isPresent();
+        user.setProcurementApprover(approver);
     }
 
     private Boolean resolveOrganizationKycApproverFlag(String raw) {
@@ -2601,6 +2699,7 @@ public class UserServiceImpl implements UserService {
         UserDto dto = modelMapper.map(user, UserDto.class);
         dto.setOrganizationKycApprover(user.isOrganizationKycApprover());
         dto.setOperationalIssueHandler(user.isOperationalIssueHandler());
+        dto.setProcurementApprover(user.isProcurementApprover());
         dto.setPhoneVerificationDue(phoneVerificationSupport.isPhoneVerificationDue(user));
         dto.setSmsDeliveryEnabled(phoneVerificationSupport.isSmsDeliveryEnabled());
         return dto;

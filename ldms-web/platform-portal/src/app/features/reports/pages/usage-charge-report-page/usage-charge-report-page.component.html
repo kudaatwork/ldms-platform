@@ -7,7 +7,49 @@
     lead="Review platform action usage for your organisation — charges deducted on prepaid wallet or tracked on subscription. Filter by trip, season, or date range."
     hubIcon="bar_chart"
     [orbitIcons]="['trip_origin', 'calendar_month', 'payments']"
-  ></lx-workspace-hero>
+  >
+    <div lxWorkspaceHeroActions class="usage-report-hero-actions">
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="loadReport()" [disabled]="loading">
+        {{ loading ? 'Running…' : 'Refresh' }}
+      </button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-ghost lx-btn-sm"
+        (click)="exportCsv()"
+        [disabled]="!report?.records?.length || exporting"
+      >
+        {{ exporting ? 'Exporting…' : 'Export CSV' }}
+      </button>
+      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm lx-ws-hero__btn--accent" (click)="loadReport()" [disabled]="loading">
+        Run report
+      </button>
+    </div>
+
+    <lx-workspace-hero-stat
+      [value]="report ? formatMoney(report.totalChargeCents) : '—'"
+      label="Total usage"
+      icon="receipt_long"
+      theme="violet"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      [value]="report ? formatMoney(report.deductedChargeCents) : '—'"
+      label="Deducted"
+      icon="account_balance_wallet"
+      theme="teal"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      [value]="report ? totalEvents : '—'"
+      label="Charge events"
+      icon="bolt"
+      theme="amber"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      [value]="report ? deductionRateLabel : '—'"
+      label="Deduction rate"
+      icon="percent"
+      theme="mint"
+    ></lx-workspace-hero-stat>
+  </lx-workspace-hero>
 
   <div class="lx-card lx-card--subsection usage-report-controls">
     <div class="lx-controls-head">
@@ -36,18 +78,7 @@
     </p>
 
     <div class="lx-data-toolbar">
-      <div class="lx-data-toolbar__actions">
-        <button type="button" class="lx-btn lx-btn-ghost" (click)="loadReport()" [disabled]="loading">
-          {{ loading ? 'Running…' : 'Refresh' }}
-        </button>
-        <button type="button" class="lx-btn lx-btn-success" (click)="exportCsv()" [disabled]="!report?.records?.length || exporting">
-          {{ exporting ? 'Exporting…' : 'Export CSV' }}
-        </button>
-        <button type="button" class="lx-btn lx-btn-primary" (click)="loadReport()" [disabled]="loading">
-          Run report
-        </button>
-      </div>
-      <div class="lx-data-toolbar__search">
+      <div class="lx-data-toolbar__search usage-report-toolbar__search">
         <div class="lx-input-shell lx-search-field">
           <mat-icon class="lx-input-shell__icon">search</mat-icon>
           <input
@@ -64,8 +95,21 @@
         >
           <mat-icon>tune</mat-icon>
           Filters
+          <span class="usage-report-filter-dot" *ngIf="hasActiveFilters"></span>
         </button>
       </div>
+    </div>
+
+    <div class="usage-report-active-filters" *ngIf="hasActiveFilters && !filterFieldsOpen">
+      <span class="usage-report-active-filters__label">Active</span>
+      <span class="usage-report-chip" *ngIf="tripIdInput.trim()">Trip #{{ tripIdInput }}</span>
+      <span class="usage-report-chip" *ngIf="seasonIdInput.trim()">Season #{{ seasonIdInput }}</span>
+      <span class="usage-report-chip" *ngIf="from">From {{ from }}</span>
+      <span class="usage-report-chip" *ngIf="to">To {{ to }}</span>
+      <span class="usage-report-chip" *ngIf="actionFilter.trim()">{{ actionFilter }}</span>
+      <span class="usage-report-chip" *ngIf="deductedFilter === 'yes'">Deducted only</span>
+      <span class="usage-report-chip" *ngIf="deductedFilter === 'no'">Tracked only</span>
+      <button type="button" class="usage-report-chip usage-report-chip--clear" (click)="clearFilters()">Clear all</button>
     </div>
 
     <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
@@ -127,88 +171,134 @@
 
   <lx-inline-busy *ngIf="loading && !report" message="Building usage report…" />
 
-  <p class="usage-report-error lx-card" *ngIf="error" role="alert">
+  <div class="usage-report-error lx-card" *ngIf="error" role="alert">
     <mat-icon>error_outline</mat-icon>
-    {{ error }}
-  </p>
+    <div>
+      <strong>Report unavailable</strong>
+      <p>{{ error }}</p>
+    </div>
+  </div>
 
   <ng-container *ngIf="report">
-    <section class="usage-report-kpis">
-      <article class="usage-report-kpi lx-card" [class.usage-report-kpi--mode]="true">
-        <span class="usage-report-kpi__icon"><mat-icon>account_balance_wallet</mat-icon></span>
-        <div>
-          <span class="usage-report-kpi__label">Billing mode</span>
-          <strong>{{ billingModeLabel }}</strong>
-        </div>
-      </article>
-      <article class="usage-report-kpi lx-card">
-        <span class="usage-report-kpi__icon usage-report-kpi__icon--primary"><mat-icon>receipt_long</mat-icon></span>
-        <div>
-          <span class="usage-report-kpi__label">Total chargeable usage</span>
-          <strong>{{ formatMoney(report.totalChargeCents) }}</strong>
-        </div>
-      </article>
-      <article class="usage-report-kpi lx-card">
-        <span class="usage-report-kpi__icon usage-report-kpi__icon--success"><mat-icon>check_circle</mat-icon></span>
-        <div>
-          <span class="usage-report-kpi__label">Actually deducted</span>
-          <strong>{{ formatMoney(report.deductedChargeCents) }}</strong>
-        </div>
-      </article>
-      <article class="usage-report-kpi lx-card">
-        <span class="usage-report-kpi__icon usage-report-kpi__icon--muted"><mat-icon>insights</mat-icon></span>
-        <div>
-          <span class="usage-report-kpi__label">Hypothetical (all actions)</span>
-          <strong>{{ formatMoney(report.hypotheticalChargeCents) }}</strong>
-        </div>
-      </article>
-    </section>
+    <div class="usage-report-insights lx-card" [class.usage-report-insights--sub]="isSubscription">
+      <div class="usage-report-insights__main">
+        <span class="usage-report-insights__period">
+          <mat-icon>date_range</mat-icon>
+          {{ periodLabel }}
+        </span>
+        <span class="usage-report-pill" [class.usage-report-pill--sub]="isSubscription">
+          <mat-icon>{{ isSubscription ? 'workspace_premium' : 'account_balance_wallet' }}</mat-icon>
+          {{ billingModeLabel }}
+        </span>
+      </div>
+      <p class="usage-report-insights__copy" *ngIf="isSubscription">
+        Usage is logged for transparency — no per-action wallet deductions on your subscription plan.
+      </p>
+      <p class="usage-report-insights__copy" *ngIf="!isSubscription">
+        {{ formatMoney(report.deductedChargeCents) }} of {{ formatMoney(report.totalChargeCents) }} was deducted from your prepaid wallet in this period.
+      </p>
+    </div>
 
     <section class="usage-report-charts">
-      <article class="usage-report-chart lx-card">
+      <article class="usage-report-chart lx-card usage-report-chart--daily">
         <header class="usage-report-chart__head">
           <div>
+            <p class="usage-report-chart__eyebrow">Trend</p>
             <h2>Daily usage</h2>
             <p>Charge volume by day in your selected period</p>
           </div>
+          <span class="usage-report-chart__badge">{{ report.dailyLabels?.length ?? 0 }} days</span>
         </header>
-        <div class="usage-report-chart__bars" *ngIf="report.dailyTotalsCents?.length; else emptyDaily">
-          <div
-            class="usage-report-chart__bar"
-            *ngFor="let v of report.dailyTotalsCents; let i = index"
-            [style.height.%]="chartBarHeight(v, report.dailyTotalsCents)"
-            [attr.title]="(report.dailyLabels?.[i] ?? '') + ': ' + formatMoney(v)"
-          ></div>
+        <div class="usage-report-chart__canvas" *ngIf="report.dailyTotalsCents?.length; else emptyDaily">
+          <div class="usage-report-chart__bars">
+            <div
+              class="usage-report-chart__bar-col"
+              *ngFor="let v of report.dailyTotalsCents; let i = index"
+              [style.--bar-height.%]="chartBarHeight(v, report.dailyTotalsCents)"
+              [style.--bar-delay.ms]="i * 18"
+            >
+              <span class="usage-report-chart__tooltip">{{ report.dailyLabels?.[i] }} · {{ formatMoney(v) }}</span>
+              <div class="usage-report-chart__bar"></div>
+              <span class="usage-report-chart__bar-label">{{ formatChartDay(report.dailyLabels?.[i], i) }}</span>
+            </div>
+          </div>
         </div>
         <ng-template #emptyDaily>
-          <div class="usage-report-chart__empty">No daily totals for this period.</div>
+          <div class="usage-report-chart__empty">
+            <mat-icon>show_chart</mat-icon>
+            <span>No daily totals for this period.</span>
+          </div>
         </ng-template>
-        <div class="usage-report-chart__labels" *ngIf="report.dailyLabels?.length">
-          <span *ngFor="let label of report.dailyLabels">{{ label | slice:5 }}</span>
-        </div>
       </article>
 
-      <article class="usage-report-chart lx-card">
+      <article class="usage-report-chart lx-card usage-report-chart--mix">
         <header class="usage-report-chart__head">
           <div>
+            <p class="usage-report-chart__eyebrow">Composition</p>
             <h2>By action type</h2>
-            <p>Breakdown of chargeable events</p>
+            <p>Where your platform usage spend concentrates</p>
           </div>
+          <span class="usage-report-chart__badge">{{ report.breakdown?.length ?? 0 }} actions</span>
         </header>
-        <div class="usage-report-donut-wrap" *ngIf="report.breakdown?.length; else emptyBreakdown">
-          <div class="usage-report-donut" [style.background]="donutGradient()"></div>
+        <div class="usage-report-mix" *ngIf="report.breakdown?.length; else emptyBreakdown">
+          <div class="usage-report-donut-wrap">
+            <div class="usage-report-donut-ring">
+              <div class="usage-report-donut" [style.background]="donutGradient()"></div>
+              <div class="usage-report-donut__center">
+                <strong>{{ formatMoney(report.totalChargeCents) }}</strong>
+                <span>Total</span>
+              </div>
+            </div>
+          </div>
           <ul class="usage-report-legend">
             <li *ngFor="let row of report.breakdown; let i = index">
               <span class="usage-report-legend__dot" [style.background]="legendColor(i)"></span>
-              <span class="usage-report-legend__name">{{ row.actionDisplayName || row.actionCode }}</span>
-              <span class="usage-report-legend__meta">{{ formatMoney(row.totalChargeCents) }} · {{ row.eventCount }} events</span>
+              <div class="usage-report-legend__body">
+                <div class="usage-report-legend__row">
+                  <span class="usage-report-legend__name">{{ row.actionDisplayName || row.actionCode }}</span>
+                  <span class="usage-report-legend__meta">{{ formatMoney(row.totalChargeCents) }}</span>
+                </div>
+                <div class="usage-report-legend__track">
+                  <div
+                    class="usage-report-legend__fill"
+                    [style.width.%]="breakdownShare(row.totalChargeCents)"
+                    [style.background]="legendColor(i)"
+                  ></div>
+                </div>
+                <span class="usage-report-legend__count">{{ row.eventCount }} events · {{ breakdownShare(row.totalChargeCents) }}%</span>
+              </div>
             </li>
           </ul>
         </div>
         <ng-template #emptyBreakdown>
-          <div class="usage-report-chart__empty">No action breakdown yet.</div>
+          <div class="usage-report-chart__empty">
+            <mat-icon>donut_large</mat-icon>
+            <span>No action breakdown yet — run platform actions to populate this view.</span>
+          </div>
         </ng-template>
       </article>
+    </section>
+
+    <section class="usage-report-spotlight" *ngIf="topBreakdown().length">
+      <h3 class="usage-report-spotlight__title">Top drivers</h3>
+      <div class="usage-report-spotlight__grid">
+        <article
+          class="usage-report-spotlight__card lx-card"
+          *ngFor="let row of topBreakdown(); let i = index"
+          [style.--spot-accent]="legendColor(i)"
+        >
+          <span class="usage-report-spotlight__rank">#{{ i + 1 }}</span>
+          <mat-icon class="usage-report-spotlight__icon">{{ actionIcon(row.actionCode) }}</mat-icon>
+          <div class="usage-report-spotlight__text">
+            <strong>{{ row.actionDisplayName || row.actionCode }}</strong>
+            <code>{{ row.actionCode }}</code>
+          </div>
+          <div class="usage-report-spotlight__stat">
+            <span>{{ formatMoney(row.totalChargeCents) }}</span>
+            <small>{{ row.eventCount }} events</small>
+          </div>
+        </article>
+      </div>
     </section>
   </ng-container>
 
@@ -230,24 +320,34 @@
         <table mat-table [dataSource]="filteredRecords" class="lx-mat-table usage-report-table__grid">
           <ng-container matColumnDef="time">
             <th mat-header-cell *matHeaderCellDef>Time</th>
-            <td mat-cell *matCellDef="let row">{{ row.createdAt || '—' }}</td>
+            <td mat-cell *matCellDef="let row">{{ formatRowTime(row.createdAt) }}</td>
           </ng-container>
           <ng-container matColumnDef="action">
             <th mat-header-cell *matHeaderCellDef>Action</th>
             <td mat-cell *matCellDef="let row">
-              <strong>{{ row.actionDisplayName || row.actionCode }}</strong>
-              <code class="usage-report-table__code">{{ row.actionCode }}</code>
+              <div class="usage-report-action-cell">
+                <span class="usage-report-action-cell__icon" [attr.data-code]="row.actionCode">
+                  <mat-icon>{{ actionIcon(row.actionCode) }}</mat-icon>
+                </span>
+                <div>
+                  <strong>{{ row.actionDisplayName || row.actionCode }}</strong>
+                  <code class="usage-report-table__code">{{ row.actionCode }}</code>
+                </div>
+              </div>
             </td>
           </ng-container>
           <ng-container matColumnDef="charge">
             <th mat-header-cell *matHeaderCellDef>Charge</th>
-            <td mat-cell *matCellDef="let row">{{ formatMoney(row.chargeCents) }}</td>
+            <td mat-cell *matCellDef="let row">
+              <span class="usage-report-charge">{{ formatMoney(row.chargeCents) }}</span>
+            </td>
           </ng-container>
           <ng-container matColumnDef="deducted">
             <th mat-header-cell *matHeaderCellDef>Deducted</th>
             <td mat-cell *matCellDef="let row">
-              <span class="lx-status" [ngClass]="row.deducted ? 'lx-status-active' : 'lx-status-pending'">
-                {{ row.deducted ? 'Deducted' : 'Tracked only' }}
+              <span class="usage-report-status" [class.usage-report-status--yes]="row.deducted" [class.usage-report-status--no]="!row.deducted">
+                <mat-icon>{{ row.deducted ? 'check_circle' : 'visibility' }}</mat-icon>
+                {{ row.deducted ? 'Deducted' : 'Tracked' }}
               </span>
             </td>
           </ng-container>
@@ -261,14 +361,16 @@
           </ng-container>
 
           <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-          <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns" class="usage-report-row"></tr>
         </table>
       </div>
     </ng-container>
 
     <ng-template #emptyTable>
-      <div class="lx-empty lx-empty--compact">
-        <mat-icon class="lx-empty-icon">search_off</mat-icon>
+      <div class="lx-empty lx-empty--compact usage-report-empty">
+        <div class="usage-report-empty__icon-wrap">
+          <mat-icon class="lx-empty-icon">analytics</mat-icon>
+        </div>
         <div class="lx-empty-title">{{ report.records?.length ? 'No matching line items' : 'No usage records yet' }}</div>
         <div class="lx-empty-sub">
           {{ report.records?.length ? 'Adjust search or filters.' : 'Run the report after platform actions occur.' }}

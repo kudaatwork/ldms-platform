@@ -20,7 +20,14 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long>,
 
     Optional<Shipment> findByInventoryTransferIdAndEntityStatusNot(Long inventoryTransferId, EntityStatus entityStatus);
 
+    Optional<Shipment> findBySalesOrderIdAndEntityStatusNot(Long salesOrderId, EntityStatus entityStatus);
+
     List<Shipment> findByOrganizationIdAndEntityStatusNotOrderByIdDesc(Long organizationId, EntityStatus entityStatus);
 
+    List<Shipment> findByTransportCompanyOrganizationIdAndEntityStatusNotOrderByIdDesc(
+            Long transportCompanyOrganizationId, EntityStatus entityStatus);
+
     boolean existsByInventoryTransferIdAndEntityStatusNot(Long inventoryTransferId, EntityStatus entityStatus);
+
+    boolean existsBySalesOrderIdAndEntityStatusNot(Long salesOrderId, EntityStatus entityStatus);
 }

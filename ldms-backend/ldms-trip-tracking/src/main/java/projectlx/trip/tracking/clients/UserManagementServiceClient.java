@@ -10,7 +10,7 @@ import java.util.Locale;
 
 public interface UserManagementServiceClient {
 
-    @GetMapping("/ldms-user-management/v1/system/user/find-session-profile/{username}")
+    @GetMapping("/ldms-user-management/v1/system/user/session-profile-by-username/{username}")
     UserResponse findSessionProfileByUsername(
             @PathVariable("username") String username,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
@@ -18,4 +18,14 @@ public interface UserManagementServiceClient {
     default UserResponse findSessionProfileByUsername(String username) {
         return findSessionProfileByUsername(username, Locale.ENGLISH);
     }
+
+    @GetMapping("/ldms-user-management/v1/system/user/find-by-id/{id}")
+    UserResponse findById(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
+
+    @GetMapping("/ldms-user-management/v1/system/user/fleet-managers-by-organization/{organizationId}")
+    UserResponse findFleetManagersByOrganization(
+            @PathVariable("organizationId") Long organizationId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
 }

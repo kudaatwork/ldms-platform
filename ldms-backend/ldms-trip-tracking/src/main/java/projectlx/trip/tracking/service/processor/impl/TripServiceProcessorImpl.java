@@ -33,6 +33,14 @@ public class TripServiceProcessorImpl implements TripServiceProcessor {
     }
 
     @Override
+    public TripResponse recordSystemEvent(RecordTripEventRequest request, Locale locale) {
+        log.info("Processing system record trip event for trip {} event={}",
+                request != null ? request.getTripId() : null,
+                request != null ? request.getEventType() : null);
+        return tripService.recordSystemEvent(request, locale);
+    }
+
+    @Override
     public TripResponse recordLocation(RecordLocationRequest request, Locale locale, String username) {
         log.info("Processing record location for trip {} by user {}", request != null ? request.getTripId() : null, username);
         return tripService.recordLocation(request, locale, username);

@@ -8,6 +8,7 @@ import projectlx.fleet.management.business.auditable.api.FleetAssetServiceAudita
 import projectlx.fleet.management.business.auditable.api.FleetComplianceRecordServiceAuditable;
 import projectlx.fleet.management.business.logic.api.FleetAssetService;
 import projectlx.fleet.management.business.logic.support.CallerOrganizationResolver;
+import projectlx.fleet.management.business.logic.support.ComplianceStatusResolver;
 import projectlx.fleet.management.business.logic.support.FleetAssetRegistrationNotificationSupport;
 import projectlx.fleet.management.business.logic.support.FleetFileUploadHelper;
 import projectlx.fleet.management.business.logic.support.FleetMapper;
@@ -15,8 +16,9 @@ import projectlx.fleet.management.business.logic.support.FleetOwnershipValidatio
 import projectlx.fleet.management.business.validator.api.FleetAssetServiceValidator;
 import projectlx.fleet.management.model.FleetAsset;
 import projectlx.fleet.management.model.FleetComplianceRecord;
+import projectlx.fleet.management.model.FleetDriver;
 import projectlx.fleet.management.repository.FleetAssetRepository;
-import projectlx.fleet.management.utils.enums.ComplianceStatus;
+import projectlx.fleet.management.repository.FleetDriverRepository;
 import projectlx.fleet.management.utils.enums.ComplianceSubjectType;
 import projectlx.fleet.management.utils.enums.ComplianceType;
 import projectlx.fleet.management.utils.enums.FleetAssetStatus;
@@ -35,7 +37,9 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -54,6 +58,8 @@ public class FleetAssetServiceImpl implements FleetAssetService {
     private final FleetFileUploadHelper fleetFileUploadHelper;
     private final MessageService messageService;
     private final FleetAssetServiceAuditable fleetAssetServiceAuditable;
+    private final FleetDriverRepository fleetDriverRepository;
+    private final int defaultExpiringSoonDays;
 
     @Override
     @Transactional(readOnly = true)
@@ -99,7 +105,8 @@ public class FleetAssetServiceImpl implements FleetAssetService {
         // STEP 3: Validate ownership eligibility against org-management
         // ============================================================
         String ownershipError = fleetOwnershipValidationSupport.validateOwnership(
-                organizationId, request.getOwnershipType(), request.getContractedTransporterOrganizationId());
+                organizationId, request.getOwnershipType(), request.getContractedTransporterOrganizationId(),
+                request.getContractScope(), request.getContractStartDate(), request.getContractEndDate());
         if (ownershipError != null) {
             return errorResponse(400,
                     messageService.getMessage(I18Code.MESSAGE_ASSET_OWNERSHIP_VALIDATION_FAILED.getCode(),
@@ -160,6 +167,15 @@ public class FleetAssetServiceImpl implements FleetAssetService {
                     new String[]{}, locale));
         }
 
+        String ownershipError = fleetOwnershipValidationSupport.validateOwnership(
+                organizationId, request.getOwnershipType(), request.getContractedTransporterOrganizationId(),
+                request.getContractScope(), request.getContractStartDate(), request.getContractEndDate());
+        if (ownershipError != null) {
+            return errorResponse(400,
+                    messageService.getMessage(I18Code.MESSAGE_ASSET_OWNERSHIP_VALIDATION_FAILED.getCode(),
+                            new String[]{}, locale));
+        }
+
         // ============================================================
         // STEP 3: Apply changes and persist via auditable
         // ============================================================
@@ -217,18 +233,7 @@ public class FleetAssetServiceImpl implements FleetAssetService {
                                                     String username) {
 
         // ============================================================
-        // STEP 1: Validate the request
-        // ============================================================
-        ValidatorDto validation = fleetAssetServiceValidator.isCompleteRegistrationRequestValid(request, locale);
-        if (!validation.getSuccess()) {
-            return errorResponse(400,
-                    messageService.getMessage(I18Code.MESSAGE_ASSET_COMPLETE_REGISTRATION_INVALID.getCode(),
-                            new String[]{}, locale),
-                    validation.getErrorMessages());
-        }
-
-        // ============================================================
-        // STEP 2: Resolve caller organisation and load asset
+        // STEP 1: Resolve caller organisation and load asset
         // ============================================================
         Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
         if (organizationId == null) {
@@ -241,6 +246,17 @@ public class FleetAssetServiceImpl implements FleetAssetService {
         if (asset == null) {
             return errorResponse(404, messageService.getMessage(I18Code.MESSAGE_ASSET_NOT_FOUND.getCode(),
                     new String[]{}, locale));
+        }
+
+        // ============================================================
+        // STEP 2: Validate the request against asset context
+        // ============================================================
+        ValidatorDto validation = fleetAssetServiceValidator.isCompleteRegistrationRequestValid(request, asset, locale);
+        if (!validation.getSuccess()) {
+            return errorResponse(400,
+                    messageService.getMessage(I18Code.MESSAGE_ASSET_COMPLETE_REGISTRATION_INVALID.getCode(),
+                            new String[]{}, locale),
+                    validation.getErrorMessages());
         }
 
         // ============================================================
@@ -274,8 +290,10 @@ public class FleetAssetServiceImpl implements FleetAssetService {
             record.setSubjectId(asset.getId());
             record.setComplianceType(complianceType);
             record.setFileUploadId(doc.getFileUploadId());
-            record.setExpiresAt(doc.getExpiresAt());
-            record.setStatus(ComplianceStatus.VALID);
+            LocalDateTime expiresAt = fleetFileUploadHelper.resolveExpiresAt(doc.getExpiresAt(), doc.getFileUploadId());
+            record.setExpiresAt(expiresAt);
+            record.setStatus(ComplianceStatusResolver.resolve(
+                    expiresAt, doc.getFileUploadId(), defaultExpiringSoonDays));
             record.setEntityStatus(EntityStatus.ACTIVE);
             record.setCreatedAt(now);
             record.setCreatedBy(username);
@@ -309,19 +327,25 @@ public class FleetAssetServiceImpl implements FleetAssetService {
 
     private void mapRequestToEntity(CreateFleetAssetRequest request, FleetAsset asset) {
         applyAssetFields(request.getAssetType(), request.getOwnershipType(), request.getContractedTransporterOrganizationId(),
-                request.getRegistration(), request.getMakeModel(), request.getStatus(), request.getDriverName(),
-                request.getUtilizationPct(), request.getContractScope(), request.getJobReference(), asset);
+                request.getRegistration(), request.getMakeModel(), request.getStatus(),
+                request.getDriverName(), request.getFleetDriverId(),
+                request.getUtilizationPct(), request.getContractScope(), request.getJobReference(),
+                request.getContractStartDate(), request.getContractEndDate(), asset);
     }
 
     private void mapEditRequestToEntity(EditFleetAssetRequest request, FleetAsset asset) {
         applyAssetFields(request.getAssetType(), request.getOwnershipType(), request.getContractedTransporterOrganizationId(),
-                request.getRegistration(), request.getMakeModel(), request.getStatus(), request.getDriverName(),
-                request.getUtilizationPct(), request.getContractScope(), request.getJobReference(), asset);
+                request.getRegistration(), request.getMakeModel(), request.getStatus(),
+                request.getDriverName(), request.getFleetDriverId(),
+                request.getUtilizationPct(), request.getContractScope(), request.getJobReference(),
+                request.getContractStartDate(), request.getContractEndDate(), asset);
     }
 
     private void applyAssetFields(String assetType, String ownershipType, Long contractedTransporterOrganizationId,
                                   String registration, String makeModel, String status, String driverName,
+                                  Long fleetDriverId,
                                   BigDecimal utilizationPct, String contractScope, String jobReference,
+                                  String contractStartDateRaw, String contractEndDateRaw,
                                   FleetAsset asset) {
         asset.setAssetType(FleetAssetType.valueOf(assetType.trim().toUpperCase()));
         asset.setOwnershipType(FleetOwnershipType.valueOf(ownershipType.trim().toUpperCase()));
@@ -331,7 +355,7 @@ public class FleetAssetServiceImpl implements FleetAssetService {
         if (status != null && !status.isBlank()) {
             asset.setStatus(FleetAssetStatus.valueOf(status.trim().toUpperCase()));
         }
-        asset.setDriverName(driverName);
+        resolveDriverAssignment(asset, fleetDriverId, driverName);
         asset.setUtilizationPct(utilizationPct != null ? utilizationPct : BigDecimal.ZERO);
         if (contractScope != null && !contractScope.isBlank()) {
             asset.setContractScope(FleetContractScope.valueOf(contractScope.trim().toUpperCase()));
@@ -339,6 +363,60 @@ public class FleetAssetServiceImpl implements FleetAssetService {
             asset.setContractScope(FleetContractScope.LONG_TERM);
         }
         asset.setJobReference(jobReference);
+
+        boolean longTermContracted = asset.getOwnershipType() == FleetOwnershipType.CONTRACTED
+                && asset.getContractScope() == FleetContractScope.LONG_TERM;
+        if (longTermContracted) {
+            asset.setContractStartDate(parseContractDate(contractStartDateRaw));
+            asset.setContractEndDate(parseContractDate(contractEndDateRaw));
+        } else {
+            asset.setContractStartDate(null);
+            asset.setContractEndDate(null);
+        }
+    }
+
+    private void resolveDriverAssignment(FleetAsset asset, Long fleetDriverId, String driverNameFallback) {
+        if (fleetDriverId == null || fleetDriverId < 1) {
+            if (driverNameFallback != null && !driverNameFallback.isBlank()) {
+                asset.setDriverName(driverNameFallback.trim());
+            } else {
+                asset.setDriverName(null);
+            }
+            asset.setFleetDriverId(null);
+            return;
+        }
+        FleetDriver driver = fleetDriverRepository.findByIdForReadOnly(fleetDriverId, EntityStatus.DELETED).orElse(null);
+        if (driver == null) {
+            asset.setFleetDriverId(null);
+            if (driverNameFallback != null && !driverNameFallback.isBlank()) {
+                asset.setDriverName(driverNameFallback.trim());
+            }
+            return;
+        }
+        Long assetOrg = asset.getOrganizationId();
+        Long transporterOrg = asset.getContractedTransporterOrganizationId();
+        Long driverOrg = driver.getOrganizationId();
+        boolean allowed = driverOrg.equals(assetOrg)
+                || (asset.getOwnershipType() == FleetOwnershipType.CONTRACTED
+                && transporterOrg != null
+                && driverOrg.equals(transporterOrg));
+        if (!allowed) {
+            asset.setFleetDriverId(null);
+            return;
+        }
+        asset.setFleetDriverId(driver.getId());
+        asset.setDriverName((driver.getFirstName() + " " + driver.getLastName()).trim());
+    }
+
+    private LocalDate parseContractDate(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(raw.trim());
+        } catch (DateTimeParseException ex) {
+            return null;
+        }
     }
 
     private FleetAssetResponse successResponse(int statusCode, String message) {

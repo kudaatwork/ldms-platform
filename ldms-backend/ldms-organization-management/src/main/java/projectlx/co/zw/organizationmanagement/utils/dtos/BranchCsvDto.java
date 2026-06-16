@@ -35,4 +35,10 @@ public class BranchCsvDto {
 
     @CsvBindByName(column = "LOCATION ID")
     private String locationId;
+
+    @CsvBindByName(column = "PARENT BRANCH ID")
+    private String parentBranchId;
+
+    @CsvBindByName(column = "DEPOT")
+    private String depot;
 }

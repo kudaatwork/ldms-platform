@@ -1,6 +1,5 @@
 package projectlx.co.zw.notifications.business.validation.impl;
 
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import projectlx.co.zw.notifications.business.validation.api.NotificationProviderServiceValidator;
@@ -15,12 +14,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-@RequiredArgsConstructor
 public class NotificationProviderServiceValidatorImpl implements NotificationProviderServiceValidator {
 
     private final MessageService messageService;
     private static final Logger logger = LoggerFactory.getLogger(NotificationProviderServiceValidatorImpl.class);
     private final Channel channel;
+
+    public NotificationProviderServiceValidatorImpl(MessageService messageService, Channel channel) {
+        this.messageService = messageService;
+        this.channel = channel;
+    }
 
     @Override
     public ValidatorDto isValidForSending(NotificationRequest request, NotificationTemplate template, Locale locale) {

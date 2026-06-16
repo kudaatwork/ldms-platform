@@ -17,6 +17,8 @@ public class AddBranchRequest {
     private BigDecimal latitude;
     private BigDecimal longitude;
     private boolean headOffice;
+    private Long parentBranchId;
+    private Boolean depot;
     private String region;
     private String businessHours;
 }

@@ -3,8 +3,8 @@ package projectlx.co.zw.notifications.business.logic.impl;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.Message;
 import com.google.firebase.messaging.Notification;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 import projectlx.co.zw.notifications.business.logic.api.NotificationLogRecorder;
 import projectlx.co.zw.notifications.business.logic.api.NotificationProviderService;
@@ -14,13 +14,22 @@ import projectlx.co.zw.notifications.model.NotificationLog;
 import projectlx.co.zw.notifications.model.NotificationTemplate;
 import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 
-@Slf4j
-@RequiredArgsConstructor
 public class InAppNotificationProviderServiceImpl implements NotificationProviderService {
+
+    private static final Logger log = LoggerFactory.getLogger(InAppNotificationProviderServiceImpl.class);
 
     private final TemplateProcessorService templateProcessor;
     private final NotificationLogRecorder notificationLogRecorder;
     private final FirebaseMessaging firebaseMessaging;
+
+    public InAppNotificationProviderServiceImpl(
+            TemplateProcessorService templateProcessor,
+            NotificationLogRecorder notificationLogRecorder,
+            FirebaseMessaging firebaseMessaging) {
+        this.templateProcessor = templateProcessor;
+        this.notificationLogRecorder = notificationLogRecorder;
+        this.firebaseMessaging = firebaseMessaging;
+    }
 
     @Override
     public Channel getChannel() {

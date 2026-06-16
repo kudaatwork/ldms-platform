@@ -8,8 +8,10 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
 
@@ -88,6 +90,34 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     List<User> findByOperationalIssueHandlerTrueAndOrganizationIdIsNullAndEntityStatusNot(
             EntityStatus entityStatus);
+
+    @Query("""
+            SELECT DISTINCT u FROM User u
+            LEFT JOIN u.userGroup g
+            WHERE u.procurementApprover = true
+              AND u.entityStatus <> :excluded
+              AND (u.organizationId = :organizationId OR g.organizationId = :organizationId)
+            """)
+    List<User> findProcurementApproversByOrganizationWorkspace(
+            @Param("organizationId") Long organizationId,
+            @Param("excluded") EntityStatus excluded);
+
+    /**
+     * Users in an organisation workspace whose user group has at least one of the given roles.
+     * Used to resolve fleet-manager recipients for logistics lifecycle notifications.
+     */
+    @Query("""
+            SELECT DISTINCT u FROM User u
+            LEFT JOIN u.userGroup g
+            JOIN g.userRoles r
+            WHERE u.entityStatus <> :excluded
+              AND (u.organizationId = :organizationId OR g.organizationId = :organizationId)
+              AND r.role IN :roles
+            """)
+    List<User> findFleetManagersByOrganizationWorkspace(
+            @Param("organizationId") Long organizationId,
+            @Param("roles") Collection<String> roles,
+            @Param("excluded") EntityStatus excluded);
 
     /**
      * Returns {@code min( actual non-deleted user count for user type , 2 )}. Used so we only need to know {@code >= 2}

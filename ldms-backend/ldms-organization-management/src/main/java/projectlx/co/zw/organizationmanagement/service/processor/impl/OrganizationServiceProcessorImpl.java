@@ -105,6 +105,78 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     }
 
     @Override
+    public OrganizationResponse getBranchByIdForUser(Long branchId, Locale locale, String username) {
+        log.info("Incoming request: getBranchByIdForUser branchId={} user={}", branchId, username);
+        OrganizationResponse response = organizationService.getBranchByIdForUser(branchId, locale, username);
+        log.info("Outgoing response: getBranchByIdForUser success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse updateBranchForUser(
+            Long branchId, UpdateBranchRequest request, Locale locale, String username) {
+        log.info("Incoming request: updateBranchForUser branchId={} user={}", branchId, username);
+        OrganizationResponse response = organizationService.updateBranchForUser(branchId, request, locale, username);
+        log.info("Outgoing response: updateBranchForUser success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse deleteBranchForUser(Long branchId, Locale locale, String username) {
+        log.info("Incoming request: deleteBranchForUser branchId={} user={}", branchId, username);
+        OrganizationResponse response = organizationService.deleteBranchForUser(branchId, locale, username);
+        log.info("Outgoing response: deleteBranchForUser success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse findBranchesByMultipleFiltersForUser(
+            BranchMultipleFiltersRequest request, Locale locale, String username) {
+        log.info("Incoming request: findBranchesByMultipleFiltersForUser user={}", username);
+        OrganizationResponse response = organizationService.findBranchesByMultipleFiltersForUser(request, locale, username);
+        log.info("Outgoing response: findBranchesByMultipleFiltersForUser success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public List<BranchDto> listBranchesForExportForUser(
+            BranchMultipleFiltersRequest request, Locale locale, String username) {
+        return organizationService.listBranchesForExportForUser(request, locale, username);
+    }
+
+    @Override
+    public ImportSummary importBranchesFromCsvForUser(InputStream inputStream, Locale locale, String username)
+            throws IOException {
+        return organizationService.importBranchesFromCsvForUser(inputStream, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse listAgents(Locale locale, String username) {
+        log.info("Incoming request: listAgents user={}", username);
+        OrganizationResponse response = organizationService.listAgents(locale, username);
+        log.info("Outgoing response: listAgents success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse createAgentForUser(CreateAgentRequest request, Locale locale, String username) {
+        log.info("Incoming request: createAgentForUser user={}", username);
+        return organizationService.createAgentForUser(request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse updateAgentForUser(Long agentId, UpdateAgentRequest request, Locale locale, String username) {
+        log.info("Incoming request: updateAgentForUser agentId={} user={}", agentId, username);
+        return organizationService.updateAgentForUser(agentId, request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse deleteAgentForUser(Long agentId, Locale locale, String username) {
+        log.info("Incoming request: deleteAgentForUser agentId={} user={}", agentId, username);
+        return organizationService.deleteAgentForUser(agentId, locale, username);
+    }
+
+    @Override
     public OrganizationResponse listCustomers(Locale locale, String username) {
         log.info("Incoming request: listCustomers user={}", username);
         OrganizationResponse response = organizationService.listCustomers(locale, username);
@@ -521,6 +593,11 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     }
 
     @Override
+    public OrganizationResponse getHeadOfficeBranch(Long organizationId, Locale locale) {
+        return organizationService.getHeadOfficeBranch(organizationId, locale);
+    }
+
+    @Override
     public OrganizationResponse deleteBranch(Long id, Locale locale, String username) {
         return organizationService.deleteBranch(id, locale, username);
     }
@@ -668,6 +745,18 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
                 request != null ? request.getOwnershipType() : null);
         OrganizationResponse response = organizationService.validateFleetOwnership(request, locale);
         log.info("Outgoing response: validateFleetOwnership success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse validateTransporterAssignment(
+            projectlx.co.zw.organizationmanagement.utils.requests.ValidateTransporterAssignmentRequest request,
+            Locale locale) {
+        log.info("Incoming request: validateTransporterAssignment shipperOrgId={} transportCompanyOrgId={}",
+                request != null ? request.getShipperOrganizationId() : null,
+                request != null ? request.getTransportCompanyOrganizationId() : null);
+        OrganizationResponse response = organizationService.validateTransporterAssignment(request, locale);
+        log.info("Outgoing response: validateTransporterAssignment success={}", response.isSuccess());
         return response;
     }
 }

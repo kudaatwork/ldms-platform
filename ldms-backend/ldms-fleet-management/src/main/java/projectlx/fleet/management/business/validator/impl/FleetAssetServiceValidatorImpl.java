@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import projectlx.fleet.management.business.logic.support.FleetRequiredComplianceSupport;
 import projectlx.fleet.management.business.validator.api.FleetAssetServiceValidator;
+import projectlx.fleet.management.model.FleetAsset;
 import projectlx.fleet.management.utils.enums.ComplianceType;
 import projectlx.fleet.management.utils.enums.FleetAssetStatus;
 import projectlx.fleet.management.utils.enums.FleetAssetType;
@@ -23,6 +24,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 
 @RequiredArgsConstructor
 public class FleetAssetServiceValidatorImpl implements FleetAssetServiceValidator {
@@ -41,6 +44,7 @@ public class FleetAssetServiceValidatorImpl implements FleetAssetServiceValidato
         validateCommonFields(request.getAssetType(), request.getOwnershipType(), request.getRegistration(),
                 request.getMakeModel(), request.getStatus(), request.getContractedTransporterOrganizationId(),
                 request.getContractScope(), request.getJobReference(),
+                request.getContractStartDate(), request.getContractEndDate(),
                 errors, locale);
         return errors.isEmpty() ? new ValidatorDto(true, null, new ArrayList<>()) : new ValidatorDto(false, null, errors);
     }
@@ -59,16 +63,23 @@ public class FleetAssetServiceValidatorImpl implements FleetAssetServiceValidato
         validateCommonFields(request.getAssetType(), request.getOwnershipType(), request.getRegistration(),
                 request.getMakeModel(), request.getStatus(), request.getContractedTransporterOrganizationId(),
                 request.getContractScope(), request.getJobReference(),
+                request.getContractStartDate(), request.getContractEndDate(),
                 errors, locale);
         return errors.isEmpty() ? new ValidatorDto(true, null, new ArrayList<>()) : new ValidatorDto(false, null, errors);
     }
 
     @Override
-    public ValidatorDto isCompleteRegistrationRequestValid(CompleteFleetAssetRegistrationRequest request, Locale locale) {
+    public ValidatorDto isCompleteRegistrationRequestValid(CompleteFleetAssetRegistrationRequest request,
+                                                           FleetAsset asset,
+                                                           Locale locale) {
         List<String> errors = new ArrayList<>();
         if (request == null) {
             logger.info("Validation failed: complete registration request is null");
             errors.add(messageService.getMessage(I18Code.MESSAGE_REQUEST_NULL.getCode(), new String[]{}, locale));
+            return new ValidatorDto(false, null, errors);
+        }
+        if (asset == null) {
+            errors.add(messageService.getMessage(I18Code.MESSAGE_ASSET_NOT_FOUND.getCode(), new String[]{}, locale));
             return new ValidatorDto(false, null, errors);
         }
 
@@ -103,14 +114,10 @@ public class FleetAssetServiceValidatorImpl implements FleetAssetServiceValidato
                 errors.add(messageService.getMessage(
                         I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"fileUploadId"}, locale));
             }
-            if (doc.getExpiresAt() == null) {
-                errors.add(messageService.getMessage(
-                        I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"expiresAt"}, locale));
-            }
         }
 
-        // Verify all required compliance types were included
-        if (!provided.containsAll(FleetRequiredComplianceSupport.REQUIRED_TYPES)) {
+        Set<ComplianceType> required = FleetRequiredComplianceSupport.requiredForAsset(asset);
+        if (!provided.containsAll(required)) {
             errors.add(messageService.getMessage(
                     I18Code.MESSAGE_ASSET_MISSING_REQUIRED_DOCUMENTS.getCode(), new String[]{}, locale));
         }
@@ -121,6 +128,7 @@ public class FleetAssetServiceValidatorImpl implements FleetAssetServiceValidato
     private void validateCommonFields(String assetType, String ownershipType, String registration, String makeModel,
                                       String status, Long contractedTransporterOrganizationId,
                                       String contractScope, String jobReference,
+                                      String contractStartDate, String contractEndDate,
                                       List<String> errors, Locale locale) {
         if (assetType == null || assetType.isBlank()) {
             errors.add(messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"assetType"}, locale));
@@ -159,16 +167,47 @@ public class FleetAssetServiceValidatorImpl implements FleetAssetServiceValidato
             }
         }
         // Contract scope validation
+        FleetContractScope resolvedScope = FleetContractScope.LONG_TERM;
         if (contractScope != null && !contractScope.isBlank()) {
             try {
-                FleetContractScope parsed = FleetContractScope.valueOf(contractScope.trim().toUpperCase());
-                if (parsed == FleetContractScope.JOB && (jobReference == null || jobReference.isBlank())) {
+                resolvedScope = FleetContractScope.valueOf(contractScope.trim().toUpperCase());
+                if (resolvedScope == FleetContractScope.JOB && (jobReference == null || jobReference.isBlank())) {
                     errors.add(messageService.getMessage(
                             I18Code.MESSAGE_ASSET_JOB_REFERENCE_REQUIRED.getCode(), new String[]{}, locale));
                 }
             } catch (IllegalArgumentException ex) {
                 errors.add(messageService.getMessage(
                         I18Code.MESSAGE_ASSET_CONTRACT_SCOPE_INVALID.getCode(), new String[]{}, locale));
+            }
+        }
+
+        FleetOwnershipType resolvedOwnership = null;
+        if (ownershipType != null && !ownershipType.isBlank()) {
+            try {
+                resolvedOwnership = FleetOwnershipType.valueOf(ownershipType.trim().toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+                // handled above
+            }
+        }
+
+        if (resolvedOwnership == FleetOwnershipType.CONTRACTED && resolvedScope == FleetContractScope.LONG_TERM) {
+            if (contractStartDate == null || contractStartDate.isBlank()) {
+                errors.add(messageService.getMessage(
+                        I18Code.MESSAGE_ASSET_CONTRACT_START_REQUIRED.getCode(), new String[]{}, locale));
+            } else {
+                try {
+                    LocalDate start = LocalDate.parse(contractStartDate.trim());
+                    if (contractEndDate != null && !contractEndDate.isBlank()) {
+                        LocalDate end = LocalDate.parse(contractEndDate.trim());
+                        if (end.isBefore(start)) {
+                            errors.add(messageService.getMessage(
+                                    I18Code.MESSAGE_ASSET_CONTRACT_END_BEFORE_START.getCode(), new String[]{}, locale));
+                        }
+                    }
+                } catch (DateTimeParseException ex) {
+                    errors.add(messageService.getMessage(
+                            I18Code.MESSAGE_ASSET_CONTRACT_START_REQUIRED.getCode(), new String[]{}, locale));
+                }
             }
         }
     }

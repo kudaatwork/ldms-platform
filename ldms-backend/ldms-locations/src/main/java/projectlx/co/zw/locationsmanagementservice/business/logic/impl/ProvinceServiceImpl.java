@@ -3,7 +3,6 @@ package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 import com.lowagie.text.DocumentException;
 import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
 import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
-import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -65,7 +64,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@RequiredArgsConstructor
 public class ProvinceServiceImpl implements ProvinceService {
 
     private final ProvinceServiceValidator provinceServiceValidator;
@@ -78,6 +76,29 @@ public class ProvinceServiceImpl implements ProvinceService {
     private final ProvinceServiceAuditable provinceServiceAuditable;
     private final MessageService messageService;
     private final ModelMapper modelMapper;
+
+    public ProvinceServiceImpl(
+            ProvinceServiceValidator provinceServiceValidator,
+            ProvinceRepository provinceRepository,
+            CountryRepository countryRepository,
+            GeoCoordinatesRepository geoCoordinatesRepository,
+            AdministrativeLevelRepository administrativeLevelRepository,
+            AdministrativeLevelServiceAuditable administrativeLevelServiceAuditable,
+            LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService,
+            ProvinceServiceAuditable provinceServiceAuditable,
+            MessageService messageService,
+            ModelMapper modelMapper) {
+        this.provinceServiceValidator = provinceServiceValidator;
+        this.provinceRepository = provinceRepository;
+        this.countryRepository = countryRepository;
+        this.geoCoordinatesRepository = geoCoordinatesRepository;
+        this.administrativeLevelRepository = administrativeLevelRepository;
+        this.administrativeLevelServiceAuditable = administrativeLevelServiceAuditable;
+        this.locationHierarchyCascadeSoftDeleteService = locationHierarchyCascadeSoftDeleteService;
+        this.provinceServiceAuditable = provinceServiceAuditable;
+        this.messageService = messageService;
+        this.modelMapper = modelMapper;
+    }
 
     private static final String[] HEADERS = {
             "ID", "NAME", "CODE", "COUNTRY", "ADMIN LEVEL", "COUNTRY ID", "ADMINISTRATIVE LEVEL ID",

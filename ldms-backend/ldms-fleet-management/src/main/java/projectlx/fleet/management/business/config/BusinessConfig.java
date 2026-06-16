@@ -28,9 +28,16 @@ import projectlx.fleet.management.business.validator.api.FleetDriverServiceValid
 import projectlx.fleet.management.business.validator.impl.FleetAssetServiceValidatorImpl;
 import projectlx.fleet.management.business.validator.impl.FleetComplianceServiceValidatorImpl;
 import projectlx.fleet.management.business.validator.impl.FleetDriverServiceValidatorImpl;
+import projectlx.fleet.management.business.auditable.api.FleetTrackingDeviceServiceAuditable;
+import projectlx.fleet.management.business.auditable.impl.FleetTrackingDeviceServiceAuditableImpl;
+import projectlx.fleet.management.business.logic.api.FleetTrackingDeviceService;
+import projectlx.fleet.management.business.logic.impl.FleetTrackingDeviceServiceImpl;
+import projectlx.fleet.management.business.validator.api.FleetTrackingDeviceServiceValidator;
+import projectlx.fleet.management.business.validator.impl.FleetTrackingDeviceServiceValidatorImpl;
 import projectlx.fleet.management.repository.FleetAssetRepository;
 import projectlx.fleet.management.repository.FleetComplianceRecordRepository;
 import projectlx.fleet.management.repository.FleetDriverRepository;
+import projectlx.fleet.management.repository.FleetTrackingDeviceRepository;
 
 @Configuration
 @Import({UtilsConfig.class})
@@ -92,7 +99,9 @@ public class BusinessConfig {
             FleetOwnershipValidationSupport fleetOwnershipValidationSupport,
             FleetFileUploadHelper fleetFileUploadHelper,
             MessageService messageService,
-            FleetAssetServiceAuditable fleetAssetServiceAuditable) {
+            FleetAssetServiceAuditable fleetAssetServiceAuditable,
+            FleetDriverRepository fleetDriverRepository,
+            @Value("${ldms.fleet.compliance-expiring-soon-days:30}") int defaultExpiringSoonDays) {
         return new FleetAssetServiceImpl(
                 fleetAssetServiceValidator,
                 fleetAssetRepository,
@@ -102,7 +111,9 @@ public class BusinessConfig {
                 fleetOwnershipValidationSupport,
                 fleetFileUploadHelper,
                 messageService,
-                fleetAssetServiceAuditable);
+                fleetAssetServiceAuditable,
+                fleetDriverRepository,
+                defaultExpiringSoonDays);
     }
 
     @Bean
@@ -111,13 +122,49 @@ public class BusinessConfig {
             FleetDriverRepository fleetDriverRepository,
             CallerOrganizationResolver callerOrganizationResolver,
             MessageService messageService,
-            FleetDriverServiceAuditable fleetDriverServiceAuditable) {
+            FleetDriverServiceAuditable fleetDriverServiceAuditable,
+            FleetFileUploadHelper fleetFileUploadHelper,
+            FleetOwnershipValidationSupport fleetOwnershipValidationSupport) {
         return new FleetDriverServiceImpl(
                 fleetDriverServiceValidator,
                 fleetDriverRepository,
                 callerOrganizationResolver,
                 messageService,
-                fleetDriverServiceAuditable);
+                fleetDriverServiceAuditable,
+                fleetFileUploadHelper,
+                fleetOwnershipValidationSupport);
+    }
+
+    // ============================================================
+    // Tracking device beans
+    // ============================================================
+
+    @Bean
+    public FleetTrackingDeviceServiceAuditable fleetTrackingDeviceServiceAuditable(
+            FleetTrackingDeviceRepository fleetTrackingDeviceRepository) {
+        return new FleetTrackingDeviceServiceAuditableImpl(fleetTrackingDeviceRepository);
+    }
+
+    @Bean
+    public FleetTrackingDeviceServiceValidator fleetTrackingDeviceServiceValidator(MessageService messageService) {
+        return new FleetTrackingDeviceServiceValidatorImpl(messageService);
+    }
+
+    @Bean
+    public FleetTrackingDeviceService fleetTrackingDeviceService(
+            FleetTrackingDeviceServiceValidator fleetTrackingDeviceServiceValidator,
+            FleetTrackingDeviceServiceAuditable fleetTrackingDeviceServiceAuditable,
+            FleetTrackingDeviceRepository fleetTrackingDeviceRepository,
+            FleetAssetRepository fleetAssetRepository,
+            CallerOrganizationResolver callerOrganizationResolver,
+            MessageService messageService) {
+        return new FleetTrackingDeviceServiceImpl(
+                fleetTrackingDeviceServiceValidator,
+                fleetTrackingDeviceServiceAuditable,
+                fleetTrackingDeviceRepository,
+                fleetAssetRepository,
+                callerOrganizationResolver,
+                messageService);
     }
 
     @Bean

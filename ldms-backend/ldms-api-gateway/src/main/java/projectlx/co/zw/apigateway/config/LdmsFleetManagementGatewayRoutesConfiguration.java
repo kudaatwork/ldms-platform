@@ -18,7 +18,7 @@ public class LdmsFleetManagementGatewayRoutesConfiguration {
     public RouteLocator ldmsFleetManagementGatewayRoutes(
             RouteLocatorBuilder builder,
             @Value("${FLEET_MANAGEMENT_HOST:127.0.0.1}") String fleetManagementHost,
-            @Value("${FLEET_MANAGEMENT_PORT:8088}") int fleetManagementPort) {
+            @Value("${FLEET_MANAGEMENT_PORT:8089}") int fleetManagementPort) {
         String uri = "http://" + fleetManagementHost + ":" + fleetManagementPort;
         return builder.routes()
                 .route(

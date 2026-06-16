@@ -269,6 +269,17 @@
               >
             </td>
           </ng-container>
+          <ng-container matColumnDef="procurementApproverEligible">
+            <th mat-header-cell *matHeaderCellDef>Procurement approver</th>
+            <td mat-cell *matCellDef="let row">
+              <span
+                class="lx-pill"
+                [class.lx-pill--success]="row.procurementApproverEligibleLabel === 'Eligible'"
+                [class.lx-pill--muted]="row.procurementApproverEligibleLabel !== 'Eligible'"
+                >{{ row.procurementApproverEligibleLabel }}</span
+              >
+            </td>
+          </ng-container>
           <ng-container matColumnDef="status">
             <th mat-header-cell *matHeaderCellDef>Status</th>
             <td mat-cell *matCellDef="let row">
@@ -505,6 +516,13 @@
       </mat-slide-toggle>
       <span class="lx-field-hint">Stage 1 or stage 2 — assigned automatically by workload.</span>
       <span class="lx-field-hint">Only for admin portal users with no organisation. Approvers must not be linked to a tenant.</span>
+    </label>
+    <label class="lx-modal__field lx-modal__field--full lx-modal__field--toggle" *ngIf="orgScopeLocked || createModel.organizationId">
+      <span class="lx-field-label">Procurement approver</span>
+      <mat-slide-toggle [(ngModel)]="createModel.procurementApprover" color="primary">
+        Eligible to approve procurement workflow stages
+      </mat-slide-toggle>
+      <span class="lx-field-hint">Only designated approvers can advance requisitions, purchase orders, and sales orders.</span>
     </label>
     <label class="lx-modal__field"><span class="lx-field-label">Username <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">alternate_email</mat-icon><input [(ngModel)]="createModel.username" placeholder="e.g. tinashe.moyo" /></div><span class="lx-field-hint">Unique sign-in username used for portal login.</span></label>
     <label class="lx-modal__field"><span class="lx-field-label">Email <span class="req">*</span></span><div class="lx-input-shell"><mat-icon class="lx-input-shell__icon">mail_outline</mat-icon><input [(ngModel)]="createModel.email" placeholder="e.g. tinashe@example.com" /></div><span class="lx-field-hint">Primary email for notifications and recovery.</span></label>

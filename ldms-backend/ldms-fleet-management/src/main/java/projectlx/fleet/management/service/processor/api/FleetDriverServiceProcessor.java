@@ -8,7 +8,13 @@ import java.util.Locale;
 
 public interface FleetDriverServiceProcessor {
     FleetDriverResponse list(Locale locale, String username);
+
+    FleetDriverResponse listForTransporterPartner(Long transporterOrganizationId, Locale locale, String username);
+
     FleetDriverResponse create(CreateFleetDriverRequest request, Locale locale, String username);
     FleetDriverResponse update(Long id, EditFleetDriverRequest request, Locale locale, String username);
     FleetDriverResponse delete(Long id, Locale locale, String username);
+
+    /** System/internal lookup — no organisation-workspace check. */
+    FleetDriverResponse findByIdForSystem(Long id, Locale locale);
 }

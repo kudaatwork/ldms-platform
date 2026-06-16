@@ -1,18 +1,22 @@
 package projectlx.co.zw.notifications.business.logic.impl;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
 import projectlx.co.zw.notifications.business.logic.api.AuditTrailService;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
 
-@Slf4j
-@RequiredArgsConstructor
 public class AuditTrailServiceImpl implements AuditTrailService {
 
+    private static final Logger log = LoggerFactory.getLogger(AuditTrailServiceImpl.class);
+
     private final RabbitTemplate rabbitTemplate;
+
+    public AuditTrailServiceImpl(RabbitTemplate rabbitTemplate) {
+        this.rabbitTemplate = rabbitTemplate;
+    }
 
     /**
      * Must match {@code ldms-audit-trail} topic exchange ({@code ldms.audit.exchange}).

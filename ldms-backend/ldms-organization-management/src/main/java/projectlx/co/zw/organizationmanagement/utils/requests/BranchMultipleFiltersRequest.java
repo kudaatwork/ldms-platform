@@ -12,4 +12,10 @@ public class BranchMultipleFiltersRequest extends MultipleFiltersRequest {
 
     private String branchName;
     private Long organizationId;
+    /** {@code BRANCH} or {@code SUB_BRANCH} */
+    private String branchLevel;
+    private Boolean depot;
+    private Long parentBranchId;
+    private String region;
+    private Boolean active;
 }

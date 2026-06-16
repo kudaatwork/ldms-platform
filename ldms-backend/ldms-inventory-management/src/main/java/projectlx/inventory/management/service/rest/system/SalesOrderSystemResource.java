@@ -17,7 +17,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import projectlx.inventory.management.business.logic.support.InventoryExportSupport;
+import projectlx.inventory.management.service.processor.api.SalesOrderDispatchServiceProcessor;
 import projectlx.inventory.management.service.processor.api.SalesOrderServiceProcessor;
+import projectlx.inventory.management.utils.requests.CompleteSalesOrderWithGrvRequest;
+import projectlx.inventory.management.utils.requests.StartSalesOrderDispatchRequest;
 import projectlx.inventory.management.utils.dtos.ImportSummary;
 import projectlx.inventory.management.utils.dtos.SalesOrderDto;
 import projectlx.inventory.management.utils.requests.CreateSalesOrderRequest;
@@ -42,6 +45,7 @@ import java.util.Locale;
 public class SalesOrderSystemResource {
 
     private final SalesOrderServiceProcessor salesOrderServiceProcessor;
+    private final SalesOrderDispatchServiceProcessor salesOrderDispatchServiceProcessor;
     private static final Logger logger = LoggerFactory.getLogger(SalesOrderSystemResource.class);
 
     @Auditable(action = "CREATE_SALES_ORDER")
@@ -96,6 +100,26 @@ public class SalesOrderSystemResource {
                                    @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE)
                                    final Locale locale) {
         return salesOrderServiceProcessor.fulfillOrder(request, resolveUsername(), locale);
+    }
+
+    @Auditable(action = "START_SALES_ORDER_DISPATCH")
+    @PostMapping("/start-dispatch")
+    @Operation(summary = "Start bought-goods dispatch",
+            description = "Reserves stock and moves goods to transit when a trip starts. System/trip-tracking only.")
+    public SalesOrderResponse startDispatch(@Valid @RequestBody final StartSalesOrderDispatchRequest request,
+                                            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                                                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return salesOrderDispatchServiceProcessor.startDispatch(request, locale, resolveUsername());
+    }
+
+    @Auditable(action = "COMPLETE_SALES_ORDER_WITH_GRV")
+    @PostMapping("/complete-with-grv")
+    @Operation(summary = "Complete customer delivery with GRV",
+            description = "Creates a PO-linked GRV at the customer warehouse after OTP verification.")
+    public SalesOrderResponse completeWithGrv(@Valid @RequestBody final CompleteSalesOrderWithGrvRequest request,
+                                              @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                                                      defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return salesOrderDispatchServiceProcessor.completeWithGrv(request, locale, resolveUsername());
     }
 
     @Auditable(action = "FIND_SALES_ORDER_BY_ID")

@@ -891,6 +891,46 @@
 .tb-flyout__item-body {
   flex: 1;
   min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+
+  &--clickable {
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 2px 4px;
+    margin: -2px -4px;
+
+    &:hover {
+      background: var(--gray-50);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--brand-500, #2563eb);
+      outline-offset: 2px;
+    }
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.tb-flyout__item--action {
+  .tb-flyout__item-title {
+    color: var(--brand-700, #1d4ed8);
+  }
+}
+
+.tb-flyout__item--urgent {
+  background: color-mix(in srgb, var(--warning-50, #fffbeb) 70%, transparent);
+
+  .tb-flyout__item-title {
+    color: var(--warning-800, #92400e);
+  }
 }
 
 .tb-flyout__item-title {

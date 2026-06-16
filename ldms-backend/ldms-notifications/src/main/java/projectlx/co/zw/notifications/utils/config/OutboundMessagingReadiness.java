@@ -1,6 +1,5 @@
 package projectlx.co.zw.notifications.utils.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -9,10 +8,13 @@ import org.springframework.util.StringUtils;
  * on each check so {@code ldms-config-repo/.env} values are not missed when evaluated only at startup.
  */
 @Component
-@RequiredArgsConstructor
 public class OutboundMessagingReadiness {
 
     private final LdmsConfigRepoSecretsResolver secretsResolver;
+
+    public OutboundMessagingReadiness(LdmsConfigRepoSecretsResolver secretsResolver) {
+        this.secretsResolver = secretsResolver;
+    }
 
     public boolean isTwilioReady() {
         return StringUtils.hasText(secretsResolver.twilioAccountSid())
