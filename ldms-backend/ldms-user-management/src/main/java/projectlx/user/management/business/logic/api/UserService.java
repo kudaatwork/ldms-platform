@@ -52,6 +52,18 @@ public interface UserService {
 
     UserResponse setOperationalIssueHandler(Long id, boolean enabled, Locale locale, String username);
 
+    /** Organisation workspace users flagged as procurement approvers for the caller's organisation. */
+    UserResponse listProcurementApprovers(Locale locale, String username);
+
+    /**
+     * Returns users in the organisation workspace who hold at least one fleet-manager role
+     * (ALLOCATE_SHIPMENT, VIEW_FLEET_DRIVERS, ORGANIZATION_ADMINISTRATOR).
+     * System-caller endpoint — no session-org check.
+     */
+    UserResponse findFleetManagersByOrganization(Long organizationId, Locale locale);
+
+    UserResponse setProcurementApprover(Long id, boolean enabled, Locale locale, String username);
+
     // ============================================================
     //  Phone verification & 2FA step-up
     // ============================================================

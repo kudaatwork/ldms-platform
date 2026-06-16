@@ -48,6 +48,17 @@ public interface UserServiceProcessor {
 
     UserResponse setOperationalIssueHandler(Long id, boolean enabled, Locale locale, String username);
 
+    UserResponse listProcurementApprovers(Locale locale, String username);
+
+    UserResponse setProcurementApprover(Long id, boolean enabled, Locale locale, String username);
+
+    /**
+     * Returns fleet managers (users with ALLOCATE_SHIPMENT / VIEW_FLEET_DRIVERS /
+     * ORGANIZATION_ADMINISTRATOR roles) in the given organisation workspace.
+     * System-caller only — no session-org check.
+     */
+    UserResponse findFleetManagersByOrganization(Long organizationId, Locale locale);
+
     UserResponse resendVerificationLink(String email, Locale locale, String username);
 
     UserResponse provisionOrganizationContactPerson(ProvisionOrganizationContactPersonRequest request, Locale locale,

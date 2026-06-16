@@ -14,4 +14,15 @@ public interface BranchRepository extends JpaRepository<Branch, Long>, JpaSpecif
     List<Branch> findByOrganizationAndEntityStatusNot(Organization organization, EntityStatus deleted);
 
     Optional<Branch> findByIdAndEntityStatusNot(Long id, EntityStatus deleted);
+
+    java.util.List<Branch> findByParentBranchIdAndEntityStatusNot(Long parentBranchId, EntityStatus deleted);
+
+    @org.springframework.data.jpa.repository.Query("""
+            SELECT b FROM Branch b
+            WHERE b.organization.id = :organizationId
+              AND b.isHeadOffice = TRUE
+              AND b.entityStatus <> 'DELETED'
+            """)
+    Optional<Branch> findHeadOfficeByOrganizationId(
+            @org.springframework.data.repository.query.Param("organizationId") Long organizationId);
 }

@@ -355,6 +355,33 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
     }
 
     @Override
+    public UserResponse listProcurementApprovers(Locale locale, String username) {
+        logger.info("Incoming request to list procurement approvers");
+        UserResponse userResponse = userService.listProcurementApprovers(locale, username);
+        logger.info("Outgoing response after listing procurement approvers. Status Code: {}. Message: {}",
+                userResponse.getStatusCode(), userResponse.getMessage());
+        return userResponse;
+    }
+
+    @Override
+    public UserResponse setProcurementApprover(Long id, boolean enabled, Locale locale, String username) {
+        logger.info("Incoming request to set procurement approver for user {}: {}", id, enabled);
+        UserResponse userResponse = userService.setProcurementApprover(id, enabled, locale, username);
+        logger.info("Outgoing response after setting procurement approver. Status Code: {}. Message: {}",
+                userResponse.getStatusCode(), userResponse.getMessage());
+        return userResponse;
+    }
+
+    @Override
+    public UserResponse findFleetManagersByOrganization(Long organizationId, Locale locale) {
+        logger.info("Incoming request to find fleet managers for organizationId={}", organizationId);
+        UserResponse userResponse = userService.findFleetManagersByOrganization(organizationId, locale);
+        logger.info("Outgoing response after finding fleet managers. Status Code: {}. Message: {}",
+                userResponse.getStatusCode(), userResponse.getMessage());
+        return userResponse;
+    }
+
+    @Override
     public UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale) {
 
         logger.info("Incoming request to find a user by phone number or email: {}", phoneNumberOrEmail);

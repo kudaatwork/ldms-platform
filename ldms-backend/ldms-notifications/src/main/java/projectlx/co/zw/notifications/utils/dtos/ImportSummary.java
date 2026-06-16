@@ -1,15 +1,15 @@
 package projectlx.co.zw.notifications.utils.dtos;
 
-import lombok.RequiredArgsConstructor;
 import projectlx.co.zw.shared_library.utils.responses.CommonResponse;
 import java.util.List;
 
-@RequiredArgsConstructor
 public class ImportSummary extends CommonResponse {
     public int total;
     public int success;
     public int failed;
     private List<String> errorMessages;
+
+    public ImportSummary() {}
 
     public ImportSummary(int total, int success, int failed, List<String> errorMessages) {
         this.total = total;

@@ -4,5 +4,7 @@ public enum ComplianceStatus {
     VALID,
     EXPIRING_SOON,
     EXPIRED,
-    PENDING
+    PENDING,
+    /** Document rejected during manual compliance review. */
+    REVOKED
 }

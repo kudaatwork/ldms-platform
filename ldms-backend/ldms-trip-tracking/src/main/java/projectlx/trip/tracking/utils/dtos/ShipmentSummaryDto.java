@@ -16,9 +16,12 @@ public class ShipmentSummaryDto {
     private Long id;
     private String shipmentNumber;
     private Long organizationId;
+    private String sourceType;
     private Long inventoryTransferId;
+    private Long salesOrderId;
     private String status;
     private String fromWarehouseName;
     private String toWarehouseName;
     private String productName;
+    private Boolean crossBorder;
 }

@@ -30,6 +30,7 @@ import { OrganizationService, OrganizationSummary } from './organization.service
 import { StorageService } from './storage.service';
 import { DuplexTradingModeService } from './duplex-trading-mode.service';
 import { SessionExpiryService } from './session-expiry.service';
+import { TokenRefreshService } from './token-refresh.service';
 import { portalHomeRoute } from '../utils/portal-navigation.util';
 import { isJwtExpired } from '../utils/jwt.util';
 
@@ -51,6 +52,7 @@ export class AuthService {
     private readonly userProfile: UserProfileService,
     private readonly duplexTradingMode: DuplexTradingModeService,
     private readonly sessionExpiry: SessionExpiryService,
+    private readonly tokenRefresh: TokenRefreshService,
   ) {}
 
   loginWithGoogleIdToken(idToken: string): Observable<void> {
@@ -60,7 +62,7 @@ export class AuthService {
     return this.http
       .post<AuthTokenResponse>(`${this.authBase}/google-id-token`, { idToken })
       .pipe(
-        switchMap((res) => this.completeLogin(this.requireAccessToken(res))),
+        switchMap((res) => this.completeLogin(this.requireAccessToken(res), false, res)),
         catchError((err: HttpErrorResponse) =>
           throwError(() => new Error(this.messageFromHttp(err))),
         ),
@@ -103,7 +105,12 @@ export class AuthService {
               twoFactorMethod: String(res.twoFactorMethod ?? 'SMS').trim(),
             });
           }
-          return this.completeLogin(this.requireAccessToken(res), res.mustChangeCredentials === true).pipe(
+          return this.completeLogin(
+            this.requireAccessToken(res),
+            res.mustChangeCredentials === true,
+            res,
+            loginId,
+          ).pipe(
             map(() => ({ kind: 'authenticated' as const })),
           );
         }),
@@ -121,7 +128,7 @@ export class AuthService {
       })
       .pipe(
         switchMap((res) =>
-          this.completeLogin(this.requireAccessToken(res), res.mustChangeCredentials === true).pipe(
+          this.completeLogin(this.requireAccessToken(res), res.mustChangeCredentials === true, res).pipe(
             map(() => void 0),
           ),
         ),
@@ -139,47 +146,67 @@ export class AuthService {
       this.authState.setCurrentUser(null);
       return of(undefined);
     }
-    if (isJwtExpired(token)) {
-      this.sessionExpiry.scheduleHandleSessionExpired('expired');
-      return of(undefined);
-    }
-    this.sessionExpiry.watchToken(token);
-    if (!this.sessionInit$) {
-      const mustChangeCredentials = decodeJwtPayload(token)?.mustChangeCredentials === true;
-      this.applyInitialSessionUser(token, mustChangeCredentials);
-      const jwtUser = currentUserFromJwt(token);
-      const jwtHasOrgContext = !!String(jwtUser?.orgClassification ?? '').trim();
-      if (jwtHasOrgContext) {
-        this.sessionInit$ = of(undefined).pipe(
-          tap(() => this.enqueueSessionEnrichment(token, mustChangeCredentials)),
-          shareReplay(1),
-          finalize(() => {
-            this.sessionInit$ = undefined;
-          }),
-        );
-      } else {
-        this.sessionInit$ = this.loadSessionUser(token, mustChangeCredentials).pipe(
-          tap((user) => this.authState.setCurrentUser(user)),
-          map(() => undefined),
-          shareReplay(1),
-          finalize(() => {
-            this.sessionInit$ = undefined;
-          }),
-        );
-      }
-    }
-    return this.sessionInit$;
+
+    const refreshIfNeeded$ =
+      isJwtExpired(token) && this.storage.getRefreshToken()
+        ? this.tokenRefresh.refreshAccessToken().pipe(
+            catchError(() => {
+              this.storage.clearRefreshSession();
+              return of(null);
+            }),
+          )
+        : of(token);
+
+    return refreshIfNeeded$.pipe(
+      switchMap((refreshed) => {
+        if (refreshed === null) {
+          return of(undefined);
+        }
+        const current = this.storage.getToken();
+        if (!current || isJwtExpired(current)) {
+          return of(undefined);
+        }
+        this.sessionExpiry.watchToken(current);
+        if (!this.sessionInit$) {
+          const mustChangeCredentials = decodeJwtPayload(current)?.mustChangeCredentials === true;
+          this.applyInitialSessionUser(current, mustChangeCredentials);
+          const jwtUser = currentUserFromJwt(current);
+          const jwtHasOrgContext = !!String(jwtUser?.orgClassification ?? '').trim();
+          if (jwtHasOrgContext) {
+            this.sessionInit$ = of(undefined).pipe(
+              tap(() => this.enqueueSessionEnrichment(current, mustChangeCredentials)),
+              shareReplay(1),
+              finalize(() => {
+                this.sessionInit$ = undefined;
+              }),
+            );
+          } else {
+            this.sessionInit$ = this.loadSessionUser(current, mustChangeCredentials).pipe(
+              tap((user) => this.authState.setCurrentUser(user)),
+              map(() => undefined),
+              shareReplay(1),
+              finalize(() => {
+                this.sessionInit$ = undefined;
+              }),
+            );
+          }
+        }
+        return this.sessionInit$;
+      }),
+    );
   }
 
   bootstrapFromStorage(): void {
     const token = this.storage.getToken();
     if (token && !token.startsWith('mock.')) {
-      if (isJwtExpired(token)) {
+      if (isJwtExpired(token) && !this.storage.getRefreshToken()) {
         this.sessionExpiry.scheduleHandleSessionExpired('expired');
         return;
       }
-      this.sessionExpiry.watchToken(token);
-      this.primeUserFromJwt(token);
+      if (!isJwtExpired(token)) {
+        this.sessionExpiry.watchToken(token);
+        this.primeUserFromJwt(token);
+      }
     }
     void this.initializeSession().subscribe();
   }
@@ -199,14 +226,22 @@ export class AuthService {
     this.authState.setCurrentUser(null);
   }
 
-  private completeLogin(token: string, mustChangeCredentials = false): Observable<void> {
+  private completeLogin(
+    token: string,
+    mustChangeCredentials = false,
+    authResponse?: AuthTokenResponse,
+    loginId?: string,
+  ): Observable<void> {
     this.clearSessionCache();
+    this.storage.clearRefreshSession();
     this.storage.setToken(token);
+    if (authResponse) {
+      this.tokenRefresh.persistSessionCredentials(authResponse, token, loginId);
+    }
+    this.applyInitialSessionUser(token, mustChangeCredentials);
     this.sessionExpiry.watchToken(token);
-    return this.loadSessionUser(token, mustChangeCredentials).pipe(
-      tap((user) => this.authState.setCurrentUser(user)),
-      map(() => undefined),
-    );
+    this.enqueueSessionEnrichment(token, mustChangeCredentials);
+    return of(undefined);
   }
 
   private loadSessionUser(token: string, mustChangeCredentials = false): Observable<CurrentUser> {
@@ -348,6 +383,7 @@ export class AuthService {
         welcomeMessage: this.buildWelcomeMessage(firstName, profile.lastName, profile.displayName),
         mustChangeCredentials:
           mustChangeCredentials || profile.mustChangeCredentials === true || user.mustChangeCredentials === true,
+        procurementApprover: profile.procurementApprover === true || user.procurementApprover === true,
       };
       this.storage.setUser({
         username: profile.username,

@@ -32,7 +32,9 @@ public class OrganizationDto {
     private Long addressCityId;
     private String addressCityName;
     private Long addressDistrictId;
+    private String addressDistrictName;
     private Long addressProvinceId;
+    private String addressProvinceName;
     private Long addressCountryId;
 
     // Contact Details

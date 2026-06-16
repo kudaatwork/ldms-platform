@@ -11,17 +11,11 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "template_key", "channel"}))
-@Getter
-@Setter
-@ToString
 public class UserNotificationPreference {
 
     @Id
@@ -57,5 +51,36 @@ public class UserNotificationPreference {
     @PreUpdate
     public void preUpdate() {
         updatedAt = LocalDateTime.now();
+    }
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+
+    public String getTemplateKey() { return templateKey; }
+    public void setTemplateKey(String templateKey) { this.templateKey = templateKey; }
+
+    public Channel getChannel() { return channel; }
+    public void setChannel(Channel channel) { this.channel = channel; }
+
+    public boolean isEnabled() { return isEnabled; }
+    public void setEnabled(boolean enabled) { isEnabled = enabled; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+
+    public EntityStatus getEntityStatus() { return entityStatus; }
+    public void setEntityStatus(EntityStatus entityStatus) { this.entityStatus = entityStatus; }
+
+    @Override
+    public String toString() {
+        return "UserNotificationPreference{id=" + id + ", userId='" + userId
+                + "', templateKey='" + templateKey + "', channel=" + channel
+                + ", isEnabled=" + isEnabled + "}";
     }
 }

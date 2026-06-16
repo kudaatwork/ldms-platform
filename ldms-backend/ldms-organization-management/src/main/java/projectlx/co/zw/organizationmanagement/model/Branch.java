@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import projectlx.co.zw.organizationmanagement.utils.enums.BranchLevel;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.math.BigDecimal;
@@ -31,6 +32,17 @@ public class Branch {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_branch_id")
+    private Branch parentBranch;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "branch_level", nullable = false, length = 50)
+    private BranchLevel branchLevel = BranchLevel.BRANCH;
+
+    @Column(name = "is_depot", nullable = false)
+    private boolean depot;
 
     @Column(name = "branch_name", nullable = false, length = 200)
     private String branchName;

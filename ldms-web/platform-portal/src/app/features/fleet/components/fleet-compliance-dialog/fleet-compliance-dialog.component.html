@@ -53,13 +53,93 @@
         <div class="lx-form-section-title">Document &amp; expiry</div>
       </div>
 
-      <div class="lx-field">
-        <label class="lx-field-label">File upload id</label>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">attach_file</mat-icon>
-          <input type="number" formControlName="fileUploadId" placeholder="From file-upload service" />
-        </div>
-        <div class="lx-field-hint">Reference an uploaded document from the file-upload service.</div>
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Document</label>
+
+        <ng-container *ngIf="isEdit">
+          <div class="fcd-doc-loading" *ngIf="documentLoading">
+            <mat-progress-spinner mode="indeterminate" diameter="32"></mat-progress-spinner>
+            <span>Loading document…</span>
+          </div>
+
+          <p class="fcd-doc-empty" *ngIf="!documentLoading && !attachedFileUploadId">
+            <mat-icon>description</mat-icon>
+            No document attached to this record.
+          </p>
+
+          <p class="lx-field-hint fcd-doc-error" *ngIf="!documentLoading && documentError">
+            <mat-icon>error_outline</mat-icon>
+            {{ documentError }}
+          </p>
+
+          <div class="fcd-doc-preview" *ngIf="!documentLoading && hasDocumentPreview">
+            <p class="fcd-doc-name" *ngIf="documentFileName">
+              <mat-icon>description</mat-icon>
+              {{ documentFileName }}
+            </p>
+            <img
+              *ngIf="previewImageUrl"
+              class="fcd-doc-preview__image"
+              [src]="previewImageUrl"
+              [alt]="documentFileName || 'Document preview'"
+              (click)="openFullDocumentView()"
+            />
+            <iframe
+              *ngIf="previewPdfUrl && !previewImageUrl"
+              class="fcd-doc-preview__pdf"
+              [src]="previewPdfUrl"
+              title="Document preview"
+            ></iframe>
+            <div class="fcd-doc-actions">
+              <button
+                type="button"
+                class="lx-btn lx-btn-primary lx-btn-sm"
+                *ngIf="canOpenFullView"
+                (click)="openFullDocumentView()"
+              >
+                <mat-icon>fullscreen</mat-icon>
+                View full document
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm"
+                *ngIf="canOpenPdfInNewTab"
+                (click)="openPdfInNewTab()"
+              >
+                <mat-icon>open_in_new</mat-icon>
+                Open PDF
+              </button>
+            </div>
+          </div>
+
+          <div class="fcd-doc-actions fcd-doc-actions--solo" *ngIf="!documentLoading && !hasDocumentPreview && attachedFileUploadId && documentFileName">
+            <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openFullDocumentView()">
+              <mat-icon>fullscreen</mat-icon>
+              View full document
+            </button>
+          </div>
+        </ng-container>
+
+        <ng-container *ngIf="!isEdit">
+          <div class="fcd-doc-upload">
+            <label class="lx-file-pick-btn" [class.lx-file-pick-btn--done]="form.get('fileUploadId')?.value">
+              <mat-icon>{{ form.get('fileUploadId')?.value ? 'check_circle' : 'upload_file' }}</mat-icon>
+              <span>{{ pendingDocumentName || (form.get('fileUploadId')?.value ? 'Document uploaded' : 'Choose document') }}</span>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                class="lx-file-input-hidden"
+                [disabled]="documentUploading"
+                (change)="onAddDocumentSelected($event)"
+              />
+            </label>
+            <span class="fcd-doc-uploading" *ngIf="documentUploading">
+              <mat-progress-spinner mode="indeterminate" diameter="18"></mat-progress-spinner>
+              Uploading…
+            </span>
+          </div>
+          <div class="lx-field-hint">Select the subject first, then upload a PDF or image scan.</div>
+        </ng-container>
       </div>
 
       <div class="lx-field">
@@ -70,15 +150,16 @@
         </div>
       </div>
 
-      <div class="lx-field span-2" *ngIf="isEdit">
+      <div class="lx-field" *ngIf="isEdit">
         <label class="lx-field-label">Status</label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">flag</mat-icon>
           <select formControlName="status" aria-label="Compliance status">
-            <option value="ACTIVE">Active</option>
-            <option value="PENDING">Pending review</option>
+            <option value="VALID">Valid</option>
+            <option value="EXPIRING_SOON">Expiring soon</option>
             <option value="EXPIRED">Expired</option>
-            <option value="REVOKED">Revoked</option>
+            <option value="PENDING">Pending review</option>
+            <option value="REVOKED">Rejected</option>
           </select>
         </div>
       </div>
@@ -99,9 +180,29 @@
 
     <div class="lx-dialog-actions">
       <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
-      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+      <button type="submit" class="lx-btn lx-btn-ghost" [disabled]="submitting || form.invalid">
         {{ submitting ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save changes' : 'Add record') }}
       </button>
+      <ng-container *ngIf="isPendingReview">
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost fcd-review-btn--reject"
+          [disabled]="submitting"
+          (click)="rejectReview()"
+        >
+          <mat-icon>cancel</mat-icon>
+          Reject
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-primary"
+          [disabled]="submitting"
+          (click)="approveReview()"
+        >
+          <mat-icon>check_circle</mat-icon>
+          Approve
+        </button>
+      </ng-container>
     </div>
   </form>
 </div>

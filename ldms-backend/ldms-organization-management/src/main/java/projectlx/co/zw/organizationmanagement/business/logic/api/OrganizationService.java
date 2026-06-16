@@ -6,6 +6,7 @@ import projectlx.co.zw.organizationmanagement.utils.requests.CreateFleetVehicleR
 import projectlx.co.zw.organizationmanagement.utils.requests.EditFleetVehicleRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.FleetRegisteredNotificationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.ValidateFleetOwnershipRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.ValidateTransporterAssignmentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.AddBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateBranchRequest;
@@ -55,6 +56,26 @@ public interface OrganizationService {
     OrganizationResponse addBranch(AddBranchRequest request, Locale locale, String username);
 
     OrganizationResponse listBranches(Locale locale, String username);
+
+    OrganizationResponse getBranchByIdForUser(Long branchId, Locale locale, String username);
+
+    OrganizationResponse updateBranchForUser(Long branchId, UpdateBranchRequest request, Locale locale, String username);
+
+    OrganizationResponse deleteBranchForUser(Long branchId, Locale locale, String username);
+
+    OrganizationResponse findBranchesByMultipleFiltersForUser(BranchMultipleFiltersRequest request, Locale locale, String username);
+
+    List<BranchDto> listBranchesForExportForUser(BranchMultipleFiltersRequest request, Locale locale, String username);
+
+    ImportSummary importBranchesFromCsvForUser(InputStream inputStream, Locale locale, String username) throws IOException;
+
+    OrganizationResponse listAgents(Locale locale, String username);
+
+    OrganizationResponse createAgentForUser(CreateAgentRequest request, Locale locale, String username);
+
+    OrganizationResponse updateAgentForUser(Long agentId, UpdateAgentRequest request, Locale locale, String username);
+
+    OrganizationResponse deleteAgentForUser(Long agentId, Locale locale, String username);
 
     OrganizationResponse listCustomers(Locale locale, String username);
 
@@ -178,6 +199,8 @@ public interface OrganizationService {
 
     OrganizationResponse getBranchById(Long id, Locale locale);
 
+    OrganizationResponse getHeadOfficeBranch(Long organizationId, Locale locale);
+
     OrganizationResponse deleteBranch(Long id, Locale locale, String username);
 
     OrganizationResponse createAgent(CreateAgentRequest request, Locale locale, String username);
@@ -213,6 +236,8 @@ public interface OrganizationService {
     OrganizationResponse notifyFleetRegistered(FleetRegisteredNotificationRequest request, Locale locale);
 
     OrganizationResponse validateFleetOwnership(ValidateFleetOwnershipRequest request, Locale locale);
+
+    OrganizationResponse validateTransporterAssignment(ValidateTransporterAssignmentRequest request, Locale locale);
 
     OrganizationResponse updateFleetVehicle(Long id, EditFleetVehicleRequest request, Locale locale, String username);
 

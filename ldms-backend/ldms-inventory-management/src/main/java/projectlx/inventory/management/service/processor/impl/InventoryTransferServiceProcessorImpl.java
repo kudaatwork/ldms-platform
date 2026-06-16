@@ -64,11 +64,13 @@ public class InventoryTransferServiceProcessorImpl implements InventoryTransferS
     }
 
     @Override
-    public InventoryTransferResponse startTransit(Long transferId, Long startedByUserId, Locale locale, String username) {
+    public InventoryTransferResponse startTransit(Long transferId, Long startedByUserId, Long tripId, Long shipmentId,
+                                                  Locale locale, String username) {
 
         logger.info("Incoming request to start transit for inventory transfer id: {} by user: {}", transferId, username);
 
-        InventoryTransferResponse response = inventoryTransferService.startTransit(transferId, startedByUserId, locale, username);
+        InventoryTransferResponse response = inventoryTransferService.startTransit(
+                transferId, startedByUserId, tripId, shipmentId, locale, username);
 
         logger.info("Outgoing response after starting transit for inventory transfer: Success: {}",
                 response != null && response.isSuccess());

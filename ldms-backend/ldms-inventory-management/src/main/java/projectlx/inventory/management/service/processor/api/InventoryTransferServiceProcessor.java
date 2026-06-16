@@ -18,7 +18,8 @@ public interface InventoryTransferServiceProcessor {
     InventoryTransferResponse approveTransfer(Long transferId, Long approvedByUserId, Locale locale, String username);
     InventoryTransferResponse rejectTransfer(Long transferId, Long rejectedByUserId, String rejectionReason,
                                              Locale locale, String username);
-    InventoryTransferResponse startTransit(Long transferId, Long startedByUserId, Locale locale, String username);
+    InventoryTransferResponse startTransit(Long transferId, Long startedByUserId, Long tripId, Long shipmentId,
+                                           Locale locale, String username);
     InventoryTransferResponse completeTransfer(Long transferId, Long updatedByUserId, String idempotencyKey, Locale locale, String username);
 
     InventoryTransferResponse completeTransferWithGrv(Long transferId, Long receivedByUserId,

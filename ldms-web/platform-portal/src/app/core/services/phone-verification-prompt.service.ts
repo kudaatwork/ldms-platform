@@ -5,6 +5,7 @@ import {
   PhoneVerificationDialogComponent,
   PhoneVerificationDialogData,
 } from '../../shared/components/phone-verification-dialog/phone-verification-dialog.component';
+import { ShellNotificationService } from './shell-notification.service';
 import { VerificationService } from './verification.service';
 
 const SESSION_DISMISS_KEY = 'lx.phoneVerification.dismissedSession';
@@ -15,6 +16,7 @@ export class PhoneVerificationPromptService {
   constructor(
     private readonly dialog: MatDialog,
     private readonly verification: VerificationService,
+    private readonly shellNotifications: ShellNotificationService,
   ) {}
 
   /** Call after mandatory credential setup so new users verify phone on first workspace entry. */
@@ -65,9 +67,11 @@ export class PhoneVerificationPromptService {
     });
     return ref.afterClosed().pipe(
       tap((verified) => {
-        if (verified !== true) {
-          this.dismissForSession();
+        if (verified === true) {
+          this.shellNotifications.refresh();
+          return;
         }
+        this.dismissForSession();
       }),
       switchMap((verified) => of(verified === true)),
     );

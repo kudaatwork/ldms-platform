@@ -5,6 +5,7 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
@@ -18,11 +19,14 @@ public class FleetAssetDto {
     private Long contractedTransporterOrganizationId;
     private String contractScope;
     private String jobReference;
+    private LocalDate contractStartDate;
+    private LocalDate contractEndDate;
     private String registrationStatus;
     private String registration;
     private String makeModel;
     private String status;
     private String driverName;
+    private Long fleetDriverId;
     private BigDecimal utilizationPct;
     private String entityStatus;
     private LocalDateTime createdAt;

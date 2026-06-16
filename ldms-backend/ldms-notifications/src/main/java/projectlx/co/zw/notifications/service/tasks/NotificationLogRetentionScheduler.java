@@ -1,7 +1,6 @@
 package projectlx.co.zw.notifications.service.tasks;
 
 import java.time.LocalDateTime;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,12 +9,15 @@ import org.springframework.stereotype.Component;
 import projectlx.co.zw.notifications.service.processor.api.NotificationLogProcessor;
 
 @Component
-@RequiredArgsConstructor
 public class NotificationLogRetentionScheduler {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationLogRetentionScheduler.class);
 
     private final NotificationLogProcessor notificationLogProcessor;
+
+    public NotificationLogRetentionScheduler(NotificationLogProcessor notificationLogProcessor) {
+        this.notificationLogProcessor = notificationLogProcessor;
+    }
 
     @Value("${notifications.log.retention-days:90}")
     private int retentionDays;

@@ -23,6 +23,51 @@ public final class LdmsFeignUrls {
         return resolveApiGatewayBaseUrl(env);
     }
 
+    public static String resolveOrganizationManagementServiceBaseUrl(Environment env) {
+        String explicit = env.getProperty("CLIENTS_ORGANIZATION_MANAGEMENT_SERVICE_URL");
+        if (explicit != null && !explicit.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(explicit.trim()));
+        }
+        if (Boolean.parseBoolean(env.getProperty("ldms.dev.force-local-feign-clients", "false"))) {
+            return resolveApiGatewayBaseUrl(env);
+        }
+        String configured = env.getProperty("clients.base-url.organizationManagementService");
+        if (configured != null && !configured.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(configured));
+        }
+        return resolveApiGatewayBaseUrl(env);
+    }
+
+    public static String resolveFleetManagementServiceBaseUrl(Environment env) {
+        String explicit = env.getProperty("CLIENTS_FLEET_MANAGEMENT_SERVICE_URL");
+        if (explicit != null && !explicit.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(explicit.trim()));
+        }
+        if (Boolean.parseBoolean(env.getProperty("ldms.dev.force-local-feign-clients", "false"))) {
+            return resolveApiGatewayBaseUrl(env);
+        }
+        String configured = env.getProperty("clients.base-url.fleetManagementService");
+        if (configured != null && !configured.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(configured));
+        }
+        return resolveApiGatewayBaseUrl(env);
+    }
+
+    public static String resolveTripTrackingServiceBaseUrl(Environment env) {
+        String explicit = env.getProperty("CLIENTS_TRIP_TRACKING_SERVICE_URL");
+        if (explicit != null && !explicit.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(explicit.trim()));
+        }
+        if (Boolean.parseBoolean(env.getProperty("ldms.dev.force-local-feign-clients", "false"))) {
+            return resolveApiGatewayBaseUrl(env);
+        }
+        String configured = env.getProperty("clients.base-url.tripTrackingService");
+        if (configured != null && !configured.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(configured));
+        }
+        return resolveApiGatewayBaseUrl(env);
+    }
+
     public static String resolveApiGatewayBaseUrl(Environment env) {
         String explicit = env.getProperty("CLIENTS_API_GATEWAY_URL");
         if (explicit != null && !explicit.isBlank()) {

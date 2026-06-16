@@ -6,7 +6,9 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import projectlx.trip.tracking.clients.FleetManagementServiceClient;
 import projectlx.trip.tracking.clients.InventoryManagementServiceClient;
+import projectlx.trip.tracking.clients.OrganizationManagementServiceClient;
 import projectlx.trip.tracking.clients.ShipmentManagementServiceClient;
 import projectlx.trip.tracking.clients.UserManagementServiceClient;
 
@@ -52,6 +54,34 @@ public class TripTrackingFeignConfiguration {
                 .forType(InventoryManagementServiceClient.class, "inventory-management-service")
                 .inheritParentContext(true)
                 .contextId("trip-inventory-management-service")
+                .url(url)
+                .build();
+    }
+
+    @Bean
+    public OrganizationManagementServiceClient organizationManagementServiceClient(ApplicationContext applicationContext) {
+        Environment env = applicationContext.getEnvironment();
+        String url = LdmsFeignUrls.resolveOrganizationManagementServiceBaseUrl(env);
+        log.info("Organization management Feign client base URL: {} (ldms.dev.force-local-feign-clients={})",
+                url, env.getProperty("ldms.dev.force-local-feign-clients", "false"));
+        return new FeignClientBuilder(applicationContext)
+                .forType(OrganizationManagementServiceClient.class, "organization-management-service")
+                .inheritParentContext(true)
+                .contextId("trip-organization-management-service")
+                .url(url)
+                .build();
+    }
+
+    @Bean
+    public FleetManagementServiceClient fleetManagementServiceClient(ApplicationContext applicationContext) {
+        Environment env = applicationContext.getEnvironment();
+        String url = LdmsFeignUrls.resolveFleetManagementServiceBaseUrl(env);
+        log.info("Fleet management Feign client base URL: {} (ldms.dev.force-local-feign-clients={})",
+                url, env.getProperty("ldms.dev.force-local-feign-clients", "false"));
+        return new FeignClientBuilder(applicationContext)
+                .forType(FleetManagementServiceClient.class, "fleet-management-service")
+                .inheritParentContext(true)
+                .contextId("trip-fleet-management-service")
                 .url(url)
                 .build();
     }

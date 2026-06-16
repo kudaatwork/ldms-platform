@@ -21,7 +21,9 @@ public class UtilsConfig {
     @Primary
     public MessageSource customMessageSource() {
         final ReloadableResourceBundleMessageSource messageSource = new ReloadableResourceBundleMessageSource();
-        messageSource.setBasename("classpath:i18/messages");
+        // classpath: picks up this service's target/classes i18 bundle (file: URLs).
+        // classpath*: merges jar-packaged bundles (e.g. ldms-shared-library) for shared keys.
+        messageSource.setBasenames("classpath:i18/messages", "classpath*:i18/messages");
         messageSource.setDefaultEncoding("UTF-8");
         return messageSource;
     }

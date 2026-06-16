@@ -71,6 +71,21 @@ public final class LdmsFeignUrls {
         return resolveApiGatewayBaseUrl(env);
     }
 
+    public static String resolveShipmentManagementServiceBaseUrl(Environment env) {
+        String explicit = env.getProperty("CLIENTS_SHIPMENT_MANAGEMENT_SERVICE_URL");
+        if (explicit != null && !explicit.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(explicit.trim()));
+        }
+        if (Boolean.parseBoolean(env.getProperty("ldms.dev.force-local-feign-clients", "false"))) {
+            return resolveApiGatewayBaseUrl(env);
+        }
+        String configured = env.getProperty("clients.base-url.shipmentManagementService");
+        if (configured != null && !configured.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(configured));
+        }
+        return resolveApiGatewayBaseUrl(env);
+    }
+
     public static String resolveBillingPaymentsServiceBaseUrl(Environment env) {
         String explicit = env.getProperty("CLIENTS_BILLING_PAYMENTS_SERVICE_URL");
         if (explicit != null && !explicit.isBlank()) {

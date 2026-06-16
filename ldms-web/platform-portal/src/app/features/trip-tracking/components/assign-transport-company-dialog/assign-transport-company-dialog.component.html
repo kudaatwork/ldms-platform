@@ -1,0 +1,95 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Assign transport company</h2>
+      <p class="lx-dialog-subtitle">Shipment {{ data.shipment.shipmentNumber }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content trt-allocate-body">
+    <div class="trt-allocate-summary lx-card--subsection">
+      <dl class="trt-allocate-summary__grid">
+        <dt>Route</dt>
+        <dd>{{ data.shipment.fromWarehouse }} → {{ data.shipment.toWarehouse }}</dd>
+        <dt>Product</dt>
+        <dd>{{ data.shipment.productName }}</dd>
+        <dt>Quantity</dt>
+        <dd>{{ data.shipment.quantity | number }} {{ data.shipment.unitOfMeasure }}</dd>
+      </dl>
+    </div>
+
+    <p class="trt-allocate-hint">
+      Select <strong>one</strong> transport provider — your own fleet or a contracted partner. They will then allocate a driver and vehicle.
+    </p>
+
+    <div class="trt-allocate-loading" *ngIf="loading">
+      <lx-inline-busy message="Loading transport companies…"></lx-inline-busy>
+    </div>
+
+    <div class="trt-allocate-section" *ngIf="!loading">
+      <div class="trt-allocate-section__head">
+        <h3 class="trt-allocate-section__title">
+          <mat-icon>handshake</mat-icon>
+          Transport company
+        </h3>
+        <span class="trt-allocate-section__count">
+          {{ filteredTransportProviders.length }} of {{ transportProviders.length }}
+        </span>
+      </div>
+
+      <div class="lx-input-shell lx-search-field trt-allocate-search">
+        <mat-icon class="lx-input-shell__icon">search</mat-icon>
+        <input
+          [(ngModel)]="searchQuery"
+          placeholder="Search own fleet or contracted partners…"
+          autocomplete="off"
+          aria-label="Search transport providers"
+        />
+      </div>
+
+      <p class="trt-allocate-selected" *ngIf="selectedProviderLabel">
+        Selected: <strong>{{ selectedProviderLabel }}</strong>
+        <button type="button" class="lx-link-btn trt-allocate-clear" (click)="clearSelection()">Clear</button>
+      </p>
+
+      <mat-radio-group
+        class="trt-allocate-list"
+        [value]="selectedTransportProviderId"
+        (change)="selectTransportProvider($event.value)"
+        aria-label="Transport provider"
+      >
+        <label
+          class="trt-allocate-item"
+          [class.is-selected]="selectedTransportProviderId === provider.id"
+          *ngFor="let provider of filteredTransportProviders"
+        >
+          <mat-radio-button class="trt-allocate-item__radio" [value]="provider.id"></mat-radio-button>
+          <span class="trt-allocate-item__icon" [class.trt-allocate-item__icon--own]="provider.kind === 'own'">
+            <mat-icon>{{ provider.kind === 'own' ? 'home_work' : 'local_shipping' }}</mat-icon>
+          </span>
+          <span class="trt-allocate-item__info">
+            <span class="trt-allocate-item__name">{{ provider.name }}</span>
+            <span class="trt-allocate-item__sub">{{ provider.subtitle }}</span>
+          </span>
+          <span class="trt-allocate-item__badge" *ngIf="provider.kind === 'own'">Own fleet</span>
+        </label>
+      </mat-radio-group>
+
+      <p class="trt-allocate-empty" *ngIf="!filteredTransportProviders.length">
+        No transport providers match “{{ searchQuery.trim() }}”.
+      </p>
+    </div>
+  </div>
+
+  <div class="lx-dialog-actions">
+    <button type="button" class="lx-btn lx-btn-ghost" (click)="close()">Cancel</button>
+    <button type="button" class="lx-btn lx-btn-primary" [disabled]="!canSubmit" (click)="confirm()">
+      <mat-spinner *ngIf="submitting" diameter="18"></mat-spinner>
+      <mat-icon *ngIf="!submitting">local_shipping</mat-icon>
+      Assign{{ selectedProviderLabel ? ' ' + selectedProviderLabel : '' }}
+    </button>
+  </div>
+</div>

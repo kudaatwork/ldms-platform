@@ -1,6 +1,10 @@
-# Loaded after Config Server so local LDMS port map and Feign URLs win.
+# Loaded after Config Server — wins over ldms-config-repo for local LDMS port map.
 server:
-  port: ${FLEET_MANAGEMENT_PORT:8088}
+  port: 8089
+
+management:
+  server:
+    port: 9089
 
 clients:
   baseUrl:

@@ -45,6 +45,9 @@ export interface UserListRow {
   updatedAtLabel: string;
   /** Organisation signup KYC approver eligibility (admin users without organisation only). */
   kycApproverEligibleLabel: string;
+  /** Procurement workflow approver eligibility (organisation workspace users). */
+  procurementApproverEligibleLabel: string;
+  procurementApprover: boolean;
 }
 
 export interface UserProfileBundle {
@@ -1091,6 +1094,21 @@ export class UsersPortalService {
     return this.http.put(`${this.base}/user/${userId}/organization-kyc-approver`, null, { params });
   }
 
+  /** Sets procurement approver eligibility for organisation workspace users. */
+  setProcurementApprover(userId: number, enabled: boolean): Observable<unknown> {
+    const params = new HttpParams().set('enabled', String(enabled));
+    return this.http.put(`${this.base}/user/${userId}/procurement-approver`, null, { params });
+  }
+
+  listProcurementApprovers(): Observable<UserListRow[]> {
+    return this.http.get<unknown>(`${this.base}/user/procurement-approvers`).pipe(
+      map((resp) => {
+        const rows = this.extractUserDtoList(resp);
+        return rows.map((row) => this.mapUserRow(row));
+      }),
+    );
+  }
+
   deleteUser(id: number): Observable<unknown> {
     return this.http.delete(`${this.base}/user/delete-by-id/${id}`);
   }
@@ -1100,6 +1118,19 @@ export class UsersPortalService {
     const trimmed = email.trim();
     const params = new HttpParams().set('email', trimmed);
     return this.http.post(`${this.base}/user/resend-verification-link`, null, { params });
+  }
+
+  /** True when the user record still needs email verification (UI button visibility). */
+  needsEmailVerification(emailVerified: unknown): boolean {
+    return emailVerified !== true;
+  }
+
+  /** True when the user record still needs phone verification and has a phone number on file. */
+  needsPhoneVerification(phoneVerified: unknown, phoneNumber: unknown): boolean {
+    if (phoneVerified === true) {
+      return false;
+    }
+    return String(phoneNumber ?? '').trim().length > 0;
   }
 
   /** Whether admin may resend verification for this user record. */
@@ -1316,6 +1347,7 @@ export class UsersPortalService {
     organizationId?: number;
     branchId?: number;
     organizationKycApprover?: boolean;
+    procurementApprover?: boolean;
     /** Location-service address id — only when integrating with an existing address; do not send suburb id here. */
     locationId?: number;
     nationalIdNumber?: string;
@@ -1359,6 +1391,9 @@ export class UsersPortalService {
     this.appendFormValue(form, 'branchId', payload.branchId);
     if (payload.organizationKycApprover) {
       form.append('organizationKycApprover', 'true');
+    }
+    if (payload.procurementApprover) {
+      form.append('procurementApprover', 'true');
     }
     this.appendFormValue(form, 'locationId', payload.locationId);
     this.appendFormValue(form, 'nationalIdNumber', payload.nationalIdNumber);
@@ -1494,6 +1529,8 @@ export class UsersPortalService {
         createdAtLabel: '—',
         updatedAtLabel: '—',
         kycApproverEligibleLabel: '—',
+        procurementApproverEligibleLabel: '—',
+        procurementApprover: false,
       };
     }
     const firstName = String(row['firstName'] ?? '').trim();
@@ -1529,7 +1566,27 @@ export class UsersPortalService {
       createdAtLabel: this.formatIsoDateTimeForDisplay(row['createdAt']),
       updatedAtLabel: this.formatIsoDateTimeForDisplay(row['updatedAt']),
       kycApproverEligibleLabel: this.formatKycApproverEligibleLabel(row),
+      procurementApproverEligibleLabel: this.formatProcurementApproverEligibleLabel(row),
+      procurementApprover: this.isTruthyProcurementApprover(row['procurementApprover']),
     };
+  }
+
+  private formatProcurementApproverEligibleLabel(row: Record<string, unknown>): string {
+    const orgId = Number(row['organizationId'] ?? 0);
+    if (!Number.isFinite(orgId) || orgId <= 0) {
+      return '—';
+    }
+    return this.isTruthyProcurementApprover(row['procurementApprover']) ? 'Eligible' : 'Not eligible';
+  }
+
+  private isTruthyProcurementApprover(raw: unknown): boolean {
+    if (raw === true) {
+      return true;
+    }
+    if (typeof raw === 'string') {
+      return raw.trim().toLowerCase() === 'true';
+    }
+    return false;
   }
 
   private formatKycApproverEligibleLabel(row: Record<string, unknown>): string {

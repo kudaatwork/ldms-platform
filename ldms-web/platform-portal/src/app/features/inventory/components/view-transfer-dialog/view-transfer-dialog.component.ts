@@ -146,7 +146,7 @@ export class ViewTransferDialogComponent implements OnInit, OnDestroy {
 
   trackShipment(): void {
     this.dialogRef.close();
-    this.router.navigate(['/track-shipments/shipments'], {
+    void this.router.navigate(['/shipments/shipments'], {
       queryParams: { transferId: this.transfer.id },
     });
   }

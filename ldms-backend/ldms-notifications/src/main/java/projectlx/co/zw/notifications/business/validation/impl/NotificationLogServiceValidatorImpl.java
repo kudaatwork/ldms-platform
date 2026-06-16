@@ -3,12 +3,10 @@ package projectlx.co.zw.notifications.business.validation.impl;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import lombok.RequiredArgsConstructor;
 import projectlx.co.zw.notifications.business.validation.api.NotificationLogServiceValidator;
 import projectlx.co.zw.notifications.utils.requests.NotificationLogMultipleFiltersRequest;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 
-@RequiredArgsConstructor
 public class NotificationLogServiceValidatorImpl implements NotificationLogServiceValidator {
 
     @Override

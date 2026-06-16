@@ -209,14 +209,25 @@
         <mat-slide-toggle [(ngModel)]="isTwoFactorEnabled" color="primary"></mat-slide-toggle>
       </div>
 
-      <div class="lx-field span-2 lx-field--toggle" *ngIf="canEditKycApprover">
-        <span class="lx-field-label">Organisation KYC approver</span>
-        <mat-slide-toggle [(ngModel)]="organizationKycApprover" color="primary">
-          Eligible to review signup organisations
-        </mat-slide-toggle>
+      <div class="lx-field span-2 lx-field--toggle lx-field--toggle-block" *ngIf="canEditKycApprover">
+        <div class="lx-field--toggle-main">
+          <span class="lx-field-label">Organisation KYC approver</span>
+          <mat-slide-toggle [(ngModel)]="organizationKycApprover" color="primary"></mat-slide-toggle>
+        </div>
         <small class="ued-hint">
-          Stage 1 or stage 2 reviewers are assigned automatically by workload. Only for admin users with no
-          organisation.
+          Eligible to review signup organisations. Stage 1 or stage 2 reviewers are assigned automatically by
+          workload. Only for admin users with no organisation.
+        </small>
+      </div>
+
+      <div class="lx-field span-2 lx-field--toggle lx-field--toggle-block" *ngIf="canEditProcurementApprover">
+        <div class="lx-field--toggle-main">
+          <span class="lx-field-label">Procurement approver</span>
+          <mat-slide-toggle [(ngModel)]="procurementApprover" color="primary"></mat-slide-toggle>
+        </div>
+        <small class="ued-hint">
+          Eligible to approve purchase requisitions, orders, and sales orders. Only designated approvers can advance
+          procurement approval stages for this organisation.
         </small>
       </div>
 

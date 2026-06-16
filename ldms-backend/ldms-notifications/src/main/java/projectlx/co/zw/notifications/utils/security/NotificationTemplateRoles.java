@@ -1,10 +1,5 @@
 package projectlx.co.zw.notifications.utils.security;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-
-@RequiredArgsConstructor
-@Getter
 public enum NotificationTemplateRoles {
 
     CREATE_TEMPLATE("CREATE_TEMPLATE", "Creates notification template"),
@@ -16,4 +11,17 @@ public enum NotificationTemplateRoles {
 
     private final String roleName;
     private final String description;
+
+    NotificationTemplateRoles(String roleName, String description) {
+        this.roleName = roleName;
+        this.description = description;
+    }
+
+    public String getRoleName() {
+        return roleName;
+    }
+
+    public String getDescription() {
+        return description;
+    }
 }

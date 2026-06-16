@@ -32,6 +32,10 @@ public class UpdateBranchRequest {
 
     private Boolean headOffice;
 
+    private Long parentBranchId;
+
+    private Boolean depot;
+
     @Size(max = 100)
     private String region;
 

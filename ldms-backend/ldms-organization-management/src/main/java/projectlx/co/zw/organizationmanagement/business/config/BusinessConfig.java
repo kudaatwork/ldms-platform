@@ -22,6 +22,7 @@ import projectlx.co.zw.organizationmanagement.clients.UserManagementServiceClien
 import projectlx.co.zw.organizationmanagement.business.logic.api.OrganizationService;
 import projectlx.co.zw.organizationmanagement.business.logic.impl.OrganizationServiceImpl;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryAdminService;
+import projectlx.co.zw.organizationmanagement.business.logic.support.BranchHierarchySupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationFileUploadHelper;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationApprovedCredentialsSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationContactPersonProvisioningSupport;
@@ -109,6 +110,7 @@ public class BusinessConfig {
             MessageService messageService,
             OrganizationFileUploadHelper organizationFileUploadHelper,
             OrganizationDirectoryAdminService organizationDirectoryAdminService,
+            BranchHierarchySupport branchHierarchySupport,
             OrganizationRegistrationNotifier organizationRegistrationNotifier,
             OrganizationContactPersonProvisioningSupport organizationContactPersonProvisioningSupport,
             OrganizationKycNotifier organizationKycNotifier,
@@ -142,6 +144,7 @@ public class BusinessConfig {
                 messageService,
                 organizationFileUploadHelper,
                 organizationDirectoryAdminService,
+                branchHierarchySupport,
                 organizationRegistrationNotifier,
                 organizationContactPersonProvisioningSupport,
                 organizationKycNotifier,

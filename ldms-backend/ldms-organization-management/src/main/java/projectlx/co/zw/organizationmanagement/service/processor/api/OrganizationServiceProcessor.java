@@ -53,6 +53,26 @@ public interface OrganizationServiceProcessor {
 
     OrganizationResponse listBranches(Locale locale, String username);
 
+    OrganizationResponse getBranchByIdForUser(Long branchId, Locale locale, String username);
+
+    OrganizationResponse updateBranchForUser(Long branchId, UpdateBranchRequest request, Locale locale, String username);
+
+    OrganizationResponse deleteBranchForUser(Long branchId, Locale locale, String username);
+
+    OrganizationResponse findBranchesByMultipleFiltersForUser(BranchMultipleFiltersRequest request, Locale locale, String username);
+
+    List<BranchDto> listBranchesForExportForUser(BranchMultipleFiltersRequest request, Locale locale, String username);
+
+    ImportSummary importBranchesFromCsvForUser(InputStream inputStream, Locale locale, String username) throws IOException;
+
+    OrganizationResponse listAgents(Locale locale, String username);
+
+    OrganizationResponse createAgentForUser(CreateAgentRequest request, Locale locale, String username);
+
+    OrganizationResponse updateAgentForUser(Long agentId, UpdateAgentRequest request, Locale locale, String username);
+
+    OrganizationResponse deleteAgentForUser(Long agentId, Locale locale, String username);
+
     OrganizationResponse listCustomers(Locale locale, String username);
 
     OrganizationResponse listTransporters(Locale locale, String username);
@@ -176,6 +196,8 @@ public interface OrganizationServiceProcessor {
 
     OrganizationResponse getBranchById(Long id, Locale locale);
 
+    OrganizationResponse getHeadOfficeBranch(Long organizationId, Locale locale);
+
     OrganizationResponse deleteBranch(Long id, Locale locale, String username);
 
     OrganizationResponse createAgent(CreateAgentRequest request, Locale locale, String username);
@@ -218,5 +240,9 @@ public interface OrganizationServiceProcessor {
 
     OrganizationResponse validateFleetOwnership(
             projectlx.co.zw.organizationmanagement.utils.requests.ValidateFleetOwnershipRequest request,
+            Locale locale);
+
+    OrganizationResponse validateTransporterAssignment(
+            projectlx.co.zw.organizationmanagement.utils.requests.ValidateTransporterAssignmentRequest request,
             Locale locale);
 }

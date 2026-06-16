@@ -16,9 +16,13 @@ export interface FleetVehicleRow {
   ownershipLabel: string;
   contractedTransporterOrganizationId?: number;
   contractedTransporterOrganizationName?: string;
+  contractScope?: FleetContractScope;
+  contractStartDate?: string;
+  contractEndDate?: string;
   utilizationPct: number;
   lastTripLabel: string;
   driverName: string;
+  fleetDriverId?: number;
   accentHue: number;
 }
 
@@ -37,7 +41,11 @@ export interface CreateFleetVehiclePayload {
   contractScope?: FleetContractScope;
   /** Only present when contractScope === 'job'. */
   jobReference?: string;
+  /** Only present when contractScope === 'long_term' and ownershipType === 'contracted'. */
+  contractStartDate?: string;
+  contractEndDate?: string;
   driverName?: string;
+  fleetDriverId?: number;
   utilizationPct?: number;
 }
 
@@ -51,18 +59,35 @@ export interface EditFleetVehiclePayload {
   contractedTransporterOrganizationId?: number;
   contractScope?: FleetContractScope;
   jobReference?: string;
+  contractStartDate?: string;
+  contractEndDate?: string;
   driverName?: string;
+  fleetDriverId?: number | null;
   utilizationPct?: number;
 }
 
 /** Single document submitted during fleet asset registration (step 2). */
+export type FleetRegistrationComplianceType =
+  | 'VEHICLE_REGISTRATION'
+  | 'ROAD_LICENSE'
+  | 'ROADWORTHINESS'
+  | 'INSURANCE'
+  | 'GOODS_OPERATOR_LICENCE'
+  | 'PERMIT'
+  | 'HAZARDOUS_SUBSTANCES_PERMIT'
+  | 'FIRE_SAFETY_CLEARANCE'
+  | 'LEASE_HIRE_AGREEMENT'
+  | 'LICENSE'
+  | 'DEFENSIVE_DRIVING_CERTIFICATE'
+  | 'DRIVER_MEDICAL_CERTIFICATE';
+
 export interface FleetRegistrationDocumentPayload {
-  /** Backend compliance type key — must be INSURANCE, ROADWORTHINESS, or PERMIT for registration. */
-  complianceType: 'INSURANCE' | 'ROADWORTHINESS' | 'PERMIT';
+  /** Backend compliance type key — see {@link FleetRegistrationComplianceType}. */
+  complianceType: FleetRegistrationComplianceType;
   /** ID returned by POST /ldms-file-upload-service/v1/frontend/file-upload/upload. */
   fileUploadId: number;
-  /** ISO date string (YYYY-MM-DD). */
-  expiresAt: string;
+  /** ISO date string (YYYY-MM-DD) when the document expires; omit when not applicable. */
+  expiresAt?: string;
 }
 
 /** POST /assets/{id}/complete-registration */
@@ -108,28 +133,62 @@ export interface FleetWorkspaceMetrics {
   expiringComplianceTotal: number;
 }
 
-export type FleetWorkspaceTab = 'overview' | 'convoy' | 'partners' | 'drivers' | 'compliance';
+export type FleetWorkspaceTab = 'overview' | 'convoy' | 'partners' | 'drivers' | 'compliance' | 'tracking';
+
+export type DriverEmploymentType = 'EMPLOYED' | 'POOL';
+export type DriverRosterSource = 'organization' | 'transport_partner';
 
 export interface FleetDriverRow {
   id: number;
   userId?: number;
+  employmentType: DriverEmploymentType;
+  employmentLabel: string;
+  rosterSource: DriverRosterSource;
+  homeOrganizationName?: string;
   firstName: string;
   lastName: string;
   fullName: string;
   phoneNumber: string;
   licenseNumber: string;
   licenseClass: string;
+  nationalIdNumber?: string;
+  nationalIdExpiryDate?: string;
+  nationalIdUploadId?: number;
+  passportNumber?: string;
+  passportExpiryDate?: string;
+  passportUploadId?: number;
+  licenseUploadId?: number;
+  addressLine1?: string;
+  addressLine2?: string;
+  addressCity?: string;
+  addressProvince?: string;
+  addressPostalCode?: string;
+  addressCountry?: string;
   initials: string;
   accentHue: number;
 }
 
 export interface CreateFleetDriverPayload {
   userId?: number;
+  employmentType?: DriverEmploymentType;
   firstName: string;
   lastName: string;
   phoneNumber?: string;
   licenseNumber?: string;
   licenseClass?: string;
+  nationalIdNumber?: string;
+  nationalIdExpiryDate?: string;
+  nationalIdUploadId?: number;
+  passportNumber?: string;
+  passportExpiryDate?: string;
+  passportUploadId?: number;
+  licenseUploadId?: number;
+  addressLine1?: string;
+  addressLine2?: string;
+  addressCity?: string;
+  addressProvince?: string;
+  addressPostalCode?: string;
+  addressCountry?: string;
 }
 
 export interface EditFleetDriverPayload extends CreateFleetDriverPayload {}
@@ -141,6 +200,14 @@ export type FleetComplianceType =
   | 'maintenance'
   | 'roadworthiness'
   | 'permit'
+  | 'vehicle_registration'
+  | 'road_license'
+  | 'goods_operator_licence'
+  | 'hazardous_substances_permit'
+  | 'fire_safety_clearance'
+  | 'lease_hire_agreement'
+  | 'defensive_driving_certificate'
+  | 'driver_medical_certificate'
   | 'other';
 
 export interface FleetComplianceRow {
@@ -210,6 +277,73 @@ export interface TransporterEditDetail {
   addressLine2?: string;
   postalCode?: string;
   suburbId?: number;
+}
+
+// ── Tracking devices ──────────────────────────────────────────────────────────
+
+export type TrackingDeviceType = 'MOBILE_PHONE' | 'OBD_TELEMATICS' | 'DEDICATED_GPS' | 'FUEL_SENSOR' | 'COMBO_UNIT';
+export type TrackingIntegrationProvider =
+  | 'LDMS_MOBILE'
+  | 'GENERIC_MQTT'
+  | 'TRACCAR'
+  | 'GEOTAB'
+  | 'CALAMP'
+  | 'WIALON'
+  | 'CUSTOM_HTTP';
+export type TrackingInstallStatus = 'ACTIVE' | 'SUSPENDED' | 'PENDING';
+
+/** Row returned by GET /fleet/tracking-devices and after install/edit. */
+export interface FleetTrackingDeviceRow {
+  id: number;
+  deviceLabel: string;
+  deviceType: TrackingDeviceType;
+  deviceTypeLabel: string;
+  installStatus: TrackingInstallStatus;
+  installStatusLabel: string;
+  integrationProvider: TrackingIntegrationProvider;
+  integrationProviderLabel: string;
+  fleetAssetId?: number;
+  fleetDriverId?: number;
+  linkedUserId?: number;
+  deviceSerial?: string;
+  externalDeviceId?: string;
+  ingestKey?: string;
+  tracksGps: boolean;
+  tracksFuel: boolean;
+  mqttTopic?: string;
+  vehicleRegistration?: string;
+  vehicleMakeModel?: string;
+  installedAt?: string;
+  lastTelemetryAt?: string;
+  notes?: string;
+}
+
+/** POST /fleet/tracking-devices — install a new tracking device. */
+export interface InstallFleetTrackingDevicePayload {
+  deviceLabel: string;
+  deviceType: TrackingDeviceType;
+  integrationProvider: TrackingIntegrationProvider;
+  fleetAssetId?: number;
+  fleetDriverId?: number;
+  deviceSerial?: string;
+  externalDeviceId?: string;
+  tracksGps: boolean;
+  tracksFuel: boolean;
+  notes?: string;
+}
+
+/** PUT /fleet/tracking-devices/{id} — update an installed tracking device. */
+export interface EditFleetTrackingDevicePayload {
+  deviceLabel?: string;
+  deviceType?: TrackingDeviceType;
+  integrationProvider?: TrackingIntegrationProvider;
+  fleetAssetId?: number;
+  fleetDriverId?: number;
+  deviceSerial?: string;
+  externalDeviceId?: string;
+  tracksGps?: boolean;
+  tracksFuel?: boolean;
+  notes?: string;
 }
 
 /** Multipart payload — mirrors register customer; classification fixed to TRANSPORT_COMPANY on server. */

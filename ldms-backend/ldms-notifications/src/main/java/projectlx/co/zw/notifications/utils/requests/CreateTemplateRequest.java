@@ -3,17 +3,11 @@ package projectlx.co.zw.notifications.utils.requests;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
 import projectlx.co.zw.notifications.model.Channel;
 
 import java.util.List;
 import java.util.Map;
 
-@Getter
-@Setter
-@ToString
 @Schema(description = "Request to create a new notification template. Structure mirrors a stepped form: Identity → Channels → per-channel content.")
 public class CreateTemplateRequest {
 
@@ -58,4 +52,42 @@ public class CreateTemplateRequest {
 
     @Schema(description = "WhatsApp message body. Supports Handlebars placeholders e.g. {{organizationName}}. Required when WHATSAPP is selected.")
     private String whatsappBody;
+
+    public String getTemplateKey() { return templateKey; }
+    public void setTemplateKey(String templateKey) { this.templateKey = templateKey; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public List<Channel> getChannels() { return channels; }
+    public void setChannels(List<Channel> channels) { this.channels = channels; }
+
+    public Map<String, Boolean> getChannelDeliveryEnabled() { return channelDeliveryEnabled; }
+    public void setChannelDeliveryEnabled(Map<String, Boolean> channelDeliveryEnabled) { this.channelDeliveryEnabled = channelDeliveryEnabled; }
+
+    public String getEmailSubject() { return emailSubject; }
+    public void setEmailSubject(String emailSubject) { this.emailSubject = emailSubject; }
+
+    public String getEmailBodyHtml() { return emailBodyHtml; }
+    public void setEmailBodyHtml(String emailBodyHtml) { this.emailBodyHtml = emailBodyHtml; }
+
+    public String getSmsBody() { return smsBody; }
+    public void setSmsBody(String smsBody) { this.smsBody = smsBody; }
+
+    public String getInAppTitle() { return inAppTitle; }
+    public void setInAppTitle(String inAppTitle) { this.inAppTitle = inAppTitle; }
+
+    public String getInAppBody() { return inAppBody; }
+    public void setInAppBody(String inAppBody) { this.inAppBody = inAppBody; }
+
+    public String getWhatsappTemplateName() { return whatsappTemplateName; }
+    public void setWhatsappTemplateName(String whatsappTemplateName) { this.whatsappTemplateName = whatsappTemplateName; }
+
+    public String getWhatsappBody() { return whatsappBody; }
+    public void setWhatsappBody(String whatsappBody) { this.whatsappBody = whatsappBody; }
+
+    @Override
+    public String toString() {
+        return "CreateTemplateRequest{templateKey='" + templateKey + "', channels=" + channels + "}";
+    }
 }

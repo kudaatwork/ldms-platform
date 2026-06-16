@@ -9,56 +9,263 @@
     </button>
   </div>
 
-  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
-    <div class="lx-form-grid">
+  <form [formGroup]="form" class="lx-step-content flt-driver-dialog" (ngSubmit)="save()">
+    <div class="flt-driver-dialog__source lx-card--subsection">
+      <label class="lx-field-label">Driver profile source</label>
+      <mat-radio-group class="flt-driver-dialog__source-list" formControlName="source">
+        <label class="flt-driver-dialog__source-item" *ngFor="let source of driverSources">
+          <mat-radio-button [value]="source.value"></mat-radio-button>
+          <span class="flt-driver-dialog__source-copy">
+            <span class="flt-driver-dialog__source-label">{{ source.label }}</span>
+            <span class="flt-driver-dialog__source-hint">{{ source.hint }}</span>
+          </span>
+        </label>
+      </mat-radio-group>
+    </div>
+
+    <div class="flt-driver-dialog__section lx-card--subsection">
+      <label class="lx-field-label">Employment type</label>
+      <p class="flt-driver-dialog__lead">
+        Employed drivers are staff on your payroll. Pool drivers are hired flexibly and can be assigned to any truck.
+      </p>
+      <mat-radio-group class="flt-driver-dialog__source-list" formControlName="employmentType">
+        <label class="flt-driver-dialog__source-item" *ngFor="let option of employmentTypes">
+          <mat-radio-button [value]="option.value"></mat-radio-button>
+          <span class="flt-driver-dialog__source-copy">
+            <span class="flt-driver-dialog__source-label">{{ option.label }}</span>
+            <span class="flt-driver-dialog__source-hint">{{ option.hint }}</span>
+          </span>
+        </label>
+      </mat-radio-group>
+    </div>
+
+    <ng-container *ngIf="showOrgUserPicker">
+      <div class="flt-driver-dialog__section">
+        <div class="lx-form-section-title">Link organisation user</div>
+        <p class="flt-driver-dialog__lead">
+          Personal details, ID numbers, and address are loaded from user management when you select a user.
+        </p>
+
+        <div class="flt-driver-dialog__loading" *ngIf="orgUsersLoading">
+          <mat-icon>hourglass_empty</mat-icon>
+          Loading organisation users…
+        </div>
+
+        <ng-container *ngIf="!orgUsersLoading">
+          <div class="lx-input-shell lx-search-field flt-driver-dialog__search">
+            <mat-icon class="lx-input-shell__icon">search</mat-icon>
+            <input
+              [(ngModel)]="userSearchQuery"
+              [ngModelOptions]="{ standalone: true }"
+              placeholder="Search by name, username, email, phone, or national ID…"
+              autocomplete="off"
+              aria-label="Search organisation users"
+            />
+          </div>
+
+          <mat-radio-group
+            class="flt-driver-dialog__user-list"
+            [value]="selectedOrgUserId"
+            (change)="selectOrgUser($event.value)"
+            aria-label="Organisation user"
+          >
+            <label
+              class="flt-driver-dialog__user-item"
+              [class.is-selected]="selectedOrgUserId === user.id"
+              *ngFor="let user of filteredOrgUsers"
+            >
+              <mat-radio-button class="flt-driver-dialog__user-radio" [value]="user.id"></mat-radio-button>
+              <span class="flt-driver-dialog__user-icon">
+                <mat-icon>person</mat-icon>
+              </span>
+              <span class="flt-driver-dialog__user-info">
+                <span class="flt-driver-dialog__user-name">{{ user.name }}</span>
+                <span class="flt-driver-dialog__user-sub">
+                  {{ user.username }} · {{ user.email || user.phoneNumber || 'No contact' }}
+                  <ng-container *ngIf="user.nationalIdNumber && user.nationalIdNumber !== '—'">
+                    · ID {{ user.nationalIdNumber }}
+                  </ng-container>
+                </span>
+              </span>
+            </label>
+          </mat-radio-group>
+
+          <p class="flt-driver-dialog__empty" *ngIf="!filteredOrgUsers.length">
+            No organisation users match your search.
+          </p>
+        </ng-container>
+      </div>
+
+      <div class="flt-driver-dialog__loading" *ngIf="userProfileLoading">
+        <mat-icon>hourglass_empty</mat-icon>
+        Loading profile from user management…
+      </div>
+    </ng-container>
+
+    <div class="flt-driver-dialog__section lx-form-grid" *ngIf="showManualProfileFields">
       <div class="lx-form-section span-2">
-        <div class="lx-form-section-title">Driver profile</div>
+        <div class="lx-form-section-title">Basic profile</div>
       </div>
 
       <div class="lx-field">
         <label class="lx-field-label">First name <span class="req">*</span></label>
         <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('firstName', 'required')">
           <mat-icon class="lx-input-shell__icon">person</mat-icon>
-          <input formControlName="firstName" autocomplete="off" />
+          <input formControlName="firstName" placeholder="e.g. Tinashe" autocomplete="given-name" />
         </div>
-        <div class="lx-field-error" *ngIf="hasError('firstName', 'required')">First name is required</div>
       </div>
 
       <div class="lx-field">
         <label class="lx-field-label">Last name <span class="req">*</span></label>
         <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('lastName', 'required')">
           <mat-icon class="lx-input-shell__icon">person</mat-icon>
-          <input formControlName="lastName" autocomplete="off" />
+          <input formControlName="lastName" placeholder="e.g. Moyo" autocomplete="family-name" />
         </div>
-        <div class="lx-field-error" *ngIf="hasError('lastName', 'required')">Last name is required</div>
       </div>
 
-      <div class="lx-field">
+      <div class="lx-field span-2">
         <label class="lx-field-label">Phone</label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">phone</mat-icon>
-          <input formControlName="phoneNumber" autocomplete="off" />
+          <input formControlName="phoneNumber" placeholder="e.g. +263771234567" autocomplete="tel" />
         </div>
+      </div>
+    </div>
+
+    <div class="flt-driver-dialog__section lx-form-grid">
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Identity document</div>
+        <p class="flt-driver-dialog__lead flt-driver-dialog__lead--or">
+          Provide <strong>national ID</strong> or <strong>passport</strong> details — at least one is required (numbers and uploads).
+        </p>
       </div>
 
       <div class="lx-field">
-        <label class="lx-field-label">Linked user id</label>
+        <label class="lx-field-label">National ID number</label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">badge</mat-icon>
-          <input type="number" formControlName="userId" placeholder="Optional platform user id" />
+          <input formControlName="nationalIdNumber" placeholder="If no passport below" autocomplete="off" />
         </div>
-        <div class="lx-field-hint">Optional link to a user-management account.</div>
-      </div>
-
-      <div class="lx-form-section span-2">
-        <div class="lx-form-section-title">License details</div>
       </div>
 
       <div class="lx-field">
-        <label class="lx-field-label">License number</label>
+        <label class="lx-field-label">National ID expiry <span class="flt-optional">(optional)</span></label>
         <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <input type="date" formControlName="nationalIdExpiryDate" aria-label="National ID expiry date" />
+        </div>
+        <div class="lx-field-hint">Optional — leave blank if your ID does not expire.</div>
+      </div>
+
+      <div class="lx-field span-2 flt-driver-dialog__upload">
+        <label class="lx-field-label">National ID upload</label>
+        <div class="flt-driver-dialog__upload-row">
+          <label class="lx-btn lx-btn-ghost lx-btn-sm flt-driver-dialog__upload-btn">
+            <mat-icon>upload_file</mat-icon>
+            Choose file
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" hidden (change)="onNationalIdFileSelected($event)" />
+          </label>
+          <span class="flt-driver-dialog__upload-name" *ngIf="nationalIdDoc.fileName">{{ nationalIdDoc.fileName }}</span>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" *ngIf="nationalIdDoc.fileName" (click)="clearNationalIdDoc()">
+            Clear
+          </button>
+        </div>
+        <div class="lx-field-hint" *ngIf="!nationalIdDoc.profileUploadId">PDF or image scan — required if you provide a national ID number.</div>
+        <div class="lx-field-hint" *ngIf="nationalIdDoc.profileUploadId">Using document already stored on the linked user profile.</div>
+      </div>
+
+      <div class="flt-driver-dialog__or span-2">or</div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Passport number</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">flight</mat-icon>
+          <input formControlName="passportNumber" placeholder="If no national ID above" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Passport expiry <span class="flt-optional">(optional)</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <input type="date" formControlName="passportExpiryDate" aria-label="Passport expiry date" />
+        </div>
+        <div class="lx-field-hint">Optional — leave blank if not applicable.</div>
+      </div>
+
+      <div class="lx-field span-2 flt-driver-dialog__upload">
+        <label class="lx-field-label">Passport upload</label>
+        <div class="flt-driver-dialog__upload-row">
+          <label class="lx-btn lx-btn-ghost lx-btn-sm flt-driver-dialog__upload-btn">
+            <mat-icon>upload_file</mat-icon>
+            Choose file
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" hidden (change)="onPassportFileSelected($event)" />
+          </label>
+          <span class="flt-driver-dialog__upload-name" *ngIf="passportDoc.fileName">{{ passportDoc.fileName }}</span>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" *ngIf="passportDoc.fileName" (click)="clearPassportDoc()">
+            Clear
+          </button>
+        </div>
+        <div class="lx-field-hint" *ngIf="!passportDoc.profileUploadId">PDF or image scan — required if you provide a passport number.</div>
+        <div class="lx-field-hint" *ngIf="passportDoc.profileUploadId">Using document already stored on the linked user profile.</div>
+      </div>
+    </div>
+
+    <div class="flt-driver-dialog__section lx-form-grid">
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Residential address</div>
+        <p class="flt-driver-dialog__lead">
+          Select country through suburb using the same location hierarchy as user management. Line 1, postal code, and
+          suburb are required.
+        </p>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Address line 1 <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('addressLine1', 'required')">
+          <mat-icon class="lx-input-shell__icon">home</mat-icon>
+          <input formControlName="addressLine1" placeholder="e.g. 12 Main Road" autocomplete="street-address" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Address line 2</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">home</mat-icon>
+          <input formControlName="addressLine2" placeholder="e.g. Apartment 6B (optional)" autocomplete="off" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Postal code <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('addressPostalCode', 'required')">
+          <mat-icon class="lx-input-shell__icon">markunread_mailbox</mat-icon>
+          <input formControlName="addressPostalCode" placeholder="e.g. 00263" autocomplete="postal-code" />
+        </div>
+      </div>
+
+      <app-user-address-cascade-fields
+        class="span-2"
+        [(suburbId)]="suburbIdStr"
+        [(cityId)]="cityIdStr"
+        [seedSuburbId]="seedSuburbId"
+        [seedAddressHierarchy]="addressSeed"
+        [disabled]="submitting"
+      ></app-user-address-cascade-fields>
+
+      <p class="flt-field-error span-2" *ngIf="addressError">{{ addressError }}</p>
+    </div>
+
+    <div class="flt-driver-dialog__section lx-form-grid">
+      <div class="lx-form-section span-2">
+        <div class="lx-form-section-title">Driver licence</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">License number <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('licenseNumber', 'required')">
           <mat-icon class="lx-input-shell__icon">credit_card</mat-icon>
-          <input formControlName="licenseNumber" autocomplete="off" />
+          <input formControlName="licenseNumber" placeholder="e.g. DL-12345678" autocomplete="off" />
         </div>
       </div>
 
@@ -69,6 +276,22 @@
           <input formControlName="licenseClass" placeholder="e.g. CE" autocomplete="off" />
         </div>
       </div>
+
+      <div class="lx-field span-2 flt-driver-dialog__upload">
+        <label class="lx-field-label">Licence upload <span class="req">*</span></label>
+        <div class="flt-driver-dialog__upload-row">
+          <label class="lx-btn lx-btn-ghost lx-btn-sm flt-driver-dialog__upload-btn">
+            <mat-icon>upload_file</mat-icon>
+            Choose file
+            <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" hidden (change)="onLicenseFileSelected($event)" />
+          </label>
+          <span class="flt-driver-dialog__upload-name" *ngIf="licenseDoc.fileName">{{ licenseDoc.fileName }}</span>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" *ngIf="licenseDoc.fileName" (click)="clearLicenseDoc()">
+            Clear
+          </button>
+        </div>
+        <div class="lx-field-hint">PDF or image scan of the driver's licence.</div>
+      </div>
     </div>
 
     <p class="lx-list-error" *ngIf="saveError">
@@ -78,7 +301,7 @@
 
     <div class="lx-dialog-actions">
       <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
-      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting">
         {{ submitting ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save changes' : 'Add driver') }}
       </button>
     </div>

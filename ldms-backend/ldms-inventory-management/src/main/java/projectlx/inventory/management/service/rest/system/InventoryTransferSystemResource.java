@@ -155,6 +155,8 @@ public class InventoryTransferSystemResource {
         return inventoryTransferServiceProcessor.startTransit(
                 request.getTransferId(),
                 request.getStartedByUserId(),
+                request.getTripId(),
+                request.getShipmentId(),
                 locale,
                 "SYSTEM"
         );

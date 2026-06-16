@@ -13,8 +13,16 @@ import projectlx.trip.tracking.business.auditable.api.TripEventServiceAuditable;
 import projectlx.trip.tracking.business.auditable.api.TripServiceAuditable;
 import projectlx.trip.tracking.business.logic.api.TripService;
 import projectlx.trip.tracking.business.logic.support.CallerOrganizationResolver;
+import projectlx.trip.tracking.business.logic.support.LogisticsNotificationRecipientResolver;
+import projectlx.trip.tracking.business.logic.support.TripIotDemoSimulator;
 import projectlx.trip.tracking.business.logic.support.TripMapper;
 import projectlx.trip.tracking.business.logic.support.TripNumberGenerator;
+import projectlx.trip.tracking.business.logic.support.TripRoutePlannerSupport;
+import projectlx.trip.tracking.business.logic.support.TripTelemetryPublisher;
+import projectlx.trip.tracking.model.TripRoutePlan;
+import projectlx.trip.tracking.repository.TripRoutePlanRepository;
+import projectlx.trip.tracking.utils.config.IotIntegrationProperties;
+import projectlx.trip.tracking.utils.dtos.TripLiveSnapshotDto;
 import projectlx.trip.tracking.business.validator.api.TripServiceValidator;
 import projectlx.trip.tracking.clients.InventoryManagementServiceClient;
 import projectlx.trip.tracking.clients.ShipmentManagementServiceClient;
@@ -25,7 +33,9 @@ import projectlx.trip.tracking.repository.DeliveryOtpRepository;
 import projectlx.trip.tracking.repository.TripEventRepository;
 import projectlx.trip.tracking.repository.TripRepository;
 import projectlx.trip.tracking.utils.config.RabbitMQProducerConfig;
+import projectlx.trip.tracking.utils.dtos.InventoryCompleteSalesOrderWithGrvDto;
 import projectlx.trip.tracking.utils.dtos.InventoryCompleteWithGrvDto;
+import projectlx.trip.tracking.utils.dtos.InventoryStartSalesOrderDispatchDto;
 import projectlx.trip.tracking.utils.dtos.InventoryStartTransitDto;
 import projectlx.trip.tracking.utils.dtos.ShipmentSummaryDto;
 import projectlx.trip.tracking.utils.requests.UpdateShipmentStatusFeignRequest;
@@ -42,9 +52,12 @@ import projectlx.trip.tracking.utils.requests.TriggerArrivalRequest;
 import projectlx.trip.tracking.utils.requests.TripFilterRequest;
 import projectlx.trip.tracking.utils.requests.VerifyDeliveryOtpRequest;
 import projectlx.trip.tracking.utils.responses.TripResponse;
+import projectlx.co.zw.shared_library.utils.dtos.OrganizationDto;
+import projectlx.co.zw.shared_library.utils.dtos.UserDto;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import projectlx.co.zw.shared_library.utils.notifications.LogisticsLifecycleNotificationSupport;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
@@ -74,9 +87,17 @@ public class TripServiceImpl implements TripService {
     private final RabbitTemplate rabbitTemplate;
     private final MessageService messageService;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
+    private final TripRoutePlannerSupport routePlannerSupport;
+    private final TripIotDemoSimulator demoSimulator;
+    private final TripTelemetryPublisher telemetryPublisher;
+    private final TripRoutePlanRepository tripRoutePlanRepository;
+    private final IotIntegrationProperties iotProperties;
+    private final LogisticsLifecycleNotificationSupport logisticsLifecycleNotificationSupport;
+    private final LogisticsNotificationRecipientResolver recipientResolver;
 
     private static final List<TripStatus> ACTIVE_STATUSES = List.of(
-            TripStatus.SCHEDULED, TripStatus.IN_TRANSIT, TripStatus.ARRIVED, TripStatus.OTP_PENDING);
+            TripStatus.SCHEDULED, TripStatus.IN_TRANSIT, TripStatus.AT_BORDER_HOLD,
+            TripStatus.ROADSIDE_HOLD, TripStatus.ARRIVED, TripStatus.OTP_PENDING);
 
     /**
      * Start Trip: Allocate driver + asset, link inventory transfer, notify shipment service.
@@ -152,6 +173,7 @@ public class TripServiceImpl implements TripService {
         trip.setOrganizationId(organizationId);
         trip.setShipmentId(request.getShipmentId());
         trip.setInventoryTransferId(shipment.getInventoryTransferId());
+        trip.setSalesOrderId(shipment.getSalesOrderId());
         trip.setFleetDriverId(request.getFleetDriverId());
         trip.setFleetAssetId(request.getFleetAssetId());
         trip.setStatus(TripStatus.IN_TRANSIT);
@@ -168,17 +190,33 @@ public class TripServiceImpl implements TripService {
                 saved.getId(), saved.getTripNumber(), saved.getShipmentId(), organizationId);
 
         // ============================================================
-        // STEP 6: Start inventory transit for linked transfer
+        // STEP 6: Start inventory movement for linked source document
         // ============================================================
         if (saved.getInventoryTransferId() != null) {
             try {
                 InventoryStartTransitDto startTransitDto = new InventoryStartTransitDto();
                 startTransitDto.setTransferId(saved.getInventoryTransferId());
                 startTransitDto.setStartedByUserId(request.getStartedByUserId());
+                startTransitDto.setTripId(saved.getId());
+                startTransitDto.setShipmentId(saved.getShipmentId());
                 inventoryManagementServiceClient.startTransit(startTransitDto, locale);
                 log.info("Inventory transfer {} started for trip {}", saved.getInventoryTransferId(), saved.getId());
             } catch (Exception ex) {
                 log.error("Failed to start inventory transit for transfer {}: {}", saved.getInventoryTransferId(), ex.getMessage());
+            }
+        } else if (saved.getSalesOrderId() != null
+                || "SALES_ORDER".equalsIgnoreCase(shipment.getSourceType())) {
+            Long salesOrderId = saved.getSalesOrderId() != null ? saved.getSalesOrderId() : shipment.getSalesOrderId();
+            try {
+                InventoryStartSalesOrderDispatchDto dispatchDto = new InventoryStartSalesOrderDispatchDto();
+                dispatchDto.setSalesOrderId(salesOrderId);
+                dispatchDto.setStartedByUserId(request.getStartedByUserId());
+                dispatchDto.setTripId(saved.getId());
+                dispatchDto.setShipmentId(saved.getShipmentId());
+                inventoryManagementServiceClient.startSalesOrderDispatch(dispatchDto, locale);
+                log.info("Sales order {} dispatch started for trip {}", salesOrderId, saved.getId());
+            } catch (Exception ex) {
+                log.error("Failed to start sales order dispatch for SO {}: {}", salesOrderId, ex.getMessage());
             }
         }
 
@@ -205,6 +243,16 @@ public class TripServiceImpl implements TripService {
         // STEP 9: Publish trip.started event
         // ============================================================
         publishTripEvent(RabbitMQProducerConfig.ROUTING_KEY_TRIP_STARTED, saved);
+
+        // ============================================================
+        // STEP 10: Send trip-started lifecycle notifications (non-blocking)
+        // ============================================================
+        sendTripStartedNotification(saved, locale, username);
+
+        routePlannerSupport.ensureRoutePlan(saved, username);
+        if (iotProperties.isAutoStartDemoSimulation()) {
+            demoSimulator.startSimulation(saved.getId(), username);
+        }
 
         TripResponse response = successResponse(201,
                 messageService.getMessage(I18Code.MESSAGE_TRIP_START_SUCCESS.getCode(), new String[]{}, locale));
@@ -241,17 +289,33 @@ public class TripServiceImpl implements TripService {
         // STEP 3: Persist event
         // ============================================================
         TripEventType eventType = TripEventType.valueOf(request.getEventType().trim().toUpperCase());
+        LocalDateTime now = LocalDateTime.now();
         TripEvent event = recordTripEvent(trip, eventType, request.getLatitude(), request.getLongitude(),
-                request.getNotes(), null, username, LocalDateTime.now(), locale);
+                request.getNotes(), null, username, now, locale);
 
         // ============================================================
-        // STEP 4: Publish trip.event_recorded
+        // STEP 4: Apply status transition driven by event type
+        // ============================================================
+        TripStatus previousStatus = trip.getStatus();
+        TripStatus newStatus = resolveStatusTransition(previousStatus, eventType);
+        if (newStatus != null && newStatus != previousStatus) {
+            trip.setStatus(newStatus);
+            trip.setModifiedAt(now);
+            trip.setModifiedBy(username);
+            tripServiceAuditable.update(trip, locale, username);
+            log.info("Trip {} status transitioned {} → {} on event {}",
+                    trip.getId(), previousStatus, newStatus, eventType);
+        }
+
+        // ============================================================
+        // STEP 5: Publish trip.event_recorded
         // ============================================================
         try {
             Map<String, Object> payload = new HashMap<>();
             payload.put("tripId", trip.getId());
             payload.put("tripNumber", trip.getTripNumber());
             payload.put("eventType", eventType.name());
+            payload.put("status", trip.getStatus().name());
             rabbitTemplate.convertAndSend(RabbitMQProducerConfig.TRIP_EXCHANGE,
                     RabbitMQProducerConfig.ROUTING_KEY_TRIP_EVENT_RECORDED, payload);
         } catch (Exception ex) {
@@ -262,6 +326,16 @@ public class TripServiceImpl implements TripService {
                 messageService.getMessage(I18Code.MESSAGE_TRIP_EVENT_RECORDED_SUCCESS.getCode(), new String[]{}, locale));
         response.setTripEventDto(TripMapper.toEventDto(event));
         return response;
+    }
+
+    /**
+     * Records a system-initiated trip event (e.g. from fuel-expenses on fund request approval).
+     * Delegates to {@link #recordEvent} with username="system".
+     */
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public TripResponse recordSystemEvent(RecordTripEventRequest request, Locale locale) {
+        return recordEvent(request, locale, "system");
     }
 
     /**
@@ -295,10 +369,33 @@ public class TripServiceImpl implements TripService {
         TripEvent event = recordTripEvent(trip, TripEventType.CHECKPOINT, request.getLatitude(), request.getLongitude(),
                 null, null, username, LocalDateTime.now(), locale);
 
+        tripRoutePlanRepository.findByTripIdAndEntityStatusNot(trip.getId(), EntityStatus.DELETED).ifPresent(plan -> {
+            plan.setCurrentLatitude(request.getLatitude());
+            plan.setCurrentLongitude(request.getLongitude());
+            plan.setModifiedAt(LocalDateTime.now());
+            plan.setModifiedBy(username);
+            tripRoutePlanRepository.save(plan);
+            publishLiveTelemetry(trip, plan);
+        });
+
         TripResponse response = successResponse(201,
                 messageService.getMessage(I18Code.MESSAGE_TRIP_LOCATION_RECORDED_SUCCESS.getCode(), new String[]{}, locale));
         response.setTripEventDto(TripMapper.toEventDto(event));
         return response;
+    }
+
+    private void publishLiveTelemetry(Trip trip, TripRoutePlan plan) {
+        TripLiveSnapshotDto snapshot = telemetryPublisher.buildSnapshot(
+                trip,
+                plan.getCurrentLatitude(),
+                plan.getCurrentLongitude(),
+                plan.getCurrentSpeedKmh(),
+                plan.getCurrentHeadingDeg(),
+                plan.getOverallProgressPct(),
+                plan.isSimulationActive(),
+                plan.isSimulationActive());
+        snapshot.setRouteWaypoints(routePlannerSupport.buildFullPath(plan));
+        telemetryPublisher.publish(trip, snapshot);
     }
 
     /**
@@ -493,6 +590,18 @@ public class TripServiceImpl implements TripService {
             } catch (Exception ex) {
                 log.error("Failed to complete-with-grv for transfer {}: {}", trip.getInventoryTransferId(), ex.getMessage());
             }
+        } else if (trip.getSalesOrderId() != null) {
+            try {
+                String idempotencyKey = trip.getTripNumber() + "-GRV";
+                InventoryCompleteSalesOrderWithGrvDto completeDto = new InventoryCompleteSalesOrderWithGrvDto();
+                completeDto.setSalesOrderId(trip.getSalesOrderId());
+                completeDto.setReceivedByUserId(request.getReceiverUserId());
+                completeDto.setIdempotencyKey(idempotencyKey);
+                inventoryManagementServiceClient.completeSalesOrderWithGrv(completeDto, locale);
+                log.info("Sales order {} completed with customer GRV for trip {}", trip.getSalesOrderId(), trip.getId());
+            } catch (Exception ex) {
+                log.error("Failed to complete-with-grv for sales order {}: {}", trip.getSalesOrderId(), ex.getMessage());
+            }
         }
 
         // ============================================================
@@ -531,6 +640,11 @@ public class TripServiceImpl implements TripService {
         // ============================================================
         publishTripEvent(RabbitMQProducerConfig.ROUTING_KEY_TRIP_DELIVERED, trip);
 
+        // ============================================================
+        // STEP 10: Send trip-completed lifecycle notifications (non-blocking)
+        // ============================================================
+        sendTripCompletedNotification(trip, locale, username);
+
         TripResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_TRIP_DELIVERY_VERIFIED_SUCCESS.getCode(), new String[]{}, locale));
         response.setTripDto(TripMapper.toDto(trip));
@@ -561,21 +675,16 @@ public class TripServiceImpl implements TripService {
                     I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(), new String[]{}, locale));
         }
 
-        TripStatus statusFilter = null;
-        if (request.getStatus() != null && !request.getStatus().isBlank()) {
-            try {
-                statusFilter = TripStatus.valueOf(request.getStatus().trim().toUpperCase());
-            } catch (IllegalArgumentException ex) {
-                log.warn("Unknown trip status filter: {}", request.getStatus());
-            }
-        }
+        TripFilterRequest filters = request != null ? request : new TripFilterRequest();
 
-        int page = Math.max(0, request.getPage());
-        int size = (request.getSize() > 0 && request.getSize() <= 100) ? request.getSize() : 20;
+        TripStatus statusFilter = resolveStatusFilter(filters.getStatus());
+
+        int page = Math.max(0, filters.getPage());
+        int size = (filters.getSize() > 0 && filters.getSize() <= 100) ? filters.getSize() : 20;
 
         Page<Trip> trips = tripRepository.findByFilters(
                 organizationId, statusFilter,
-                request.getSearchTerm(),
+                filters.getSearchTerm(),
                 EntityStatus.DELETED,
                 PageRequest.of(page, size));
 
@@ -607,6 +716,81 @@ public class TripServiceImpl implements TripService {
     }
 
     // ============================================================
+    // Notification helpers
+    // ============================================================
+
+    private void sendTripStartedNotification(Trip trip, Locale locale, String performedBy) {
+        try {
+            OrganizationDto org = recipientResolver.resolveOrganization(trip.getOrganizationId(), locale);
+            List<UserDto> fleetManagers = recipientResolver.resolveFleetManagers(trip.getOrganizationId(), locale);
+            LogisticsNotificationRecipientResolver.DriverContact driver =
+                    recipientResolver.resolveDriverContact(trip.getFleetDriverId(), locale);
+
+            String orgEmail = org != null ? org.getEmail() : null;
+            String orgPhone = org != null ? org.getPhoneNumber() : null;
+            String contactEmail = org != null ? org.getContactPersonEmail() : null;
+            String contactPhone = org != null ? org.getContactPersonPhoneNumber() : null;
+            String orgName = org != null ? org.getName() : "";
+            String contactName = org != null
+                    ? buildOrgContactName(org.getContactPersonFirstName(), org.getContactPersonLastName(), orgName)
+                    : "";
+
+            logisticsLifecycleNotificationSupport.notifyTripStarted(
+                    trip.getOrganizationId(),
+                    orgEmail, orgPhone, contactEmail, contactPhone, orgName, contactName,
+                    fleetManagers,
+                    driver.email(), driver.phone(), driver.name(),
+                    trip.getTripNumber(),
+                    null,
+                    trip.getFromWarehouseName(),
+                    trip.getToWarehouseName(),
+                    trip.getProductName(),
+                    performedBy);
+        } catch (Exception ex) {
+            log.error("Failed to send trip-started notification for tripId={}: {}", trip.getId(), ex.getMessage());
+        }
+    }
+
+    private void sendTripCompletedNotification(Trip trip, Locale locale, String performedBy) {
+        try {
+            OrganizationDto org = recipientResolver.resolveOrganization(trip.getOrganizationId(), locale);
+            List<UserDto> fleetManagers = recipientResolver.resolveFleetManagers(trip.getOrganizationId(), locale);
+            LogisticsNotificationRecipientResolver.DriverContact driver =
+                    recipientResolver.resolveDriverContact(trip.getFleetDriverId(), locale);
+
+            String orgEmail = org != null ? org.getEmail() : null;
+            String orgPhone = org != null ? org.getPhoneNumber() : null;
+            String contactEmail = org != null ? org.getContactPersonEmail() : null;
+            String contactPhone = org != null ? org.getContactPersonPhoneNumber() : null;
+            String orgName = org != null ? org.getName() : "";
+            String contactName = org != null
+                    ? buildOrgContactName(org.getContactPersonFirstName(), org.getContactPersonLastName(), orgName)
+                    : "";
+
+            logisticsLifecycleNotificationSupport.notifyTripCompleted(
+                    trip.getOrganizationId(),
+                    orgEmail, orgPhone, contactEmail, contactPhone, orgName, contactName,
+                    fleetManagers,
+                    driver.email(), driver.phone(), driver.name(),
+                    trip.getTripNumber(),
+                    null,
+                    trip.getFromWarehouseName(),
+                    trip.getToWarehouseName(),
+                    trip.getProductName(),
+                    performedBy);
+        } catch (Exception ex) {
+            log.error("Failed to send trip-completed notification for tripId={}: {}", trip.getId(), ex.getMessage());
+        }
+    }
+
+    private static String buildOrgContactName(String firstName, String lastName, String fallback) {
+        String first = firstName != null ? firstName.trim() : "";
+        String last = lastName != null ? lastName.trim() : "";
+        String name = (first + " " + last).trim();
+        return name.isEmpty() ? fallback : name;
+    }
+
+    // ============================================================
     // Private helpers
     // ============================================================
 
@@ -635,6 +819,9 @@ public class TripServiceImpl implements TripService {
             payload.put("tripNumber", trip.getTripNumber());
             payload.put("organizationId", trip.getOrganizationId());
             payload.put("shipmentId", trip.getShipmentId());
+            payload.put("fleetDriverId", trip.getFleetDriverId());
+            payload.put("fleetAssetId", trip.getFleetAssetId());
+            payload.put("inventoryTransferId", trip.getInventoryTransferId());
             payload.put("status", trip.getStatus().name());
             rabbitTemplate.convertAndSend(RabbitMQProducerConfig.TRIP_EXCHANGE, routingKey, payload);
             log.info("Published {} for trip {}", routingKey, trip.getId());
@@ -647,6 +834,50 @@ public class TripServiceImpl implements TripService {
         SecureRandom random = new SecureRandom();
         int otp = 100000 + random.nextInt(900000);
         return String.valueOf(otp);
+    }
+
+    /**
+     * Derives the new trip status from the incoming event type.
+     * Returns {@code null} when no automatic transition applies for the current status.
+     *
+     * Transition table:
+     *   ARRIVED_AT_BORDER             → AT_BORDER_HOLD   (only when IN_TRANSIT)
+     *   BORDER_CLEARED                → IN_TRANSIT       (only when AT_BORDER_HOLD)
+     *   ROADSIDE_FUEL_STOP            → ROADSIDE_HOLD    (only when IN_TRANSIT)
+     *   ROADSIDE_MECHANIC_STOP        → ROADSIDE_HOLD    (only when IN_TRANSIT)
+     *   ROADSIDE_RESUMED              → IN_TRANSIT       (only when ROADSIDE_HOLD)
+     */
+    private TripStatus resolveStatusTransition(TripStatus current, TripEventType eventType) {
+        return switch (eventType) {
+            case ARRIVED_AT_BORDER -> current == TripStatus.IN_TRANSIT ? TripStatus.AT_BORDER_HOLD : null;
+            case BORDER_CLEARED    -> current == TripStatus.AT_BORDER_HOLD ? TripStatus.IN_TRANSIT : null;
+            case ROADSIDE_FUEL_STOP, ROADSIDE_MECHANIC_STOP ->
+                    current == TripStatus.IN_TRANSIT ? TripStatus.ROADSIDE_HOLD : null;
+            case ROADSIDE_RESUMED  -> current == TripStatus.ROADSIDE_HOLD ? TripStatus.IN_TRANSIT : null;
+            default                -> null;
+        };
+    }
+
+    /**
+     * Accepts portal aliases (e.g. IN_PROGRESS, PENDING) as well as canonical enum names.
+     */
+    private TripStatus resolveStatusFilter(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String normalized = raw.trim().toUpperCase();
+        return switch (normalized) {
+            case "PENDING" -> TripStatus.SCHEDULED;
+            case "IN_PROGRESS" -> TripStatus.IN_TRANSIT;
+            default -> {
+                try {
+                    yield TripStatus.valueOf(normalized);
+                } catch (IllegalArgumentException ex) {
+                    log.warn("Unknown trip status filter: {}", raw);
+                    yield null;
+                }
+            }
+        };
     }
 
     private TripResponse successResponse(int statusCode, String message) {

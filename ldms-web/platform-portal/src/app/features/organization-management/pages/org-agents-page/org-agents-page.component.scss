@@ -1,0 +1,17 @@
+@import '../org-branches-page/org-branches-page.component.scss';
+
+.om-form-grid--wide {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 960px) {
+  .om-form-grid--wide {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .om-form-grid--wide {
+    grid-template-columns: 1fr;
+  }
+}

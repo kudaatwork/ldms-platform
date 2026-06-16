@@ -42,9 +42,15 @@ public class WarehouseLocation {
     @Column(name = "supplier_id")
     private Long supplierId;
 
+    @Column(name = "branch_id")
+    private Long branchId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "warehouse_type", length = 20)
     private WarehouseLocationType warehouseType;
+
+    @Column(name = "is_virtual", nullable = false)
+    private boolean virtualWarehouse;
 
     @OneToMany(mappedBy = "warehouseLocation")
     @ToString.Exclude

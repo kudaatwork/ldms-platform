@@ -16,6 +16,12 @@ public interface TripServiceProcessor {
 
     TripResponse recordEvent(RecordTripEventRequest request, Locale locale, String username);
 
+    /**
+     * Records a trip event for inter-service (system) callers.
+     * Bypasses authentication context — username is fixed as "system".
+     */
+    TripResponse recordSystemEvent(RecordTripEventRequest request, Locale locale);
+
     TripResponse recordLocation(RecordLocationRequest request, Locale locale, String username);
 
     TripResponse triggerArrival(TriggerArrivalRequest request, Locale locale, String username);

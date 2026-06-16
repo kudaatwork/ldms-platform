@@ -40,3 +40,14 @@ export function extractAccessToken(res: AuthTokenResponse): string {
   const data = raw.data?.accessToken ?? raw.data?.access_token;
   return (raw.accessToken ?? raw.access_token ?? nested ?? data ?? raw.token ?? '').trim();
 }
+
+export function extractRefreshToken(res: AuthTokenResponse): string {
+  const raw = res as AuthTokenResponse & {
+    refresh_token?: string;
+    authDto?: { refreshToken?: string; refresh_token?: string };
+    data?: { refreshToken?: string; refresh_token?: string };
+  };
+  const nested = raw.authDto?.refreshToken ?? raw.authDto?.refresh_token;
+  const data = raw.data?.refreshToken ?? raw.data?.refresh_token;
+  return (raw.refreshToken ?? raw.refresh_token ?? nested ?? data ?? '').trim();
+}

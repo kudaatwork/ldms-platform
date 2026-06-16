@@ -3,7 +3,7 @@
   <lx-workspace-hero
     eyebrow="Corridor tracking"
     eyebrowIcon="route"
-    title="Shipments &amp; Trips"
+    title="Shipment management"
     lead="Monitor live shipments, allocate drivers, and track trips from dispatch to delivery."
     hubIcon="local_shipping"
     [orbitIcons]="['route', 'place', 'verified']"
@@ -55,26 +55,66 @@
 
     <!-- ════════════════════ SHIPMENTS TAB ════════════════════ -->
     <section *ngIf="isTab('shipments')">
-      <!-- Toolbar -->
-      <div class="trt-toolbar lx-card">
-        <div class="trt-toolbar__left">
-          <mat-form-field appearance="outline" class="trt-search-field" subscriptSizing="dynamic">
-            <mat-label>Search shipments</mat-label>
-            <mat-icon matPrefix>search</mat-icon>
-            <input
-              matInput
-              [(ngModel)]="shipmentSearch"
-              (ngModelChange)="onShipmentSearchChange()"
-              placeholder="Shipment number, transfer ref…"
-            />
-          </mat-form-field>
+      <div class="lx-card lx-card--subsection">
+        <div class="lx-controls-head">
+          <div class="lx-controls-head__text">
+            <h3 class="lx-controls-title">Table controls</h3>
+            <p class="lx-controls-subtitle">Search shipments, filter by status, and allocate drivers once a transfer is approved.</p>
+          </div>
+        </div>
+        <div class="lx-data-toolbar">
+          <div class="lx-data-toolbar__actions">
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()" [disabled]="shipmentsLoading">
+              Refresh
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost"
+              (click)="resetShipmentFilters()"
+              [disabled]="!shipmentFiltersActive()"
+            >
+              Reset filters
+            </button>
+          </div>
+          <div class="lx-data-toolbar__search">
+            <div class="lx-input-shell lx-search-field">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input
+                [(ngModel)]="shipmentSearch"
+                (ngModelChange)="onShipmentSearchChange()"
+                placeholder="Shipment number, product, transfer ref…"
+              />
+            </div>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+              (click)="shipmentFilterFieldsOpen = !shipmentFilterFieldsOpen"
+              [class.lx-btn-filter--on]="shipmentFilterFieldsOpen || shipmentFiltersActive()"
+            >
+              <mat-icon>tune</mat-icon>
+              Filters
+              <span class="lx-filter-badge" *ngIf="shipmentFiltersActive()">•</span>
+            </button>
+          </div>
+        </div>
 
-          <mat-form-field appearance="outline" class="trt-filter-field" subscriptSizing="dynamic">
-            <mat-label>Status</mat-label>
-            <mat-select [(ngModel)]="shipmentStatusFilter" (ngModelChange)="onShipmentStatusChange()">
-              <mat-option *ngFor="let opt of shipmentStatusOptions" [value]="opt.value">{{ opt.label }}</mat-option>
-            </mat-select>
-          </mat-form-field>
+        <div class="lx-filter-panel" *ngIf="shipmentFilterFieldsOpen">
+          <span class="lx-filter-panel__label">Column filters</span>
+          <div class="lx-filter-fields">
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Status</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
+                <select
+                  [(ngModel)]="shipmentStatusFilter"
+                  (ngModelChange)="onShipmentStatusChange()"
+                  aria-label="Shipment status"
+                >
+                  <option *ngFor="let opt of shipmentStatusOptions" [value]="opt.value">{{ opt.label }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -120,12 +160,23 @@
                 </td>
                 <td>
                   <span class="trt-status-badge" [class]="statusBadgeClass(s.statusTone)">{{ s.statusLabel }}</span>
+                  <span class="trt-cell-sub" *ngIf="s.transportCompanyName">{{ s.transportCompanyName }}</span>
                 </td>
                 <td>{{ s.driverName }}</td>
                 <td>{{ s.vehicleRegistration }}</td>
                 <td>{{ s.createdAtLabel }}</td>
                 <td class="trt-col-actions">
                   <div class="trt-actions">
+                    <button
+                      type="button"
+                      class="lx-btn lx-btn-ghost lx-btn-sm"
+                      *ngIf="s.canAssignTransport"
+                      (click)="openAssignTransport(s)"
+                      matTooltip="Assign transport company"
+                    >
+                      <mat-icon>handshake</mat-icon>
+                      Assign
+                    </button>
                     <button
                       type="button"
                       class="lx-btn lx-btn-ghost lx-btn-sm"
@@ -160,26 +211,66 @@
 
     <!-- ════════════════════ TRIPS TAB ════════════════════ -->
     <section *ngIf="isTab('trips')">
-      <!-- Toolbar -->
-      <div class="trt-toolbar lx-card">
-        <div class="trt-toolbar__left">
-          <mat-form-field appearance="outline" class="trt-search-field" subscriptSizing="dynamic">
-            <mat-label>Search trips</mat-label>
-            <mat-icon matPrefix>search</mat-icon>
-            <input
-              matInput
-              [(ngModel)]="tripSearch"
-              (ngModelChange)="onTripSearchChange()"
-              placeholder="Trip number, driver, route…"
-            />
-          </mat-form-field>
+      <div class="lx-card lx-card--subsection">
+        <div class="lx-controls-head">
+          <div class="lx-controls-head__text">
+            <h3 class="lx-controls-title">Table controls</h3>
+            <p class="lx-controls-subtitle">Search active trips, filter by status, and open live corridor tracking.</p>
+          </div>
+        </div>
+        <div class="lx-data-toolbar">
+          <div class="lx-data-toolbar__actions">
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="refresh()" [disabled]="tripsLoading">
+              Refresh
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost"
+              (click)="resetTripFilters()"
+              [disabled]="!tripFiltersActive()"
+            >
+              Reset filters
+            </button>
+          </div>
+          <div class="lx-data-toolbar__search">
+            <div class="lx-input-shell lx-search-field">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input
+                [(ngModel)]="tripSearch"
+                (ngModelChange)="onTripSearchChange()"
+                placeholder="Trip number, driver, route…"
+              />
+            </div>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+              (click)="tripFilterFieldsOpen = !tripFilterFieldsOpen"
+              [class.lx-btn-filter--on]="tripFilterFieldsOpen || tripFiltersActive()"
+            >
+              <mat-icon>tune</mat-icon>
+              Filters
+              <span class="lx-filter-badge" *ngIf="tripFiltersActive()">•</span>
+            </button>
+          </div>
+        </div>
 
-          <mat-form-field appearance="outline" class="trt-filter-field" subscriptSizing="dynamic">
-            <mat-label>Status</mat-label>
-            <mat-select [(ngModel)]="tripStatusFilter" (ngModelChange)="onTripStatusChange()">
-              <mat-option *ngFor="let opt of tripStatusOptions" [value]="opt.value">{{ opt.label }}</mat-option>
-            </mat-select>
-          </mat-form-field>
+        <div class="lx-filter-panel" *ngIf="tripFilterFieldsOpen">
+          <span class="lx-filter-panel__label">Column filters</span>
+          <div class="lx-filter-fields">
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Status</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
+                <select
+                  [(ngModel)]="tripStatusFilter"
+                  (ngModelChange)="onTripStatusChange()"
+                  aria-label="Trip status"
+                >
+                  <option *ngFor="let opt of tripStatusOptions" [value]="opt.value">{{ opt.label }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -226,12 +317,22 @@
                 <td class="trt-col-actions">
                   <button
                     type="button"
+                    class="lx-btn lx-btn-primary lx-btn-sm"
+                    *ngIf="t.canLiveTrack"
+                    (click)="openLiveTrack(t)"
+                    matTooltip="Live map &amp; fuel telemetry"
+                  >
+                    <mat-icon>near_me</mat-icon>
+                    Live
+                  </button>
+                  <button
+                    type="button"
                     class="lx-btn lx-btn-ghost lx-btn-sm"
                     (click)="viewTrip(t)"
                     matTooltip="View timeline &amp; actions"
                   >
-                    <mat-icon>open_in_new</mat-icon>
-                    Track
+                    <mat-icon>timeline</mat-icon>
+                    Timeline
                   </button>
                 </td>
               </tr>

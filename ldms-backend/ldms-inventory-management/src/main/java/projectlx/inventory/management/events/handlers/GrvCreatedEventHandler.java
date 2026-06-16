@@ -48,9 +48,11 @@ public class GrvCreatedEventHandler {
 
         SalesOrder salesOrder = salesOrderOpt.get();
 
-        if (organizationId != null && !organizationId.equals(salesOrder.getSupplierOrganizationId())) {
-            log.warn("GRV created event org mismatch: soId={} eventOrg={} soOrg={}",
-                    salesOrderId, organizationId, salesOrder.getSupplierOrganizationId());
+        if (organizationId != null
+                && !organizationId.equals(salesOrder.getSupplierOrganizationId())
+                && !organizationId.equals(salesOrder.getCustomerId())) {
+            log.warn("GRV created event org mismatch: soId={} eventOrg={} supplierOrg={} customerOrg={}",
+                    salesOrderId, organizationId, salesOrder.getSupplierOrganizationId(), salesOrder.getCustomerId());
             return;
         }
 

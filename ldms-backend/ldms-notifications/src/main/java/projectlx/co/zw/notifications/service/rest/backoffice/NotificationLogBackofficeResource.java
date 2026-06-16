@@ -10,7 +10,6 @@ import jakarta.validation.Valid;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -35,13 +34,16 @@ import projectlx.co.zw.shared_library.utils.export.LdmsExportMediaTypes;
 @RestController
 @RequestMapping("/ldms-notifications/v1/backoffice/notification-log")
 @Tag(name = "Notification Log Backoffice Resource", description = "Delivery log for the admin portal (JWT only)")
-@RequiredArgsConstructor
 public class NotificationLogBackofficeResource {
 
     private static final String BACKOFFICE = "BACKOFFICE";
     private static final Logger logger = LoggerFactory.getLogger(NotificationLogBackofficeResource.class);
 
     private final NotificationLogProcessor notificationLogProcessor;
+
+    public NotificationLogBackofficeResource(NotificationLogProcessor notificationLogProcessor) {
+        this.notificationLogProcessor = notificationLogProcessor;
+    }
 
     @Auditable(action = "FIND_NOTIFICATION_LOG_BY_MULTIPLE_FILTERS")
     @PostMapping("/find-by-multiple-filters")

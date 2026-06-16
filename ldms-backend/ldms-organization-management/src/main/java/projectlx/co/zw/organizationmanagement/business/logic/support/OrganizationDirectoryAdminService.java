@@ -34,6 +34,7 @@ import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryCsvDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryMapping;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OrganizationMapping;
+import projectlx.co.zw.organizationmanagement.utils.enums.BranchLevel;
 import projectlx.co.zw.organizationmanagement.utils.enums.I18Code;
 import projectlx.co.zw.organizationmanagement.utils.requests.AgentMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.BranchMultipleFiltersRequest;
@@ -77,6 +78,7 @@ public class OrganizationDirectoryAdminService {
     private final OrganizationServiceValidator organizationServiceValidator;
     private final MessageService messageService;
     private final OrganizationDirectoryNotifier organizationDirectoryNotifier;
+    private final BranchHierarchySupport branchHierarchySupport;
 
     @Transactional
     public OrganizationResponse createBranch(CreateBranchRequest request, Locale locale, String username) {
@@ -89,8 +91,14 @@ public class OrganizationDirectoryAdminService {
             return errors(v.getErrorMessages());
         }
         Organization org = loadOrganization(request.getOrganizationId(), locale);
+        Optional<String> hierarchyError = branchHierarchySupport.validateHierarchyForCreate(
+                org, request.getParentBranchId(), locale);
+        if (hierarchyError.isPresent()) {
+            return errors(List.of(hierarchyError.get()));
+        }
         Branch branch = new Branch();
         branch.setOrganization(org);
+        branchHierarchySupport.applyHierarchyOnCreate(branch, org, request.getParentBranchId(), request.getDepot());
         applyBranchFields(branch, request.getBranchName(), request.getBranchCode(), request.getLocationId(),
                 request.getPhoneNumber(), request.getEmail(), request.getLatitude(), request.getLongitude(),
                 request.isHeadOffice(), request.getRegion(), request.getBusinessHours(),
@@ -120,6 +128,12 @@ public class OrganizationDirectoryAdminService {
         if (request.getOrganizationId() != null) {
             branch.setOrganization(loadOrganization(request.getOrganizationId(), locale));
         }
+        Optional<String> hierarchyError = branchHierarchySupport.validateHierarchyForUpdate(
+                branch, request.getParentBranchId(), locale);
+        if (hierarchyError.isPresent()) {
+            return errors(List.of(hierarchyError.get()));
+        }
+        branchHierarchySupport.applyHierarchyOnUpdate(branch, request.getParentBranchId(), request.getDepot());
         if (StringUtils.hasText(request.getBranchName())) {
             branch.setBranchName(request.getBranchName().trim());
         }
@@ -157,6 +171,23 @@ public class OrganizationDirectoryAdminService {
         branch.setModifiedBy(username);
         Branch saved = branchServiceAuditable.save(branch);
         return branchSuccess(saved, I18Code.BRANCH_UPDATED, 200, locale);
+    }
+
+    @Transactional(readOnly = true)
+    public OrganizationResponse getHeadOfficeBranch(Long organizationId, Locale locale) {
+        if (organizationId == null || organizationId <= 0) {
+            return errors(List.of(messageService.getMessage(I18Code.BRANCH_VALIDATION_FAILED.getCode(),
+                    new String[]{"organizationId"}, locale)));
+        }
+        loadOrganization(organizationId, locale);
+        Branch branch = branchRepository.findHeadOfficeByOrganizationId(organizationId).orElse(null);
+        if (branch == null) {
+            return errors(List.of(messageService.getMessage(I18Code.BRANCH_NOT_FOUND.getCode(), new String[]{}, locale)));
+        }
+        OrganizationManagementResponse res = ok();
+        res.setBranchDto(OrganizationMapping.toBranchDto(branch));
+        res.setMessage(messageService.getMessage(I18Code.BRANCH_RETRIEVED.getCode(), new String[]{}, locale));
+        return res;
     }
 
     @Transactional(readOnly = true)
@@ -375,6 +406,56 @@ public class OrganizationDirectoryAdminService {
     }
 
     @Transactional
+    public ImportSummary importBranchesFromCsvForOrganization(
+            InputStream inputStream, Long organizationId, Locale locale, String username) throws IOException {
+        List<BranchCsvDto> rows = parseCsv(inputStream, BranchCsvDto.class);
+        int imported = 0;
+        int failed = 0;
+        List<String> errors = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            BranchCsvDto row = rows.get(i);
+            try {
+                if (StringUtils.hasText(row.getOrganizationId())) {
+                    long csvOrgId = Long.parseLong(row.getOrganizationId().trim());
+                    if (csvOrgId != organizationId) {
+                        failed++;
+                        errors.add("Row " + (i + 2) + ": ORGANIZATION ID must match your organisation.");
+                        continue;
+                    }
+                }
+                CreateBranchRequest req = new CreateBranchRequest();
+                req.setOrganizationId(organizationId);
+                req.setBranchName(row.getBranchName());
+                req.setBranchCode(row.getBranchCode());
+                req.setRegion(row.getRegion());
+                req.setEmail(row.getEmail());
+                req.setPhoneNumber(row.getPhoneNumber());
+                req.setBusinessHours(row.getBusinessHours());
+                if (StringUtils.hasText(row.getLocationId())) {
+                    req.setLocationId(Long.parseLong(row.getLocationId().trim()));
+                }
+                if (StringUtils.hasText(row.getParentBranchId())) {
+                    req.setParentBranchId(Long.parseLong(row.getParentBranchId().trim()));
+                }
+                req.setDepot(parseBoolean(row.getDepot()));
+                req.setHeadOffice(parseBoolean(row.getHeadOffice()));
+                req.setActive(parseBoolean(row.getActive()));
+                OrganizationResponse resp = createBranch(req, locale, username, false);
+                if (resp.isSuccess()) {
+                    imported++;
+                } else {
+                    failed++;
+                    errors.add("Row " + (i + 2) + ": " + String.join(" ", resp.getErrorMessages()));
+                }
+            } catch (RuntimeException ex) {
+                failed++;
+                errors.add("Row " + (i + 2) + ": " + ex.getMessage());
+            }
+        }
+        return buildImportSummary(rows.size(), imported, failed, errors, locale, "branches");
+    }
+
+    @Transactional
     public ImportSummary importAgentsFromCsv(InputStream inputStream, Locale locale, String username) throws IOException {
         List<AgentCsvDto> rows = parseCsv(inputStream, AgentCsvDto.class);
         int imported = 0;
@@ -492,6 +573,22 @@ public class OrganizationDirectoryAdminService {
         }
         if (StringUtils.hasText(request.getSearchValue())) {
             spec = spec.and(BranchSpecifications.searchValueLike(request.getSearchValue()));
+        }
+        if (StringUtils.hasText(request.getBranchLevel())) {
+            spec = spec.and(BranchSpecifications.branchLevelEquals(
+                    BranchLevel.valueOf(request.getBranchLevel().trim().toUpperCase())));
+        }
+        if (request.getDepot() != null) {
+            spec = spec.and(BranchSpecifications.depotEquals(request.getDepot()));
+        }
+        if (request.getParentBranchId() != null && request.getParentBranchId() > 0) {
+            spec = spec.and(BranchSpecifications.parentBranchIdEquals(request.getParentBranchId()));
+        }
+        if (StringUtils.hasText(request.getRegion())) {
+            spec = spec.and(BranchSpecifications.regionLike(request.getRegion()));
+        }
+        if (request.getActive() != null) {
+            spec = spec.and(BranchSpecifications.activeEquals(request.getActive()));
         }
         return spec;
     }

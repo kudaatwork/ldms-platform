@@ -1,0 +1,487 @@
+.om-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.om-panel {
+  padding: 1rem 1.25rem;
+}
+
+.om-panel__head h2 {
+  margin: 0 0 0.25rem;
+}
+
+.om-panel__head p,
+.om-panel__empty {
+  margin: 0;
+  color: var(--lx-text-muted, #64748b);
+}
+
+.lx-actions-cell {
+  width: 3rem;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.lx-table-paginator {
+  margin-top: 0.75rem;
+}
+
+.om-drill-crumb {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.75rem 1rem;
+}
+
+.om-drill-crumb__sep {
+  font-size: 1.1rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--lx-text-muted, #64748b);
+}
+
+.om-drill-crumb__current {
+  font-weight: 600;
+}
+
+.om-drill-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  color: var(--lx-text-muted, #64748b);
+  font-size: 0.92rem;
+}
+
+.om-panel__head--split {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.om-drill-link {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--lx-brand-600, #2563eb);
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+}
+
+.om-drill-link:hover {
+  text-decoration: underline;
+}
+
+.om-branch-table-wrap {
+  overflow-x: auto;
+  margin-top: 0.25rem;
+}
+
+.om-branch-table {
+  min-width: 56rem;
+}
+
+.om-branch-cell {
+  min-width: 7rem;
+}
+
+.om-branch-cell--name {
+  min-width: 10rem;
+}
+
+.om-branch-cell--name .om-drill-link {
+  display: block;
+  margin-bottom: 0.15rem;
+}
+
+.om-branch-code {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--lx-text-muted, #64748b);
+}
+
+.om-contact-line {
+  display: block;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.om-contact-line--muted {
+  color: var(--lx-text-muted, #64748b);
+  font-size: 0.92rem;
+}
+
+/* ── Drill-down experience ─────────────────────────────────────────────── */
+
+.om-drill-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--lx-brand-600, #2563eb);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.om-drill-back:hover {
+  text-decoration: underline;
+}
+
+.om-drill-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  padding: 1.25rem 1.35rem;
+  color: #f8fafc;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 52%, #312e81 100%);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+.om-drill-hero__glow {
+  position: absolute;
+  inset: -40% auto auto -10%;
+  width: 16rem;
+  height: 16rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.35) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.om-drill-hero__content {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.om-drill-hero__identity {
+  display: flex;
+  gap: 0.85rem;
+  align-items: flex-start;
+  min-width: min(100%, 28rem);
+}
+
+.om-drill-hero__icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+
+  mat-icon {
+    font-size: 1.65rem;
+    width: 1.65rem;
+    height: 1.65rem;
+  }
+}
+
+.om-drill-hero__eyebrow {
+  margin: 0 0 0.15rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.78;
+}
+
+.om-drill-hero__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.45rem;
+  line-height: 1.15;
+}
+
+.om-drill-hero__lead {
+  margin: 0;
+  color: rgba(248, 250, 252, 0.82);
+  font-size: 0.92rem;
+}
+
+.om-drill-hero__dot {
+  opacity: 0.55;
+  margin: 0 0.2rem;
+}
+
+.om-drill-hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.om-drill-stat {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 7rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+
+  mat-icon {
+    opacity: 0.9;
+  }
+
+  strong {
+    display: block;
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  span {
+    display: block;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.75;
+  }
+}
+
+.om-drill-stat[data-tone='violet'] mat-icon {
+  color: #c4b5fd;
+}
+
+.om-drill-stat[data-tone='blue'] mat-icon {
+  color: #93c5fd;
+}
+
+.om-drill-stat[data-tone='amber'] mat-icon {
+  color: #fcd34d;
+}
+
+.om-drill-hero__meta {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 0.88rem;
+  color: rgba(248, 250, 252, 0.86);
+
+  span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  mat-icon {
+    font-size: 1rem;
+    width: 1rem;
+    height: 1rem;
+    opacity: 0.85;
+  }
+}
+
+.om-drill-grid {
+  display: grid;
+  grid-template-columns: minmax(16rem, 0.95fr) minmax(20rem, 1.35fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.om-drill-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.om-drill-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.om-drill-card-grid {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.om-drill-node {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--lx-border-subtle, #e2e8f0);
+  border-radius: 0.8rem;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.om-drill-node:hover {
+  transform: translateY(-1px);
+  border-color: #bfdbfe;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.08);
+}
+
+.om-drill-node__icon {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.65rem;
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.om-drill-node__icon--depot {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.om-drill-node__body {
+  min-width: 0;
+
+  strong {
+    display: block;
+    margin-bottom: 0.1rem;
+  }
+
+  span {
+    display: block;
+    font-size: 0.84rem;
+    color: var(--lx-text-muted, #64748b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.om-drill-node__chev {
+  color: var(--lx-text-muted, #64748b);
+}
+
+.om-wh-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.om-wh-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 0.9rem;
+  border: 1px solid var(--lx-border-subtle, #e2e8f0);
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+}
+
+.om-wh-card__head {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.65rem;
+  align-items: start;
+}
+
+.om-wh-card__icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.6rem;
+  background: #ecfeff;
+  color: #0891b2;
+}
+
+.om-wh-card__title h3 {
+  margin: 0 0 0.15rem;
+  font-size: 0.98rem;
+}
+
+.om-wh-type {
+  display: inline-flex;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: #eef2ff;
+  color: #4338ca;
+}
+
+.om-wh-card__address {
+  margin: 0;
+  min-height: 2.4rem;
+  font-size: 0.84rem;
+  color: var(--lx-text-muted, #64748b);
+  line-height: 1.35;
+}
+
+.om-wh-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.om-wh-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.45rem;
+  padding: 2rem 1rem 1.25rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.85rem;
+  background: #f8fafc;
+}
+
+.om-wh-empty__icon {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #2563eb;
+
+  mat-icon {
+    font-size: 1.65rem;
+    width: 1.65rem;
+    height: 1.65rem;
+  }
+}
+
+.om-wh-empty h3 {
+  margin: 0.25rem 0 0;
+}
+
+.om-wh-empty p {
+  margin: 0;
+  max-width: 26rem;
+  color: var(--lx-text-muted, #64748b);
+}
+
+.om-wh-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-top: 0.65rem;
+}
+
+@media (max-width: 960px) {
+  .om-drill-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .om-drill-hero__content {
+    flex-direction: column;
+  }
+}

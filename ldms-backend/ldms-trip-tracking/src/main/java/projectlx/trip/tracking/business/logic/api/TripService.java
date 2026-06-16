@@ -16,6 +16,12 @@ public interface TripService {
 
     TripResponse recordEvent(RecordTripEventRequest request, Locale locale, String username);
 
+    /**
+     * Records a trip event on behalf of an inter-service system call (username defaults to "system").
+     * Used by fuel-expenses to post ROADSIDE_FUEL_STOP, ROADSIDE_MECHANIC_STOP, ROADSIDE_RESUMED events.
+     */
+    TripResponse recordSystemEvent(RecordTripEventRequest request, Locale locale);
+
     TripResponse recordLocation(RecordLocationRequest request, Locale locale, String username);
 
     TripResponse triggerArrival(TriggerArrivalRequest request, Locale locale, String username);

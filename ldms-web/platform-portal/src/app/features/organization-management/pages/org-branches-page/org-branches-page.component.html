@@ -1,0 +1,428 @@
+<div class="om-page">
+  <lx-workspace-hero
+    variant="slate"
+    eyebrow="Organization management"
+    eyebrowIcon="corporate_fare"
+    [title]="pageTitle"
+    [lead]="pageLead"
+    [hubIcon]="isSubLevel ? 'fork_right' : 'account_tree'"
+    [orbitIcons]="isSubLevel ? ['warehouse', 'location_on'] : ['business', 'location_on']"
+  ></lx-workspace-hero>
+
+  <ng-container *ngIf="drillBranch">
+    <nav class="om-drill-crumb lx-card" aria-label="Branch drill-down">
+      <button type="button" class="om-drill-back" (click)="exitDrill()">
+        <mat-icon>arrow_back</mat-icon>
+        <span>{{ isSubLevel ? 'Sub-branches & depots' : 'Branches' }}</span>
+      </button>
+      <mat-icon class="om-drill-crumb__sep">chevron_right</mat-icon>
+      <span class="om-drill-crumb__current">{{ drillBranch.branchName }}</span>
+    </nav>
+
+    <section class="om-drill-hero">
+      <div class="om-drill-hero__glow" aria-hidden="true"></div>
+      <div class="om-drill-hero__content">
+        <div class="om-drill-hero__identity">
+          <div class="om-drill-hero__icon" aria-hidden="true">
+            <mat-icon>{{ drillBranch.depot ? 'local_shipping' : drillBranch.branchLevel === 'SUB_BRANCH' ? 'pin_drop' : 'corporate_fare' }}</mat-icon>
+          </div>
+          <div>
+            <p class="om-drill-hero__eyebrow">{{ branchTypeLabel(drillBranch) }}</p>
+            <h2 class="om-drill-hero__title">{{ drillBranch.branchName }}</h2>
+            <p class="om-drill-hero__lead">
+              {{ drillBranch.region || 'No region set' }}
+              <span class="om-drill-hero__dot">·</span>
+              {{ drillBranch.active ? 'Active' : 'Inactive' }}
+              <span class="om-drill-hero__dot" *ngIf="drillBranch.branchCode">·</span>
+              <span class="lx-mono" *ngIf="drillBranch.branchCode">{{ drillBranch.branchCode }}</span>
+            </p>
+          </div>
+        </div>
+        <div class="om-drill-hero__stats">
+          <article class="om-drill-stat" *ngFor="let stat of drillStatCards" [attr.data-tone]="stat.tone">
+            <mat-icon>{{ stat.icon }}</mat-icon>
+            <div>
+              <strong>{{ stat.value }}</strong>
+              <span>{{ stat.label }}</span>
+            </div>
+          </article>
+        </div>
+      </div>
+      <div class="om-drill-hero__meta">
+        <span *ngIf="drillBranch.email"><mat-icon>mail</mat-icon>{{ drillBranch.email }}</span>
+        <span *ngIf="drillBranch.phoneNumber"><mat-icon>phone</mat-icon>{{ drillBranch.phoneNumber }}</span>
+        <span *ngIf="drillBranch.businessHours"><mat-icon>schedule</mat-icon>{{ drillBranch.businessHours }}</span>
+        <span *ngIf="drillBranch.parentBranchName"><mat-icon>account_tree</mat-icon>{{ drillBranch.parentBranchName }}</span>
+      </div>
+    </section>
+
+    <div class="om-drill-grid">
+      <section class="lx-card om-panel om-drill-panel" *ngIf="showDrillSubBranches">
+        <header class="om-panel__head om-panel__head--split">
+          <div>
+            <h2>Sub-branches & depots</h2>
+            <p>{{ drillSubBranches.length }} location{{ drillSubBranches.length === 1 ? '' : 's' }} under this branch</p>
+          </div>
+        </header>
+        <lx-table-loading [busy]="drillLoading" message="Loading sub-branches…"></lx-table-loading>
+        <div class="om-drill-card-grid" *ngIf="!drillLoading && drillSubBranches.length">
+          <button
+            type="button"
+            class="om-drill-node"
+            *ngFor="let sub of drillSubBranches"
+            (click)="drillIntoSubBranch(sub)"
+          >
+            <div class="om-drill-node__icon" [class.om-drill-node__icon--depot]="sub.depot">
+              <mat-icon>{{ sub.depot ? 'warehouse' : 'location_on' }}</mat-icon>
+            </div>
+            <div class="om-drill-node__body">
+              <strong>{{ sub.branchName }}</strong>
+              <span>{{ branchTypeLabel(sub) }} · {{ sub.region || 'No region' }}</span>
+            </div>
+            <mat-icon class="om-drill-node__chev">chevron_right</mat-icon>
+          </button>
+        </div>
+        <p class="om-panel__empty" *ngIf="!drillLoading && !drillSubBranches.length">
+          No sub-branches or depots under this branch yet.
+        </p>
+      </section>
+
+      <section class="lx-card om-panel om-drill-panel om-drill-panel--warehouses" [class.om-drill-panel--wide]="!showDrillSubBranches">
+        <header class="om-panel__head om-panel__head--split">
+          <div>
+            <h2>Warehouses</h2>
+            <p>
+              Storage linked to this {{ showDrillSubBranches ? 'branch hierarchy' : 'location' }}
+              <span *ngIf="drillLinkableCount"> · {{ drillLinkableCount }} available to link</span>
+            </p>
+          </div>
+          <div class="om-drill-actions">
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="linkExistingWarehouse()" [disabled]="warehouseActionInProgress">
+              <mat-icon>link</mat-icon>
+              Link existing
+            </button>
+            <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="addWarehouseForDrillBranch()" [disabled]="warehouseActionInProgress">
+              <mat-icon>add</mat-icon>
+              Add warehouse
+            </button>
+          </div>
+        </header>
+
+        <lx-table-loading [busy]="drillWarehousesLoading" message="Loading warehouses…"></lx-table-loading>
+
+        <div class="om-wh-grid" *ngIf="!drillWarehousesLoading && drillWarehouses.length">
+          <article class="om-wh-card" *ngFor="let w of drillWarehouses">
+            <div class="om-wh-card__head">
+              <div class="om-wh-card__icon"><mat-icon>inventory_2</mat-icon></div>
+              <div class="om-wh-card__title">
+                <h3>{{ w.name }}</h3>
+                <span class="om-wh-type">{{ warehouseTypeLabel(w.warehouseType) }}</span>
+              </div>
+              <button type="button" mat-icon-button [matMenuTriggerFor]="warehouseRowMenu" (click)="prepareWarehouseActions($event, w)" aria-label="Warehouse actions">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+            </div>
+            <p class="om-wh-card__address">{{ w.addressLabel || 'Address pending enrichment' }}</p>
+            <div class="om-wh-card__foot">
+              <span class="lx-status" [class.lx-status-active]="w.entityStatus === 'ACTIVE'" [class.lx-status-inactive]="w.entityStatus !== 'ACTIVE'">
+                {{ w.entityStatus || 'ACTIVE' }}
+              </span>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="viewWarehouseInInventory(w)">View stock</button>
+            </div>
+          </article>
+        </div>
+
+        <div class="om-wh-empty" *ngIf="!drillWarehousesLoading && !drillWarehouses.length">
+          <div class="om-wh-empty__icon"><mat-icon>warehouse</mat-icon></div>
+          <h3>No warehouses here yet</h3>
+          <p>Link an existing location or register a new warehouse for {{ drillBranch.branchName }}.</p>
+          <div class="om-wh-empty__actions">
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="linkExistingWarehouse()" *ngIf="drillLinkableCount">
+              <mat-icon>link</mat-icon>
+              Link existing ({{ drillLinkableCount }})
+            </button>
+            <button type="button" class="lx-btn lx-btn-primary" (click)="addWarehouseForDrillBranch()">
+              <mat-icon>add</mat-icon>
+              Add warehouse
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <mat-menu #warehouseRowMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearWarehouseActions()">
+      <button mat-menu-item type="button" [disabled]="!actionsWarehouse" (click)="actionsWarehouse && viewWarehouseInInventory(actionsWarehouse)">
+        <mat-icon>inventory</mat-icon>
+        <span>View stock</span>
+      </button>
+      <button mat-menu-item type="button" [disabled]="!actionsWarehouse" (click)="actionsWarehouse && editWarehouseInDrill(actionsWarehouse)">
+        <mat-icon>edit</mat-icon>
+        <span>Edit / reassign</span>
+      </button>
+      <button mat-menu-item type="button" [disabled]="!actionsWarehouse" (click)="actionsWarehouse && openInventoryWarehouseList()">
+        <mat-icon>open_in_new</mat-icon>
+        <span>Open in inventory</span>
+      </button>
+    </mat-menu>
+  </ng-container>
+
+  <ng-container *ngIf="!drillBranch">
+  <div class="lx-card lx-card--subsection">
+    <div class="lx-controls-head">
+      <div class="lx-controls-head__text">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">Search, filter, import, export, and manage {{ isSubLevel ? 'sub-branches' : 'branches' }}.</p>
+      </div>
+      <button
+        type="button"
+        mat-icon-button
+        class="lx-controls-head__info-btn"
+        [class.is-on]="showSampleCsvInfo"
+        (click)="showSampleCsvInfo = !showSampleCsvInfo"
+        [attr.aria-pressed]="showSampleCsvInfo"
+        aria-label="Toggle sample CSV information"
+        [matTooltip]="showSampleCsvInfo ? 'Hide sample CSV info' : 'About the sample CSV'"
+      >
+        <mat-icon>info_outline</mat-icon>
+      </button>
+    </div>
+
+    <p class="lx-controls-hint" *ngIf="showSampleCsvInfo">
+      <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+      <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }}</span>
+    </p>
+    <p class="lx-controls-hint lx-import-disclaimer">
+      <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+      <span>{{ importCsvDisclaimer }}</span>
+    </p>
+
+    <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="actionInProgress || loading">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="importCsv(csvInput)" [disabled]="actionInProgress">
+          Import
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadSampleCsv()" [disabled]="actionInProgress">
+          Sample CSV
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+          [matMenuTriggerFor]="exportMenu"
+          [disabled]="actionInProgress || exporting"
+        >
+          Export{{ exporting ? '…' : '' }}
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openCreate()" [disabled]="actionInProgress">
+          <mat-icon>add</mat-icon>
+          {{ addButtonLabel }}
+        </button>
+      </div>
+      <div class="lx-data-toolbar__search">
+        <div class="lx-input-shell lx-search-field">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input [(ngModel)]="searchQuery" (ngModelChange)="applyFilters()" placeholder="Search…" autocomplete="off" />
+        </div>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+          (click)="filterFieldsOpen = !filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen || hasActiveFilters()"
+        >
+          <mat-icon>tune</mat-icon>
+          Filters
+        </button>
+      </div>
+    </div>
+
+    <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')">
+        <mat-icon>picture_as_pdf</mat-icon>
+        <span>Export PDF</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')">
+        <mat-icon>table_view</mat-icon>
+        <span>Export CSV</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')">
+        <mat-icon>grid_on</mat-icon>
+        <span>Export XLSX</span>
+      </button>
+    </mat-menu>
+    <input #csvInput type="file" accept=".csv,text/csv" hidden (change)="onImportFileSelected($event)" />
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Branch name</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
+            <input [(ngModel)]="columnFilters.branchName" (ngModelChange)="applyFilters()" placeholder="Name contains…" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Region</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">map</mat-icon>
+            <input [(ngModel)]="columnFilters.region" (ngModelChange)="applyFilters()" placeholder="Region contains…" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap" *ngIf="isSubLevel">
+          <div class="lx-field-label">Parent branch</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">account_tree</mat-icon>
+            <select [(ngModel)]="columnFilters.parentBranchId" (ngModelChange)="applyFilters()">
+              <option [ngValue]="''">All parents</option>
+              <option *ngFor="let branch of parentBranchOptions" [ngValue]="branch.id">{{ branch.branchName }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap" *ngIf="isSubLevel">
+          <div class="lx-field-label">Depot</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">warehouse</mat-icon>
+            <select [(ngModel)]="columnFilters.depot" (ngModelChange)="applyFilters()">
+              <option [ngValue]="''">Any</option>
+              <option [ngValue]="true">Depot only</option>
+              <option [ngValue]="false">Sub-branch only</option>
+            </select>
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Status</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">toggle_on</mat-icon>
+            <select [(ngModel)]="columnFilters.active" (ngModelChange)="applyFilters()">
+              <option [ngValue]="''">Any</option>
+              <option [ngValue]="true">Active</option>
+              <option [ngValue]="false">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <lx-table-loading [busy]="loading && !branches.length" [message]="isSubLevel ? 'Loading sub-branches…' : 'Loading branches…'"></lx-table-loading>
+
+  <div class="lx-empty" *ngIf="!loading && error">
+    <mat-icon class="lx-empty-icon">error_outline</mat-icon>
+    <div class="lx-empty-title">{{ error }}</div>
+  </div>
+
+  <section class="lx-card om-panel" *ngIf="!loading && !error">
+    <header class="om-panel__head">
+      <h2>{{ isSubLevel ? 'Sub-branches & depots' : 'Branch locations' }}</h2>
+      <p>{{ totalRecords }} record{{ totalRecords === 1 ? '' : 's' }}</p>
+    </header>
+
+    <lx-table-loading
+      [busy]="loading && branches.length > 0"
+      [hasData]="true"
+      [message]="isSubLevel ? 'Refreshing sub-branches…' : 'Refreshing branches…'"
+    ></lx-table-loading>
+
+    <div class="lx-table-wrap om-branch-table-wrap" *ngIf="branches.length">
+    <table class="lx-data-table om-branch-table">
+      <thead>
+        <tr>
+          <th>Branch</th>
+          <th *ngIf="isSubLevel">Level</th>
+          <th *ngIf="isSubLevel">Parent</th>
+          <th>Region</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Business hours</th>
+          <th *ngIf="!isSubLevel">Type</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let branch of branches">
+          <td class="om-branch-cell om-branch-cell--name">
+            <button type="button" class="om-drill-link" (click)="drillIntoBranch(branch)">
+              {{ branch.branchName }}
+            </button>
+            <span class="om-branch-code lx-mono" *ngIf="branch.branchCode">{{ branch.branchCode }}</span>
+          </td>
+          <td *ngIf="isSubLevel">{{ branchTypeLabel(branch) }}</td>
+          <td *ngIf="isSubLevel">{{ branch.parentBranchName || '—' }}</td>
+          <td>{{ branch.region || '—' }}</td>
+          <td class="om-branch-cell">
+            <span class="om-contact-line">{{ branch.email || '—' }}</span>
+          </td>
+          <td class="om-branch-cell">
+            <span class="om-contact-line om-contact-line--muted">{{ branch.phoneNumber || '—' }}</span>
+          </td>
+          <td>{{ branch.businessHours || '—' }}</td>
+          <td *ngIf="!isSubLevel">{{ branchTypeLabel(branch) }}</td>
+          <td>
+            <span
+              class="lx-status"
+              [class.lx-status-active]="branch.active"
+              [class.lx-status-inactive]="!branch.active"
+            >
+              {{ branch.active ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td class="lx-actions-cell">
+            <button
+              type="button"
+              mat-icon-button
+              [matMenuTriggerFor]="branchRowActionsMenu"
+              (click)="prepareRowActions($event, branch)"
+              aria-label="Row actions"
+            >
+              <mat-icon>more_vert</mat-icon>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <mat-paginator
+      *ngIf="totalRecords > 0"
+      class="lx-table-paginator"
+      [length]="totalRecords"
+      [pageIndex]="pageIndex"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="[10, 20, 25, 50]"
+      [showFirstLastButtons]="true"
+      (page)="onPage($event)"
+    ></mat-paginator>
+
+    <p class="om-panel__empty" *ngIf="!branches.length && !hasActiveFilters()">
+      <ng-container *ngIf="!isSubLevel || parentBranchOptions.length; else needParent">
+        No {{ isSubLevel ? 'sub-branches' : 'branches' }} yet — use <strong>{{ addButtonLabel }}</strong> or import from CSV.
+      </ng-container>
+      <ng-template #needParent>
+        Create at least one top-level branch before adding sub-branches or depots.
+      </ng-template>
+    </p>
+    <p class="om-panel__empty" *ngIf="!branches.length && hasActiveFilters()">
+      No matching rows — adjust search or filters.
+    </p>
+
+    <mat-menu #branchRowActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearRowActions()">
+      <button mat-menu-item type="button" [disabled]="!actionsBranch" (click)="actionsBranch && viewBranch(actionsBranch)">
+        <mat-icon>visibility</mat-icon>
+        <span>View</span>
+      </button>
+      <button mat-menu-item type="button" [disabled]="!actionsBranch" (click)="actionsBranch && openEdit(actionsBranch)">
+        <mat-icon>edit</mat-icon>
+        <span>Edit</span>
+      </button>
+      <button mat-menu-item type="button" [disabled]="!actionsBranch" (click)="actionsBranch && confirmDelete(actionsBranch)">
+        <mat-icon>delete</mat-icon>
+        <span>Delete</span>
+      </button>
+    </mat-menu>
+  </section>
+  </ng-container>
+</div>

@@ -1,10 +1,5 @@
 package projectlx.co.zw.notifications.model;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-
-@RequiredArgsConstructor
-@Getter
 public enum Channel {
 
     EMAIL("EMAIL"),
@@ -15,4 +10,12 @@ public enum Channel {
     TEAMS("TEAMS");
 
     private final String channel;
+
+    Channel(String channel) {
+        this.channel = channel;
+    }
+
+    public String getChannel() {
+        return channel;
+    }
 }

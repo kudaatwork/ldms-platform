@@ -1,10 +1,15 @@
 package projectlx.billing.payments.business.logic.support;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 import projectlx.billing.payments.clients.UserManagementServiceClient;
+import projectlx.co.zw.shared_library.business.logic.api.JwtService;
 import projectlx.co.zw.shared_library.utils.responses.UserResponse;
 
 @Component
@@ -13,8 +18,14 @@ import projectlx.co.zw.shared_library.utils.responses.UserResponse;
 public class CallerOrganizationResolver {
 
     private final UserManagementServiceClient userManagementServiceClient;
+    private final JwtService jwtService;
 
     public Long resolveCallerOrganizationId(String username) {
+        Long fromJwt = resolveOrganizationIdFromBearerToken();
+        if (fromJwt != null && fromJwt > 0) {
+            return fromJwt;
+        }
+
         if (!StringUtils.hasText(username)) {
             return null;
         }
@@ -38,5 +49,27 @@ public class CallerOrganizationResolver {
             return null;
         }
         return organizationId;
+    }
+
+    private Long resolveOrganizationIdFromBearerToken() {
+        try {
+            RequestAttributes attrs = RequestContextHolder.getRequestAttributes();
+            if (!(attrs instanceof ServletRequestAttributes servletAttrs)) {
+                return null;
+            }
+            HttpServletRequest request = servletAttrs.getRequest();
+            String authHeader = request.getHeader("Authorization");
+            if (authHeader == null || !authHeader.regionMatches(true, 0, "Bearer ", 0, 7)) {
+                return null;
+            }
+            String jwt = authHeader.substring(7).trim();
+            if (!StringUtils.hasText(jwt)) {
+                return null;
+            }
+            return jwtService.extractOrganizationId(jwt);
+        } catch (RuntimeException ex) {
+            log.debug("Could not read organizationId from JWT: {}", ex.getMessage());
+            return null;
+        }
     }
 }

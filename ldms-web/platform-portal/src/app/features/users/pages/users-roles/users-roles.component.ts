@@ -9,8 +9,9 @@ import { Subject, Subscription, catchError, debounceTime, finalize, map, of, swi
 import {
   LxExportFormat,
   downloadBlob,
+  exportClientTableAsCsv,
   exportFilename,
-  exportRowsAsCsv,
+  exportFormatLabel,
 } from '@shared/utils/lx-export.util';
 import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
@@ -307,22 +308,27 @@ export class UsersRolesComponent implements OnInit, OnDestroy {
       return;
     }
     if (this.groupId) {
-      if (format !== 'csv') {
-        this.snackBar.open('Export this group role list as CSV from the group view.', 'Close', {
-          duration: 4500,
+      const saved = exportClientTableAsCsv(
+        format,
+        this.dataSource,
+        [
+          { header: 'role', value: (r) => r.role },
+          { header: 'description', value: (r) => r.description },
+          { header: 'status', value: (r) => r.statusLabel },
+        ],
+        'user-group-roles',
+        (message) =>
+          this.snackBar.open(message, 'Close', {
+            duration: 4500,
+          }),
+        { title: 'Group roles' },
+      );
+      if (saved) {
+        this.snackBar.open(`Exported group roles as ${exportFormatLabel(format)}.`, 'Close', {
+          duration: 3500,
+          panelClass: ['app-snackbar-success'],
         });
-        return;
       }
-      const blob = exportRowsAsCsv(this.dataSource, [
-        { header: 'role', value: (r) => r.role },
-        { header: 'description', value: (r) => r.description },
-        { header: 'status', value: (r) => r.statusLabel },
-      ]);
-      downloadBlob(blob, exportFilename('user-group-roles', 'csv'));
-      this.snackBar.open('Exported group roles as CSV.', 'Close', {
-        duration: 3500,
-        panelClass: ['app-snackbar-success'],
-      });
       return;
     }
     this.exporting = true;

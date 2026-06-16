@@ -11,6 +11,7 @@ import projectlx.inventory.management.utils.dtos.ImportSummary;
 import projectlx.inventory.management.utils.dtos.WarehouseLocationDto;
 import projectlx.inventory.management.utils.requests.CreateWarehouseLocationRequest;
 import projectlx.inventory.management.utils.requests.EditWarehouseLocationRequest;
+import projectlx.inventory.management.utils.requests.GrantWarehouseAccessRequest;
 import projectlx.inventory.management.utils.requests.WarehouseLocationMultipleFiltersRequest;
 import projectlx.inventory.management.utils.responses.WarehouseLocationResponse;
 
@@ -95,6 +96,32 @@ public class WarehouseLocationServiceProcessorImpl implements WarehouseLocationS
         logger.info("Outgoing response after finding warehouse locations using multiple filters: {}. Status Code: {}. Message: {}",
                 response, response.getStatusCode(), response.getMessage());
 
+        return response;
+    }
+
+    @Override
+    public WarehouseLocationResponse grantOrganizationAccess(GrantWarehouseAccessRequest request, Locale locale, String username) {
+        logger.info("Incoming request to grant warehouse access: {}", request);
+        WarehouseLocationResponse response = warehouseLocationService.grantOrganizationAccess(request, locale, username);
+        logger.info("Outgoing response after granting warehouse access. Status Code: {}", response.getStatusCode());
+        return response;
+    }
+
+    @Override
+    public WarehouseLocationResponse revokeOrganizationAccess(Long warehouseLocationId, Long grantedOrganizationId,
+                                                              Locale locale, String username) {
+        logger.info("Incoming request to revoke warehouse access warehouseId={} orgId={}", warehouseLocationId, grantedOrganizationId);
+        WarehouseLocationResponse response = warehouseLocationService.revokeOrganizationAccess(
+                warehouseLocationId, grantedOrganizationId, locale, username);
+        logger.info("Outgoing response after revoking warehouse access. Status Code: {}", response.getStatusCode());
+        return response;
+    }
+
+    @Override
+    public WarehouseLocationResponse listOrganizationAccess(Long warehouseLocationId, Locale locale, String username) {
+        logger.info("Incoming request to list warehouse access grants for warehouseId={}", warehouseLocationId);
+        WarehouseLocationResponse response = warehouseLocationService.listOrganizationAccess(warehouseLocationId, locale, username);
+        logger.info("Outgoing response after listing warehouse access grants. Status Code: {}", response.getStatusCode());
         return response;
     }
 

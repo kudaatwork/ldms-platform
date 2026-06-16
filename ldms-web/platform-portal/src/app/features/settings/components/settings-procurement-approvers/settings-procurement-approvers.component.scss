@@ -4,6 +4,47 @@
   gap: 1.25rem;
 }
 
+.pa-approvers {
+  display: grid;
+  gap: 1rem;
+  padding: 1.35rem 1.5rem;
+}
+
+.pa-approvers__error {
+  margin: 0;
+  color: var(--danger-600, #dc2626);
+}
+
+.pa-approvers__table {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.pa-approvers__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--gray-200) 80%, transparent);
+  border-radius: 0.75rem;
+  background: var(--raised);
+}
+
+.pa-approvers__identity {
+  display: grid;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.pa-approvers__identity span {
+  color: var(--gray-500);
+  font-size: 0.88rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .pa-hero {
   display: grid;
   gap: 1.25rem;

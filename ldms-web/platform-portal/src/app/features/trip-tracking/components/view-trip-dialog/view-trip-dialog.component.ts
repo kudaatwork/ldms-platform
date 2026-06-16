@@ -1,5 +1,6 @@
 import { Component, Inject, OnInit, OnDestroy } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { finalize, takeUntil } from 'rxjs/operators';
 import { AuthStateService } from '../../../../core/services/auth-state.service';
@@ -39,7 +40,13 @@ export class ViewTripDialogComponent implements OnInit, OnDestroy {
     private readonly tripTracking: TripTrackingPortalService,
     private readonly authState: AuthStateService,
     private readonly notifications: NotificationService,
+    private readonly router: Router,
   ) {}
+
+  openLiveMap(): void {
+    this.dialogRef.close();
+    void this.router.navigate(['/shipments/live', this.data.trip.id]);
+  }
 
   ngOnInit(): void {
     this.loadDetail();
@@ -139,13 +146,21 @@ export class ViewTripDialogComponent implements OnInit, OnDestroy {
   eventIcon(eventType: string): string {
     const icons: Record<string, string> = {
       DEPARTURE: 'departure_board',
+      DEPARTED: 'departure_board',
       CHECKPOINT: 'where_to_vote',
+      ARRIVED_AT_BORDER: 'flag',
+      BORDER_CLEARED: 'verified',
+      ROADSIDE_FUEL_STOP: 'local_gas_station',
+      ROADSIDE_MECHANIC_STOP: 'build',
+      ROADSIDE_RESUMED: 'play_arrow',
       BREAK: 'coffee',
       DELAY: 'hourglass_top',
       ARRIVAL: 'place',
+      ARRIVED: 'place',
       DELIVERED: 'check_circle',
       INCIDENT: 'warning',
       OTHER: 'fiber_manual_record',
+      NOTE: 'fiber_manual_record',
     };
     return icons[eventType] ?? 'fiber_manual_record';
   }

@@ -22,6 +22,7 @@ import projectlx.inventory.management.utils.dtos.ImportSummary;
 import projectlx.inventory.management.utils.dtos.WarehouseLocationDto;
 import projectlx.inventory.management.utils.requests.CreateWarehouseLocationRequest;
 import projectlx.inventory.management.utils.requests.EditWarehouseLocationRequest;
+import projectlx.inventory.management.utils.requests.GrantWarehouseAccessRequest;
 import projectlx.inventory.management.utils.requests.WarehouseLocationMultipleFiltersRequest;
 import projectlx.inventory.management.utils.responses.WarehouseLocationResponse;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
@@ -118,6 +119,40 @@ public class WarehouseLocationFrontendResource {
                                                             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE)
                                                             final Locale locale) {
         return ResponseEntity.ok(warehouseLocationServiceProcessor.delete(id, locale, currentUsername()));
+    }
+
+    @Auditable(action = "GRANT_WAREHOUSE_ORGANIZATION_ACCESS")
+    @PostMapping("/{id}/organization-access")
+    @Operation(summary = "Grant another organisation access to a warehouse")
+    public ResponseEntity<WarehouseLocationResponse> grantOrganizationAccess(
+            @PathVariable("id") final Long id,
+            @Valid @RequestBody final GrantWarehouseAccessRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        request.setWarehouseLocationId(id);
+        return ResponseEntity.ok(warehouseLocationServiceProcessor.grantOrganizationAccess(request, locale, currentUsername()));
+    }
+
+    @Auditable(action = "REVOKE_WAREHOUSE_ORGANIZATION_ACCESS")
+    @DeleteMapping("/{id}/organization-access/{grantedOrganizationId}")
+    @Operation(summary = "Revoke organisation access to a warehouse")
+    public ResponseEntity<WarehouseLocationResponse> revokeOrganizationAccess(
+            @PathVariable("id") final Long id,
+            @PathVariable("grantedOrganizationId") final Long grantedOrganizationId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return ResponseEntity.ok(warehouseLocationServiceProcessor.revokeOrganizationAccess(
+                id, grantedOrganizationId, locale, currentUsername()));
+    }
+
+    @Auditable(action = "LIST_WAREHOUSE_ORGANIZATION_ACCESS")
+    @GetMapping("/{id}/organization-access")
+    @Operation(summary = "List organisations with access to a warehouse")
+    public ResponseEntity<WarehouseLocationResponse> listOrganizationAccess(
+            @PathVariable("id") final Long id,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return ResponseEntity.ok(warehouseLocationServiceProcessor.listOrganizationAccess(id, locale, currentUsername()));
     }
 
     @Auditable(action = "IMPORT_WAREHOUSE_LOCATIONS_FROM_CSV")

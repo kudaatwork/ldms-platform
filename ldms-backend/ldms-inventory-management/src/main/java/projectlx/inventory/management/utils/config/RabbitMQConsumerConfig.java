@@ -18,6 +18,7 @@ public class RabbitMQConsumerConfig {
     public static final String GRV_CREATED_QUEUE = "inventory.grv.created.queue";
     public static final String GRV_CREATED_ROUTING_KEY = "grv.created";
     public static final String TRANSFER_APPROVED_ROUTING_KEY = "inventory.transfer.approved";
+    public static final String SALES_ORDER_APPROVED_ROUTING_KEY = "sales.order.approved";
 
     public static final String DLX_EXCHANGE = "inventory.dlx.exchange";
     public static final String DLQ_SUFFIX = ".dlq";

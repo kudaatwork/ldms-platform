@@ -51,6 +51,15 @@ ldms:
     force-local-feign-clients: true
   api-gateway:
     base-url: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+  iot:
+    mqtt-enabled: false
+    mqtt-broker-url: tcp://localhost:1884
+    mqtt-gps-topic-pattern: ldms/iot/+/+/gps
+    mqtt-publish-topic-prefix: ldms/telemetry/trip
+    auto-start-demo-simulation: true
+    simulation-tick-ms: 2000
+    simulation-speed-kmh:
+      value: "72"
 
 CLIENTS_API_GATEWAY_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
 CLIENTS_USER_MANAGEMENT_SERVICE_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}

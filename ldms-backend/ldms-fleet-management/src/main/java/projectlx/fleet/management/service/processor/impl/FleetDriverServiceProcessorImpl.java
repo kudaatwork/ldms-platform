@@ -23,6 +23,12 @@ public class FleetDriverServiceProcessorImpl implements FleetDriverServiceProces
     }
 
     @Override
+    public FleetDriverResponse listForTransporterPartner(Long transporterOrganizationId, Locale locale, String username) {
+        log.info("Processing list transporter partner {} drivers for user {}", transporterOrganizationId, username);
+        return fleetDriverService.listForTransporterPartner(transporterOrganizationId, locale, username);
+    }
+
+    @Override
     public FleetDriverResponse create(CreateFleetDriverRequest request, Locale locale, String username) {
         log.info("Processing create fleet driver for user {}", username);
         return fleetDriverService.create(request, locale, username);
@@ -38,5 +44,11 @@ public class FleetDriverServiceProcessorImpl implements FleetDriverServiceProces
     public FleetDriverResponse delete(Long id, Locale locale, String username) {
         log.info("Processing delete fleet driver {} for user {}", id, username);
         return fleetDriverService.delete(id, locale, username);
+    }
+
+    @Override
+    public FleetDriverResponse findByIdForSystem(Long id, Locale locale) {
+        log.info("Processing system find-by-id for fleet driver {}", id);
+        return fleetDriverService.findByIdForSystem(id, locale);
     }
 }

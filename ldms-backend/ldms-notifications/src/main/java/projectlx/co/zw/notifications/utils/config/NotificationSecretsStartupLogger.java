@@ -1,17 +1,22 @@
 package projectlx.co.zw.notifications.utils.config;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ApplicationListener;
 import org.springframework.stereotype.Component;
 
 /** Logs whether AWS SES / Twilio credentials resolved after the application context is up. */
 @Component
-@RequiredArgsConstructor
 public class NotificationSecretsStartupLogger implements ApplicationListener<ApplicationReadyEvent> {
 
     private final LdmsConfigRepoSecretsResolver secretsResolver;
     private final OutboundSesClientSupplier outboundSesClientSupplier;
+
+    public NotificationSecretsStartupLogger(
+            LdmsConfigRepoSecretsResolver secretsResolver,
+            OutboundSesClientSupplier outboundSesClientSupplier) {
+        this.secretsResolver = secretsResolver;
+        this.outboundSesClientSupplier = outboundSesClientSupplier;
+    }
 
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {

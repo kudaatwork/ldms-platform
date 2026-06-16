@@ -12,7 +12,6 @@ import java.util.Locale;
 import java.util.Properties;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -37,7 +36,6 @@ import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
 import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
-@RequiredArgsConstructor
 public class NotificationLogServiceImpl implements NotificationLogService {
 
     private static final DateTimeFormatter CSV_TIME = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
@@ -49,6 +47,15 @@ public class NotificationLogServiceImpl implements NotificationLogService {
     private final NotificationLogRepository notificationLogRepository;
     private final NotificationLogServiceValidator notificationLogServiceValidator;
     private final RabbitAdmin rabbitAdmin;
+
+    public NotificationLogServiceImpl(
+            NotificationLogRepository notificationLogRepository,
+            NotificationLogServiceValidator notificationLogServiceValidator,
+            RabbitAdmin rabbitAdmin) {
+        this.notificationLogRepository = notificationLogRepository;
+        this.notificationLogServiceValidator = notificationLogServiceValidator;
+        this.rabbitAdmin = rabbitAdmin;
+    }
 
     @Value("${notifications.rabbitmq.queue:notifications.queue}")
     private String queueName;

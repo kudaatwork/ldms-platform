@@ -6,6 +6,7 @@ import lombok.Setter;
 import lombok.ToString;
 import projectlx.trip.tracking.utils.dtos.TripDto;
 import projectlx.trip.tracking.utils.dtos.TripEventDto;
+import projectlx.trip.tracking.utils.dtos.TripLiveSnapshotDto;
 import projectlx.co.zw.shared_library.utils.responses.CommonResponse;
 
 import java.util.List;
@@ -20,4 +21,5 @@ public class TripResponse extends CommonResponse {
     private List<TripDto> tripDtoList;
     private TripEventDto tripEventDto;
     private List<TripEventDto> tripEventDtoList;
+    private TripLiveSnapshotDto liveSnapshot;
 }

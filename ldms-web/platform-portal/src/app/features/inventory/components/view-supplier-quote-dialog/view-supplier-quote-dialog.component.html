@@ -1,86 +1,113 @@
-<div class="vsq-dialog">
-  <header class="vsq-dialog__head">
-    <div>
-      <h2>Supplier quotation</h2>
-      <p>Requisition {{ data.requisitionNumber }}</p>
+<div class="lx-dialog-shell lx-dialog-shell--wide vsq-dialog">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Supplier quotation</h2>
+      <p class="lx-dialog-subtitle">Requisition {{ data.requisitionNumber }}</p>
     </div>
-    <button type="button" class="lx-btn lx-btn-ghost lx-btn-icon" (click)="close()" aria-label="Close">
+    <button mat-icon-button class="lx-close-button" type="button" (click)="close()" aria-label="Close">
       <mat-icon>close</mat-icon>
     </button>
-  </header>
-
-  <div class="vsq-loading" *ngIf="loading" role="status">
-    <lx-table-loading [busy]="true" message="Loading quotation…"></lx-table-loading>
   </div>
 
-  <p class="vsq-error" *ngIf="!loading && error">{{ error }}</p>
-
-  <ng-container *ngIf="!loading && quote as q">
-    <div class="vsq-summary lx-card">
-      <div>
-        <span class="vsq-summary__label">Quote no.</span>
-        <strong>{{ q.quoteNumber }}</strong>
-      </div>
-      <div>
-        <span class="vsq-summary__label">Status</span>
-        <span class="lx-status lx-status-warn">{{ q.statusLabel }}</span>
-      </div>
-      <div>
-        <span class="vsq-summary__label">Source</span>
-        <span>{{ q.quoteSourceLabel }}</span>
-      </div>
-      <div>
-        <span class="vsq-summary__label">Total</span>
-        <strong>{{ q.totalAmountLabel }}</strong>
-      </div>
-      <div>
-        <span class="vsq-summary__label">Payment terms</span>
-        <span>{{ q.paymentTerm || '—' }}</span>
-      </div>
-      <div>
-        <span class="vsq-summary__label">Valid until</span>
-        <span>{{ q.validityUntilLabel }}</span>
-      </div>
-      <div>
-        <span class="vsq-summary__label">Submitted</span>
-        <span>{{ q.submittedAtLabel }}</span>
-      </div>
-      <div *ngIf="q.deliveryTerms">
-        <span class="vsq-summary__label">Delivery terms</span>
-        <span>{{ q.deliveryTerms }}</span>
-      </div>
+  <div class="lx-step-content vsq-dialog__body">
+    <div class="vsq-loading" *ngIf="loading" role="status">
+      <lx-table-loading [busy]="true" message="Loading quotation…"></lx-table-loading>
     </div>
 
-    <div class="vsq-lines lx-card lx-table-card" *ngIf="q.lines.length">
-      <h3>Line items</h3>
-      <div class="lx-table-wrap">
-        <table class="lx-data-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Qty</th>
-              <th>Unit price</th>
-              <th>Line total</th>
-              <th>Lead time</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let line of q.lines">
-              <td>{{ line.lineNumber }}</td>
-              <td>{{ line.quotedQuantity }}</td>
-              <td>{{ line.unitPriceLabel }}</td>
-              <td>{{ line.lineTotalLabel }}</td>
-              <td>{{ line.leadTimeDays != null ? line.leadTimeDays + ' days' : '—' }}</td>
-            </tr>
-          </tbody>
-        </table>
+    <p class="vsq-error" *ngIf="!loading && error">{{ error }}</p>
+
+    <ng-container *ngIf="!loading && quote as q">
+      <div class="vsq-summary lx-card">
+        <div>
+          <span class="vsq-summary__label">Quote no.</span>
+          <strong>{{ q.quoteNumber }}</strong>
+        </div>
+        <div>
+          <span class="vsq-summary__label">Status</span>
+          <span class="lx-status lx-status-warn">{{ q.statusLabel }}</span>
+        </div>
+        <div>
+          <span class="vsq-summary__label">Source</span>
+          <span>{{ q.quoteSourceLabel }}</span>
+        </div>
+        <div>
+          <span class="vsq-summary__label">Total</span>
+          <strong>{{ q.totalAmountLabel }}</strong>
+        </div>
+        <div>
+          <span class="vsq-summary__label">Payment terms</span>
+          <span>{{ q.paymentTerm || '—' }}</span>
+        </div>
+        <div>
+          <span class="vsq-summary__label">Valid until</span>
+          <span>{{ q.validityUntilLabel }}</span>
+        </div>
+        <div>
+          <span class="vsq-summary__label">Submitted</span>
+          <span>{{ q.submittedAtLabel }}</span>
+        </div>
+        <div *ngIf="q.deliveryTerms">
+          <span class="vsq-summary__label">Delivery terms</span>
+          <span>{{ q.deliveryTerms }}</span>
+        </div>
       </div>
+
+      <div class="vsq-lines lx-card lx-table-card" *ngIf="q.lines.length">
+        <h3>Line items</h3>
+        <div class="lx-table-wrap">
+          <table class="lx-data-table">
+            <thead>
+              <tr>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="lineSort.isActive('lineNumber')" (click)="toggleLineSort('lineNumber')">
+                    #
+                    <mat-icon>{{ lineSort.icon('lineNumber') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="lineSort.isActive('quotedQuantity')" (click)="toggleLineSort('quotedQuantity')">
+                    Qty
+                    <mat-icon>{{ lineSort.icon('quotedQuantity') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="lineSort.isActive('unitPrice')" (click)="toggleLineSort('unitPrice')">
+                    Unit price
+                    <mat-icon>{{ lineSort.icon('unitPrice') }}</mat-icon>
+                  </button>
+                </th>
+                <th class="inv-table__qty-head">
+                  <button type="button" class="lx-sort-header lx-sort-header--qty" [class.lx-sort-header--active]="lineSort.isActive('lineTotal')" (click)="toggleLineSort('lineTotal')">
+                    Line total
+                    <mat-icon>{{ lineSort.icon('lineTotal') }}</mat-icon>
+                  </button>
+                </th>
+                <th>
+                  <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="lineSort.isActive('leadTimeDays')" (click)="toggleLineSort('leadTimeDays')">
+                    Lead time
+                    <mat-icon>{{ lineSort.icon('leadTimeDays') }}</mat-icon>
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let line of lineSort.sort(q.lines)">
+                <td>{{ line.lineNumber }}</td>
+                <td>{{ line.quotedQuantity }}</td>
+                <td>{{ line.unitPriceLabel }}</td>
+                <td>{{ line.lineTotalLabel }}</td>
+                <td>{{ line.leadTimeDays != null ? line.leadTimeDays + ' days' : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <p class="vsq-notes" *ngIf="q.notes"><strong>Notes:</strong> {{ q.notes }}</p>
+    </ng-container>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-primary" (click)="close()">Close</button>
     </div>
-
-    <p class="vsq-notes" *ngIf="q.notes"><strong>Notes:</strong> {{ q.notes }}</p>
-  </ng-container>
-
-  <footer class="vsq-dialog__foot">
-    <button type="button" class="lx-btn lx-btn-primary" (click)="close()">Close</button>
-  </footer>
+  </div>
 </div>

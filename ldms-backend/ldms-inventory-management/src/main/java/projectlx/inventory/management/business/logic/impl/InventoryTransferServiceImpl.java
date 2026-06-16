@@ -42,6 +42,10 @@ import projectlx.inventory.management.business.auditable.api.InventoryTransferSe
 import projectlx.inventory.management.business.logic.api.IdempotencyService;
 import projectlx.inventory.management.business.logic.api.InventoryItemService;
 import projectlx.inventory.management.business.logic.api.InventoryTransferService;
+import projectlx.inventory.management.business.logic.support.ProcurementApproverSupport;
+import projectlx.inventory.management.business.logic.support.StockTransferSupport;
+import projectlx.inventory.management.business.logic.support.TransitWarehouseSupport;
+import projectlx.inventory.management.business.logic.support.TransferDispatchSupport;
 import projectlx.inventory.management.business.validator.api.InventoryTransferServiceValidator;
 import projectlx.inventory.management.clients.UserManagementServiceClient;
 import projectlx.inventory.management.model.GoodsReceivedVoucher;
@@ -96,6 +100,10 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
     private final RabbitTemplate rabbitTemplate;
     private final IdempotencyService idempotencyService;
     private final UserManagementServiceClient userManagementServiceClient;
+    private final ProcurementApproverSupport procurementApproverSupport;
+    private final TransferDispatchSupport transferDispatchSupport;
+    private final TransitWarehouseSupport transitWarehouseSupport;
+    private final StockTransferSupport stockTransferSupport;
     private final GoodsReceivedVoucherServiceAuditable goodsReceivedVoucherServiceAuditable;
     private final GoodsReceivedVoucherRepository goodsReceivedVoucherRepository;
 
@@ -189,6 +197,7 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         transfer.setUnitCost(fromItem.getAverageCost());
         transfer.setStatus(TransferStatus.REQUESTED);  // FIXED: Start at REQUESTED
         transfer.setReference(request.getReference());
+        transfer.setCrossBorder(Boolean.TRUE.equals(request.getCrossBorder()));
         transfer.setCreatedByUserId(request.getCreatedByUserId());
 
         InventoryTransfer savedTransfer = auditable.create(transfer, locale, username);
@@ -262,6 +271,12 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
             return buildResponse(400, false, message, null, null, null);
         }
 
+        Optional<String> approverError = procurementApproverSupport.validateApproverForOrganization(
+                approvedByUserId, transfer.getProduct().getSupplierId(), locale);
+        if (approverError.isPresent()) {
+            return buildResponse(403, false, approverError.get(), null, null, null);
+        }
+
         // Verify source warehouse has sufficient stock
         Optional<InventoryItem> sourceItemOpt = inventoryItemRepository
                 .findByProductIdAndWarehouseLocationIdAndEntityStatusNot(
@@ -328,6 +343,12 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
             return buildResponse(400, false, message, null, null, null);
         }
 
+        Optional<String> approverError = procurementApproverSupport.validateApproverForOrganization(
+                rejectedByUserId, transfer.getProduct().getSupplierId(), locale);
+        if (approverError.isPresent()) {
+            return buildResponse(403, false, approverError.get(), null, null, null);
+        }
+
         transfer.setStatus(TransferStatus.REJECTED);
         transfer.setRejectionReason(rejectionReason.trim());
         transfer.setRejectedByUserId(rejectedByUserId);
@@ -342,14 +363,20 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
     }
 
     /**
-     * Moves an APPROVED transfer to IN_TRANSIT status.
-     * This is when goods physically leave the source warehouse.
-     * CRITICAL: This is where stock is deducted from the source warehouse.
+     * Moves an APPROVED transfer to IN_TRANSIT status when dispatch is complete (trip started).
+     * Stock is deducted from the source warehouse at this point.
+     * Only callable by the trip-tracking service after fleet allocation and trip start.
      */
     @Transactional
-    public InventoryTransferResponse startTransit(Long transferId, Long startedByUserId,
+    public InventoryTransferResponse startTransit(Long transferId, Long startedByUserId, Long tripId, Long shipmentId,
                                                   Locale locale, String username) {
         String message;
+
+        if (!isSystemUser(username)) {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_INVENTORY_TRANSFER_TRANSIT_REQUIRES_DISPATCH.getCode(), new String[]{}, locale);
+            return buildResponse(400, false, message, null, null, null);
+        }
 
         Optional<InventoryTransfer> transferOpt = repository
                 .findByIdAndEntityStatusNot(transferId, EntityStatus.DELETED);
@@ -362,14 +389,18 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
 
         InventoryTransfer transfer = transferOpt.get();
 
-        // Validate current status
         if (transfer.getStatus() != TransferStatus.APPROVED) {
             message = "Transfer must be in APPROVED status to start transit. Current status: " +
                     transfer.getStatus();
             return buildResponse(400, false, message, null, null, null);
         }
 
-        // Get source inventory item
+        Optional<String> dispatchError = transferDispatchSupport.validateDispatchReadyForTransit(
+                transferId, shipmentId, locale);
+        if (dispatchError.isPresent()) {
+            return buildResponse(400, false, dispatchError.get(), null, null, null);
+        }
+
         Optional<InventoryItem> sourceItemOpt = inventoryItemRepository
                 .findByProductIdAndWarehouseLocationIdAndEntityStatusNot(
                         transfer.getProduct().getId(),
@@ -381,25 +412,33 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
             return buildResponse(400, false, message, null, null, null);
         }
 
-        // Create stock-out at source warehouse
-        InventoryItemResponse stockOutResponse = inventoryItemService.createStockOut(
-                sourceItemOpt.get().getId(),
-                transfer.getQuantity(),
-                "Transfer out to warehouse " + transfer.getToLocation().getName(),
-                startedByUserId,
-                transfer.getId(),
-                ReferenceDocumentType.INVENTORY_TRANSFER,
-                locale,
-                username
-        );
+        InventoryItem sourceItem = sourceItemOpt.get();
+        Long organizationId = transfer.getProduct().getSupplierId();
+        WarehouseLocation transitWarehouse = transitWarehouseSupport.resolveOrCreateTransitWarehouse(
+                organizationId, locale, username);
 
-        if (!stockOutResponse.isSuccess()) {
-            log.error("Stock out failed for transfer: {}", stockOutResponse.getMessage());
-            return buildResponseWithErrors(stockOutResponse.getStatusCode(), false,
-                    stockOutResponse.getMessage(), null, null, stockOutResponse.getErrorMessages());
+        try {
+            stockTransferSupport.transferStock(
+                    transfer.getProduct(),
+                    transfer.getFromLocation(),
+                    transitWarehouse,
+                    transfer.getQuantity(),
+                    sourceItem,
+                    startedByUserId,
+                    transfer.getId(),
+                    ReferenceDocumentType.INVENTORY_TRANSFER,
+                    transfer.getUnitCost(),
+                    "Transfer to in-transit holding for " + transfer.getTransferNumber(),
+                    locale,
+                    username);
+        } catch (Exception ex) {
+            log.error("Failed to move stock to transit warehouse for transfer {}: {}", transferId, ex.getMessage());
+            return buildResponse(400, false, ex.getMessage(), null, null, null);
         }
 
-        // Update status to IN_TRANSIT
+        transferDispatchSupport.findShipmentForTransfer(transferId, locale)
+                .ifPresent(shipment -> transfer.setShipmentId(shipment.getId()));
+
         transfer.setStatus(TransferStatus.IN_TRANSIT);
         transfer.setUpdatedByUserId(startedByUserId);
         InventoryTransfer saved = auditable.update(transfer, locale, username);
@@ -470,6 +509,13 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
 
         if (transfer.getStatus() != TransferStatus.IN_TRANSIT) {
             message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_TRANSFER_NOT_IN_TRANSIT.getCode(),
+                    new String[]{}, locale);
+            return buildResponse(400, false, message, null, null, null);
+        }
+
+        if (transferDispatchSupport.hasLinkedShipment(transferId, locale)) {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_INVENTORY_TRANSFER_COMPLETE_REQUIRES_RECEIVER_ACK.getCode(),
                     new String[]{}, locale);
             return buildResponse(400, false, message, null, null, null);
         }
@@ -549,9 +595,10 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         }
 
         InventoryTransfer toDelete = existingOpt.get();
+        TransferStatus previousStatus = toDelete.getStatus();
 
         // Cannot cancel already completed transfers
-        if (toDelete.getStatus() == TransferStatus.COMPLETED) {
+        if (previousStatus == TransferStatus.COMPLETED) {
             message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_TRANSFER_NOT_EDITABLE.getCode(),
                     new String[]{}, locale);
             return buildResponse(400, false, message, null, null, null);
@@ -561,25 +608,33 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         toDelete.setStatus(TransferStatus.CANCELLED);
         InventoryTransfer saved = auditable.delete(toDelete, locale);
 
-        // If transfer was IN_TRANSIT, reverse the stock-out
-        if (saved.getStatus() == TransferStatus.IN_TRANSIT) {
-            Optional<StockTransactionHistory> transactionOpt =
-                    stockTransactionHistoryRepository.findFirstByReferenceDocumentIdAndReferenceDocumentTypeAndEntityStatusNot(
-                            saved.getId(), ReferenceDocumentType.INVENTORY_TRANSFER, EntityStatus.DELETED);
-
-            if (transactionOpt.isPresent()) {
-                StockTransactionHistory transaction = transactionOpt.get();
-                CreateOrUpdateStockRequest reversalRequest = new CreateOrUpdateStockRequest();
-                reversalRequest.setProductId(saved.getProduct().getId());
-                reversalRequest.setWarehouseLocationId(saved.getFromLocation().getId());
-                reversalRequest.setQuantityReceived(transaction.getQuantityChange().negate());
-                reversalRequest.setReason("Reversal of cancelled transfer " + saved.getTransferNumber());
-                reversalRequest.setUserId(saved.getUpdatedByUserId());
-                reversalRequest.setReferenceDocumentId(saved.getId());
-                reversalRequest.setReferenceDocumentType(ReferenceDocumentType.INVENTORY_TRANSFER);
-                reversalRequest.setUnitCost(transaction.getUnitCost());
-
-                inventoryItemService.createOrUpdateStock(reversalRequest, locale, username);
+        if (previousStatus == TransferStatus.IN_TRANSIT) {
+            Optional<InventoryItem> templateOpt = inventoryItemRepository
+                    .findByProductIdAndWarehouseLocationIdAndEntityStatusNot(
+                            saved.getProduct().getId(),
+                            saved.getToLocation().getId(),
+                            EntityStatus.DELETED);
+            if (templateOpt.isPresent()) {
+                try {
+                    WarehouseLocation transitWarehouse = transitWarehouseSupport.resolveOrCreateTransitWarehouse(
+                            saved.getProduct().getSupplierId(), locale, username);
+                    stockTransferSupport.transferStock(
+                            saved.getProduct(),
+                            transitWarehouse,
+                            saved.getFromLocation(),
+                            saved.getQuantity(),
+                            templateOpt.get(),
+                            saved.getUpdatedByUserId(),
+                            saved.getId(),
+                            ReferenceDocumentType.INVENTORY_TRANSFER,
+                            saved.getUnitCost(),
+                            "Reversal of cancelled transfer " + saved.getTransferNumber(),
+                            locale,
+                            username);
+                } catch (Exception ex) {
+                    log.error("Failed to reverse in-transit stock for cancelled transfer {}: {}",
+                            saved.getTransferNumber(), ex.getMessage());
+                }
             }
         }
 
@@ -677,6 +732,12 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
 
         // If status is being changed, validate the transition
         if (request.getStatus() != null && request.getStatus() != toEdit.getStatus()) {
+            if (request.getStatus() == TransferStatus.IN_TRANSIT || request.getStatus() == TransferStatus.COMPLETED) {
+                message = messageService.getMessage(
+                        I18Code.MESSAGE_INVENTORY_TRANSFER_STATUS_CHANGE_NOT_ALLOWED.getCode(),
+                        new String[]{}, locale);
+                return buildResponse(400, false, message, null, null, null);
+            }
             if (!isValidStatusTransition(toEdit.getStatus(), request.getStatus())) {
                 message = "Invalid status transition from " + toEdit.getStatus() + " to " + request.getStatus();
                 return buildResponse(400, false, message, null, null, null);
@@ -702,9 +763,9 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
             case REQUESTED:
                 return newStatus == TransferStatus.APPROVED || newStatus == TransferStatus.CANCELLED;
             case APPROVED:
-                return newStatus == TransferStatus.IN_TRANSIT || newStatus == TransferStatus.CANCELLED;
+                return newStatus == TransferStatus.CANCELLED;
             case IN_TRANSIT:
-                return newStatus == TransferStatus.COMPLETED || newStatus == TransferStatus.CANCELLED;
+                return newStatus == TransferStatus.CANCELLED;
             case COMPLETED:
             case CANCELLED:
                 return false; // Terminal states
@@ -909,6 +970,7 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         dto.setUnitCost(transfer.getUnitCost());
         dto.setStatus(transfer.getStatus());
         dto.setReference(transfer.getReference());
+        dto.setCrossBorder(transfer.isCrossBorder());
         dto.setShipmentId(transfer.getShipmentId());
         dto.setRejectionReason(transfer.getRejectionReason());
         dto.setRejectedByUserId(transfer.getRejectedByUserId());
@@ -1082,6 +1144,25 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
             return buildResponse(400, false, message, null, null, null);
         }
 
+        if (receivedByUserId == null || receivedByUserId <= 0) {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_INVENTORY_TRANSFER_COMPLETE_REQUIRES_RECEIVER_ACK.getCode(),
+                    new String[]{}, locale);
+            return buildResponse(400, false, message, null, null, null);
+        }
+
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_INVENTORY_TRANSFER_COMPLETE_REQUIRES_RECEIVER_ACK.getCode(),
+                    new String[]{}, locale);
+            return buildResponse(400, false, message, null, null, null);
+        }
+
+        Optional<String> ackError = transferDispatchSupport.validateReceiverAcknowledgmentReady(transferId, locale);
+        if (ackError.isPresent()) {
+            return buildResponse(400, false, ackError.get(), null, null, null);
+        }
+
         // ============================================================
         // STEP 3: Create GRV (PENDING) linked to the transfer (no PO)
         // ============================================================
@@ -1095,37 +1176,42 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         GoodsReceivedVoucher savedGrv = goodsReceivedVoucherServiceAuditable.create(grv, locale, username);
         log.info("Created transfer GRV {} for transfer {}", savedGrv.getGrvNumber(), transfer.getTransferNumber());
 
-        // ============================================================
-        // STEP 4: Receive stock at destination warehouse
-        // ============================================================
-        Optional<InventoryItem> destItemOpt = inventoryItemRepository
+        Optional<InventoryItem> sourceTemplateOpt = inventoryItemRepository
                 .findByProductIdAndWarehouseLocationIdAndEntityStatusNot(
                         transfer.getProduct().getId(),
-                        transfer.getToLocation().getId(),
+                        transfer.getFromLocation().getId(),
                         EntityStatus.DELETED);
-
-        if (destItemOpt.isEmpty()) {
-            message = "Destination inventory not set up for product " + transfer.getProduct().getId() +
-                    " at warehouse " + transfer.getToLocation().getId();
-            log.error(message);
+        if (sourceTemplateOpt.isEmpty()) {
+            sourceTemplateOpt = inventoryItemRepository
+                    .findByProductIdAndWarehouseLocationIdAndEntityStatusNot(
+                            transfer.getProduct().getId(),
+                            transfer.getToLocation().getId(),
+                            EntityStatus.DELETED);
+        }
+        if (sourceTemplateOpt.isEmpty()) {
+            message = "Inventory template not found for transfer completion.";
             return buildResponse(400, false, message, null, null, null);
         }
 
-        CreateOrUpdateStockRequest stockRequest = new CreateOrUpdateStockRequest();
-        stockRequest.setProductId(transfer.getProduct().getId());
-        stockRequest.setWarehouseLocationId(transfer.getToLocation().getId());
-        stockRequest.setQuantityReceived(transfer.getQuantity());
-        stockRequest.setReferenceDocumentId(savedGrv.getId());
-        stockRequest.setReferenceDocumentType(ReferenceDocumentType.GOODS_RECEIVED_VOUCHER);
-        stockRequest.setUpdatedByUserId(receivedByUserId);
-        stockRequest.setUnitCost(transfer.getUnitCost());
-        stockRequest.setReason("Transfer in from " + transfer.getFromLocation().getName() +
-                " via GRV " + savedGrv.getGrvNumber());
+        WarehouseLocation transitWarehouse = transitWarehouseSupport.resolveOrCreateTransitWarehouse(
+                transfer.getProduct().getSupplierId(), locale, username);
 
         try {
-            inventoryItemService.createOrUpdateStock(stockRequest, locale, username);
+            stockTransferSupport.transferStock(
+                    transfer.getProduct(),
+                    transitWarehouse,
+                    transfer.getToLocation(),
+                    transfer.getQuantity(),
+                    sourceTemplateOpt.get(),
+                    receivedByUserId,
+                    savedGrv.getId(),
+                    ReferenceDocumentType.GOODS_RECEIVED_VOUCHER,
+                    transfer.getUnitCost(),
+                    "Transfer from in-transit to destination via GRV " + savedGrv.getGrvNumber(),
+                    locale,
+                    username);
         } catch (Exception e) {
-            log.error("Failed to receive stock for transfer GRV {}: {}", savedGrv.getGrvNumber(), e.getMessage(), e);
+            log.error("Failed to move stock from transit for transfer GRV {}: {}", savedGrv.getGrvNumber(), e.getMessage(), e);
             return buildResponse(400, false, e.getMessage(), null, null, null);
         }
 
@@ -1160,6 +1246,10 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
                 new String[]{}, locale);
 
         return buildResponse(200, true, message, dto, null, null);
+    }
+
+    private boolean isSystemUser(String username) {
+        return username != null && "SYSTEM".equalsIgnoreCase(username);
     }
 
     private String generateGrvNumberForTransfer(InventoryTransfer transfer) {
@@ -1203,6 +1293,7 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
             }
 
             payload.put("quantity", transfer.getQuantity());
+            payload.put("crossBorder", transfer.isCrossBorder());
             payload.put("timestamp", LocalDateTime.now().toString());
 
             rabbitTemplate.convertAndSend(

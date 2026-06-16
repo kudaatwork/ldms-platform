@@ -52,6 +52,47 @@
       </div>
     </article>
 
+    <article class="pa-approvers lx-card">
+      <header class="pa-info__head">
+        <mat-icon>group</mat-icon>
+        <div>
+          <h3>Procurement approvers</h3>
+          <p>
+            Choose which users in your organisation may approve procurement stages. Only flagged users see approval
+            actions and can advance requisitions, purchase orders, sales orders, and inventory transfer requests.
+          </p>
+        </div>
+      </header>
+
+      <lx-table-loading [busy]="orgUsersLoading" message="Loading organisation users..."></lx-table-loading>
+
+      <p class="pa-approvers__error" *ngIf="!orgUsersLoading && orgUsersError">{{ orgUsersError }}</p>
+
+      <div class="pa-approvers__table" *ngIf="!orgUsersLoading && orgUsers.length">
+        @for (user of orgUsers; track trackOrgUser($index, user)) {
+          <div class="pa-approvers__row">
+            <div class="pa-approvers__identity">
+              <strong>{{ user.name }}</strong>
+              <span>{{ user.email }}</span>
+            </div>
+            <mat-slide-toggle
+              [checked]="user.procurementApprover"
+              (change)="toggleProcurementApprover(user, $event.checked)"
+              color="primary"
+            >
+              Procurement approver
+            </mat-slide-toggle>
+          </div>
+        }
+      </div>
+
+      <div class="lx-empty lx-empty--compact" *ngIf="!orgUsersLoading && !orgUsers.length">
+        <mat-icon class="lx-empty-icon">group_off</mat-icon>
+        <div class="lx-empty-title">No organisation users yet</div>
+        <div class="lx-empty-sub">Create users under Settings → Users, then return here to designate approvers.</div>
+      </div>
+    </article>
+
     <div class="pa-info lx-card">
       <header class="pa-info__head">
         <mat-icon>info</mat-icon>

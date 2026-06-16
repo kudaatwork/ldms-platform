@@ -1,9 +1,11 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, Router, UrlTree } from '@angular/router';
-import { map, Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
 import { AuthStateService } from '../services/auth-state.service';
 import { StorageService } from '../services/storage.service';
+import { TokenRefreshService } from '../services/token-refresh.service';
 import { currentUserFromJwt, isJwtExpired } from '../utils/jwt.util';
 import type { CurrentUser } from '../models/auth.model';
 import { portalHomeRoute } from '../utils/portal-navigation.util';
@@ -14,6 +16,7 @@ export class GuestGuard implements CanActivate {
     private readonly storage: StorageService,
     private readonly authService: AuthService,
     private readonly authState: AuthStateService,
+    private readonly tokenRefresh: TokenRefreshService,
     private readonly router: Router,
   ) {}
 
@@ -23,8 +26,17 @@ export class GuestGuard implements CanActivate {
       return true;
     }
     if (isJwtExpired(token)) {
-      this.authService.logout();
-      return true;
+      if (!this.storage.getRefreshToken()) {
+        this.authService.logout();
+        return true;
+      }
+      return this.tokenRefresh.refreshAccessToken().pipe(
+        map(() => true),
+        catchError(() => {
+          this.authService.logout();
+          return of(true);
+        }),
+      );
     }
 
     const existing = this.authState.currentUser;

@@ -27,6 +27,12 @@ public class BranchDto {
     // Head Office Flag
     private boolean isHeadOffice;
 
+    /** Hierarchy: BRANCH (level 1) or SUB_BRANCH / depot (level 2). */
+    private String branchLevel;
+    private Long parentBranchId;
+    private String parentBranchName;
+    private boolean depot;
+
     // Linked Organization ID (to avoid circular references)
     private Long organizationId;
     private String organizationName;

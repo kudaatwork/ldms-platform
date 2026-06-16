@@ -1,0 +1,51 @@
+<h2 mat-dialog-title>Share warehouse</h2>
+
+<mat-dialog-content class="ws-dialog">
+  <p class="ws-dialog__lead">
+    Grant another organisation read or fulfill access to <strong>{{ warehouseName }}</strong>.
+    Only the owning organisation can manage sharing.
+  </p>
+
+  <lx-table-loading [busy]="loading" message="Loading access grants…"></lx-table-loading>
+
+  <p class="ws-dialog__error" *ngIf="error" role="alert">{{ error }}</p>
+
+  <section class="ws-grants lx-card" *ngIf="!loading && !error">
+    <h3>Current grants</h3>
+    <p class="ws-grants__empty" *ngIf="!grants.length">No organisations have shared access yet.</p>
+    <ul class="ws-grants__list" *ngIf="grants.length">
+      <li *ngFor="let grant of grants">
+        <span>
+          Organisation #{{ grant.grantedOrganizationId }}
+          <span class="ws-grants__level">{{ grant.accessLevel === 'FULFILL' ? 'Fulfill' : 'Read' }}</span>
+        </span>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="revoke(grant)" [disabled]="saving">
+          Revoke
+        </button>
+      </li>
+    </ul>
+  </section>
+
+  <form [formGroup]="form" class="ws-form" (ngSubmit)="grantAccess()" *ngIf="!loading">
+    <h3>Grant access</h3>
+    <div class="ws-form__grid">
+      <div class="lx-input-shell" [class.lx-input-shell--invalid]="form.get('grantedOrganizationId')?.invalid && form.get('grantedOrganizationId')?.touched">
+        <label for="grantedOrganizationId">Organisation ID</label>
+        <input id="grantedOrganizationId" type="number" formControlName="grantedOrganizationId" min="1" />
+      </div>
+      <div class="lx-input-shell">
+        <label for="accessLevel">Access level</label>
+        <select id="accessLevel" formControlName="accessLevel">
+          <option *ngFor="let level of accessLevels" [ngValue]="level.value">{{ level.label }}</option>
+        </select>
+      </div>
+    </div>
+    <button type="submit" class="lx-btn lx-btn-primary" [disabled]="saving || form.invalid">
+      {{ saving ? 'Saving…' : 'Grant access' }}
+    </button>
+  </form>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" mat-button (click)="close()">Done</button>
+</mat-dialog-actions>

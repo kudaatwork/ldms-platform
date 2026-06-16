@@ -49,6 +49,10 @@ public class User {
     @jakarta.persistence.Column(name = "operational_issue_handler", nullable = false)
     private boolean operationalIssueHandler;
 
+    /** Platform-portal organisation user eligible to approve procurement workflow stages. */
+    @jakarta.persistence.Column(name = "procurement_approver", nullable = false)
+    private boolean procurementApprover;
+
     private String username;              // Unique username for login
     private String email;                 // User's email address
     private String firstName;             // User's first name

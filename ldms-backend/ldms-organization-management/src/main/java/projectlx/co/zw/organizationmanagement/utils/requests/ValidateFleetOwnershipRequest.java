@@ -11,4 +11,7 @@ public class ValidateFleetOwnershipRequest {
     private Long registeringOrganizationId;
     private String ownershipType;
     private Long contractedTransporterOrganizationId;
+    private String contractScope;
+    private String contractStartDate;
+    private String contractEndDate;
 }

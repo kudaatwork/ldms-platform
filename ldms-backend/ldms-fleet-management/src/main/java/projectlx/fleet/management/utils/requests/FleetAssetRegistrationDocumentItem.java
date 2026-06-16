@@ -4,7 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 
 @Getter
 @Setter
@@ -12,5 +12,6 @@ import java.time.LocalDateTime;
 public class FleetAssetRegistrationDocumentItem {
     private String complianceType;
     private Long fileUploadId;
-    private LocalDateTime expiresAt;
+    /** Optional calendar expiry from the portal date picker (yyyy-MM-dd). */
+    private LocalDate expiresAt;
 }

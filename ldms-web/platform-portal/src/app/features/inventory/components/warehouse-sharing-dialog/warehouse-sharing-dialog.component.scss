@@ -1,0 +1,64 @@
+.ws-dialog {
+  min-width: min(520px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ws-dialog__lead {
+  margin: 0;
+  color: var(--lx-text-muted, #64748b);
+}
+
+.ws-dialog__error {
+  margin: 0;
+  color: var(--lx-danger, #b91c1c);
+}
+
+.ws-grants h3,
+.ws-form h3 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+.ws-grants__empty {
+  margin: 0;
+  color: var(--lx-text-muted, #64748b);
+}
+
+.ws-grants__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ws-grants__list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.ws-grants__level {
+  margin-left: 0.5rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--lx-text-muted, #64748b);
+}
+
+.ws-form__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+@media (max-width: 560px) {
+  .ws-form__grid {
+    grid-template-columns: 1fr;
+  }
+}

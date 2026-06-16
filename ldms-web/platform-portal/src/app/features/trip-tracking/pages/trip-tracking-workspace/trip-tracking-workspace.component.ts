@@ -9,6 +9,11 @@ import { NotificationService } from '../../../../core/services/notification.serv
 import { TripTrackingPortalService } from '../../services/trip-tracking-portal.service';
 import { AllocateShipmentDialogComponent } from '../../components/allocate-shipment-dialog/allocate-shipment-dialog.component';
 import type { AllocateShipmentDialogData, AllocateShipmentDialogResult } from '../../components/allocate-shipment-dialog/allocate-shipment-dialog.component';
+import { AssignTransportCompanyDialogComponent } from '../../components/assign-transport-company-dialog/assign-transport-company-dialog.component';
+import type {
+  AssignTransportCompanyDialogData,
+  AssignTransportCompanyDialogResult,
+} from '../../components/assign-transport-company-dialog/assign-transport-company-dialog.component';
 import { ViewTripDialogComponent } from '../../components/view-trip-dialog/view-trip-dialog.component';
 import type { ViewTripDialogData } from '../../components/view-trip-dialog/view-trip-dialog.component';
 import type {
@@ -37,6 +42,7 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
   shipmentsError = '';
   shipmentSearch = '';
   shipmentStatusFilter: ShipmentStatus | '' = '';
+  shipmentFilterFieldsOpen = false;
 
   // Trips
   trips: TripRow[] = [];
@@ -44,6 +50,7 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
   tripsError = '';
   tripSearch = '';
   tripStatusFilter: TripStatus | '' = '';
+  tripFilterFieldsOpen = false;
 
   metrics: TripWorkspaceMetrics = {
     totalShipments: 0,
@@ -54,7 +61,8 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
 
   readonly shipmentStatusOptions: Array<{ value: ShipmentStatus | ''; label: string }> = [
     { value: '', label: 'All statuses' },
-    { value: 'PENDING', label: 'Pending' },
+    { value: 'PENDING', label: 'Pending dispatch' },
+    { value: 'PENDING_FLEET', label: 'Awaiting fleet' },
     { value: 'ALLOCATED', label: 'Allocated' },
     { value: 'IN_TRANSIT', label: 'In transit' },
     { value: 'DELIVERED', label: 'Delivered' },
@@ -85,10 +93,15 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.title.setTitle('Shipments & Trips | LX Platform');
+    this.title.setTitle('Shipment management | LX Platform');
 
-    this.route.params.pipe(takeUntil(this.destroy$)).subscribe((params) => {
-      const tab = params['tab'] as TripTrackingTab | undefined;
+    this.route.data.pipe(takeUntil(this.destroy$)).subscribe((data) => {
+      const tabFromData = data['tab'] as TripTrackingTab | undefined;
+      if (tabFromData === 'trips' || tabFromData === 'shipments') {
+        this.activeTab = tabFromData;
+        return;
+      }
+      const tab = this.route.snapshot.paramMap.get('tab') as TripTrackingTab | null;
       if (tab === 'trips' || tab === 'shipments') {
         this.activeTab = tab;
       }
@@ -98,7 +111,11 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
       const transferId = params.get('transferId');
       if (transferId) {
         this.activeTab = 'shipments';
-        this.loadShipmentByTransfer(Number(transferId));
+        this.loadShipmentByTransfer(
+          Number(transferId),
+          params.get('assign') === '1',
+          params.get('allocate') === '1',
+        );
       }
     });
 
@@ -115,15 +132,20 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
     return Number(this.authState.currentUser?.organizationId ?? 0);
   }
 
+  get isShipperOrg(): boolean {
+    const classification = this.authState.currentUser?.orgClassification ?? '';
+    return classification === 'SUPPLIER' || classification === 'CUSTOMER';
+  }
+
+  private mapShipmentsForViewer(rows: ShipmentRow[]): ShipmentRow[] {
+    return rows.map((row) => this.tripTracking.mapShipmentRowForViewer(row, this.orgId, this.isShipperOrg));
+  }
+
   // ── Tab switching ─────────────────────────────────────────────────────────
 
   setTab(tab: TripTrackingTab): void {
     this.activeTab = tab;
-    this.router.navigate(['.'], {
-      relativeTo: this.route.parent,
-      queryParamsHandling: 'preserve',
-    });
-    this.router.navigate([`../${tab}`], { relativeTo: this.route });
+    void this.router.navigate(['/shipments', tab], { queryParamsHandling: 'preserve' });
   }
 
   isTab(tab: TripTrackingTab): boolean {
@@ -158,7 +180,7 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (rows) => {
-          this.shipments = rows;
+          this.shipments = this.mapShipmentsForViewer(rows);
           this.updateMetrics();
         },
         error: (err: Error) => {
@@ -194,12 +216,36 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
       });
   }
 
-  private loadShipmentByTransfer(transferId: number): void {
+  private loadShipmentByTransfer(transferId: number, openAssign = false, openAllocate = false): void {
     this.tripTracking.getShipmentByTransfer(transferId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (shipment) => {
         if (shipment) {
-          this.shipments = [shipment, ...this.shipments.filter((s) => s.id !== shipment.id)];
+          const mapped = this.tripTracking.mapShipmentRowForViewer(shipment, this.orgId, this.isShipperOrg);
+          this.shipments = [mapped, ...this.shipments.filter((s) => s.id !== mapped.id)];
           this.updateMetrics();
+          if (openAssign && mapped.canAssignTransport) {
+            this.openAssignTransport(mapped);
+          } else if (openAllocate && mapped.canAllocate) {
+            this.openAllocate(mapped);
+          } else if (openAssign || openAllocate) {
+            this.notifications.success(
+              `Shipment ${mapped.shipmentNumber} is ${mapped.statusLabel.toLowerCase()}.`,
+            );
+          }
+          if (openAssign || openAllocate) {
+            void this.router.navigate([], {
+              relativeTo: this.route,
+              queryParams: { transferId, assign: null, allocate: null },
+              queryParamsHandling: 'merge',
+              replaceUrl: true,
+            });
+          }
+          return;
+        }
+        if (openAssign || openAllocate) {
+          this.notifications.error(
+            'No shipment found for this transfer yet. Confirm the transfer is approved and try again shortly.',
+          );
         }
       },
     });
@@ -227,11 +273,48 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
     this.reload$.next();
   }
 
+  shipmentFiltersActive(): boolean {
+    return !!this.shipmentStatusFilter;
+  }
+
+  tripFiltersActive(): boolean {
+    return !!this.tripStatusFilter;
+  }
+
+  resetShipmentFilters(): void {
+    this.shipmentStatusFilter = '';
+    this.reload$.next();
+  }
+
+  resetTripFilters(): void {
+    this.tripStatusFilter = '';
+    this.reload$.next();
+  }
+
   refresh(): void {
     this.reload$.next();
   }
 
   // ── Actions ───────────────────────────────────────────────────────────────
+
+  openAssignTransport(shipment: ShipmentRow): void {
+    const dialogRef = this.dialog.open<
+      AssignTransportCompanyDialogComponent,
+      AssignTransportCompanyDialogData,
+      AssignTransportCompanyDialogResult | undefined
+    >(AssignTransportCompanyDialogComponent, {
+      data: { shipment },
+      width: '540px',
+      maxHeight: '90vh',
+      panelClass: 'lx-location-dialog-panel',
+    });
+
+    dialogRef.afterClosed().pipe(takeUntil(this.destroy$)).subscribe((result) => {
+      if (result?.action === 'assigned') {
+        this.reload$.next();
+      }
+    });
+  }
 
   openAllocate(shipment: ShipmentRow): void {
     const dialogRef = this.dialog.open<
@@ -240,7 +323,8 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
       AllocateShipmentDialogResult | undefined
     >(AllocateShipmentDialogComponent, {
       data: { shipment },
-      width: '540px',
+      width: '720px',
+      maxWidth: '96vw',
       maxHeight: '90vh',
       panelClass: 'lx-location-dialog-panel',
     });
@@ -258,25 +342,31 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
       this.notifications.error('Cannot determine current user.');
       return;
     }
-    // Re-use the allocate dialog to pick driver/vehicle, then call start
-    const dialogRef = this.dialog.open<
-      AllocateShipmentDialogComponent,
-      AllocateShipmentDialogData,
-      AllocateShipmentDialogResult | undefined
-    >(AllocateShipmentDialogComponent, {
-      data: { shipment },
-      width: '540px',
-      maxHeight: '90vh',
-      panelClass: 'lx-location-dialog-panel',
-    });
+    if (!shipment.fleetDriverId || !shipment.fleetAssetId) {
+      this.notifications.error('Allocate a driver and vehicle before starting the trip.');
+      this.openAllocate(shipment);
+      return;
+    }
+    this.tripTracking
+      .startTrip({
+        shipmentId: shipment.id,
+        fleetDriverId: shipment.fleetDriverId,
+        fleetAssetId: shipment.fleetAssetId,
+        startedByUserId: userId,
+      })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.notifications.success('Trip started — open the Trips tab for live tracking.');
+          this.activeTab = 'trips';
+          this.reload$.next();
+        },
+        error: (err: Error) => this.notifications.error(err.message || 'Failed to start trip.'),
+      });
+  }
 
-    dialogRef.afterClosed().pipe(takeUntil(this.destroy$)).subscribe((result) => {
-      if (result?.action === 'allocated') {
-        // After allocation succeeded, the shipment is now ALLOCATED.
-        // Immediately start a trip from the new state.
-        this.reload$.next();
-      }
-    });
+  openLiveTrack(trip: TripRow): void {
+    void this.router.navigate(['/shipments/live', trip.id]);
   }
 
   viewTrip(trip: TripRow): void {

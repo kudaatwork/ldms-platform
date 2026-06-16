@@ -1,5 +1,6 @@
-import { Injectable, OnDestroy } from '@angular/core';
+import { Injectable, Injector, OnDestroy } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+import { TokenRefreshService } from './token-refresh.service';
 
 /**
  * Inactivity logout: 5 minutes idle, final 2 minutes show a countdown with "Stay logged in".
@@ -33,6 +34,8 @@ export class SessionIdleService implements OnDestroy {
   private lastActivityResetMs = 0;
   private onTimeout: (() => void) | null = null;
   private readonly onActivityBound = () => this.onUserActivity();
+
+  constructor(private readonly injector: Injector) {}
 
   ngOnDestroy(): void {
     this.deactivate();
@@ -88,6 +91,7 @@ export class SessionIdleService implements OnDestroy {
     }
     this.lastActivityResetMs = now;
     this.armSessionTimers();
+    this.injector.get(TokenRefreshService).refreshIfExpiringSoon();
   }
 
   private armSessionTimers(): void {

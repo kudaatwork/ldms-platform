@@ -3,6 +3,8 @@ package projectlx.inventory.management.business.logic.impl;
 import com.lowagie.text.DocumentException;
 import projectlx.inventory.management.business.logic.support.InventoryExportSupport;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -20,20 +22,29 @@ import org.springframework.data.jpa.domain.Specification;
 import projectlx.inventory.management.business.auditable.api.WarehouseLocationServiceAuditable;
 import projectlx.inventory.management.business.logic.api.WarehouseLocationService;
 import projectlx.inventory.management.business.validator.api.WarehouseLocationServiceValidator;
+import projectlx.inventory.management.business.logic.support.BranchAllocationSupport;
+import projectlx.inventory.management.business.logic.support.WarehouseAccessSupport;
+import projectlx.inventory.management.business.logic.support.WarehouseSharingSupport;
 import projectlx.inventory.management.clients.LocationsServiceClient;
+import projectlx.inventory.management.clients.UserManagementServiceClient;
 import projectlx.inventory.management.model.WarehouseLocation;
 import projectlx.inventory.management.model.WarehouseLocationType;
+import projectlx.inventory.management.model.WarehouseOrganizationAccess;
 import projectlx.inventory.management.repository.WarehouseLocationRepository;
+import projectlx.inventory.management.repository.WarehouseOrganizationAccessRepository;
 import projectlx.inventory.management.repository.specification.WarehouseLocationSpecification;
 import projectlx.inventory.management.utils.dtos.WarehouseLocationDto;
+import projectlx.inventory.management.utils.dtos.WarehouseOrganizationAccessDto;
 import projectlx.inventory.management.utils.dtos.ImportSummary;
 import projectlx.inventory.management.utils.enums.I18Code;
 import projectlx.inventory.management.utils.requests.WarehouseLocationMultipleFiltersRequest;
 import projectlx.inventory.management.utils.requests.CreateWarehouseLocationRequest;
 import projectlx.inventory.management.utils.requests.EditWarehouseLocationRequest;
+import projectlx.inventory.management.utils.requests.GrantWarehouseAccessRequest;
 import projectlx.inventory.management.utils.requests.CreateAddressRequest;
 import projectlx.inventory.management.utils.responses.AddressResponse;
 import projectlx.inventory.management.utils.responses.WarehouseLocationResponse;
+import projectlx.co.zw.shared_library.utils.responses.UserResponse;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
@@ -47,9 +58,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 @RequiredArgsConstructor
 public class WarehouseLocationServiceImpl implements WarehouseLocationService {
+
+    private static final Logger log = LoggerFactory.getLogger(WarehouseLocationServiceImpl.class);
 
     private final WarehouseLocationServiceValidator validator;
     private final MessageService messageService;
@@ -57,6 +71,11 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
     private final WarehouseLocationRepository repository;
     private final WarehouseLocationServiceAuditable warehouseLocationServiceAuditable;
     private final LocationsServiceClient locationsServiceClient;
+    private final BranchAllocationSupport branchAllocationSupport;
+    private final UserManagementServiceClient userManagementServiceClient;
+    private final WarehouseAccessSupport warehouseAccessSupport;
+    private final WarehouseSharingSupport warehouseSharingSupport;
+    private final WarehouseOrganizationAccessRepository accessRepository;
 
     private static final String[] HEADERS = {
             "ID", "LOCATION_ID", "SUPPLIER_ID", "CREATED_AT", "UPDATED_AT", "STATUS"
@@ -83,6 +102,24 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
                     validatorDto.getErrorMessages());
         }
 
+        if (request.getWarehouseType() == WarehouseLocationType.TRANSIT) {
+            message = "In-transit warehouses are system-managed and cannot be created manually.";
+            return buildResponse(400, false, message, null, null, null);
+        }
+
+        if (request.getBranchId() == null || request.getBranchId() <= 0) {
+            message = "Branch allocation is required for every warehouse.";
+            return buildResponse(400, false, message, null, null, null);
+        }
+
+        if (request.getSupplierId() != null) {
+            Optional<String> branchError = branchAllocationSupport.validateBranchForOrganization(
+                    request.getBranchId(), request.getSupplierId(), locale);
+            if (branchError.isPresent()) {
+                return buildResponse(400, false, branchError.get(), null, null, null);
+            }
+        }
+
         // Create address in Locations Service first
         CreateAddressRequest createAddressRequest = new CreateAddressRequest();
         createAddressRequest.setLine1(request.getLine1());
@@ -100,6 +137,7 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
                 WarehouseLocation wareHouseLocationToSave = new WarehouseLocation();
                 wareHouseLocationToSave.setLocationId(String.valueOf(addressResponse.getAddressDto().getId()));
                 wareHouseLocationToSave.setSupplierId(request.getSupplierId());
+                wareHouseLocationToSave.setBranchId(request.getBranchId());
                 wareHouseLocationToSave.setName(request.getName());
                 wareHouseLocationToSave.setDescription(request.getDescription());
                 wareHouseLocationToSave.setWarehouseType(request.getWarehouseType());
@@ -155,7 +193,14 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
             return buildResponse(404, false, message, null, null, null);
         }
 
-        WarehouseLocationDto dto = modelMapper.map(retrieved.get(), WarehouseLocationDto.class);
+        WarehouseLocation warehouse = retrieved.get();
+        if (!isVisibleToUser(warehouse, username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_WAREHOUSE_LOCATION_NOT_FOUND.getCode(), new String[]{},
+                    locale);
+            return buildResponse(404, false, message, null, null, null);
+        }
+
+        WarehouseLocationDto dto = mapWarehouseDto(warehouse, username, locale);
         message = messageService.getMessage(I18Code.MESSAGE_WAREHOUSE_LOCATION_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
 
@@ -168,14 +213,7 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
         String message = "";
 
         List<WarehouseLocation> warehouseLocationList = repository.findAll();
-        List<WarehouseLocation> filtered = new ArrayList<>();
-
-        for (WarehouseLocation warehouseLocation : warehouseLocationList) {
-
-            if (warehouseLocation.getEntityStatus() != EntityStatus.DELETED) {
-                filtered.add(warehouseLocation);
-            }
-        }
+        List<WarehouseLocation> filtered = applyVisibilityFilter(warehouseLocationList, username, locale);
 
         if (filtered.isEmpty()) {
 
@@ -185,8 +223,9 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
             return buildResponse(404, false, message, null, null, null);
         }
 
-        List<WarehouseLocationDto> list = modelMapper.map(filtered,
-                new TypeToken<List<WarehouseLocationDto>>() {}.getType());
+        List<WarehouseLocationDto> list = filtered.stream()
+                .map(w -> mapWarehouseDto(w, username, locale))
+                .toList();
 
         message = messageService.getMessage(I18Code.MESSAGE_WAREHOUSE_LOCATION_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -222,9 +261,30 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
 
         WarehouseLocation toEdit = retrieved.get();
 
+        if (toEdit.isVirtualWarehouse()) {
+            message = "Virtual in-transit warehouses cannot be edited.";
+            return buildResponse(400, false, message, null, null, null);
+        }
+
+        if (request.getBranchId() != null) {
+            Long orgId = request.getSupplierId() != null ? request.getSupplierId() : toEdit.getSupplierId();
+            Optional<String> branchError = branchAllocationSupport.validateBranchForOrganization(
+                    request.getBranchId(), orgId, locale);
+            if (branchError.isPresent()) {
+                return buildResponse(400, false, branchError.get(), null, null, null);
+            }
+            toEdit.setBranchId(request.getBranchId());
+        }
+
         if (request.getLocationId() != null) toEdit.setLocationId(request.getLocationId());
         if (request.getSupplierId() != null) toEdit.setSupplierId(request.getSupplierId());
-        if (request.getWarehouseType() != null) toEdit.setWarehouseType(request.getWarehouseType());
+        if (request.getWarehouseType() != null) {
+            if (request.getWarehouseType() == WarehouseLocationType.TRANSIT) {
+                message = "In-transit warehouse type cannot be assigned manually.";
+                return buildResponse(400, false, message, null, null, null);
+            }
+            toEdit.setWarehouseType(request.getWarehouseType());
+        }
         if (request.getName() != null) toEdit.setName(request.getName());
         if (request.getDescription() != null) toEdit.setDescription(request.getDescription());
 
@@ -331,8 +391,9 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
         }
 
         Page<WarehouseLocation> result = repository.findAll(spec, pageable);
+        List<WarehouseLocation> visible = applyVisibilityFilter(result.getContent(), username, locale);
 
-        if (result.getContent().isEmpty()) {
+        if (visible.isEmpty()) {
 
             message = messageService.getMessage(I18Code.MESSAGE_WAREHOUSE_LOCATION_NOT_FOUND.getCode(), new String[]{},
                     locale);
@@ -340,10 +401,12 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
             return buildResponse(404, false, message, null, null, null);
         }
 
-        // Map to DTO page
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        Page<WarehouseLocationDto> dtoPage = result.map(pc ->
-                modelMapper.map(pc, WarehouseLocationDto.class));
+        List<WarehouseLocationDto> dtoList = visible.stream()
+                .map(w -> mapWarehouseDto(w, username, locale))
+                .toList();
+        Page<WarehouseLocationDto> dtoPage = new org.springframework.data.domain.PageImpl<>(
+                dtoList, pageable, visible.size());
 
         message = messageService.getMessage(I18Code.MESSAGE_WAREHOUSE_LOCATION_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -352,6 +415,186 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
         response.setWarehouseLocationDtoPage(dtoPage);
 
         return response;
+    }
+
+    @Override
+    public WarehouseLocationResponse grantOrganizationAccess(GrantWarehouseAccessRequest request,
+                                                             Locale locale, String username) {
+        if (request == null || request.getWarehouseLocationId() == null || request.getGrantedOrganizationId() == null) {
+            return buildResponse(400, false, "Warehouse and organisation are required.", null, null, null);
+        }
+        Optional<WarehouseLocation> warehouseOpt = repository.findByIdAndEntityStatusNot(
+                request.getWarehouseLocationId(), EntityStatus.DELETED);
+        if (warehouseOpt.isEmpty() || warehouseOpt.get().isVirtualWarehouse()) {
+            return buildResponse(404, false, "Warehouse not found.", null, null, null);
+        }
+        Optional<String> ownerError = verifyWarehouseOwner(warehouseOpt.get(), username, locale);
+        if (ownerError.isPresent()) {
+            return buildResponse(403, false, ownerError.get(), null, null, null);
+        }
+        Optional<String> grantError = warehouseSharingSupport.grantAccess(
+                request.getWarehouseLocationId(),
+                request.getGrantedOrganizationId(),
+                request.getAccessLevel(),
+                locale,
+                username);
+        if (grantError.isPresent()) {
+            return buildResponse(400, false, grantError.get(), null, null, List.of(grantError.get()));
+        }
+        return listOrganizationAccess(request.getWarehouseLocationId(), locale, username);
+    }
+
+    @Override
+    public WarehouseLocationResponse revokeOrganizationAccess(Long warehouseLocationId, Long grantedOrganizationId,
+                                                              Locale locale, String username) {
+        if (warehouseLocationId == null || grantedOrganizationId == null) {
+            return buildResponse(400, false, "Warehouse and organisation are required.", null, null, null);
+        }
+        Optional<WarehouseLocation> warehouseOpt = repository.findByIdAndEntityStatusNot(
+                warehouseLocationId, EntityStatus.DELETED);
+        if (warehouseOpt.isEmpty()) {
+            return buildResponse(404, false, "Warehouse not found.", null, null, null);
+        }
+        Optional<String> ownerError = verifyWarehouseOwner(warehouseOpt.get(), username, locale);
+        if (ownerError.isPresent()) {
+            return buildResponse(403, false, ownerError.get(), null, null, null);
+        }
+        warehouseSharingSupport.revokeAccess(warehouseLocationId, grantedOrganizationId);
+        return listOrganizationAccess(warehouseLocationId, locale, username);
+    }
+
+    @Override
+    public WarehouseLocationResponse listOrganizationAccess(Long warehouseLocationId, Locale locale, String username) {
+        if (warehouseLocationId == null || warehouseLocationId <= 0) {
+            return buildResponse(400, false, "Warehouse id is required.", null, null, null);
+        }
+        Optional<WarehouseLocation> warehouseOpt = repository.findByIdAndEntityStatusNot(
+                warehouseLocationId, EntityStatus.DELETED);
+        if (warehouseOpt.isEmpty() || warehouseOpt.get().isVirtualWarehouse()) {
+            return buildResponse(404, false, "Warehouse not found.", null, null, null);
+        }
+        WarehouseLocation warehouse = warehouseOpt.get();
+        if (!isSystemUser(username)) {
+            Optional<String> ownerError = verifyWarehouseOwner(warehouse, username, locale);
+            if (ownerError.isPresent()) {
+                return buildResponse(403, false, ownerError.get(), null, null, null);
+            }
+        }
+        List<WarehouseOrganizationAccess> grants = accessRepository
+                .findByWarehouseLocationIdAndEntityStatusNot(warehouseLocationId, EntityStatus.DELETED);
+        List<WarehouseOrganizationAccessDto> dtos = grants.stream().map(this::toAccessDto).toList();
+        WarehouseLocationResponse response = buildResponse(200, true,
+                "Warehouse access grants retrieved.", null, null, null);
+        response.setWarehouseOrganizationAccessDtoList(dtos);
+        return response;
+    }
+
+    private WarehouseOrganizationAccessDto toAccessDto(WarehouseOrganizationAccess access) {
+        WarehouseOrganizationAccessDto dto = new WarehouseOrganizationAccessDto();
+        dto.setId(access.getId());
+        dto.setWarehouseLocationId(access.getWarehouseLocationId());
+        dto.setGrantedOrganizationId(access.getGrantedOrganizationId());
+        dto.setAccessLevel(access.getAccessLevel());
+        return dto;
+    }
+
+    private WarehouseLocationDto mapWarehouseDto(WarehouseLocation warehouse, String username, Locale locale) {
+        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        WarehouseLocationDto dto = modelMapper.map(warehouse, WarehouseLocationDto.class);
+        if (isSystemUser(username)) {
+            return dto;
+        }
+        Long orgId = resolveOrganizationId(username, locale);
+        if (orgId == null || dto == null) {
+            return dto;
+        }
+        boolean owned = orgId.equals(warehouse.getSupplierId());
+        dto.setOrganizationOwned(owned);
+        if (!owned) {
+            dto.setSharedAccess(true);
+            accessRepository.findByWarehouseLocationIdAndGrantedOrganizationIdAndEntityStatusNot(
+                            warehouse.getId(), orgId, EntityStatus.DELETED)
+                    .ifPresent(grant -> dto.setCallerAccessLevel(grant.getAccessLevel()));
+        }
+        return dto;
+    }
+
+    private List<WarehouseLocation> applyVisibilityFilter(List<WarehouseLocation> candidates,
+                                                            String username, Locale locale) {
+        List<WarehouseLocation> base = new ArrayList<>();
+        for (WarehouseLocation warehouse : candidates) {
+            if (warehouse.getEntityStatus() != EntityStatus.DELETED && !warehouse.isVirtualWarehouse()) {
+                base.add(warehouse);
+            }
+        }
+        if (isSystemUser(username)) {
+            return base;
+        }
+        Long orgId = resolveOrganizationId(username, locale);
+        if (orgId == null) {
+            return List.of();
+        }
+        Set<Long> sharedIds = warehouseAccessSupport.sharedWarehouseIdsForOrganization(orgId);
+        return base.stream()
+                .filter(w -> orgId.equals(w.getSupplierId()) || sharedIds.contains(w.getId()))
+                .toList();
+    }
+
+    private boolean isVisibleToUser(WarehouseLocation warehouse, String username, Locale locale) {
+        if (warehouse == null || warehouse.getEntityStatus() == EntityStatus.DELETED || warehouse.isVirtualWarehouse()) {
+            return false;
+        }
+        if (isSystemUser(username)) {
+            return true;
+        }
+        Long orgId = resolveOrganizationId(username, locale);
+        return warehouseAccessSupport.canView(warehouse, orgId);
+    }
+
+    private Optional<String> verifyWarehouseOwner(WarehouseLocation warehouse, String username, Locale locale) {
+        if (isSystemUser(username)) {
+            return Optional.empty();
+        }
+        Long orgId = resolveOrganizationId(username, locale);
+        if (orgId == null) {
+            return Optional.of("Organisation context is required.");
+        }
+        if (!orgId.equals(warehouse.getSupplierId())) {
+            return Optional.of("Only the owning organisation can manage warehouse sharing.");
+        }
+        return Optional.empty();
+    }
+
+    private boolean isSystemUser(String username) {
+        return username != null && "SYSTEM".equalsIgnoreCase(username);
+    }
+
+    private Long resolveOrganizationId(String username, Locale locale) {
+        if (username == null || username.isBlank()) {
+            return null;
+        }
+        String principal = username.trim();
+        try {
+            UserResponse userResponse = userManagementServiceClient.findSessionProfileByUsername(principal);
+            if (userResponse != null && userResponse.isSuccess() && userResponse.getUserDto() != null
+                    && userResponse.getUserDto().getOrganizationId() != null
+                    && userResponse.getUserDto().getOrganizationId() > 0) {
+                return userResponse.getUserDto().getOrganizationId();
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to resolve organization via session profile for user {}: {}", principal, ex.getMessage());
+        }
+        try {
+            UserResponse userResponse = userManagementServiceClient.findByPhoneNumberOrEmail(principal, locale);
+            if (userResponse != null && userResponse.isSuccess() && userResponse.getUserDto() != null
+                    && userResponse.getUserDto().getOrganizationId() != null
+                    && userResponse.getUserDto().getOrganizationId() > 0) {
+                return userResponse.getUserDto().getOrganizationId();
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to resolve organization for user {}: {}", principal, ex.getMessage());
+        }
+        return null;
     }
 
     private String safe(String value) {

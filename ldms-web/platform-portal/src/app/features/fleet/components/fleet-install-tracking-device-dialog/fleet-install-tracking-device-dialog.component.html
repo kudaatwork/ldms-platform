@@ -1,0 +1,247 @@
+<div class="lx-dialog-shell lx-dialog-shell--wide">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Step indicator (install only) -->
+  <div class="lx-wizard-steps" *ngIf="!isEdit">
+    <div class="lx-step" [class.lx-step--active]="currentStep === 'form'" [class.lx-step--done]="currentStep === 'credentials'">
+      <span class="lx-step__dot">
+        <mat-icon *ngIf="currentStep === 'credentials'">check</mat-icon>
+        <span *ngIf="currentStep === 'form'">1</span>
+      </span>
+      <span class="lx-step__label">Device details</span>
+    </div>
+    <span class="lx-step__connector"></span>
+    <div class="lx-step" [class.lx-step--active]="currentStep === 'credentials'">
+      <span class="lx-step__dot">2</span>
+      <span class="lx-step__label">Ingest credentials</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       STEP 1 — Device form
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <form [formGroup]="form" class="lx-step-content flt-tracking-dialog" (ngSubmit)="save()" *ngIf="currentStep === 'form'">
+    <div class="lx-form-grid">
+
+      <!-- Device label -->
+      <div class="lx-field span-2">
+        <label class="lx-field-label" for="td-label">Device label <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('deviceLabel', 'required')">
+          <mat-icon class="lx-input-shell__icon">label</mat-icon>
+          <input id="td-label" type="text" formControlName="deviceLabel" placeholder="e.g. John's iPhone 14, Truck 07 OBD" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('deviceLabel', 'required')">Device label is required.</div>
+        <div class="lx-field-error" *ngIf="hasError('deviceLabel', 'maxlength')">Maximum 100 characters.</div>
+      </div>
+
+      <!-- Device type -->
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Device type <span class="req">*</span></label>
+        <div class="flt-tracking-dialog__type-grid">
+          <label
+            class="flt-tracking-dialog__type-card"
+            *ngFor="let opt of deviceTypeOptions"
+            [class.is-selected]="form.get('deviceType')?.value === opt.value"
+          >
+            <input type="radio" formControlName="deviceType" [value]="opt.value" />
+            <span class="flt-tracking-dialog__type-icon"><mat-icon>{{ opt.icon }}</mat-icon></span>
+            <span class="flt-tracking-dialog__type-copy">
+              <span class="flt-tracking-dialog__type-label">{{ opt.label }}</span>
+              <span class="flt-tracking-dialog__type-hint">{{ opt.hint }}</span>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Integration provider -->
+      <div class="lx-field span-2">
+        <label class="lx-field-label" for="td-provider">Integration provider <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('integrationProvider', 'required')">
+          <mat-icon class="lx-input-shell__icon">hub</mat-icon>
+          <select id="td-provider" formControlName="integrationProvider" aria-label="Integration provider">
+            <option *ngFor="let p of filteredProviders" [value]="p.value">{{ p.label }}</option>
+          </select>
+        </div>
+        <div class="lx-field-hint" *ngIf="selectedProviderHint">{{ selectedProviderHint }}</div>
+      </div>
+
+      <!-- Link to vehicle -->
+      <div class="lx-field">
+        <label class="lx-field-label" for="td-asset">Link to vehicle</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">local_shipping</mat-icon>
+          <select id="td-asset" formControlName="fleetAssetId" aria-label="Link to vehicle">
+            <option [ngValue]="null">No vehicle linked</option>
+            <option *ngFor="let v of assets" [ngValue]="v.id">{{ v.registration }} · {{ v.makeModel }}</option>
+          </select>
+        </div>
+        <div class="lx-field-hint">GPS events are matched to this vehicle's active trip.</div>
+      </div>
+
+      <!-- Optional driver -->
+      <div class="lx-field">
+        <label class="lx-field-label" for="td-driver">Assigned driver</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+          <select id="td-driver" formControlName="fleetDriverId" aria-label="Assigned driver">
+            <option [ngValue]="null">No driver linked</option>
+            <option *ngFor="let d of drivers" [ngValue]="d.id">{{ d.fullName }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Hardware-only fields -->
+      <ng-container *ngIf="isHardwareDevice">
+        <div class="lx-field">
+          <label class="lx-field-label" for="td-serial">Device serial</label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">pin</mat-icon>
+            <input id="td-serial" type="text" formControlName="deviceSerial" placeholder="Hardware serial number" />
+          </div>
+        </div>
+
+        <div class="lx-field">
+          <label class="lx-field-label" for="td-ext-id">External device ID</label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">fingerprint</mat-icon>
+            <input id="td-ext-id" type="text" formControlName="externalDeviceId" placeholder="Provider-assigned ID" />
+          </div>
+          <div class="lx-field-hint">The device identifier in the external provider's system.</div>
+        </div>
+      </ng-container>
+
+      <!-- Telemetry capabilities -->
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Telemetry capabilities</label>
+        <div class="flt-tracking-dialog__caps">
+          <label class="flt-tracking-dialog__cap">
+            <input type="checkbox" formControlName="tracksGps" />
+            <mat-icon>gps_fixed</mat-icon>
+            <span>
+              <strong>GPS tracking</strong>
+              <small>Device reports latitude, longitude, speed, and heading.</small>
+            </span>
+          </label>
+          <label class="flt-tracking-dialog__cap">
+            <input type="checkbox" formControlName="tracksFuel" />
+            <mat-icon>local_gas_station</mat-icon>
+            <span>
+              <strong>Fuel telemetry</strong>
+              <small>Device reports fuel level sensor readings over MQTT.</small>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Notes -->
+      <div class="lx-field span-2">
+        <label class="lx-field-label" for="td-notes">Notes</label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea id="td-notes" formControlName="notes" rows="3" placeholder="Optional installation notes or context"></textarea>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Error message -->
+    <div class="lx-form-error lx-card" *ngIf="saveError" role="alert">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ saveError }}</span>
+    </div>
+
+    <!-- Actions -->
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="saving">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="saving || form.invalid">
+        <mat-icon *ngIf="saving">hourglass_empty</mat-icon>
+        {{ saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Install device') }}
+      </button>
+    </div>
+  </form>
+
+  <!-- ══════════════════════════════════════════════════════════════════════
+       STEP 2 — Ingest credentials (install only)
+  ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="lx-step-content flt-tracking-dialog__credentials" *ngIf="currentStep === 'credentials'">
+    <div class="flt-tracking-dialog__cred-intro lx-card--subsection">
+      <mat-icon>check_circle</mat-icon>
+      <div>
+        <strong>Device installed — save your credentials</strong>
+        <p>
+          The ingest key is issued once. Copy it now; it will not be shown again. Share it only with the device or
+          driver using this tracker.
+        </p>
+      </div>
+    </div>
+
+    <!-- Ingest key -->
+    <div class="flt-tracking-dialog__cred-block" *ngIf="installedDevice?.ingestKey">
+      <label class="lx-field-label">Ingest key</label>
+      <div class="flt-tracking-dialog__copy-row">
+        <code class="flt-tracking-dialog__copy-value">{{ installedDevice?.ingestKey }}</code>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm"
+          (click)="copyText('ingestKey', installedDevice?.ingestKey)"
+        >
+          <mat-icon>{{ copiedKey === 'ingestKey' ? 'check' : 'content_copy' }}</mat-icon>
+          {{ copiedKey === 'ingestKey' ? 'Copied' : 'Copy' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- MQTT topic -->
+    <div class="flt-tracking-dialog__cred-block" *ngIf="installedDevice?.mqttTopic">
+      <label class="lx-field-label">MQTT topic</label>
+      <div class="flt-tracking-dialog__copy-row">
+        <code class="flt-tracking-dialog__copy-value">{{ installedDevice?.mqttTopic }}</code>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm"
+          (click)="copyText('mqttTopic', installedDevice?.mqttTopic)"
+        >
+          <mat-icon>{{ copiedKey === 'mqttTopic' ? 'check' : 'content_copy' }}</mat-icon>
+          {{ copiedKey === 'mqttTopic' ? 'Copied' : 'Copy' }}
+        </button>
+      </div>
+      <div class="lx-field-hint">Publish telemetry JSON to this topic on the LDMS MQTT broker (port 1883).</div>
+    </div>
+
+    <!-- REST ingest endpoint -->
+    <div class="flt-tracking-dialog__cred-block">
+      <label class="lx-field-label">REST ingest endpoint (POST)</label>
+      <div class="flt-tracking-dialog__copy-row">
+        <code class="flt-tracking-dialog__copy-value">{{ ingestEndpoint }}</code>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm"
+          (click)="copyText('endpoint', ingestEndpoint)"
+        >
+          <mat-icon>{{ copiedKey === 'endpoint' ? 'check' : 'content_copy' }}</mat-icon>
+          {{ copiedKey === 'endpoint' ? 'Copied' : 'Copy' }}
+        </button>
+      </div>
+      <div class="flt-tracking-dialog__payload-hint">
+        <label class="lx-field-label">Example payload</label>
+        <code class="flt-tracking-dialog__copy-value flt-tracking-dialog__copy-value--wrap">{{ ingestPayloadHint }}</code>
+      </div>
+    </div>
+
+    <!-- Done -->
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-primary" (click)="done()">
+        <mat-icon>check</mat-icon>
+        Done
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,10 +1,5 @@
 package projectlx.co.zw.notifications.utils.enums;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-
-@RequiredArgsConstructor
-@Getter
 public enum I18Code {
 
     MESSAGE_NOTIFICATION_REQUEST_IS_NULL("message.notification.request.isNull"),
@@ -46,4 +41,12 @@ public enum I18Code {
     TEMPLATE_INVALID_FILTER_REQUEST("template.invalid.filter.request");
 
     private final String code;
+
+    I18Code(String code) {
+        this.code = code;
+    }
+
+    public String getCode() {
+        return code;
+    }
 }

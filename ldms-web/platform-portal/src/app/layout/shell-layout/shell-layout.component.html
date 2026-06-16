@@ -107,7 +107,9 @@
                 [routerLinkActiveOptions]="
                   child.route === '/users' ||
                   child.route.startsWith('/products-inventory/') ||
-                  child.route.startsWith('/my-orders/')
+                  child.route.startsWith('/fleet/') ||
+                  child.route.startsWith('/my-orders/') ||
+                  child.route.startsWith('/shipments/')
                     ? { exact: true }
                     : { exact: false }
                 "
@@ -242,13 +244,24 @@
             </div>
             <div class="tb-flyout__empty" *ngIf="!topNotifications.length">You&apos;re all caught up.</div>
             <ul class="tb-flyout__list" *ngIf="topNotifications.length">
-              <li *ngFor="let n of topNotifications; trackBy: trackByNotifId" class="tb-flyout__item">
-                <div class="tb-flyout__item-body">
+              <li
+                *ngFor="let n of topNotifications; trackBy: trackByNotifId"
+                class="tb-flyout__item"
+                [class.tb-flyout__item--action]="n.action"
+                [class.tb-flyout__item--urgent]="n.urgent"
+              >
+                <button
+                  type="button"
+                  class="tb-flyout__item-body"
+                  [class.tb-flyout__item-body--clickable]="n.action"
+                  (click)="onNotificationClick(n, $event)"
+                  [disabled]="!n.action"
+                >
                   <div class="tb-flyout__item-title">{{ n.title }}</div>
                   <p class="tb-flyout__item-text">{{ n.body }}</p>
                   <span class="tb-flyout__item-time">{{ n.time }}</span>
-                </div>
-                <button type="button" class="tb-flyout__dismiss" (click)="dismissNotification(n.id)" aria-label="Dismiss notification">
+                </button>
+                <button type="button" class="tb-flyout__dismiss" (click)="dismissNotification(n.id, $event)" aria-label="Dismiss notification">
                   <span class="material-icons tb-mi" aria-hidden="true">close</span>
                 </button>
               </li>

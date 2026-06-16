@@ -11,6 +11,7 @@ import projectlx.co.zw.shared_library.utils.enums.OwnerType;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.co.zw.shared_library.utils.responses.FileUploadResponse;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Locale;
 
@@ -74,10 +75,82 @@ public class FleetFileUploadHelper {
         return messageService.getMessage(I18Code.MESSAGE_FILE_UPLOAD_INVALID.getCode(), new String[]{}, locale);
     }
 
+    /**
+     * Validates a driver personal document upload reference.
+     *
+     * <p>Accepts the upload when its owner is either:</p>
+     * <ul>
+     *   <li>{@code FLEET_DRIVER} with ownerId matching {@code fleetDriverId} (update path), or</li>
+     *   <li>{@code USER} with ownerId matching {@code linkedUserId} (user-owned upload).</li>
+     * </ul>
+     *
+     * <p>If {@code fileUploadId} is {@code null} or zero the method returns {@code true}
+     * (presence is enforced separately in the validator).</p>
+     *
+     * @param fileUploadId  upload id to validate
+     * @param fleetDriverId persisted driver id — may be {@code null} on create
+     * @param linkedUserId  linked platform user id — may be {@code null} when no user is linked
+     * @param locale        request locale (unused currently, reserved for future messages)
+     * @return {@code true} when the reference is valid or absent; {@code false} otherwise
+     */
+    public boolean validateDriverDocumentReference(Long fileUploadId, Long fleetDriverId,
+                                                   Long linkedUserId, Locale locale) {
+        if (fileUploadId == null || fileUploadId < 1) {
+            return true;
+        }
+        try {
+            FileUploadResponse response = fileUploadServiceClient.findById(fileUploadId);
+            if (response == null || !response.isSuccess()) {
+                return false;
+            }
+            FileUploadDto dto = response.getFileUploadDto();
+            if (dto == null || dto.getOwnerType() == null || dto.getOwnerId() == null) {
+                return false;
+            }
+            String ownerType = dto.getOwnerType().name();
+
+            if (OwnerType.FLEET_DRIVER.name().equals(ownerType)) {
+                if (fleetDriverId != null && fleetDriverId.equals(dto.getOwnerId())) {
+                    return true;
+                }
+                log.warn("File upload {} FLEET_DRIVER ownerId mismatch: expected {}, got {}",
+                        fileUploadId, fleetDriverId, dto.getOwnerId());
+                return false;
+            }
+
+            if (OwnerType.USER.name().equals(ownerType)) {
+                if (linkedUserId != null && linkedUserId.equals(dto.getOwnerId())) {
+                    return true;
+                }
+                log.warn("File upload {} USER ownerId mismatch: expected {}, got {}",
+                        fileUploadId, linkedUserId, dto.getOwnerId());
+                return false;
+            }
+
+            log.warn("File upload {} has unexpected ownerType {} for driver document", fileUploadId, ownerType);
+            return false;
+        } catch (Exception ex) {
+            log.warn("Failed to validate driver document upload {}: {}", fileUploadId, ex.getMessage());
+            return false;
+        }
+    }
+
+    /** Resolves expiry from an optional calendar date (end of day) or file-upload metadata. */
+    public LocalDateTime resolveExpiresAt(LocalDate expiresAt, Long fileUploadId) {
+        if (expiresAt != null) {
+            return expiresAt.atTime(23, 59, 59);
+        }
+        return resolveExpiresAtFromFileUpload(fileUploadId);
+    }
+
     public LocalDateTime resolveExpiresAt(LocalDateTime expiresAt, Long fileUploadId) {
         if (expiresAt != null) {
             return expiresAt;
         }
+        return resolveExpiresAtFromFileUpload(fileUploadId);
+    }
+
+    public LocalDateTime resolveExpiresAtFromFileUpload(Long fileUploadId) {
         if (fileUploadId == null || fileUploadId < 1) {
             return null;
         }

@@ -19,6 +19,14 @@ public final class LdmsFeignUrls {
         return resolveServiceUrl(env, "CLIENTS_INVENTORY_MANAGEMENT_SERVICE_URL", "clients.base-url.inventoryManagementService");
     }
 
+    public static String resolveOrganizationManagementServiceBaseUrl(org.springframework.core.env.Environment env) {
+        return resolveServiceUrl(env, "CLIENTS_ORGANIZATION_MANAGEMENT_SERVICE_URL", "clients.base-url.organizationManagementService");
+    }
+
+    public static String resolveFleetManagementServiceBaseUrl(org.springframework.core.env.Environment env) {
+        return resolveServiceUrl(env, "CLIENTS_FLEET_MANAGEMENT_SERVICE_URL", "clients.base-url.fleetManagementService");
+    }
+
     private static String resolveServiceUrl(org.springframework.core.env.Environment env,
                                             String explicitKey,
                                             String configuredKey) {

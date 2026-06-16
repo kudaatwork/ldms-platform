@@ -9,8 +9,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import lombok.RequiredArgsConstructor;
-
 import org.springframework.stereotype.Service;
 
 import projectlx.co.zw.locationsmanagementservice.business.auditable.api.AddressServiceAuditable;
@@ -43,7 +41,6 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
  * Marks active descendants deleted before a geography parent so the hierarchy behaves as a consistent tree after soft-delete.
  */
 @Service
-@RequiredArgsConstructor
 public class LocationHierarchyCascadeSoftDeleteService {
 
     private static final EntityStatus DEL = EntityStatus.DELETED;
@@ -64,6 +61,41 @@ public class LocationHierarchyCascadeSoftDeleteService {
     private final LocationNodeServiceAuditable locationNodeServiceAuditable;
     private final AddressRepository addressRepository;
     private final AddressServiceAuditable addressServiceAuditable;
+
+    public LocationHierarchyCascadeSoftDeleteService(
+            AdministrativeLevelRepository administrativeLevelRepository,
+            AdministrativeLevelServiceAuditable administrativeLevelServiceAuditable,
+            ProvinceRepository provinceRepository,
+            ProvinceServiceAuditable provinceServiceAuditable,
+            DistrictRepository districtRepository,
+            DistrictServiceAuditable districtServiceAuditable,
+            SuburbRepository suburbRepository,
+            SuburbServiceAuditable suburbServiceAuditable,
+            CityRepository cityRepository,
+            CityServiceAuditable cityServiceAuditable,
+            VillageRepository villageRepository,
+            VillageServiceAuditable villageServiceAuditable,
+            LocationNodeRepository locationNodeRepository,
+            LocationNodeServiceAuditable locationNodeServiceAuditable,
+            AddressRepository addressRepository,
+            AddressServiceAuditable addressServiceAuditable) {
+        this.administrativeLevelRepository = administrativeLevelRepository;
+        this.administrativeLevelServiceAuditable = administrativeLevelServiceAuditable;
+        this.provinceRepository = provinceRepository;
+        this.provinceServiceAuditable = provinceServiceAuditable;
+        this.districtRepository = districtRepository;
+        this.districtServiceAuditable = districtServiceAuditable;
+        this.suburbRepository = suburbRepository;
+        this.suburbServiceAuditable = suburbServiceAuditable;
+        this.cityRepository = cityRepository;
+        this.cityServiceAuditable = cityServiceAuditable;
+        this.villageRepository = villageRepository;
+        this.villageServiceAuditable = villageServiceAuditable;
+        this.locationNodeRepository = locationNodeRepository;
+        this.locationNodeServiceAuditable = locationNodeServiceAuditable;
+        this.addressRepository = addressRepository;
+        this.addressServiceAuditable = addressServiceAuditable;
+    }
 
     public void cascadeBeforeDeletingCountry(Long countryId, Locale locale, String username) {
         List<Province> provinces = provinceRepository.findAllByCountry_IdAndEntityStatusNot(countryId, DEL);

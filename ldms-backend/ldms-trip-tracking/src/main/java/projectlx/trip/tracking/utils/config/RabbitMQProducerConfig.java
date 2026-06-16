@@ -16,6 +16,7 @@ public class RabbitMQProducerConfig {
     public static final String ROUTING_KEY_TRIP_STARTED = "trip.started";
     public static final String ROUTING_KEY_TRIP_EVENT_RECORDED = "trip.event_recorded";
     public static final String ROUTING_KEY_TRIP_DELIVERED = "trip.delivered";
+    public static final String ROUTING_KEY_TRIP_LOCATION_UPDATED = "trip.location_updated";
 
     @Bean
     public TopicExchange tripExchange() {

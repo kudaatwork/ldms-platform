@@ -1,19 +1,23 @@
 package projectlx.co.zw.notifications.business.consumer;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 import projectlx.co.zw.notifications.business.logic.api.NotificationService;
 import projectlx.co.zw.notifications.utils.exception.TemplateNotFoundException;
 import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class NotificationConsumer {
 
+    private static final Logger log = LoggerFactory.getLogger(NotificationConsumer.class);
+
     private final NotificationService notificationService;
+
+    public NotificationConsumer(NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
 
     @RabbitListener(queues = "${notifications.rabbitmq.queue}")
     public void handleMessage(NotificationRequest request) {

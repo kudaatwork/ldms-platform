@@ -89,6 +89,8 @@ public class UserFrontendResource {
                                final String organizationKycApprover,
                                @RequestParam(value = "operationalIssueHandler", required = false)
                                final String operationalIssueHandler,
+                               @RequestParam(value = "procurementApprover", required = false)
+                               final String procurementApprover,
                                @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                    @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                            defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
@@ -97,6 +99,9 @@ public class UserFrontendResource {
         }
         if (operationalIssueHandler != null) {
             editUserRequest.setOperationalIssueHandler(operationalIssueHandler);
+        }
+        if (procurementApprover != null) {
+            editUserRequest.setProcurementApprover(procurementApprover);
         }
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userServiceProcessor.update(editUserRequest, username, locale);
@@ -128,6 +133,32 @@ public class UserFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userServiceProcessor.setOperationalIssueHandler(id, enabled, locale, username);
+    }
+
+    @Auditable(action = "LIST_PROCUREMENT_APPROVERS")
+    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoles).VIEW_USERS_BY_ORGANIZATION.toString())")
+    @GetMapping("/procurement-approvers")
+    @Operation(summary = "List procurement approvers",
+            description = "Returns organisation workspace users flagged as procurement approvers for the caller's organisation.")
+    public UserResponse listProcurementApprovers(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.listProcurementApprovers(locale, username);
+    }
+
+    @Auditable(action = "SET_PROCUREMENT_APPROVER")
+    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoles).UPDATE_USER.toString())")
+    @PutMapping("/{id}/procurement-approver")
+    @Operation(summary = "Set procurement approver eligibility",
+            description = "Toggles whether an organisation user may approve procurement workflow stages.")
+    public UserResponse setProcurementApprover(
+            @PathVariable("id") final Long id,
+            @RequestParam("enabled") final boolean enabled,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.setProcurementApprover(id, enabled, locale, username);
     }
 
     @Auditable(action = "FIND_USER_BY_ID")

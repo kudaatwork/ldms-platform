@@ -27,6 +27,10 @@ public class CreateInventoryTransferRequest {
 
     // External reference
     private String reference;
+
+    /** When true, shipment will require border clearance documents before crossing. */
+    private Boolean crossBorder;
+
     private Long createdByUserId;
 
 }

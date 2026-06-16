@@ -126,15 +126,15 @@ spring:
             - Path=/ldms-organization-management/v1/backoffice/**
         # Fallback when Config Server is down. Live routes use LdmsFleetManagementGatewayRoutesConfiguration.
         - id: local-system-fleet-management
-          uri: http://${FLEET_MANAGEMENT_HOST:127.0.0.1}:${FLEET_MANAGEMENT_PORT:8088}
+          uri: http://${FLEET_MANAGEMENT_HOST:127.0.0.1}:${FLEET_MANAGEMENT_PORT:8089}
           predicates:
             - Path=/ldms-fleet-management/v1/system/**
         - id: local-frontend-fleet-management
-          uri: http://${FLEET_MANAGEMENT_HOST:127.0.0.1}:${FLEET_MANAGEMENT_PORT:8088}
+          uri: http://${FLEET_MANAGEMENT_HOST:127.0.0.1}:${FLEET_MANAGEMENT_PORT:8089}
           predicates:
             - Path=/ldms-fleet-management/v1/frontend/**
         - id: local-backoffice-fleet-management
-          uri: http://${FLEET_MANAGEMENT_HOST:127.0.0.1}:${FLEET_MANAGEMENT_PORT:8088}
+          uri: http://${FLEET_MANAGEMENT_HOST:127.0.0.1}:${FLEET_MANAGEMENT_PORT:8089}
           predicates:
             - Path=/ldms-fleet-management/v1/backoffice/**
         # Fallback when Config Server is down. Live routes use LdmsInventoryManagementGatewayRoutesConfiguration.
@@ -232,7 +232,7 @@ ldms:
         display-name: Fleet Management
         eureka-name: ldms-fleet-management
         host: ${FLEET_MANAGEMENT_HOST:127.0.0.1}
-        port: ${FLEET_MANAGEMENT_PORT:8088}
+        port: ${FLEET_MANAGEMENT_PORT:8089}
       - id: inventory-management
         display-name: Inventory Management
         eureka-name: ldms-inventory-management
@@ -266,7 +266,7 @@ ldms:
     fleet-management:
       routes-enabled: true
       host: ${FLEET_MANAGEMENT_HOST:127.0.0.1}
-      port: ${FLEET_MANAGEMENT_PORT:8088}
+      port: ${FLEET_MANAGEMENT_PORT:8089}
     inventory-management:
       routes-enabled: true
       host: ${INVENTORY_MANAGEMENT_HOST:127.0.0.1}

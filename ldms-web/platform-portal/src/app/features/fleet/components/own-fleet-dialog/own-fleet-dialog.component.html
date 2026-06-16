@@ -55,23 +55,68 @@
       </ng-container>
 
       <!-- Contracted transporter picker -->
-      <div class="lx-field span-2" *ngIf="showTransporterPicker">
+      <div class="lx-field span-2 own-fleet-transporter" *ngIf="showTransporterPicker">
         <label class="lx-field-label">Contracted transporter <span class="req">*</span></label>
-        <div
-          class="lx-input-shell"
-          [class.lx-input-shell--invalid]="hasError(detailsForm, 'contractedTransporterOrganizationId', 'required')"
-        >
-          <mat-icon class="lx-input-shell__icon">handshake</mat-icon>
-          <select formControlName="contractedTransporterOrganizationId" aria-label="Contracted transporter">
-            <option [ngValue]="null" disabled>Select transporter</option>
-            <option *ngFor="let p of transporterOptions" [ngValue]="p.id">{{ p.name }}</option>
-          </select>
+
+        <div class="own-fleet-transporter__loading" *ngIf="transportersLoading">
+          <mat-icon class="own-fleet-transporter__loading-icon">hourglass_empty</mat-icon>
+          Loading contracted transporters…
         </div>
+
+        <ng-container *ngIf="!transportersLoading">
+          <div class="lx-input-shell lx-search-field own-fleet-transporter__search">
+            <mat-icon class="lx-input-shell__icon">search</mat-icon>
+            <input
+              [(ngModel)]="transporterSearchQuery"
+              [ngModelOptions]="{ standalone: true }"
+              placeholder="Search contracted transporters…"
+              autocomplete="off"
+              aria-label="Search contracted transporters"
+            />
+          </div>
+
+          <p class="own-fleet-transporter__selected" *ngIf="selectedTransporterLabel">
+            Selected: <strong>{{ selectedTransporterLabel }}</strong>
+            <button type="button" class="lx-link-btn own-fleet-transporter__clear" (click)="selectTransporter(null)">
+              Clear
+            </button>
+          </p>
+
+          <mat-radio-group
+            class="own-fleet-transporter__list"
+            [class.own-fleet-transporter__list--invalid]="hasError(detailsForm, 'contractedTransporterOrganizationId', 'required')"
+            [value]="selectedTransporterId"
+            (change)="selectTransporter($event.value)"
+            aria-label="Contracted transporter"
+          >
+            <label
+              class="own-fleet-transporter__item"
+              [class.is-selected]="selectedTransporterId === p.id"
+              *ngFor="let p of filteredTransporterOptions"
+            >
+              <mat-radio-button class="own-fleet-transporter__item-radio" [value]="p.id"></mat-radio-button>
+              <span class="own-fleet-transporter__item-icon">
+                <mat-icon>local_shipping</mat-icon>
+              </span>
+              <span class="own-fleet-transporter__item-info">
+                <span class="own-fleet-transporter__item-name">{{ p.name }}</span>
+                <span class="own-fleet-transporter__item-sub">
+                  {{ p.contractRangeLabel || p.email || 'Contracted partner' }}
+                </span>
+              </span>
+            </label>
+          </mat-radio-group>
+
+          <p class="own-fleet-transporter__empty" *ngIf="!filteredTransporterOptions.length && transporterOptions.length">
+            No transporters match your search.
+          </p>
+          <p class="own-fleet-transporter__empty" *ngIf="!transporterOptions.length">
+            Contract a transporter first, then tag vehicles under that partner.
+          </p>
+        </ng-container>
+
         <div class="lx-field-error" *ngIf="hasError(detailsForm, 'contractedTransporterOrganizationId', 'required')">
           Select the contracted transporter operating this vehicle.
-        </div>
-        <div class="lx-field-hint" *ngIf="!transporterOptions.length">
-          Contract a transporter first, then tag vehicles under that partner.
         </div>
       </div>
 
@@ -101,6 +146,62 @@
         <div class="lx-field-error" *ngIf="hasError(detailsForm, 'jobReference', 'required')">Job reference is required for job-specific contracts.</div>
         <div class="lx-field-error" *ngIf="hasError(detailsForm, 'jobReference', 'maxlength')">Maximum 100 characters.</div>
       </div>
+
+      <!-- Long-term contract dates -->
+      <ng-container *ngIf="showLongTermContractDates">
+        <div class="lx-field span-2 own-fleet-contract-window">
+          <p class="own-fleet-contract-window__hint">
+            <mat-icon>date_range</mat-icon>
+            {{ transporterContractRangeHint }}
+          </p>
+        </div>
+
+        <div class="lx-field">
+          <label class="lx-field-label">Contract start <span class="req">*</span></label>
+          <div
+            class="lx-input-shell lx-input-shell--compact"
+            [class.lx-input-shell--invalid]="hasError(detailsForm, 'contractStartDate', 'required')"
+          >
+            <mat-icon class="lx-input-shell__icon">event</mat-icon>
+            <input
+              type="date"
+              formControlName="contractStartDate"
+              [min]="vehicleContractStartMin"
+              [max]="vehicleContractStartMax"
+              aria-label="Contract start date"
+            />
+          </div>
+          <div class="lx-field-error" *ngIf="hasError(detailsForm, 'contractStartDate', 'required')">
+            Contract start date is required.
+          </div>
+        </div>
+
+        <div class="lx-field">
+          <label class="lx-field-label">
+            Contract end
+            <span class="req" *ngIf="transporterContractBounds?.endRequired">*</span>
+          </label>
+          <div
+            class="lx-input-shell lx-input-shell--compact"
+            [class.lx-input-shell--invalid]="hasError(detailsForm, 'contractEndDate', 'required')"
+          >
+            <mat-icon class="lx-input-shell__icon">event_available</mat-icon>
+            <input
+              type="date"
+              formControlName="contractEndDate"
+              [min]="vehicleContractEndMin"
+              [max]="vehicleContractEndMax"
+              aria-label="Contract end date"
+            />
+          </div>
+          <div class="lx-field-hint" *ngIf="!transporterContractBounds?.endRequired">
+            Optional when the partner contract is open-ended.
+          </div>
+          <div class="lx-field-error" *ngIf="hasError(detailsForm, 'contractEndDate', 'required')">
+            End date is required for this transporter's fixed contract period.
+          </div>
+        </div>
+      </ng-container>
 
       <div class="lx-form-section span-2">
         <div class="lx-form-section-title">Vehicle identification</div>
@@ -156,16 +257,6 @@
         <div class="lx-form-section-title">Operational details</div>
       </div>
 
-      <!-- Driver name -->
-      <div class="lx-field">
-        <label class="lx-field-label">Driver name</label>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">person</mat-icon>
-          <input formControlName="driverName" placeholder="e.g. T. Moyo" autocomplete="off" />
-        </div>
-        <div class="lx-field-hint">Optional — the usual assigned driver for this vehicle.</div>
-      </div>
-
       <!-- Utilisation -->
       <div class="lx-field">
         <label class="lx-field-label">Utilisation %</label>
@@ -177,6 +268,205 @@
         <div class="lx-field-error" *ngIf="hasError(detailsForm, 'utilizationPct', 'min') || hasError(detailsForm, 'utilizationPct', 'max')">
           Utilisation must be between 0 and 100
         </div>
+      </div>
+
+      <!-- Optional driver assignment -->
+      <div class="lx-field span-2 own-fleet-driver" formGroupName="driverAssignment">
+        <div class="own-fleet-driver__head">
+          <label class="own-fleet-driver__toggle">
+            <input type="checkbox" formControlName="enabled" />
+            <span>Assign a driver now</span>
+          </label>
+          <span class="own-fleet-driver__optional">Optional — pick from your roster or the transport partner's pool.</span>
+        </div>
+
+        <ng-container *ngIf="assignDriverEnabled">
+          <div class="own-fleet-driver__source">
+            <label class="lx-field-label">Driver source</label>
+            <mat-radio-group class="own-fleet-driver__source-list" formControlName="source">
+              <label class="own-fleet-driver__source-item" *ngFor="let source of driverSources">
+                <mat-radio-button [value]="source.value"></mat-radio-button>
+                <span class="own-fleet-driver__source-copy">
+                  <span class="own-fleet-driver__source-label">{{ source.label }}</span>
+                  <span class="own-fleet-driver__source-hint">{{ source.hint }}</span>
+                </span>
+              </label>
+            </mat-radio-group>
+          </div>
+
+          <div class="own-fleet-driver__loading" *ngIf="orgUsersLoading || fleetDriversLoading || userProfileLoading">
+            <mat-icon>hourglass_empty</mat-icon>
+            Loading driver options…
+          </div>
+
+          <ng-container *ngIf="showDriverPicker && !orgUsersLoading && !fleetDriversLoading">
+            <div class="lx-input-shell lx-search-field own-fleet-driver__search">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input
+                [(ngModel)]="driverSearchQuery"
+                [ngModelOptions]="{ standalone: true }"
+                [placeholder]="driverSource === 'org_user' ? 'Search organisation users…' : 'Search fleet drivers…'"
+                autocomplete="off"
+                aria-label="Search drivers"
+              />
+            </div>
+
+            <mat-radio-group
+              class="own-fleet-transporter__list own-fleet-driver__list"
+              *ngIf="driverSource === 'org_user'"
+              [value]="selectedOrgUserId"
+              (change)="selectOrgUser($event.value)"
+              aria-label="Organisation user"
+            >
+              <label
+                class="own-fleet-transporter__item"
+                [class.is-selected]="selectedOrgUserId === user.id"
+                *ngFor="let user of filteredOrgUsers"
+              >
+                <mat-radio-button class="own-fleet-transporter__item-radio" [value]="user.id"></mat-radio-button>
+                <span class="own-fleet-transporter__item-icon">
+                  <mat-icon>person</mat-icon>
+                </span>
+                <span class="own-fleet-transporter__item-info">
+                  <span class="own-fleet-transporter__item-name">{{ user.name }}</span>
+                  <span class="own-fleet-transporter__item-sub">{{ user.username }} · {{ user.email || user.phoneNumber || 'No contact' }}</span>
+                </span>
+              </label>
+            </mat-radio-group>
+
+            <mat-radio-group
+              class="own-fleet-transporter__list own-fleet-driver__list"
+              *ngIf="driverSource === 'fleet_roster'"
+              [value]="selectedFleetDriverId"
+              (change)="selectFleetDriver($event.value)"
+              aria-label="Fleet driver"
+            >
+              <label
+                class="own-fleet-transporter__item"
+                [class.is-selected]="selectedFleetDriverId === driver.id"
+                *ngFor="let driver of filteredFleetDrivers"
+              >
+                <mat-radio-button class="own-fleet-transporter__item-radio" [value]="driver.id"></mat-radio-button>
+                <span class="own-fleet-transporter__item-icon">
+                  <mat-icon>badge</mat-icon>
+                </span>
+                <span class="own-fleet-transporter__item-info">
+                  <span class="own-fleet-transporter__item-name">{{ driver.fullName }}</span>
+                  <span class="own-fleet-transporter__item-sub">
+                    {{ driver.licenseNumber !== '—' ? driver.licenseNumber : 'No licence on file' }}
+                    <ng-container *ngIf="driver.licenseClass !== '—'"> · {{ driver.licenseClass }}</ng-container>
+                    · {{ driverRosterHint(driver) }}
+                  </span>
+                  <span class="own-fleet-driver__badge" [ngClass]="driverEmploymentClass(driver)">{{ driver.employmentLabel }}</span>
+                </span>
+              </label>
+            </mat-radio-group>
+
+            <p class="own-fleet-transporter__empty" *ngIf="driverSource === 'org_user' && !filteredOrgUsers.length">
+              No organisation users match your search.
+            </p>
+            <p class="own-fleet-transporter__empty" *ngIf="driverSource === 'fleet_roster' && !filteredFleetDrivers.length">
+              No fleet drivers match your search. Add drivers from the Drivers tab first.
+            </p>
+          </ng-container>
+
+          <div class="own-fleet-driver__details" *ngIf="showDriverPersonalDetails && !userProfileLoading">
+            <div class="own-fleet-driver__details-head">
+              <mat-icon>contact_page</mat-icon>
+              <span>Personal details</span>
+            </div>
+            <dl class="own-fleet-driver__details-grid">
+              <ng-container *ngFor="let row of personalDetailRows">
+                <dt>{{ row.label }}</dt>
+                <dd>{{ row.value }}</dd>
+              </ng-container>
+            </dl>
+          </div>
+
+          <div class="own-fleet-driver__manual lx-form-grid" *ngIf="showManualDriverForm">
+            <div class="lx-field">
+              <label class="lx-field-label">First name</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">person</mat-icon>
+                <input formControlName="firstName" autocomplete="off" />
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Last name</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+                <input formControlName="lastName" autocomplete="off" />
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Gender</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">wc</mat-icon>
+                <select formControlName="gender">
+                  <option value="">Select…</option>
+                  <option *ngFor="let g of genderOptions" [value]="g">{{ g }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Phone</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+                <input formControlName="phoneNumber" autocomplete="off" />
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Date of birth</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">event</mat-icon>
+                <input type="date" formControlName="dateOfBirth" [max]="maximumDateOfBirth" />
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">National ID</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+                <input formControlName="nationalIdNumber" autocomplete="off" />
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">National ID expiry</label>
+              <div class="lx-input-shell lx-input-shell--compact">
+                <mat-icon class="lx-input-shell__icon">event_available</mat-icon>
+                <input type="date" formControlName="nationalIdExpiryDate" />
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Passport number</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">flight</mat-icon>
+                <input formControlName="passportNumber" autocomplete="off" />
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">Passport expiry</label>
+              <div class="lx-input-shell lx-input-shell--compact">
+                <mat-icon class="lx-input-shell__icon">event_available</mat-icon>
+                <input type="date" formControlName="passportExpiryDate" />
+              </div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">License number</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">credit_card</mat-icon>
+                <input formControlName="licenseNumber" autocomplete="off" />
+              </div>
+              <div class="lx-field-hint">Required if you add this person to the fleet roster.</div>
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label">License class</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">category</mat-icon>
+                <input formControlName="licenseClass" placeholder="e.g. CE" autocomplete="off" />
+              </div>
+            </div>
+          </div>
+        </ng-container>
       </div>
 
     </div>
@@ -200,69 +490,77 @@
   ══════════════════════════════════════════════════════════════════════════ -->
   <div class="lx-step-content" *ngIf="currentStep === 2">
     <p class="lx-papers-lead">
-      Upload the three required compliance documents for this vehicle. Each file is stored against the asset record.
+      Upload every compliance document required for this vehicle to operate legally on public roads.
+      Requirements are generic — local equivalents (e.g. ZINARA, VID, RMT, EMA in Zimbabwe) are noted in each hint.
+      Expiry dates are optional when a document does not expire.
+      {{ requiredDocCount }} document{{ requiredDocCount === 1 ? '' : 's' }} required for this registration.
     </p>
 
-    <div class="lx-doc-slots">
-      <div class="lx-doc-slot" *ngFor="let slot of docSlots">
-        <div class="lx-doc-slot__header">
-          <mat-icon class="lx-doc-slot__icon">{{ slot.icon }}</mat-icon>
-          <div class="lx-doc-slot__meta">
-            <span class="lx-doc-slot__label">{{ slot.label }} <span class="req">*</span></span>
-            <span class="lx-doc-slot__status lx-doc-slot__status--ok" *ngIf="slot.fileUploadId">
-              <mat-icon>check_circle</mat-icon> Uploaded
-            </span>
-            <span class="lx-doc-slot__status lx-doc-slot__status--uploading" *ngIf="slot.uploading">
-              <mat-icon>sync</mat-icon> Uploading…
-            </span>
-            <span class="lx-doc-slot__status lx-doc-slot__status--error" *ngIf="slot.uploadError && !slot.uploading">
-              <mat-icon>error_outline</mat-icon> {{ slot.uploadError }}
-            </span>
-          </div>
-        </div>
+    <div class="lx-doc-groups">
+      <section class="lx-doc-group" *ngFor="let group of docSlotGroups">
+        <h3 class="lx-doc-group__title">{{ group.label }}</h3>
 
-        <div class="lx-doc-slot__body">
-          <!-- File picker -->
-          <div class="lx-doc-slot__file-row">
-            <label class="lx-file-pick-btn" [class.lx-file-pick-btn--done]="!!slot.fileUploadId">
-              <mat-icon>{{ slot.fileUploadId ? 'description' : 'upload_file' }}</mat-icon>
-              <span>{{ slot.fileName || 'Choose file' }}</span>
-              <input
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                class="lx-file-input-hidden"
-                [disabled]="slot.uploading || stepTwoSubmitting"
-                (change)="onFileSelected(slot, $event)"
-              />
-            </label>
-            <button
-              type="button"
-              class="lx-btn-icon-ghost"
-              *ngIf="slot.file && !slot.uploading"
-              (click)="clearFile(slot)"
-              title="Remove file"
-            >
-              <mat-icon>close</mat-icon>
-            </button>
-          </div>
+        <div class="lx-doc-slots">
+          <div class="lx-doc-slot" *ngFor="let slot of group.slots">
+            <div class="lx-doc-slot__header">
+              <mat-icon class="lx-doc-slot__icon">{{ slot.icon }}</mat-icon>
+              <div class="lx-doc-slot__meta">
+                <span class="lx-doc-slot__label">{{ slot.label }} <span class="req">*</span></span>
+                <p class="lx-doc-slot__hint">{{ slot.hint }}</p>
+                <span class="lx-doc-slot__status lx-doc-slot__status--ok" *ngIf="slot.fileUploadId">
+                  <mat-icon>check_circle</mat-icon> Uploaded
+                </span>
+                <span class="lx-doc-slot__status lx-doc-slot__status--uploading" *ngIf="slot.uploading">
+                  <mat-icon>sync</mat-icon> Uploading…
+                </span>
+                <span class="lx-doc-slot__status lx-doc-slot__status--error" *ngIf="slot.uploadError && !slot.uploading">
+                  <mat-icon>error_outline</mat-icon> {{ slot.uploadError }}
+                </span>
+              </div>
+            </div>
 
-          <!-- Expiry date -->
-          <div class="lx-doc-slot__expiry">
-            <label class="lx-field-label">Expiry date <span class="req">*</span></label>
-            <div class="lx-input-shell lx-input-shell--compact" [class.lx-input-shell--invalid]="!slot.expiresAt && slot.fileUploadId">
-              <mat-icon class="lx-input-shell__icon">event</mat-icon>
-              <input
-                type="date"
-                [(ngModel)]="slot.expiresAt"
-                [ngModelOptions]="{ standalone: true }"
-                [min]="today"
-                [disabled]="stepTwoSubmitting"
-                [attr.aria-label]="'Expiry date for ' + slot.label"
-              />
+            <div class="lx-doc-slot__body">
+              <div class="lx-doc-slot__file-row">
+                <label class="lx-file-pick-btn" [class.lx-file-pick-btn--done]="!!slot.fileUploadId">
+                  <mat-icon>{{ slot.fileUploadId ? 'description' : 'upload_file' }}</mat-icon>
+                  <span>{{ slot.fileName || 'Choose file' }}</span>
+                  <input
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    class="lx-file-input-hidden"
+                    [disabled]="slot.uploading || stepTwoSubmitting"
+                    (change)="onFileSelected(slot, $event)"
+                  />
+                </label>
+                <button
+                  type="button"
+                  class="lx-btn-icon-ghost"
+                  *ngIf="slot.file && !slot.uploading"
+                  (click)="clearFile(slot)"
+                  title="Remove file"
+                >
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+
+              <div class="lx-doc-slot__expiry">
+                <label class="lx-field-label">Expiry / review date <span class="lx-optional">(optional)</span></label>
+                <div class="lx-input-shell lx-input-shell--compact">
+                  <mat-icon class="lx-input-shell__icon">event</mat-icon>
+                  <input
+                    type="date"
+                    [(ngModel)]="slot.expiresAt"
+                    [ngModelOptions]="{ standalone: true }"
+                    [min]="today"
+                    [disabled]="stepTwoSubmitting"
+                    [attr.aria-label]="'Expiry date for ' + slot.label"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
 
     <p class="lx-list-error" *ngIf="saveError">
