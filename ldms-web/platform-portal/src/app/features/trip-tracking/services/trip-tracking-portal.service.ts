@@ -1,9 +1,10 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
-import { isApiFailureEnvelope, readApiFailureMessage } from '../../../core/utils/api-paged-response.util';
+import { isApiFailureEnvelope, readApiFailureMessage, readInBodyStatusCode } from '../../../core/utils/api-paged-response.util';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
 import {
+  AssignTransportCompanyPayload,
   AllocateShipmentPayload,
   RecordTripEventPayload,
   ShipmentFilterPayload,
@@ -33,10 +34,24 @@ export class TripTrackingPortalService {
 
   /** POST /shipment/find-by-multiple-filters */
   findShipments(filters: ShipmentFilterPayload): Observable<ShipmentRow[]> {
-    return this.http.post<unknown>(`${this.shipmentBase}/find-by-multiple-filters`, filters).pipe(
+    const payload: Record<string, unknown> = {};
+    if (filters.organizationId) {
+      payload['organizationId'] = filters.organizationId;
+    }
+    if (filters.inventoryTransferId) {
+      payload['inventoryTransferId'] = filters.inventoryTransferId;
+    }
+    if (filters.search?.trim()) {
+      payload['search'] = filters.search.trim();
+    }
+    const apiStatus = this.toApiShipmentStatus(filters.status);
+    if (apiStatus) {
+      payload['status'] = apiStatus;
+    }
+    return this.http.post<unknown>(`${this.shipmentBase}/find-by-multiple-filters`, payload).pipe(
       map((resp) => {
         this.assertSuccess(resp);
-        return this.extractList(resp).map((dto) => this.mapShipmentRow(dto));
+        return this.extractListOrEmpty(resp, 'shipmentDtoList').map((dto) => this.mapShipmentRow(dto));
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -47,7 +62,7 @@ export class TripTrackingPortalService {
     return this.http.get<unknown>(`${this.shipmentBase}/find-by-id/${id}`).pipe(
       map((resp) => {
         this.assertSuccess(resp);
-        return this.mapShipmentRow(this.extractSingle(resp));
+        return this.mapShipmentRow(this.extractSingle(resp, 'shipmentDto'));
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -60,10 +75,21 @@ export class TripTrackingPortalService {
         if (isApiFailureEnvelope(resp)) {
           return null;
         }
-        const dto = this.tryExtractSingle(resp);
+        const dto = this.tryExtractSingle(resp, 'shipmentDto');
         return dto ? this.mapShipmentRow(dto) : null;
       }),
       catchError(() => [null]),
+    );
+  }
+
+  /** POST /shipment/assign-transport-company */
+  assignTransportCompany(payload: AssignTransportCompanyPayload): Observable<ShipmentRow> {
+    return this.http.post<unknown>(`${this.shipmentBase}/assign-transport-company`, payload).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapShipmentRow(this.extractSingle(resp, 'shipmentDto'));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
     );
   }
 
@@ -72,7 +98,7 @@ export class TripTrackingPortalService {
     return this.http.post<unknown>(`${this.shipmentBase}/allocate`, payload).pipe(
       map((resp) => {
         this.assertSuccess(resp);
-        return this.mapShipmentRow(this.extractSingle(resp));
+        return this.mapShipmentRow(this.extractSingle(resp, 'shipmentDto'));
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -82,10 +108,21 @@ export class TripTrackingPortalService {
 
   /** POST /trip/find-by-multiple-filters */
   findTrips(filters: TripFilterPayload): Observable<TripRow[]> {
-    return this.http.post<unknown>(`${this.tripBase}/find-by-multiple-filters`, filters).pipe(
+    const payload: Record<string, unknown> = { page: 0, size: 100 };
+    if (filters.organizationId) {
+      payload['organizationId'] = filters.organizationId;
+    }
+    if (filters.search?.trim()) {
+      payload['searchTerm'] = filters.search.trim();
+    }
+    const apiStatus = this.toApiTripStatus(filters.status);
+    if (apiStatus) {
+      payload['status'] = apiStatus;
+    }
+    return this.http.post<unknown>(`${this.tripBase}/find-by-multiple-filters`, payload).pipe(
       map((resp) => {
         this.assertSuccess(resp);
-        return this.extractList(resp).map((dto) => this.mapTripRow(dto));
+        return this.extractListOrEmpty(resp, 'tripDtoList').map((dto) => this.mapTripRow(dto));
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -96,7 +133,7 @@ export class TripTrackingPortalService {
     return this.http.get<unknown>(`${this.tripBase}/find-by-id/${id}`).pipe(
       map((resp) => {
         this.assertSuccess(resp);
-        return this.mapTripDetail(this.extractSingle(resp));
+        return this.mapTripDetail(this.extractSingle(resp, 'tripDto'));
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -107,7 +144,7 @@ export class TripTrackingPortalService {
     return this.http.get<unknown>(`${this.tripBase}/track/${id}`).pipe(
       map((resp) => {
         this.assertSuccess(resp);
-        return this.mapTripDetail(this.extractSingle(resp));
+        return this.mapTripDetail(this.extractSingle(resp, 'tripDto'));
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -118,7 +155,7 @@ export class TripTrackingPortalService {
     return this.http.post<unknown>(`${this.tripBase}/start`, payload).pipe(
       map((resp) => {
         this.assertSuccess(resp);
-        return this.mapTripRow(this.extractSingle(resp));
+        return this.mapTripRow(this.extractSingle(resp, 'tripDto'));
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -129,7 +166,7 @@ export class TripTrackingPortalService {
     return this.http.post<unknown>(`${this.tripBase}/trigger-arrival`, payload).pipe(
       map((resp) => {
         this.assertSuccess(resp);
-        return this.mapTripRow(this.extractSingle(resp));
+        return this.mapTripRow(this.extractSingle(resp, 'tripDto'));
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -140,7 +177,7 @@ export class TripTrackingPortalService {
     return this.http.post<unknown>(`${this.tripBase}/verify-delivery-otp`, payload).pipe(
       map((resp) => {
         this.assertSuccess(resp);
-        return this.mapTripRow(this.extractSingle(resp));
+        return this.mapTripRow(this.extractSingle(resp, 'tripDto'));
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -170,103 +207,215 @@ export class TripTrackingPortalService {
   // ── Private mapping ──────────────────────────────────────────────────────
 
   private mapShipmentRow(dto: Record<string, unknown>): ShipmentRow {
-    const status = (String(dto['status'] ?? 'PENDING')) as ShipmentStatus;
+    const status = this.mapShipmentStatus(String(dto['status'] ?? 'PENDING'));
+    const fleetDriverId = dto['fleetDriverId'] ? Number(dto['fleetDriverId']) : undefined;
+    const fleetAssetId = dto['fleetAssetId'] ? Number(dto['fleetAssetId']) : undefined;
+    const transferId = dto['inventoryTransferId'] ? Number(dto['inventoryTransferId']) : undefined;
     return {
       id: Number(dto['id'] ?? 0),
       shipmentNumber: String(dto['shipmentNumber'] ?? dto['shipmentNo'] ?? `SHP-${dto['id']}`),
-      transferReference: String(dto['transferReference'] ?? dto['reference'] ?? '—'),
-      inventoryTransferId: dto['inventoryTransferId'] ? Number(dto['inventoryTransferId']) : undefined,
-      fromWarehouse: String(dto['fromWarehouse'] ?? dto['originWarehouse'] ?? '—'),
-      toWarehouse: String(dto['toWarehouse'] ?? dto['destinationWarehouse'] ?? '—'),
+      transferReference: transferId
+        ? `TRF-${transferId}`
+        : String(dto['transferReference'] ?? dto['reference'] ?? '—'),
+      inventoryTransferId: transferId,
+      fromWarehouse: String(dto['fromWarehouseName'] ?? dto['fromWarehouse'] ?? dto['originWarehouse'] ?? '—'),
+      toWarehouse: String(dto['toWarehouseName'] ?? dto['toWarehouse'] ?? dto['destinationWarehouse'] ?? '—'),
       productName: String(dto['productName'] ?? dto['product'] ?? '—'),
       quantity: Number(dto['quantity'] ?? 0),
       unitOfMeasure: String(dto['unitOfMeasure'] ?? dto['uom'] ?? ''),
       status,
       statusLabel: this.shipmentStatusLabel(status),
       statusTone: this.shipmentStatusTone(status),
-      driverName: String(dto['driverName'] ?? dto['driver'] ?? '—'),
-      vehicleRegistration: String(dto['vehicleRegistration'] ?? dto['registration'] ?? '—'),
+      fleetDriverId,
+      fleetAssetId,
+      transportCompanyOrganizationId: dto['transportCompanyOrganizationId']
+        ? Number(dto['transportCompanyOrganizationId'])
+        : undefined,
+      transportCompanyName: String(dto['transportCompanyName'] ?? ''),
+      driverName: String(
+        dto['driverName'] ?? (fleetDriverId ? `Driver #${fleetDriverId}` : '—'),
+      ),
+      vehicleRegistration: String(
+        dto['vehicleRegistration'] ?? (fleetAssetId ? `Vehicle #${fleetAssetId}` : '—'),
+      ),
       createdAtLabel: this.formatDate(dto['createdAt']),
-      canAllocate: status === 'PENDING',
-      canStartTrip: status === 'ALLOCATED',
+      canAssignTransport: status === 'PENDING',
+      canAllocate: status === 'PENDING_FLEET',
+      canStartTrip: status === 'ALLOCATED' && !!fleetDriverId && !!fleetAssetId,
+    };
+  }
+
+  mapShipmentRowForViewer(
+    row: ShipmentRow,
+    viewerOrganizationId: number,
+    isShipperOrg: boolean,
+  ): ShipmentRow {
+    const assignedToViewer =
+      !!row.transportCompanyOrganizationId && row.transportCompanyOrganizationId === viewerOrganizationId;
+    const ownedByViewer = isShipperOrg;
+    return {
+      ...row,
+      canAssignTransport: row.status === 'PENDING' && ownedByViewer,
+      canAllocate: row.status === 'PENDING_FLEET' && assignedToViewer,
+      canStartTrip: row.status === 'ALLOCATED' && !!row.fleetDriverId && !!row.fleetAssetId && (ownedByViewer || assignedToViewer),
     };
   }
 
   private mapTripRow(dto: Record<string, unknown>): TripRow {
-    const status = (String(dto['status'] ?? 'PENDING')) as TripStatus;
-    const lastEvent = this.toObj(dto['lastEvent']);
+    const status = this.mapTripStatus(String(dto['status'] ?? 'PENDING'));
+    const recentEvents = Array.isArray(dto['recentEvents']) ? dto['recentEvents'] : [];
+    const lastEvent = recentEvents.length
+      ? (recentEvents[0] as Record<string, unknown>)
+      : this.toObj(dto['lastEvent']);
     return {
       id: Number(dto['id'] ?? 0),
       tripNumber: String(dto['tripNumber'] ?? dto['tripNo'] ?? `TRP-${dto['id']}`),
       shipmentId: Number(dto['shipmentId'] ?? 0),
-      shipmentNumber: String(dto['shipmentNumber'] ?? '—'),
+      shipmentNumber: String(dto['shipmentNumber'] ?? (dto['shipmentId'] ? `SHP-${dto['shipmentId']}` : '—')),
       route: this.buildRoute(dto),
-      driverName: String(dto['driverName'] ?? dto['driver'] ?? '—'),
-      vehicleRegistration: String(dto['vehicleRegistration'] ?? dto['registration'] ?? '—'),
+      driverName: String(dto['driverName'] ?? (dto['fleetDriverId'] ? `Driver #${dto['fleetDriverId']}` : '—')),
+      vehicleRegistration: String(
+        dto['vehicleRegistration'] ?? (dto['fleetAssetId'] ? `Vehicle #${dto['fleetAssetId']}` : '—'),
+      ),
       status,
       statusLabel: this.tripStatusLabel(status),
       statusTone: this.tripStatusTone(status),
-      lastEventLabel: lastEvent ? String(lastEvent['eventType'] ?? '') : '—',
-      lastEventAt: lastEvent ? this.formatDate(lastEvent['recordedAt']) : '—',
+      lastEventLabel: lastEvent ? this.eventTypeLabel(String(lastEvent['eventType'] ?? '')) : '—',
+      lastEventAt: lastEvent ? this.formatDate(lastEvent['eventTime'] ?? lastEvent['recordedAt']) : '—',
       startedAtLabel: this.formatDate(dto['startedAt']),
       canTriggerArrival: status === 'IN_PROGRESS',
       canVerifyOtp: status === 'ARRIVED',
+      canLiveTrack: status === 'IN_PROGRESS' || status === 'ARRIVED',
     };
   }
 
   private mapTripDetail(dto: Record<string, unknown>): TripDetail {
-    const status = (String(dto['status'] ?? 'PENDING')) as TripStatus;
-    const events = Array.isArray(dto['events'])
-      ? dto['events'].map((e: unknown) => this.mapTimelineEvent(e as Record<string, unknown>))
-      : Array.isArray(dto['timeline'])
-        ? (dto['timeline'] as unknown[]).map((e) => this.mapTimelineEvent(e as Record<string, unknown>))
-        : [];
+    const status = this.mapTripStatus(String(dto['status'] ?? 'PENDING'));
+    const events = Array.isArray(dto['recentEvents'])
+      ? dto['recentEvents'].map((e: unknown) => this.mapTimelineEvent(e as Record<string, unknown>))
+      : Array.isArray(dto['events'])
+        ? dto['events'].map((e: unknown) => this.mapTimelineEvent(e as Record<string, unknown>))
+        : Array.isArray(dto['timeline'])
+          ? (dto['timeline'] as unknown[]).map((e) => this.mapTimelineEvent(e as Record<string, unknown>))
+          : [];
     return {
       id: Number(dto['id'] ?? 0),
       tripNumber: String(dto['tripNumber'] ?? dto['tripNo'] ?? `TRP-${dto['id']}`),
       shipmentId: Number(dto['shipmentId'] ?? 0),
-      shipmentNumber: String(dto['shipmentNumber'] ?? '—'),
-      driverName: String(dto['driverName'] ?? '—'),
-      vehicleRegistration: String(dto['vehicleRegistration'] ?? '—'),
+      shipmentNumber: String(dto['shipmentNumber'] ?? (dto['shipmentId'] ? `SHP-${dto['shipmentId']}` : '—')),
+      driverName: String(dto['driverName'] ?? (dto['fleetDriverId'] ? `Driver #${dto['fleetDriverId']}` : '—')),
+      vehicleRegistration: String(
+        dto['vehicleRegistration'] ?? (dto['fleetAssetId'] ? `Vehicle #${dto['fleetAssetId']}` : '—'),
+      ),
       status,
       statusLabel: this.tripStatusLabel(status),
       statusTone: this.tripStatusTone(status),
       route: this.buildRoute(dto),
       startedAtLabel: this.formatDate(dto['startedAt']),
       arrivedAtLabel: dto['arrivedAt'] ? this.formatDate(dto['arrivedAt']) : undefined,
-      deliveredAtLabel: dto['deliveredAt'] ? this.formatDate(dto['deliveredAt']) : undefined,
+      deliveredAtLabel: dto['completedAt']
+        ? this.formatDate(dto['completedAt'])
+        : dto['deliveredAt']
+          ? this.formatDate(dto['deliveredAt'])
+          : undefined,
       timeline: events,
       canTriggerArrival: status === 'IN_PROGRESS',
       canVerifyOtp: status === 'ARRIVED',
+      canLiveTrack: status === 'IN_PROGRESS' || status === 'ARRIVED',
     };
   }
 
   private mapTimelineEvent(dto: Record<string, unknown>): TripTimelineEvent {
-    const eventType = (String(dto['eventType'] ?? 'OTHER')) as TripEventType;
+    const eventTypeRaw = String(dto['eventType'] ?? 'NOTE');
+    const eventType = eventTypeRaw as TripEventType;
     return {
       id: Number(dto['id'] ?? Math.random()),
       eventType,
-      eventTypeLabel: this.eventTypeLabel(eventType),
+      eventTypeLabel: this.eventTypeLabel(eventTypeRaw),
       latitude: dto['latitude'] ? Number(dto['latitude']) : undefined,
       longitude: dto['longitude'] ? Number(dto['longitude']) : undefined,
       notes: String(dto['notes'] ?? ''),
       recordedBy: String(dto['recordedBy'] ?? dto['createdBy'] ?? '—'),
-      recordedAtLabel: this.formatDate(dto['recordedAt'] ?? dto['createdAt']),
+      recordedAtLabel: this.formatDate(dto['eventTime'] ?? dto['recordedAt'] ?? dto['createdAt']),
     };
   }
 
   private buildRoute(dto: Record<string, unknown>): string {
-    const from = String(dto['fromWarehouse'] ?? dto['originWarehouse'] ?? dto['origin'] ?? '');
-    const to = String(dto['toWarehouse'] ?? dto['destinationWarehouse'] ?? dto['destination'] ?? '');
+    const from = String(
+      dto['fromWarehouseName'] ?? dto['fromWarehouse'] ?? dto['originWarehouse'] ?? dto['origin'] ?? '',
+    );
+    const to = String(
+      dto['toWarehouseName'] ?? dto['toWarehouse'] ?? dto['destinationWarehouse'] ?? dto['destination'] ?? '',
+    );
     if (from && to) {
       return `${from} → ${to}`;
     }
     return from || to || '—';
   }
 
+  private mapShipmentStatus(raw: string): ShipmentStatus {
+    switch (raw.toUpperCase()) {
+      case 'PENDING_ALLOCATION':
+        return 'PENDING';
+      case 'PENDING_FLEET_ALLOCATION':
+        return 'PENDING_FLEET';
+      case 'ARRIVED_PENDING_OTP':
+        return 'IN_TRANSIT';
+      default:
+        return (raw as ShipmentStatus) || 'PENDING';
+    }
+  }
+
+  /** Maps portal display status to backend enum name for filter requests. */
+  private toApiShipmentStatus(status: ShipmentStatus | '' | undefined): string | undefined {
+    if (!status) {
+      return undefined;
+    }
+    switch (status) {
+      case 'PENDING':
+        return 'PENDING_ALLOCATION';
+      case 'PENDING_FLEET':
+        return 'PENDING_FLEET_ALLOCATION';
+      default:
+        return status;
+    }
+  }
+
+  /** Maps portal display status to backend enum name for filter requests. */
+  private toApiTripStatus(status: TripStatus | '' | undefined): string | undefined {
+    if (!status) {
+      return undefined;
+    }
+    switch (status) {
+      case 'PENDING':
+        return 'SCHEDULED';
+      case 'IN_PROGRESS':
+        return 'IN_TRANSIT';
+      case 'ARRIVED':
+        return 'ARRIVED';
+      default:
+        return status;
+    }
+  }
+
+  private mapTripStatus(raw: string): TripStatus {
+    switch (raw.toUpperCase()) {
+      case 'SCHEDULED':
+        return 'PENDING';
+      case 'IN_TRANSIT':
+        return 'IN_PROGRESS';
+      case 'OTP_PENDING':
+      case 'ARRIVED':
+        return 'ARRIVED';
+      default:
+        return (raw as TripStatus) || 'PENDING';
+    }
+  }
+
   private shipmentStatusLabel(status: ShipmentStatus): string {
     const map: Record<ShipmentStatus, string> = {
-      PENDING: 'Pending',
+      PENDING: 'Pending dispatch',
+      PENDING_FLEET: 'Awaiting fleet',
       ALLOCATED: 'Allocated',
       IN_TRANSIT: 'In transit',
       DELIVERED: 'Delivered',
@@ -277,6 +426,8 @@ export class TripTrackingPortalService {
 
   private shipmentStatusTone(status: ShipmentStatus): ShipmentRow['statusTone'] {
     switch (status) {
+      case 'PENDING_FLEET':
+        return 'warn';
       case 'ALLOCATED':
         return 'info';
       case 'IN_TRANSIT':
@@ -291,9 +442,12 @@ export class TripTrackingPortalService {
   }
 
   private tripStatusLabel(status: TripStatus): string {
-    const map: Record<TripStatus, string> = {
+    const map: Record<string, string> = {
       PENDING: 'Pending',
       IN_PROGRESS: 'In progress',
+      IN_TRANSIT: 'In transit',
+      AT_BORDER_HOLD: 'At border — awaiting clearance',
+      ROADSIDE_HOLD: 'Roadside stop',
       ARRIVED: 'Arrived',
       DELIVERED: 'Delivered',
       CANCELLED: 'Cancelled',
@@ -304,7 +458,11 @@ export class TripTrackingPortalService {
   private tripStatusTone(status: TripStatus): TripRow['statusTone'] {
     switch (status) {
       case 'IN_PROGRESS':
+      case 'IN_TRANSIT':
         return 'warn';
+      case 'AT_BORDER_HOLD':
+      case 'ROADSIDE_HOLD':
+        return 'danger';
       case 'ARRIVED':
         return 'info';
       case 'DELIVERED':
@@ -316,18 +474,44 @@ export class TripTrackingPortalService {
     }
   }
 
-  private eventTypeLabel(type: TripEventType): string {
-    const map: Record<TripEventType, string> = {
-      DEPARTURE: 'Departed',
-      CHECKPOINT: 'Checkpoint',
-      BREAK: 'Break',
-      DELAY: 'Delay',
-      ARRIVAL: 'Arrived',
-      DELIVERED: 'Delivered',
-      INCIDENT: 'Incident',
-      OTHER: 'Event',
-    };
-    return map[type] ?? type;
+  private eventTypeLabel(type: string): string {
+    switch (type.toUpperCase()) {
+      case 'DEPARTED':
+      case 'DEPARTURE':
+        return 'Departed';
+      case 'ARRIVED_AT_BORDER':
+        return 'Stopped at border';
+      case 'BORDER_CLEARED':
+        return 'Border cleared — proceeding';
+      case 'ROADSIDE_FUEL_STOP':
+        return 'Roadside fuel stop';
+      case 'ROADSIDE_MECHANIC_STOP':
+        return 'Roadside mechanic stop';
+      case 'ROADSIDE_RESUMED':
+        return 'Resumed after roadside stop';
+      case 'CHECKPOINT':
+        return 'Checkpoint';
+      case 'BREAK':
+        return 'Break';
+      case 'DELAY':
+        return 'Delay';
+      case 'ARRIVED':
+      case 'ARRIVAL':
+        return 'Arrived';
+      case 'OTP_SENT':
+        return 'OTP sent';
+      case 'OTP_VERIFIED':
+        return 'OTP verified';
+      case 'DELIVERED':
+        return 'Delivered';
+      case 'INCIDENT':
+        return 'Incident';
+      case 'NOTE':
+      case 'OTHER':
+        return 'Note';
+      default:
+        return type.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase());
+    }
   }
 
   private formatDate(value: unknown): string {
@@ -355,48 +539,44 @@ export class TripTrackingPortalService {
     }
   }
 
-  private extractList(resp: unknown): Array<Record<string, unknown>> {
-    const obj = this.toObj(resp);
-    if (!obj) {
-      return [];
-    }
-    for (const key of ['data', 'body', 'payload', 'content']) {
-      const val = obj[key];
-      if (Array.isArray(val)) {
-        return val as Array<Record<string, unknown>>;
+  private extractListOrEmpty(response: unknown, listKey: string): Array<Record<string, unknown>> {
+    if (isApiFailureEnvelope(response)) {
+      if (readInBodyStatusCode(response) === 404) {
+        return [];
       }
-      const nested = this.toObj(val);
-      if (nested) {
-        for (const k2 of ['content', 'data', 'list']) {
-          if (Array.isArray(nested[k2])) {
-            return nested[k2] as Array<Record<string, unknown>>;
-          }
-        }
-      }
+      throw new Error(readApiFailureMessage(response, 'Request failed.'));
     }
-    if (Array.isArray(resp)) {
-      return resp as Array<Record<string, unknown>>;
+    return this.extractList(response, listKey);
+  }
+
+  private unwrapEnvelope(response: unknown): Record<string, unknown> {
+    const root = this.toObj(response);
+    if (!root) {
+      return {};
+    }
+    return this.toObj(root['data']) ?? this.toObj(root['body']) ?? this.toObj(root['payload']) ?? root;
+  }
+
+  private extractList(response: unknown, listKey: string): Array<Record<string, unknown>> {
+    const envelope = this.unwrapEnvelope(response);
+    const list = envelope[listKey];
+    if (Array.isArray(list)) {
+      return list.filter((r): r is Record<string, unknown> => !!this.toObj(r));
     }
     return [];
   }
 
-  private extractSingle(resp: unknown): Record<string, unknown> {
-    const obj = this.toObj(resp);
-    if (!obj) {
-      throw new Error('Empty response from server.');
-    }
-    for (const key of ['data', 'body', 'payload']) {
-      const val = obj[key];
-      if (val && typeof val === 'object' && !Array.isArray(val)) {
-        return val as Record<string, unknown>;
-      }
-    }
-    return obj;
+  private extractSingle(response: unknown, dtoKey: string): Record<string, unknown> {
+    const envelope = this.unwrapEnvelope(response);
+    return this.toObj(envelope[dtoKey]) ?? envelope;
   }
 
-  private tryExtractSingle(resp: unknown): Record<string, unknown> | null {
+  private tryExtractSingle(response: unknown, dtoKey: string): Record<string, unknown> | null {
     try {
-      return this.extractSingle(resp);
+      if (isApiFailureEnvelope(response)) {
+        return null;
+      }
+      return this.extractSingle(response, dtoKey);
     } catch {
       return null;
     }

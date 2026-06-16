@@ -15,9 +15,12 @@ public class CreateFleetAssetRequest {
     private Long contractedTransporterOrganizationId;
     private String contractScope;
     private String jobReference;
+    private String contractStartDate;
+    private String contractEndDate;
     private String registration;
     private String makeModel;
     private String status;
     private String driverName;
+    private Long fleetDriverId;
     private BigDecimal utilizationPct;
 }

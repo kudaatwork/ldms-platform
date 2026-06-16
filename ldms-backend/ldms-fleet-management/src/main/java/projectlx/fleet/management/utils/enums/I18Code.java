@@ -40,7 +40,27 @@ public enum I18Code {
     MESSAGE_ASSET_DUPLICATE_COMPLIANCE_TYPE("fleet.asset.duplicate.compliance.type"),
     MESSAGE_ASSET_OWNERSHIP_VALIDATION_FAILED("fleet.asset.ownership.validation.failed"),
     MESSAGE_ASSET_CONTRACT_SCOPE_INVALID("fleet.asset.contract.scope.invalid"),
-    MESSAGE_ASSET_JOB_REFERENCE_REQUIRED("fleet.asset.job.reference.required");
+    MESSAGE_ASSET_JOB_REFERENCE_REQUIRED("fleet.asset.job.reference.required"),
+    MESSAGE_ASSET_CONTRACT_START_REQUIRED("fleet.asset.contract.start.required"),
+    MESSAGE_ASSET_CONTRACT_END_BEFORE_START("fleet.asset.contract.end.before.start"),
+    MESSAGE_ASSET_CONTRACT_DATES_OUT_OF_RANGE("fleet.asset.contract.dates.out.of.range"),
+    MESSAGE_DRIVER_IDENTITY_REQUIRED("fleet.driver.identity.required"),
+    MESSAGE_DRIVER_IDENTITY_DOCUMENT_REQUIRED("fleet.driver.identity.document.required"),
+    MESSAGE_DRIVER_LICENSE_DOCUMENT_REQUIRED("fleet.driver.license.document.required"),
+    MESSAGE_DRIVER_ADDRESS_REQUIRED("fleet.driver.address.required"),
+
+    // Tracking device
+    MESSAGE_TRACKING_DEVICE_NOT_FOUND("fleet.tracking.device.not.found"),
+    MESSAGE_TRACKING_DEVICE_INSTALL_SUCCESS("fleet.tracking.device.install.success"),
+    MESSAGE_TRACKING_DEVICE_UPDATE_SUCCESS("fleet.tracking.device.update.success"),
+    MESSAGE_TRACKING_DEVICE_DELETE_SUCCESS("fleet.tracking.device.delete.success"),
+    MESSAGE_TRACKING_DEVICE_SUSPEND_SUCCESS("fleet.tracking.device.suspend.success"),
+    MESSAGE_TRACKING_DEVICE_LIST_SUCCESS("fleet.tracking.device.list.success"),
+    MESSAGE_TRACKING_DEVICE_INSTALL_INVALID("fleet.tracking.device.install.invalid"),
+    MESSAGE_TRACKING_DEVICE_UPDATE_INVALID("fleet.tracking.device.update.invalid"),
+    MESSAGE_TRACKING_DEVICE_TYPE_INVALID("fleet.tracking.device.type.invalid"),
+    MESSAGE_TRACKING_INTEGRATION_PROVIDER_INVALID("fleet.tracking.integration.provider.invalid"),
+    MESSAGE_TRACKING_DEVICE_RESOLVED("fleet.tracking.device.resolved");
 
     private final String code;
 }

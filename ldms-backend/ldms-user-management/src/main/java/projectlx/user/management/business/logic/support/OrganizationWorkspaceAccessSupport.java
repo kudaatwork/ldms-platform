@@ -105,7 +105,8 @@ public class OrganizationWorkspaceAccessSupport {
         return BACKOFFICE_ACTOR.equalsIgnoreCase(actor) || SYSTEM_ACTOR.equalsIgnoreCase(actor);
     }
 
-    private Optional<Long> effectiveOrganizationId(User user) {
+    /** Direct {@code organization_id} on the user row, else the linked workspace group's organisation. */
+    public Optional<Long> effectiveOrganizationId(User user) {
         if (user == null) {
             return Optional.empty();
         }

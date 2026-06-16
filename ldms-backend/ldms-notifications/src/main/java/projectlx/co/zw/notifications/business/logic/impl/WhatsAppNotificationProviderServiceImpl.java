@@ -2,8 +2,8 @@ package projectlx.co.zw.notifications.business.logic.impl;
 
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.util.StringUtils;
 import projectlx.co.zw.notifications.business.logic.api.NotificationLogRecorder;
 import projectlx.co.zw.notifications.business.logic.api.NotificationProviderService;
@@ -16,15 +16,28 @@ import projectlx.co.zw.notifications.utils.config.OutboundMessagingReadiness;
 import projectlx.co.zw.notifications.utils.config.OutboundTwilioInitializer;
 import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 
-@Slf4j
-@RequiredArgsConstructor
 public class WhatsAppNotificationProviderServiceImpl implements NotificationProviderService {
+
+    private static final Logger log = LoggerFactory.getLogger(WhatsAppNotificationProviderServiceImpl.class);
 
     private final TemplateProcessorService templateProcessor;
     private final NotificationLogRecorder notificationLogRecorder;
     private final OutboundMessagingReadiness outboundMessagingReadiness;
     private final OutboundTwilioInitializer outboundTwilioInitializer;
     private final LdmsConfigRepoSecretsResolver secretsResolver;
+
+    public WhatsAppNotificationProviderServiceImpl(
+            TemplateProcessorService templateProcessor,
+            NotificationLogRecorder notificationLogRecorder,
+            OutboundMessagingReadiness outboundMessagingReadiness,
+            OutboundTwilioInitializer outboundTwilioInitializer,
+            LdmsConfigRepoSecretsResolver secretsResolver) {
+        this.templateProcessor = templateProcessor;
+        this.notificationLogRecorder = notificationLogRecorder;
+        this.outboundMessagingReadiness = outboundMessagingReadiness;
+        this.outboundTwilioInitializer = outboundTwilioInitializer;
+        this.secretsResolver = secretsResolver;
+    }
 
     @Override
     public Channel getChannel() {

@@ -97,6 +97,24 @@ public class JwtServiceImpl implements JwtService {
     }
 
     @Override
+    public Long extractOrganizationId(String token) {
+        Object raw = extractAllClaims(token).get("organizationId");
+        if (raw == null) {
+            return null;
+        }
+        if (raw instanceof Number number) {
+            long value = number.longValue();
+            return value > 0 ? value : null;
+        }
+        try {
+            long value = Long.parseLong(raw.toString().trim());
+            return value > 0 ? value : null;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    @Override
     public boolean isExpired(String token) {
         return extractAllClaims(token).getExpiration().before(new Date());
     }
@@ -139,6 +157,11 @@ public class JwtServiceImpl implements JwtService {
 
     private static final List<String> PINNED_WORKSPACE_ROLES = List.of(
             "ORGANIZATION_ADMINISTRATOR",
+            "ADMIN",
+            "UPDATE_USER",
+            "CREATE_USER",
+            "DELETE_USER",
+            "VIEW_USERS_BY_ORGANIZATION",
             "SEARCH_AUDIT_LOGS",
             "VIEW_AUDIT_LOG_BY_ID",
             "VIEW_AUDIT_LOGS_BY_TRACE",

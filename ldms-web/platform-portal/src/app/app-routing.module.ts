@@ -58,7 +58,7 @@ const routes: Routes = [
         path: 'shipments',
         loadChildren: () =>
           import('./features/trip-tracking/trip-tracking.module').then((m) => m.TripTrackingModule),
-        data: { breadcrumb: 'Shipments & Trips' },
+        data: { breadcrumb: 'Shipment management' },
       },
       {
         path: 'fleet',
@@ -69,6 +69,14 @@ const routes: Routes = [
         path: 'customers',
         loadChildren: () => import('./features/customers/customers.module').then((m) => m.CustomersModule),
         data: { breadcrumb: 'Customers' },
+      },
+      {
+        path: 'organization',
+        loadChildren: () =>
+          import('./features/organization-management/organization-management.module').then(
+            (m) => m.OrganizationManagementModule,
+          ),
+        data: { breadcrumb: 'Organization management' },
       },
       {
         path: 'documents',
@@ -89,23 +97,21 @@ const routes: Routes = [
       },
       {
         path: 'track-shipments',
-        loadChildren: () =>
-          import('./features/trip-tracking/trip-tracking.module').then((m) => m.TripTrackingModule),
-        data: { breadcrumb: 'Track Shipments' },
+        redirectTo: 'shipments/shipments',
+        pathMatch: 'full',
       },
       { path: 'deliveries', redirectTo: 'my-orders/deliveries', pathMatch: 'full' },
       { path: 'invoices', component: PlaceholderPageComponent, data: { title: 'Invoices', breadcrumb: 'Invoices' } },
       { path: 'drivers', redirectTo: 'fleet/drivers', pathMatch: 'full' },
       {
         path: 'trips',
-        loadChildren: () =>
-          import('./features/trip-tracking/trip-tracking.module').then((m) => m.TripTrackingModule),
-        data: { breadcrumb: 'Trips' },
+        redirectTo: 'shipments/trips',
+        pathMatch: 'full',
       },
       {
         path: 'active-clearances',
-        component: PlaceholderPageComponent,
-        data: { title: 'Active Clearances', breadcrumb: 'Active Clearances' },
+        redirectTo: 'shipments/clearances',
+        pathMatch: 'full',
       },
       { path: 'truck-visits', component: PlaceholderPageComponent, data: { title: 'Truck Visits', breadcrumb: 'Truck Visits' } },
       { path: 'fuel-log', component: PlaceholderPageComponent, data: { title: 'Fuel Log', breadcrumb: 'Fuel Log' } },

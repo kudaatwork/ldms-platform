@@ -1,7 +1,5 @@
 package projectlx.co.zw.notifications.utils.audit;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -20,16 +18,22 @@ import java.time.Duration;
 import java.time.Instant;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Aspect
-@Slf4j
-@RequiredArgsConstructor
 public class AuditAspect {
+
+    private static final Logger log = LoggerFactory.getLogger(AuditAspect.class);
 
     private final AuditTrailService auditTrailService;
 
     @Value("${spring.application.name}")
     private String serviceName;
+
+    public AuditAspect(AuditTrailService auditTrailService) {
+        this.auditTrailService = auditTrailService;
+    }
 
     @Around("@annotation(projectlx.co.zw.shared_library.utils.audit.Auditable)")
     public Object auditMethod(ProceedingJoinPoint joinPoint) throws Throwable {

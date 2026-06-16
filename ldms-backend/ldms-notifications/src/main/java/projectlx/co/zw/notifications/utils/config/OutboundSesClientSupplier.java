@@ -1,8 +1,8 @@
 package projectlx.co.zw.notifications.utils.config;
 
 import java.net.URI;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
@@ -20,15 +20,18 @@ import software.amazon.awssdk.services.ses.SesClient;
  * Uses the regional HTTPS endpoint directly and ignores JVM HTTP proxy settings so corporate
  * proxies (e.g. {@code 192.168.x.x:80}) do not break SES calls on developer machines.
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class OutboundSesClientSupplier {
 
+    private static final Logger log = LoggerFactory.getLogger(OutboundSesClientSupplier.class);
     private static final String DEFAULT_REGION = "eu-west-1";
 
     private final LdmsConfigRepoSecretsResolver secretsResolver;
     private volatile SesClient sesClient;
+
+    public OutboundSesClientSupplier(LdmsConfigRepoSecretsResolver secretsResolver) {
+        this.secretsResolver = secretsResolver;
+    }
 
     public boolean isConfigured() {
         return secretsResolver.isSesConfigured();

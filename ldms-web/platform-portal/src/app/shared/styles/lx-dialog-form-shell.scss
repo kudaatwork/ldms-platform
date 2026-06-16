@@ -296,6 +296,27 @@
   flex-shrink: 0;
 }
 
+.lx-field--toggle-block {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: 8px;
+
+  .lx-field--toggle-main {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+  }
+
+  .lx-field-hint,
+  .ued-hint {
+    margin-top: 0;
+    line-height: 1.45;
+  }
+}
+
 @media (max-width: 600px) {
   .lx-dialog-shell,
   .lx-dialog-shell--wide,

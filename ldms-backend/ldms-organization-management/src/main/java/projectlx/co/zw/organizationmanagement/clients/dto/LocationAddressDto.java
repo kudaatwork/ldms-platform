@@ -12,9 +12,12 @@ public class LocationAddressDto {
     private String line2;
     private String postalCode;
     private Long suburbId;
+    private String suburbName;
     private Long cityId;
     private String cityName;
     private Long districtId;
+    private String districtName;
     private Long provinceId;
+    private String provinceName;
     private Long countryId;
 }

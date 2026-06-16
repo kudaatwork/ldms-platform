@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import projectlx.shipment.management.service.processor.api.ShipmentServiceProcessor;
 import projectlx.shipment.management.utils.requests.AllocateShipmentRequest;
+import projectlx.shipment.management.utils.requests.AssignTransportCompanyRequest;
 import projectlx.shipment.management.utils.requests.ShipmentMultipleFiltersRequest;
 import projectlx.shipment.management.utils.responses.ShipmentResponse;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
@@ -75,11 +76,31 @@ public class ShipmentFrontendResource {
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
+    @Auditable(action = "ASSIGN_TRANSPORT_COMPANY")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/assign-transport-company")
+    @Operation(summary = "Assign transport company to shipment",
+            description = "Shipper dispatch step — assigns own fleet or a contracted transporter before fleet allocation.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Transport company assigned successfully"),
+            @ApiResponse(responseCode = "400", description = "Assignment request invalid or shipment not pending"),
+            @ApiResponse(responseCode = "403", description = "Caller is not the owning shipper organisation"),
+            @ApiResponse(responseCode = "404", description = "Shipment not found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    public ResponseEntity<ShipmentResponse> assignTransportCompany(
+            @RequestBody final AssignTransportCompanyRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        ShipmentResponse response = shipmentServiceProcessor.assignTransportCompany(request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
     @Auditable(action = "ALLOCATE_SHIPMENT")
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/allocate")
     @Operation(summary = "Allocate fleet to shipment",
-            description = "Assigns a fleet driver and asset to a PENDING_ALLOCATION shipment, transitioning it to ALLOCATED.")
+            description = "Assigned transport company assigns a fleet driver and asset, transitioning the shipment to ALLOCATED.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Shipment allocated successfully"),
             @ApiResponse(responseCode = "400", description = "Allocation request invalid or shipment not in PENDING_ALLOCATION state"),

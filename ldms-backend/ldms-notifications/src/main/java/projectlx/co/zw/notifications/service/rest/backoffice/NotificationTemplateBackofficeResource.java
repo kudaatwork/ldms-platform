@@ -7,7 +7,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -44,10 +43,13 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/ldms-notifications/v1/backoffice/notification-template")
 @Tag(name = "Notification Template Backoffice Resource", description = "Admin console template management (JWT only, no per-endpoint roles)")
-@RequiredArgsConstructor
 public class NotificationTemplateBackofficeResource {
 
     private final NotificationTemplateProcessor notificationTemplateProcessor;
+
+    public NotificationTemplateBackofficeResource(NotificationTemplateProcessor notificationTemplateProcessor) {
+        this.notificationTemplateProcessor = notificationTemplateProcessor;
+    }
     private static final Logger logger = LoggerFactory.getLogger(NotificationTemplateBackofficeResource.class);
 
     @Auditable(action = "GET_ADD_TEMPLATE_METADATA")

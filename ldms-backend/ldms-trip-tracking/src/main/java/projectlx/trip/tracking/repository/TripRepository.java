@@ -33,6 +33,9 @@ public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificat
     Page<Trip> findByOrganizationIdAndStatusAndEntityStatusNot(
             Long organizationId, TripStatus status, EntityStatus entityStatus, Pageable pageable);
 
+    Optional<Trip> findFirstByFleetAssetIdAndStatusAndEntityStatusNotOrderByStartedAtDesc(
+            Long fleetAssetId, TripStatus status, EntityStatus entityStatus);
+
     @Query("SELECT t FROM Trip t WHERE t.organizationId = :orgId " +
            "AND t.entityStatus <> :entityStatus " +
            "AND (:status IS NULL OR t.status = :status) " +

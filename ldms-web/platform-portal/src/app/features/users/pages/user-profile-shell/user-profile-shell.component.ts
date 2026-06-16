@@ -1,5 +1,5 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeResourceUrl, Title } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
@@ -16,6 +16,8 @@ import { isLdmsPasswordValid, LDMS_PASSWORD_INVALID_MESSAGE } from '@core/utils/
 import { AuthStateService } from '../../../../core/services/auth-state.service';
 import { StorageService } from '../../../../core/services/storage.service';
 import { decodeJwtPayload } from '../../../../core/utils/jwt.util';
+import { PhoneVerificationPromptService } from '../../../../core/services/phone-verification-prompt.service';
+import { ShellNotificationService } from '../../../../core/services/shell-notification.service';
 
 type UserSection = 'profile' | 'account' | 'preferences' | 'security-policies' | 'addresses' | 'password';
 type ProfileLoadErrorKey = '' | 'invalidId' | 'missingUser' | 'requestFailed';
@@ -53,6 +55,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
   passwordSaving = false;
   passwordError = '';
   resendingVerificationEmail = false;
+  private pendingVerifyAction: 'phone' | 'email' | null = null;
 
   readonly rolesPreviewLimit = ROLES_PREVIEW_LIMIT;
   roleSearch = '';
@@ -73,6 +76,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
 
   constructor(
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly title: Title,
     private readonly sanitizer: DomSanitizer,
     private readonly usersService: UsersPortalService,
@@ -81,6 +85,8 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     private readonly cdr: ChangeDetectorRef,
     private readonly authState: AuthStateService,
     private readonly storage: StorageService,
+    private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
+    private readonly shellNotifications: ShellNotificationService,
   ) {}
 
   ngOnInit(): void {
@@ -90,7 +96,11 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     this.routeSub = combineLatest([
       this.route.paramMap.pipe(startWith(this.route.snapshot.paramMap)),
       this.route.data.pipe(startWith(this.route.snapshot.data)),
-    ]).subscribe(() => {
+      this.route.queryParamMap.pipe(startWith(this.route.snapshot.queryParamMap)),
+    ]).subscribe(([, , queryParams]) => {
+      const verify = queryParams.get('verify');
+      this.pendingVerifyAction = verify === 'phone' || verify === 'email' ? verify : null;
+
       const previousUserId = this.userId;
       this.applyRouteSnapshot();
       const userChanged = this.userId !== previousUserId || previousUserId === '';
@@ -98,6 +108,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
         this.resetRolesPanel();
         this.loadBundle();
       } else {
+        this.maybeRunVerifyAction();
         this.cdr.markForCheck();
       }
     });
@@ -203,12 +214,47 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
     return null;
   }
 
+  canVerifyEmail(): boolean {
+    const u = this.bundle.user;
+    if (!u) {
+      return false;
+    }
+    return this.usersService.needsEmailVerification(u['emailVerified']) && String(u['email'] ?? '').trim().length > 0;
+  }
+
+  canVerifyPhone(): boolean {
+    const u = this.bundle.user;
+    if (!u) {
+      return false;
+    }
+    return this.isSelfProfile() && this.usersService.needsPhoneVerification(u['phoneVerified'], u['phoneNumber']);
+  }
+
   canResendVerificationEmail(): boolean {
     const u = this.bundle.user;
     if (!u) {
       return false;
     }
     return this.usersService.canResendVerificationEmail(u['emailVerified'], u['createdAt']);
+  }
+
+  verifyPhone(): void {
+    const u = this.bundle.user;
+    if (!u || !this.canVerifyPhone()) {
+      return;
+    }
+    const phone = String(u['phoneNumber'] ?? '').trim();
+    this.phoneVerificationPrompt
+      .openDialog({
+        title: 'Verify your phone number',
+        lead: `Send an SMS code to ${phone}, then enter the code below to verify your phone number.`,
+      })
+      .subscribe((verified) => {
+        if (verified) {
+          this.loadBundle();
+          this.shellNotifications.refresh();
+        }
+      });
   }
 
   resendVerificationEmail(): void {
@@ -240,6 +286,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
             duration: 5000,
             panelClass: ['app-snackbar-success'],
           });
+          this.shellNotifications.refresh();
         },
         error: () => {
           this.snackBar.open('Failed to resend verification email.', 'Close', {
@@ -709,6 +756,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
           if (!bundle.user) {
             this.loadError = 'missingUser';
           }
+          this.maybeRunVerifyAction();
         },
         error: () => {
           this.bundle = { user: null, account: null, security: null, address: null, password: null };
@@ -716,5 +764,37 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
           this.loadError = 'requestFailed';
         },
       });
+  }
+
+  private maybeRunVerifyAction(): void {
+    if (!this.pendingVerifyAction || this.loading || !this.bundle.user || !this.isSelfProfile()) {
+      return;
+    }
+
+    const action = this.pendingVerifyAction;
+    this.pendingVerifyAction = null;
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { verify: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+
+    if (action === 'phone') {
+      if (this.canVerifyPhone()) {
+        this.verifyPhone();
+      }
+      return;
+    }
+
+    if (this.canResendVerificationEmail()) {
+      this.resendVerificationEmail();
+      return;
+    }
+    if (this.canVerifyEmail()) {
+      this.snackBar.open('Check your inbox for the verification link we sent when you registered.', 'Close', {
+        duration: 6000,
+      });
+    }
   }
 }

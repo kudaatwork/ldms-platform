@@ -4,7 +4,6 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,13 +26,16 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
 
-@RequiredArgsConstructor
 public class AuditFilter extends OncePerRequestFilter {
 
     private final AuditTrailService auditTrailService;
 
     @Value("${spring.application.name}")
     private String serviceName;
+
+    public AuditFilter(AuditTrailService auditTrailService) {
+        this.auditTrailService = auditTrailService;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)

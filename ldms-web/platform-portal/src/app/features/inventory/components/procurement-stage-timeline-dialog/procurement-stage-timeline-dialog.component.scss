@@ -1,28 +1,16 @@
-.pst-dialog {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  min-width: min(520px, 92vw);
-  max-height: 85vh;
+@use '../../../../shared/styles/lx-dialog-form-shell';
+
+.pst-dialog__body {
+  padding-top: 0;
 }
 
-.pst-dialog__head {
+.lx-dialog-actions {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-
-  h2 {
-    margin: 0;
-    font-size: 1.25rem;
-    font-weight: 600;
-  }
-
-  p {
-    margin: 6px 0 0;
-    color: var(--text-secondary, #64748b);
-    font-size: 0.875rem;
-  }
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200, #e2e8f0);
 }
 
 .pst-timeline {
@@ -53,8 +41,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: var(--surface-muted, #f1f5f9);
-  color: var(--text-secondary, #64748b);
+  background: var(--gray-100, #f1f5f9);
+  color: var(--gray-500, #64748b);
 
   mat-icon {
     font-size: 18px;
@@ -67,7 +55,7 @@
   flex: 1;
   width: 2px;
   margin-top: 6px;
-  background: var(--border-subtle, #e2e8f0);
+  background: var(--gray-200, #e2e8f0);
   min-height: 24px;
 }
 
@@ -77,13 +65,13 @@
 
 .pst-timeline__label {
   font-weight: 600;
-  color: var(--text-primary, #0f172a);
+  color: var(--gray-900, #0f172a);
 }
 
 .pst-timeline__detail {
   margin-top: 4px;
   font-size: 0.8125rem;
-  color: var(--text-secondary, #64748b);
+  color: var(--gray-500, #64748b);
 }
 
 .pst-timeline__item--done .pst-timeline__node {
@@ -99,9 +87,4 @@
 .pst-timeline__item--rejected .pst-timeline__node {
   background: rgba(239, 68, 68, 0.12);
   color: #dc2626;
-}
-
-.pst-dialog__foot {
-  display: flex;
-  justify-content: flex-end;
 }

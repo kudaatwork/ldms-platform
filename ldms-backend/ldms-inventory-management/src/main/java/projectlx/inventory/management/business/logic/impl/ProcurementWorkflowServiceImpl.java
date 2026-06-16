@@ -12,6 +12,7 @@ import projectlx.inventory.management.business.logic.support.PlatformWalletUsage
 import projectlx.inventory.management.business.logic.support.ProcurementApprovalService;
 import projectlx.inventory.management.business.logic.support.ProcurementApprovalService.StageApprovalResult;
 import projectlx.inventory.management.business.logic.support.ProcurementApprovalStageResolver;
+import projectlx.inventory.management.business.logic.support.ProcurementApproverSupport;
 import projectlx.inventory.management.business.logic.support.SupplierQuoteSubmissionValidator;
 import projectlx.inventory.management.model.*;
 import projectlx.inventory.management.repository.*;
@@ -29,6 +30,7 @@ import projectlx.inventory.management.utils.responses.SupplierQuoteResponse;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
@@ -70,9 +72,12 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
     private final RabbitTemplate rabbitTemplate;
     private final MessageService messageService;
     private final PlatformWalletUsageSupport platformWalletUsageSupport;
+    private final ProcurementApproverSupport procurementApproverSupport;
+    private final WarehouseLocationRepository warehouseLocationRepository;
 
     private static final String INVENTORY_EXCHANGE = "inventory.exchange";
     private static final String PO_APPROVED_ROUTING_KEY = "po.approved";
+    private static final String SALES_ORDER_APPROVED_ROUTING_KEY = "sales.order.approved";
 
     // ============================================================
     // 1. PR INTERNAL APPROVAL
@@ -106,6 +111,12 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
         if (pr.getStatus() != PurchaseRequisitionStatus.SUBMITTED) {
             return buildPRResponse(400, false,
                     "Purchase requisition must be in SUBMITTED status to approve. Current: " + pr.getStatus(), null);
+        }
+
+        Optional<String> approverError = procurementApproverSupport.validateApproverForOrganization(
+                request.getApprovedByUserId(), pr.getOrganizationId(), locale);
+        if (approverError.isPresent()) {
+            return buildPRResponse(403, false, approverError.get(), null);
         }
 
         // ============================================================
@@ -429,6 +440,12 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
                     null);
         }
 
+        Optional<String> customerApproverError = procurementApproverSupport.validateApproverForOrganization(
+                request.getApprovedByUserId(), po.getOrganizationId(), locale);
+        if (customerApproverError.isPresent()) {
+            return buildPOResponse(403, false, customerApproverError.get(), null);
+        }
+
         // ============================================================
         // STEP 1: Determine required stages
         // ============================================================
@@ -514,6 +531,12 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
         if (po.getStatus() != PurchaseOrderStatus.PENDING_SUPPLIER_APPROVAL) {
             return buildPOResponse(400, false,
                     "Purchase order must be in PENDING_SUPPLIER_APPROVAL status. Current: " + po.getStatus(), null);
+        }
+
+        Optional<String> supplierApproverError = procurementApproverSupport.validateApproverForOrganization(
+                request.getApprovedByUserId(), po.getSupplierId(), locale);
+        if (supplierApproverError.isPresent()) {
+            return buildPOResponse(403, false, supplierApproverError.get(), null);
         }
 
         // ============================================================
@@ -627,6 +650,12 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
                     null);
         }
 
+        Optional<String> soApproverError = procurementApproverSupport.validateApproverForOrganization(
+                request.getApprovedByUserId(), so.getSupplierOrganizationId(), locale);
+        if (soApproverError.isPresent()) {
+            return buildSOResponse(403, false, soApproverError.get(), null);
+        }
+
         // ============================================================
         // STEP 1: Determine required stages
         // ============================================================
@@ -657,20 +686,28 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
         if (result.allStagesComplete()) {
             log.info("All {} SO approval stages complete for SO {} - transitioning to APPROVED",
                     requiredStages, so.getId());
-            so.setStatus(SalesOrderStatus.APPROVED);
-            so.setApprovalComplete(true);
-            so.setApprovedAt(LocalDateTime.now());
-            so.setApprovedByUserId(request.getApprovedByUserId());
 
             if (request.getFulfillmentWarehouseId() != null) {
                 so.setFulfillmentWarehouseId(request.getFulfillmentWarehouseId());
             }
+            if (so.getFulfillmentWarehouseId() == null) {
+                return buildSOResponse(400, false,
+                        "Fulfillment warehouse is required before sales order approval completes.", null);
+            }
+
+            so.setStatus(SalesOrderStatus.APPROVED);
+            so.setApprovalComplete(true);
+            so.setApprovedAt(LocalDateTime.now());
+            so.setApprovedByUserId(request.getApprovedByUserId());
         } else {
             log.info("SO {} approval stage {}/{} complete - awaiting further approval",
                     so.getId(), result.completedStage(), requiredStages);
         }
 
         SalesOrder saved = salesOrderRepository.save(so);
+        if (result.allStagesComplete()) {
+            publishSalesOrderApprovedEvent(saved, request.getApprovedByUserId());
+        }
         platformWalletUsageSupport.chargeBestEffort(
                 so.getSupplierOrganizationId(),
                 PlatformWalletUsageSupport.ACTION_PROCUREMENT_SO_APPROVE,
@@ -1063,5 +1100,69 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
             response.setErrorMessages(errorMessages);
         }
         return response;
+    }
+
+    private void publishSalesOrderApprovedEvent(SalesOrder salesOrder, Long approvedByUserId) {
+        try {
+            Optional<PurchaseOrder> poOpt = purchaseOrderRepository
+                    .findByIdAndEntityStatusNot(salesOrder.getPurchaseOrderId(), EntityStatus.DELETED);
+            if (poOpt.isEmpty()) {
+                log.warn("Cannot publish sales.order.approved — PO {} not found for SO {}",
+                        salesOrder.getPurchaseOrderId(), salesOrder.getId());
+                return;
+            }
+            PurchaseOrder purchaseOrder = poOpt.get();
+
+            WarehouseLocation fromWarehouse = warehouseLocationRepository
+                    .findById(salesOrder.getFulfillmentWarehouseId()).orElse(null);
+            WarehouseLocation toWarehouse = warehouseLocationRepository
+                    .findById(purchaseOrder.getReceivingWarehouseId()).orElse(null);
+
+            Map<String, Object> event = new HashMap<>();
+            event.put("salesOrderId", salesOrder.getId());
+            event.put("salesOrderNumber", salesOrder.getSalesOrderNumber());
+            event.put("purchaseOrderId", purchaseOrder.getId());
+            event.put("purchaseOrderNumber", purchaseOrder.getPurchaseOrderNumber());
+            event.put("organizationId", salesOrder.getSupplierOrganizationId());
+            event.put("customerOrganizationId", salesOrder.getCustomerId());
+            event.put("approvedByUserId", approvedByUserId);
+
+            if (fromWarehouse != null) {
+                event.put("fromWarehouseLocationId", fromWarehouse.getId());
+                event.put("fromWarehouseName", fromWarehouse.getName());
+            }
+            if (toWarehouse != null) {
+                event.put("toWarehouseLocationId", toWarehouse.getId());
+                event.put("toWarehouseName", toWarehouse.getName());
+            }
+
+            BigDecimal totalQty = BigDecimal.ZERO;
+            if (salesOrder.getSalesOrderLines() != null && !salesOrder.getSalesOrderLines().isEmpty()) {
+                SalesOrderLine firstLine = salesOrder.getSalesOrderLines().get(0);
+                if (firstLine.getProduct() != null) {
+                    event.put("productId", firstLine.getProduct().getId());
+                    event.put("productName", firstLine.getProduct().getName());
+                    event.put("productCode", firstLine.getProduct().getProductCode());
+                }
+                for (SalesOrderLine line : salesOrder.getSalesOrderLines()) {
+                    if (line.getQuantity() != null) {
+                        totalQty = totalQty.add(line.getQuantity());
+                    }
+                }
+            }
+            event.put("quantity", totalQty);
+
+            boolean crossBorder = fromWarehouse != null && toWarehouse != null
+                    && fromWarehouse.getLocationId() != null && toWarehouse.getLocationId() != null
+                    && !fromWarehouse.getLocationId().equals(toWarehouse.getLocationId());
+            event.put("crossBorder", crossBorder);
+            event.put("timestamp", LocalDateTime.now().toString());
+
+            rabbitTemplate.convertAndSend(INVENTORY_EXCHANGE, SALES_ORDER_APPROVED_ROUTING_KEY, event);
+            log.info("Published sales.order.approved event for SO: {}", salesOrder.getId());
+        } catch (Exception ex) {
+            log.error("Failed to publish sales.order.approved event for SO {}: {}",
+                    salesOrder.getId(), ex.getMessage(), ex);
+        }
     }
 }

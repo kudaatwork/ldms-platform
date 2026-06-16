@@ -1,0 +1,74 @@
+<div class="om-page">
+  <lx-workspace-hero
+    variant="slate"
+    eyebrow="Organization management"
+    eyebrowIcon="corporate_fare"
+    title="Agents"
+    lead="Representatives and field agents linked to your organisation — clearing, sales, or operational contacts."
+    hubIcon="support_agent"
+    [orbitIcons]="['badge', 'contact_phone']"
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-primary lx-btn-sm" (click)="openCreate()">
+      <mat-icon>person_add</mat-icon>
+      Add agent
+    </button>
+  </lx-workspace-hero>
+
+  <lx-table-loading [busy]="loading" message="Loading agents…"></lx-table-loading>
+
+  <div class="lx-empty" *ngIf="!loading && error">
+    <mat-icon class="lx-empty-icon">error_outline</mat-icon>
+    <div class="lx-empty-title">{{ error }}</div>
+  </div>
+
+  <section class="lx-card om-panel" *ngIf="!loading && !error">
+    <table class="lx-data-table" *ngIf="agents.length">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Kind</th>
+          <th>Contact</th>
+          <th>Role</th>
+          <th>Region</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let agent of agents">
+          <td>{{ agent.fullName }}</td>
+          <td>{{ agent.agentKind === 'ORGANIZATION' ? 'Organisation' : 'Individual' }}</td>
+          <td>
+            <div>{{ agent.email || '—' }}</div>
+            <small *ngIf="agent.phoneNumber">{{ agent.phoneNumber }}</small>
+          </td>
+          <td>{{ agent.role || '—' }}</td>
+          <td>{{ agent.assignedRegion || '—' }}</td>
+          <td>{{ agent.active ? 'Active' : 'Inactive' }}</td>
+          <td class="lx-actions-cell">
+            <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #rowMenu="matMenu" panelClass="lx-row-actions-menu">
+              <button mat-menu-item type="button" (click)="viewAgent(agent)">
+                <mat-icon>visibility</mat-icon>
+                <span>View</span>
+              </button>
+              <button mat-menu-item type="button" (click)="openEdit(agent)">
+                <mat-icon>edit</mat-icon>
+                <span>Edit</span>
+              </button>
+              <button mat-menu-item type="button" (click)="deleteAgent(agent)">
+                <mat-icon>delete</mat-icon>
+                <span>Delete</span>
+              </button>
+            </mat-menu>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="om-panel__empty" *ngIf="!agents.length">
+      No agents yet — use <strong>Add agent</strong> to register your first representative.
+    </p>
+  </section>
+</div>

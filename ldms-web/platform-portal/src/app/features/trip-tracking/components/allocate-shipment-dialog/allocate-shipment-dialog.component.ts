@@ -5,7 +5,11 @@ import { finalize, takeUntil } from 'rxjs/operators';
 import { FleetPortalService } from '../../../fleet/services/fleet-portal.service';
 import { TripTrackingPortalService } from '../../services/trip-tracking-portal.service';
 import { NotificationService } from '../../../../core/services/notification.service';
-import type { FleetDriverRow, FleetVehicleRow } from '../../../fleet/models/fleet.model';
+import type {
+  FleetDriverRow,
+  FleetVehicleRow,
+  FleetVehicleType,
+} from '../../../fleet/models/fleet.model';
 import type { ShipmentRow } from '../../models/trip-tracking.model';
 
 export interface AllocateShipmentDialogData {
@@ -13,6 +17,15 @@ export interface AllocateShipmentDialogData {
 }
 
 export type AllocateShipmentDialogResult = { action: 'allocated'; shipment: ShipmentRow };
+
+type VehicleCategoryFilter = 'all' | 'owned' | 'contracted' | FleetVehicleType;
+
+const VEHICLE_TYPE_LABELS: Record<FleetVehicleType, string> = {
+  rig: 'Rig / truck',
+  van: 'Van',
+  tanker: 'Tanker',
+  flatbed: 'Flatbed',
+};
 
 @Component({
   selector: 'app-allocate-shipment-dialog',
@@ -27,8 +40,22 @@ export class AllocateShipmentDialogComponent implements OnInit, OnDestroy {
   vehiclesLoading = true;
   submitting = false;
 
+  driverSearch = '';
+  vehicleSearch = '';
+  vehicleCategory: VehicleCategoryFilter = 'all';
+
   selectedDriverId: number | null = null;
-  selectedVehicleId: number | null = null;
+  selectedVehicleId: number | string | null = null;
+
+  readonly vehicleCategories: { id: VehicleCategoryFilter; label: string }[] = [
+    { id: 'all', label: 'All' },
+    { id: 'owned', label: 'Owned' },
+    { id: 'contracted', label: 'Contracted' },
+    { id: 'rig', label: 'Rigs' },
+    { id: 'van', label: 'Vans' },
+    { id: 'tanker', label: 'Tankers' },
+    { id: 'flatbed', label: 'Flatbeds' },
+  ];
 
   private readonly destroy$ = new Subject<void>();
 
@@ -59,7 +86,7 @@ export class AllocateShipmentDialogComponent implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
       )
       .subscribe({
-        next: (rows) => (this.vehicles = rows.filter((v) => v.ownershipType === 'owned')),
+        next: (rows) => (this.vehicles = rows),
         error: () => this.notifications.error('Failed to load fleet vehicles.'),
       });
   }
@@ -69,12 +96,80 @@ export class AllocateShipmentDialogComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  get filteredDrivers(): FleetDriverRow[] {
+    const q = this.driverSearch.trim().toLowerCase();
+    if (!q) {
+      return this.drivers;
+    }
+    return this.drivers.filter((driver) => {
+      const hay = `${driver.fullName} ${driver.licenseClass} ${driver.phoneNumber ?? ''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  get filteredVehicles(): FleetVehicleRow[] {
+    const q = this.vehicleSearch.trim().toLowerCase();
+    const category = this.vehicleCategory;
+    return this.vehicles.filter((vehicle) => {
+      if (category !== 'all') {
+        if (category === 'owned' || category === 'contracted') {
+          if (vehicle.ownershipType !== category) {
+            return false;
+          }
+        } else if (vehicle.type !== category) {
+          return false;
+        }
+      }
+      if (!q) {
+        return true;
+      }
+      const hay = [
+        vehicle.registration,
+        vehicle.makeModel,
+        VEHICLE_TYPE_LABELS[vehicle.type],
+        vehicle.type,
+        vehicle.statusLabel,
+        vehicle.ownershipLabel,
+        vehicle.driverName,
+        vehicle.contractedTransporterOrganizationName ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
   get canSubmit(): boolean {
-    return !!this.selectedDriverId && !!this.selectedVehicleId && !this.submitting;
+    return !!this.selectedDriverId && this.selectedVehicleId != null && !this.submitting;
   }
 
   get loading(): boolean {
     return this.driversLoading || this.vehiclesLoading;
+  }
+
+  vehicleIcon(type: FleetVehicleRow['type']): string {
+    const map: Record<FleetVehicleRow['type'], string> = {
+      rig: 'local_shipping',
+      van: 'airport_shuttle',
+      tanker: 'propane_tank',
+      flatbed: 'rv_hookup',
+    };
+    return map[type] ?? 'local_shipping';
+  }
+
+  setVehicleCategory(category: VehicleCategoryFilter): void {
+    this.vehicleCategory = category;
+    if (
+      this.selectedVehicleId != null &&
+      !this.filteredVehicles.some((vehicle) => vehicle.id === this.selectedVehicleId)
+    ) {
+      this.selectedVehicleId = null;
+    }
+  }
+
+  clearVehicleFilters(): void {
+    this.vehicleSearch = '';
+    this.vehicleCategory = 'all';
   }
 
   confirm(): void {
@@ -86,7 +181,7 @@ export class AllocateShipmentDialogComponent implements OnInit, OnDestroy {
       .allocateShipment({
         shipmentId: this.data.shipment.id,
         fleetDriverId: this.selectedDriverId!,
-        fleetAssetId: this.selectedVehicleId!,
+        fleetAssetId: Number(this.selectedVehicleId),
       })
       .pipe(
         finalize(() => (this.submitting = false)),

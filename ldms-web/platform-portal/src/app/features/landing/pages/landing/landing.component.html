@@ -1,62 +1,60 @@
 <div class="ldms-landing">
   <div class="ldms-scroll-bar" aria-hidden="true"></div>
+
   <div class="ldms-landing__bg" aria-hidden="true">
     <div class="ldms-orb-global ldms-orb-global--a"></div>
     <div class="ldms-orb-global ldms-orb-global--b"></div>
-    <div class="ldms-orb-global ldms-orb-global--c"></div>
   </div>
   <div class="ldms-landing__grid-faint" aria-hidden="true"></div>
-  <div class="ldms-landing__noise" aria-hidden="true"></div>
 
+  <!-- Navigation -->
   <header class="ldms-landing__nav">
     <div class="ldms-landing__nav-shell">
-    <div class="ldms-landing__nav-inner">
-      <div class="ldms-landing__brand">
-        <span class="ldms-landing__logo" aria-hidden="true">
-          <img class="ldms-landing__logo-img ldms-landing__logo-img--light" src="images/lx-logo.png" alt="" />
-          <img class="ldms-landing__logo-img ldms-landing__logo-img--dark" src="images/lx-logo-transparent.png" alt="" />
-        </span>
-        <div class="ldms-landing__brand-text">
+      <div class="ldms-landing__nav-inner">
+        <div class="ldms-landing__brand">
+          <span class="ldms-landing__logo" aria-hidden="true">
+            <img class="ldms-landing__logo-img ldms-landing__logo-img--light" src="images/lx-logo.png" alt="" />
+            <img class="ldms-landing__logo-img ldms-landing__logo-img--dark" src="images/lx-logo-transparent.png" alt="" />
+          </span>
           <span class="ldms-landing__name">Project <span class="brand-lx">LX</span></span>
         </div>
-      </div>
 
-      <nav class="ldms-landing__nav-jump" aria-label="Page sections">
-        <a class="ldms-landing__nav-jump-link" href="#ldms-capabilities">Capabilities</a>
-        <a class="ldms-landing__nav-jump-link" href="#ldms-platform">Platform depth</a>
-        <a class="ldms-landing__nav-jump-link" href="#ldms-journey">Journey</a>
-        <a class="ldms-landing__nav-jump-link" href="#ldms-faq">FAQ</a>
-      </nav>
+        <nav class="ldms-landing__nav-jump" aria-label="Page sections">
+          <a class="ldms-landing__nav-jump-link" href="#ldms-platform">Platform</a>
+          <a class="ldms-landing__nav-jump-link" href="#ldms-features">Features</a>
+          <a class="ldms-landing__nav-jump-link" href="#ldms-industries">Industries</a>
+          <a class="ldms-landing__nav-jump-link" href="#ldms-journey">How it works</a>
+        </nav>
 
-      <nav class="ldms-landing__nav-actions ldms-landing__nav-actions--desktop" aria-label="Primary">
+        <nav class="ldms-landing__nav-actions ldms-landing__nav-actions--desktop" aria-label="Primary">
+          <button
+            type="button"
+            class="ldms-landing__theme-toggle"
+            (click)="toggleTheme()"
+            [attr.title]="theme.dark() ? 'Light mode' : 'Dark mode'"
+            [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+          >
+            <span class="material-icons" aria-hidden="true">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+          </button>
+          <a class="ldms-landing__link" [href]="adminUrl + '/auth/login'" rel="noopener">Admin</a>
+          <a class="ldms-landing__link" routerLink="/contact">Demo</a>
+          <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__btn-ghost">Sign in</a>
+          <button type="button" class="lx-btn lx-btn-primary ldms-landing__nav-cta" (click)="goSignup()">
+            Get started
+          </button>
+        </nav>
+
         <button
           type="button"
-          class="ldms-landing__theme-toggle"
-          (click)="toggleTheme()"
-          [attr.title]="theme.dark() ? 'Light mode' : 'Dark mode'"
-          [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
+          class="ldms-landing__menu-toggle"
+          (click)="toggleMobileNav()"
+          [attr.aria-expanded]="mobileNavOpen()"
+          aria-controls="ldms-landing-mobile-nav"
+          aria-label="Open menu"
         >
-          <span class="material-icons" aria-hidden="true">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+          <span class="material-icons" aria-hidden="true">{{ mobileNavOpen() ? 'close' : 'menu' }}</span>
         </button>
-        <a class="ldms-landing__link" [href]="adminUrl + '/auth/login'" rel="noopener">Admin</a>
-        <a class="ldms-landing__link" routerLink="/contact">Demo</a>
-        <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__btn-ghost">Sign in</a>
-        <button type="button" class="lx-btn lx-btn-primary ldms-landing__nav-cta" (click)="goSignup()">
-          Get started
-        </button>
-      </nav>
-
-      <button
-        type="button"
-        class="ldms-landing__menu-toggle"
-        (click)="toggleMobileNav()"
-        [attr.aria-expanded]="mobileNavOpen()"
-        aria-controls="ldms-landing-mobile-nav"
-        aria-label="Open menu"
-      >
-        <span class="material-icons" aria-hidden="true">{{ mobileNavOpen() ? 'close' : 'menu' }}</span>
-      </button>
-    </div>
+      </div>
     </div>
 
     <div
@@ -66,692 +64,439 @@
       [attr.aria-hidden]="!mobileNavOpen()"
     >
       <nav class="ldms-landing__mobile-nav-links" aria-label="Mobile">
-        <a class="ldms-landing__mobile-link" href="#ldms-capabilities" (click)="closeMobileNav()">Capabilities</a>
         <a class="ldms-landing__mobile-link" href="#ldms-platform" (click)="closeMobileNav()">Platform</a>
-        <a class="ldms-landing__mobile-link" href="#ldms-journey" (click)="closeMobileNav()">Journey</a>
-        <a class="ldms-landing__mobile-link" href="#ldms-faq" (click)="closeMobileNav()">FAQ</a>
+        <a class="ldms-landing__mobile-link" href="#ldms-features" (click)="closeMobileNav()">Features</a>
+        <a class="ldms-landing__mobile-link" href="#ldms-industries" (click)="closeMobileNav()">Industries</a>
+        <a class="ldms-landing__mobile-link" href="#ldms-journey" (click)="closeMobileNav()">How it works</a>
         <a class="ldms-landing__mobile-link" routerLink="/contact" (click)="closeMobileNav()">Book a demo</a>
         <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__mobile-btn" (click)="closeMobileNav()">
-          Organisation sign in
+          Sign in
         </a>
-        <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup(); closeMobileNav()">Create account</button>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup(); closeMobileNav()">Get started</button>
       </nav>
     </div>
   </header>
 
   <main class="ldms-landing__main">
-    <section class="ldms-landing__hero ldms-landing__anchor" id="ldms-overview" aria-labelledby="ldms-landing-hero-title">
-      <div class="ldms-landing__hero-glow" aria-hidden="true">
-        <svg class="ldms-landing__hero-route" viewBox="0 0 800 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <defs>
-            <linearGradient id="ldms-route-grad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="rgba(59,130,246,0)" />
-              <stop offset="50%" stop-color="rgba(59,130,246,0.85)" />
-              <stop offset="100%" stop-color="rgba(249,115,22,0)" />
-            </linearGradient>
-          </defs>
-          <path class="ldms-landing__hero-route-line ldms-landing__hero-route-line--a" d="M40,280 Q200,120 380,200 T720,140" />
-          <path class="ldms-landing__hero-route-line ldms-landing__hero-route-line--b" d="M80,340 Q260,180 420,260 T760,220" />
-          <circle class="ldms-landing__hero-route-node" cx="380" cy="200" r="5" />
-          <circle class="ldms-landing__hero-route-node" cx="720" cy="140" r="4" />
-        </svg>
+    <!-- Hero -->
+    <section class="ldms-hero" id="ldms-overview" aria-labelledby="ldms-hero-title">
+      <div class="ldms-hero__bg" aria-hidden="true">
+        <img [src]="heroImage" alt="" class="ldms-hero__bg-img" loading="eager" fetchpriority="high" />
+        <div class="ldms-hero__bg-scrim"></div>
       </div>
-      <div class="ldms-landing__hero-shell">
-      <div class="ldms-landing__hero-copy">
-        <div class="ldms-landing__hero-topline">
-          <span class="ldms-landing__live-pill">
-            <span class="ldms-landing__live-dot" aria-hidden="true"></span>
-            Live corridor platform
-          </span>
-          <p class="ldms-landing__eyebrow">Logistics &amp; Distribution Management System</p>
-        </div>
-        <h1 id="ldms-landing-hero-title" class="ldms-landing__title">
-          <span class="ldms-word">Road-based</span>
-          <span class="ldms-word">delivery,</span>
-          <span class="ldms-word ldms-word--accent">coordinated</span>
-          <span class="ldms-word">from</span>
-          <span class="ldms-word">first</span>
-          <span class="ldms-word">mile</span>
-          <span class="ldms-word">to</span>
-          <span class="ldms-word ldms-word--accent">proof</span>
-          <span class="ldms-word">of</span>
-          <span class="ldms-word ldms-word--accent">delivery</span>
-        </h1>
-        <p class="ldms-landing__lead">
-          One workspace for suppliers, partners, and customers—orders, trips, compliance, and settlements aligned from
-          dispatch to proof of delivery.
-        </p>
-        <div class="ldms-landing__hero-cta">
-          <button type="button" class="lx-btn lx-btn-primary ldms-landing__cta-primary ldms-landing__cta-shine" (click)="goSignup()">
-            <span class="material-icons ldms-landing__cta-icon" aria-hidden="true">rocket_launch</span>
-            Get started free
-          </button>
-          <button type="button" class="lx-btn lx-btn-secondary ldms-landing__hero-book" (click)="goBookDemo()">
-            Book a demo
-          </button>
-          <a class="ldms-landing__hero-link" href="#ldms-capabilities">
-            Explore capabilities
-            <span class="material-icons" aria-hidden="true">arrow_downward</span>
-          </a>
-        </div>
-        <ul class="ldms-landing__chips" aria-label="Highlights">
-          <li *ngFor="let c of heroChips" class="ldms-landing__chip">{{ c }}</li>
-        </ul>
-        <ul class="ldms-landing__stats" aria-label="Platform highlights">
-          <li class="ldms-landing__stat">
-            <span class="ldms-landing__stat-label">Network reach</span>
-            <span class="ldms-landing__stat-value"
-              ><span class="ldms-landing__kpi-num" data-count="7">7</span>+ roles</span
-            >
-          </li>
-          <li class="ldms-landing__stat">
-            <span class="ldms-landing__stat-label">Signature arc</span>
-            <span class="ldms-landing__stat-value"><span class="ldms-landing__kpi-num" data-count="12">12</span> phases</span>
-          </li>
-          <li class="ldms-landing__stat">
-            <span class="ldms-landing__stat-label">Dual stages</span>
-            <span class="ldms-landing__stat-value"><span class="ldms-landing__kpi-num" data-count="2">2</span> apps</span>
-          </li>
-        </ul>
-      </div>
-      <figure class="ldms-landing__hero-art">
-        <div class="ldms-landing__hero-frame" aria-hidden="true"></div>
-        <img
-          class="ldms-landing__hero-img"
-          [src]="heroImage"
-          width="1600"
-          height="1067"
-          alt="Heavy commercial trucks on a highway — road freight logistics"
-          loading="eager"
-          decoding="async"
-          fetchpriority="high"
-        />
-        <div class="ldms-landing__hero-scrim" aria-hidden="true"></div>
-        <div class="ldms-landing__orb ldms-landing__orb--1" aria-hidden="true"></div>
-        <div class="ldms-landing__orb ldms-landing__orb--2" aria-hidden="true"></div>
-        <div class="ldms-landing__hero-floating" aria-hidden="true">
-          <span class="ldms-landing__hero-floating-line ldms-landing__hero-floating-line--a"></span>
-          <span class="ldms-landing__hero-floating-line ldms-landing__hero-floating-line--b"></span>
-          <span class="ldms-landing__hero-floating-line ldms-landing__hero-floating-line--c"></span>
-        </div>
-        <div class="ldms-hero-stat-card" aria-hidden="true">
-          <div class="ldms-hero-stat-card__row">
-            <span class="ldms-hero-stat-card__label">On-Time Rate</span>
-            <span class="ldms-hero-stat-card__value">98.2%</span>
-          </div>
-          <div class="ldms-hero-stat-card__row">
-            <span class="ldms-hero-stat-card__label">Border Crossings Today</span>
-            <span class="ldms-hero-stat-card__value">12</span>
-          </div>
-          <div class="ldms-hero-stat-card__bar" aria-hidden="true"></div>
-        </div>
-        <div class="ldms-hero-badge" aria-hidden="true">
-          <span class="ldms-hero-badge__dot"></span>
-          <span class="ldms-hero-badge__text">Live GPS · 47 active trips</span>
-        </div>
-        <figcaption class="ldms-landing__photo-credit">
-          Photo:
-          <a href="https://www.pexels.com" rel="noopener noreferrer" target="_blank">Pexels</a>
-        </figcaption>
-      </figure>
-      </div>
-    </section>
 
-    <section class="ldms-landing__marquee-wrap ldms-landing__anchor" id="ldms-capabilities" aria-labelledby="ldms-pillars-title">
-      <div class="ldms-landing__marquee-head ldms-reveal">
-        <h2 id="ldms-pillars-title" class="ldms-landing__marquee-title">Everything your corridor runs on</h2>
-        <p class="ldms-landing__marquee-sub">Orders to settlements — one connected stack</p>
-      </div>
-      <div class="ldms-landing__marquee ldms-reveal" aria-hidden="false">
-        <div class="ldms-landing__marquee-fade ldms-landing__marquee-fade--left" aria-hidden="true"></div>
-        <div class="ldms-landing__marquee-fade ldms-landing__marquee-fade--right" aria-hidden="true"></div>
-        <div class="ldms-landing__marquee-track">
-          <ul class="ldms-landing__pillars ldms-landing__pillars--marquee">
-            <li *ngFor="let p of pillarsMarquee" class="ldms-landing__pillar">
-              <span class="ldms-landing__pillar-icon material-icons" aria-hidden="true">{{ p.icon }}</span>
-              <span class="ldms-landing__pillar-label">{{ p.label }}</span>
-            </li>
-          </ul>
-          <ul class="ldms-landing__pillars ldms-landing__pillars--marquee" aria-hidden="true">
-            <li *ngFor="let p of pillarsMarquee" class="ldms-landing__pillar">
-              <span class="ldms-landing__pillar-icon material-icons" aria-hidden="true">{{ p.icon }}</span>
-              <span class="ldms-landing__pillar-label">{{ p.label }}</span>
-            </li>
-          </ul>
+      <div class="ldms-hero__inner">
+        <div class="ldms-hero__copy">
+          <p class="ldms-hero__eyebrow">Secure corridor success with logistics digitalization</p>
+          <h1 id="ldms-hero-title" class="ldms-hero__title">
+            The distribution platform
+            <span class="ldms-hero__title-accent">empowering businesses</span>
+            across borders
+          </h1>
+          <p class="ldms-hero__lead">
+            Project LX LDMS puts corridor owners in control — orders, fleet, trips, compliance, and settlements aligned
+            from first mile to proof of delivery. One event-driven platform for suppliers, partners, and customers.
+          </p>
+          <div class="ldms-hero__cta">
+            <button type="button" class="lx-btn lx-btn-primary ldms-hero__cta-primary" (click)="goSignup()">
+              Get started
+            </button>
+            <button type="button" class="lx-btn lx-btn-secondary ldms-hero__cta-secondary" (click)="goBookDemo()">
+              Book a demo
+            </button>
+          </div>
+        </div>
+
+        <div class="ldms-hero__visual" aria-hidden="true">
+          <div class="ldms-hero__dashboard">
+            <div class="ldms-hero__dashboard-bar">
+              <span class="ldms-hero__dashboard-dot ldms-hero__dashboard-dot--r"></span>
+              <span class="ldms-hero__dashboard-dot ldms-hero__dashboard-dot--y"></span>
+              <span class="ldms-hero__dashboard-dot ldms-hero__dashboard-dot--g"></span>
+              <span class="ldms-hero__dashboard-url">ldms.projectlx.co.zw</span>
+            </div>
+            <div class="ldms-hero__dashboard-body">
+              <div class="ldms-hero__dashboard-map">
+                <svg viewBox="0 0 400 220" class="ldms-hero__map-svg" aria-hidden="true">
+                  <path class="ldms-hero__map-route" d="M30,180 Q120,40 200,100 T370,60" />
+                  <circle class="ldms-hero__map-node ldms-hero__map-node--a" cx="200" cy="100" r="6" />
+                  <circle class="ldms-hero__map-node ldms-hero__map-node--b" cx="370" cy="60" r="5" />
+                  <circle class="ldms-hero__map-pulse" cx="200" cy="100" r="14" />
+                </svg>
+              </div>
+              <div class="ldms-hero__dashboard-stats">
+                <div class="ldms-hero__dash-stat">
+                  <span class="ldms-hero__dash-label">Active trips</span>
+                  <span class="ldms-hero__dash-value">47</span>
+                </div>
+                <div class="ldms-hero__dash-stat">
+                  <span class="ldms-hero__dash-label">On-time rate</span>
+                  <span class="ldms-hero__dash-value ldms-hero__dash-value--green">98.2%</span>
+                </div>
+                <div class="ldms-hero__dash-stat">
+                  <span class="ldms-hero__dash-label">Border crossings</span>
+                  <span class="ldms-hero__dash-value">12 today</span>
+                </div>
+              </div>
+            </div>
+            <div class="ldms-hero__live-badge">
+              <span class="ldms-hero__live-dot"></span>
+              Live GPS tracking
+            </div>
+          </div>
         </div>
       </div>
     </section>
 
-    <section class="ldms-landing__section ldms-landing__section--intro ldms-landing__anchor ldms-reveal" id="ldms-intro" aria-labelledby="ldms-intro-title">
-      <div class="ldms-landing__section-inner ldms-landing__intro-grid">
-        <div>
-          <h2 id="ldms-intro-title" class="ldms-landing__section-title">Efficiency, transparency, and accountability</h2>
-          <p class="ldms-landing__section-lead ldms-landing__section-lead--intro">
-            LDMS keeps road logistics composed: one place for orders, trips, compliance, and settlements—so your teams spend
-            less time reconciling versions and more time moving cargo.
+    <!-- Stats band (Wialon-style) -->
+    <section class="ldms-stats-band ldms-reveal" aria-label="Platform scale">
+      <div class="ldms-stats-band__inner">
+        <article *ngFor="let s of heroStats" class="ldms-stat">
+          <p class="ldms-stat__value">
+            <span class="ldms-stat__num" [attr.data-count]="s.value">{{ s.value }}</span
+            ><span class="ldms-stat__suffix">{{ s.suffix }}</span>
+          </p>
+          <p class="ldms-stat__label">{{ s.label }}</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Platform modules -->
+    <section class="ldms-section ldms-reveal" id="ldms-platform" aria-labelledby="ldms-platform-title">
+      <div class="ldms-section__inner">
+        <div class="ldms-section__head ldms-section__head--center">
+          <p class="ldms-kicker">Platform suite</p>
+          <h2 id="ldms-platform-title" class="ldms-section__title">One ecosystem, every entry point</h2>
+          <p class="ldms-section__lead">
+            Web portals for organisations and administrators, plus mobile apps for drivers and ops — all connected
+            through the same event-driven backbone.
           </p>
         </div>
-        <ul class="ldms-landing__proof-list">
-          <li *ngFor="let line of introProof">
-            <span class="ldms-landing__proof-ic material-icons" aria-hidden="true">check_circle</span>
-            <span>{{ line }}</span>
-          </li>
-        </ul>
-        <figure class="ldms-landing__intro-art">
-          <img [src]="introImage" alt="Warehouse crew staging pallets for dispatch" loading="lazy" decoding="async" />
-        </figure>
+        <div class="ldms-modules ldms-reveal ldms-reveal--stagger">
+          <article *ngFor="let m of platformModules" class="ldms-module">
+            <div class="ldms-module__icon" aria-hidden="true">
+              <span class="material-icons">{{ m.icon }}</span>
+            </div>
+            <h3 class="ldms-module__title">{{ m.title }}</h3>
+            <p class="ldms-module__body">{{ m.description }}</p>
+            <button type="button" class="ldms-module__link" (click)="onModuleAction(m.action)">
+              {{ m.cta }}
+              <span class="material-icons" aria-hidden="true">arrow_forward</span>
+            </button>
+          </article>
+        </div>
       </div>
     </section>
 
-    <section class="ldms-landing__section ldms-landing__section--purpose ldms-landing__anchor ldms-reveal" id="ldms-purpose" aria-labelledby="ldms-purpose-title">
-      <div class="ldms-landing__section-inner">
-        <div class="ldms-landing__section-head ldms-landing__section-head--center">
-          <p class="ldms-landing__kicker">Purpose</p>
-          <h2 id="ldms-purpose-title" class="ldms-landing__section-title ldms-landing__purpose-hero-title">
-            <span class="ldms-landing__purpose-hero-muted">Six experiences that</span>
-            <span class="ldms-landing__purpose-hero-accent"> define LDMS</span>
-          </h2>
-          <p class="ldms-landing__section-lead ldms-landing__section-lead--tight">
-            Six themes we design around—flip each card for how LDMS shows up in your corridor. Still the same LX gradients
-            and photography-led polish; the copy is just easier to brief executives on.
-          </p>
+    <!-- Benefits -->
+    <section class="ldms-section ldms-section--muted ldms-reveal" aria-labelledby="ldms-benefits-title">
+      <div class="ldms-section__inner">
+        <div class="ldms-benefits">
+          <article *ngFor="let b of benefits" class="ldms-benefit">
+            <div class="ldms-benefit__icon" aria-hidden="true">
+              <span class="material-icons">{{ b.icon }}</span>
+            </div>
+            <h3 class="ldms-benefit__title">{{ b.title }}</h3>
+            <p class="ldms-benefit__body">{{ b.body }}</p>
+          </article>
         </div>
-        <div class="ldms-purpose-grid ldms-reveal ldms-reveal--stagger" role="list">
+      </div>
+    </section>
+
+    <!-- Capability marquee -->
+    <section class="ldms-marquee-wrap ldms-reveal" aria-labelledby="ldms-marquee-title">
+      <h2 id="ldms-marquee-title" class="visually-hidden">Core capabilities</h2>
+      <div class="ldms-marquee">
+        <div class="ldms-marquee__fade ldms-marquee__fade--left" aria-hidden="true"></div>
+        <div class="ldms-marquee__fade ldms-marquee__fade--right" aria-hidden="true"></div>
+        <div class="ldms-marquee__track">
+          <ul class="ldms-marquee__list">
+            <li *ngFor="let p of pillarsMarquee" class="ldms-marquee__item">
+              <span class="material-icons" aria-hidden="true">{{ p.icon }}</span>
+              {{ p.label }}
+            </li>
+          </ul>
+          <ul class="ldms-marquee__list" aria-hidden="true">
+            <li *ngFor="let p of pillarsMarquee" class="ldms-marquee__item">
+              <span class="material-icons" aria-hidden="true">{{ p.icon }}</span>
+              {{ p.label }}
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Interactive feature tabs (Wialon-style) -->
+    <section class="ldms-section ldms-feature-section ldms-reveal" id="ldms-features" aria-labelledby="ldms-features-title">
+      <div class="ldms-section__inner">
+        <div class="ldms-section__head ldms-section__head--center">
+          <p class="ldms-kicker">Capabilities</p>
+          <h2 id="ldms-features-title" class="ldms-section__title">Everything your corridor runs on</h2>
+        </div>
+
+        <div class="ldms-feature-tabs" role="tablist" aria-label="Platform features">
           <button
-            *ngFor="let p of purposePalettes; let i = index"
+            *ngFor="let tab of featureTabs; let i = index"
             type="button"
-            class="ldms-flip ldms-purpose-card"
-            role="listitem"
-            [class.ldms-flip--flipped]="purposeFlipped(i)"
-            [attr.aria-pressed]="purposeFlipped(i)"
-            [attr.aria-label]="'Flip card: ' + p.title + p.accent"
-            (click)="togglePurposeFlip(i)"
+            role="tab"
+            class="ldms-feature-tab"
+            [class.ldms-feature-tab--active]="activeFeatureTab() === i"
+            [attr.aria-selected]="activeFeatureTab() === i"
+            (click)="selectFeatureTab(i)"
           >
-            <span class="visually-hidden">Tap to flip and reveal the story behind {{ p.title }}</span>
-            <div class="ldms-flip__inner">
-              <div class="ldms-flip__face ldms-flip__face--front">
-                <div class="ldms-purpose-card__media">
-                  <img [src]="p.image" [alt]="p.imageAlt" loading="lazy" decoding="async" />
-                  <div class="ldms-purpose-card__media-scrim" aria-hidden="true"></div>
-                </div>
-                <div class="ldms-purpose-card__front-copy">
-                  <h3 class="ldms-purpose-card__title">
-                    {{ p.title }}<span class="ldms-purpose-card__accent">{{ p.accent }}</span>
-                  </h3>
-                  <p class="ldms-purpose-card__tag">{{ p.tagline }}</p>
-                  <span class="ldms-purpose-card__hint">
-                    <span class="material-icons" aria-hidden="true">cached</span>
-                    Flip for the story
-                  </span>
-                </div>
-              </div>
-              <div class="ldms-flip__face ldms-flip__face--back">
-                <div class="ldms-purpose-card__back-inner">
-                  <h3 class="ldms-purpose-card__back-title">{{ p.title }}{{ p.accent }}</h3>
-                  <p class="ldms-purpose-card__back-body">{{ p.story }}</p>
-                  <span class="ldms-purpose-card__hint ldms-purpose-card__hint--back">
-                    <span class="material-icons" aria-hidden="true">undo</span>
-                    Tap to return
-                  </span>
-                </div>
-              </div>
-            </div>
+            <span class="material-icons" aria-hidden="true">{{ tab.icon }}</span>
+            {{ tab.label }}
           </button>
         </div>
+
+        <div class="ldms-feature-panel" role="tabpanel">
+          <div class="ldms-feature-panel__copy">
+            <h3 class="ldms-feature-panel__title">{{ activeFeature().title }}</h3>
+            <p class="ldms-feature-panel__body">{{ activeFeature().body }}</p>
+            <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup()">Get started</button>
+          </div>
+          <div class="ldms-feature-panel__visual">
+            <img
+              [src]="activeFeature().image"
+              [alt]="activeFeature().imageAlt"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="ldms-landing__showcase ldms-landing__anchor ldms-reveal" id="ldms-platform" aria-labelledby="ldms-showcase-title">
-      <div class="ldms-landing__section-inner ldms-landing__showcase-inner">
-        <div class="ldms-landing__showcase-copy">
-          <p class="ldms-landing__kicker">Overview</p>
-          <h2 id="ldms-showcase-title" class="ldms-landing__section-title">
-            <span class="ldms-landing__showcase-muted">LDMS</span>
-            <span class="ldms-landing__showcase-accent"> in motion</span>
-          </h2>
-          <p class="ldms-landing__section-lead ldms-landing__section-lead--tight">
-            Press play for a quick feel of movement—then dive into orders, trips, maps, and finance in the sections below.
-            Footage and gradients are here to set tone; the product depth is in the walkthroughs and FAQs.
+    <!-- Video showcase -->
+    <section class="ldms-showcase ldms-reveal" aria-labelledby="ldms-showcase-title">
+      <div class="ldms-section__inner ldms-showcase__inner">
+        <div class="ldms-showcase__copy">
+          <p class="ldms-kicker">In motion</p>
+          <h2 id="ldms-showcase-title" class="ldms-section__title">LDMS on the road</h2>
+          <p class="ldms-section__lead">
+            From warehouse dispatch to border crossing and proof of delivery — one platform orchestrating the full
+            logistics lifecycle across your network.
           </p>
-          <ul class="ldms-landing__showcase-bullets">
-            <li>One story arc for dispatch, finance, and field teams—without losing operational detail</li>
-            <li>Automation and alerts when thresholds matter, quiet when everything is on track</li>
-            <li>Room to grow: new lanes, partners, and countries without rewriting your core model</li>
+          <ul class="ldms-showcase__bullets">
+            <li>Event-driven workflows — notifications, SLAs, and escalations without duplicate logic</li>
+            <li>23 microservices behind a unified API gateway</li>
+            <li>Scales from a single lane to multi-country programmes</li>
           </ul>
-          <div class="ldms-landing__showcase-cta">
-            <a class="lx-btn lx-btn-primary" href="#ldms-journey">See the twelve-phase path</a>
-            <button type="button" class="lx-btn lx-btn-secondary" (click)="goSignup()">Start your premiere</button>
-          </div>
         </div>
-        <div class="ldms-landing__showcase-visual">
-          <div class="ldms-landing__showcase-frame">
-            <video
-              class="ldms-landing__showcase-video"
-              [poster]="showcaseVideoPoster"
-              autoplay
-              muted
-              playsinline
-              loop
-              preload="metadata"
-              aria-label="Promotional logistics footage courtesy of Pexels"
-            >
-              <source [src]="showcaseVideoSrc" type="video/mp4" />
-            </video>
-            <div class="ldms-landing__showcase-rings" aria-hidden="true"></div>
-            <p class="ldms-landing__showcase-caption">Pexels footage · mute on for ambience</p>
-          </div>
+        <div class="ldms-showcase__frame">
+          <video
+            [poster]="showcaseVideoPoster"
+            autoplay
+            muted
+            playsinline
+            loop
+            preload="metadata"
+            aria-label="Logistics footage courtesy of Pexels"
+          >
+            <source [src]="showcaseVideoSrc" type="video/mp4" />
+          </video>
         </div>
       </div>
     </section>
 
-    <section class="ldms-landing__section ldms-landing__section--muted ldms-landing__anchor ldms-reveal" id="ldms-personas" aria-labelledby="ldms-personas-title">
-      <div class="ldms-landing__section-inner">
-        <div class="ldms-landing__section-head">
-          <p class="ldms-landing__kicker">Who uses LDMS</p>
-          <h2 id="ldms-personas-title" class="ldms-landing__section-title">Built for every actor on the corridor</h2>
-          <p class="ldms-landing__section-lead ldms-landing__section-lead--tight">
-            Each role gets its own lane in the story—suppliers, customers, drivers, partners, clearing, roadside, and
-            platform stewards—with language tuned so nobody has to decode jargon to do their job.
+    <!-- Industries -->
+    <section class="ldms-section ldms-section--muted ldms-reveal" id="ldms-industries" aria-labelledby="ldms-industries-title">
+      <div class="ldms-section__inner">
+        <div class="ldms-section__head ldms-section__head--center">
+          <p class="ldms-kicker">Industries</p>
+          <h2 id="ldms-industries-title" class="ldms-section__title">Suitable for fleets of any size and sector</h2>
+          <p class="ldms-section__lead">
+            LDMS goes beyond basic tracking to offer a comprehensive distribution platform for virtually any
+            operational challenge across road logistics.
           </p>
         </div>
-        <div class="ldms-landing__personas ldms-reveal ldms-reveal--stagger">
-          <article *ngFor="let x of personas" class="ldms-landing__persona">
-            <img
-              class="ldms-landing__persona-photo"
-              [src]="x.image"
-              [alt]="x.imageAlt"
-              loading="lazy"
-              decoding="async"
-            />
-            <div class="ldms-landing__persona-body">
-              <h3 class="ldms-landing__persona-role">{{ x.role }}</h3>
-              <p class="ldms-landing__persona-detail">{{ x.detail }}</p>
+        <div class="ldms-industries ldms-reveal ldms-reveal--stagger">
+          <article *ngFor="let ind of industries" class="ldms-industry">
+            <div class="ldms-industry__media">
+              <img [src]="ind.image" [alt]="ind.imageAlt" loading="lazy" decoding="async" />
+            </div>
+            <div class="ldms-industry__body">
+              <h3 class="ldms-industry__title">{{ ind.title }}</h3>
+              <p class="ldms-industry__text">{{ ind.body }}</p>
             </div>
           </article>
         </div>
       </div>
     </section>
 
-    <div class="ldms-landing__dives" id="ldms-deep-dives">
-      <section
-        *ngFor="let d of deepDives; let idx = index"
-        class="ldms-landing__dive ldms-landing__section ldms-reveal"
-        [class.ldms-landing__dive--reverse]="idx % 2 === 1"
-        [attr.aria-labelledby]="'ldms-dive-' + idx"
-      >
-        <div class="ldms-landing__section-inner ldms-landing__dive-inner">
-          <div class="ldms-landing__dive-copy">
-            <p class="ldms-landing__kicker">{{ d.kicker }}</p>
-            <h2 [id]="'ldms-dive-' + idx" class="ldms-landing__section-title">{{ d.title }}</h2>
-            <p class="ldms-landing__section-lead ldms-landing__section-lead--tight">{{ d.lead }}</p>
-            <ul class="ldms-landing__dive-list">
-              <li *ngFor="let b of d.bullets">{{ b }}</li>
-            </ul>
-          </div>
-          <div class="ldms-landing__dive-visual">
-            <div class="ldms-landing__dive-art ldms-landing__dive-art--photo">
-              <img class="ldms-landing__dive-photo" [src]="d.image" [alt]="d.imageAlt" loading="lazy" decoding="async" />
-              <div class="ldms-landing__dive-art-grid" aria-hidden="true"></div>
+    <!-- Personas -->
+    <section class="ldms-section ldms-reveal" aria-labelledby="ldms-personas-title">
+      <div class="ldms-section__inner">
+        <div class="ldms-section__head ldms-section__head--center">
+          <p class="ldms-kicker">Who uses LDMS</p>
+          <h2 id="ldms-personas-title" class="ldms-section__title">Built for every actor on the corridor</h2>
+        </div>
+        <div class="ldms-personas ldms-reveal ldms-reveal--stagger">
+          <article *ngFor="let x of personas" class="ldms-persona">
+            <img class="ldms-persona__photo" [src]="x.image" [alt]="x.imageAlt" loading="lazy" decoding="async" />
+            <div class="ldms-persona__body">
+              <h3 class="ldms-persona__role">{{ x.role }}</h3>
+              <p class="ldms-persona__detail">{{ x.detail }}</p>
             </div>
-          </div>
-        </div>
-      </section>
-    </div>
-
-    <section class="ldms-landing__section ldms-landing__anchor ldms-reveal" id="ldms-journey" aria-labelledby="ldms-journey-title">
-      <div class="ldms-landing__section-inner">
-        <div class="ldms-landing__section-head">
-          <p class="ldms-landing__kicker">How it works</p>
-          <h2 id="ldms-journey-title" class="ldms-landing__section-title">
-            <span class="ldms-landing__journey-muted">Implementation path ·</span>
-            <span class="ldms-landing__journey-accent"> twelve on-platform phases</span>
-          </h2>
-          <p class="ldms-landing__section-lead ldms-landing__section-lead--tight">
-            A guided path from first organisation setup through go-live and steady operations—each step below is a real
-            chapter you can align workshops and governance to, without losing the personality of your programme.
-          </p>
-        </div>
-        <div class="ldms-landing__journey-layout">
-          <ol class="ldms-landing__steps ldms-landing__steps--beats ldms-reveal ldms-reveal--stagger">
-            <li *ngFor="let s of journeySteps" class="ldms-landing__step">
-              <span class="ldms-landing__step-num" aria-hidden="true">{{ s.n }}</span>
-              <div class="ldms-landing__step-body">
-                <h3 class="ldms-landing__step-title">{{ s.title }}</h3>
-                <p class="ldms-landing__step-detail">{{ s.detail }}</p>
-              </div>
-            </li>
-          </ol>
-          <figure class="ldms-landing__journey-art">
-            <img
-              [src]="journeyImage"
-              alt="Aerial view of highway interchange — freight corridors and routing"
-              loading="lazy"
-              decoding="async"
-            />
-          </figure>
-        </div>
-      </div>
-    </section>
-
-    <section class="ldms-landing__intel ldms-reveal" aria-labelledby="ldms-intel-title">
-      <div class="ldms-landing__intel-inner">
-        <div class="ldms-landing__intel-head">
-          <p class="ldms-landing__intel-kicker">Operational intelligence</p>
-          <h2 id="ldms-intel-title" class="ldms-landing__intel-title">Turn every process into a measurable edge</h2>
-          <p class="ldms-landing__intel-lead">
-            Dense capability, clear hierarchy, and decisive calls-to-action—so dispatch, finance, and leadership each
-            get the right depth without losing the Project LX visual language.
-          </p>
-        </div>
-        <div class="ldms-landing__intel-cards ldms-reveal ldms-reveal--stagger">
-          <article *ngFor="let h of intelHighlights" class="ldms-landing__intel-card ldms-landing__intel-card--tilt">
-            <div class="ldms-landing__intel-card-media">
-              <img [src]="h.image" [alt]="h.imageAlt" loading="lazy" decoding="async" />
-            </div>
-            <h3 class="ldms-landing__intel-card-title">{{ h.title }}</h3>
-            <p class="ldms-landing__intel-card-body">{{ h.body }}</p>
           </article>
         </div>
       </div>
     </section>
 
-    <section class="ldms-landing__section ldms-landing__section--kpis ldms-reveal" aria-labelledby="ldms-kpi-title">
-      <div class="ldms-landing__section-inner">
-        <div class="ldms-landing__section-head ldms-landing__section-head--center">
-          <p class="ldms-landing__kicker">Control tower</p>
-          <h2 id="ldms-kpi-title" class="ldms-landing__section-title">Numbers your leadership team can rally behind</h2>
-        </div>
-        <div class="ldms-landing__kpi-row ldms-reveal ldms-reveal--stagger">
-          <article *ngFor="let k of kpis" class="ldms-landing__kpi">
-            <p class="ldms-landing__kpi-value">
-              <span
-                class="ldms-landing__kpi-num"
-                [attr.data-count]="k.value === '24/7' ? null : (k.value === '7+' ? '7' : k.value)"
-                >{{ k.value === '7+' ? '7' : k.value }}</span
-              ><span class="ldms-landing__kpi-inline-plus">{{ k.value === '7+' ? '+' : '' }}</span
-              ><span class="ldms-landing__kpi-unit">{{ k.unit }}</span>
+    <!-- Journey -->
+    <section class="ldms-section ldms-section--journey ldms-reveal" id="ldms-journey" aria-labelledby="ldms-journey-title">
+      <div class="ldms-section__inner">
+        <div class="ldms-journey__grid">
+          <div class="ldms-journey__copy">
+            <p class="ldms-kicker">How it works</p>
+            <h2 id="ldms-journey-title" class="ldms-section__title">From onboarding to steady-state operations</h2>
+            <p class="ldms-section__lead">
+              A guided implementation path you can align workshops and governance to — without losing momentum.
             </p>
-            <h3 class="ldms-landing__kpi-label">{{ k.label }}</h3>
-            <p class="ldms-landing__kpi-hint">{{ k.hint }}</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="ldms-landing__section ldms-landing__section--auto ldms-reveal" aria-labelledby="ldms-auto-title">
-      <div class="ldms-landing__section-inner ldms-landing__auto-inner">
-        <div class="ldms-landing__auto-copy">
-          <p class="ldms-landing__kicker">Automation &amp; workflows</p>
-          <h2 id="ldms-auto-title" class="ldms-landing__section-title">Tailored automation without losing the human gate</h2>
-          <p class="ldms-landing__section-lead ldms-landing__section-lead--tight">
-            Notifications, reminders, and escalations carry the operational rhythm so planners focus on exceptions—not
-            repetitive status calls.
-          </p>
-        </div>
-        <ul class="ldms-landing__auto-list">
-          <li *ngFor="let a of automationPoints">
-            <span class="material-icons ldms-landing__auto-ic" aria-hidden="true">flash_on</span>
-            <span>{{ a }}</span>
-          </li>
-        </ul>
-        <figure class="ldms-landing__auto-art">
-          <img
-            [src]="automationImage"
-            alt="Shipping containers and yard operations supporting automated workflows"
-            loading="lazy"
-            decoding="async"
-          />
-        </figure>
-      </div>
-    </section>
-
-    <section class="ldms-landing__section ldms-landing__section--more ldms-reveal" aria-labelledby="ldms-more-title">
-      <div class="ldms-landing__section-inner">
-        <div class="ldms-landing__section-head ldms-landing__section-head--center">
-          <p class="ldms-landing__kicker">Additional capabilities</p>
-          <h2 id="ldms-more-title" class="ldms-landing__section-title">Everything else your corridor expects</h2>
-        </div>
-        <div class="ldms-landing__more-grid ldms-reveal ldms-reveal--stagger">
-          <button
-            *ngFor="let m of moreFeatures; let j = index"
-            type="button"
-            class="ldms-flip ldms-more-card"
-            [class.ldms-flip--flipped]="moreFlipped(j)"
-            [attr.aria-pressed]="moreFlipped(j)"
-            [attr.aria-label]="'Flip feature: ' + m.title"
-            (click)="toggleMoreFlip(j)"
-          >
-            <div class="ldms-flip__inner">
-              <div class="ldms-flip__face ldms-flip__face--front">
-                <div class="ldms-more-card__media">
-                  <img [src]="m.image" [alt]="m.imageAlt" loading="lazy" decoding="async" />
-                  <div class="ldms-more-card__scrim" aria-hidden="true"></div>
+            <ol class="ldms-journey__steps">
+              <li *ngFor="let s of journeySteps" class="ldms-journey__step">
+                <span class="ldms-journey__num" aria-hidden="true">{{ s.n }}</span>
+                <div>
+                  <h3 class="ldms-journey__step-title">{{ s.title }}</h3>
+                  <p class="ldms-journey__step-detail">{{ s.detail }}</p>
                 </div>
-                <h3 class="ldms-more-card__title">{{ m.title }}</h3>
-                <p class="ldms-more-card__teaser">{{ m.detail }}</p>
-              </div>
-              <div class="ldms-flip__face ldms-flip__face--back">
-                <div class="ldms-more-card__back">
-                  <h3 class="ldms-more-card__back-title">{{ m.title }}</h3>
-                  <p class="ldms-more-card__pitch">{{ m.pitch }}</p>
-                  <span class="ldms-more-card__mini-hint">
-                    <span class="material-icons" aria-hidden="true">undo</span>
-                    Flip back
-                  </span>
-                </div>
-              </div>
-            </div>
-          </button>
+              </li>
+            </ol>
+          </div>
+          <figure class="ldms-journey__art">
+            <img [src]="journeyImage" alt="Highway interchange — freight corridors and routing" loading="lazy" decoding="async" />
+          </figure>
         </div>
       </div>
     </section>
 
-    <section class="ldms-landing__section ldms-landing__section--split ldms-reveal" aria-labelledby="ldms-notify-title ldms-impact-title">
-      <div class="ldms-landing__section-inner ldms-landing__section-inner--split">
-        <div class="ldms-landing__panel">
-          <figure class="ldms-landing__panel-media">
-            <img [src]="splitNotifyImage" alt="Warehouse operations with live dispatch notifications" loading="lazy" decoding="async" />
-          </figure>
-          <p class="ldms-landing__kicker">Notifications</p>
-          <h2 id="ldms-notify-title" class="ldms-landing__panel-title">Everyone stays in the loop</h2>
-          <ul class="ldms-landing__bullet-list">
-            <li *ngFor="let n of notificationChannels">{{ n }}</li>
-          </ul>
+    <!-- Testimonials -->
+    <section class="ldms-section ldms-section--testimonials ldms-reveal" aria-labelledby="ldms-testimonials-title">
+      <div class="ldms-section__inner">
+        <div class="ldms-section__head ldms-section__head--center">
+          <p class="ldms-kicker">What operators say</p>
+          <h2 id="ldms-testimonials-title" class="ldms-section__title">Trusted on real corridors</h2>
         </div>
-        <div class="ldms-landing__panel ldms-landing__panel--accent">
-          <figure class="ldms-landing__panel-media ldms-landing__panel-media--accent">
-            <img [src]="splitImpactImage" alt="Heavy truck convoy representing measurable corridor outcomes" loading="lazy" decoding="async" />
-          </figure>
-          <p class="ldms-landing__kicker">Why it matters</p>
-          <h2 id="ldms-impact-title" class="ldms-landing__panel-title">Outcomes that compound</h2>
-          <ul class="ldms-landing__impact-list">
-            <li *ngFor="let i of impactPoints">
-              <span class="ldms-landing__impact-title">{{ i.title }}</span>
-              <span class="ldms-landing__impact-detail">{{ i.detail }}</span>
-            </li>
-          </ul>
+        <div class="ldms-testimonials ldms-reveal ldms-reveal--stagger">
+          <blockquote *ngFor="let t of testimonials" class="ldms-testimonial">
+            <p class="ldms-testimonial__quote">"{{ t.quote }}"</p>
+            <footer class="ldms-testimonial__footer">
+              <cite class="ldms-testimonial__name">{{ t.name }}</cite>
+              <span class="ldms-testimonial__org">{{ t.org }}</span>
+            </footer>
+          </blockquote>
         </div>
       </div>
     </section>
 
-    <section class="ldms-landing__section ldms-landing__section--onboard ldms-reveal" aria-labelledby="ldms-onboard-title">
-      <div class="ldms-landing__section-inner">
-        <div class="ldms-landing__section-head ldms-landing__section-head--center">
-          <p class="ldms-landing__kicker">Go-live motion</p>
-          <h2 id="ldms-onboard-title" class="ldms-landing__section-title">Three calm steps to production value</h2>
-        </div>
-        <ol class="ldms-landing__onboard ldms-reveal ldms-reveal--stagger">
-          <li *ngFor="let o of onboardingSteps; let i = index" class="ldms-landing__onboard-step">
-            <div class="ldms-landing__onboard-photo">
-              <img [src]="o.image" [alt]="o.imageAlt" loading="lazy" decoding="async" />
-            </div>
-            <div class="ldms-landing__onboard-copy">
-              <span class="ldms-landing__onboard-num" aria-hidden="true">{{ i + 1 }}</span>
-              <h3 class="ldms-landing__onboard-title">{{ o.title }}</h3>
-              <p class="ldms-landing__onboard-detail">{{ o.detail }}</p>
-            </div>
-          </li>
-        </ol>
+    <!-- Trust band -->
+    <section class="ldms-trust ldms-reveal" aria-labelledby="ldms-trust-title">
+      <div class="ldms-trust__inner">
+        <h2 id="ldms-trust-title" class="visually-hidden">Platform reliability</h2>
+        <article *ngFor="let t of trustItems" class="ldms-trust__item">
+          <span class="material-icons ldms-trust__icon" aria-hidden="true">{{ t.icon }}</span>
+          <div>
+            <h3 class="ldms-trust__title">{{ t.title }}</h3>
+            <p class="ldms-trust__detail">{{ t.detail }}</p>
+          </div>
+        </article>
       </div>
     </section>
 
-    <section class="ldms-landing__section ldms-landing__section--faq ldms-landing__anchor ldms-reveal" id="ldms-faq" aria-labelledby="ldms-faq-title">
-      <div class="ldms-landing__section-inner ldms-landing__faq-inner">
-        <div class="ldms-landing__faq-head">
-          <p class="ldms-landing__kicker">FAQ</p>
-          <h2 id="ldms-faq-title" class="ldms-landing__section-title">Answers for programme sponsors</h2>
-          <p class="ldms-landing__section-lead ldms-landing__section-lead--tight">
-            Narrative-first answers for sponsors who care about vibe as much as validation.
-          </p>
-          <figure class="ldms-landing__faq-art">
-            <img
-              [src]="faqAsideImage"
-              alt="Intermodal container yard illustrating scale and compliance context"
-              loading="lazy"
-              decoding="async"
-            />
-          </figure>
+    <!-- FAQ -->
+    <section class="ldms-section ldms-reveal" id="ldms-faq" aria-labelledby="ldms-faq-title">
+      <div class="ldms-section__inner ldms-faq">
+        <div class="ldms-faq__head">
+          <p class="ldms-kicker">FAQ</p>
+          <h2 id="ldms-faq-title" class="ldms-section__title">Answers for programme sponsors</h2>
         </div>
-        <div class="ldms-landing__faq-list">
-          <details *ngFor="let f of faqs" class="ldms-landing__faq-item">
-            <summary class="ldms-landing__faq-q">
+        <div class="ldms-faq__list">
+          <details *ngFor="let f of faqs" class="ldms-faq__item">
+            <summary class="ldms-faq__q">
               <span>{{ f.q }}</span>
-              <span class="material-icons ldms-landing__faq-chev" aria-hidden="true">expand_more</span>
+              <span class="material-icons" aria-hidden="true">expand_more</span>
             </summary>
-            <p class="ldms-landing__faq-a">{{ f.a }}</p>
+            <p class="ldms-faq__a">{{ f.a }}</p>
           </details>
         </div>
       </div>
     </section>
 
-    <section class="ldms-landing__section ldms-landing__section--access ldms-reveal" aria-labelledby="ldms-access-title">
-      <div class="ldms-landing__section-inner">
-        <div class="ldms-landing__section-head ldms-landing__section-head--center">
-          <p class="ldms-landing__kicker">Choose your entry</p>
-          <h2 id="ldms-access-title" class="ldms-landing__section-title">Two consoles, one platform vision</h2>
+    <!-- Access cards -->
+    <section class="ldms-section ldms-reveal" aria-labelledby="ldms-access-title">
+      <div class="ldms-section__inner">
+        <div class="ldms-section__head ldms-section__head--center">
+          <p class="ldms-kicker">Get started</p>
+          <h2 id="ldms-access-title" class="ldms-section__title">Choose your entry point</h2>
         </div>
-        <div class="ldms-landing__cards ldms-reveal ldms-reveal--stagger">
-          <article class="ldms-landing__card">
-            <div class="ldms-landing__card-hero">
-              <img
-                [src]="accessPortalCardImage"
-                alt="Distribution warehouse representing the organisation portal"
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
-            <div class="ldms-landing__card-icon" aria-hidden="true">
-              <span class="material-icons">apartment</span>
-            </div>
-            <h3>Organisation portal</h3>
-            <p>For suppliers, customers, transporters, clearing agents, service stations, and government partners.</p>
-            <ul class="ldms-landing__list">
-              <li>Role-aware navigation and dashboards</li>
-              <li>Secure sign-in and recovery</li>
-              <li>Guided organisation signup</li>
-            </ul>
-            <div class="ldms-landing__card-actions">
-              <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup()">Create account</button>
-              <a routerLink="/auth/login" class="lx-btn lx-btn-ghost">Sign in</a>
+        <div class="ldms-access ldms-reveal ldms-reveal--stagger">
+          <article class="ldms-access__card">
+            <img [src]="accessPortalCardImage" alt="" class="ldms-access__hero" loading="lazy" />
+            <div class="ldms-access__body">
+              <h3>Organisation portal</h3>
+              <p>For suppliers, customers, transporters, clearing agents, and partners.</p>
+              <div class="ldms-access__actions">
+                <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup()">Create account</button>
+                <a routerLink="/auth/login" class="lx-btn lx-btn-ghost">Sign in</a>
+              </div>
             </div>
           </article>
-
-          <article class="ldms-landing__card ldms-landing__card--accent">
-            <div class="ldms-landing__card-hero">
-              <img
-                [src]="accessAdminCardImage"
-                alt="Operations control room representing the administrator console"
-                loading="lazy"
-                decoding="async"
-              />
+          <article class="ldms-access__card ldms-access__card--accent">
+            <img [src]="accessAdminCardImage" alt="" class="ldms-access__hero" loading="lazy" />
+            <div class="ldms-access__body">
+              <h3>Administrator console</h3>
+              <p>Platform operations, KYC, and monitoring — LX administrators only.</p>
+              <a class="lx-btn lx-btn-primary" [href]="adminUrl + '/auth/login'" rel="noopener">Open admin console</a>
             </div>
-            <div class="ldms-landing__card-icon ldms-landing__card-icon--accent" aria-hidden="true">
-              <svg class="ldms-landing__icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z"
-                />
-              </svg>
-            </div>
-            <h3>Administrator console</h3>
-            <p>Platform operations, KYC, organisations, and monitoring — restricted to LX administrators.</p>
-            <ul class="ldms-landing__list">
-              <li>Sign in only (no self-service signup)</li>
-              <li>Separate app for stronger isolation</li>
-            </ul>
-            <a class="lx-btn lx-btn-primary ldms-landing__full-link" [href]="adminUrl + '/auth/login'" rel="noopener"
-              >Open admin console</a
-            >
           </article>
         </div>
       </div>
     </section>
 
-    <section class="ldms-landing__cta-band ldms-reveal" aria-labelledby="ldms-cta-band-title">
-      <div class="ldms-landing__cta-band-inner">
-        <figure class="ldms-landing__cta-band-art">
-          <img
-            [src]="ctaBandImage"
-            alt="Logistics team on the warehouse floor coordinating the next move"
-            loading="lazy"
-            decoding="async"
-          />
+    <!-- CTA band -->
+    <section class="ldms-cta-band ldms-reveal" aria-labelledby="ldms-cta-title">
+      <div class="ldms-cta-band__inner">
+        <figure class="ldms-cta-band__art">
+          <img [src]="ctaBandImage" alt="Logistics team coordinating warehouse operations" loading="lazy" />
         </figure>
-        <div class="ldms-landing__cta-band-copy">
-          <p class="ldms-landing__cta-band-kicker">Ready when you are</p>
-          <h2 id="ldms-cta-band-title" class="ldms-landing__cta-band-title">Bring your corridor onto LDMS with confidence</h2>
-          <p class="ldms-landing__cta-band-lead">
-            Secure the organisation portal, invite your operators, and let LX administrators enforce the compliance model
-            that fits your country and commodity mix.
+        <div class="ldms-cta-band__copy">
+          <h2 id="ldms-cta-title" class="ldms-cta-band__title">Grow your corridor with Project LX</h2>
+          <p class="ldms-cta-band__lead">
+            Secure the organisation portal, invite your operators, and let LX administrators enforce the compliance
+            model that fits your country and commodity mix.
           </p>
         </div>
-        <div class="ldms-landing__cta-band-actions">
-          <button type="button" class="lx-btn lx-btn-primary ldms-landing__cta-band-btn" (click)="goSignup()">
-            Create organisation account
-          </button>
-          <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__cta-band-secondary">
-            Sign in to portal
-          </a>
-          <button type="button" class="lx-btn lx-btn-secondary ldms-landing__cta-band-book" (click)="goBookDemo()">
+        <div class="ldms-cta-band__actions">
+          <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup()">Create organisation account</button>
+          <button type="button" class="lx-btn lx-btn-secondary ldms-cta-band__ghost" (click)="goBookDemo()">
             Book a demo
           </button>
-          <a class="ldms-landing__cta-band-link" [href]="adminUrl + '/auth/login'" rel="noopener">Administrator sign in →</a>
         </div>
       </div>
     </section>
   </main>
 
-  <footer class="ldms-landing__footer">
-    <div class="ldms-landing__footer-inner">
-      <div class="ldms-landing__footer-brand">
-        <span class="ldms-landing__footer-logo brand-lx">LX</span>
+  <footer class="ldms-footer">
+    <div class="ldms-footer__inner">
+      <div class="ldms-footer__brand">
+        <span class="ldms-footer__logo brand-lx">LX</span>
         <div>
-          <p class="ldms-landing__footer-tagline">Logistics &amp; Distribution Management System</p>
-          <p class="ldms-landing__footer-copy">
-            © Project LX · projectlx.co.zw
-            <span class="ldms-landing__footer-media">Photography &amp; video courtesy of <a href="https://www.pexels.com" rel="noopener noreferrer" target="_blank">Pexels</a></span>
-          </p>
+          <p class="ldms-footer__tagline">Logistics &amp; Distribution Management System</p>
+          <p class="ldms-footer__copy">© Project LX · projectlx.co.zw</p>
         </div>
       </div>
-      <div class="ldms-landing__footer-cols">
-        <div class="ldms-landing__footer-col">
-          <h3 class="ldms-landing__footer-col-title">Product</h3>
-          <a class="ldms-landing__footer-link" href="#ldms-capabilities">Capabilities</a>
-          <a class="ldms-landing__footer-link" href="#ldms-journey">Journey</a>
-          <a class="ldms-landing__footer-link" href="#ldms-faq">FAQ</a>
-          <a class="ldms-landing__footer-link" routerLink="/contact">Book a demo</a>
+      <div class="ldms-footer__cols">
+        <div class="ldms-footer__col">
+          <h3>Product</h3>
+          <a href="#ldms-features">Features</a>
+          <a href="#ldms-journey">How it works</a>
+          <a routerLink="/contact">Book a demo</a>
         </div>
-        <div class="ldms-landing__footer-col">
-          <h3 class="ldms-landing__footer-col-title">Access</h3>
-          <a class="ldms-landing__footer-link" routerLink="/auth/login">Organisation sign in</a>
-          <a class="ldms-landing__footer-link" routerLink="/signup">Create organisation</a>
-          <a class="ldms-landing__footer-link" [href]="adminUrl + '/auth/login'" rel="noopener">Admin console</a>
-        </div>
-        <div class="ldms-landing__footer-col">
-          <h3 class="ldms-landing__footer-col-title">Endpoints</h3>
-          <span class="ldms-landing__footer-mono">{{ platformOrigin }}</span>
-          <span class="ldms-landing__footer-mono">{{ adminUrl }}</span>
+        <div class="ldms-footer__col">
+          <h3>Access</h3>
+          <a routerLink="/auth/login">Sign in</a>
+          <a routerLink="/signup">Create account</a>
+          <a [href]="adminUrl + '/auth/login'" rel="noopener">Admin console</a>
         </div>
       </div>
     </div>

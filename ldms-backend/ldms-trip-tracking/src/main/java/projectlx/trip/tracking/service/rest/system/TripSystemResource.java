@@ -18,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import projectlx.trip.tracking.service.processor.api.TripServiceProcessor;
+import projectlx.trip.tracking.utils.requests.RecordTripEventRequest;
 import projectlx.trip.tracking.utils.requests.TripFilterRequest;
 import projectlx.trip.tracking.utils.responses.TripResponse;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
@@ -76,6 +77,26 @@ public class TripSystemResource {
             @RequestBody final TripFilterRequest request,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         TripResponse response = tripServiceProcessor.findByMultipleFilters(request, locale, "system");
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/record-event")
+    @Operation(summary = "Record trip event (system)",
+            description = "Records a trip event on behalf of another service (fuel-expenses, roadside). " +
+                    "Supported event types: ARRIVED_AT_BORDER, BORDER_CLEARED, ROADSIDE_FUEL_STOP, " +
+                    "ROADSIDE_MECHANIC_STOP, ROADSIDE_RESUMED, CHECKPOINT, NOTE.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Trip event recorded"),
+            @ApiResponse(responseCode = "400", description = "Invalid request or trip not found"),
+            @ApiResponse(responseCode = "404", description = "Trip not found"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    public ResponseEntity<TripResponse> recordSystemEvent(
+            @RequestBody final RecordTripEventRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        logger.info("POST /system/trip/record-event tripId={} eventType={}", request.getTripId(), request.getEventType());
+        TripResponse response = tripServiceProcessor.recordSystemEvent(request, locale);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 }

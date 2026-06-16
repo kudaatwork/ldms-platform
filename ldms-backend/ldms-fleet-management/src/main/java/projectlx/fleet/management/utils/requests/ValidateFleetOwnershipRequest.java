@@ -10,5 +10,8 @@ import lombok.ToString;
 public class ValidateFleetOwnershipRequest {
     private Long registeringOrganizationId;
     private String ownershipType;
+    private String contractScope;
     private Long contractedTransporterOrganizationId;
+    private String contractStartDate;
+    private String contractEndDate;
 }

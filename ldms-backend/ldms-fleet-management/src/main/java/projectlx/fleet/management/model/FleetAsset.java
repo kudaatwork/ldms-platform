@@ -20,6 +20,7 @@ import projectlx.fleet.management.utils.enums.FleetRegistrationStatus;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -57,6 +58,12 @@ public class FleetAsset implements DomainMarkerInterface {
     @Column(name = "job_reference", length = 100)
     private String jobReference;
 
+    @Column(name = "contract_start_date")
+    private LocalDate contractStartDate;
+
+    @Column(name = "contract_end_date")
+    private LocalDate contractEndDate;
+
     @Column(name = "registration", nullable = false, length = 50)
     private String registration;
 
@@ -69,6 +76,9 @@ public class FleetAsset implements DomainMarkerInterface {
 
     @Column(name = "driver_name", length = 150)
     private String driverName;
+
+    @Column(name = "fleet_driver_id")
+    private Long fleetDriverId;
 
     @Column(name = "utilization_pct", nullable = false, precision = 19, scale = 2)
     private BigDecimal utilizationPct = BigDecimal.ZERO;

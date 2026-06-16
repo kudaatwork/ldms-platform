@@ -4,7 +4,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
-import java.util.stream.Collectors;
 import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.GrantedAuthority;
@@ -17,9 +16,9 @@ import projectlx.co.zw.shared_library.utils.dtos.UserAccountDto;
 import projectlx.co.zw.shared_library.utils.dtos.UserDto;
 import projectlx.co.zw.shared_library.utils.dtos.UserGroupDto;
 import projectlx.co.zw.shared_library.utils.dtos.UserPasswordDto;
-import projectlx.co.zw.shared_library.utils.dtos.UserRoleDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.co.zw.shared_library.utils.responses.UserResponse;
+import projectlx.co.zw.shared_library.utils.security.AdministratorRoleScopePolicy;
 import projectlx.user.authentication.service.clients.UserManagementServiceClient;
 import projectlx.user.authentication.service.utils.enums.I18Code;
 
@@ -44,7 +43,7 @@ public class CustomUserDetailsServiceImpl implements CustomUserDetailsService {
             throw new UsernameNotFoundException("User account has no password configured");
         }
 
-        Set<GrantedAuthority> authorities = resolveAuthorities(userDto.getUserGroupDto());
+        Set<GrantedAuthority> authorities = resolveAuthorities(userDto);
 
         boolean accountLocked = isAccountLocked(userDto.getUserAccountDto());
 
@@ -84,17 +83,20 @@ public class CustomUserDetailsServiceImpl implements CustomUserDetailsService {
         return new UsernameNotFoundException(detail);
     }
 
-    private static Set<GrantedAuthority> resolveAuthorities(UserGroupDto userGroupDto) {
+    private static Set<GrantedAuthority> resolveAuthorities(UserDto userDto) {
+        UserGroupDto userGroupDto = userDto != null ? userDto.getUserGroupDto() : null;
         if (userGroupDto == null || userGroupDto.getUserRoleDtoSet() == null) {
             return Set.of();
         }
-        List<UserRoleDto> roles = userGroupDto.getUserRoleDtoSet();
+        List<String> groupRoleCodes = userGroupDto.getUserRoleDtoSet().stream()
+                .filter(roleDto -> roleDto != null && StringUtils.hasText(roleDto.getRole()))
+                .map(roleDto -> roleDto.getRole().trim().toUpperCase())
+                .toList();
+        Long organizationId = userDto != null ? userDto.getOrganizationId() : null;
+        List<String> effectiveRoles = AdministratorRoleScopePolicy.filterRoleCodesForUser(
+                groupRoleCodes, organizationId);
         Set<GrantedAuthority> authorities = new HashSet<>();
-        for (UserRoleDto roleDto : roles) {
-            if (roleDto == null || !StringUtils.hasText(roleDto.getRole())) {
-                continue;
-            }
-            String code = roleDto.getRole().trim().toUpperCase();
+        for (String code : effectiveRoles) {
             authorities.add(new SimpleGrantedAuthority("ROLE_" + code));
         }
         return authorities;

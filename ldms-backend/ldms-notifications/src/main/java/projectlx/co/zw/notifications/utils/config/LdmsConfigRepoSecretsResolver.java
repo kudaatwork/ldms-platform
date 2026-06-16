@@ -7,8 +7,8 @@ import java.nio.file.Path;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -18,14 +18,17 @@ import org.springframework.util.StringUtils;
  * Needed because the config server resolves {@code ${AWS_ACCESS_KEY_ID:}} to blank before the client receives YAML,
  * while {@code AWS_SES_FROM_EMAIL} often has a default in config-repo and appears to load correctly.
  */
-@Slf4j
 @Component
-@RequiredArgsConstructor
 public class LdmsConfigRepoSecretsResolver {
 
+    private static final Logger log = LoggerFactory.getLogger(LdmsConfigRepoSecretsResolver.class);
     private static final AtomicReference<Map<String, String>> FILE_CACHE = new AtomicReference<>();
 
     private final Environment environment;
+
+    public LdmsConfigRepoSecretsResolver(Environment environment) {
+        this.environment = environment;
+    }
 
     public String awsAccessKeyId() {
         return resolve(

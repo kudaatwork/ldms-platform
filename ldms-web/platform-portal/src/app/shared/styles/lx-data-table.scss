@@ -60,6 +60,45 @@
   }
 }
 
+.lx-sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+  vertical-align: middle;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    opacity: 0.45;
+    flex-shrink: 0;
+  }
+
+  &:hover mat-icon,
+  &--active mat-icon {
+    opacity: 1;
+  }
+
+  &--qty {
+    margin-left: auto;
+  }
+
+  &:hover {
+    color: var(--gray-800);
+  }
+}
+
 html.theme-dark {
   .lx-table-card {
     border-color: rgba(148, 163, 184, 0.22);
@@ -88,6 +127,10 @@ html.theme-dark {
 
     tbody tr:nth-child(odd):hover td {
       background: #25354d;
+    }
+
+    .lx-sort-header:hover {
+      color: var(--gray-800);
     }
   }
 }

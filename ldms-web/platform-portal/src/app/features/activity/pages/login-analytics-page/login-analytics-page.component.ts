@@ -20,8 +20,9 @@ import {
 import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 import {
   downloadBlob,
+  exportClientTableAsCsv,
   exportFilename,
-  exportRowsAsCsv,
+  exportFormatLabel,
   type LxExportFormat,
 } from '@shared/utils/lx-export.util';
 import { environment } from '../../../../../environments/environment';
@@ -516,40 +517,56 @@ export class LoginAnalyticsPageComponent implements OnInit, OnDestroy {
 
   private exportLoginClientSide(format: LxExportFormat): void {
     const rows = this.loginTableDataSource.data;
-    if (format !== 'csv') {
-      this.snackBar.open('Demo mode supports CSV export only.', 'Dismiss', { duration: 4000 });
-      return;
+    const saved = exportClientTableAsCsv(
+      format,
+      rows,
+      [
+        { header: 'audit_id', value: (r) => r.id },
+        { header: 'timestamp', value: (r) => r.time },
+        { header: 'username', value: (r) => r.username },
+        { header: 'platform', value: (r) => r.platform },
+        { header: 'platform_label', value: (r) => r.platformLabel },
+        { header: 'sign_in_method', value: (r) => r.actionLabel },
+        { header: 'client_ip', value: (r) => r.clientIp },
+        { header: 'trace_id', value: (r) => r.traceId },
+      ],
+      'login-audit-events',
+      (message) => this.snackBar.open(message, 'Dismiss', { duration: 4000 }),
+      { title: 'Sign-in history' },
+    );
+    if (saved) {
+      this.snackBar.open(`Exported sign-in history as ${exportFormatLabel(format)}.`, 'Dismiss', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
     }
-    const blob = exportRowsAsCsv(rows, [
-      { header: 'audit_id', value: (r) => r.id },
-      { header: 'timestamp', value: (r) => r.time },
-      { header: 'username', value: (r) => r.username },
-      { header: 'platform', value: (r) => r.platform },
-      { header: 'platform_label', value: (r) => r.platformLabel },
-      { header: 'sign_in_method', value: (r) => r.actionLabel },
-      { header: 'client_ip', value: (r) => r.clientIp },
-      { header: 'trace_id', value: (r) => r.traceId },
-    ]);
-    downloadBlob(blob, exportFilename('login-audit-events', 'csv'));
   }
 
   private exportActivityClientSide(format: LxExportFormat): void {
     const rows = this.activityTableDataSource.data;
-    if (format !== 'csv') {
-      this.snackBar.open('Demo mode supports CSV export only.', 'Dismiss', { duration: 4000 });
-      return;
+    const saved = exportClientTableAsCsv(
+      format,
+      rows,
+      [
+        { header: 'audit_id', value: (r) => r.id },
+        { header: 'timestamp', value: (r) => r.time },
+        { header: 'action', value: (r) => r.action },
+        { header: 'service', value: (r) => r.serviceName },
+        { header: 'resource', value: (r) => r.resource },
+        { header: 'platform', value: (r) => r.platform },
+        { header: 'client_ip', value: (r) => r.clientIp },
+        { header: 'trace_id', value: (r) => r.traceId },
+      ],
+      'user-activity',
+      (message) => this.snackBar.open(message, 'Dismiss', { duration: 4000 }),
+      { title: 'User activity' },
+    );
+    if (saved) {
+      this.snackBar.open(`Exported activity as ${exportFormatLabel(format)}.`, 'Dismiss', {
+        duration: 3500,
+        panelClass: ['app-snackbar-success'],
+      });
     }
-    const blob = exportRowsAsCsv(rows, [
-      { header: 'audit_id', value: (r) => r.id },
-      { header: 'timestamp', value: (r) => r.time },
-      { header: 'action', value: (r) => r.action },
-      { header: 'service', value: (r) => r.serviceName },
-      { header: 'resource', value: (r) => r.resource },
-      { header: 'platform', value: (r) => r.platform },
-      { header: 'client_ip', value: (r) => r.clientIp },
-      { header: 'trace_id', value: (r) => r.traceId },
-    ]);
-    downloadBlob(blob, exportFilename('user-activity', 'csv'));
   }
 
   private runLoginQuery(): Observable<unknown> {

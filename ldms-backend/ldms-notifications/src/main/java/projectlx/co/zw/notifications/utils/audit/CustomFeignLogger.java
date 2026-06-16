@@ -4,8 +4,7 @@ import feign.Logger;
 import feign.Request;
 import feign.Response;
 import feign.Util;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.LoggerFactory;
 import projectlx.co.zw.notifications.business.logic.api.AuditTrailService;
 import projectlx.co.zw.shared_library.utils.audit.AuditHttpTraceSupport;
 import projectlx.co.zw.shared_library.utils.dtos.AuditLogDto;
@@ -18,17 +17,22 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-@Slf4j
-@RequiredArgsConstructor
 public class CustomFeignLogger extends Logger {
 
+    private static final org.slf4j.Logger logger = LoggerFactory.getLogger(CustomFeignLogger.class);
+
     private final AuditTrailService auditTrailService;
-    private final String serviceName; // The serviceName will be passed in
+    private final String serviceName;
+
+    public CustomFeignLogger(AuditTrailService auditTrailService, String serviceName) {
+        this.auditTrailService = auditTrailService;
+        this.serviceName = serviceName;
+    }
 
     @Override
     protected void log(String configKey, String format, Object... args) {
         // We do our own logging, so this can be a no-op
-        log.debug(String.format(methodTag(configKey) + format, args));
+        logger.debug(String.format(methodTag(configKey) + format, args));
     }
 
     @Override

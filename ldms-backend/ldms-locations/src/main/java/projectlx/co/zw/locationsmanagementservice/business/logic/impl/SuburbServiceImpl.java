@@ -3,7 +3,6 @@ package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 import com.lowagie.text.DocumentException;
 import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
 import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
-import lombok.RequiredArgsConstructor;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 import com.opencsv.bean.HeaderColumnNameMappingStrategy;
@@ -64,7 +63,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@RequiredArgsConstructor
 public class SuburbServiceImpl implements SuburbService {
 
     private final SuburbServiceValidator suburbServiceValidator;
@@ -76,6 +74,27 @@ public class SuburbServiceImpl implements SuburbService {
     private final LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService;
     private final MessageService messageService;
     private final ModelMapper modelMapper;
+
+    public SuburbServiceImpl(
+            SuburbServiceValidator suburbServiceValidator,
+            SuburbRepository suburbRepository,
+            DistrictRepository districtRepository,
+            GeoCoordinatesRepository geoCoordinatesRepository,
+            AdministrativeLevelRepository administrativeLevelRepository,
+            SuburbServiceAuditable suburbServiceAuditable,
+            LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService,
+            MessageService messageService,
+            ModelMapper modelMapper) {
+        this.suburbServiceValidator = suburbServiceValidator;
+        this.suburbRepository = suburbRepository;
+        this.districtRepository = districtRepository;
+        this.geoCoordinatesRepository = geoCoordinatesRepository;
+        this.administrativeLevelRepository = administrativeLevelRepository;
+        this.suburbServiceAuditable = suburbServiceAuditable;
+        this.locationHierarchyCascadeSoftDeleteService = locationHierarchyCascadeSoftDeleteService;
+        this.messageService = messageService;
+        this.modelMapper = modelMapper;
+    }
 
     private static final String[] HEADERS = {
             "ID", "NAME", "CODE", "DISTRICT", "PROVINCE", "COUNTRY", "ADMIN LEVEL", "DISTRICT ID", "ADMINISTRATIVE LEVEL ID",

@@ -1,0 +1,75 @@
+<div class="om-page">
+  <lx-workspace-hero
+    variant="slate"
+    eyebrow="Organization management"
+    eyebrowIcon="corporate_fare"
+    title="Transporters"
+    lead="Transport company organisations contracted to move goods on your behalf — distinct from your own fleet assets."
+    hubIcon="local_shipping"
+    [orbitIcons]="['handshake', 'verified']"
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="loading">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button
+      type="button"
+      lxWorkspaceHeroActions
+      class="lx-btn lx-btn-primary lx-btn-sm"
+      *ngIf="canRegisterTransporter"
+      (click)="openRegisterTransporter()"
+      [disabled]="loading"
+    >
+      <mat-icon>add_link</mat-icon>
+      Register transporter
+    </button>
+  </lx-workspace-hero>
+
+  <div class="inv-toolbar lx-card" *ngIf="!loading">
+    <div class="inv-search lx-input-shell">
+      <mat-icon class="lx-input-shell__icon">search</mat-icon>
+      <input [(ngModel)]="search" placeholder="Search transporters…" autocomplete="off" />
+    </div>
+  </div>
+
+  <lx-table-loading [busy]="loading" message="Loading transporters…"></lx-table-loading>
+
+  <div class="lx-empty" *ngIf="!loading && error">
+    <mat-icon class="lx-empty-icon">error_outline</mat-icon>
+    <div class="lx-empty-title">{{ error }}</div>
+  </div>
+
+  <section class="lx-card om-panel" *ngIf="!loading && !error">
+    <table class="lx-data-table" *ngIf="filteredTransporters.length">
+      <thead>
+        <tr>
+          <th>Organisation</th>
+          <th>Contact</th>
+          <th>Verification</th>
+          <th>Contract</th>
+          <th>Linked since</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let row of filteredTransporters">
+          <td>{{ row.name }}</td>
+          <td>
+            <div>{{ row.email || '—' }}</div>
+            <small>{{ row.phoneNumber || '' }}</small>
+          </td>
+          <td>{{ row.verifiedLabel }}</td>
+          <td>{{ row.contractStatusLabel }}</td>
+          <td>{{ row.linkedSinceLabel || '—' }}</td>
+          <td class="lx-actions-cell">
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openRegisterTransporter(row.id)">Edit</button>
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="confirmRemove(row)">Remove</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="om-panel__empty" *ngIf="!filteredTransporters.length">
+      {{ transporters.length ? 'No transporters match your search.' : 'No contracted transporters yet.' }}
+    </p>
+  </section>
+</div>

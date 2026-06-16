@@ -27,11 +27,27 @@ public class FleetOwnershipValidationSupport {
     public String validateOwnership(Long registeringOrganizationId,
                                     String ownershipType,
                                     Long contractedTransporterOrganizationId) {
+        return validateOwnership(registeringOrganizationId, ownershipType, contractedTransporterOrganizationId,
+                null, null, null);
+    }
+
+    /**
+     * Returns null when ownership is valid; returns a non-null error message on failure.
+     */
+    public String validateOwnership(Long registeringOrganizationId,
+                                    String ownershipType,
+                                    Long contractedTransporterOrganizationId,
+                                    String contractScope,
+                                    String contractStartDate,
+                                    String contractEndDate) {
         try {
             ValidateFleetOwnershipRequest request = new ValidateFleetOwnershipRequest();
             request.setRegisteringOrganizationId(registeringOrganizationId);
             request.setOwnershipType(ownershipType);
             request.setContractedTransporterOrganizationId(contractedTransporterOrganizationId);
+            request.setContractScope(contractScope);
+            request.setContractStartDate(contractStartDate);
+            request.setContractEndDate(contractEndDate);
             OrganizationResponse response = organizationManagementServiceClient.validateFleetOwnership(request);
             if (response == null || !response.isSuccess()) {
                 String msg = response != null && response.getMessage() != null

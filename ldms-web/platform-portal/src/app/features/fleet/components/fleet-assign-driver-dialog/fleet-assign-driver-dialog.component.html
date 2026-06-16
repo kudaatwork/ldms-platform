@@ -1,0 +1,88 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Assign driver</h2>
+      <p class="lx-dialog-subtitle">
+        {{ rosterSubtitle }}
+        Current: {{ currentDriverLabel }}.
+      </p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content fad-assign">
+    <div class="fad-assign__loading" *ngIf="driversLoading">
+      <mat-icon>hourglass_empty</mat-icon>
+      Loading driver roster…
+    </div>
+
+    <p class="lx-list-error" *ngIf="driversError" role="alert">
+      <mat-icon>warning_amber</mat-icon>
+      {{ driversError }}
+    </p>
+
+    <ng-container *ngIf="!driversLoading && !driversError">
+      <div class="lx-input-shell lx-search-field fad-assign__search">
+        <mat-icon class="lx-input-shell__icon">search</mat-icon>
+        <input
+          [(ngModel)]="searchQuery"
+          placeholder="Search drivers by name, phone, licence, or roster…"
+          autocomplete="off"
+          aria-label="Search drivers"
+        />
+      </div>
+
+      <mat-radio-group class="fad-assign__list" [(ngModel)]="selectedDriverId" aria-label="Fleet driver">
+        <label class="fad-assign__item fad-assign__item--none">
+          <mat-radio-button value="none"></mat-radio-button>
+          <span class="fad-assign__copy">
+            <span class="fad-assign__name">Unassign driver</span>
+            <span class="fad-assign__hint">Clear the current driver on this vehicle.</span>
+          </span>
+        </label>
+
+        <ng-container *ngFor="let group of rosterGroups">
+          <div class="fad-assign__group">
+            <div class="fad-assign__group-head">
+              <strong>{{ group.label }}</strong>
+              <span>{{ group.hint }}</span>
+            </div>
+
+            <label class="fad-assign__item" *ngFor="let driver of group.drivers">
+              <mat-radio-button [value]="driver.id"></mat-radio-button>
+              <span class="fad-assign__avatar">{{ driver.initials }}</span>
+              <span class="fad-assign__copy">
+                <span class="fad-assign__name-row">
+                  <span class="fad-assign__name">{{ driver.fullName }}</span>
+                  <span class="fad-assign__badge" [ngClass]="employmentBadgeClass(driver)">{{ driver.employmentLabel }}</span>
+                </span>
+                <span class="fad-assign__hint">
+                  {{ driver.licenseNumber !== '—' ? driver.licenseNumber : 'Licence pending' }}
+                  <ng-container *ngIf="driver.licenseClass !== '—'"> · Class {{ driver.licenseClass }}</ng-container>
+                </span>
+              </span>
+            </label>
+          </div>
+        </ng-container>
+      </mat-radio-group>
+
+      <p class="fad-assign__empty" *ngIf="!filteredDrivers.length">
+        No drivers match your search. Add drivers from the <strong>Drivers</strong> tab or pick a transport partner driver.
+      </p>
+    </ng-container>
+
+    <p class="lx-list-error" *ngIf="saveError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ saveError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="button" class="lx-btn lx-btn-primary" (click)="save()" [disabled]="submitting || driversLoading">
+        {{ submitting ? 'Saving…' : 'Save assignment' }}
+      </button>
+    </div>
+  </div>
+</div>

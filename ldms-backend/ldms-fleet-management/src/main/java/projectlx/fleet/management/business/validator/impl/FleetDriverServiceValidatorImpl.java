@@ -28,7 +28,9 @@ public class FleetDriverServiceValidatorImpl implements FleetDriverServiceValida
             errors.add(messageService.getMessage(I18Code.MESSAGE_REQUEST_NULL.getCode(), new String[]{}, locale));
             return new ValidatorDto(false, null, errors);
         }
-        validateCommonFields(request.getFirstName(), request.getLastName(), request.getLicenseNumber(), errors, locale);
+        validateIdentityAndAddress(request.getFirstName(), request.getLastName(), request.getLicenseNumber(),
+                request.getNationalIdNumber(), request.getPassportNumber(),
+                request.getAddressLine1(), request.getAddressCity(), errors, locale);
         return errors.isEmpty() ? new ValidatorDto(true, null, new ArrayList<>()) : new ValidatorDto(false, null, errors);
     }
 
@@ -43,20 +45,74 @@ public class FleetDriverServiceValidatorImpl implements FleetDriverServiceValida
         if (request.getId() == null || request.getId() < 1) {
             errors.add(messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"id"}, locale));
         }
-        validateCommonFields(request.getFirstName(), request.getLastName(), request.getLicenseNumber(), errors, locale);
+        validateIdentityAndAddress(request.getFirstName(), request.getLastName(), request.getLicenseNumber(),
+                request.getNationalIdNumber(), request.getPassportNumber(),
+                request.getAddressLine1(), request.getAddressCity(), errors, locale);
+        validateDocuments(request.getNationalIdUploadId(), request.getPassportUploadId(),
+                request.getLicenseUploadId(), errors, locale);
         return errors.isEmpty() ? new ValidatorDto(true, null, new ArrayList<>()) : new ValidatorDto(false, null, errors);
     }
 
-    private void validateCommonFields(String firstName, String lastName, String licenseNumber,
-                                      List<String> errors, Locale locale) {
+    // ============================================================
+    // Private helpers
+    // ============================================================
+
+    /**
+     * Validates identity fields and address on both create and update:
+     * <ul>
+     *   <li>firstName, lastName, licenseNumber — required</li>
+     *   <li>nationalIdNumber OR passportNumber — at least one required</li>
+     *   <li>addressLine1, addressCity — required</li>
+     * </ul>
+     */
+    private void validateIdentityAndAddress(String firstName, String lastName, String licenseNumber,
+                                            String nationalIdNumber, String passportNumber,
+                                            String addressLine1, String addressCity,
+                                            List<String> errors, Locale locale) {
+        boolean identityFieldsMissing = false;
         if (firstName == null || firstName.isBlank()) {
-            errors.add(messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"firstName"}, locale));
+            identityFieldsMissing = true;
         }
         if (lastName == null || lastName.isBlank()) {
-            errors.add(messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"lastName"}, locale));
+            identityFieldsMissing = true;
         }
         if (licenseNumber == null || licenseNumber.isBlank()) {
-            errors.add(messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"licenseNumber"}, locale));
+            identityFieldsMissing = true;
+        }
+        if (identityFieldsMissing) {
+            errors.add(messageService.getMessage(I18Code.MESSAGE_DRIVER_IDENTITY_REQUIRED.getCode(), new String[]{}, locale));
+        }
+
+        boolean hasIdentityDocument = (nationalIdNumber != null && !nationalIdNumber.isBlank())
+                || (passportNumber != null && !passportNumber.isBlank());
+        if (!hasIdentityDocument) {
+            errors.add(messageService.getMessage(I18Code.MESSAGE_DRIVER_IDENTITY_DOCUMENT_REQUIRED.getCode(), new String[]{}, locale));
+        }
+
+        boolean addressMissing = (addressLine1 == null || addressLine1.isBlank())
+                || (addressCity == null || addressCity.isBlank());
+        if (addressMissing) {
+            errors.add(messageService.getMessage(I18Code.MESSAGE_DRIVER_ADDRESS_REQUIRED.getCode(), new String[]{}, locale));
+        }
+    }
+
+    /**
+     * Validates upload id presence on both create and update:
+     * <ul>
+     *   <li>nationalIdUploadId OR passportUploadId — at least one required</li>
+     *   <li>licenseUploadId — required</li>
+     * </ul>
+     */
+    private void validateDocuments(Long nationalIdUploadId, Long passportUploadId,
+                                   Long licenseUploadId, List<String> errors, Locale locale) {
+        boolean hasIdentityUpload = (nationalIdUploadId != null && nationalIdUploadId > 0)
+                || (passportUploadId != null && passportUploadId > 0);
+        if (!hasIdentityUpload) {
+            errors.add(messageService.getMessage(I18Code.MESSAGE_DRIVER_IDENTITY_DOCUMENT_REQUIRED.getCode(), new String[]{}, locale));
+        }
+
+        if (licenseUploadId == null || licenseUploadId < 1) {
+            errors.add(messageService.getMessage(I18Code.MESSAGE_DRIVER_LICENSE_DOCUMENT_REQUIRED.getCode(), new String[]{}, locale));
         }
     }
 }

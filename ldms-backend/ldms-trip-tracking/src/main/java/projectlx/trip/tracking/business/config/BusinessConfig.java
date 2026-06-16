@@ -1,27 +1,46 @@
 package projectlx.trip.tracking.business.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.trip.tracking.business.auditable.api.DeliveryOtpServiceAuditable;
 import projectlx.trip.tracking.business.auditable.api.TripEventServiceAuditable;
 import projectlx.trip.tracking.business.auditable.api.TripServiceAuditable;
 import projectlx.trip.tracking.business.auditable.impl.DeliveryOtpServiceAuditableImpl;
 import projectlx.trip.tracking.business.auditable.impl.TripEventServiceAuditableImpl;
 import projectlx.trip.tracking.business.auditable.impl.TripServiceAuditableImpl;
+import projectlx.trip.tracking.business.logic.api.TripLiveService;
 import projectlx.trip.tracking.business.logic.api.TripService;
+import projectlx.trip.tracking.business.logic.api.TripTelemetryIngestService;
+import projectlx.trip.tracking.business.logic.impl.TripLiveServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripServiceImpl;
+import projectlx.trip.tracking.business.logic.impl.TripTelemetryIngestServiceImpl;
 import projectlx.trip.tracking.business.logic.support.CallerOrganizationResolver;
+import projectlx.trip.tracking.business.logic.support.TripIotDemoSimulator;
+import projectlx.trip.tracking.business.logic.support.TripLiveSseRegistry;
 import projectlx.trip.tracking.business.logic.support.TripNumberGenerator;
+import projectlx.trip.tracking.business.logic.support.TripRoutePlannerSupport;
+import projectlx.trip.tracking.business.logic.support.TripTelemetryPublisher;
 import projectlx.trip.tracking.business.validator.api.TripServiceValidator;
 import projectlx.trip.tracking.business.validator.impl.TripServiceValidatorImpl;
+import projectlx.trip.tracking.clients.FleetManagementServiceClient;
 import projectlx.trip.tracking.clients.InventoryManagementServiceClient;
+import projectlx.trip.tracking.clients.OrganizationManagementServiceClient;
 import projectlx.trip.tracking.clients.ShipmentManagementServiceClient;
+import projectlx.trip.tracking.clients.UserManagementServiceClient;
+import projectlx.trip.tracking.business.logic.support.LogisticsNotificationRecipientResolver;
 import projectlx.trip.tracking.repository.DeliveryOtpRepository;
 import projectlx.trip.tracking.repository.TripEventRepository;
 import projectlx.trip.tracking.repository.TripRepository;
-import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import projectlx.trip.tracking.repository.TripRoutePlanRepository;
+import projectlx.trip.tracking.utils.config.IotIntegrationProperties;
+import projectlx.co.zw.shared_library.utils.notifications.LogisticsLifecycleNotificationSupport;
+
+import java.util.Optional;
 
 @Configuration
 public class BusinessConfig {
@@ -47,6 +66,44 @@ public class BusinessConfig {
     }
 
     @Bean
+    public TripRoutePlannerSupport tripRoutePlannerSupport(TripRoutePlanRepository tripRoutePlanRepository,
+                                                           ObjectMapper objectMapper) {
+        return new TripRoutePlannerSupport(tripRoutePlanRepository, objectMapper);
+    }
+
+    @Bean
+    public TripTelemetryPublisher tripTelemetryPublisher(RabbitTemplate rabbitTemplate,
+                                                         TripLiveSseRegistry sseRegistry,
+                                                         IotIntegrationProperties iotProperties,
+                                                         ObjectMapper objectMapper,
+                                                         Optional<MqttClient> optionalTripTrackingMqttClient) {
+        return new TripTelemetryPublisher(rabbitTemplate, sseRegistry, iotProperties, objectMapper,
+                optionalTripTrackingMqttClient);
+    }
+
+    @Bean
+    public TripIotDemoSimulator tripIotDemoSimulator(TripRoutePlanRepository tripRoutePlanRepository,
+                                                     TripRepository tripRepository,
+                                                     TripRoutePlannerSupport tripRoutePlannerSupport,
+                                                     TripTelemetryPublisher tripTelemetryPublisher,
+                                                     TripEventServiceAuditable tripEventServiceAuditable,
+                                                     IotIntegrationProperties iotProperties) {
+        return new TripIotDemoSimulator(tripRoutePlanRepository, tripRepository,
+                tripRoutePlannerSupport, tripTelemetryPublisher, tripEventServiceAuditable, iotProperties);
+    }
+
+    @Bean
+    public LogisticsNotificationRecipientResolver logisticsNotificationRecipientResolver(
+            OrganizationManagementServiceClient organizationManagementServiceClient,
+            UserManagementServiceClient userManagementServiceClient,
+            FleetManagementServiceClient fleetManagementServiceClient) {
+        return new LogisticsNotificationRecipientResolver(
+                organizationManagementServiceClient,
+                userManagementServiceClient,
+                fleetManagementServiceClient);
+    }
+
+    @Bean
     public TripService tripService(TripServiceValidator tripServiceValidator,
                                    TripServiceAuditable tripServiceAuditable,
                                    TripEventServiceAuditable tripEventServiceAuditable,
@@ -60,10 +117,49 @@ public class BusinessConfig {
                                    InventoryManagementServiceClient inventoryManagementServiceClient,
                                    RabbitTemplate rabbitTemplate,
                                    MessageService messageService,
-                                   BCryptPasswordEncoder bCryptPasswordEncoder) {
+                                   BCryptPasswordEncoder bCryptPasswordEncoder,
+                                   TripRoutePlannerSupport routePlannerSupport,
+                                   TripIotDemoSimulator demoSimulator,
+                                   TripTelemetryPublisher telemetryPublisher,
+                                   TripRoutePlanRepository tripRoutePlanRepository,
+                                   IotIntegrationProperties iotProperties,
+                                   LogisticsLifecycleNotificationSupport logisticsLifecycleNotificationSupport,
+                                   LogisticsNotificationRecipientResolver logisticsNotificationRecipientResolver) {
         return new TripServiceImpl(tripServiceValidator, tripServiceAuditable, tripEventServiceAuditable,
                 deliveryOtpServiceAuditable, tripRepository, tripEventRepository, deliveryOtpRepository,
                 callerOrganizationResolver, tripNumberGenerator, shipmentManagementServiceClient,
-                inventoryManagementServiceClient, rabbitTemplate, messageService, bCryptPasswordEncoder);
+                inventoryManagementServiceClient, rabbitTemplate, messageService, bCryptPasswordEncoder,
+                routePlannerSupport, demoSimulator, telemetryPublisher, tripRoutePlanRepository, iotProperties,
+                logisticsLifecycleNotificationSupport, logisticsNotificationRecipientResolver);
+    }
+
+    @Bean
+    public TripTelemetryIngestService tripTelemetryIngestService(
+            FleetManagementServiceClient fleetManagementServiceClient,
+            TripRepository tripRepository,
+            TripRoutePlannerSupport tripRoutePlannerSupport,
+            TripTelemetryPublisher tripTelemetryPublisher,
+            TripEventServiceAuditable tripEventServiceAuditable,
+            TripRoutePlanRepository tripRoutePlanRepository) {
+        return new TripTelemetryIngestServiceImpl(
+                fleetManagementServiceClient,
+                tripRepository,
+                tripRoutePlannerSupport,
+                tripTelemetryPublisher,
+                tripEventServiceAuditable,
+                tripRoutePlanRepository);
+    }
+
+    @Bean
+    public TripLiveService tripLiveService(TripRepository tripRepository,
+                                           TripRoutePlanRepository tripRoutePlanRepository,
+                                           CallerOrganizationResolver callerOrganizationResolver,
+                                           TripRoutePlannerSupport routePlannerSupport,
+                                           TripIotDemoSimulator demoSimulator,
+                                           TripLiveSseRegistry sseRegistry,
+                                           TripTelemetryPublisher telemetryPublisher,
+                                           MessageService messageService) {
+        return new TripLiveServiceImpl(tripRepository, tripRoutePlanRepository, callerOrganizationResolver,
+                routePlannerSupport, demoSimulator, sseRegistry, telemetryPublisher, messageService);
     }
 }

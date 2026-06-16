@@ -16,13 +16,14 @@ import { NavAccessService } from '../../core/services/nav-access.service';
 import { ShellUserService } from '../../core/services/shell-user.service';
 import { ThemeService } from '../../core/services/theme.service';
 import { shellRoleSummary } from '../../core/utils/field-display.util';
-import { decodeJwtPayload } from '../../core/utils/jwt.util';
+import { currentUserFromJwt, decodeJwtPayload, isJwtExpired } from '../../core/utils/jwt.util';
 import { StorageService } from '../../core/services/storage.service';
 import { UserProfileService } from '../../core/services/user-profile.service';
 import { SessionIdleService } from '../../core/services/session-idle.service';
 import { SessionExpiryService } from '../../core/services/session-expiry.service';
 import { AuthenticatedHistoryService } from '../../core/services/authenticated-history.service';
 import { PhoneVerificationPromptService } from '../../core/services/phone-verification-prompt.service';
+import { ShellNotification, ShellNotificationService } from '../../core/services/shell-notification.service';
 import { CurrencyContextService } from '../../core/services/currency-context.service';
 import { PlatformWalletService, type OrganizationBillingMode, type PlatformWalletSummary } from '../../core/services/platform-wallet.service';
 import { DuplexTradingModeService } from '../../core/services/duplex-trading-mode.service';
@@ -33,21 +34,17 @@ import {
   NAV_CONFIG,
   NavItem,
   withAuditLogNav,
+  withFleetNav,
   withInventoryNav,
   withMyOrdersNav,
+  withOrganizationManagementNav,
+  withShipmentsNav,
   withUsersNavAfterDocuments,
 } from '../sidebar/sidebar.config';
 
 interface Breadcrumb {
   label: string;
   url: string;
-}
-
-interface ShellNotification {
-  id: string;
-  title: string;
-  body: string;
-  time: string;
 }
 
 @Component({
@@ -77,26 +74,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   sessionWarningVisible = false;
   sessionSecondsRemaining = 0;
   walletSummary: PlatformWalletSummary | null = null;
-  topNotifications: ShellNotification[] = [
-    {
-      id: 'p1',
-      title: 'Shipment update',
-      body: 'LX-2017287528 departed Harare DC — ETA Bulawayo Hub tomorrow.',
-      time: '5m ago',
-    },
-    {
-      id: 'p2',
-      title: 'Purchase order',
-      body: 'New PO #4821 assigned to your organisation for review.',
-      time: '32m ago',
-    },
-    {
-      id: 'p3',
-      title: 'Document shared',
-      body: 'A compliance pack was uploaded to your workspace.',
-      time: '2h ago',
-    },
-  ];
+  topNotifications: ShellNotification[] = [];
 
   constructor(
     private readonly authService: AuthService,
@@ -112,6 +90,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     private readonly sessionExpiry: SessionExpiryService,
     private readonly authenticatedHistory: AuthenticatedHistoryService,
     private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
+    private readonly shellNotifications: ShellNotificationService,
     private readonly currencyContext: CurrencyContextService,
     private readonly platformWallet: PlatformWalletService,
     private readonly duplexTradingMode: DuplexTradingModeService,
@@ -123,7 +102,15 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     if (this.currentUser) {
       this.shellUserService.syncFromAuthState(this.currentUser);
     } else {
-      this.authService.bootstrapFromStorage();
+      const token = this.storage.getToken();
+      if (token && !token.startsWith('mock.') && !isJwtExpired(token)) {
+        const jwtUser = currentUserFromJwt(token);
+        if (jwtUser) {
+          this.authState.setCurrentUser(jwtUser);
+          this.currentUser = jwtUser;
+          this.shellUserService.syncFromAuthState(jwtUser);
+        }
+      }
     }
     this.refreshWorkspaceNav();
 
@@ -159,6 +146,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
             this.cdr.markForCheck();
           }
         });
+        this.shellNotifications.refresh();
       }
       this.refreshWorkspaceNav();
       this.syncChromeFromUrl();
@@ -166,6 +154,11 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     });
 
     this.shellUserService.user$.pipe(takeUntil(this.destroy$)).subscribe(() => this.cdr.markForCheck());
+
+    this.shellNotifications.notifications$.pipe(takeUntil(this.destroy$)).subscribe((items) => {
+      this.topNotifications = items;
+      this.cdr.markForCheck();
+    });
 
     const stored = this.storage.getUser();
     const needsProfileRefresh = !String(stored?.firstName ?? '').trim();
@@ -365,6 +358,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     this.notificationsOpen = !this.notificationsOpen;
     if (this.notificationsOpen) {
       this.profileOpen = false;
+      this.shellNotifications.refresh();
     }
     this.cdr.markForCheck();
   }
@@ -377,14 +371,72 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  dismissNotification(id: string): void {
-    this.topNotifications = this.topNotifications.filter((n) => n.id !== id);
+  dismissNotification(id: string, event?: Event): void {
+    event?.stopPropagation();
+    event?.preventDefault();
+    this.shellNotifications.dismiss(id);
     this.cdr.markForCheck();
   }
 
   clearAllNotifications(): void {
-    this.topNotifications = [];
+    this.shellNotifications.clearAll();
     this.cdr.markForCheck();
+  }
+
+  onNotificationClick(notification: ShellNotification, event?: Event): void {
+    event?.stopPropagation();
+    if (!notification.action) {
+      return;
+    }
+    this.notificationsOpen = false;
+    this.navigateToVerificationAction(notification.action);
+    this.cdr.markForCheck();
+  }
+
+  private navigateToVerificationAction(action: 'verify-phone' | 'verify-email'): void {
+    const syncId = this.resolveSignedInUserId();
+    if (syncId > 0) {
+      void this.router.navigate(['/users', String(syncId), 'profile'], {
+        queryParams: { verify: action === 'verify-phone' ? 'phone' : 'email' },
+      });
+      return;
+    }
+
+    const username = String(decodeJwtPayload(this.storage.getToken() ?? '')?.sub ?? '').trim();
+    this.userProfile
+      .fetchCurrentUser()
+      .pipe(
+        take(1),
+        switchMap((profile) => {
+          const fromProfile = Number(profile?.id ?? 0);
+          if (Number.isFinite(fromProfile) && fromProfile > 0) {
+            return of(fromProfile);
+          }
+          if (!username) {
+            return of(0);
+          }
+          return this.userProfile.fetchByUsername(username).pipe(
+            map((fallback) => {
+              const fromFallback = Number(fallback?.id ?? 0);
+              return Number.isFinite(fromFallback) && fromFallback > 0 ? fromFallback : 0;
+            }),
+          );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe((resolvedId) => {
+        if (resolvedId > 0) {
+          void this.router.navigate(['/users', String(resolvedId), 'profile'], {
+            queryParams: { verify: action === 'verify-phone' ? 'phone' : 'email' },
+          });
+          return;
+        }
+        if (action === 'verify-phone') {
+          this.phoneVerificationPrompt.openDialog().pipe(takeUntil(this.destroy$)).subscribe();
+          return;
+        }
+        void this.router.navigate(['/account']);
+      });
   }
 
   logout(fromInactivity = false): void {
@@ -517,8 +569,17 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     const fallback: NavItem[] = [{ label: 'Dashboard', route: '/dashboard', icon: 'dashboard' }];
     const base = withAuditLogNav(
       withMyOrdersNav(
-        withInventoryNav(
-          withUsersNavAfterDocuments(classification ? (NAV_CONFIG[classification] ?? fallback) : fallback),
+        withShipmentsNav(
+          withFleetNav(
+            withInventoryNav(
+              withUsersNavAfterDocuments(
+                withOrganizationManagementNav(
+                  classification ? (NAV_CONFIG[classification] ?? fallback) : fallback,
+                  classification ?? undefined,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -605,7 +666,10 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
           url === child.route ||
           (child.route !== '/users' &&
             !child.route.startsWith('/products-inventory/') &&
+            !child.route.startsWith('/fleet/') &&
             !child.route.startsWith('/my-orders/') &&
+            !child.route.startsWith('/shipments/') &&
+            !child.route.startsWith('/organization/') &&
             url.startsWith(child.route + '/'))
         ) {
           return child.label;

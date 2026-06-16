@@ -1,6 +1,7 @@
 /** Shipment statuses from ldms-shipment-management. */
 export type ShipmentStatus =
   | 'PENDING'
+  | 'PENDING_FLEET'
   | 'ALLOCATED'
   | 'IN_TRANSIT'
   | 'DELIVERED'
@@ -9,19 +10,30 @@ export type ShipmentStatus =
 export type TripStatus =
   | 'PENDING'
   | 'IN_PROGRESS'
+  | 'IN_TRANSIT'
+  | 'AT_BORDER_HOLD'
+  | 'ROADSIDE_HOLD'
   | 'ARRIVED'
   | 'DELIVERED'
   | 'CANCELLED';
 
 export type TripEventType =
   | 'DEPARTURE'
+  | 'DEPARTED'
   | 'CHECKPOINT'
   | 'BREAK'
   | 'DELAY'
+  | 'ARRIVED_AT_BORDER'
+  | 'BORDER_CLEARED'
+  | 'ROADSIDE_FUEL_STOP'
+  | 'ROADSIDE_MECHANIC_STOP'
+  | 'ROADSIDE_RESUMED'
   | 'ARRIVAL'
+  | 'ARRIVED'
   | 'DELIVERED'
   | 'INCIDENT'
-  | 'OTHER';
+  | 'OTHER'
+  | 'NOTE';
 
 export type TripTrackingTab = 'shipments' | 'trips';
 
@@ -39,9 +51,14 @@ export interface ShipmentRow {
   status: ShipmentStatus;
   statusLabel: string;
   statusTone: 'muted' | 'warn' | 'success' | 'danger' | 'info';
+  fleetDriverId?: number;
+  fleetAssetId?: number;
+  transportCompanyOrganizationId?: number;
+  transportCompanyName?: string;
   driverName: string;
   vehicleRegistration: string;
   createdAtLabel: string;
+  canAssignTransport: boolean;
   canAllocate: boolean;
   canStartTrip: boolean;
 }
@@ -63,6 +80,7 @@ export interface TripRow {
   startedAtLabel: string;
   canTriggerArrival: boolean;
   canVerifyOtp: boolean;
+  canLiveTrack?: boolean;
 }
 
 /** A single timeline event entry from GET /trip/track/{id}. */
@@ -95,6 +113,7 @@ export interface TripDetail {
   timeline: TripTimelineEvent[];
   canTriggerArrival: boolean;
   canVerifyOtp: boolean;
+  canLiveTrack?: boolean;
 }
 
 export interface TripWorkspaceMetrics {
@@ -105,6 +124,12 @@ export interface TripWorkspaceMetrics {
 }
 
 // ── Request payloads ─────────────────────────────────────────────────────────
+
+/** POST /shipment/assign-transport-company */
+export interface AssignTransportCompanyPayload {
+  shipmentId: number;
+  transportCompanyOrganizationId: number;
+}
 
 /** POST /shipment/allocate */
 export interface AllocateShipmentPayload {
@@ -156,4 +181,43 @@ export interface TripFilterPayload {
   organizationId?: number;
   status?: TripStatus | '';
   search?: string;
+}
+
+/** Corridor waypoint for live map rendering. */
+export interface TripRouteWaypoint {
+  label: string;
+  latitude: number;
+  longitude: number;
+  type: string;
+}
+
+/** GET /trip-live/snapshot/{id} */
+export interface TripLiveSnapshot {
+  tripId: number;
+  tripNumber: string;
+  status: string;
+  fromWarehouseName: string;
+  toWarehouseName: string;
+  latitude?: number;
+  longitude?: number;
+  speedKmh: number;
+  headingDeg: number;
+  overallProgressPct: number;
+  simulationActive: boolean;
+  moving: boolean;
+  routeWaypoints: TripRouteWaypoint[];
+}
+
+/** GET /fuel-session/live/{tripId} */
+export interface FuelLiveSnapshot {
+  tripId: number;
+  fleetDriverId?: number;
+  fleetAssetId?: number;
+  fuelLevelPct: number;
+  fuelRemainingLiters: number;
+  tankCapacityLiters: number;
+  distanceTravelledKm: number;
+  consumptionRateLPer100Km: number;
+  moving: boolean;
+  status: string;
 }

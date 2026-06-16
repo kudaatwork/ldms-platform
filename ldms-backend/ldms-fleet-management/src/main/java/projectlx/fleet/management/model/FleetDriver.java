@@ -13,13 +13,15 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
+import projectlx.fleet.management.utils.enums.DriverEmploymentType;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "fleet_driver", indexes = {
         @Index(name = "idx_fleet_driver_org_status", columnList = "organization_id, entity_status"),
-        @Index(name = "idx_fleet_driver_user", columnList = "user_id")
+        @Index(name = "idx_fleet_driver_user_id", columnList = "user_id")
 })
 @Getter
 @Setter
@@ -33,8 +35,14 @@ public class FleetDriver implements DomainMarkerInterface {
     @Column(name = "organization_id", nullable = false)
     private Long organizationId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "employment_type", nullable = false, length = 50)
+    private DriverEmploymentType employmentType = DriverEmploymentType.EMPLOYED;
+
     @Column(name = "user_id")
     private Long userId;
+
+    // === PERSONAL DETAILS ===
 
     @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
@@ -50,6 +58,51 @@ public class FleetDriver implements DomainMarkerInterface {
 
     @Column(name = "license_class", length = 50)
     private String licenseClass;
+
+    @Column(name = "license_upload_id")
+    private Long licenseUploadId;
+
+    // === IDENTITY DOCUMENTS ===
+
+    @Column(name = "national_id_number", length = 100)
+    private String nationalIdNumber;
+
+    @Column(name = "national_id_expiry_date")
+    private LocalDate nationalIdExpiryDate;
+
+    @Column(name = "national_id_upload_id")
+    private Long nationalIdUploadId;
+
+    @Column(name = "passport_number", length = 100)
+    private String passportNumber;
+
+    @Column(name = "passport_expiry_date")
+    private LocalDate passportExpiryDate;
+
+    @Column(name = "passport_upload_id")
+    private Long passportUploadId;
+
+    // === RESIDENTIAL ADDRESS ===
+
+    @Column(name = "address_line1", length = 200)
+    private String addressLine1;
+
+    @Column(name = "address_line2", length = 200)
+    private String addressLine2;
+
+    @Column(name = "address_city", length = 100)
+    private String addressCity;
+
+    @Column(name = "address_province", length = 100)
+    private String addressProvince;
+
+    @Column(name = "address_postal_code", length = 30)
+    private String addressPostalCode;
+
+    @Column(name = "address_country", length = 100)
+    private String addressCountry;
+
+    // === AUDIT ===
 
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)

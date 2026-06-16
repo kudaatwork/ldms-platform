@@ -1,0 +1,249 @@
+<div class="lx-page bcc">
+  <lx-workspace-hero
+    eyebrow="Cross-border logistics"
+    eyebrowIcon="public"
+    title="Border clearance"
+    lead="Prepare customs paperwork, submit cases at the border, and release trucks back onto the corridor."
+    hubIcon="fact_check"
+    [orbitIcons]="['description', 'flag', 'verified']"
+    note="Cases are created automatically when a transfer is marked cross-border and approved."
+  >
+    <button
+      type="button"
+      lxWorkspaceHeroActions
+      class="lx-btn lx-btn-ghost lx-btn-sm"
+      (click)="reload()"
+      [disabled]="loading"
+    >
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+
+    <lx-workspace-hero-stat [value]="metrics.total" label="Open cases" icon="folder_open" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.awaiting" label="Awaiting docs" icon="upload_file" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.atBorder" label="At border" icon="flag" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.cleared" label="Cleared" icon="verified" theme="mint"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <nav class="bcc-filters lx-card" aria-label="Filter clearance cases">
+    <button
+      type="button"
+      class="bcc-filters__chip"
+      *ngFor="let opt of statusOptions"
+      [class.is-on]="statusFilter === opt.value"
+      (click)="setStatusFilter(opt.value)"
+    >
+      <mat-icon>{{ opt.icon }}</mat-icon>
+      <span>{{ opt.label }}</span>
+    </button>
+  </nav>
+
+  <div class="bcc-alert lx-card" *ngIf="loadError" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ loadError }}</span>
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reload()">Retry</button>
+  </div>
+
+  <div class="bcc-loading" *ngIf="loading && !cases.length" role="status">
+    <lx-table-loading [busy]="true" message="Loading clearance cases…"></lx-table-loading>
+  </div>
+
+  <div class="bcc-empty lx-card" *ngIf="!loading && !cases.length && !loadError">
+    <div class="bcc-empty__icon" aria-hidden="true">
+      <mat-icon>travel_explore</mat-icon>
+    </div>
+    <h2>No clearance cases yet</h2>
+    <p>
+      When you approve a cross-border inventory transfer, a clearance case appears here automatically.
+      Mark transfers as <strong>international / cross-border</strong> when creating them.
+    </p>
+  </div>
+
+  <div class="bcc-layout" *ngIf="cases.length">
+    <aside class="bcc-list lx-card">
+      <header class="bcc-list__head">
+        <h2 class="bcc-list__title">Cases</h2>
+        <span class="bcc-list__count">{{ cases.length }}</span>
+      </header>
+
+      <div class="bcc-list__scroll">
+        <button
+          type="button"
+          class="bcc-list__item"
+          *ngFor="let row of cases; trackBy: trackByCaseId"
+          [class.bcc-list__item--active]="selectedCase?.id === row.id"
+          (click)="selectCase(row)"
+        >
+          <div class="bcc-list__item-top">
+            <span class="bcc-list__case">{{ row.caseNumber }}</span>
+            <span [class]="statusClass(row.statusTone)">
+              <mat-icon>{{ statusIcon(row.status) }}</mat-icon>
+              {{ row.statusLabel }}
+            </span>
+          </div>
+          <div class="bcc-list__meta">
+            <span><mat-icon>inventory_2</mat-icon> Shipment #{{ row.shipmentId }}</span>
+            <span><mat-icon>attach_file</mat-icon> {{ row.documents.length }} doc{{ row.documents.length === 1 ? '' : 's' }}</span>
+          </div>
+        </button>
+      </div>
+    </aside>
+
+    <section class="bcc-detail" *ngIf="selectedCase as c; else pickCase">
+      <div class="bcc-detail__hero lx-card">
+        <div class="bcc-detail__hero-main">
+          <div class="bcc-detail__icon" [class.bcc-detail__icon--rejected]="c.status === 'REJECTED'">
+            <mat-icon>{{ statusIcon(c.status) }}</mat-icon>
+          </div>
+          <div>
+            <p class="bcc-detail__eyebrow">Clearance case</p>
+            <h2 class="bcc-detail__title">{{ c.caseNumber }}</h2>
+            <span [class]="statusClass(c.statusTone)">{{ c.statusLabel }}</span>
+          </div>
+        </div>
+        <dl class="bcc-detail__facts">
+          <div>
+            <dt>Shipment</dt>
+            <dd>#{{ c.shipmentId }}</dd>
+          </div>
+          <div *ngIf="c.inventoryTransferId">
+            <dt>Transfer</dt>
+            <dd>#{{ c.inventoryTransferId }}</dd>
+          </div>
+          <div *ngIf="c.tripId">
+            <dt>Trip</dt>
+            <dd>#{{ c.tripId }}</dd>
+          </div>
+          <div *ngIf="c.borderName">
+            <dt>Border</dt>
+            <dd>{{ c.borderName }}</dd>
+          </div>
+          <div *ngIf="c.clearedAtLabel && c.clearedAtLabel !== '—'">
+            <dt>Cleared</dt>
+            <dd>{{ c.clearedAtLabel }}</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="bcc-workflow lx-card" *ngIf="c.status !== 'REJECTED'">
+        <h3 class="bcc-section-title">Progress</h3>
+        <ol class="bcc-steps">
+          <li
+            *ngFor="let step of workflowSteps; let i = index"
+            class="bcc-steps__item"
+            [class.is-done]="isWorkflowComplete(i, c.status)"
+            [class.is-current]="isWorkflowCurrent(i, c.status)"
+          >
+            <span class="bcc-steps__dot">
+              <mat-icon *ngIf="isWorkflowComplete(i, c.status)">check</mat-icon>
+              <mat-icon *ngIf="!isWorkflowComplete(i, c.status)">{{ step.icon }}</mat-icon>
+            </span>
+            <span class="bcc-steps__label">{{ step.label }}</span>
+          </li>
+        </ol>
+      </div>
+
+      <div class="bcc-rejected lx-card" *ngIf="c.status === 'REJECTED'">
+        <mat-icon>block</mat-icon>
+        <div>
+          <strong>Case rejected</strong>
+          <p *ngIf="c.notes; else noRejectNote">{{ c.notes }}</p>
+          <ng-template #noRejectNote><p>Contact your clearing agent or resubmit required documents.</p></ng-template>
+        </div>
+      </div>
+
+      <div class="bcc-docs lx-card">
+        <header class="bcc-section-head">
+          <h3 class="bcc-section-title">Documents for authorities</h3>
+          <span class="bcc-section-hint">{{ c.documents.length }} on file</span>
+        </header>
+
+        <ul class="bcc-doc-list" *ngIf="c.documents.length; else noDocs">
+          <li class="bcc-doc" *ngFor="let doc of c.documents">
+            <span class="bcc-doc__icon"><mat-icon>{{ documentIcon(doc.documentType) }}</mat-icon></span>
+            <div class="bcc-doc__body">
+              <strong>{{ doc.documentTypeLabel }}</strong>
+              <span>{{ doc.fileName || ('Upload #' + doc.fileUploadId) }}</span>
+              <small *ngIf="doc.createdAtLabel !== '—'">Added {{ doc.createdAtLabel }}</small>
+            </div>
+          </li>
+        </ul>
+        <ng-template #noDocs>
+          <p class="bcc-doc-empty">No documents uploaded yet. Add customs and transit papers below.</p>
+        </ng-template>
+
+        <div class="bcc-upload" *ngIf="c.status === 'AWAITING_DOCUMENTS'">
+          <div class="bcc-upload__picker">
+            <label class="lx-field-label" for="bcc-doc-type">Document type</label>
+            <select id="bcc-doc-type" [(ngModel)]="documentType" class="lx-select bcc-select">
+              <option *ngFor="let t of documentTypes" [ngValue]="t.value">{{ t.label }}</option>
+            </select>
+          </div>
+          <label class="bcc-dropzone" [class.bcc-dropzone--busy]="uploading">
+            <input type="file" hidden (change)="onFileSelected($event)" [disabled]="uploading" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" />
+            <mat-icon>{{ uploading ? 'hourglass_top' : 'cloud_upload' }}</mat-icon>
+            <span class="bcc-dropzone__title">{{ uploading ? 'Uploading…' : 'Drop a file or click to upload' }}</span>
+            <span class="bcc-dropzone__hint">PDF, images, or Word · max one file at a time</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="bcc-actions lx-card" *ngIf="c.canSubmit || c.canClear || c.canReject">
+        <h3 class="bcc-section-title">Actions</h3>
+
+        <div class="bcc-actions__grid">
+          <div class="bcc-field lx-field" *ngIf="c.canClear">
+            <label class="lx-field-label" for="bcc-border-name">Border / crossing name</label>
+            <input
+              id="bcc-border-name"
+              [(ngModel)]="borderName"
+              class="lx-input"
+              placeholder="e.g. Beitbridge, Chirundu"
+            />
+          </div>
+
+          <div class="bcc-actions__buttons">
+            <button
+              type="button"
+              class="lx-btn lx-btn-primary"
+              *ngIf="c.canSubmit"
+              [disabled]="acting || uploading"
+              (click)="submitCase()"
+            >
+              <mat-icon>send</mat-icon>
+              Submit for review
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-primary"
+              *ngIf="c.canClear"
+              [disabled]="acting"
+              (click)="clearCase()"
+            >
+              <mat-icon>verified</mat-icon>
+              Mark cleared
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-danger"
+              *ngIf="c.canReject"
+              [disabled]="acting"
+              (click)="rejectCase()"
+            >
+              <mat-icon>block</mat-icon>
+              Reject
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <ng-template #pickCase>
+      <section class="bcc-placeholder lx-card">
+        <mat-icon>touch_app</mat-icon>
+        <h2>Select a case</h2>
+        <p>Choose a clearance case from the list to view documents and take action.</p>
+      </section>
+    </ng-template>
+  </div>
+</div>

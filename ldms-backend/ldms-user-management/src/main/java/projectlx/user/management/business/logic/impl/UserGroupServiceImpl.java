@@ -9,6 +9,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import projectlx.co.zw.shared_library.utils.security.AdministratorRoleScopePolicy;
 import projectlx.user.management.business.auditable.api.UserGroupServiceAuditable;
 import projectlx.user.management.business.auditable.api.UserServiceAuditable;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
@@ -46,6 +47,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.io.ByteArrayOutputStream;
@@ -203,6 +205,7 @@ public class UserGroupServiceImpl implements UserGroupService {
             }
         }
         UserRoleDtoModuleEnricher.enrichAll(roleDtos);
+        roleDtos = filterRoleDtosForPortalScope(roleDtos, resolvePortalScopeForSession(username));
         userGroupDto.setUserRoleDtoSet(roleDtos);
         enrichMemberCount(userGroupDto);
 
@@ -219,7 +222,8 @@ public class UserGroupServiceImpl implements UserGroupService {
 
         String message = "";
 
-        List<UserGroup> userGroupList = userGroupRepository.findByEntityStatusNot(EntityStatus.DELETED);
+        List<UserGroup> userGroupList = collapseDuplicateAdministratorGroups(
+                userGroupRepository.findByEntityStatusNot(EntityStatus.DELETED));
 
         if(userGroupList.isEmpty()) {
 
@@ -393,8 +397,10 @@ public class UserGroupServiceImpl implements UserGroupService {
         }
 
         Page<UserGroup> result = userGroupRepository.findAll(spec, pageable);
+        List<UserGroup> collapsed = collapseDuplicateAdministratorGroups(result.getContent());
+        Page<UserGroup> collapsedPage = new PageImpl<>(collapsed, pageable, collapsed.size());
 
-        Page<UserGroupDto> userGroupDtoPage = convertUserGroupEntityToUserGroupDto(result);
+        Page<UserGroupDto> userGroupDtoPage = convertUserGroupEntityToUserGroupDto(collapsedPage);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -890,7 +896,6 @@ public class UserGroupServiceImpl implements UserGroupService {
 
         private Page<UserGroupDto> convertUserGroupEntityToUserGroupDto(Page<UserGroup> userGroupPage) {
 
-        List<UserGroup> userGroupList = userGroupPage.getContent();
         List<UserGroupDto> userGroupDtoList = new ArrayList<>();
 
         for (UserGroup userGroup : userGroupPage) {
@@ -907,6 +912,59 @@ public class UserGroupServiceImpl implements UserGroupService {
         Pageable pageableUserGroups = PageRequest.of(page, size);
 
         return new PageImpl<UserGroupDto>(userGroupDtoList, pageableUserGroups, userGroupPage.getTotalElements());
+    }
+
+    private List<UserGroup> collapseDuplicateAdministratorGroups(List<UserGroup> groups) {
+        if (groups == null || groups.isEmpty()) {
+            return List.of();
+        }
+        List<UserGroup> filtered = new ArrayList<>();
+        boolean platformAdministratorAdded = false;
+        for (UserGroup group : groups) {
+            if (group == null) {
+                continue;
+            }
+            if (isAdministratorGroupName(group.getName())) {
+                Long organizationId = group.getOrganizationId();
+                if (organizationId != null && organizationId > 0) {
+                    continue;
+                }
+                if (platformAdministratorAdded) {
+                    continue;
+                }
+                platformAdministratorAdded = true;
+            }
+            filtered.add(group);
+        }
+        return filtered;
+    }
+
+    private static boolean isAdministratorGroupName(String name) {
+        return StringUtils.hasText(name)
+                && OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(name.trim());
+    }
+
+    private AdministratorRoleScopePolicy.PortalScope resolvePortalScopeForSession(String username) {
+        return AdministratorRoleScopePolicy.portalScopeFor(
+                organizationWorkspaceAccessSupport.sessionOrganizationId(username).orElse(null));
+    }
+
+    private List<UserRoleDto> filterRoleDtosForPortalScope(
+            List<UserRoleDto> roleDtos,
+            AdministratorRoleScopePolicy.PortalScope scope) {
+        if (roleDtos == null || roleDtos.isEmpty()) {
+            return List.of();
+        }
+        List<UserRoleDto> filtered = new ArrayList<>();
+        for (UserRoleDto roleDto : roleDtos) {
+            if (roleDto == null || !StringUtils.hasText(roleDto.getRole())) {
+                continue;
+            }
+            if (AdministratorRoleScopePolicy.isEffectiveForScope(roleDto.getRole(), scope)) {
+                filtered.add(roleDto);
+            }
+        }
+        return filtered;
     }
 
     private String safe(String value) {

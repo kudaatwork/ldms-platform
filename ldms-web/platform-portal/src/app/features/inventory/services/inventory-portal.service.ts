@@ -67,6 +67,7 @@ import {
   TransferStatus,
   WarehouseImportSummary,
   WarehouseRow,
+  WarehouseAccessGrant,
 } from '../models/inventory.model';
 import {
   purchaseOrderStageProgressLabel,
@@ -355,6 +356,53 @@ export class InventoryPortalService {
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
+  }
+
+  /** GET /warehouse-locations/{id}/organization-access */
+  listWarehouseAccessGrants(warehouseLocationId: number): Observable<WarehouseAccessGrant[]> {
+    return this.http.get<unknown>(`${this.warehouseBase}/${warehouseLocationId}/organization-access`).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.extractListOrEmpty(resp, 'warehouseOrganizationAccessDtoList').map((dto) =>
+          this.mapWarehouseAccessGrant(dto),
+        );
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** POST /warehouse-locations/{id}/organization-access */
+  grantWarehouseAccess(payload: WarehouseAccessGrant): Observable<WarehouseAccessGrant[]> {
+    return this.http
+      .post<unknown>(`${this.warehouseBase}/${payload.warehouseLocationId}/organization-access`, {
+        warehouseLocationId: payload.warehouseLocationId,
+        grantedOrganizationId: payload.grantedOrganizationId,
+        accessLevel: payload.accessLevel,
+      })
+      .pipe(
+        map((resp) => {
+          this.assertSuccess(resp);
+          return this.extractListOrEmpty(resp, 'warehouseOrganizationAccessDtoList').map((dto) =>
+            this.mapWarehouseAccessGrant(dto),
+          );
+        }),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
+  }
+
+  /** DELETE /warehouse-locations/{id}/organization-access/{orgId} */
+  revokeWarehouseAccess(warehouseLocationId: number, grantedOrganizationId: number): Observable<WarehouseAccessGrant[]> {
+    return this.http
+      .delete<unknown>(`${this.warehouseBase}/${warehouseLocationId}/organization-access/${grantedOrganizationId}`)
+      .pipe(
+        map((resp) => {
+          this.assertSuccess(resp);
+          return this.extractListOrEmpty(resp, 'warehouseOrganizationAccessDtoList').map((dto) =>
+            this.mapWarehouseAccessGrant(dto),
+          );
+        }),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
   }
 
   /** POST /warehouse-locations/import/csv — bulk create from CSV template. */
@@ -1066,6 +1114,9 @@ export class InventoryPortalService {
 
   private mapWarehouseRow(dto: Record<string, unknown>): WarehouseRow {
     const warehouseType = String(dto['warehouseType'] ?? 'SUPPLIER').trim().toUpperCase();
+    const sharedAccess = Boolean(dto['sharedAccess']);
+    const organizationOwned = dto['organizationOwned'] != null ? Boolean(dto['organizationOwned']) : !sharedAccess;
+    const accessRaw = String(dto['callerAccessLevel'] ?? '').trim().toUpperCase();
     return {
       id: Number(dto['id'] ?? 0),
       name: String(dto['name'] ?? '').trim(),
@@ -1073,9 +1124,23 @@ export class InventoryPortalService {
       warehouseType,
       locationId: String(dto['locationId'] ?? '').trim(),
       supplierId: Number(dto['supplierId'] ?? 0),
+      branchId: dto['branchId'] != null ? Number(dto['branchId']) : undefined,
+      organizationOwned,
+      sharedAccess,
+      callerAccessLevel: accessRaw === 'FULFILL' ? 'FULFILL' : accessRaw === 'READ' ? 'READ' : undefined,
       addressLabel: '',
       entityStatus: String(dto['entityStatus'] ?? 'ACTIVE').toUpperCase(),
       createdAtLabel: this.formatDate(dto['createdAt']),
+    };
+  }
+
+  private mapWarehouseAccessGrant(dto: Record<string, unknown>): WarehouseAccessGrant {
+    const level = String(dto['accessLevel'] ?? 'READ').trim().toUpperCase();
+    return {
+      id: dto['id'] != null ? Number(dto['id']) : undefined,
+      warehouseLocationId: Number(dto['warehouseLocationId'] ?? 0),
+      grantedOrganizationId: Number(dto['grantedOrganizationId'] ?? 0),
+      accessLevel: level === 'FULFILL' ? 'FULFILL' : 'READ',
     };
   }
 
@@ -1448,6 +1513,7 @@ export class InventoryPortalService {
       canStartTransit: dto['canStartTransit'] === true,
       canComplete: dto['canComplete'] === true,
       canCancel: dto['canCancel'] === true,
+      crossBorder: dto['crossBorder'] === true,
     };
   }
 

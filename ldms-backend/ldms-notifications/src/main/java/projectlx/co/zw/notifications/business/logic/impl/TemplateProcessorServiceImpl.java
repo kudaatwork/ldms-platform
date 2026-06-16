@@ -2,8 +2,8 @@ package projectlx.co.zw.notifications.business.logic.impl;
 
 import com.github.jknack.handlebars.Handlebars;
 import com.github.jknack.handlebars.Template;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import projectlx.co.zw.notifications.business.logic.api.TemplateProcessorService;
 import projectlx.co.zw.notifications.business.validation.api.TemplateProcessorServiceValidator;
 import projectlx.co.zw.notifications.utils.NotificationTemplateDataEnricher;
@@ -13,12 +13,16 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-@Slf4j
-@RequiredArgsConstructor
 public class TemplateProcessorServiceImpl implements TemplateProcessorService {
+
+    private static final Logger log = LoggerFactory.getLogger(TemplateProcessorServiceImpl.class);
 
     private final TemplateProcessorServiceValidator validator;
     private final Handlebars handlebars = new Handlebars();
+
+    public TemplateProcessorServiceImpl(TemplateProcessorServiceValidator validator) {
+        this.validator = validator;
+    }
     // A simple cache to avoid re-compiling the same template repeatedly.
     private final Map<String, Template> templateCache = new ConcurrentHashMap<>();
 

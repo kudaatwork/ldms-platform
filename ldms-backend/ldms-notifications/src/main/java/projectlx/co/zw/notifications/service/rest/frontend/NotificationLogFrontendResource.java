@@ -10,7 +10,6 @@ import jakarta.validation.Valid;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
-import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -37,12 +36,15 @@ import projectlx.co.zw.shared_library.utils.export.LdmsExportMediaTypes;
 @RestController
 @RequestMapping("/ldms-notifications/v1/frontend/notification-log")
 @Tag(name = "Notification Log Frontend Resource", description = "Delivery log and queue visibility for the admin portal")
-@RequiredArgsConstructor
 public class NotificationLogFrontendResource {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationLogFrontendResource.class);
 
     private final NotificationLogProcessor notificationLogProcessor;
+
+    public NotificationLogFrontendResource(NotificationLogProcessor notificationLogProcessor) {
+        this.notificationLogProcessor = notificationLogProcessor;
+    }
 
     @Auditable(action = "FIND_NOTIFICATION_LOG_BY_MULTIPLE_FILTERS")
     @PreAuthorize("hasRole(T(projectlx.co.zw.notifications.utils.security.NotificationLogRoles)."

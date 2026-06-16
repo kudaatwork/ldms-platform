@@ -27,6 +27,9 @@ public class CreateUserRequest {
     /** When true, user may be assigned Help &amp; Support / operational issue tickets (requires no organisation/branch). */
     private Boolean operationalIssueHandler;
 
+    /** When true, user may approve procurement workflow stages (requires organisation assignment). */
+    private Boolean procurementApprover;
+
     private Long locationId;
 
     // ===========================

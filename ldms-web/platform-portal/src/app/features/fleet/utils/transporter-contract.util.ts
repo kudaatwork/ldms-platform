@@ -65,3 +65,39 @@ export function presentTransporterContract(dto: Record<string, unknown>): Transp
     rangeLabel,
   };
 }
+
+export interface TransporterContractDateBounds {
+  minDate: string;
+  maxDate: string | null;
+  rangeLabel: string;
+  endRequired: boolean;
+}
+
+export function resolveTransporterContractDateBounds(partner?: {
+  contractStartDate?: string;
+  contractEndDate?: string;
+  contractRangeLabel?: string;
+} | null): TransporterContractDateBounds | null {
+  const minDate = String(partner?.contractStartDate ?? '').trim();
+  if (!minDate) {
+    return null;
+  }
+  const maxDateRaw = String(partner?.contractEndDate ?? '').trim();
+  return {
+    minDate,
+    maxDate: maxDateRaw || null,
+    rangeLabel: partner?.contractRangeLabel ?? (maxDateRaw ? `${minDate} → ${maxDateRaw}` : `${minDate} → ongoing`),
+    endRequired: !!maxDateRaw,
+  };
+}
+
+export function isDateWithinInclusiveBounds(date: string, minDate: string, maxDate: string | null): boolean {
+  const value = String(date ?? '').trim();
+  if (!value || !minDate) {
+    return false;
+  }
+  if (value < minDate) {
+    return false;
+  }
+  return !(maxDate && value > maxDate);
+}

@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import projectlx.fleet.management.service.processor.api.FleetAssetServiceProcessor;
 import projectlx.fleet.management.service.processor.api.FleetComplianceServiceProcessor;
 import projectlx.fleet.management.service.processor.api.FleetDriverServiceProcessor;
+import projectlx.fleet.management.service.processor.api.FleetTrackingDeviceServiceProcessor;
 import projectlx.fleet.management.utils.requests.CompleteFleetAssetRegistrationRequest;
 import projectlx.fleet.management.utils.requests.CreateFleetAssetRequest;
 import projectlx.fleet.management.utils.requests.CreateFleetComplianceRecordRequest;
@@ -32,9 +33,12 @@ import projectlx.fleet.management.utils.requests.CreateFleetDriverRequest;
 import projectlx.fleet.management.utils.requests.EditFleetAssetRequest;
 import projectlx.fleet.management.utils.requests.EditFleetComplianceRecordRequest;
 import projectlx.fleet.management.utils.requests.EditFleetDriverRequest;
+import projectlx.fleet.management.utils.requests.EditFleetTrackingDeviceRequest;
+import projectlx.fleet.management.utils.requests.InstallFleetTrackingDeviceRequest;
 import projectlx.fleet.management.utils.responses.FleetAssetResponse;
 import projectlx.fleet.management.utils.responses.FleetComplianceRecordResponse;
 import projectlx.fleet.management.utils.responses.FleetDriverResponse;
+import projectlx.fleet.management.utils.responses.FleetTrackingDeviceResponse;
 import projectlx.fleet.management.utils.security.FleetRoles;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
@@ -53,6 +57,7 @@ public class FleetFrontendResource {
     private final FleetAssetServiceProcessor fleetAssetServiceProcessor;
     private final FleetDriverServiceProcessor fleetDriverServiceProcessor;
     private final FleetComplianceServiceProcessor fleetComplianceServiceProcessor;
+    private final FleetTrackingDeviceServiceProcessor fleetTrackingDeviceServiceProcessor;
 
     @Auditable(action = "LIST_FLEET_ASSETS")
     @PreAuthorize("isAuthenticated()")
@@ -113,7 +118,8 @@ public class FleetFrontendResource {
     @PostMapping("/assets/{id}/complete-registration")
     @Operation(
             summary = "Complete fleet asset registration",
-            description = "Submits required compliance documents (INSURANCE, ROADWORTHINESS, PERMIT) "
+            description = "Submits required compliance documents for the asset context "
+                    + "(statutory, operating authority, hazardous cargo when tanker, lease when contracted, driver credentials when assigned) "
                     + "for a PENDING_COMPLIANCE asset and activates it.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Fleet asset activated successfully"),
@@ -138,6 +144,20 @@ public class FleetFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         FleetDriverResponse response = fleetDriverServiceProcessor.list(locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "LIST_TRANSPORT_PARTNER_DRIVERS")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/transporter-partners/{transporterOrganizationId}/drivers")
+    @Operation(summary = "List contracted transport partner drivers",
+            description = "Returns the driver roster of a linked transport partner for assigning to contracted vehicles.")
+    public ResponseEntity<FleetDriverResponse> listTransporterPartnerDrivers(
+            @PathVariable final Long transporterOrganizationId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetDriverResponse response = fleetDriverServiceProcessor.listForTransporterPartner(
+                transporterOrganizationId, locale, username);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
@@ -223,6 +243,80 @@ public class FleetFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         FleetComplianceRecordResponse response = fleetComplianceServiceProcessor.listExpiring(withinDays, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    // ================================================================
+    // TRACKING DEVICES
+    // ================================================================
+
+    @Auditable(action = "LIST_TRACKING_DEVICES")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/tracking-devices")
+    @Operation(summary = "List tracking devices", description = "Lists tracking devices for the signed-in user's organisation.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Tracking devices retrieved"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    public ResponseEntity<FleetTrackingDeviceResponse> listTrackingDevices(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetTrackingDeviceResponse response = fleetTrackingDeviceServiceProcessor.list(locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "INSTALL_TRACKING_DEVICE")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/tracking-devices")
+    @Operation(summary = "Install tracking device", description = "Registers and activates a new tracking device for the organisation.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Tracking device installed successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    public ResponseEntity<FleetTrackingDeviceResponse> installTrackingDevice(
+            @RequestBody final InstallFleetTrackingDeviceRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetTrackingDeviceResponse response = fleetTrackingDeviceServiceProcessor.install(request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "UPDATE_TRACKING_DEVICE")
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/tracking-devices/{id}")
+    @Operation(summary = "Update tracking device", description = "Updates a tracking device by id.")
+    public ResponseEntity<FleetTrackingDeviceResponse> updateTrackingDevice(
+            @PathVariable final Long id,
+            @RequestBody final EditFleetTrackingDeviceRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetTrackingDeviceResponse response = fleetTrackingDeviceServiceProcessor.update(id, request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "SUSPEND_TRACKING_DEVICE")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/tracking-devices/{id}/suspend")
+    @Operation(summary = "Suspend tracking device", description = "Suspends a tracking device by id.")
+    public ResponseEntity<FleetTrackingDeviceResponse> suspendTrackingDevice(
+            @PathVariable final Long id,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetTrackingDeviceResponse response = fleetTrackingDeviceServiceProcessor.suspend(id, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "DELETE_TRACKING_DEVICE")
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping("/tracking-devices/{id}")
+    @Operation(summary = "Delete tracking device", description = "Soft-deletes a tracking device by id.")
+    public ResponseEntity<FleetTrackingDeviceResponse> deleteTrackingDevice(
+            @PathVariable final Long id,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetTrackingDeviceResponse response = fleetTrackingDeviceServiceProcessor.delete(id, locale, username);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 }

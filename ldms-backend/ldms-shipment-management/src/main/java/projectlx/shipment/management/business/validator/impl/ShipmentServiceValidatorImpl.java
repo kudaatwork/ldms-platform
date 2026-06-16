@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import projectlx.shipment.management.business.validator.api.ShipmentServiceValidator;
 import projectlx.shipment.management.utils.enums.I18Code;
 import projectlx.shipment.management.utils.requests.AllocateShipmentRequest;
+import projectlx.shipment.management.utils.requests.AssignTransportCompanyRequest;
 import projectlx.shipment.management.utils.requests.ShipmentMultipleFiltersRequest;
 import projectlx.shipment.management.utils.requests.UpdateShipmentStatusRequest;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
@@ -38,6 +39,26 @@ public class ShipmentServiceValidatorImpl implements ShipmentServiceValidator {
         }
         if (request.getFleetAssetId() == null || request.getFleetAssetId() < 1) {
             errors.add(messageService.getMessage(I18Code.MESSAGE_FLEET_ASSET_REQUIRED.getCode(), new String[]{}, locale));
+        }
+
+        return buildResult(errors);
+    }
+
+    @Override
+    public ValidatorDto isAssignTransportCompanyRequestValid(AssignTransportCompanyRequest request, Locale locale) {
+        List<String> errors = new ArrayList<>();
+
+        if (request == null) {
+            logger.info("Validation failed: AssignTransportCompanyRequest is null");
+            errors.add(messageService.getMessage(I18Code.MESSAGE_REQUEST_NULL.getCode(), new String[]{}, locale));
+            return new ValidatorDto(false, null, errors);
+        }
+        if (request.getShipmentId() == null || request.getShipmentId() < 1) {
+            errors.add(messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"shipmentId"}, locale));
+        }
+        if (request.getTransportCompanyOrganizationId() == null || request.getTransportCompanyOrganizationId() < 1) {
+            errors.add(messageService.getMessage(
+                    I18Code.MESSAGE_TRANSPORT_COMPANY_REQUIRED.getCode(), new String[]{}, locale));
         }
 
         return buildResult(errors);

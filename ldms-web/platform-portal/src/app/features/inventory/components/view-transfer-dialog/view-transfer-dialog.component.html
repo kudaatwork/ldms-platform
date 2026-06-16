@@ -1,28 +1,22 @@
-<div class="lx-dialog-shell inv-transfer-dialog">
-  <div class="inv-transfer-hero" [ngClass]="'inv-transfer-hero--' + statusClass">
-    <div class="inv-transfer-hero__glow" aria-hidden="true"></div>
-    <div class="inv-transfer-hero__top">
-      <div class="inv-transfer-hero__identity">
-        <span class="inv-transfer-hero__eyebrow">
-          <mat-icon>sync_alt</mat-icon>
-          Inventory transfer
-        </span>
-        <h2 class="inv-transfer-hero__ref">{{ transfer.transferNumber }}</h2>
-        <p class="inv-transfer-hero__product">{{ transfer.productName || 'Unknown product' }}</p>
+<div class="lx-dialog-shell inv-transfer-view">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <div class="inv-transfer-view__title-row">
+        <h2 class="lx-dialog-title">Inventory transfer</h2>
+        <span class="lx-status" [ngClass]="'lx-status-' + statusClass">{{ transfer.statusLabel }}</span>
       </div>
-      <div class="inv-transfer-hero__status-wrap">
-        <span class="lx-status inv-transfer-hero__status" [ngClass]="'lx-status-' + statusClass">
-          {{ transfer.statusLabel }}
-        </span>
-        <button mat-icon-button class="lx-close-button inv-transfer-hero__close" type="button" aria-label="Close dialog" (click)="close()">
-          <mat-icon>close</mat-icon>
-        </button>
-      </div>
+      <p class="lx-dialog-subtitle">
+        <span class="inv-transfer-view__ref">{{ transfer.transferNumber }}</span>
+        <ng-container *ngIf="transfer.productName"> · {{ transfer.productName }}</ng-container>
+      </p>
     </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
   </div>
 
   <div class="lx-step-content inv-transfer-view-body">
-    <div class="inv-transfer-route-card">
+    <div class="inv-transfer-route-card lx-card">
       <div class="inv-transfer-route-card__endpoint">
         <span class="inv-transfer-route-card__label">From</span>
         <strong>{{ transfer.fromWarehouse || '—' }}</strong>
@@ -46,7 +40,7 @@
       </div>
     </div>
 
-    <div class="inv-transfer-timeline" [class.inv-transfer-timeline--rejected]="isRejected">
+    <div class="inv-transfer-timeline lx-card" [class.inv-transfer-timeline--rejected]="isRejected">
       <div
         class="inv-transfer-timeline__step"
         *ngFor="let step of workflowSteps; let last = last"
@@ -86,28 +80,28 @@
     </section>
 
     <div class="inv-transfer-stats">
-      <article class="inv-transfer-stat">
+      <article class="inv-transfer-stat lx-card">
         <mat-icon>payments</mat-icon>
         <div>
           <span class="inv-transfer-stat__label">Unit cost</span>
           <strong>{{ transfer.unitCostLabel || '—' }}</strong>
         </div>
       </article>
-      <article class="inv-transfer-stat">
+      <article class="inv-transfer-stat lx-card">
         <mat-icon>person</mat-icon>
         <div>
           <span class="inv-transfer-stat__label">Requested by</span>
           <strong>{{ transfer.requestedBy || '—' }}</strong>
         </div>
       </article>
-      <article class="inv-transfer-stat">
+      <article class="inv-transfer-stat lx-card">
         <mat-icon>event</mat-icon>
         <div>
           <span class="inv-transfer-stat__label">Created</span>
           <strong>{{ transfer.createdAtLabel || '—' }}</strong>
         </div>
       </article>
-      <article class="inv-transfer-stat" *ngIf="transfer.reference?.trim()">
+      <article class="inv-transfer-stat lx-card" *ngIf="transfer.reference?.trim()">
         <mat-icon>sticky_note_2</mat-icon>
         <div>
           <span class="inv-transfer-stat__label">Notes</span>
@@ -116,7 +110,7 @@
       </article>
     </div>
 
-    <section class="inv-shipment-track-panel" *ngIf="canTrackShipment">
+    <section class="inv-shipment-track-panel lx-card" *ngIf="canTrackShipment">
       <div class="inv-shipment-track-panel__header">
         <mat-icon>local_shipping</mat-icon>
         <span>Shipment tracking</span>
@@ -145,7 +139,7 @@
       </ng-container>
     </section>
 
-    <details class="inv-transfer-meta" open>
+    <details class="inv-transfer-meta lx-card" open>
       <summary>
         <mat-icon>info</mat-icon>
         Additional details

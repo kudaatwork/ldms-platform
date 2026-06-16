@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 @Table(name = "shipment", indexes = {
         @Index(name = "idx_shipment_org_id", columnList = "organization_id"),
         @Index(name = "idx_shipment_transfer_id", columnList = "inventory_transfer_id"),
+        @Index(name = "idx_shipment_sales_order_id", columnList = "sales_order_id"),
         @Index(name = "idx_shipment_status", columnList = "status, entity_status")
 })
 @Getter
@@ -46,8 +47,17 @@ public class Shipment implements DomainMarkerInterface {
     @Column(name = "source_type", nullable = false, length = 50)
     private ShipmentSourceType sourceType;
 
-    @Column(name = "inventory_transfer_id", nullable = false)
+    @Column(name = "inventory_transfer_id")
     private Long inventoryTransferId;
+
+    @Column(name = "sales_order_id")
+    private Long salesOrderId;
+
+    @Column(name = "purchase_order_id")
+    private Long purchaseOrderId;
+
+    @Column(name = "customer_organization_id")
+    private Long customerOrganizationId;
 
     // === WAREHOUSE LOCATIONS ===
 
@@ -77,6 +87,9 @@ public class Shipment implements DomainMarkerInterface {
     @Column(name = "quantity", nullable = false, precision = 19, scale = 4)
     private BigDecimal quantity = BigDecimal.ZERO;
 
+    @Column(name = "cross_border", nullable = false)
+    private boolean crossBorder;
+
     // === FLEET ALLOCATION ===
 
     @Column(name = "fleet_driver_id")
@@ -84,6 +97,12 @@ public class Shipment implements DomainMarkerInterface {
 
     @Column(name = "fleet_asset_id")
     private Long fleetAssetId;
+
+    @Column(name = "transport_company_organization_id")
+    private Long transportCompanyOrganizationId;
+
+    @Column(name = "transport_company_name", length = 200)
+    private String transportCompanyName;
 
     // === TRIP LINK ===
 

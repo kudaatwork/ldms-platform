@@ -3,7 +3,6 @@ package projectlx.co.zw.locationsmanagementservice.business.logic.impl;
 import com.lowagie.text.DocumentException;
 import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
 import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
-import lombok.RequiredArgsConstructor;
 import com.opencsv.bean.CsvToBean;
 import com.opencsv.bean.CsvToBeanBuilder;
 import com.opencsv.bean.HeaderColumnNameMappingStrategy;
@@ -62,7 +61,6 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@RequiredArgsConstructor
 public class DistrictServiceImpl implements DistrictService {
 
     private final DistrictServiceValidator districtServiceValidator;
@@ -74,6 +72,27 @@ public class DistrictServiceImpl implements DistrictService {
     private final LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService;
     private final MessageService messageService;
     private final ModelMapper modelMapper;
+
+    public DistrictServiceImpl(
+            DistrictServiceValidator districtServiceValidator,
+            DistrictRepository districtRepository,
+            ProvinceRepository provinceRepository,
+            GeoCoordinatesRepository geoCoordinatesRepository,
+            AdministrativeLevelRepository administrativeLevelRepository,
+            DistrictServiceAuditable districtServiceAuditable,
+            LocationHierarchyCascadeSoftDeleteService locationHierarchyCascadeSoftDeleteService,
+            MessageService messageService,
+            ModelMapper modelMapper) {
+        this.districtServiceValidator = districtServiceValidator;
+        this.districtRepository = districtRepository;
+        this.provinceRepository = provinceRepository;
+        this.geoCoordinatesRepository = geoCoordinatesRepository;
+        this.administrativeLevelRepository = administrativeLevelRepository;
+        this.districtServiceAuditable = districtServiceAuditable;
+        this.locationHierarchyCascadeSoftDeleteService = locationHierarchyCascadeSoftDeleteService;
+        this.messageService = messageService;
+        this.modelMapper = modelMapper;
+    }
 
     private static final String[] HEADERS = {
             "ID", "NAME", "CODE", "PROVINCE", "COUNTRY", "ADMIN LEVEL", "PROVINCE ID", "ADMINISTRATIVE LEVEL ID",

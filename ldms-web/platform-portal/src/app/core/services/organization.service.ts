@@ -33,11 +33,61 @@ export interface OrganizationSummary {
   id: number;
   name: string;
   email: string;
+  phoneNumber?: string;
+  locationId?: number;
+  regionsServed?: string;
+  businessHours?: string;
+  addressCityName?: string;
+  addressDistrictName?: string;
+  addressProvinceName?: string;
+  headOfficeBranch?: BranchDetail;
   kycStatus: string;
   isVerified: boolean;
   organizationClassification?: OrganizationClassification;
   duplexMode?: boolean;
+  branches?: BranchAllocationOption[];
 }
+
+export interface BranchAllocationOption {
+  id: number;
+  label: string;
+  level: 'BRANCH' | 'SUB_BRANCH';
+  depot: boolean;
+  parentBranchId?: number;
+  parentBranchName?: string;
+}
+
+export interface BranchDetail {
+  id: number;
+  branchName: string;
+  branchCode?: string;
+  branchLevel: 'BRANCH' | 'SUB_BRANCH';
+  parentBranchId?: number;
+  parentBranchName?: string;
+  depot: boolean;
+  headOffice: boolean;
+  region?: string;
+  email?: string;
+  phoneNumber?: string;
+  businessHours?: string;
+  active: boolean;
+}
+
+export interface BranchFormPayload {
+  branchName: string;
+  branchCode?: string;
+  region?: string;
+  email?: string;
+  phoneNumber?: string;
+  businessHours?: string;
+  headOffice?: boolean;
+  active?: boolean;
+  parentBranchId?: number;
+  depot?: boolean;
+}
+
+/** @deprecated Use BranchFormPayload */
+export type AddBranchPayload = BranchFormPayload;
 
 /** Public onboarding tracker (limited fields from GET onboarding-status). */
 export interface OnboardingStatus {
@@ -107,9 +157,63 @@ export class OrganizationService {
 
   getMy(): Observable<OrganizationSummary> {
     return this.http.get<unknown>(`${this.base}/my`).pipe(
-      map((resp) => this.mapSummary(this.extractDto(resp))),
+      map((resp) => this.mapSummaryWithBranches(this.extractDto(resp), resp)),
       catchError((err) => throwError(() => this.toError(err))),
     );
+  }
+
+  listBranchesForAllocation(): Observable<BranchAllocationOption[]> {
+    return this.getMy().pipe(map((org) => org.branches ?? []));
+  }
+
+  listBranches(): Observable<BranchDetail[]> {
+    return this.http.get<unknown>(`${this.base}/branches`).pipe(
+      map((resp) => this.mapBranchDetails(resp)),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  addBranch(payload: BranchFormPayload): Observable<BranchDetail[]> {
+    return this.http.post<unknown>(`${this.base}/branch/add`, this.toBranchRequestBody(payload)).pipe(
+      map((resp) => this.mapBranchDetails(resp)),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  getBranch(branchId: number): Observable<BranchDetail> {
+    return this.http.get<unknown>(`${this.base}/branches/${branchId}`).pipe(
+      map((resp) => this.mapSingleBranch(resp)),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  updateBranch(branchId: number, payload: BranchFormPayload): Observable<BranchDetail[]> {
+    return this.http.put<unknown>(`${this.base}/branches/${branchId}`, this.toBranchRequestBody(payload)).pipe(
+      map((resp) => this.mapBranchDetails(resp)),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  deleteBranch(branchId: number): Observable<BranchDetail[]> {
+    return this.http.delete<unknown>(`${this.base}/branches/${branchId}`).pipe(
+      map((resp) => this.mapBranchDetails(resp)),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  private toBranchRequestBody(payload: BranchFormPayload): Record<string, unknown> {
+    return {
+      branchName: payload.branchName.trim(),
+      branchCode: payload.branchCode?.trim() || undefined,
+      region: payload.region?.trim() || undefined,
+      email: payload.email?.trim() || undefined,
+      phoneNumber: payload.phoneNumber?.trim() || undefined,
+      businessHours: payload.businessHours?.trim() || undefined,
+      headOffice: payload.headOffice ?? false,
+      active: payload.active ?? true,
+      parentBranchId: payload.parentBranchId,
+      depot: payload.depot ?? false,
+    };
   }
 
   submitKyc(): Observable<OrganizationSummary> {
@@ -163,12 +267,119 @@ export class OrganizationService {
     };
   }
 
+  private mapSummaryWithBranches(dto: Record<string, unknown>, rawResponse: unknown): OrganizationSummary {
+    const summary = this.mapSummary(dto);
+    const root = this.toObj(rawResponse);
+    const data = this.toObj(root?.['data']) ?? root;
+    const orgDto = this.toObj(data?.['organizationDto']) ?? dto;
+    const branchList = Array.isArray(orgDto['branchDtoList']) ? orgDto['branchDtoList'] : [];
+    const branchDetails = branchList
+      .map((b) => this.toObj(b))
+      .filter((b): b is Record<string, unknown> => !!b)
+      .map((b) => this.mapBranchDtoRecord(b))
+      .filter((b) => b.id > 0);
+    summary.headOfficeBranch = branchDetails.find((b) => b.headOffice);
+    summary.branches = branchDetails.map((b) => ({
+      id: b.id,
+      label: this.formatBranchLabel({
+        branchName: b.branchName,
+        branchLevel: b.branchLevel,
+        depot: b.depot,
+      }),
+      level: b.branchLevel,
+      depot: b.depot,
+      parentBranchId: b.parentBranchId,
+      parentBranchName: b.parentBranchName,
+    } satisfies BranchAllocationOption));
+    return summary;
+  }
+
+  private formatBranchLabel(b: {
+    branchName?: unknown;
+    branchLevel?: unknown;
+    depot?: unknown;
+  }): string {
+    const name = String(b.branchName ?? '').trim();
+    const level = this.parseBranchLevel(b.branchLevel);
+    const depot = Boolean(b.depot);
+    if (level === 'SUB_BRANCH') {
+      return depot ? `${name} (Depot)` : `${name} (Sub-branch)`;
+    }
+    return `${name} (Branch)`;
+  }
+
+  private parseBranchLevel(raw: unknown): 'BRANCH' | 'SUB_BRANCH' {
+    return String(raw ?? 'BRANCH').toUpperCase() === 'SUB_BRANCH' ? 'SUB_BRANCH' : 'BRANCH';
+  }
+
+  private mapBranchDetails(response: unknown): BranchDetail[] {
+    const root = this.toObj(response);
+    const data = this.toObj(root?.['data']) ?? root;
+    const orgDto = this.toObj(data?.['organizationDto']) ?? data;
+    const branchList = Array.isArray(orgDto?.['branchDtoList']) ? orgDto['branchDtoList'] : [];
+    return branchList
+      .map((b) => this.toObj(b))
+      .filter((b): b is Record<string, unknown> => !!b)
+      .map((b) => ({
+        id: Number(b['id'] ?? 0),
+        branchName: String(b['branchName'] ?? '').trim(),
+        branchCode: String(b['branchCode'] ?? '').trim() || undefined,
+        branchLevel: this.parseBranchLevel(b['branchLevel']),
+        parentBranchId: b['parentBranchId'] != null ? Number(b['parentBranchId']) : undefined,
+        parentBranchName: String(b['parentBranchName'] ?? '').trim() || undefined,
+        depot: Boolean(b['depot']),
+        headOffice: Boolean(b['isHeadOffice'] ?? b['headOffice']),
+        region: String(b['region'] ?? '').trim() || undefined,
+        email: String(b['email'] ?? '').trim() || undefined,
+        phoneNumber: String(b['phoneNumber'] ?? '').trim() || undefined,
+        businessHours: String(b['businessHours'] ?? '').trim() || undefined,
+        active: b['active'] !== false,
+      } satisfies BranchDetail))
+      .filter((b) => b.id > 0);
+  }
+
+  private mapSingleBranch(response: unknown): BranchDetail {
+    const root = this.toObj(response);
+    const data = this.toObj(root?.['data']) ?? root;
+    const dto = this.toObj(data?.['branchDto']) ?? data;
+    const mapped = this.mapBranchDtoRecord(dto ?? {});
+    if (mapped.id <= 0) {
+      throw new Error('Branch not found.');
+    }
+    return mapped;
+  }
+
+  private mapBranchDtoRecord(b: Record<string, unknown>): BranchDetail {
+    return {
+      id: Number(b['id'] ?? 0),
+      branchName: String(b['branchName'] ?? '').trim(),
+      branchCode: String(b['branchCode'] ?? '').trim() || undefined,
+      branchLevel: this.parseBranchLevel(b['branchLevel']),
+      parentBranchId: b['parentBranchId'] != null ? Number(b['parentBranchId']) : undefined,
+      parentBranchName: String(b['parentBranchName'] ?? '').trim() || undefined,
+      depot: Boolean(b['depot']),
+      headOffice: Boolean(b['isHeadOffice'] ?? b['headOffice']),
+      region: this.readOptionalString(b, 'region'),
+      email: this.readOptionalString(b, 'email'),
+      phoneNumber: this.readOptionalString(b, 'phoneNumber'),
+      businessHours: this.readOptionalString(b, 'businessHours', 'business_hours'),
+      active: b['active'] !== false,
+    };
+  }
+
   private mapSummary(dto: Record<string, unknown>): OrganizationSummary {
     const organizationClassification = this.readOrganizationClassification(dto);
     return {
       id: Number(dto['id'] ?? 0),
       name: String(dto['name'] ?? ''),
       email: String(dto['email'] ?? ''),
+      phoneNumber: String(dto['phoneNumber'] ?? '').trim() || undefined,
+      locationId: dto['locationId'] != null ? Number(dto['locationId']) : undefined,
+      regionsServed: String(dto['regionsServed'] ?? '').trim() || undefined,
+      businessHours: String(dto['businessHours'] ?? '').trim() || undefined,
+      addressCityName: String(dto['addressCityName'] ?? '').trim() || undefined,
+      addressDistrictName: String(dto['addressDistrictName'] ?? '').trim() || undefined,
+      addressProvinceName: String(dto['addressProvinceName'] ?? '').trim() || undefined,
       kycStatus: String(dto['kycStatus'] ?? 'DRAFT'),
       isVerified: Boolean(dto['isVerified']),
       organizationClassification,
@@ -205,6 +416,16 @@ export class OrganizationService {
     return value && typeof value === 'object' && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : null;
+  }
+
+  private readOptionalString(dto: Record<string, unknown>, ...keys: string[]): string | undefined {
+    for (const key of keys) {
+      const value = String(dto[key] ?? '').trim();
+      if (value) {
+        return value;
+      }
+    }
+    return undefined;
   }
 
   private toError(err: HttpErrorResponse): Error {

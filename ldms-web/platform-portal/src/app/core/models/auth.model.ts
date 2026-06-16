@@ -49,4 +49,6 @@ export interface CurrentUser {
   displayName?: string;
   welcomeMessage?: string;
   mustChangeCredentials?: boolean;
+  /** Organisation user flagged to approve procurement workflow stages. */
+  procurementApprover?: boolean;
 }

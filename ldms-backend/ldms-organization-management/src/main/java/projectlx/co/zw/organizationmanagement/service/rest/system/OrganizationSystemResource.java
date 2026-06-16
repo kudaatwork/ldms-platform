@@ -35,6 +35,7 @@ import projectlx.co.zw.organizationmanagement.utils.requests.CreateAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.FleetRegisteredNotificationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.ValidateFleetOwnershipRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.ValidateTransporterAssignmentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateIndustryRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.IndustryMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.KycActionRequest;
@@ -107,6 +108,18 @@ public class OrganizationSystemResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         return organizationServiceProcessor.validateFleetOwnership(request, locale);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_VALIDATE_TRANSPORTER_ASSIGNMENT")
+    @PostMapping("/transporter-assignment/validate")
+    @Operation(summary = "Validate transport company assignment for a shipment dispatch",
+            description = "Called by shipment-management when a shipper assigns a contracted transporter "
+                    + "or own fleet to a pending shipment.")
+    public OrganizationResponse validateTransporterAssignment(
+            @RequestBody ValidateTransporterAssignmentRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.validateTransporterAssignment(request, locale);
     }
 
     @Auditable(action = "ORG_SYSTEM_COMPLETE_SUPPLIER_ONBOARDING")
@@ -478,6 +491,16 @@ public class OrganizationSystemResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         return organizationServiceProcessor.getBranchById(branchId, locale);
+    }
+
+    @Auditable(action = "ORG_SYSTEM_GET_HEAD_OFFICE_BRANCH")
+    @GetMapping("/{organizationId}/head-office-branch")
+    @Operation(summary = "Get head-office branch for an organisation")
+    public OrganizationResponse getHeadOfficeBranch(
+            @PathVariable Long organizationId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.getHeadOfficeBranch(organizationId, locale);
     }
 
     @Auditable(action = "ORG_SYSTEM_UPDATE_BRANCH")

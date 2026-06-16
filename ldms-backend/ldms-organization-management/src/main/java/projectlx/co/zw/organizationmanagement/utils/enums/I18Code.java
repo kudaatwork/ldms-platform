@@ -60,6 +60,8 @@ public enum I18Code {
     FLEET_OWNERSHIP_VALIDATION_OK("org.fleet.ownership.validationOk"),
     FLEET_OWNERSHIP_CONTRACTED_NOT_ALLOWED("org.fleet.ownership.contractedNotAllowed"),
     FLEET_OWNERSHIP_ORG_NOT_FOUND("org.fleet.ownership.orgNotFound"),
+    FLEET_VEHICLE_CONTRACT_DATES_OUT_OF_RANGE("org.fleet.contractDatesOutOfRange"),
+    FLEET_VEHICLE_CONTRACT_START_REQUIRED("org.fleet.contractStartRequired"),
     TRANSPORTER_UPDATED("org.transporter.updated"),
     TRANSPORTER_DELETED("org.transporter.deleted"),
     EXPORT_FAILED("org.export.failed"),

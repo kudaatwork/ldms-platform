@@ -17,6 +17,9 @@ public final class ShipmentMapper {
         dto.setOrganizationId(shipment.getOrganizationId());
         dto.setSourceType(shipment.getSourceType() != null ? shipment.getSourceType().name() : null);
         dto.setInventoryTransferId(shipment.getInventoryTransferId());
+        dto.setSalesOrderId(shipment.getSalesOrderId());
+        dto.setPurchaseOrderId(shipment.getPurchaseOrderId());
+        dto.setCustomerOrganizationId(shipment.getCustomerOrganizationId());
         dto.setFromWarehouseLocationId(shipment.getFromWarehouseLocationId());
         dto.setToWarehouseLocationId(shipment.getToWarehouseLocationId());
         dto.setFromWarehouseName(shipment.getFromWarehouseName());
@@ -25,8 +28,11 @@ public final class ShipmentMapper {
         dto.setProductName(shipment.getProductName());
         dto.setProductCode(shipment.getProductCode());
         dto.setQuantity(shipment.getQuantity());
+        dto.setCrossBorder(shipment.isCrossBorder());
         dto.setFleetDriverId(shipment.getFleetDriverId());
         dto.setFleetAssetId(shipment.getFleetAssetId());
+        dto.setTransportCompanyOrganizationId(shipment.getTransportCompanyOrganizationId());
+        dto.setTransportCompanyName(shipment.getTransportCompanyName());
         dto.setTripId(shipment.getTripId());
         dto.setStatus(shipment.getStatus() != null ? shipment.getStatus().name() : null);
         dto.setNotes(shipment.getNotes());

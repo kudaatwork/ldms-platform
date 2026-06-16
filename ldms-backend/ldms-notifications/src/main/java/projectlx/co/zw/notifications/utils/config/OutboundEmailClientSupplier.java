@@ -1,7 +1,6 @@
 package projectlx.co.zw.notifications.utils.config;
 
 import com.sendgrid.SendGrid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
@@ -9,11 +8,14 @@ import org.springframework.util.StringUtils;
  * Lazily creates SendGrid when configured (optional; AWS SES is the default email provider).
  */
 @Component
-@RequiredArgsConstructor
 public class OutboundEmailClientSupplier {
 
     private final LdmsConfigRepoSecretsResolver secretsResolver;
     private volatile SendGrid sendGrid;
+
+    public OutboundEmailClientSupplier(LdmsConfigRepoSecretsResolver secretsResolver) {
+        this.secretsResolver = secretsResolver;
+    }
 
     public SendGrid getIfAvailable() {
         if (sendGrid != null) {

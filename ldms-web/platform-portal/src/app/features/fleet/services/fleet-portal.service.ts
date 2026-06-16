@@ -1,11 +1,12 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, map, throwError } from 'rxjs';
+import { Observable, catchError, map, of, throwError } from 'rxjs';
 import {
   isApiFailureEnvelope,
   readApiFailureMessage,
 } from '../../../core/utils/api-paged-response.util';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
+import { extractFileUploadDtoFromResponse } from '../../../core/utils/file-upload-dto-extract.util';
 import type { OrganizationType } from '../../../core/models/auth.model';
 import type { OrganizationPartnerMetadata } from '../../../shared/models/organization-metadata.model';
 import {
@@ -17,18 +18,28 @@ import {
   CreateFleetCompliancePayload,
   CreateFleetDriverPayload,
   CreateFleetVehiclePayload,
+  DriverEmploymentType,
+  DriverRosterSource,
   EditFleetCompliancePayload,
   EditFleetDriverPayload,
   EditFleetVehiclePayload,
+  EditFleetTrackingDevicePayload,
   FleetComplianceRow,
   FleetComplianceSubjectType,
   FleetComplianceType,
+  FleetContractScope,
   FleetDriverRow,
+  FleetTrackingDeviceRow,
   FleetVehicleOwnershipType,
   FleetVehicleRow,
   FleetVehicleStatus,
   FleetVehicleType,
+  FleetRegistrationDocumentPayload,
+  InstallFleetTrackingDevicePayload,
   RegisterTransporterPayload,
+  TrackingDeviceType,
+  TrackingInstallStatus,
+  TrackingIntegrationProvider,
   TransporterEditDetail,
   TransporterPartnerRow,
 } from '../models/fleet.model';
@@ -44,6 +55,17 @@ export class FleetPortalService {
   private readonly fileUploadBase = ldmsServiceUrl('file-upload-service', 'file-upload', undefined, 'frontend');
 
   constructor(private readonly http: HttpClient) {}
+
+  /** GET file-upload by id (frontend surface — includes base64 content for previews). */
+  getFileUploadById(id: number): Observable<Record<string, unknown> | null> {
+    if (!Number.isFinite(id) || id < 1) {
+      return of(null);
+    }
+    return this.http.get<unknown>(`${this.fileUploadBase}/find-by-id/${id}`).pipe(
+      map((resp) => extractFileUploadDtoFromResponse(resp)),
+      catchError(() => of(null)),
+    );
+  }
 
   // ── Own fleet (fleet-management assets) ───────────────────────────────────
 
@@ -82,6 +104,32 @@ export class FleetPortalService {
     );
   }
 
+  /** Build an edit payload from an existing vehicle row (for partial updates such as driver assignment). */
+  vehicleToEditPayload(
+    vehicle: FleetVehicleRow,
+    driver?: Pick<FleetDriverRow, 'fullName' | 'id'> | null,
+  ): EditFleetVehiclePayload {
+    return {
+      registration: vehicle.registration,
+      makeModel: vehicle.makeModel,
+      type: vehicle.type,
+      status: vehicle.status,
+      ownershipType: vehicle.ownershipType,
+      contractedTransporterOrganizationId: vehicle.contractedTransporterOrganizationId,
+      contractScope: vehicle.contractScope,
+      contractStartDate: vehicle.contractStartDate,
+      contractEndDate: vehicle.contractEndDate,
+      driverName: driver?.fullName?.trim() || undefined,
+      fleetDriverId: driver?.id ?? null,
+      utilizationPct: vehicle.utilizationPct,
+    };
+  }
+
+  /** Assign or clear the driver on a vehicle (persists fleetDriverId + display name). */
+  assignDriverToVehicle(vehicle: FleetVehicleRow, driver: FleetDriverRow | null): Observable<FleetVehicleRow> {
+    return this.updateFleetVehicle(vehicle.id, this.vehicleToEditPayload(vehicle, driver));
+  }
+
   /** DELETE /assets/{id} — soft-delete a fleet asset. */
   deleteFleetVehicle(id: number | string): Observable<string> {
     return this.http.delete<unknown>(`${this.fleetBase}/assets/${id}`).pipe(
@@ -100,7 +148,11 @@ export class FleetPortalService {
    * POST /ldms-file-upload-service/v1/frontend/file-upload/upload
    * ownerType must be FLEET_ASSET so the backend helper resolves the correct owner bucket.
    */
-  uploadFleetAssetDocument(assetId: number, file: File): Observable<number> {
+  uploadFleetAssetDocument(
+    assetId: number,
+    file: File,
+    complianceType: FleetRegistrationDocumentPayload['complianceType'],
+  ): Observable<number> {
     const form = new FormData();
     form.append('files', file, file.name);
     form.append(
@@ -108,7 +160,38 @@ export class FleetPortalService {
       JSON.stringify({
         ownerType: 'FLEET_ASSET',
         ownerId: assetId,
-        filesMetadata: [{ fileType: 'DOCUMENT' }],
+        filesMetadata: [{ fileType: this.fleetComplianceFileType(complianceType) }],
+      }),
+    );
+    return this.http.post<unknown>(`${this.fileUploadBase}/upload`, form).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        const envelope = this.unwrapEnvelope(resp);
+        const dto = this.toObj(envelope['fileUploadDto']) ?? envelope;
+        const id = Number(dto['id'] ?? dto['fileUploadId'] ?? 0);
+        if (!id) {
+          throw new Error('File upload service did not return a file id.');
+        }
+        return id;
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** Upload a driver document (national ID, passport, or licence). */
+  uploadFleetDriverDocument(
+    driverId: number,
+    file: File,
+    fileType: 'NATIONAL_ID' | 'PASSPORT' | 'DRIVER_LICENCE',
+  ): Observable<number> {
+    const form = new FormData();
+    form.append('files', file, file.name);
+    form.append(
+      'fileUploadRequest',
+      JSON.stringify({
+        ownerType: 'FLEET_DRIVER',
+        ownerId: driverId,
+        filesMetadata: [{ fileType }],
       }),
     );
     return this.http.post<unknown>(`${this.fileUploadBase}/upload`, form).pipe(
@@ -279,6 +362,19 @@ export class FleetPortalService {
     );
   }
 
+  /** GET /transporter-partners/{id}/drivers — roster of a linked transport partner. */
+  listTransporterPartnerDrivers(transporterOrganizationId: number): Observable<FleetDriverRow[]> {
+    return this.http
+      .get<unknown>(`${this.fleetBase}/transporter-partners/${transporterOrganizationId}/drivers`)
+      .pipe(
+        map((resp) => {
+          this.assertSuccess(resp);
+          return this.extractDriverRows(resp).map((dto) => this.mapDriverRow(dto));
+        }),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
+  }
+
   createDriver(payload: CreateFleetDriverPayload): Observable<FleetDriverRow> {
     return this.http.post<unknown>(`${this.fleetBase}/drivers`, this.toDriverApiPayload(payload)).pipe(
       map((resp) => {
@@ -370,7 +466,163 @@ export class FleetPortalService {
     return asset?.registration ?? `Asset #${subjectId}`;
   }
 
+  // ── Tracking devices (fleet-management) ───────────────────────────────────
+
+  /** GET /fleet/tracking-devices — installed devices for the signed-in organisation. */
+  listTrackingDevices(): Observable<FleetTrackingDeviceRow[]> {
+    return this.http.get<unknown>(`${this.fleetBase}/tracking-devices`).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.extractTrackingDeviceRows(resp).map((dto) => this.mapTrackingDeviceRow(dto));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** POST /fleet/tracking-devices — install a new tracking device and return the row with ingest credentials. */
+  installTrackingDevice(payload: InstallFleetTrackingDevicePayload): Observable<FleetTrackingDeviceRow> {
+    return this.http.post<unknown>(`${this.fleetBase}/tracking-devices`, this.toTrackingDeviceApiPayload(payload)).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapTrackingDeviceRow(this.extractSingleTrackingDevice(resp));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** PUT /fleet/tracking-devices/{id} — update an existing tracking device. */
+  updateTrackingDevice(id: number, payload: EditFleetTrackingDevicePayload): Observable<FleetTrackingDeviceRow> {
+    return this.http.put<unknown>(`${this.fleetBase}/tracking-devices/${id}`, this.toTrackingDeviceApiPayload(payload)).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapTrackingDeviceRow(this.extractSingleTrackingDevice(resp));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** POST /fleet/tracking-devices/{id}/suspend — suspend an active tracking device. */
+  suspendTrackingDevice(id: number): Observable<FleetTrackingDeviceRow> {
+    return this.http.post<unknown>(`${this.fleetBase}/tracking-devices/${id}/suspend`, {}).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapTrackingDeviceRow(this.extractSingleTrackingDevice(resp));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** DELETE /fleet/tracking-devices/{id} — remove a tracking device. */
+  deleteTrackingDevice(id: number): Observable<string> {
+    return this.http.delete<unknown>(`${this.fleetBase}/tracking-devices/${id}`).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        const parsed = this.toObj(resp);
+        const message = parsed?.['message'];
+        return typeof message === 'string' && message.trim() ? message.trim() : 'Tracking device removed.';
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────
+
+  private toTrackingDeviceApiPayload(
+    payload: InstallFleetTrackingDevicePayload | EditFleetTrackingDevicePayload,
+  ): Record<string, unknown> {
+    const body: Record<string, unknown> = {};
+    if (payload.deviceLabel != null) {
+      body['deviceLabel'] = payload.deviceLabel;
+    }
+    if (payload.deviceType != null) {
+      body['deviceType'] = payload.deviceType;
+    }
+    if (payload.integrationProvider != null) {
+      body['integrationProvider'] = payload.integrationProvider;
+    }
+    if (payload.tracksGps != null) {
+      body['tracksGps'] = payload.tracksGps;
+    }
+    if (payload.tracksFuel != null) {
+      body['tracksFuel'] = payload.tracksFuel;
+    }
+    if (payload.notes != null) {
+      body['notes'] = payload.notes;
+    }
+    this.appendOptionalLong(body, 'fleetAssetId', (payload as InstallFleetTrackingDevicePayload).fleetAssetId);
+    this.appendOptionalLong(body, 'fleetDriverId', (payload as InstallFleetTrackingDevicePayload).fleetDriverId);
+    const deviceSerial = (payload as InstallFleetTrackingDevicePayload).deviceSerial;
+    if (deviceSerial) {
+      body['deviceSerial'] = deviceSerial;
+    }
+    const externalDeviceId = (payload as InstallFleetTrackingDevicePayload).externalDeviceId;
+    if (externalDeviceId) {
+      body['externalDeviceId'] = externalDeviceId;
+    }
+    return body;
+  }
+
+  private mapTrackingDeviceRow(dto: Record<string, unknown>): FleetTrackingDeviceRow {
+    const optionalStr = (key: string): string | undefined => {
+      const raw = String(dto[key] ?? '').trim();
+      return raw || undefined;
+    };
+    const optionalLongDirect = (key: string): number | undefined => {
+      const raw = dto[key];
+      if (raw == null || String(raw).trim() === '') return undefined;
+      const n = Number(raw);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    };
+    const deviceType = normalizeTrackingDeviceType(dto['deviceType']);
+    const provider = normalizeTrackingProvider(dto['integrationProvider']);
+    const installStatus = normalizeInstallStatus(dto['installStatus']);
+    return {
+      id: Number(dto['id'] ?? 0),
+      deviceLabel: String(dto['deviceLabel'] ?? '').trim() || 'Unnamed device',
+      deviceType,
+      deviceTypeLabel: trackingDeviceTypeLabel(deviceType),
+      installStatus,
+      installStatusLabel: trackingInstallStatusLabel(installStatus),
+      integrationProvider: provider,
+      integrationProviderLabel: trackingProviderLabel(provider),
+      fleetAssetId: optionalLongDirect('fleetAssetId'),
+      fleetDriverId: optionalLongDirect('fleetDriverId'),
+      linkedUserId: optionalLongDirect('linkedUserId'),
+      deviceSerial: optionalStr('deviceSerial'),
+      externalDeviceId: optionalStr('externalDeviceId'),
+      ingestKey: optionalStr('ingestKey'),
+      tracksGps: Boolean(dto['tracksGps'] ?? dto['tracks_gps'] ?? false),
+      tracksFuel: Boolean(dto['tracksFuel'] ?? dto['tracks_fuel'] ?? false),
+      mqttTopic: optionalStr('mqttTopic'),
+      vehicleRegistration: optionalStr('vehicleRegistration'),
+      vehicleMakeModel: optionalStr('vehicleMakeModel'),
+      installedAt: optionalStr('installedAt'),
+      lastTelemetryAt: optionalStr('lastTelemetryAt'),
+      notes: optionalStr('notes'),
+    };
+  }
+
+  private extractSingleTrackingDevice(response: unknown): Record<string, unknown> {
+    const envelope = this.unwrapEnvelope(response);
+    const one = this.toObj(envelope['fleetTrackingDeviceDto']);
+    if (one) return one;
+    const list = envelope['fleetTrackingDeviceDtoList'];
+    if (Array.isArray(list) && list.length) {
+      const first = this.toObj(list[0]);
+      if (first) return first;
+    }
+    return envelope;
+  }
+
+  private extractTrackingDeviceRows(response: unknown): Record<string, unknown>[] {
+    const envelope = this.unwrapEnvelope(response);
+    const list = envelope['fleetTrackingDeviceDtoList'];
+    if (Array.isArray(list)) {
+      return list.filter((r): r is Record<string, unknown> => !!this.toObj(r));
+    }
+    const one = this.toObj(envelope['fleetTrackingDeviceDto']);
+    return one ? [one] : [];
+  }
 
   private toFleetVehicleApiPayload(
     payload: CreateFleetVehiclePayload | EditFleetVehiclePayload,
@@ -385,6 +637,11 @@ export class FleetPortalService {
       driverName: payload.driverName,
       utilizationPct: payload.utilizationPct ?? 0,
     };
+    if (payload.fleetDriverId != null && payload.fleetDriverId > 0) {
+      body['fleetDriverId'] = payload.fleetDriverId;
+    } else if ('fleetDriverId' in payload && payload.fleetDriverId === null) {
+      body['fleetDriverId'] = null;
+    }
     if (ownershipType === 'contracted' && payload.contractedTransporterOrganizationId != null) {
       body['contractedTransporterOrganizationId'] = payload.contractedTransporterOrganizationId;
     }
@@ -393,6 +650,14 @@ export class FleetPortalService {
     }
     if (ownershipType === 'contracted' && payload.contractScope === 'job' && payload.jobReference) {
       body['jobReference'] = payload.jobReference;
+    }
+    if (ownershipType === 'contracted' && payload.contractScope === 'long_term') {
+      if (payload.contractStartDate) {
+        body['contractStartDate'] = payload.contractStartDate;
+      }
+      if (payload.contractEndDate) {
+        body['contractEndDate'] = payload.contractEndDate;
+      }
     }
     return body;
   }
@@ -413,6 +678,13 @@ export class FleetPortalService {
     const transporterName = String(
       dto['contractedTransporterOrganizationName'] ?? dto['contracted_transporter_organization_name'] ?? '',
     ).trim();
+    const contractScopeRaw = String(dto['contractScope'] ?? dto['contract_scope'] ?? '').trim().toLowerCase();
+    const contractScope =
+      contractScopeRaw === 'job' || contractScopeRaw === 'long_term'
+        ? (contractScopeRaw as FleetContractScope)
+        : undefined;
+    const contractStartDate = String(dto['contractStartDate'] ?? dto['contract_start_date'] ?? '').trim() || undefined;
+    const contractEndDate = String(dto['contractEndDate'] ?? dto['contract_end_date'] ?? '').trim() || undefined;
     const lastTripRaw = dto['lastTripAt'] ?? dto['last_trip_at'];
     const lastTripLabel =
       String(dto['lastTripLabel'] ?? dto['last_trip_label'] ?? '').trim() ||
@@ -428,11 +700,24 @@ export class FleetPortalService {
       ownershipLabel: ownershipLabel(ownershipType, transporterName),
       contractedTransporterOrganizationId: transporterId,
       contractedTransporterOrganizationName: transporterName || undefined,
+      contractScope,
+      contractStartDate,
+      contractEndDate,
       utilizationPct: Math.min(100, Math.max(0, Number(dto['utilizationPct'] ?? dto['utilization_pct'] ?? 0))),
       lastTripLabel,
       driverName: String(dto['driverName'] ?? dto['driver_name'] ?? '—').trim() || '—',
+      fleetDriverId: this.optionalLongFromDto(dto, 'fleetDriverId') ?? this.optionalLongFromDto(dto, 'fleet_driver_id'),
       accentHue: 168 + (seed % 42),
     };
+  }
+
+  private optionalLongFromDto(dto: Record<string, unknown>, key: string): number | undefined {
+    const raw = dto[key];
+    if (raw == null || String(raw).trim() === '') {
+      return undefined;
+    }
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
   }
 
   private mapTransporterEditDetail(dto: Record<string, unknown>, id: number): TransporterEditDetail {
@@ -645,11 +930,40 @@ export class FleetPortalService {
       phoneNumber: payload.phoneNumber,
       licenseNumber: payload.licenseNumber,
       licenseClass: payload.licenseClass,
+      nationalIdNumber: payload.nationalIdNumber,
+      passportNumber: payload.passportNumber,
+      addressLine1: payload.addressLine1,
+      addressLine2: payload.addressLine2,
+      addressCity: payload.addressCity,
+      addressProvince: payload.addressProvince,
+      addressPostalCode: payload.addressPostalCode,
+      addressCountry: payload.addressCountry,
     };
+    this.appendOptionalDate(body, 'nationalIdExpiryDate', payload.nationalIdExpiryDate);
+    this.appendOptionalDate(body, 'passportExpiryDate', payload.passportExpiryDate);
+    this.appendOptionalLong(body, 'nationalIdUploadId', payload.nationalIdUploadId);
+    this.appendOptionalLong(body, 'passportUploadId', payload.passportUploadId);
+    this.appendOptionalLong(body, 'licenseUploadId', payload.licenseUploadId);
     if (payload.userId != null) {
       body['userId'] = payload.userId;
     }
+    if (payload.employmentType) {
+      body['employmentType'] = payload.employmentType;
+    }
     return body;
+  }
+
+  private appendOptionalDate(body: Record<string, unknown>, key: string, value?: string | null): void {
+    const normalized = String(value ?? '').trim().slice(0, 10);
+    if (normalized) {
+      body[key] = normalized;
+    }
+  }
+
+  private appendOptionalLong(body: Record<string, unknown>, key: string, value?: number | null): void {
+    if (value != null && value > 0) {
+      body[key] = value;
+    }
   }
 
   private mapDriverRow(dto: Record<string, unknown>): FleetDriverRow {
@@ -657,15 +971,53 @@ export class FleetPortalService {
     const lastName = String(dto['lastName'] ?? '').trim();
     const fullName = `${firstName} ${lastName}`.trim() || 'Unnamed driver';
     const userIdRaw = dto['userId'];
+    const optionalLong = (key: string): number | undefined => {
+      const raw = dto[key];
+      if (raw == null || String(raw).trim() === '') {
+        return undefined;
+      }
+      const n = Number(raw);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    };
+    const optionalDate = (key: string): string | undefined => {
+      const raw = String(dto[key] ?? '').trim();
+      return raw ? raw.slice(0, 10) : undefined;
+    };
+    const optionalStr = (key: string): string | undefined => {
+      const raw = String(dto[key] ?? '').trim();
+      return raw || undefined;
+    };
+    const employmentType = normalizeEmploymentType(String(dto['employmentType'] ?? 'EMPLOYED'));
+    const rosterSource: DriverRosterSource =
+      String(dto['rosterSource'] ?? 'organization').toLowerCase() === 'transport_partner'
+        ? 'transport_partner'
+        : 'organization';
     return {
       id: Number(dto['id'] ?? 0),
       userId: userIdRaw != null && String(userIdRaw).trim() !== '' ? Number(userIdRaw) : undefined,
+      employmentType,
+      employmentLabel: employmentType === 'POOL' ? 'Driver pool' : 'Employed',
+      rosterSource,
+      homeOrganizationName: optionalStr('homeOrganizationName'),
       firstName,
       lastName,
       fullName,
       phoneNumber: String(dto['phoneNumber'] ?? '').trim() || '—',
       licenseNumber: String(dto['licenseNumber'] ?? '').trim() || '—',
       licenseClass: String(dto['licenseClass'] ?? '').trim() || '—',
+      nationalIdNumber: optionalStr('nationalIdNumber'),
+      nationalIdExpiryDate: optionalDate('nationalIdExpiryDate'),
+      nationalIdUploadId: optionalLong('nationalIdUploadId'),
+      passportNumber: optionalStr('passportNumber'),
+      passportExpiryDate: optionalDate('passportExpiryDate'),
+      passportUploadId: optionalLong('passportUploadId'),
+      licenseUploadId: optionalLong('licenseUploadId'),
+      addressLine1: optionalStr('addressLine1'),
+      addressLine2: optionalStr('addressLine2'),
+      addressCity: optionalStr('addressCity'),
+      addressProvince: optionalStr('addressProvince'),
+      addressPostalCode: optionalStr('addressPostalCode'),
+      addressCountry: optionalStr('addressCountry'),
       initials: this.initialsFromName(fullName),
       accentHue: 210 + (hash(fullName) % 48),
     };
@@ -769,6 +1121,26 @@ export class FleetPortalService {
       : null;
   }
 
+  private fleetComplianceFileType(
+    complianceType: FleetRegistrationDocumentPayload['complianceType'],
+  ): string {
+    const map: Record<FleetRegistrationDocumentPayload['complianceType'], string> = {
+      VEHICLE_REGISTRATION: 'VEHICLE_REGISTRATION',
+      ROAD_LICENSE: 'ROAD_LICENSE',
+      ROADWORTHINESS: 'ROADWORTHINESS_CERTIFICATE',
+      INSURANCE: 'INSURANCE_CERTIFICATE',
+      GOODS_OPERATOR_LICENCE: 'GOODS_OPERATOR_LICENCE',
+      PERMIT: 'OPERATING_PERMIT',
+      HAZARDOUS_SUBSTANCES_PERMIT: 'HAZARDOUS_SUBSTANCES_PERMIT',
+      FIRE_SAFETY_CLEARANCE: 'FIRE_SAFETY_CLEARANCE',
+      LEASE_HIRE_AGREEMENT: 'LEASE_HIRE_AGREEMENT',
+      LICENSE: 'DRIVER_LICENCE',
+      DEFENSIVE_DRIVING_CERTIFICATE: 'DEFENSIVE_DRIVING_CERTIFICATE',
+      DRIVER_MEDICAL_CERTIFICATE: 'DRIVER_MEDICAL_CERTIFICATE',
+    };
+    return map[complianceType] ?? 'OTHER';
+  }
+
   private toError(err: HttpErrorResponse | Error): Error {
     if (err instanceof HttpErrorResponse) {
       const body = err.error;
@@ -824,6 +1196,10 @@ function vehicleStatusLabel(status: FleetVehicleStatus): string {
   return map[status] ?? status;
 }
 
+function normalizeEmploymentType(raw: unknown): DriverEmploymentType {
+  return String(raw ?? 'EMPLOYED').trim().toUpperCase() === 'POOL' ? 'POOL' : 'EMPLOYED';
+}
+
 function normalizeOwnershipType(raw: unknown): FleetVehicleOwnershipType {
   const value = String(raw ?? 'owned').trim().toLowerCase();
   return value === 'contracted' ? 'contracted' : 'owned';
@@ -848,6 +1224,14 @@ function normalizeComplianceType(raw: unknown): FleetComplianceType {
     'maintenance',
     'roadworthiness',
     'permit',
+    'vehicle_registration',
+    'road_license',
+    'goods_operator_licence',
+    'hazardous_substances_permit',
+    'fire_safety_clearance',
+    'lease_hire_agreement',
+    'defensive_driving_certificate',
+    'driver_medical_certificate',
     'other',
   ];
   return allowed.includes(value as FleetComplianceType) ? (value as FleetComplianceType) : 'other';
@@ -855,23 +1239,37 @@ function normalizeComplianceType(raw: unknown): FleetComplianceType {
 
 function complianceTypeLabel(type: FleetComplianceType): string {
   const map: Record<FleetComplianceType, string> = {
-    insurance: 'Insurance',
-    license: 'License',
-    maintenance: 'Maintenance',
-    roadworthiness: 'Roadworthiness',
-    permit: 'Permit',
+    insurance: 'Commercial insurance',
+    license: "Driver's licence",
+    maintenance: 'Maintenance record',
+    roadworthiness: 'Certificate of fitness',
+    permit: 'Vehicle operator disc',
+    vehicle_registration: 'Vehicle registration book',
+    road_license: 'Road licence disc',
+    goods_operator_licence: "Goods operator's licence",
+    hazardous_substances_permit: 'Hazardous substances permit',
+    fire_safety_clearance: 'Fire safety clearance',
+    lease_hire_agreement: 'Lease / hire agreement',
+    defensive_driving_certificate: 'Defensive driving certificate',
+    driver_medical_certificate: 'Driver medical certificate',
     other: 'Other',
   };
   return map[type] ?? type;
 }
 
+export function isCompliancePendingReview(status: string | undefined | null): boolean {
+  return String(status ?? '').trim().toUpperCase() === 'PENDING';
+}
+
 function complianceStatusLabel(status: string): string {
   const key = status.toUpperCase();
   const map: Record<string, string> = {
-    ACTIVE: 'Active',
+    VALID: 'Valid',
+    ACTIVE: 'Valid',
+    EXPIRING_SOON: 'Expiring soon',
     EXPIRED: 'Expired',
     PENDING: 'Pending review',
-    REVOKED: 'Revoked',
+    REVOKED: 'Rejected',
   };
   return map[key] ?? key.split('_').join(' ');
 }
@@ -882,6 +1280,59 @@ function formatExpiryLabel(expiresAt?: string): string {
   }
   const date = expiresAt.slice(0, 10);
   return date || 'No expiry date';
+}
+
+function normalizeTrackingDeviceType(raw: unknown): TrackingDeviceType {
+  const value = String(raw ?? 'MOBILE_PHONE').trim().toUpperCase();
+  const allowed: TrackingDeviceType[] = ['MOBILE_PHONE', 'OBD_TELEMATICS', 'DEDICATED_GPS', 'FUEL_SENSOR', 'COMBO_UNIT'];
+  return allowed.includes(value as TrackingDeviceType) ? (value as TrackingDeviceType) : 'MOBILE_PHONE';
+}
+
+function normalizeTrackingProvider(raw: unknown): TrackingIntegrationProvider {
+  const value = String(raw ?? 'LDMS_MOBILE').trim().toUpperCase();
+  const allowed: TrackingIntegrationProvider[] = [
+    'LDMS_MOBILE', 'GENERIC_MQTT', 'TRACCAR', 'GEOTAB', 'CALAMP', 'WIALON', 'CUSTOM_HTTP',
+  ];
+  return allowed.includes(value as TrackingIntegrationProvider) ? (value as TrackingIntegrationProvider) : 'LDMS_MOBILE';
+}
+
+function normalizeInstallStatus(raw: unknown): TrackingInstallStatus {
+  const value = String(raw ?? 'PENDING').trim().toUpperCase();
+  const allowed: TrackingInstallStatus[] = ['ACTIVE', 'SUSPENDED', 'PENDING'];
+  return allowed.includes(value as TrackingInstallStatus) ? (value as TrackingInstallStatus) : 'PENDING';
+}
+
+function trackingDeviceTypeLabel(type: TrackingDeviceType): string {
+  const map: Record<TrackingDeviceType, string> = {
+    MOBILE_PHONE: 'Mobile phone',
+    OBD_TELEMATICS: 'OBD telematics',
+    DEDICATED_GPS: 'Dedicated GPS',
+    FUEL_SENSOR: 'Fuel sensor',
+    COMBO_UNIT: 'Combo unit',
+  };
+  return map[type] ?? type;
+}
+
+function trackingProviderLabel(provider: TrackingIntegrationProvider): string {
+  const map: Record<TrackingIntegrationProvider, string> = {
+    LDMS_MOBILE: 'LDMS Mobile app',
+    GENERIC_MQTT: 'Generic MQTT',
+    TRACCAR: 'Traccar',
+    GEOTAB: 'Geotab',
+    CALAMP: 'CalAmp',
+    WIALON: 'Wialon',
+    CUSTOM_HTTP: 'Custom HTTP push',
+  };
+  return map[provider] ?? provider;
+}
+
+function trackingInstallStatusLabel(status: TrackingInstallStatus): string {
+  const map: Record<TrackingInstallStatus, string> = {
+    ACTIVE: 'Active',
+    SUSPENDED: 'Suspended',
+    PENDING: 'Pending',
+  };
+  return map[status] ?? status;
 }
 
 function computeExpiryStatus(expiresAt?: string): FleetComplianceRow['expiryStatus'] {

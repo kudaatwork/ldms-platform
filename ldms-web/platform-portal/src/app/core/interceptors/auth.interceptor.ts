@@ -1,11 +1,12 @@
 import { HttpErrorResponse, HttpEvent, HttpHandler, HttpInterceptor, HttpRequest } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, throwError } from 'rxjs';
+import { Observable, catchError, switchMap, throwError } from 'rxjs';
 import { isLdmsApiRequest } from '../utils/api-url.util';
 import { isPublicLdmsApiRequest } from '../utils/public-api.util';
 import { isJwtExpired } from '../utils/jwt.util';
 import { SessionExpiryService } from '../services/session-expiry.service';
 import { StorageService } from '../services/storage.service';
+import { TokenRefreshService } from '../services/token-refresh.service';
 
 function normalizeAccessToken(raw: string | null | undefined): string | null {
   if (!raw) {
@@ -26,6 +27,7 @@ export class AuthInterceptor implements HttpInterceptor {
   constructor(
     private readonly storage: StorageService,
     private readonly sessionExpiry: SessionExpiryService,
+    private readonly tokenRefresh: TokenRefreshService,
   ) {}
 
   intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
@@ -37,7 +39,7 @@ export class AuthInterceptor implements HttpInterceptor {
       return next.handle(req.clone({ headers }));
     }
     const token = normalizeAccessToken(this.storage.getToken());
-    if (!token) {
+    if (!token && !this.storage.getRefreshToken()) {
       return throwError(
         () =>
           new HttpErrorResponse({
@@ -48,22 +50,34 @@ export class AuthInterceptor implements HttpInterceptor {
           }),
       );
     }
-    if (isJwtExpired(token)) {
-      this.sessionExpiry.scheduleHandleSessionExpired('expired');
-      return throwError(
-        () =>
-          new HttpErrorResponse({
-            status: 401,
-            statusText: 'Unauthorized',
-            url: req.url,
-            error: { message: 'Your session has expired. Please sign in again.' },
-          }),
-      );
-    }
 
-    return next.handle(
-      req.clone({
-        setHeaders: { Authorization: `Bearer ${token}` },
+    return this.tokenRefresh.ensureValidAccessToken().pipe(
+      switchMap((accessToken) =>
+        next.handle(
+          req.clone({
+            setHeaders: { Authorization: `Bearer ${accessToken}` },
+          }),
+        ),
+      ),
+      catchError(() => {
+        const fallback = normalizeAccessToken(this.storage.getToken());
+        if (fallback && !isJwtExpired(fallback)) {
+          return next.handle(
+            req.clone({
+              setHeaders: { Authorization: `Bearer ${fallback}` },
+            }),
+          );
+        }
+        this.sessionExpiry.scheduleHandleSessionExpired('expired');
+        return throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 401,
+              statusText: 'Unauthorized',
+              url: req.url,
+              error: { message: 'Your session has expired. Please sign in again.' },
+            }),
+        );
       }),
     );
   }

@@ -6,6 +6,7 @@ import projectlx.co.zw.organizationmanagement.model.Organization;
 import projectlx.co.zw.shared_library.utils.dtos.AgentDto;
 import projectlx.co.zw.shared_library.utils.dtos.BranchDto;
 import projectlx.co.zw.shared_library.utils.dtos.OrganizationDto;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -143,6 +144,12 @@ public final class OrganizationMapping {
         dto.setEmail(b.getEmail());
         dto.setHeadOffice(b.isHeadOffice());
         dto.setActive(b.isActive());
+        dto.setBranchLevel(b.getBranchLevel() != null ? b.getBranchLevel().name() : null);
+        dto.setDepot(b.isDepot());
+        if (b.getParentBranch() != null) {
+            dto.setParentBranchId(b.getParentBranch().getId());
+            dto.setParentBranchName(b.getParentBranch().getBranchName());
+        }
         if (b.getOrganization() != null) {
             dto.setOrganizationId(b.getOrganization().getId());
             dto.setOrganizationName(b.getOrganization().getName());
@@ -156,6 +163,7 @@ public final class OrganizationMapping {
         }
         dto.setBusinessHours(b.getBusinessHours());
         dto.setRegion(b.getRegion());
+        applyOrganizationContactFallbacks(b, dto);
         dto.setEntityStatus(b.getEntityStatus());
         dto.setCreatedAt(b.getCreatedAt());
         dto.setUpdatedAt(b.getModifiedAt());
@@ -171,6 +179,60 @@ public final class OrganizationMapping {
             list.add(toBranchDto(b));
         }
         return list;
+    }
+
+    /**
+     * Head-office branches created by {@code V14__ensure_head_office_branch_per_org} often have no contact
+     * columns populated. Surface organisation-level contact metadata in API responses when branch fields are blank.
+     */
+    private static void applyOrganizationContactFallbacks(Branch branch, BranchDto dto) {
+        if (!branch.isHeadOffice()) {
+            return;
+        }
+        Organization org = branch.getOrganization();
+        if (org == null) {
+            return;
+        }
+        if (!StringUtils.hasText(dto.getEmail())) {
+            dto.setEmail(firstNonBlank(org.getEmail(), org.getContactPersonEmail()));
+        }
+        if (!StringUtils.hasText(dto.getPhoneNumber())) {
+            dto.setPhoneNumber(firstNonBlank(org.getPhoneNumber(), org.getContactPersonPhoneNumber()));
+        }
+        if (!StringUtils.hasText(dto.getRegion())) {
+            dto.setRegion(resolveRegionFromOrganization(org));
+        }
+        if (!StringUtils.hasText(dto.getBusinessHours())) {
+            dto.setBusinessHours(trimToNull(org.getBusinessHours()));
+        }
+    }
+
+    private static String resolveRegionFromOrganization(Organization org) {
+        if (!StringUtils.hasText(org.getRegionsServed())) {
+            return null;
+        }
+        String raw = org.getRegionsServed().trim();
+        int comma = raw.indexOf(',');
+        return comma > 0 ? raw.substring(0, comma).trim() : raw;
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
+    }
+
+    private static String trimToNull(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.trim();
     }
 
     public static AgentDto toAgentDto(Agent agent) {

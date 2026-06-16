@@ -3,7 +3,6 @@ package projectlx.co.zw.notifications.business.logic.impl;
 import com.lowagie.text.DocumentException;
 import projectlx.co.zw.shared_library.utils.export.LdmsExportReport;
 import projectlx.co.zw.shared_library.utils.export.LdmsPdfReportWriter;
-import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -53,7 +52,6 @@ import projectlx.co.zw.notifications.model.Channel;
 import projectlx.co.zw.notifications.utils.dtos.ImportSummary;
 import projectlx.co.zw.notifications.utils.dtos.NotificationTemplateCsvDto;
 
-@RequiredArgsConstructor
 public class NotificationTemplateServiceImpl implements NotificationTemplateService {
 
     private static final String CSV_IMPORT_ACTOR = "IMPORT_SCRIPT";
@@ -63,6 +61,19 @@ public class NotificationTemplateServiceImpl implements NotificationTemplateServ
     private final MessageService messageService;
     private final ModelMapper modelMapper;
     private final NotificationTemplateServiceAuditable notificationTemplateServiceAuditable;
+
+    public NotificationTemplateServiceImpl(
+            NotificationTemplateServiceValidator notificationTemplateServiceValidator,
+            NotificationTemplateRepository notificationTemplateRepository,
+            MessageService messageService,
+            ModelMapper modelMapper,
+            NotificationTemplateServiceAuditable notificationTemplateServiceAuditable) {
+        this.notificationTemplateServiceValidator = notificationTemplateServiceValidator;
+        this.notificationTemplateRepository = notificationTemplateRepository;
+        this.messageService = messageService;
+        this.modelMapper = modelMapper;
+        this.notificationTemplateServiceAuditable = notificationTemplateServiceAuditable;
+    }
 
     private static final String[] HEADERS = {
             "ID", "TEMPLATE KEY", "DESCRIPTION", "CHANNELS", "EMAIL SUBJECT", "SMS BODY", "IN-APP TITLE", "WHATSAPP TEMPLATE NAME", "WHATSAPP BODY",

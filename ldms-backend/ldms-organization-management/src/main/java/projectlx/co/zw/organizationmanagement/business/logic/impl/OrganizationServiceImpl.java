@@ -25,6 +25,7 @@ import projectlx.co.zw.organizationmanagement.business.kyc.KycStateMachine;
 import projectlx.co.zw.organizationmanagement.business.kyc.OrganizationEventPublisher;
 import projectlx.co.zw.organizationmanagement.clients.UserManagementServiceClient;
 import projectlx.co.zw.organizationmanagement.business.logic.api.OrganizationService;
+import projectlx.co.zw.organizationmanagement.business.logic.support.BranchHierarchySupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryAdminService;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationTradingCapabilitySupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationDirectoryNotifier;
@@ -76,6 +77,7 @@ import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryUsageDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.KycApprovalPolicyDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OrganizationKycReviewDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OrganizationMapping;
+import projectlx.co.zw.organizationmanagement.utils.enums.BranchLevel;
 import projectlx.co.zw.organizationmanagement.utils.enums.FleetVehicleOwnershipType;
 import projectlx.co.zw.organizationmanagement.utils.enums.I18Code;
 import projectlx.co.zw.organizationmanagement.utils.exceptions.BusinessRuleException;
@@ -84,6 +86,7 @@ import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryDto;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateFleetVehicleRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.FleetRegisteredNotificationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.ValidateFleetOwnershipRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.ValidateTransporterAssignmentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.EditFleetVehicleRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.AddBranchRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.CreateAgentRequest;
@@ -162,6 +165,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final MessageService messageService;
     private final OrganizationFileUploadHelper organizationFileUploadHelper;
     private final OrganizationDirectoryAdminService organizationDirectoryAdminService;
+    private final BranchHierarchySupport branchHierarchySupport;
     private final OrganizationRegistrationNotifier organizationRegistrationNotifier;
     private final OrganizationContactPersonProvisioningSupport organizationContactPersonProvisioningSupport;
     private final OrganizationKycNotifier organizationKycNotifier;
@@ -465,7 +469,18 @@ public class OrganizationServiceImpl implements OrganizationService {
     public OrganizationResponse getMy(Locale locale, String username) {
         Organization org = loadForUser(username);
         OrganizationDto dto = OrganizationMapping.toDto(org);
-        dto.setBranchDtoList(OrganizationMapping.toBranchDtos(branchRepository.findByOrganizationAndEntityStatusNot(org, EntityStatus.DELETED)));
+        organizationRegistrationAddressSupport.enrichOrganizationAddress(dto, locale);
+        java.util.Map<Long, String> orgRegionCache = new java.util.HashMap<>();
+        List<BranchDto> branchDtos = branchRepository.findByOrganizationAndEntityStatusNot(org, EntityStatus.DELETED)
+                .stream()
+                .map(branch -> {
+                    BranchDto branchDto = OrganizationMapping.toBranchDto(branch);
+                    organizationRegistrationAddressSupport.enrichHeadOfficeBranchRegion(
+                            branch, branchDto, locale, orgRegionCache);
+                    return branchDto;
+                })
+                .toList();
+        dto.setBranchDtoList(branchDtos);
         return buildOrganizationResponse(dto);
     }
 
@@ -521,8 +536,14 @@ public class OrganizationServiceImpl implements OrganizationService {
             return buildOrganizationResponseWithErrors(v.getErrorMessages());
         }
         Organization org = loadForUser(username);
+        Optional<String> hierarchyError = branchHierarchySupport.validateHierarchyForCreate(
+                org, request.getParentBranchId(), locale);
+        if (hierarchyError.isPresent()) {
+            return buildOrganizationResponseWithErrors(List.of(hierarchyError.get()));
+        }
         Branch b = new Branch();
         b.setOrganization(org);
+        branchHierarchySupport.applyHierarchyOnCreate(b, org, request.getParentBranchId(), request.getDepot());
         b.setBranchName(request.getBranchName());
         b.setBranchCode(request.getBranchCode());
         b.setLocationId(request.getLocationId());
@@ -551,6 +572,110 @@ public class OrganizationServiceImpl implements OrganizationService {
         dto.setBranchDtoList(OrganizationMapping.toBranchDtos(branchRepository.findByOrganizationAndEntityStatusNot(org, EntityStatus.DELETED)));
         res.setOrganizationDto(dto);
         return res;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse getBranchByIdForUser(Long branchId, Locale locale, String username) {
+        OrganizationResponse denied = assertBranchOwnedByUser(branchId, username, locale);
+        if (denied != null) {
+            return denied;
+        }
+        return getBranchById(branchId, locale);
+    }
+
+    @Override
+    public OrganizationResponse updateBranchForUser(
+            Long branchId, UpdateBranchRequest request, Locale locale, String username) {
+        OrganizationResponse denied = assertBranchOwnedByUser(branchId, username, locale);
+        if (denied != null) {
+            return denied;
+        }
+        Organization org = loadForUser(username);
+        request.setOrganizationId(org.getId());
+        OrganizationResponse response = updateBranch(branchId, request, locale, username);
+        if (!response.isSuccess()) {
+            return response;
+        }
+        return listBranches(locale, username);
+    }
+
+    @Override
+    public OrganizationResponse deleteBranchForUser(Long branchId, Locale locale, String username) {
+        OrganizationResponse denied = assertBranchOwnedByUser(branchId, username, locale);
+        if (denied != null) {
+            return denied;
+        }
+        OrganizationResponse response = deleteBranch(branchId, locale, username);
+        if (!response.isSuccess()) {
+            return response;
+        }
+        return listBranches(locale, username);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse findBranchesByMultipleFiltersForUser(
+            BranchMultipleFiltersRequest request, Locale locale, String username) {
+        Organization org = loadForUser(username);
+        request.setOrganizationId(org.getId());
+        return findBranchesByMultipleFilters(request, locale);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<BranchDto> listBranchesForExportForUser(
+            BranchMultipleFiltersRequest request, Locale locale, String username) {
+        Organization org = loadForUser(username);
+        request.setOrganizationId(org.getId());
+        return listBranchesForExport(request, locale);
+    }
+
+    @Override
+    public ImportSummary importBranchesFromCsvForUser(InputStream inputStream, Locale locale, String username)
+            throws IOException {
+        Organization org = loadForUser(username);
+        return organizationDirectoryAdminService.importBranchesFromCsvForOrganization(
+                inputStream, org.getId(), locale, username);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse listAgents(Locale locale, String username) {
+        Organization org = loadForUser(username);
+        OrganizationResponse res = buildOrganizationResponse(null);
+        OrganizationDto dto = OrganizationMapping.toDto(org);
+        Specification<Agent> agentSpec = Specification.where(AgentSpecifications.notDeleted())
+                .and(AgentSpecifications.organizationIdEquals(org.getId()));
+        dto.setAgentDtoList(OrganizationMapping.toAgentDtos(agentRepository.findAll(agentSpec)));
+        res.setOrganizationDto(dto);
+        return res;
+    }
+
+    @Override
+    public OrganizationResponse createAgentForUser(CreateAgentRequest request, Locale locale, String username) {
+        Organization org = loadForUser(username);
+        request.setOrganizationId(org.getId());
+        return createAgent(request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse updateAgentForUser(Long agentId, UpdateAgentRequest request, Locale locale, String username) {
+        OrganizationResponse denied = assertAgentOwnedByUser(agentId, username, locale);
+        if (denied != null) {
+            return denied;
+        }
+        request.setOrganizationId(null);
+        return updateAgent(agentId, request, locale, username);
+    }
+
+    @Override
+    public OrganizationResponse deleteAgentForUser(Long agentId, Locale locale, String username) {
+        OrganizationResponse denied = assertAgentOwnedByUser(agentId, username, locale);
+        if (denied != null) {
+            return denied;
+        }
+        return deleteAgent(agentId, locale, username);
     }
 
     @Override
@@ -1802,8 +1927,55 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (StringUtils.hasText(request.getSearchValue())) {
             spec = spec.and(BranchSpecifications.searchValueLike(request.getSearchValue()));
         }
+        if (StringUtils.hasText(request.getBranchLevel())) {
+            spec = spec.and(BranchSpecifications.branchLevelEquals(
+                    BranchLevel.valueOf(request.getBranchLevel().trim().toUpperCase())));
+        }
+        if (request.getDepot() != null) {
+            spec = spec.and(BranchSpecifications.depotEquals(request.getDepot()));
+        }
+        if (request.getParentBranchId() != null && request.getParentBranchId() > 0) {
+            spec = spec.and(BranchSpecifications.parentBranchIdEquals(request.getParentBranchId()));
+        }
+        if (StringUtils.hasText(request.getRegion())) {
+            spec = spec.and(BranchSpecifications.regionLike(request.getRegion()));
+        }
+        if (request.getActive() != null) {
+            spec = spec.and(BranchSpecifications.activeEquals(request.getActive()));
+        }
+        Organization scopedOrg = null;
+        String scopedOrgRegion = null;
+        String scopedOrgBusinessHours = null;
+        if (request.getOrganizationId() != null) {
+            scopedOrg = organizationRepository
+                    .findByIdAndEntityStatusNot(request.getOrganizationId(), EntityStatus.DELETED)
+                    .orElse(null);
+            if (scopedOrg != null) {
+                scopedOrgRegion = organizationRegistrationAddressSupport.resolveOrganizationRegionLabel(
+                        scopedOrg, locale);
+                if (StringUtils.hasText(scopedOrg.getBusinessHours())) {
+                    scopedOrgBusinessHours = scopedOrg.getBusinessHours().trim();
+                }
+            }
+        }
+        final String orgRegionLabel = scopedOrgRegion;
+        final String orgBusinessHoursLabel = scopedOrgBusinessHours;
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize(), Sort.by(Sort.Direction.ASC, "branchName"));
-        Page<BranchDto> dtoPage = branchRepository.findAll(spec, pageable).map(OrganizationMapping::toBranchDto);
+        java.util.Map<Long, String> orgRegionCache = new java.util.HashMap<>();
+        Page<BranchDto> dtoPage = branchRepository.findAll(spec, pageable).map(branch -> {
+            BranchDto dto = OrganizationMapping.toBranchDto(branch);
+            if (branch.isHeadOffice()) {
+                if (!StringUtils.hasText(dto.getRegion()) && StringUtils.hasText(orgRegionLabel)) {
+                    dto.setRegion(orgRegionLabel);
+                }
+                if (!StringUtils.hasText(dto.getBusinessHours()) && StringUtils.hasText(orgBusinessHoursLabel)) {
+                    dto.setBusinessHours(orgBusinessHoursLabel);
+                }
+            }
+            organizationRegistrationAddressSupport.enrichHeadOfficeBranchRegion(
+                    branch, dto, locale, orgRegionCache);
+            return dto;
+        });
         OrganizationManagementResponse res = new OrganizationManagementResponse();
         res.setSuccess(true);
         res.setStatusCode(200);
@@ -2380,6 +2552,32 @@ public class OrganizationServiceImpl implements OrganizationService {
         throw notFound(Locale.getDefault());
     }
 
+    private OrganizationResponse assertAgentOwnedByUser(Long agentId, String username, Locale locale) {
+        Organization org = loadForUser(username);
+        Optional<Agent> agentOpt = agentRepository.findByIdAndEntityStatusNot(agentId, EntityStatus.DELETED);
+        if (agentOpt.isEmpty()) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.AGENT_NOT_FOUND.getCode(), new String[]{}, locale)));
+        }
+        if (!agentOpt.get().getOrganization().getId().equals(org.getId())) {
+            return buildOrganizationResponseWithErrors(List.of("Agent does not belong to your organisation."));
+        }
+        return null;
+    }
+
+    private OrganizationResponse assertBranchOwnedByUser(Long branchId, String username, Locale locale) {
+        Organization org = loadForUser(username);
+        Optional<Branch> branchOpt = branchRepository.findByIdAndEntityStatusNot(branchId, EntityStatus.DELETED);
+        if (branchOpt.isEmpty()) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.BRANCH_NOT_FOUND.getCode(), new String[]{}, locale)));
+        }
+        if (!branchOpt.get().getOrganization().getId().equals(org.getId())) {
+            return buildOrganizationResponseWithErrors(List.of("Branch does not belong to your organisation."));
+        }
+        return null;
+    }
+
     private Long resolveCallerOrganizationId(String username) {
         if (!StringUtils.hasText(username) || TRUSTED_ADMIN_MODIFIERS.contains(username.trim())) {
             return null;
@@ -2558,6 +2756,11 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
+    public OrganizationResponse getHeadOfficeBranch(Long organizationId, Locale locale) {
+        return organizationDirectoryAdminService.getHeadOfficeBranch(organizationId, locale);
+    }
+
+    @Override
     public OrganizationResponse deleteBranch(Long id, Locale locale, String username) {
         return organizationDirectoryAdminService.deleteBranch(id, locale, username);
     }
@@ -2728,6 +2931,70 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
 
         return partner;
+    }
+
+    private OrganizationResponse validateFleetVehicleContractDatesWithinPartnerLink(
+            Organization org,
+            Long transporterId,
+            String contractScopeRaw,
+            String contractStartDateRaw,
+            String contractEndDateRaw,
+            Locale locale) {
+        String scope = contractScopeRaw == null || contractScopeRaw.isBlank()
+                ? "LONG_TERM"
+                : contractScopeRaw.trim().toUpperCase();
+        if (!"LONG_TERM".equals(scope)) {
+            return null;
+        }
+
+        if (!StringUtils.hasText(contractStartDateRaw)) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACT_START_REQUIRED.getCode(), new String[]{}, locale)));
+        }
+
+        LocalDate vehicleStart;
+        LocalDate vehicleEnd = null;
+        try {
+            vehicleStart = LocalDate.parse(contractStartDateRaw.trim());
+            if (StringUtils.hasText(contractEndDateRaw)) {
+                vehicleEnd = LocalDate.parse(contractEndDateRaw.trim());
+            }
+        } catch (java.time.format.DateTimeParseException ex) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACT_START_REQUIRED.getCode(), new String[]{}, locale)));
+        }
+
+        if (vehicleEnd != null && vehicleEnd.isBefore(vehicleStart)) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACT_DATES_OUT_OF_RANGE.getCode(), new String[]{}, locale)));
+        }
+
+        ContractedTransporterLink link = contractedTransporterLinkRepository
+                .findByOrganizationIdAndTransporterId(org.getId(), transporterId)
+                .orElse(null);
+        if (link == null) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_INVALID.getCode(), new String[]{}, locale)));
+        }
+
+        LocalDate linkStart = link.getContractStartDate();
+        LocalDate linkEnd = link.getContractEndDate();
+        if (linkStart != null && vehicleStart.isBefore(linkStart)) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACT_DATES_OUT_OF_RANGE.getCode(), new String[]{}, locale)));
+        }
+        if (linkEnd != null) {
+            if (vehicleStart.isAfter(linkEnd)) {
+                return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                        I18Code.FLEET_VEHICLE_CONTRACT_DATES_OUT_OF_RANGE.getCode(), new String[]{}, locale)));
+            }
+            if (vehicleEnd != null && vehicleEnd.isAfter(linkEnd)) {
+                return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                        I18Code.FLEET_VEHICLE_CONTRACT_DATES_OUT_OF_RANGE.getCode(), new String[]{}, locale)));
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -3416,6 +3683,65 @@ public class OrganizationServiceImpl implements OrganizationService {
         try {
             requireLinkedTransportPartner(org, request.getContractedTransporterOrganizationId(), locale);
         } catch (RuntimeException ex) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_INVALID.getCode(), new String[]{}, locale)));
+        }
+
+        OrganizationResponse contractDateError = validateFleetVehicleContractDatesWithinPartnerLink(
+                org,
+                request.getContractedTransporterOrganizationId(),
+                request.getContractScope(),
+                request.getContractStartDate(),
+                request.getContractEndDate(),
+                locale);
+        if (contractDateError != null) {
+            return contractDateError;
+        }
+
+        OrganizationResponse res = buildOrganizationResponse(null);
+        res.setMessage(messageService.getMessage(I18Code.FLEET_OWNERSHIP_VALIDATION_OK.getCode(), new String[]{}, locale));
+        return res;
+    }
+
+    @Override
+    public OrganizationResponse validateTransporterAssignment(ValidateTransporterAssignmentRequest request, Locale locale) {
+        if (request == null
+                || request.getShipperOrganizationId() == null
+                || request.getTransportCompanyOrganizationId() == null) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.FLEET_OWNERSHIP_ORG_NOT_FOUND.getCode(), new String[]{}, locale)));
+        }
+
+        Organization shipper = organizationRepository.findByIdAndEntityStatusNot(
+                request.getShipperOrganizationId(), EntityStatus.DELETED).orElse(null);
+        if (shipper == null) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.FLEET_OWNERSHIP_ORG_NOT_FOUND.getCode(), new String[]{}, locale)));
+        }
+
+        Long transportCompanyId = request.getTransportCompanyOrganizationId();
+        if (transportCompanyId.equals(shipper.getId())) {
+            OrganizationResponse res = buildOrganizationResponse(null);
+            res.setMessage(messageService.getMessage(I18Code.FLEET_OWNERSHIP_VALIDATION_OK.getCode(), new String[]{}, locale));
+            return res;
+        }
+
+        Organization transportCompany = organizationRepository.findByIdAndEntityStatusNot(
+                transportCompanyId, EntityStatus.DELETED).orElse(null);
+        if (transportCompany == null
+                || transportCompany.getOrganizationClassification() != OrganizationClassification.TRANSPORT_COMPANY) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_INVALID.getCode(), new String[]{}, locale)));
+        }
+
+        if (!OrganizationTradingCapabilitySupport.canContractTransporters(shipper)) {
+            return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
+                    I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_INVALID.getCode(), new String[]{}, locale)));
+        }
+
+        List<Organization> contracted = organizationRepository.findContractedTransportersForSupplier(
+                shipper.getId(), EntityStatus.DELETED);
+        if (!contracted.contains(transportCompany)) {
             return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(
                     I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_INVALID.getCode(), new String[]{}, locale)));
         }

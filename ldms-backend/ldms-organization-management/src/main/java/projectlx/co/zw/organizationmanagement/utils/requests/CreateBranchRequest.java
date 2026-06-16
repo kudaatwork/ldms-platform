@@ -36,6 +36,11 @@ public class CreateBranchRequest {
 
     private boolean headOffice;
 
+    /** When set, creates a level-2 sub-branch / depot under this parent branch. */
+    private Long parentBranchId;
+
+    private Boolean depot;
+
     @Size(max = 100)
     private String region;
 

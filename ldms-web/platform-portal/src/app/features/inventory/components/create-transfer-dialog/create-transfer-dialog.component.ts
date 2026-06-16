@@ -41,6 +41,7 @@ export class CreateTransferDialogComponent implements OnInit {
       quantity: [null, [Validators.required, Validators.min(0.01)]],
       unitCost: [0, [Validators.min(0)]],
       reference: [''],
+      crossBorder: [false],
     });
   }
 
@@ -120,6 +121,24 @@ export class CreateTransferDialogComponent implements OnInit {
 
   get toWarehouseHint(): string {
     return this.fromWarehouseSelected ? '' : 'Select the source warehouse first.';
+  }
+
+  /** Suggest cross-border when source and destination addresses look like different countries. */
+  get suggestCrossBorder(): boolean {
+    const from = this.warehouses.find((w) => w.id === this.fromLocationId);
+    const to = this.warehouses.find((w) => w.id === Number(this.form.get('toLocationId')?.value ?? 0));
+    if (!from?.addressLabel || !to?.addressLabel) {
+      return false;
+    }
+    const fromCountry = from.addressLabel.split(',').pop()?.trim().toLowerCase() ?? '';
+    const toCountry = to.addressLabel.split(',').pop()?.trim().toLowerCase() ?? '';
+    return fromCountry.length > 0 && toCountry.length > 0 && fromCountry !== toCountry;
+  }
+
+  onToWarehouseChange(): void {
+    if (this.suggestCrossBorder && !this.form.get('crossBorder')?.dirty) {
+      this.form.patchValue({ crossBorder: true });
+    }
   }
 
   get selectedFromStock(): StockRow | null {
@@ -209,6 +228,7 @@ export class CreateTransferDialogComponent implements OnInit {
         unitCost: Number(raw.unitCost ?? 0),
         status: 'REQUESTED',
         reference: String(raw.reference ?? '').trim() || undefined,
+        crossBorder: !!raw.crossBorder,
         createdByUserId: this.data.createdByUserId,
       })
       .pipe(finalize(() => (this.submitting = false)))

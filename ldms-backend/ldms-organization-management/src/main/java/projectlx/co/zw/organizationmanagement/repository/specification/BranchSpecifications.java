@@ -4,6 +4,7 @@ import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 import projectlx.co.zw.organizationmanagement.model.Branch;
+import projectlx.co.zw.organizationmanagement.utils.enums.BranchLevel;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.util.ArrayList;
@@ -38,5 +39,26 @@ public final class BranchSpecifications {
             predicates.add(cb.like(cb.lower(orgJoin.get("name")), pattern));
             return cb.or(predicates.toArray(Predicate[]::new));
         };
+    }
+
+    public static Specification<Branch> branchLevelEquals(BranchLevel branchLevel) {
+        return (root, query, cb) -> cb.equal(root.get("branchLevel"), branchLevel);
+    }
+
+    public static Specification<Branch> depotEquals(boolean depot) {
+        return (root, query, cb) -> cb.equal(root.get("depot"), depot);
+    }
+
+    public static Specification<Branch> parentBranchIdEquals(Long parentBranchId) {
+        return (root, query, cb) -> cb.equal(root.get("parentBranch").get("id"), parentBranchId);
+    }
+
+    public static Specification<Branch> regionLike(String region) {
+        String pattern = "%" + region.trim().toLowerCase() + "%";
+        return (root, query, cb) -> cb.like(cb.lower(cb.coalesce(root.get("region"), cb.literal(""))), pattern);
+    }
+
+    public static Specification<Branch> activeEquals(boolean active) {
+        return (root, query, cb) -> cb.equal(root.get("active"), active);
     }
 }

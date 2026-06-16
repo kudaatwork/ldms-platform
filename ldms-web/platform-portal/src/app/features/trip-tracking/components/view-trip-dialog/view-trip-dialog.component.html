@@ -99,6 +99,15 @@
     <ng-container *ngIf="!otpMode">
       <button
         type="button"
+        class="lx-btn lx-btn-primary"
+        *ngIf="detail?.canLiveTrack"
+        (click)="openLiveMap()"
+      >
+        <mat-icon>near_me</mat-icon>
+        Live map
+      </button>
+      <button
+        type="button"
         class="lx-btn lx-btn-ghost"
         *ngIf="canTriggerArrival"
         [disabled]="actionBusy"

@@ -159,7 +159,7 @@
                 <button
                   type="button"
                   class="lx-btn lx-btn-ghost lx-btn-sm"
-                  *ngIf="r.status === 'SUBMITTED'"
+                  *ngIf="r.status === 'SUBMITTED' && isProcurementApprover"
                   (click)="onApproveRequisitionStage(r)"
                   title="Approve this stage"
                 >
@@ -394,7 +394,7 @@
                 <button
                   type="button"
                   class="lx-btn lx-btn-ghost lx-btn-sm"
-                  *ngIf="o.status === 'PENDING_CUSTOMER_APPROVAL'"
+                  *ngIf="o.status === 'PENDING_CUSTOMER_APPROVAL' && isProcurementApprover"
                   (click)="onApprovePoCustomerStage(o)"
                   title="Approve customer stage"
                 >

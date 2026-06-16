@@ -35,6 +35,29 @@
       </div>
 
       <div class="lx-field span-2">
+        <label class="lx-field-label">Branch / sub-branch / depot <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('branchId', 'required')">
+          <mat-icon class="lx-input-shell__icon">account_tree</mat-icon>
+          <select formControlName="branchId" aria-label="Branch, sub-branch, or depot" [disabled]="branchesLoading || !branches.length">
+            <option [ngValue]="null" disabled>Select branch or sub-branch</option>
+            <optgroup label="Top-level branches" *ngIf="topLevelBranchOptions.length">
+              <option *ngFor="let b of topLevelBranchOptions" [ngValue]="b.id">{{ b.label }}</option>
+            </optgroup>
+            <optgroup label="Sub-branches & depots" *ngIf="subLevelBranchOptions.length">
+              <option *ngFor="let b of subLevelBranchOptions" [ngValue]="b.id">
+                {{ b.parentBranchName ? b.parentBranchName + ' → ' : '' }}{{ b.label }}
+              </option>
+            </optgroup>
+          </select>
+        </div>
+        <p class="lx-field-hint">Every warehouse must be allocated to a branch or sub-branch in your organisation hierarchy.</p>
+        <p class="lx-field-hint" *ngIf="branchesLoading">Loading branches…</p>
+        <p class="lx-field-error" *ngIf="branchesError">{{ branchesError }}</p>
+        <p class="lx-field-error" *ngIf="!branchesLoading && !branches.length">No branches found — create a branch under Organization management first.</p>
+        <p class="lx-field-error" *ngIf="hasError('branchId', 'required')">Branch allocation is required</p>
+      </div>
+
+      <div class="lx-field span-2">
         <label class="lx-field-label">Description <span class="req">*</span></label>
         <div class="lx-input-shell lx-input-shell--textarea" [class.lx-input-shell--invalid]="hasError('description', 'required')">
           <mat-icon class="lx-input-shell__icon">notes</mat-icon>

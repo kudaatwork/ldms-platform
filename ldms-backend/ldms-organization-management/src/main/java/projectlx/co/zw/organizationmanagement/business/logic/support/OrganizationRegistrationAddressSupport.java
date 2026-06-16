@@ -8,10 +8,14 @@ import projectlx.co.zw.organizationmanagement.clients.LocationsServiceClient;
 import projectlx.co.zw.organizationmanagement.clients.dto.LocationAddressCreateRequest;
 import projectlx.co.zw.organizationmanagement.clients.dto.LocationAddressDto;
 import projectlx.co.zw.organizationmanagement.clients.dto.LocationAddressResponse;
+import projectlx.co.zw.organizationmanagement.model.Branch;
+import projectlx.co.zw.organizationmanagement.model.Organization;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
+import projectlx.co.zw.shared_library.utils.dtos.BranchDto;
 import projectlx.co.zw.shared_library.utils.dtos.OrganizationDto;
 
 import java.util.Locale;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -85,10 +89,95 @@ public class OrganizationRegistrationAddressSupport {
             dto.setAddressCityId(addr.getCityId());
             dto.setAddressCityName(addr.getCityName());
             dto.setAddressDistrictId(addr.getDistrictId());
+            dto.setAddressDistrictName(addr.getDistrictName());
             dto.setAddressProvinceId(addr.getProvinceId());
+            dto.setAddressProvinceName(addr.getProvinceName());
             dto.setAddressCountryId(addr.getCountryId());
         } catch (Exception ex) {
             log.warn("Failed to enrich address for organization locationId={}: {}", dto.getLocationId(), ex.getMessage());
         }
+    }
+
+    /**
+     * Head-office branches often have no {@code region} column. After static org-field fallbacks, derive a label
+     * from {@code regions_served} or the organisation / branch address in ldms-locations.
+     */
+    public void enrichHeadOfficeBranchRegion(
+            Branch branch,
+            BranchDto dto,
+            Locale locale,
+            Map<Long, String> organizationRegionCache) {
+        if (branch == null || dto == null || !branch.isHeadOffice() || StringUtils.hasText(dto.getRegion())) {
+            return;
+        }
+        Organization org = branch.getOrganization();
+        if (org != null) {
+            String orgRegion = organizationRegionCache.computeIfAbsent(
+                    org.getId(), id -> resolveOrganizationRegionLabel(org, locale));
+            if (StringUtils.hasText(orgRegion)) {
+                dto.setRegion(orgRegion.trim());
+                return;
+            }
+        }
+        String branchRegion = resolveAddressRegionLabel(branch.getLocationId(), locale);
+        if (StringUtils.hasText(branchRegion)) {
+            dto.setRegion(branchRegion.trim());
+        }
+    }
+
+    public String resolveOrganizationRegionLabel(Organization org, Locale locale) {
+        if (org == null) {
+            return null;
+        }
+        String fromRegionsServed = firstRegionFromRegionsServed(org.getRegionsServed());
+        if (StringUtils.hasText(fromRegionsServed)) {
+            return fromRegionsServed;
+        }
+        return resolveAddressRegionLabel(org.getLocationId(), locale);
+    }
+
+    public String resolveAddressRegionLabel(Long locationId, Locale locale) {
+        LocationAddressDto address = fetchAddress(locationId, locale);
+        if (address == null) {
+            return null;
+        }
+        return firstNonBlank(address.getProvinceName(), address.getDistrictName(), address.getCityName());
+    }
+
+    private LocationAddressDto fetchAddress(Long locationId, Locale locale) {
+        if (locationId == null || locationId < 1) {
+            return null;
+        }
+        try {
+            LocationAddressResponse response = locationsServiceClient.findById(locationId, locale);
+            if (response == null || !response.isSuccess() || response.getAddressDto() == null) {
+                return null;
+            }
+            return response.getAddressDto();
+        } catch (Exception ex) {
+            log.warn("Failed to resolve address for locationId={}: {}", locationId, ex.getMessage());
+            return null;
+        }
+    }
+
+    private static String firstRegionFromRegionsServed(String regionsServed) {
+        if (!StringUtils.hasText(regionsServed)) {
+            return null;
+        }
+        String raw = regionsServed.trim();
+        int comma = raw.indexOf(',');
+        return comma > 0 ? raw.substring(0, comma).trim() : raw;
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
+        }
+        for (String value : values) {
+            if (StringUtils.hasText(value)) {
+                return value.trim();
+            }
+        }
+        return null;
     }
 }

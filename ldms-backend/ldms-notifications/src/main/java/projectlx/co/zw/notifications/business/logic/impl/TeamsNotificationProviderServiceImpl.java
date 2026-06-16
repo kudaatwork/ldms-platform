@@ -1,7 +1,7 @@
 package projectlx.co.zw.notifications.business.logic.impl;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -18,9 +18,9 @@ import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 
 import java.util.Map;
 
-@Slf4j
-@RequiredArgsConstructor
 public class TeamsNotificationProviderServiceImpl implements NotificationProviderService {
+
+    private static final Logger log = LoggerFactory.getLogger(TeamsNotificationProviderServiceImpl.class);
 
     private final TemplateProcessorService templateProcessor;
     private final NotificationLogRecorder notificationLogRecorder;
@@ -28,6 +28,15 @@ public class TeamsNotificationProviderServiceImpl implements NotificationProvide
 
     @Value("${notifications.providers.teams.webhook-url:}")
     private String defaultWebhookUrl;
+
+    public TeamsNotificationProviderServiceImpl(
+            TemplateProcessorService templateProcessor,
+            NotificationLogRecorder notificationLogRecorder,
+            RestTemplate restTemplate) {
+        this.templateProcessor = templateProcessor;
+        this.notificationLogRecorder = notificationLogRecorder;
+        this.restTemplate = restTemplate;
+    }
 
     @Override
     public Channel getChannel() {

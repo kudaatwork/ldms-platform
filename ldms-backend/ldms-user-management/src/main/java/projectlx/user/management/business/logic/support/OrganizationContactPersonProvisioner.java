@@ -139,6 +139,7 @@ public class OrganizationContactPersonProvisioner {
             }
         }
         user.setOrganizationKycApprover(false);
+        user.setProcurementApprover(false);
         user.setEmailVerified(false);
         user.setUserType(resolveOrganizationContactUserType(locale, actor));
 

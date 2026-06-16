@@ -74,6 +74,7 @@ export class OrdersWorkspaceComponent implements OnInit, OnDestroy {
   paymentSubmitting = false;
 
   private userId = 0;
+  isProcurementApprover = false;
   private warehousesLoaded = false;
   private customerWarehouses: WarehouseRow[] = [];
 
@@ -100,6 +101,8 @@ export class OrdersWorkspaceComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((profile) => {
         this.userId = profile?.id ?? Number(this.authState.currentUser?.userId ?? 0);
+        this.isProcurementApprover =
+          profile?.procurementApprover === true || this.authState.currentUser?.procurementApprover === true;
         this.cdr.markForCheck();
       });
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {

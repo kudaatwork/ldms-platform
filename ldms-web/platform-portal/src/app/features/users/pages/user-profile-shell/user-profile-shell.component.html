@@ -32,6 +32,18 @@
               </span>
               <span class="up-verified-badge" *ngIf="u['emailVerified'] === true" i18n="@@userProfileVerifiedBadge">Verified</span>
             </span>
+            <span
+              class="up-chip up-chip--email"
+              *ngIf="u['phoneVerified'] !== undefined && u['phoneVerified'] !== null"
+              [class.up-chip--email-verified]="u['phoneVerified'] === true"
+              [class.up-chip--email-pending]="u['phoneVerified'] !== true"
+            >
+              <mat-icon inline aria-hidden="true">{{ u['phoneVerified'] === true ? 'verified' : 'phonelink_erase' }}</mat-icon>
+              <span class="up-chip__email-text">
+                <ng-container *ngIf="u['phoneVerified'] === true">Phone verified</ng-container>
+                <ng-container *ngIf="u['phoneVerified'] !== true">Phone not verified</ng-container>
+              </span>
+            </span>
             <span class="up-chip up-chip--muted" *ngIf="u['gender']">
               <mat-icon inline aria-hidden="true">wc</mat-icon>
               {{ formatDisplay(u['gender']) }}
@@ -48,6 +60,17 @@
           >
             <mat-icon aria-hidden="true">mark_email_read</mat-icon>
             Resend verification email
+          </button>
+          <button
+            type="button"
+            mat-stroked-button
+            color="primary"
+            class="up-hero__resend-verify"
+            *ngIf="canVerifyPhone()"
+            (click)="verifyPhone()"
+          >
+            <mat-icon aria-hidden="true">phonelink_lock</mat-icon>
+            Verify phone number
           </button>
           <button type="button" mat-button class="up-hero__edit" (click)="openEditProfile()" i18n="@@userProfileEditDetails">
             <mat-icon aria-hidden="true">edit</mat-icon>

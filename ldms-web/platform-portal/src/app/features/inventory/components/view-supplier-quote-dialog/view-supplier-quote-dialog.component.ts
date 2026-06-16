@@ -5,6 +5,11 @@ import { NotificationService } from '../../../../core/services/notification.serv
 import { SharedModule } from '../../../../shared/shared.module';
 import type { SupplierQuoteDetail } from '../../models/inventory.model';
 import { InventoryPortalService } from '../../services/inventory-portal.service';
+import {
+  createInventoryTableSortController,
+  QUOTE_LINE_SORT_COMPARATORS,
+  QuoteLineSortColumn,
+} from '../../utils/inventory-table-sort.util';
 
 export type ViewSupplierQuoteDialogData = {
   requisitionId: number;
@@ -23,6 +28,7 @@ export class ViewSupplierQuoteDialogComponent implements OnInit {
   loading = true;
   error = '';
   quote: SupplierQuoteDetail | null = null;
+  readonly lineSort = createInventoryTableSortController(QUOTE_LINE_SORT_COMPARATORS, 'lineNumber', 'asc');
 
   constructor(
     @Inject(MAT_DIALOG_DATA) readonly data: ViewSupplierQuoteDialogData,
@@ -53,5 +59,9 @@ export class ViewSupplierQuoteDialogComponent implements OnInit {
 
   close(): void {
     this.dialogRef.close();
+  }
+
+  toggleLineSort(column: QuoteLineSortColumn): void {
+    this.lineSort.toggle(column);
   }
 }

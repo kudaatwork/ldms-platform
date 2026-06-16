@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import projectlx.co.zw.shared_library.model.Organization;
 import projectlx.co.zw.shared_library.model.OrganizationVerificationStatus;
 import projectlx.co.zw.shared_library.utils.dtos.OrganizationDto;
+import projectlx.co.zw.shared_library.utils.dtos.BranchDto;
 
 import java.util.List;
 
@@ -17,6 +18,7 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class OrganizationResponse extends CommonResponse {
     private OrganizationDto organizationDto;
+    private BranchDto branchDto;
     private List<OrganizationDto> organizationDtoList;
     private Page<OrganizationDto> organizationDtoPage;
     

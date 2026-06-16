@@ -51,6 +51,9 @@ public class Trip implements DomainMarkerInterface {
     @Column(name = "inventory_transfer_id")
     private Long inventoryTransferId;
 
+    @Column(name = "sales_order_id")
+    private Long salesOrderId;
+
     // === FLEET ASSIGNMENT ===
 
     @Column(name = "fleet_driver_id")

@@ -1,19 +1,30 @@
 package projectlx.co.zw.notifications.utils.config;
 
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Configuration;
 
-@Slf4j
 @Configuration
-@RequiredArgsConstructor
 public class ApiClientConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(ApiClientConfig.class);
 
     private final OutboundMessagingReadiness outboundMessagingReadiness;
     private final OutboundEmailClientSupplier outboundEmailClientSupplier;
     private final OutboundSesClientSupplier outboundSesClientSupplier;
     private final OutboundTwilioInitializer outboundTwilioInitializer;
+
+    public ApiClientConfig(
+            OutboundMessagingReadiness outboundMessagingReadiness,
+            OutboundEmailClientSupplier outboundEmailClientSupplier,
+            OutboundSesClientSupplier outboundSesClientSupplier,
+            OutboundTwilioInitializer outboundTwilioInitializer) {
+        this.outboundMessagingReadiness = outboundMessagingReadiness;
+        this.outboundEmailClientSupplier = outboundEmailClientSupplier;
+        this.outboundSesClientSupplier = outboundSesClientSupplier;
+        this.outboundTwilioInitializer = outboundTwilioInitializer;
+    }
 
     /**
      * Warms Twilio when credentials are already available at startup; sends also call

@@ -1,0 +1,41 @@
+<div class="lx-dialog-shell lx-dialog-shell--wide fdv-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ data.title || 'Document' }}</h2>
+      <p class="lx-dialog-subtitle" *ngIf="fileName">{{ fileName }}</p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content fdv-body">
+    <div class="fdv-loading" *ngIf="loading">
+      <mat-progress-spinner mode="indeterminate" diameter="40"></mat-progress-spinner>
+      <span>Loading document…</span>
+    </div>
+
+    <p class="fdv-error" *ngIf="!loading && error">
+      <mat-icon>error_outline</mat-icon>
+      {{ error }}
+    </p>
+
+    <div class="fdv-stage" *ngIf="!loading && hasPreview">
+      <img *ngIf="previewImageUrl" class="fdv-stage__image" [src]="previewImageUrl" [alt]="fileName || 'Document'" />
+      <iframe
+        *ngIf="previewPdfUrl && !previewImageUrl"
+        class="fdv-stage__pdf"
+        [src]="previewPdfUrl"
+        title="Document preview"
+      ></iframe>
+    </div>
+
+    <div class="lx-dialog-actions fdv-actions" *ngIf="!loading">
+      <button type="button" class="lx-btn lx-btn-ghost" *ngIf="canOpenPdfInNewTab" (click)="openPdfInNewTab()">
+        <mat-icon>open_in_new</mat-icon>
+        Open in new tab
+      </button>
+      <button type="button" class="lx-btn lx-btn-primary" (click)="close()">Close</button>
+    </div>
+  </div>
+</div>

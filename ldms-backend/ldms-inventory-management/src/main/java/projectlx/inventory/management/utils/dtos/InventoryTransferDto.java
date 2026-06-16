@@ -31,6 +31,7 @@ public class InventoryTransferDto {
     private BigDecimal unitCost;
     private TransferStatus status;
     private String reference;
+    private Boolean crossBorder;
     private Long shipmentId;
     private String rejectionReason;
     private Long rejectedByUserId;

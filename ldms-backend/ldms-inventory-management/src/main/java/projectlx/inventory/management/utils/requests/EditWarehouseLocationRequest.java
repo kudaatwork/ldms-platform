@@ -22,5 +22,6 @@ public class EditWarehouseLocationRequest {
     // Editable fields
     private String locationId;
     private Long supplierId;
+    private Long branchId;
     private WarehouseLocationType warehouseType;
 }

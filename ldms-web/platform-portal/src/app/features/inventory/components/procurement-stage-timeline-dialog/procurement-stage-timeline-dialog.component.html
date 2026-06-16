@@ -1,38 +1,40 @@
-<div class="pst-dialog">
-  <header class="pst-dialog__head">
-    <div>
-      <h2>{{ data.title }}</h2>
-      <p *ngIf="data.subtitle">{{ data.subtitle }}</p>
+<div class="lx-dialog-shell pst-dialog">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ data.title }}</h2>
+      <p class="lx-dialog-subtitle" *ngIf="data.subtitle">{{ data.subtitle }}</p>
     </div>
-    <button type="button" class="lx-btn lx-btn-ghost lx-btn-icon" (click)="close()" aria-label="Close">
+    <button mat-icon-button class="lx-close-button" type="button" (click)="close()" aria-label="Close">
       <mat-icon>close</mat-icon>
     </button>
-  </header>
+  </div>
 
-  <ol class="pst-timeline">
-    <li
-      *ngFor="let step of data.steps; let last = last"
-      class="pst-timeline__item"
-      [class]="'pst-timeline__item--' + step.state"
-      [class.pst-timeline__item--last]="last"
-    >
-      <div class="pst-timeline__rail">
-        <span class="pst-timeline__node">
-          <mat-icon *ngIf="step.state === 'done'">check</mat-icon>
-          <mat-icon *ngIf="step.state === 'active'">{{ step.icon }}</mat-icon>
-          <mat-icon *ngIf="step.state === 'pending'">schedule</mat-icon>
-          <mat-icon *ngIf="step.state === 'rejected'">error_outline</mat-icon>
-        </span>
-        <span class="pst-timeline__connector" *ngIf="!last"></span>
-      </div>
-      <div class="pst-timeline__body">
-        <div class="pst-timeline__label">{{ step.label }}</div>
-        <div class="pst-timeline__detail" *ngIf="step.detail">{{ step.detail }}</div>
-      </div>
-    </li>
-  </ol>
+  <div class="lx-step-content pst-dialog__body">
+    <ol class="pst-timeline">
+      <li
+        *ngFor="let step of data.steps; let last = last"
+        class="pst-timeline__item"
+        [class]="'pst-timeline__item--' + step.state"
+        [class.pst-timeline__item--last]="last"
+      >
+        <div class="pst-timeline__rail">
+          <span class="pst-timeline__node">
+            <mat-icon *ngIf="step.state === 'done'">check</mat-icon>
+            <mat-icon *ngIf="step.state === 'active'">{{ step.icon }}</mat-icon>
+            <mat-icon *ngIf="step.state === 'pending'">schedule</mat-icon>
+            <mat-icon *ngIf="step.state === 'rejected'">error_outline</mat-icon>
+          </span>
+          <span class="pst-timeline__connector" *ngIf="!last"></span>
+        </div>
+        <div class="pst-timeline__body">
+          <div class="pst-timeline__label">{{ step.label }}</div>
+          <div class="pst-timeline__detail" *ngIf="step.detail">{{ step.detail }}</div>
+        </div>
+      </li>
+    </ol>
 
-  <footer class="pst-dialog__foot">
-    <button type="button" class="lx-btn lx-btn-primary" (click)="close()">Close</button>
-  </footer>
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-primary" (click)="close()">Close</button>
+    </div>
+  </div>
 </div>
