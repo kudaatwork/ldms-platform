@@ -201,6 +201,7 @@ export class OwnFleetDialogComponent implements OnInit, OnDestroy {
       type: [vehicle?.type ?? 'rig', Validators.required],
       status: [vehicle?.status ?? 'available', Validators.required],
       utilizationPct: [vehicle?.utilizationPct ?? 0, [Validators.min(0), Validators.max(100)]],
+      maxSpeedKmh: [vehicle?.maxSpeedKmh ?? null, [Validators.min(20), Validators.max(200)]],
       driverAssignment: this.fb.group({
         enabled: [assignDriverInitially],
         source: ['org_user' as DriverAssignmentSource],
@@ -608,6 +609,7 @@ export class OwnFleetDialogComponent implements OnInit, OnDestroy {
           ? String(v.contractEndDate ?? '').trim() || undefined
           : undefined,
       utilizationPct: Number(v.utilizationPct) || 0,
+      maxSpeedKmh: v.maxSpeedKmh != null && v.maxSpeedKmh !== '' ? Number(v.maxSpeedKmh) : undefined,
     };
 
     this.submitting = true;

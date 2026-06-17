@@ -50,9 +50,7 @@ public class FleetOwnershipValidationSupport {
             request.setContractEndDate(contractEndDate);
             OrganizationResponse response = organizationManagementServiceClient.validateFleetOwnership(request);
             if (response == null || !response.isSuccess()) {
-                String msg = response != null && response.getMessage() != null
-                        ? response.getMessage()
-                        : "Fleet ownership validation failed";
+                String msg = resolveOrganizationErrorMessage(response);
                 log.warn("Fleet ownership validation rejected: orgId={} ownershipType={} transporterId={} reason={}",
                         registeringOrganizationId, ownershipType, contractedTransporterOrganizationId, msg);
                 return msg;
@@ -62,5 +60,18 @@ public class FleetOwnershipValidationSupport {
             log.warn("Fleet ownership validation call failed for orgId={}: {}", registeringOrganizationId, ex.getMessage());
             return "Fleet ownership validation unavailable";
         }
+    }
+
+    private static String resolveOrganizationErrorMessage(OrganizationResponse response) {
+        if (response == null) {
+            return "Fleet ownership validation failed";
+        }
+        if (response.getErrorMessages() != null && !response.getErrorMessages().isEmpty()) {
+            return String.join(" ", response.getErrorMessages());
+        }
+        if (response.getMessage() != null && !response.getMessage().isBlank()) {
+            return response.getMessage().trim();
+        }
+        return "Fleet ownership validation failed";
     }
 }

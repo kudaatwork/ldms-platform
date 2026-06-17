@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 @ToString
@@ -23,5 +25,7 @@ public class ShipmentSummaryDto {
     private String fromWarehouseName;
     private String toWarehouseName;
     private String productName;
+    private String productCode;
+    private BigDecimal quantity;
     private Boolean crossBorder;
 }

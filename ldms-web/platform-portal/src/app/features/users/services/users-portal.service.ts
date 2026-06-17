@@ -48,6 +48,8 @@ export interface UserListRow {
   /** Procurement workflow approver eligibility (organisation workspace users). */
   procurementApproverEligibleLabel: string;
   procurementApprover: boolean;
+  shipmentFleetAllocatorEligibleLabel: string;
+  shipmentFleetAllocator: boolean;
 }
 
 export interface UserProfileBundle {
@@ -1100,6 +1102,12 @@ export class UsersPortalService {
     return this.http.put(`${this.base}/user/${userId}/procurement-approver`, null, { params });
   }
 
+  /** Sets shipment fleet allocator eligibility for organisation workspace users. */
+  setShipmentFleetAllocator(userId: number, enabled: boolean): Observable<unknown> {
+    const params = new HttpParams().set('enabled', String(enabled));
+    return this.http.put(`${this.base}/user/${userId}/shipment-fleet-allocator`, null, { params });
+  }
+
   listProcurementApprovers(): Observable<UserListRow[]> {
     return this.http.get<unknown>(`${this.base}/user/procurement-approvers`).pipe(
       map((resp) => {
@@ -1348,6 +1356,7 @@ export class UsersPortalService {
     branchId?: number;
     organizationKycApprover?: boolean;
     procurementApprover?: boolean;
+    shipmentFleetAllocator?: boolean;
     /** Location-service address id — only when integrating with an existing address; do not send suburb id here. */
     locationId?: number;
     nationalIdNumber?: string;
@@ -1394,6 +1403,9 @@ export class UsersPortalService {
     }
     if (payload.procurementApprover) {
       form.append('procurementApprover', 'true');
+    }
+    if (payload.shipmentFleetAllocator) {
+      form.append('shipmentFleetAllocator', 'true');
     }
     this.appendFormValue(form, 'locationId', payload.locationId);
     this.appendFormValue(form, 'nationalIdNumber', payload.nationalIdNumber);
@@ -1531,6 +1543,8 @@ export class UsersPortalService {
         kycApproverEligibleLabel: '—',
         procurementApproverEligibleLabel: '—',
         procurementApprover: false,
+        shipmentFleetAllocatorEligibleLabel: '—',
+        shipmentFleetAllocator: false,
       };
     }
     const firstName = String(row['firstName'] ?? '').trim();
@@ -1568,7 +1582,27 @@ export class UsersPortalService {
       kycApproverEligibleLabel: this.formatKycApproverEligibleLabel(row),
       procurementApproverEligibleLabel: this.formatProcurementApproverEligibleLabel(row),
       procurementApprover: this.isTruthyProcurementApprover(row['procurementApprover']),
+      shipmentFleetAllocatorEligibleLabel: this.formatShipmentFleetAllocatorEligibleLabel(row),
+      shipmentFleetAllocator: this.isTruthyShipmentFleetAllocator(row['shipmentFleetAllocator']),
     };
+  }
+
+  private formatShipmentFleetAllocatorEligibleLabel(row: Record<string, unknown>): string {
+    const orgId = Number(row['organizationId'] ?? 0);
+    if (!Number.isFinite(orgId) || orgId <= 0) {
+      return '—';
+    }
+    return this.isTruthyShipmentFleetAllocator(row['shipmentFleetAllocator']) ? 'Eligible' : 'Not eligible';
+  }
+
+  private isTruthyShipmentFleetAllocator(raw: unknown): boolean {
+    if (raw === true) {
+      return true;
+    }
+    if (typeof raw === 'string') {
+      return raw.trim().toLowerCase() === 'true';
+    }
+    return false;
   }
 
   private formatProcurementApproverEligibleLabel(row: Record<string, unknown>): string {

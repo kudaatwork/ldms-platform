@@ -9,6 +9,12 @@ import {
   BorderClearancePortalService,
   BorderClearanceStatus,
 } from '../../services/border-clearance-portal.service';
+import {
+  exportClientTableAsCsv,
+  exportFormatLabel,
+  type LxExportFormat,
+} from '../../../../shared/utils/lx-export.util';
+import { BORDER_CLEARANCE_EXPORT_COLUMNS } from '../../utils/shipment-export.util';
 
 export interface ClearanceMetrics {
   total: number;
@@ -33,6 +39,7 @@ export class ActiveClearancesWorkspaceComponent implements OnInit {
   acting = false;
   documentType: BorderClearanceDocumentType = 'CUSTOMS_DECLARATION';
   borderName = '';
+  clearanceExporting = false;
 
   metrics: ClearanceMetrics = { total: 0, awaiting: 0, atBorder: 0, cleared: 0 };
 
@@ -88,6 +95,21 @@ export class ActiveClearancesWorkspaceComponent implements OnInit {
         },
         error: (err: Error) => (this.loadError = err.message ?? 'Could not load clearance cases.'),
       });
+  }
+
+  exportClearancesAs(format: LxExportFormat): void {
+    this.clearanceExporting = true;
+    const rows = this.cases;
+    const saved = exportClientTableAsCsv(format, rows, BORDER_CLEARANCE_EXPORT_COLUMNS, 'border-clearance', (message) =>
+      this.notifications.show(message),
+      { title: 'Border clearance cases' },
+    );
+    this.clearanceExporting = false;
+    if (saved) {
+      this.notifications.success(
+        `Exported ${rows.length} clearance case${rows.length === 1 ? '' : 's'} as ${exportFormatLabel(format)}.`,
+      );
+    }
   }
 
   setStatusFilter(value: BorderClearanceStatus | ''): void {

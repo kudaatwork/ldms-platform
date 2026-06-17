@@ -20,14 +20,19 @@ import projectlx.trip.tracking.business.logic.impl.TripLiveServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripTelemetryIngestServiceImpl;
 import projectlx.trip.tracking.business.logic.support.CallerOrganizationResolver;
+import projectlx.trip.tracking.business.logic.support.TripJourneyTimingSupport;
 import projectlx.trip.tracking.business.logic.support.TripIotDemoSimulator;
+import projectlx.trip.tracking.business.logic.support.TripLiveSnapshotEnricher;
 import projectlx.trip.tracking.business.logic.support.TripLiveSseRegistry;
+import projectlx.trip.tracking.business.logic.support.TripTrailSupport;
 import projectlx.trip.tracking.business.logic.support.TripNumberGenerator;
+import projectlx.trip.tracking.business.logic.support.ShipmentTripStartLock;
 import projectlx.trip.tracking.business.logic.support.TripRoutePlannerSupport;
 import projectlx.trip.tracking.business.logic.support.TripTelemetryPublisher;
 import projectlx.trip.tracking.business.validator.api.TripServiceValidator;
 import projectlx.trip.tracking.business.validator.impl.TripServiceValidatorImpl;
 import projectlx.trip.tracking.clients.FleetManagementServiceClient;
+import projectlx.trip.tracking.clients.FuelExpensesServiceClient;
 import projectlx.trip.tracking.clients.InventoryManagementServiceClient;
 import projectlx.trip.tracking.clients.OrganizationManagementServiceClient;
 import projectlx.trip.tracking.clients.ShipmentManagementServiceClient;
@@ -76,9 +81,30 @@ public class BusinessConfig {
                                                          TripLiveSseRegistry sseRegistry,
                                                          IotIntegrationProperties iotProperties,
                                                          ObjectMapper objectMapper,
-                                                         Optional<MqttClient> optionalTripTrackingMqttClient) {
+                                                         Optional<MqttClient> optionalTripTrackingMqttClient,
+                                                         Optional<FuelExpensesServiceClient> fuelExpensesServiceClient) {
         return new TripTelemetryPublisher(rabbitTemplate, sseRegistry, iotProperties, objectMapper,
-                optionalTripTrackingMqttClient);
+                optionalTripTrackingMqttClient, fuelExpensesServiceClient);
+    }
+
+    @Bean
+    public TripTrailSupport tripTrailSupport(ObjectMapper objectMapper) {
+        return new TripTrailSupport(objectMapper);
+    }
+
+    @Bean
+    public TripJourneyTimingSupport tripJourneyTimingSupport() {
+        return new TripJourneyTimingSupport();
+    }
+
+    @Bean
+    public TripLiveSnapshotEnricher tripLiveSnapshotEnricher(FleetManagementServiceClient fleetManagementServiceClient,
+                                                             ShipmentManagementServiceClient shipmentManagementServiceClient,
+                                                             TripTrailSupport tripTrailSupport,
+                                                             TripJourneyTimingSupport tripJourneyTimingSupport,
+                                                             TripRoutePlanRepository tripRoutePlanRepository) {
+        return new TripLiveSnapshotEnricher(fleetManagementServiceClient, shipmentManagementServiceClient,
+                tripTrailSupport, tripJourneyTimingSupport, tripRoutePlanRepository);
     }
 
     @Bean
@@ -87,9 +113,13 @@ public class BusinessConfig {
                                                      TripRoutePlannerSupport tripRoutePlannerSupport,
                                                      TripTelemetryPublisher tripTelemetryPublisher,
                                                      TripEventServiceAuditable tripEventServiceAuditable,
-                                                     IotIntegrationProperties iotProperties) {
+                                                     TripTrailSupport tripTrailSupport,
+                                                     TripJourneyTimingSupport tripJourneyTimingSupport,
+                                                     IotIntegrationProperties iotProperties,
+                                                     FleetManagementServiceClient fleetManagementServiceClient) {
         return new TripIotDemoSimulator(tripRoutePlanRepository, tripRepository,
-                tripRoutePlannerSupport, tripTelemetryPublisher, tripEventServiceAuditable, iotProperties);
+                tripRoutePlannerSupport, tripTelemetryPublisher, tripEventServiceAuditable,
+                tripTrailSupport, tripJourneyTimingSupport, iotProperties, fleetManagementServiceClient);
     }
 
     @Bean
@@ -123,6 +153,7 @@ public class BusinessConfig {
                                    TripTelemetryPublisher telemetryPublisher,
                                    TripRoutePlanRepository tripRoutePlanRepository,
                                    IotIntegrationProperties iotProperties,
+                                   ShipmentTripStartLock shipmentTripStartLock,
                                    LogisticsLifecycleNotificationSupport logisticsLifecycleNotificationSupport,
                                    LogisticsNotificationRecipientResolver logisticsNotificationRecipientResolver) {
         return new TripServiceImpl(tripServiceValidator, tripServiceAuditable, tripEventServiceAuditable,
@@ -130,7 +161,7 @@ public class BusinessConfig {
                 callerOrganizationResolver, tripNumberGenerator, shipmentManagementServiceClient,
                 inventoryManagementServiceClient, rabbitTemplate, messageService, bCryptPasswordEncoder,
                 routePlannerSupport, demoSimulator, telemetryPublisher, tripRoutePlanRepository, iotProperties,
-                logisticsLifecycleNotificationSupport, logisticsNotificationRecipientResolver);
+                shipmentTripStartLock, logisticsLifecycleNotificationSupport, logisticsNotificationRecipientResolver);
     }
 
     @Bean
@@ -139,14 +170,12 @@ public class BusinessConfig {
             TripRepository tripRepository,
             TripRoutePlannerSupport tripRoutePlannerSupport,
             TripTelemetryPublisher tripTelemetryPublisher,
-            TripEventServiceAuditable tripEventServiceAuditable,
             TripRoutePlanRepository tripRoutePlanRepository) {
         return new TripTelemetryIngestServiceImpl(
                 fleetManagementServiceClient,
                 tripRepository,
                 tripRoutePlannerSupport,
                 tripTelemetryPublisher,
-                tripEventServiceAuditable,
                 tripRoutePlanRepository);
     }
 
@@ -158,8 +187,9 @@ public class BusinessConfig {
                                            TripIotDemoSimulator demoSimulator,
                                            TripLiveSseRegistry sseRegistry,
                                            TripTelemetryPublisher telemetryPublisher,
+                                           TripLiveSnapshotEnricher snapshotEnricher,
                                            MessageService messageService) {
         return new TripLiveServiceImpl(tripRepository, tripRoutePlanRepository, callerOrganizationResolver,
-                routePlannerSupport, demoSimulator, sseRegistry, telemetryPublisher, messageService);
+                routePlannerSupport, demoSimulator, sseRegistry, telemetryPublisher, snapshotEnricher, messageService);
     }
 }

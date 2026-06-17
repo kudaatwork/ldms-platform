@@ -17,6 +17,7 @@ import lombok.ToString;
 import projectlx.trip.tracking.utils.enums.TripStatus;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +48,9 @@ public class Trip implements DomainMarkerInterface {
 
     @Column(name = "shipment_id", nullable = false)
     private Long shipmentId;
+
+    @Column(name = "shipment_number", length = 50)
+    private String shipmentNumber;
 
     @Column(name = "inventory_transfer_id")
     private Long inventoryTransferId;
@@ -94,6 +98,12 @@ public class Trip implements DomainMarkerInterface {
 
     @Column(name = "product_name", length = 500)
     private String productName;
+
+    @Column(name = "product_code", length = 60)
+    private String productCode;
+
+    @Column(name = "quantity", precision = 19, scale = 4)
+    private BigDecimal quantity;
 
     // === AUDIT ===
 

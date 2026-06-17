@@ -28,6 +28,7 @@ public class FleetAssetDto {
     private String driverName;
     private Long fleetDriverId;
     private BigDecimal utilizationPct;
+    private BigDecimal maxSpeedKmh;
     private String entityStatus;
     private LocalDateTime createdAt;
     private String createdBy;

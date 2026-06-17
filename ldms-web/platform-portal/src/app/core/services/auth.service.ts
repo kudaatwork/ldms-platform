@@ -384,6 +384,12 @@ export class AuthService {
         mustChangeCredentials:
           mustChangeCredentials || profile.mustChangeCredentials === true || user.mustChangeCredentials === true,
         procurementApprover: profile.procurementApprover === true || user.procurementApprover === true,
+        shipmentFleetAllocator:
+          profile.shipmentFleetAllocator === true || user.shipmentFleetAllocator === true,
+        organizationWorkspaceAdministrator:
+          profile.organizationWorkspaceAdministrator === true
+          || user.organizationWorkspaceAdministrator === true
+          || user.roles?.includes('ORGANIZATION_ADMINISTRATOR'),
       };
       this.storage.setUser({
         username: profile.username,

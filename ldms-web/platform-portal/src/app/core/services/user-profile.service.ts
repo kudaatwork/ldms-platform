@@ -17,6 +17,8 @@ export interface UserProfileSummary {
   mustChangeCredentials?: boolean;
   organizationId?: number;
   procurementApprover?: boolean;
+  shipmentFleetAllocator?: boolean;
+  organizationWorkspaceAdministrator?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -62,6 +64,8 @@ export class UserProfileService {
     const displayName = `${firstName} ${lastName}`.trim() || username || email;
     const mustChangeCredentials = user['mustChangeCredentials'] === true;
     const procurementApprover = user['procurementApprover'] === true;
+    const shipmentFleetAllocator = user['shipmentFleetAllocator'] === true;
+    const organizationWorkspaceAdministrator = user['organizationWorkspaceAdministrator'] === true;
     const roleLabel = resolveUserRoleLabel(user) || 'User';
     const orgRaw = Number(user['organizationId'] ?? 0);
     const organizationId = Number.isFinite(orgRaw) && orgRaw > 0 ? Math.trunc(orgRaw) : undefined;
@@ -78,6 +82,8 @@ export class UserProfileService {
       mustChangeCredentials,
       organizationId,
       procurementApprover,
+      shipmentFleetAllocator,
+      organizationWorkspaceAdministrator,
     };
   }
 

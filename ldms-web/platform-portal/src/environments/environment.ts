@@ -12,4 +12,9 @@ export const environment = {
   googleOAuthClientId: "",
   platformPortalOrigin: "http://localhost:4201",
   adminPortalOrigin: "http://localhost:4200",
+  /** Replace with live store URLs when apps are published. */
+  mobileApps: {
+    appleAppStoreUrl: "https://apps.apple.com/app/project-lx-ldms",
+    googlePlayStoreUrl: "https://play.google.com/store/apps/details?id=co.zw.projectlx.ldms",
+  },
 } as const;

@@ -926,11 +926,23 @@
 }
 
 .tb-flyout__item--urgent {
+  background: color-mix(in srgb, var(--danger-50, #fef2f2) 75%, transparent);
+
+  .tb-flyout__item-title {
+    color: var(--danger-800, #991b1b);
+  }
+}
+
+.tb-flyout__item--warn {
   background: color-mix(in srgb, var(--warning-50, #fffbeb) 70%, transparent);
 
   .tb-flyout__item-title {
     color: var(--warning-800, #92400e);
   }
+}
+
+.tb-flyout__item--urgent.tb-flyout__item--warn {
+  background: color-mix(in srgb, var(--warning-50, #fffbeb) 70%, transparent);
 }
 
 .tb-flyout__item-title {

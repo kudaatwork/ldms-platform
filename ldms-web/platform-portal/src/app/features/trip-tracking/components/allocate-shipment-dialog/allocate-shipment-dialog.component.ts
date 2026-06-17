@@ -167,6 +167,17 @@ export class AllocateShipmentDialogComponent implements OnInit, OnDestroy {
     }
   }
 
+  selectVehicle(vehicle: FleetVehicleRow): void {
+    this.selectedVehicleId = vehicle.id;
+    const assignedDriverId = vehicle.fleetDriverId;
+    if (assignedDriverId != null && assignedDriverId > 0) {
+      const driverExists = this.drivers.some((driver) => driver.id === assignedDriverId);
+      if (driverExists) {
+        this.selectedDriverId = assignedDriverId;
+      }
+    }
+  }
+
   clearVehicleFilters(): void {
     this.vehicleSearch = '';
     this.vehicleCategory = 'all';

@@ -83,6 +83,9 @@ public class FleetAsset implements DomainMarkerInterface {
     @Column(name = "utilization_pct", nullable = false, precision = 19, scale = 2)
     private BigDecimal utilizationPct = BigDecimal.ZERO;
 
+    @Column(name = "max_speed_kmh", precision = 6, scale = 2)
+    private BigDecimal maxSpeedKmh;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "registration_status", nullable = false, length = 50)
     private FleetRegistrationStatus registrationStatus = FleetRegistrationStatus.ACTIVE;

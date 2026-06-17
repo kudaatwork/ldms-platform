@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import projectlx.co.zw.shared_library.utils.responses.CommonResponse;
+import projectlx.user.management.utils.dtos.DemoRequisitionDto;
 import projectlx.user.management.utils.dtos.HelpArticleDto;
 import projectlx.user.management.utils.dtos.HelpPlatformStatusDto;
 import projectlx.user.management.utils.dtos.SupportTicketDto;
@@ -21,4 +22,6 @@ public class HelpSupportResponse extends CommonResponse {
     private SupportTicketDto supportTicketDto;
     private List<SupportTicketDto> supportTicketDtoList;
     private HelpPlatformStatusDto platformStatusDto;
+    private DemoRequisitionDto demoRequisitionDto;
+    private List<DemoRequisitionDto> demoRequisitionDtoList;
 }

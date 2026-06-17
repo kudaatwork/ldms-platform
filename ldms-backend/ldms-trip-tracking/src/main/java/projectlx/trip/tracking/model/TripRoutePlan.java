@@ -12,6 +12,8 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.math.BigDecimal;
@@ -54,6 +56,7 @@ public class TripRoutePlan implements DomainMarkerInterface {
     @Column(name = "destination_longitude", nullable = false, precision = 10, scale = 7)
     private BigDecimal destinationLongitude;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "waypoints_json", nullable = false, columnDefinition = "JSON")
     private String waypointsJson;
 
@@ -63,6 +66,9 @@ public class TripRoutePlan implements DomainMarkerInterface {
     @Column(name = "simulation_active", nullable = false)
     private boolean simulationActive;
 
+    @Column(name = "simulation_paused", nullable = false)
+    private boolean simulationPaused;
+
     @Column(name = "current_segment_index", nullable = false)
     private int currentSegmentIndex;
 
@@ -71,6 +77,21 @@ public class TripRoutePlan implements DomainMarkerInterface {
 
     @Column(name = "overall_progress_pct", nullable = false, precision = 5, scale = 2)
     private BigDecimal overallProgressPct = BigDecimal.ZERO;
+
+    @Column(name = "distance_travelled_km", nullable = false, precision = 10, scale = 2)
+    private BigDecimal distanceTravelledKm = BigDecimal.ZERO;
+
+    @Column(name = "transit_seconds", nullable = false)
+    private long transitSeconds;
+
+    @Column(name = "waiting_seconds", nullable = false)
+    private long waitingSeconds;
+
+    @Column(name = "timing_last_tick_at")
+    private LocalDateTime timingLastTickAt;
+
+    @Column(name = "timing_last_moving", nullable = false)
+    private boolean timingLastMoving;
 
     @Column(name = "current_latitude", precision = 10, scale = 7)
     private BigDecimal currentLatitude;
@@ -83,6 +104,10 @@ public class TripRoutePlan implements DomainMarkerInterface {
 
     @Column(name = "current_heading_deg", precision = 6, scale = 2)
     private BigDecimal currentHeadingDeg;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "trail_json", columnDefinition = "JSON")
+    private String trailJson;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)

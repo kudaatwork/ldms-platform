@@ -28,6 +28,8 @@ export type TripEventType =
   | 'ROADSIDE_FUEL_STOP'
   | 'ROADSIDE_MECHANIC_STOP'
   | 'ROADSIDE_RESUMED'
+  | 'DRIVER_BREAK'
+  | 'DRIVER_RESUMED'
   | 'ARRIVAL'
   | 'ARRIVED'
   | 'DELIVERED'
@@ -41,6 +43,7 @@ export type TripTrackingTab = 'shipments' | 'trips';
 export interface ShipmentRow {
   id: number;
   shipmentNumber: string;
+  organizationId?: number;
   transferReference: string;
   inventoryTransferId?: number;
   fromWarehouse: string;
@@ -70,6 +73,10 @@ export interface TripRow {
   shipmentId: number;
   shipmentNumber: string;
   route: string;
+  productName: string;
+  productCode?: string;
+  quantity?: number;
+  cargoLabel: string;
   driverName: string;
   vehicleRegistration: string;
   status: TripStatus;
@@ -93,6 +100,8 @@ export interface TripTimelineEvent {
   notes: string;
   recordedBy: string;
   recordedAtLabel: string;
+  /** ISO timestamp for duration maths (optional). */
+  recordedAtIso?: string;
 }
 
 /** Full trip detail from GET /trip/track/{id} or GET /trip/find-by-id/{id}. */
@@ -141,6 +150,8 @@ export interface AllocateShipmentPayload {
 /** POST /trip/start */
 export interface StartTripPayload {
   shipmentId: number;
+  inventoryTransferId?: number;
+  salesOrderId?: number;
   fleetDriverId: number;
   fleetAssetId: number;
   startedByUserId: number;
@@ -189,6 +200,8 @@ export interface TripRouteWaypoint {
   latitude: number;
   longitude: number;
   type: string;
+  speedKmh?: number;
+  recordedAt?: string;
 }
 
 /** GET /trip-live/snapshot/{id} */
@@ -196,16 +209,45 @@ export interface TripLiveSnapshot {
   tripId: number;
   tripNumber: string;
   status: string;
+  shipmentId?: number;
+  shipmentNumber?: string;
+  productName?: string;
+  productCode?: string;
+  quantity?: number;
   fromWarehouseName: string;
   toWarehouseName: string;
+  vehicleRegistration?: string;
+  driverName?: string;
+  fleetAssetId?: number;
   latitude?: number;
   longitude?: number;
   speedKmh: number;
+  maxSpeedKmh?: number;
+  speedLimitExceeded?: boolean;
   headingDeg: number;
   overallProgressPct: number;
+  distanceTravelledKm?: number;
+  fuelLevelPct?: number;
+  fuelRemainingLiters?: number;
   simulationActive: boolean;
+  simulationPaused?: boolean;
   moving: boolean;
+  onBreak?: boolean;
   routeWaypoints: TripRouteWaypoint[];
+  trail?: TripRouteWaypoint[];
+  journeyStartedAt?: string;
+  totalElapsedSeconds?: number;
+  transitSeconds?: number;
+  waitingSeconds?: number;
+  idleSeconds?: number;
+  journeyPhase?: 'TRANSIT' | 'WAITING' | 'IDLE' | 'COMPLETED';
+  estimatedArrivalSeconds?: number;
+  currentSegmentIndex?: number;
+  segmentProgressPct?: number;
+  completedWaypointCount?: number;
+  totalWaypointCount?: number;
+  /** Client-side live clock anchor (set when snapshot is received). */
+  lastTimingTickMs?: number;
 }
 
 /** GET /fuel-session/live/{tripId} */

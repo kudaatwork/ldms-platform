@@ -6,6 +6,7 @@ import projectlx.shipment.management.business.logic.api.ShipmentService;
 import projectlx.shipment.management.service.processor.api.ShipmentServiceProcessor;
 import projectlx.shipment.management.utils.requests.AllocateShipmentRequest;
 import projectlx.shipment.management.utils.requests.AssignTransportCompanyRequest;
+import projectlx.shipment.management.utils.requests.AutoAllocateShipmentFromFleetRequest;
 import projectlx.shipment.management.utils.requests.ShipmentMultipleFiltersRequest;
 import projectlx.shipment.management.utils.requests.UpdateShipmentStatusRequest;
 import projectlx.shipment.management.utils.responses.ShipmentResponse;
@@ -53,6 +54,13 @@ public class ShipmentServiceProcessorImpl implements ShipmentServiceProcessor {
     public ShipmentResponse allocateFleet(AllocateShipmentRequest request, Locale locale, String username) {
         log.info("Processing allocate fleet for shipmentId={} by user={}", request != null ? request.getShipmentId() : null, username);
         return shipmentService.allocateFleet(request, locale, username);
+    }
+
+    @Override
+    public ShipmentResponse autoAllocateFromFleet(AutoAllocateShipmentFromFleetRequest request, Locale locale, String username) {
+        log.info("Processing auto-allocate from fleet assetId={} by user={}",
+                request != null ? request.getFleetAssetId() : null, username);
+        return shipmentService.autoAllocateFromFleet(request, locale, username);
     }
 
     @Override

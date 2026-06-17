@@ -7,11 +7,15 @@ import { AssignTransportCompanyDialogComponent } from './components/assign-trans
 import { ViewTripDialogComponent } from './components/view-trip-dialog/view-trip-dialog.component';
 import { LiveTripTrackingComponent } from './pages/live-trip-tracking/live-trip-tracking.component';
 import { ActiveClearancesWorkspaceComponent } from './pages/active-clearances-workspace/active-clearances-workspace.component';
+import { TripHistoryPageComponent } from './pages/trip-history-page/trip-history-page.component';
+import { TripReplayPageComponent } from './pages/trip-replay-page/trip-replay-page.component';
 
 @NgModule({
   declarations: [
     TripTrackingWorkspaceComponent,
     LiveTripTrackingComponent,
+    TripHistoryPageComponent,
+    TripReplayPageComponent,
     ActiveClearancesWorkspaceComponent,
     AllocateShipmentDialogComponent,
     ViewTripDialogComponent,

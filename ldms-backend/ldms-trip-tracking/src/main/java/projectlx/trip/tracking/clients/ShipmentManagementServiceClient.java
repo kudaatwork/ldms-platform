@@ -18,6 +18,16 @@ public interface ShipmentManagementServiceClient {
             @PathVariable("id") Long id,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
 
+    @GetMapping("/ldms-shipment-management/v1/system/shipment/by-transfer/{transferId}")
+    ShipmentFeignResponse findShipmentByTransferId(
+            @PathVariable("transferId") Long transferId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
+
+    @GetMapping("/ldms-shipment-management/v1/system/shipment/by-sales-order/{salesOrderId}")
+    ShipmentFeignResponse findShipmentBySalesOrderId(
+            @PathVariable("salesOrderId") Long salesOrderId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
+
     @PatchMapping("/ldms-shipment-management/v1/system/shipment/status")
     ShipmentFeignResponse updateShipmentStatus(
             @RequestBody UpdateShipmentStatusFeignRequest request,

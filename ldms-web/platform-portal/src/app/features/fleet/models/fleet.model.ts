@@ -20,6 +20,7 @@ export interface FleetVehicleRow {
   contractStartDate?: string;
   contractEndDate?: string;
   utilizationPct: number;
+  maxSpeedKmh?: number;
   lastTripLabel: string;
   driverName: string;
   fleetDriverId?: number;
@@ -47,6 +48,7 @@ export interface CreateFleetVehiclePayload {
   driverName?: string;
   fleetDriverId?: number;
   utilizationPct?: number;
+  maxSpeedKmh?: number;
 }
 
 /** PUT /fleet-vehicles/{id} — update an owned vehicle. */
@@ -64,6 +66,7 @@ export interface EditFleetVehiclePayload {
   driverName?: string;
   fleetDriverId?: number | null;
   utilizationPct?: number;
+  maxSpeedKmh?: number;
 }
 
 /** Single document submitted during fleet asset registration (step 2). */

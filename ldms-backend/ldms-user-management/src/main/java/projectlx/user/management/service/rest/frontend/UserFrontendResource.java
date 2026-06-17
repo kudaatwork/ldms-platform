@@ -91,6 +91,8 @@ public class UserFrontendResource {
                                final String operationalIssueHandler,
                                @RequestParam(value = "procurementApprover", required = false)
                                final String procurementApprover,
+                               @RequestParam(value = "shipmentFleetAllocator", required = false)
+                               final String shipmentFleetAllocator,
                                @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                    @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                            defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
@@ -102,6 +104,9 @@ public class UserFrontendResource {
         }
         if (procurementApprover != null) {
             editUserRequest.setProcurementApprover(procurementApprover);
+        }
+        if (shipmentFleetAllocator != null) {
+            editUserRequest.setShipmentFleetAllocator(shipmentFleetAllocator);
         }
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userServiceProcessor.update(editUserRequest, username, locale);
@@ -159,6 +164,20 @@ public class UserFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userServiceProcessor.setProcurementApprover(id, enabled, locale, username);
+    }
+
+    @Auditable(action = "SET_SHIPMENT_FLEET_ALLOCATOR")
+    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoles).UPDATE_USER.toString())")
+    @PutMapping("/{id}/shipment-fleet-allocator")
+    @Operation(summary = "Set shipment fleet allocator eligibility",
+            description = "Toggles whether an organisation user may allocate fleet to shipments.")
+    public UserResponse setShipmentFleetAllocator(
+            @PathVariable("id") final Long id,
+            @RequestParam("enabled") final boolean enabled,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.setShipmentFleetAllocator(id, enabled, locale, username);
     }
 
     @Auditable(action = "FIND_USER_BY_ID")

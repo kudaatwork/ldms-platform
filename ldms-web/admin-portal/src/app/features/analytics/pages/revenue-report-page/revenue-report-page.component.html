@@ -1,0 +1,116 @@
+<section class="lx-page revenue-page">
+  <lx-workspace-hero
+    variant="amber"
+    eyebrow="Billing intelligence"
+    eyebrowIcon="payments"
+    title="Platform revenue"
+    lead="Earnings from organisations using LDMS — subscriptions, action charges, wallet activity, and cost breakdowns."
+    hubIcon="account_balance_wallet"
+    [orbitIcons]="['trending_up', 'receipt_long', 'savings']"
+  >
+    <a lxWorkspaceHeroActions class="lx-btn lx-btn-ghost" routerLink="/analytics">
+      <mat-icon aria-hidden="true">local_shipping</mat-icon>
+      Shipment analytics
+    </a>
+    <lx-workspace-hero-stat
+      *ngIf="report"
+      [value]="formatMoney(report.totalEarnedCents)"
+      label="Total earned"
+      icon="payments"
+      theme="amber"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      *ngIf="report"
+      [value]="formatMoney(report.subscriptionCents)"
+      label="Subscriptions"
+      icon="card_membership"
+      theme="violet"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      *ngIf="report"
+      [value]="formatMoney(report.actionChargesCents)"
+      label="Action charges"
+      icon="bolt"
+      theme="mint"
+    ></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <div class="revenue-kpis lx-grid lx-grid-3 mb-lg" *ngIf="report && !loading">
+    <article class="revenue-kpi lx-card" style="--kpi-accent: #6366f1">
+      <mat-icon>subscriptions</mat-icon>
+      <div>
+        <span class="revenue-kpi__val">{{ formatMoney(report.subscriptionCents) }}</span>
+        <span class="revenue-kpi__lbl">Recurring subscriptions</span>
+      </div>
+    </article>
+    <article class="revenue-kpi lx-card" style="--kpi-accent: #10b981">
+      <mat-icon>local_shipping</mat-icon>
+      <div>
+        <span class="revenue-kpi__val">{{ formatMoney(report.actionChargesCents) }}</span>
+        <span class="revenue-kpi__lbl">Logistics action charges</span>
+      </div>
+    </article>
+    <article class="revenue-kpi lx-card" style="--kpi-accent: #f59e0b">
+      <mat-icon>account_balance</mat-icon>
+      <div>
+        <span class="revenue-kpi__val">{{ formatMoney(report.walletDepositsCents) }}</span>
+        <span class="revenue-kpi__lbl">Wallet deposits (gross)</span>
+      </div>
+    </article>
+  </div>
+
+  <div class="revenue-charts lx-grid lx-grid-2 mb-lg" *ngIf="report && !loading">
+    <article class="lx-card revenue-chart">
+      <h3>Earned vs costs</h3>
+      <p>Monthly platform economics</p>
+      <div class="revenue-chart__canvas">
+        <canvas baseChart [data]="revenueChartData" [options]="revenueChartOptions" type="bar"></canvas>
+      </div>
+    </article>
+    <article class="lx-card revenue-chart">
+      <h3>Cost breakdown</h3>
+      <p>Where platform spend goes</p>
+      <div class="revenue-chart__canvas revenue-chart__canvas--donut">
+        <canvas baseChart [data]="costDonutData" [options]="costDonutOptions" type="doughnut"></canvas>
+      </div>
+    </article>
+  </div>
+
+  <div class="revenue-drill lx-grid lx-grid-2" *ngIf="report && !loading">
+    <article class="lx-card revenue-orgs">
+      <h3>By organisation</h3>
+      <p>Click to drill into charges</p>
+      <button
+        type="button"
+        class="revenue-org-row"
+        *ngFor="let o of report.byOrganization; trackBy: trackByOrgId"
+        [class.revenue-org-row--on]="selectedOrgId() === o.organizationId"
+        (click)="selectOrg(o.organizationId)"
+        [style.--org-accent]="o.accent"
+      >
+        <div class="revenue-org-row__name">{{ o.organizationName }}</div>
+        <div class="revenue-org-row__nums">
+          <span class="revenue-org-row__earn">+{{ formatMoney(o.earnedCents) }}</span>
+          <span class="revenue-org-row__cost">−{{ formatMoney(o.costsCents) }}</span>
+          <span class="revenue-org-row__net">{{ formatMoney(o.netCents) }} net</span>
+        </div>
+        <div class="revenue-org-row__bar">
+          <div class="revenue-org-row__earn-bar" [style.width.%]="earnBarWidth(o.earnedCents)"></div>
+        </div>
+      </button>
+    </article>
+
+    <article class="lx-card revenue-charges" *ngIf="selectedOrg as org">
+      <h3>{{ org.organizationName }}</h3>
+      <p>Recent charge lines</p>
+      <div class="revenue-charge" *ngFor="let c of filteredCharges">
+        <div>
+          <div class="revenue-charge__label">{{ c.label }}</div>
+          <div class="revenue-charge__meta">{{ c.category }} · {{ c.occurredAt | date : 'medium' }}</div>
+        </div>
+        <span class="revenue-charge__amt">{{ formatMoney(c.amountCents) }}</span>
+      </div>
+      <p class="revenue-charges__empty" *ngIf="!filteredCharges.length">No charge lines for this organisation.</p>
+    </article>
+  </div>
+</section>

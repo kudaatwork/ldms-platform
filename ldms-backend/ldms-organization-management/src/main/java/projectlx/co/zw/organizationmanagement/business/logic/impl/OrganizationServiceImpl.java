@@ -3687,15 +3687,19 @@ public class OrganizationServiceImpl implements OrganizationService {
                     I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_INVALID.getCode(), new String[]{}, locale)));
         }
 
-        OrganizationResponse contractDateError = validateFleetVehicleContractDatesWithinPartnerLink(
-                org,
-                request.getContractedTransporterOrganizationId(),
-                request.getContractScope(),
-                request.getContractStartDate(),
-                request.getContractEndDate(),
-                locale);
-        if (contractDateError != null) {
-            return contractDateError;
+        // Vehicle contract window is validated only when a start date is supplied (vehicle
+        // registration/update). Link-only checks (e.g. transport-partner driver roster) omit dates.
+        if (StringUtils.hasText(request.getContractStartDate())) {
+            OrganizationResponse contractDateError = validateFleetVehicleContractDatesWithinPartnerLink(
+                    org,
+                    request.getContractedTransporterOrganizationId(),
+                    request.getContractScope(),
+                    request.getContractStartDate(),
+                    request.getContractEndDate(),
+                    locale);
+            if (contractDateError != null) {
+                return contractDateError;
+            }
         }
 
         OrganizationResponse res = buildOrganizationResponse(null);

@@ -125,7 +125,7 @@
             [class.is-selected]="selectedVehicleId === vehicle.id"
             [style.--flt-hue]="vehicle.accentHue"
             *ngFor="let vehicle of filteredVehicles"
-            (click)="selectedVehicleId = vehicle.id"
+            (click)="selectVehicle(vehicle)"
           >
             <span class="trt-allocate-vehicle__kind">{{ vehicle.ownershipLabel }}</span>
             <span class="trt-allocate-vehicle__icon-wrap">

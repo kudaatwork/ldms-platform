@@ -39,6 +39,18 @@ const PEX = {
   shippingPort: 906494,
 } as const;
 
+interface LandingMobileApp {
+  id: string;
+  name: string;
+  tagline: string;
+  icon: string;
+  accent: string;
+  features: string[];
+  screenTitle: string;
+  screenMetric: string;
+  screenStatus: string;
+}
+
 @Component({
   selector: 'app-landing',
   templateUrl: './landing.component.html',
@@ -49,6 +61,8 @@ const PEX = {
 export class LandingComponent implements AfterViewInit, OnDestroy {
   readonly adminUrl = environment.adminPortalOrigin;
   readonly platformOrigin = environment.platformPortalOrigin;
+  readonly appleAppStoreUrl = environment.mobileApps.appleAppStoreUrl;
+  readonly googlePlayStoreUrl = environment.mobileApps.googlePlayStoreUrl;
 
   readonly mobileNavOpen = signal(false);
   readonly activeFeatureTab = signal(0);
@@ -92,16 +106,16 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       title: 'Driver mobile',
       description:
         'Trips, GPS stops, fuel requests, and proof of delivery — built for crews on long-haul and cross-border lanes.',
-      cta: 'Learn more',
-      action: 'features' as const,
+      cta: 'Get the app',
+      action: 'mobile' as const,
     },
     {
       icon: 'map',
       title: 'Ops mobile',
       description:
         'Live map, trip approvals, and exception handling for dispatchers who need the full corridor in their pocket.',
-      cta: 'Learn more',
-      action: 'features' as const,
+      cta: 'Get the app',
+      action: 'mobile' as const,
     },
   ] as const;
 
@@ -330,6 +344,45 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     { icon: 'history', title: 'Audit trail ready', detail: 'Entity history and soft deletes across services.' },
   ] as const;
 
+  readonly mobileApps: LandingMobileApp[] = [
+    {
+      id: 'driver',
+      name: 'Driver',
+      tagline: 'Trips on the road',
+      icon: 'local_shipping',
+      accent: '#3b82f6',
+      features: ['GPS stops & border posts', 'Fuel & fund requests', 'Proof of delivery'],
+      screenTitle: 'Active trip',
+      screenMetric: '847 km',
+      screenStatus: 'En route · Beitbridge',
+    },
+    {
+      id: 'ops',
+      name: 'Ops',
+      tagline: 'Corridor command',
+      icon: 'map',
+      accent: '#f97316',
+      features: ['Live fleet map', 'Trip approvals', 'Exception handling'],
+      screenTitle: 'Live corridor',
+      screenMetric: '47 trips',
+      screenStatus: '12 border crossings today',
+    },
+    {
+      id: 'receiver',
+      name: 'Receiver',
+      tagline: 'Delivery confirmation',
+      icon: 'qr_code_scanner',
+      accent: '#22c55e',
+      features: ['QR scan & GRV', 'Delivery sign-off', 'Discrepancy capture'],
+      screenTitle: 'Goods receipt',
+      screenMetric: 'GRV-2041',
+      screenStatus: 'Ready to confirm',
+    },
+  ];
+
+  readonly activeMobileApp = signal(0);
+  readonly activeMobileAppData = computed(() => this.mobileApps[this.activeMobileApp()]);
+
   readonly faqs = [
     {
       q: 'Where do our teams sign in?',
@@ -395,13 +448,24 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  onModuleAction(action: 'signup' | 'admin' | 'features'): void {
+  selectMobileApp(index: number): void {
+    this.activeMobileApp.set(index);
+    this.ngZone.runOutsideAngular(() => {
+      requestAnimationFrame(() => this.animateMobilePreview());
+    });
+  }
+
+  onModuleAction(action: 'signup' | 'admin' | 'features' | 'mobile'): void {
     if (action === 'signup') {
       this.goSignup();
       return;
     }
     if (action === 'admin') {
       window.open(`${this.adminUrl}/auth/login`, '_blank', 'noopener');
+      return;
+    }
+    if (action === 'mobile') {
+      this.scrollTo('ldms-mobile');
       return;
     }
     this.scrollTo('ldms-features');
@@ -414,13 +478,20 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private animateMobilePreview(): void {
+    const screen = this.el.nativeElement.querySelector('.ldms-mobile__screen-content');
+    if (screen) {
+      gsap.fromTo(screen, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.4, ease: 'power2.out' });
+    }
+  }
+
   private initScrollBar(): void {
     this.scrollBarEl = this.el.nativeElement.querySelector('.ldms-scroll-bar');
   }
 
   private initHeroReveal(): void {
     const heroEls = this.el.nativeElement.querySelectorAll(
-      '.ldms-hero__eyebrow, .ldms-hero__title, .ldms-hero__lead, .ldms-hero__cta, .ldms-hero__visual',
+      '.ldms-hero__eyebrow, .ldms-hero__title, .ldms-hero__lead, .ldms-hero__cta, .ldms-hero__apps, .ldms-hero__visual',
     );
     if (heroEls.length) {
       gsap.fromTo(

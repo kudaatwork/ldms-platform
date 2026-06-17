@@ -45,7 +45,7 @@ public class FleetAssetServiceValidatorImpl implements FleetAssetServiceValidato
                 request.getMakeModel(), request.getStatus(), request.getContractedTransporterOrganizationId(),
                 request.getContractScope(), request.getJobReference(),
                 request.getContractStartDate(), request.getContractEndDate(),
-                errors, locale);
+                errors, locale, true);
         return errors.isEmpty() ? new ValidatorDto(true, null, new ArrayList<>()) : new ValidatorDto(false, null, errors);
     }
 
@@ -64,7 +64,7 @@ public class FleetAssetServiceValidatorImpl implements FleetAssetServiceValidato
                 request.getMakeModel(), request.getStatus(), request.getContractedTransporterOrganizationId(),
                 request.getContractScope(), request.getJobReference(),
                 request.getContractStartDate(), request.getContractEndDate(),
-                errors, locale);
+                errors, locale, false);
         return errors.isEmpty() ? new ValidatorDto(true, null, new ArrayList<>()) : new ValidatorDto(false, null, errors);
     }
 
@@ -129,7 +129,7 @@ public class FleetAssetServiceValidatorImpl implements FleetAssetServiceValidato
                                       String status, Long contractedTransporterOrganizationId,
                                       String contractScope, String jobReference,
                                       String contractStartDate, String contractEndDate,
-                                      List<String> errors, Locale locale) {
+                                      List<String> errors, Locale locale, boolean requireLongTermContractDates) {
         if (assetType == null || assetType.isBlank()) {
             errors.add(messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"assetType"}, locale));
         } else {
@@ -190,7 +190,8 @@ public class FleetAssetServiceValidatorImpl implements FleetAssetServiceValidato
             }
         }
 
-        if (resolvedOwnership == FleetOwnershipType.CONTRACTED && resolvedScope == FleetContractScope.LONG_TERM) {
+        if (resolvedOwnership == FleetOwnershipType.CONTRACTED && resolvedScope == FleetContractScope.LONG_TERM
+                && requireLongTermContractDates) {
             if (contractStartDate == null || contractStartDate.isBlank()) {
                 errors.add(messageService.getMessage(
                         I18Code.MESSAGE_ASSET_CONTRACT_START_REQUIRED.getCode(), new String[]{}, locale));

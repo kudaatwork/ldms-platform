@@ -3,8 +3,10 @@ package projectlx.user.management.business.logic.api;
 import projectlx.user.management.model.HelpArticleCategory;
 import projectlx.user.management.utils.requests.AddSupportTicketMessageRequest;
 import projectlx.user.management.utils.requests.AssignSupportTicketRequest;
+import projectlx.user.management.utils.requests.CreateDemoRequisitionRequest;
 import projectlx.user.management.utils.requests.CreateSupportTicketRequest;
 import projectlx.user.management.utils.requests.SupportTicketExportFilterRequest;
+import projectlx.user.management.utils.requests.UpdateDemoRequisitionStatusRequest;
 import projectlx.user.management.utils.requests.UpdateSupportTicketStatusRequest;
 import projectlx.user.management.utils.responses.HelpSupportResponse;
 
@@ -35,4 +37,14 @@ public interface HelpSupportService {
     HelpSupportResponse addSupportTicketMessage(AddSupportTicketMessageRequest request, Locale locale, String actorUsername, boolean handlerActor);
 
     byte[] exportSupportTickets(SupportTicketExportFilterRequest filters, String format, Locale locale) throws Exception;
+
+    HelpSupportResponse submitDemoRequisition(CreateDemoRequisitionRequest request, Locale locale);
+
+    HelpSupportResponse listAllDemoRequisitions(Locale locale);
+
+    HelpSupportResponse findDemoRequisitionById(Long id, Locale locale);
+
+    HelpSupportResponse updateDemoRequisitionStatus(UpdateDemoRequisitionStatusRequest request,
+                                                    Locale locale,
+                                                    String actorUsername);
 }

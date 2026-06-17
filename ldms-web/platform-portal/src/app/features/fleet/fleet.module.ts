@@ -8,10 +8,17 @@ import { FleetDriverDialogComponent } from './components/fleet-driver-dialog/fle
 import { FleetAssignDriverDialogComponent } from './components/fleet-assign-driver-dialog/fleet-assign-driver-dialog.component';
 import { FleetComplianceDialogComponent } from './components/fleet-compliance-dialog/fleet-compliance-dialog.component';
 import { FleetInstallTrackingDeviceDialogComponent } from './components/fleet-install-tracking-device-dialog/fleet-install-tracking-device-dialog.component';
+import { FleetTrackingSubnavComponent } from './components/fleet-tracking-subnav/fleet-tracking-subnav.component';
+import { FleetTrackingApiPageComponent } from './pages/fleet-tracking-api-page/fleet-tracking-api-page.component';
 import { UserAddressCascadeFieldsComponent } from '../users/components/user-address-cascade-fields/user-address-cascade-fields.component';
 
 @NgModule({
-  declarations: [FleetWorkspaceComponent, RegisterTransporterDialogComponent],
+  declarations: [
+    FleetWorkspaceComponent,
+    RegisterTransporterDialogComponent,
+    FleetTrackingSubnavComponent,
+    FleetTrackingApiPageComponent,
+  ],
   exports: [RegisterTransporterDialogComponent],
   imports: [
     SharedModule,

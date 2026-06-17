@@ -24,6 +24,8 @@ public class UserDto {
     private Boolean organizationKycApprover;
     private Boolean operationalIssueHandler;
     private Boolean procurementApprover;
+    private Boolean shipmentFleetAllocator;
+    private Boolean organizationWorkspaceAdministrator;
 
     private String username;
     private String email;

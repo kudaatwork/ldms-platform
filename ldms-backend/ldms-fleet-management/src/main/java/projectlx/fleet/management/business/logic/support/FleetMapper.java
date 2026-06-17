@@ -31,6 +31,7 @@ public final class FleetMapper {
         dto.setDriverName(entity.getDriverName());
         dto.setFleetDriverId(entity.getFleetDriverId());
         dto.setUtilizationPct(entity.getUtilizationPct());
+        dto.setMaxSpeedKmh(entity.getMaxSpeedKmh());
         dto.setEntityStatus(entity.getEntityStatus() != null ? entity.getEntityStatus().name() : null);
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setCreatedBy(entity.getCreatedBy());

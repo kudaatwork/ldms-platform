@@ -12,6 +12,8 @@ import projectlx.user.management.business.logic.support.SupportTicketAssignmentS
 import projectlx.user.management.business.logic.support.SupportTicketOperationsSupport;
 import projectlx.user.management.business.logic.support.SupportTicketWorkflowSupport;
 import projectlx.user.management.business.validator.api.HelpSupportServiceValidator;
+import projectlx.user.management.model.DemoRequisition;
+import projectlx.user.management.model.DemoRequisitionStatus;
 import projectlx.user.management.model.EntityStatus;
 import projectlx.user.management.model.HelpArticle;
 import projectlx.user.management.model.HelpArticleCategory;
@@ -21,19 +23,23 @@ import projectlx.user.management.model.SupportTicketMessageVisibility;
 import projectlx.user.management.model.SupportTicketPriority;
 import projectlx.user.management.model.SupportTicketStatus;
 import projectlx.user.management.model.User;
+import projectlx.user.management.repository.DemoRequisitionRepository;
 import projectlx.user.management.repository.HelpArticleRepository;
 import projectlx.user.management.repository.SupportTicketRepository;
 import projectlx.user.management.repository.UserRepository;
+import projectlx.user.management.utils.dtos.DemoRequisitionDto;
 import projectlx.user.management.utils.dtos.HelpArticleDto;
 import projectlx.user.management.utils.dtos.HelpPlatformStatusDto;
 import projectlx.user.management.utils.dtos.PlatformHealthSummaryDto;
 import projectlx.user.management.utils.dtos.SupportTicketDto;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.user.management.utils.enums.PlatformOverallStatus;
+import projectlx.user.management.utils.requests.CreateDemoRequisitionRequest;
 import projectlx.user.management.utils.requests.CreateSupportTicketRequest;
 import projectlx.user.management.utils.requests.AddSupportTicketMessageRequest;
 import projectlx.user.management.utils.requests.AssignSupportTicketRequest;
 import projectlx.user.management.utils.requests.SupportTicketExportFilterRequest;
+import projectlx.user.management.utils.requests.UpdateDemoRequisitionStatusRequest;
 import projectlx.user.management.utils.requests.UpdateSupportTicketStatusRequest;
 import projectlx.user.management.utils.responses.HelpSupportResponse;
 import projectlx.user.management.utils.responses.PlatformHealthResponse;
@@ -44,6 +50,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -61,6 +68,7 @@ public class HelpSupportServiceImpl implements HelpSupportService {
     private final HelpSupportServiceValidator helpSupportServiceValidator;
     private final MessageService messageService;
     private final HelpArticleRepository helpArticleRepository;
+    private final DemoRequisitionRepository demoRequisitionRepository;
     private final SupportTicketRepository supportTicketRepository;
     private final UserRepository userRepository;
     private final PlatformHealthService platformHealthService;
@@ -376,6 +384,154 @@ public class HelpSupportServiceImpl implements HelpSupportService {
             case "pdf" -> ticketOperations.exportPdf(tickets);
             default -> throw new IllegalArgumentException("Unsupported export format: " + format);
         };
+    }
+
+    @Override
+    public HelpSupportResponse submitDemoRequisition(CreateDemoRequisitionRequest request, Locale locale) {
+        ValidatorDto validatorDto = helpSupportServiceValidator.isCreateDemoRequisitionRequestValid(request, locale);
+        if (!validatorDto.getSuccess()) {
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_CREATE_DEMO_REQUISITION_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            HelpSupportResponse response = failure(400, message);
+            response.setErrorMessages(validatorDto.getErrorMessages());
+            return response;
+        }
+
+        DemoRequisition requisition = new DemoRequisition();
+        requisition.setRequisitionNumber(provisionalRequisitionNumber());
+        requisition.setFullName(request.getFullName().trim());
+        requisition.setEmail(request.getEmail().trim().toLowerCase(Locale.ROOT));
+        requisition.setPhone(request.getPhone().trim());
+        requisition.setAddress(request.getAddress().trim());
+        requisition.setDemoRequest(request.getDemoRequest().trim());
+        requisition.setStatus(DemoRequisitionStatus.NEW);
+        requisition.setEntityStatus(EntityStatus.ACTIVE);
+        requisition.setCreatedBy(request.getEmail().trim().toLowerCase(Locale.ROOT));
+
+        DemoRequisition saved = demoRequisitionRepository.save(requisition);
+        saved.setRequisitionNumber(formatRequisitionNumber(saved.getId()));
+        saved = demoRequisitionRepository.save(saved);
+
+        DemoRequisitionDto dto = toDemoRequisitionDto(saved);
+        HelpSupportResponse response = success(201,
+                messageService.getMessage(I18Code.MESSAGE_DEMO_REQUISITION_CREATED.getCode(), new String[]{}, locale),
+                null, null, null, null);
+        response.setDemoRequisitionDto(dto);
+        return response;
+    }
+
+    @Override
+    public HelpSupportResponse listAllDemoRequisitions(Locale locale) {
+        List<DemoRequisitionDto> dtos = demoRequisitionRepository
+                .findByEntityStatusNotOrderByCreatedAtDesc(EntityStatus.DELETED)
+                .stream()
+                .map(this::toDemoRequisitionDto)
+                .collect(Collectors.toList());
+        HelpSupportResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_DEMO_REQUISITIONS_RETRIEVED.getCode(), new String[]{}, locale),
+                null, null, null, null);
+        response.setDemoRequisitionDtoList(dtos);
+        return response;
+    }
+
+    @Override
+    public HelpSupportResponse findDemoRequisitionById(Long id, Locale locale) {
+        if (id == null || id <= 0) {
+            return failure(400, messageService.getMessage(
+                    I18Code.MESSAGE_DEMO_REQUISITION_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        Optional<DemoRequisition> requisitionOpt =
+                demoRequisitionRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED);
+        if (requisitionOpt.isEmpty()) {
+            return failure(404, messageService.getMessage(
+                    I18Code.MESSAGE_DEMO_REQUISITION_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        DemoRequisitionDto dto = toDemoRequisitionDto(requisitionOpt.get());
+        HelpSupportResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_DEMO_REQUISITION_RETRIEVED.getCode(), new String[]{}, locale),
+                null, null, null, null);
+        response.setDemoRequisitionDto(dto);
+        return response;
+    }
+
+    @Override
+    public HelpSupportResponse updateDemoRequisitionStatus(UpdateDemoRequisitionStatusRequest request,
+                                                           Locale locale,
+                                                           String actorUsername) {
+        ValidatorDto validatorDto = helpSupportServiceValidator.isUpdateDemoRequisitionStatusRequestValid(request, locale);
+        if (!validatorDto.getSuccess()) {
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_UPDATE_DEMO_REQUISITION_INVALID_REQUEST.getCode(), new String[]{}, locale);
+            HelpSupportResponse response = failure(400, message);
+            response.setErrorMessages(validatorDto.getErrorMessages());
+            return response;
+        }
+
+        Optional<DemoRequisition> requisitionOpt = demoRequisitionRepository.findByIdAndEntityStatusNot(
+                request.getDemoRequisitionId(), EntityStatus.DELETED);
+        if (requisitionOpt.isEmpty()) {
+            return failure(404, messageService.getMessage(
+                    I18Code.MESSAGE_DEMO_REQUISITION_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+
+        DemoRequisition requisition = requisitionOpt.get();
+        DemoRequisitionStatus next = request.getStatus();
+        requisition.setStatus(next);
+        if (request.getAdminNotes() != null) {
+            requisition.setAdminNotes(request.getAdminNotes().trim().isEmpty() ? null : request.getAdminNotes().trim());
+        }
+        if (next == DemoRequisitionStatus.CONTACTED && requisition.getContactedAt() == null) {
+            requisition.setContactedAt(LocalDateTime.now());
+        }
+        if (next == DemoRequisitionStatus.SCHEDULED) {
+            requisition.setScheduledAt(request.getScheduledAt() != null ? request.getScheduledAt() : LocalDateTime.now());
+        }
+        if (next == DemoRequisitionStatus.COMPLETED) {
+            requisition.setCompletedAt(LocalDateTime.now());
+        }
+        if (requisition.getAssignedHandlerUsername() == null || requisition.getAssignedHandlerUsername().isBlank()) {
+            requisition.setAssignedHandlerUsername(actorUsername);
+        }
+        requisition.setModifiedBy(actorUsername);
+        DemoRequisition saved = demoRequisitionRepository.save(requisition);
+
+        DemoRequisitionDto dto = toDemoRequisitionDto(saved);
+        HelpSupportResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_DEMO_REQUISITION_UPDATED.getCode(), new String[]{}, locale),
+                null, null, null, null);
+        response.setDemoRequisitionDto(dto);
+        return response;
+    }
+
+    private DemoRequisitionDto toDemoRequisitionDto(DemoRequisition entity) {
+        DemoRequisitionDto dto = new DemoRequisitionDto();
+        dto.setId(entity.getId());
+        dto.setRequisitionNumber(entity.getRequisitionNumber());
+        dto.setFullName(entity.getFullName());
+        dto.setEmail(entity.getEmail());
+        dto.setPhone(entity.getPhone());
+        dto.setAddress(entity.getAddress());
+        dto.setDemoRequest(entity.getDemoRequest());
+        dto.setStatus(entity.getStatus());
+        dto.setAssignedHandlerUsername(entity.getAssignedHandlerUsername());
+        dto.setAdminNotes(entity.getAdminNotes());
+        dto.setContactedAt(entity.getContactedAt());
+        dto.setScheduledAt(entity.getScheduledAt());
+        dto.setCompletedAt(entity.getCompletedAt());
+        dto.setCreatedAt(entity.getCreatedAt());
+        dto.setModifiedAt(entity.getModifiedAt());
+        return dto;
+    }
+
+    private String formatRequisitionNumber(Long id) {
+        int year = LocalDateTime.now().getYear();
+        return "DR-" + year + "-" + String.format("%06d", id);
+    }
+
+    private String provisionalRequisitionNumber() {
+        String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+        String provisional = "DR-P-" + suffix;
+        return provisional.length() > 32 ? provisional.substring(0, 32) : provisional;
     }
 
     private String formatTicketNumber(Long id) {

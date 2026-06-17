@@ -1,0 +1,238 @@
+.analytics-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1320px;
+  margin-inline: auto;
+}
+
+.analytics-charts {
+  gap: 18px;
+}
+
+.analytics-chart-card {
+  padding: 18px 20px;
+  overflow: hidden;
+
+  &__hd {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 14px;
+
+    mat-icon {
+      width: 40px;
+      height: 40px;
+      font-size: 22px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: rgba(99, 102, 241, 0.1);
+      color: #4f46e5;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    p {
+      margin: 2px 0 0;
+      font-size: 12px;
+      color: #64748b;
+    }
+  }
+
+  &__body {
+    height: 220px;
+
+    &--donut {
+      height: 260px;
+    }
+  }
+}
+
+.analytics-companies {
+  padding: 20px 22px;
+
+  &__hd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 20px;
+
+    h2 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    p {
+      margin: 4px 0 0;
+      font-size: 13px;
+      color: #64748b;
+    }
+  }
+}
+
+.analytics-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 240px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(248, 250, 252, 0.9);
+
+  input {
+    border: none;
+    background: transparent;
+    flex: 1;
+    outline: none;
+    font-size: 13px;
+  }
+
+  mat-icon {
+    color: #94a3b8;
+    font-size: 18px;
+  }
+}
+
+.analytics-company-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.analytics-co-card {
+  position: relative;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 18px;
+  padding: 18px;
+  background: linear-gradient(145deg, #fff, rgba(248, 250, 252, 0.95));
+  cursor: pointer;
+  overflow: hidden;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-3px);
+    border-color: color-mix(in srgb, var(--co-accent) 45%, transparent);
+    box-shadow: 0 20px 40px color-mix(in srgb, var(--co-accent) 18%, transparent);
+  }
+
+  &__glow {
+    position: absolute;
+    inset: -40% auto auto -20%;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--co-accent) 25%, transparent), transparent 70%);
+    pointer-events: none;
+  }
+
+  &__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+
+  &__badge {
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--co-accent) 12%, #fff);
+    color: var(--co-accent);
+  }
+
+  &__name {
+    margin: 0 0 14px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+
+  &__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+
+  &__val {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  &__lbl {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #94a3b8;
+  }
+
+  &__foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12px;
+    color: #64748b;
+    padding-top: 12px;
+    border-top: 1px solid rgba(148, 163, 184, 0.2);
+  }
+
+  &__live {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    color: #059669;
+  }
+
+  &__dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #10b981;
+    animation: co-pulse 1.3s ease-in-out infinite;
+  }
+}
+
+@keyframes co-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.analytics-co-skeleton {
+  height: 180px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: co-shimmer 1.2s infinite;
+}
+
+@keyframes co-shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

@@ -28,6 +28,10 @@ public enum I18Code {
     MESSAGE_TRIP_TRACK_SUCCESS("trip.track.success"),
     MESSAGE_TRIP_LIVE_SNAPSHOT_SUCCESS("trip.live.snapshot.success"),
     MESSAGE_TRIP_DEMO_SIMULATION_STARTED("trip.demo.simulation.started"),
+    MESSAGE_TRIP_DEMO_SIMULATION_STOPPED("trip.demo.simulation.stopped"),
+    MESSAGE_TRIP_DEMO_SIMULATION_PAUSED("trip.demo.simulation.paused"),
+    MESSAGE_TRIP_DEMO_SIMULATION_RESUMED("trip.demo.simulation.resumed"),
+    MESSAGE_TRIP_DEMO_SIMULATION_NOT_ACTIVE("trip.demo.simulation.not.active"),
 
     // Status transition errors
     MESSAGE_TRIP_NOT_IN_TRANSIT("trip.not.in.transit"),
@@ -35,6 +39,8 @@ public enum I18Code {
     MESSAGE_TRIP_NOT_OTP_PENDING("trip.not.otp.pending"),
     MESSAGE_TRIP_SHIPMENT_NOT_ALLOCATED("trip.shipment.not.allocated"),
     MESSAGE_TRIP_ALREADY_ACTIVE("trip.already.active"),
+    MESSAGE_TRIP_SHIPMENT_STATUS_SYNC_FAILED("trip.shipment.status.sync.failed"),
+    MESSAGE_TRIP_START_LOCK_UNAVAILABLE("trip.start.lock.unavailable"),
 
     // OTP messages
     MESSAGE_OTP_INVALID_OR_EXPIRED("trip.otp.invalid.or.expired"),

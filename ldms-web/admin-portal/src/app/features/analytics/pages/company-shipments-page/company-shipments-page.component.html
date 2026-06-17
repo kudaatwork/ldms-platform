@@ -1,0 +1,62 @@
+<section class="lx-page co-ship-page">
+  <nav class="co-ship-breadcrumb">
+    <a routerLink="/analytics">Analytics</a>
+    <mat-icon>chevron_right</mat-icon>
+    <span>{{ company?.organizationName ?? 'Organisation' }}</span>
+  </nav>
+
+  <lx-workspace-hero
+    *ngIf="company"
+    variant="teal"
+    eyebrow="Company drill-down"
+    eyebrowIcon="corporate_fare"
+    [title]="company.organizationName"
+    [lead]="company.classificationLabel + ' · ' + company.completedShipments + ' completed shipments · ' + company.onTimePct + '% on-time'"
+    hubIcon="local_shipping"
+    [orbitIcons]="['route', 'schedule', 'radar']"
+  >
+    <lx-workspace-hero-stat [value]="company.activeShipments" label="Active" icon="local_shipping" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="company.activeTrips" label="Live trips" icon="gps_fixed" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="shipments.length" label="In view" icon="inventory_2" theme="violet"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <div class="co-ship-list lx-card" *ngIf="!loading; else loadingTpl">
+    <header class="co-ship-list__hd">
+      <h2>Shipments</h2>
+      <p>Select a shipment for live map, telemetry, and progress</p>
+    </header>
+    <div class="co-ship-row" *ngFor="let s of shipments; trackBy: trackByShipmentId" (click)="openShipment(s)" role="button" tabindex="0" (keyup.enter)="openShipment(s)">
+      <div class="co-ship-row__icon" [ngClass]="'co-ship-row__icon--' + statusTone(s.status)">
+        <mat-icon>local_shipping</mat-icon>
+      </div>
+      <div class="co-ship-row__main">
+        <div class="co-ship-row__ref">{{ s.shipmentRef }} · {{ s.vehicleReg }}</div>
+        <div class="co-ship-row__route">
+          {{ s.origin }}
+          <mat-icon>arrow_forward</mat-icon>
+          {{ s.destination }}
+        </div>
+        <div class="co-ship-row__cargo">{{ s.cargoSummary }} · {{ s.customerName }}</div>
+        <div class="co-ship-row__progress">
+          <div class="co-ship-row__track">
+            <div class="co-ship-row__fill" [style.width.%]="s.progressPct"></div>
+          </div>
+          <span>{{ s.progressPct }}%</span>
+        </div>
+      </div>
+      <div class="co-ship-row__side">
+        <span class="co-ship-status" [ngClass]="'co-ship-status--' + statusTone(s.status)">{{ s.statusLabel }}</span>
+        <div class="co-ship-row__eta"><mat-icon>schedule</mat-icon> ETA {{ s.eta }}</div>
+        <div class="co-ship-row__driver">{{ s.driverName }}</div>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm co-ship-row__live">
+          <mat-icon>radar</mat-icon> Live view
+        </button>
+      </div>
+    </div>
+    <p class="co-ship-empty" *ngIf="!shipments.length">No shipments found for this organisation.</p>
+  </div>
+
+  <ng-template #loadingTpl>
+    <div class="co-ship-skeleton lx-card" *ngFor="let i of [1,2,3]"></div>
+  </ng-template>
+</section>

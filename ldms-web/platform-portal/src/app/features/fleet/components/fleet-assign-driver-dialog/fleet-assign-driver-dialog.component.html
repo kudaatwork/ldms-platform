@@ -27,16 +27,27 @@
       <div class="lx-input-shell lx-search-field fad-assign__search">
         <mat-icon class="lx-input-shell__icon">search</mat-icon>
         <input
-          [(ngModel)]="searchQuery"
+          [ngModel]="searchQuery"
+          (ngModelChange)="searchQuery = $event; onSearchQueryChange()"
           placeholder="Search drivers by name, phone, licence, or roster…"
           autocomplete="off"
           aria-label="Search drivers"
         />
       </div>
 
-      <mat-radio-group class="fad-assign__list" [(ngModel)]="selectedDriverId" aria-label="Fleet driver">
-        <label class="fad-assign__item fad-assign__item--none">
-          <mat-radio-button value="none"></mat-radio-button>
+      <div class="fad-assign__roster" role="radiogroup" aria-label="Fleet driver">
+        <label class="fad-assign__item fad-assign__item--none" [class.is-selected]="selectedKey === 'none'">
+          <input
+            type="radio"
+            class="fad-assign__native-radio"
+            name="fleetAssignDriver"
+            value="none"
+            [checked]="selectedKey === 'none'"
+            (change)="onSelectionChange('none')"
+          />
+          <span class="fad-assign__radio" aria-hidden="true">
+            <span class="fad-assign__radio-dot"></span>
+          </span>
           <span class="fad-assign__copy">
             <span class="fad-assign__name">Unassign driver</span>
             <span class="fad-assign__hint">Clear the current driver on this vehicle.</span>
@@ -50,25 +61,41 @@
               <span>{{ group.hint }}</span>
             </div>
 
-            <label class="fad-assign__item" *ngFor="let driver of group.drivers">
-              <mat-radio-button [value]="driver.id"></mat-radio-button>
-              <span class="fad-assign__avatar">{{ driver.initials }}</span>
-              <span class="fad-assign__copy">
-                <span class="fad-assign__name-row">
-                  <span class="fad-assign__name">{{ driver.fullName }}</span>
-                  <span class="fad-assign__badge" [ngClass]="employmentBadgeClass(driver)">{{ driver.employmentLabel }}</span>
+            <div class="fad-assign__group-list">
+              <label
+                class="fad-assign__item"
+                *ngFor="let driver of group.drivers; trackBy: trackDriver"
+                [class.is-selected]="selectedKey === driverKey(driver.id)"
+              >
+                <input
+                  type="radio"
+                  class="fad-assign__native-radio"
+                  name="fleetAssignDriver"
+                  [value]="driverKey(driver.id)"
+                  [checked]="selectedKey === driverKey(driver.id)"
+                  (change)="onSelectionChange(driverKey(driver.id))"
+                />
+                <span class="fad-assign__radio" aria-hidden="true">
+                  <span class="fad-assign__radio-dot"></span>
                 </span>
-                <span class="fad-assign__hint">
-                  {{ driver.licenseNumber !== '—' ? driver.licenseNumber : 'Licence pending' }}
-                  <ng-container *ngIf="driver.licenseClass !== '—'"> · Class {{ driver.licenseClass }}</ng-container>
+                <span class="fad-assign__avatar">{{ driver.initials }}</span>
+                <span class="fad-assign__copy">
+                  <span class="fad-assign__name-row">
+                    <span class="fad-assign__name">{{ driver.fullName }}</span>
+                    <span class="fad-assign__badge" [ngClass]="employmentBadgeClass(driver)">{{ driver.employmentLabel }}</span>
+                  </span>
+                  <span class="fad-assign__hint">
+                    {{ driver.licenseNumber !== '—' ? driver.licenseNumber : 'Licence pending' }}
+                    <ng-container *ngIf="driver.licenseClass !== '—'"> · Class {{ driver.licenseClass }}</ng-container>
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
+            </div>
           </div>
         </ng-container>
-      </mat-radio-group>
+      </div>
 
-      <p class="fad-assign__empty" *ngIf="!filteredDrivers.length">
+      <p class="fad-assign__empty" *ngIf="!filteredDriverCount">
         No drivers match your search. Add drivers from the <strong>Drivers</strong> tab or pick a transport partner driver.
       </p>
     </ng-container>
@@ -78,7 +105,7 @@
       {{ saveError }}
     </p>
 
-    <div class="lx-dialog-actions">
+    <div class="lx-dialog-actions fad-assign__actions">
       <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
       <button type="button" class="lx-btn lx-btn-primary" (click)="save()" [disabled]="submitting || driversLoading">
         {{ submitting ? 'Saving…' : 'Save assignment' }}

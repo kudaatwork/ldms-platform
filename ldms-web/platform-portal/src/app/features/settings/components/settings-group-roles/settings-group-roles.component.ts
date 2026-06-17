@@ -2,6 +2,7 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subject, finalize, forkJoin, takeUntil } from 'rxjs';
 import { OrgContextService } from '../../../../core/services/org-context.service';
+import { AuthStateService } from '../../../../core/services/auth-state.service';
 import {
   LdmsRoleModuleGroup,
   groupRolesByModule,
@@ -13,6 +14,7 @@ interface GroupCard {
   id: number;
   name: string;
   description: string;
+  organizationClassification: string;
   users: number;
   roles: number;
 }
@@ -51,9 +53,15 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
   constructor(
     private readonly usersService: UsersPortalService,
     private readonly orgContext: OrgContextService,
+    private readonly authState: AuthStateService,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
   ) {}
+
+  get orgClassificationLabel(): string {
+    const raw = this.authState.currentUser?.orgClassification ?? '';
+    return raw ? raw.replace(/_/g, ' ') : '';
+  }
 
   ngOnInit(): void {
     this.loadGroups();
@@ -295,6 +303,9 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
       id: Number(src['id'] ?? dto['id'] ?? 0),
       name: String(src['name'] ?? '—'),
       description: String(src['description'] ?? '—'),
+      organizationClassification: String(
+        src['organizationClassification'] ?? src['organization_classification'] ?? '',
+      ).trim(),
       users: this.resolveMemberCount(
         src['userMemberCount'] ?? src['user_member_count'],
         Array.isArray(usersRaw) ? usersRaw.length : null,

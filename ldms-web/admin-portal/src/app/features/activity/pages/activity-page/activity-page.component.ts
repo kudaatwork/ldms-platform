@@ -41,6 +41,7 @@ import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
+  exportFormatLabel,
 } from '@shared/utils/lx-export.util';
 export interface ActivityRow {
   time: string;
@@ -357,7 +358,7 @@ export class ActivityPageComponent implements OnInit, OnDestroy {
       (message) => this.snackBar.open(message, 'Dismiss', { duration: 4500 }),
     );
     if (ok) {
-      this.snackBar.open('Exported activity logs as CSV.', 'Dismiss', {
+      this.snackBar.open(`Exported activity logs as ${exportFormatLabel(format)}.`, 'Dismiss', {
         duration: 3500,
         panelClass: ['app-snackbar-success'],
       });

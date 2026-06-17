@@ -6,6 +6,7 @@ import lombok.Setter;
 import lombok.ToString;
 import projectlx.trip.tracking.utils.enums.TripStatus;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,6 +20,7 @@ public class TripDto {
     private String tripNumber;
     private Long organizationId;
     private Long shipmentId;
+    private String shipmentNumber;
     private Long inventoryTransferId;
     private Long fleetDriverId;
     private Long fleetAssetId;
@@ -30,6 +32,8 @@ public class TripDto {
     private String fromWarehouseName;
     private String toWarehouseName;
     private String productName;
+    private String productCode;
+    private BigDecimal quantity;
     private LocalDateTime createdAt;
     private String createdBy;
     private List<TripEventDto> recentEvents;

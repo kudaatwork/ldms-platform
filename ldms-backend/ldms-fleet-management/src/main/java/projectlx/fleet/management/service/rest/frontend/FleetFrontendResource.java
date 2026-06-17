@@ -14,6 +14,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -26,6 +27,7 @@ import projectlx.fleet.management.service.processor.api.FleetAssetServiceProcess
 import projectlx.fleet.management.service.processor.api.FleetComplianceServiceProcessor;
 import projectlx.fleet.management.service.processor.api.FleetDriverServiceProcessor;
 import projectlx.fleet.management.service.processor.api.FleetTrackingDeviceServiceProcessor;
+import projectlx.fleet.management.utils.requests.AssignFleetAssetDriverRequest;
 import projectlx.fleet.management.utils.requests.CompleteFleetAssetRegistrationRequest;
 import projectlx.fleet.management.utils.requests.CreateFleetAssetRequest;
 import projectlx.fleet.management.utils.requests.CreateFleetComplianceRecordRequest;
@@ -98,6 +100,32 @@ public class FleetFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         FleetAssetResponse response = fleetAssetServiceProcessor.update(id, request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "ASSIGN_FLEET_ASSET_DRIVER")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/assets/{id}/assign-driver")
+    @Operation(summary = "Assign fleet driver", description = "Assigns or clears the driver on a fleet asset without re-validating contract metadata.")
+    public ResponseEntity<FleetAssetResponse> assignAssetDriverPost(
+            @PathVariable final Long id,
+            @RequestBody final AssignFleetAssetDriverRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetAssetResponse response = fleetAssetServiceProcessor.assignDriver(id, request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "ASSIGN_FLEET_ASSET_DRIVER")
+    @PreAuthorize("isAuthenticated()")
+    @PatchMapping("/assets/{id}/driver")
+    @Operation(summary = "Assign fleet driver", description = "Assigns or clears the driver on a fleet asset without re-validating contract metadata.")
+    public ResponseEntity<FleetAssetResponse> assignAssetDriver(
+            @PathVariable final Long id,
+            @RequestBody final AssignFleetAssetDriverRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetAssetResponse response = fleetAssetServiceProcessor.assignDriver(id, request, locale, username);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
