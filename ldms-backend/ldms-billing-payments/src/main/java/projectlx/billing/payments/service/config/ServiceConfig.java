@@ -6,7 +6,9 @@ import projectlx.billing.payments.business.logic.api.CurrencyManagementService;
 import projectlx.billing.payments.business.logic.api.DriverExpenseReconciliationService;
 import projectlx.billing.payments.business.logic.api.InvoiceService;
 import projectlx.billing.payments.business.logic.api.PaymentService;
-import projectlx.billing.payments.service.processor.api.CurrencyManagementServiceProcessor;
+import projectlx.billing.payments.business.logic.api.PlatformDashboardService;
+import projectlx.billing.payments.service.processor.api.PlatformDashboardServiceProcessor;
+import projectlx.billing.payments.service.processor.impl.PlatformDashboardServiceProcessorImpl;
 import projectlx.billing.payments.service.processor.api.DriverExpenseServiceProcessor;
 import projectlx.billing.payments.service.processor.api.InvoiceServiceProcessor;
 import projectlx.billing.payments.service.processor.api.PaymentServiceProcessor;
@@ -20,6 +22,12 @@ import projectlx.billing.payments.service.processor.impl.PaymentServiceProcessor
 
 @Configuration
 public class ServiceConfig {
+
+    @Bean
+    public PlatformDashboardServiceProcessor platformDashboardServiceProcessor(
+            PlatformDashboardService platformDashboardService) {
+        return new PlatformDashboardServiceProcessorImpl(platformDashboardService);
+    }
 
     @Bean
     public CurrencyManagementServiceProcessor currencyManagementServiceProcessor(CurrencyManagementService service) {

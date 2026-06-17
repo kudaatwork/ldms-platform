@@ -50,4 +50,14 @@ public class TripLiveServiceProcessorImpl implements TripLiveServiceProcessor {
         log.info("Opening SSE stream for trip {} by {}", tripId, username);
         return tripLiveService.subscribeLiveUpdates(tripId, locale, username);
     }
+
+    @Override
+    public TripResponse getLiveSnapshotBackoffice(Long tripId, Locale locale) {
+        return tripLiveService.getLiveSnapshotBackoffice(tripId, locale);
+    }
+
+    @Override
+    public TripResponse getLiveSnapshotByShipmentBackoffice(Long shipmentId, Locale locale) {
+        return tripLiveService.getLiveSnapshotByShipmentBackoffice(shipmentId, locale);
+    }
 }

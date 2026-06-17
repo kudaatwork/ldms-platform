@@ -42,29 +42,35 @@
     ></lx-workspace-hero-stat>
   </lx-workspace-hero>
 
-  <div class="analytics-charts lx-grid lx-grid-2 mb-lg" *ngIf="summary && !loading">
-    <article class="lx-card analytics-chart-card">
-      <header class="analytics-chart-card__hd">
-        <mat-icon>trending_up</mat-icon>
-        <div>
+  <div class="lx-chart-grid lx-grid lx-grid-2 mb-lg" *ngIf="summary && !loading">
+    <article class="lx-card lx-chart-card">
+      <header class="lx-chart-card__hd">
+        <mat-icon class="lx-chart-card__icon" aria-hidden="true">trending_up</mat-icon>
+        <div class="lx-chart-card__copy">
           <h3>Weekly shipment volume</h3>
           <p>Across all tenant organisations</p>
         </div>
       </header>
-      <div class="analytics-chart-card__body">
+      <div class="lx-chart-card__body">
         <canvas baseChart [data]="volumeChartData" [options]="volumeChartOptions" type="line"></canvas>
       </div>
     </article>
-    <article class="lx-card analytics-chart-card">
-      <header class="analytics-chart-card__hd">
-        <mat-icon>donut_large</mat-icon>
-        <div>
+    <article class="lx-card lx-chart-card">
+      <header class="lx-chart-card__hd">
+        <mat-icon class="lx-chart-card__icon" aria-hidden="true">donut_large</mat-icon>
+        <div class="lx-chart-card__copy">
           <h3>Status mix</h3>
           <p>Live pipeline distribution</p>
         </div>
       </header>
-      <div class="analytics-chart-card__body analytics-chart-card__body--donut">
-        <canvas baseChart [data]="statusChartData" [options]="statusChartOptions" type="doughnut"></canvas>
+      <div class="lx-chart-card__body lx-chart-card__body--donut">
+        <div class="lx-chart-card__donut-wrap">
+          <canvas baseChart [data]="statusChartData" [options]="statusChartOptions" type="doughnut"></canvas>
+          <div class="lx-chart-card__donut-center" *ngIf="statusTotal">
+            <span class="lx-chart-card__donut-center-value">{{ statusTotal }}</span>
+            <span class="lx-chart-card__donut-center-label">Shipments</span>
+          </div>
+        </div>
       </div>
     </article>
   </div>
@@ -72,8 +78,9 @@
   <div class="lx-card analytics-companies">
     <header class="analytics-companies__hd">
       <div>
-        <h2>Organisations</h2>
-        <p>Click a company to explore shipments and live tracking</p>
+        <p class="analytics-companies__eyebrow">Recent performers</p>
+        <h2>Organisations on the corridor</h2>
+        <p>Live counts from shipment and trip services — zeros mean no activity yet.</p>
       </div>
       <label class="analytics-search">
         <mat-icon aria-hidden="true">search</mat-icon>
@@ -115,9 +122,9 @@
           </div>
         </div>
         <div class="analytics-co-card__foot">
-          <span>{{ formatMoney(co.revenueCents) }} billed</span>
-          <span class="analytics-co-card__live" *ngIf="co.activeTrips > 0">
-            <span class="analytics-co-card__dot"></span>{{ co.activeTrips }} live trips
+          <span>{{ co.activeTrips }} live trips</span>
+          <span class="analytics-co-card__live" *ngIf="co.activeShipments > 0">
+            <span class="analytics-co-card__dot"></span>{{ co.activeShipments }} active shipments
           </span>
         </div>
       </button>

@@ -6,7 +6,13 @@ import { Subject, finalize, takeUntil } from 'rxjs';
 import { PlatformOpsAdminService } from '../../../../core/services/platform-ops-admin.service';
 import type { PlatformCompanyOps, PlatformOpsSummary } from '../../../../core/services/platform-ops-mock.data';
 import { PlatformWalletAdminService } from '../../../settings/services/platform-wallet-admin.service';
-import { ensureChartJsRegistered } from '../../../dashboard/chartjs-register';
+import { ensureChartJsRegistered } from '@shared/charts/chartjs-register';
+import { LX_CHART_COLORS } from '@shared/charts/lx-chart-palettes';
+import {
+  lxChartAreaGradient,
+  lxDoughnutChartOptions,
+  lxLineChartOptions,
+} from '@shared/charts/lx-chart-theme';
 
 @Component({
   selector: 'app-analytics-overview-page',
@@ -17,36 +23,20 @@ import { ensureChartJsRegistered } from '../../../dashboard/chartjs-register';
 })
 export class AnalyticsOverviewPageComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
-  private readonly chartFont = "'Plus Jakarta Sans', sans-serif";
 
   loading = true;
   summary: PlatformOpsSummary | null = null;
   search = signal('');
+  statusTotal = 0;
 
   volumeChartData: ChartData<'line'> = { labels: [], datasets: [] };
   statusChartData: ChartData<'doughnut'> = { labels: [], datasets: [] };
 
-  volumeChartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } },
-    scales: {
-      x: { grid: { display: false }, ticks: { font: { family: this.chartFont, size: 11 } } },
-      y: { grid: { color: 'rgba(148,163,184,0.15)' }, ticks: { font: { family: this.chartFont, size: 11 } } },
-    },
-  };
-
-  statusChartOptions: ChartOptions<'doughnut'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: '68%',
-    plugins: {
-      legend: {
-        position: 'bottom',
-        labels: { usePointStyle: true, font: { family: this.chartFont, size: 10 } },
-      },
-    },
-  };
+  volumeChartOptions: ChartOptions<'line'> = lxLineChartOptions();
+  statusChartOptions: ChartOptions<'doughnut'> = lxDoughnutChartOptions({
+    cutout: '70%',
+    legendPosition: 'bottom',
+  });
 
   constructor(
     private readonly platformOps: PlatformOpsAdminService,
@@ -83,7 +73,9 @@ export class AnalyticsOverviewPageComponent implements OnInit, OnDestroy {
   }
 
   get filteredCompanies(): PlatformCompanyOps[] {
-    const rows = this.summary?.companies ?? [];
+    const rows = (this.summary?.companies ?? []).filter(
+      (c) => c.activeShipments > 0 || c.activeTrips > 0 || c.completedShipments > 0,
+    );
     const q = this.search().trim().toLowerCase();
     if (!q) {
       return rows;
@@ -115,23 +107,31 @@ export class AnalyticsOverviewPageComponent implements OnInit, OnDestroy {
         {
           label: 'Shipments',
           data: summary.weeklyVolume,
-          borderColor: '#6366f1',
-          backgroundColor: 'rgba(99, 102, 241, 0.12)',
+          borderColor: LX_CHART_COLORS.primary,
+          backgroundColor: (ctx) =>
+            lxChartAreaGradient(ctx.chart, 'rgba(59, 130, 246, 0.32)', 'rgba(59, 130, 246, 0)'),
           fill: true,
           tension: 0.42,
           pointRadius: 4,
-          pointBackgroundColor: '#4f46e5',
+          pointBackgroundColor: LX_CHART_COLORS.primary,
+          pointBorderColor: '#fff',
+          pointHoverBackgroundColor: LX_CHART_COLORS.analytics,
+          pointHoverBorderColor: '#fff',
         },
       ],
     };
+
+    const statusRows = summary.shipmentsByStatus;
+    this.statusTotal = statusRows.reduce((sum, row) => sum + row.count, 0);
     this.statusChartData = {
-      labels: summary.shipmentsByStatus.map((s) => s.label),
+      labels: statusRows.map((s) => s.label),
       datasets: [
         {
-          data: summary.shipmentsByStatus.map((s) => s.count),
-          backgroundColor: summary.shipmentsByStatus.map((s) => s.color),
-          borderWidth: 0,
-          hoverOffset: 6,
+          data: statusRows.map((s) => s.count),
+          backgroundColor: statusRows.map((s) => s.color),
+          borderWidth: 2,
+          borderColor: LX_CHART_COLORS.donutBorder,
+          hoverOffset: 10,
         },
       ],
     };

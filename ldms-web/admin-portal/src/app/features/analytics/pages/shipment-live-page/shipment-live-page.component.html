@@ -1,64 +1,133 @@
-<section class="lx-page ship-live-page" *ngIf="shipment as s">
+<section class="lx-page ship-live-page" *ngIf="view as v">
   <nav class="ship-live-crumb">
     <a routerLink="/analytics">Analytics</a>
     <mat-icon>chevron_right</mat-icon>
-    <a [routerLink]="['/analytics/companies', organizationId]">{{ s.organizationName }}</a>
+    <a [routerLink]="['/analytics/companies', organizationId]">{{ v.organizationName }}</a>
     <mat-icon>chevron_right</mat-icon>
-    <span>{{ s.shipmentRef }}</span>
+    <span>{{ shipmentRef }}</span>
   </nav>
 
   <div class="ship-live-hero">
     <div class="ship-live-hero__copy">
       <span class="ship-live-hero__badge"><span class="ship-live-hero__dot"></span> Live tracking</span>
-      <h1>{{ s.shipmentRef }}</h1>
-      <p>{{ s.origin }} → {{ s.destination }} · {{ s.vehicleReg }} · {{ s.driverName }}</p>
+      <h1>{{ shipmentRef }}</h1>
+      <p>{{ routeLabel }} · {{ snap?.vehicleRegistration || '—' }} · {{ snap?.driverName || '—' }}</p>
+      <div class="ship-live-hero__chips">
+        <span class="ship-live-chip" [class.is-live]="snap?.moving">{{ telematicsLabel }}</span>
+        <span class="ship-live-chip ship-live-chip--phase">{{ journeyView.phaseLabel }}</span>
+        <span class="ship-live-chip ship-live-chip--fuel-warn" *ngIf="fuelStatus === 'warn'">Fuel low</span>
+        <span class="ship-live-chip ship-live-chip--fuel-critical" *ngIf="fuelStatus === 'critical'">Critical fuel</span>
+      </div>
     </div>
     <div class="ship-live-hero__stats">
-      <div><span>{{ s.speedKph }}</span><small>km/h</small></div>
-      <div><span>{{ s.progressPct }}%</span><small>progress</small></div>
-      <div><span>{{ s.eta }}</span><small>ETA</small></div>
+      <div><span>{{ speedLabel }}</span><small>km/h</small></div>
+      <div><span>{{ progressLabel }}%</span><small>progress</small></div>
+      <div><span>{{ journeyView.etaLabel }}</span><small>ETA</small></div>
+      <div><span>{{ fuelLevelLabel }}</span><small>fuel</small></div>
+      <div><span>{{ distanceLabel }}</span><small>distance</small></div>
+      <div><span>{{ journeyView.totalLabel }}</span><small>elapsed</small></div>
     </div>
   </div>
 
   <div class="ship-live-grid">
-    <article class="lx-card ship-live-map">
-      <div class="ship-live-map__mesh" aria-hidden="true"></div>
-      <div class="ship-live-map__radar" aria-hidden="true">
-        <div class="ship-live-map__ring"></div>
-        <div class="ship-live-map__sweep"></div>
-      </div>
-      <div class="ship-live-map__pin" [style.left.%]="mapPinX" [style.top.%]="mapPinY">
-        <div class="ship-live-map__pulse"></div>
-        <mat-icon>local_shipping</mat-icon>
-      </div>
-      <div class="ship-live-map__coords">
+    <app-lx-leaflet-map
+      class="ship-live-map"
+      [markers]="liveMapMarkers"
+      [routePoints]="routePoints"
+      [trailPoints]="trailPoints"
+      [waypoints]="mapWaypoints"
+      [loading]="loading"
+      initialMapStyle="standard"
+      minHeight="480px"
+      emptyMessage="Waiting for GPS coordinates and corridor route from trip tracking."
+    >
+      <div lxMapOverlay class="ship-live-map__coords" *ngIf="snap?.latitude != null && snap?.longitude != null">
         <mat-icon>my_location</mat-icon>
-        {{ s.lat | number : '1.4-4' }}, {{ s.lng | number : '1.4-4' }}
+        {{ snap!.latitude | number : '1.4-4' }}, {{ snap!.longitude | number : '1.4-4' }}
       </div>
-    </article>
+    </app-lx-leaflet-map>
 
     <aside class="ship-live-side">
       <article class="lx-card ship-live-card">
         <h3>Status</h3>
-        <div class="ship-live-status">{{ s.statusLabel }}</div>
+        <div class="ship-live-status">{{ statusText }}</div>
         <div class="ship-live-progress">
-          <div class="ship-live-progress__fill" [style.width.%]="s.progressPct"></div>
+          <div class="ship-live-progress__fill" [style.width.%]="snap?.overallProgressPct ?? 0"></div>
+        </div>
+        <p class="ship-live-muted">{{ journeyView.phaseHint }}</p>
+      </article>
+
+      <article class="lx-card ship-live-card">
+        <h3>Journey timing</h3>
+        <div class="ship-live-kv">
+          <span>In transit</span><strong>{{ journeyView.transitLabel }}</strong>
+        </div>
+        <div class="ship-live-kv">
+          <span>Waiting</span><strong>{{ journeyView.waitingLabel }}</strong>
+        </div>
+        <div class="ship-live-kv">
+          <span>Standing by</span><strong>{{ journeyView.idleLabel }}</strong>
+        </div>
+        <div class="ship-live-timing-bar" *ngIf="journeyView.totalSeconds > 0">
+          <span [style.flex]="journeyView.transitPct"></span>
+          <span [style.flex]="journeyView.waitingPct"></span>
+          <span [style.flex]="journeyView.idlePct"></span>
         </div>
       </article>
+
+      <article class="lx-card ship-live-card">
+        <h3>Fuel</h3>
+        <div class="ship-live-fuel">
+          <mat-icon>local_gas_station</mat-icon>
+          <div>
+            <strong>{{ fuelLevelLabel }}</strong>
+            <span>{{ fuelLitersLabel }} remaining</span>
+          </div>
+        </div>
+        <div class="ship-live-progress ship-live-progress--fuel" *ngIf="snap?.fuelLevelPct != null">
+          <div
+            class="ship-live-progress__fill"
+            [class.is-warn]="fuelStatus === 'warn'"
+            [class.is-critical]="fuelStatus === 'critical'"
+            [style.width.%]="snap!.fuelLevelPct"
+          ></div>
+        </div>
+      </article>
+
+      <article class="lx-card ship-live-card">
+        <h3>Corridor</h3>
+        <div class="ship-live-kv">
+          <span>Trip</span><strong>{{ snap?.tripNumber || '—' }}</strong>
+        </div>
+        <div class="ship-live-kv">
+          <span>Waypoints</span>
+          <strong>{{ snap?.completedWaypointCount ?? 0 }} / {{ snap?.totalWaypointCount ?? snap?.routeWaypoints?.length ?? 0 }}</strong>
+        </div>
+        <div class="ship-live-kv" *ngIf="snap?.maxSpeedKmh != null">
+          <span>Max speed</span><strong>{{ snap!.maxSpeedKmh | number : '1.0-0' }} km/h</strong>
+        </div>
+      </article>
+
       <article class="lx-card ship-live-card">
         <h3>Cargo</h3>
-        <p>{{ s.cargoSummary }}</p>
-        <p class="ship-live-muted">Customer: {{ s.customerName }}</p>
+        <p>{{ cargoLabel }}</p>
+        <p class="ship-live-muted" *ngIf="snap?.productCode">Code: {{ snap!.productCode }}</p>
       </article>
+
       <article class="lx-card ship-live-card">
         <h3>Organisation</h3>
-        <p>{{ s.organizationName }}</p>
+        <p>{{ v.organizationName }}</p>
       </article>
     </aside>
   </div>
 </section>
 
-<div class="lx-page" *ngIf="!loading && !shipment">
-  <p>Shipment not found.</p>
-  <a routerLink="/analytics" class="lx-btn lx-btn-primary">Back to analytics</a>
+<div class="lx-page ship-live-empty" *ngIf="!loading && !view">
+  <mat-icon>error_outline</mat-icon>
+  <p>{{ loadError || 'No active trip found for this shipment.' }}</p>
+  <a [routerLink]="['/analytics/companies', organizationId]" class="lx-btn lx-btn-primary">Back to company</a>
+</div>
+
+<div class="lx-page" *ngIf="loading && !view">
+  <lx-table-loading [busy]="true" message="Loading live corridor…"></lx-table-loading>
 </div>

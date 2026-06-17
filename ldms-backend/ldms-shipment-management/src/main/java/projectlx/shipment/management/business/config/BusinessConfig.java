@@ -10,11 +10,14 @@ import projectlx.shipment.management.business.auditable.api.ShipmentServiceAudit
 import projectlx.shipment.management.business.auditable.impl.BorderClearanceCaseServiceAuditableImpl;
 import projectlx.shipment.management.business.auditable.impl.ShipmentServiceAuditableImpl;
 import projectlx.shipment.management.business.logic.api.BorderClearanceCaseService;
+import projectlx.shipment.management.business.logic.api.PlatformDashboardService;
 import projectlx.shipment.management.business.logic.api.ShipmentService;
 import projectlx.shipment.management.business.logic.impl.BorderClearanceCaseServiceImpl;
+import projectlx.shipment.management.business.logic.impl.PlatformDashboardServiceImpl;
 import projectlx.shipment.management.business.logic.impl.ShipmentServiceImpl;
 import projectlx.shipment.management.business.logic.support.CallerOrganizationResolver;
 import projectlx.shipment.management.business.logic.support.LogisticsNotificationRecipientResolver;
+import projectlx.shipment.management.business.logic.support.PlatformDashboardSupport;
 import projectlx.shipment.management.business.logic.support.ShipmentFleetAllocatorSupport;
 import projectlx.shipment.management.business.validator.api.BorderClearanceCaseServiceValidator;
 import projectlx.shipment.management.business.validator.api.ShipmentServiceValidator;
@@ -86,6 +89,17 @@ public class BusinessConfig {
     public ShipmentFleetAllocatorSupport shipmentFleetAllocatorSupport(
             UserManagementServiceClient userManagementServiceClient) {
         return new ShipmentFleetAllocatorSupport(userManagementServiceClient);
+    }
+
+    @Bean
+    public PlatformDashboardSupport platformDashboardSupport(ShipmentRepository shipmentRepository) {
+        return new PlatformDashboardSupport(shipmentRepository);
+    }
+
+    @Bean
+    public PlatformDashboardService platformDashboardService(PlatformDashboardSupport platformDashboardSupport,
+                                                             MessageService messageService) {
+        return new PlatformDashboardServiceImpl(platformDashboardSupport, messageService);
     }
 
     @Bean

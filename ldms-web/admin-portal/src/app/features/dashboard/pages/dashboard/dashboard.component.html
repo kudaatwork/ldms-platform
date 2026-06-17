@@ -62,29 +62,60 @@
     </div>
   </div>
 
-  <div class="lx-card ops-accounts mb-lg" *ngIf="opsSnapshot && !opsLoading">
-    <div class="ops-accounts__hd">
-      <div>
-        <div class="card-hdtitle">Active across all accounts</div>
-        <div class="card-hdsub">
-          {{ opsSnapshot.organizationsWithActivity }} organisations with live logistics ·
-          {{ opsSnapshot.completedThisMonth }} completed this month
+  <div class="lx-card ops-accounts mb-lg" *ngIf="!opsLoading">
+    <div class="ops-accounts__hero">
+      <div class="ops-accounts__hero-glow" aria-hidden="true"></div>
+      <div class="ops-accounts__hd">
+        <div>
+          <p class="ops-accounts__eyebrow">Top performers</p>
+          <h2 class="ops-accounts__title">Active across all accounts</h2>
+          <p class="ops-accounts__sub" *ngIf="opsSnapshot; else opsAccountsLoadingCopy">
+            {{ opsSnapshot.organizationsWithActivity }} organisations with live logistics ·
+            {{ opsSnapshot.completedThisMonth }} completed this month
+          </p>
+          <ng-template #opsAccountsLoadingCopy>
+            <p class="ops-accounts__sub">Loading live corridor metrics…</p>
+          </ng-template>
         </div>
+        <a class="lx-btn lx-btn-ghost lx-btn-sm ops-accounts__drill" routerLink="/analytics">
+          <mat-icon>insights</mat-icon>
+          Drill down
+        </a>
       </div>
-      <a class="lx-btn lx-btn-ghost lx-btn-sm" routerLink="/analytics">Drill down</a>
     </div>
-    <div class="ops-accounts__grid">
+
+    <div class="ops-accounts__empty" *ngIf="opsSnapshot && topActiveCompanies.length === 0">
+      <mat-icon>domain</mat-icon>
+      <p>No performing organisations yet — shipment and trip counts will appear here as corridors go live.</p>
+    </div>
+
+    <div class="ops-accounts__grid" *ngIf="topActiveCompanies.length">
       <a
         class="ops-account-tile"
-        *ngFor="let co of topActiveCompanies"
+        *ngFor="let co of topActiveCompanies; let i = index"
         [routerLink]="['/analytics/companies', co.organizationId]"
         [style.--acct-accent]="co.accent"
       >
-        <span class="ops-account-tile__name">{{ co.organizationName }}</span>
-        <span class="ops-account-tile__meta">{{ co.classificationLabel }}</span>
+        <div class="ops-account-tile__rank">#{{ i + 1 }}</div>
+        <div class="ops-account-tile__head">
+          <span class="ops-account-tile__name">{{ co.organizationName }}</span>
+          <span class="ops-account-tile__meta">{{ co.classificationLabel }}</span>
+        </div>
         <div class="ops-account-tile__stats">
-          <span><strong>{{ co.activeShipments }}</strong> shipments</span>
-          <span><strong>{{ co.activeTrips }}</strong> live</span>
+          <div class="ops-account-tile__stat">
+            <span class="ops-account-tile__stat-value">{{ co.activeShipments }}</span>
+            <span class="ops-account-tile__stat-label">shipments</span>
+          </div>
+          <div class="ops-account-tile__stat ops-account-tile__stat--live">
+            <span class="ops-account-tile__stat-value">{{ co.activeTrips }}</span>
+            <span class="ops-account-tile__stat-label">live trips</span>
+          </div>
+        </div>
+        <div class="ops-account-tile__bar" aria-hidden="true">
+          <span
+            class="ops-account-tile__bar-fill"
+            [style.width.%]="companyPerformancePct(co)"
+          ></span>
         </div>
       </a>
     </div>
@@ -288,21 +319,14 @@
           Live
         </span>
       </div>
-      <div class="map-body">
-        <div class="map-mesh" aria-hidden="true"></div>
-        <div class="map-grid-bg" aria-hidden="true"></div>
-        <div class="map-radar" aria-hidden="true">
-          <div class="map-radar__ring map-radar__ring--1"></div>
-          <div class="map-radar__ring map-radar__ring--2"></div>
-          <div class="map-radar__ring map-radar__ring--3"></div>
-          <div class="map-radar__sweep"></div>
-        </div>
-        <div class="map-pin map-pin--live" *ngFor="let p of mapPins; let pi = index" [style.left.%]="p.x" [style.top.%]="p.y">
-          <div class="pin-pulse" [ngClass]="'pin-pulse--' + p.type" [style.animation-delay.ms]="pi * 500"></div>
-          <div class="pin-dot" [ngClass]="'pin-' + p.type" [style.animation-delay.ms]="pi * 500"></div>
-          <div class="pin-label">{{ p.label }}</div>
-        </div>
-        <div class="map-stat-chip">
+      <app-lx-leaflet-map
+        class="map-body"
+        [markers]="liveMapMarkers"
+        [loading]="opsLoading"
+        minHeight="360px"
+        emptyMessage="Active trips will appear on the corridor map as telematics feeds go live."
+      >
+        <div lxMapOverlay class="map-stat-chip">
           <div class="map-stat-chip__ring" aria-hidden="true">
             <svg viewBox="0 0 36 36">
               <circle class="map-stat-chip__ring-bg" cx="18" cy="18" r="15.5" />
@@ -318,13 +342,13 @@
           <div class="map-stat-chip__copy">
             <div class="stat-label">On-time performance</div>
             <div class="stat-value">{{ liveOnTimePct | number : '1.1-1' }}%</div>
-            <div class="stat-trend">
+            <div class="stat-trend" *ngIf="opsSnapshot">
               <mat-icon>trending_up</mat-icon>
-              +1.9% from last week
+              {{ opsSnapshot.activeTrips }} active trips platform-wide
             </div>
           </div>
         </div>
-      </div>
+      </app-lx-leaflet-map>
     </div>
   </div>
 

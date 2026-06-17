@@ -24,7 +24,12 @@ import {
 } from '@shared/utils/lx-export.util';
 import { ChartData, ChartOptions } from 'chart.js';
 import { Subject, takeUntil, timer } from 'rxjs';
-import { ensureChartJsRegistered } from '../../chartjs-register';
+import { ensureChartJsRegistered } from '@shared/charts/chartjs-register';
+import {
+  lxBarChartOptions,
+  lxDoughnutChartOptions,
+} from '@shared/charts/lx-chart-theme';
+import type { LxMapMarker } from '@shared/components/lx-leaflet-map/lx-leaflet-map.model';
 
 interface KpiCard {
   label: string;
@@ -56,13 +61,6 @@ interface PipelineRow {
   color: string;
   count: number;
   pct: number;
-}
-
-interface MapPin {
-  x: number;
-  y: number;
-  type: string;
-  label: string;
 }
 
 interface QuickAction {
@@ -158,12 +156,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   pipeline: PipelineRow[] = [];
 
-  private readonly mapPinOrigins: MapPin[] = [];
-
-  mapPins: MapPin[] = [...this.mapPinOrigins];
-
-  /** Shown on the map stat chip; nudged on each live tick. */
-  liveOnTimePct = 96.2;
+  /** Shown on the map stat chip. */
+  liveOnTimePct = 0;
 
   quickActions: QuickAction[] = [
     { icon: 'verified_user', label: 'Review KYC', count: '—', route: '/kyc/applications' },
@@ -201,92 +195,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
     ],
   };
 
-  private readonly chartFont = "'Plus Jakarta Sans', sans-serif";
-
-  kycChartOptions: ChartOptions<'bar'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: {
-      duration: 900,
-      easing: 'easeOutQuart',
-    },
+  kycChartOptions: ChartOptions<'bar'> = lxBarChartOptions({
     plugins: {
-      legend: { display: false },
       tooltip: {
-        backgroundColor: 'rgba(15, 23, 42, 0.92)',
-        titleFont: { family: this.chartFont, size: 12, weight: 'bold' },
-        bodyFont: { family: this.chartFont, size: 12 },
-        padding: 12,
-        cornerRadius: 10,
-        displayColors: true,
-        boxPadding: 4,
         callbacks: {
           label: (ctx) => ` ${ctx.parsed.y} applications`,
         },
       },
     },
-    scales: {
-      x: {
-        grid: { display: false },
-        border: { display: false },
-        ticks: {
-          font: { size: 11, family: this.chartFont, weight: 'bold' },
-          color: '#94A3B8',
-          padding: 8,
-        },
-      },
-      y: {
-        beginAtZero: true,
-        grid: { color: 'rgba(148, 163, 184, 0.12)', drawTicks: false },
-        border: { display: false, dash: [4, 4] },
-        ticks: {
-          font: { size: 11, family: this.chartFont },
-          color: '#94A3B8',
-          padding: 10,
-          maxTicksLimit: 5,
-        },
-      },
-    },
-  };
+  });
 
-  kycDonutOptions: ChartOptions<'doughnut'> = {
-    responsive: true,
-    maintainAspectRatio: false,
+  kycDonutOptions: ChartOptions<'doughnut'> = lxDoughnutChartOptions({
     cutout: '72%',
-    animation: {
-      animateRotate: true,
-      animateScale: true,
-      duration: 900,
-      easing: 'easeOutQuart',
-    },
-    plugins: {
-      legend: {
-        display: true,
-        position: 'bottom',
-        labels: {
-          usePointStyle: true,
-          pointStyle: 'circle',
-          padding: 14,
-          font: { family: this.chartFont, size: 10, weight: 'bold' },
-          color: '#64748B',
-        },
-      },
-      tooltip: {
-        backgroundColor: 'rgba(15, 23, 42, 0.92)',
-        titleFont: { family: this.chartFont, size: 12, weight: 'bold' },
-        bodyFont: { family: this.chartFont, size: 12 },
-        padding: 12,
-        cornerRadius: 10,
-        callbacks: {
-          label: (ctx) => {
-            const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0);
-            const pct = total > 0 ? Math.round(((ctx.parsed as number) / total) * 100) : 0;
-            return ` ${ctx.parsed} (${pct}%)`;
-          },
-        },
-      },
-    },
-  };
+    legendPosition: 'bottom',
+  });
 
   constructor(
     private readonly cdr: ChangeDetectorRef,
@@ -317,6 +239,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   get totalPipelineApplications(): number {
     return this.pipeline.reduce((a, b) => a + b.count, 0);
+  }
+
+  get liveMapMarkers(): LxMapMarker[] {
+    return (this.opsSnapshot?.liveShipments ?? [])
+      .filter((row) => Number.isFinite(row.lat) && Number.isFinite(row.lng))
+      .map((row) => ({
+        id: row.shipmentId,
+        lat: row.lat,
+        lng: row.lng,
+        label: row.vehicleReg || row.shipmentRef,
+        tone:
+          row.status === 'AT_BORDER'
+            ? 'warning'
+            : row.status === 'IN_TRANSIT'
+              ? 'primary'
+              : 'secondary',
+      }));
   }
 
   get onTimeRingDash(): string {
@@ -585,21 +524,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private applyOpsSummary(summary: PlatformOpsSummary): void {
     this.opsSnapshot = summary;
-    this.topActiveCompanies = [...summary.companies]
-      .sort((a, b) => b.activeShipments - a.activeShipments)
-      .slice(0, 6);
+    this.topActiveCompanies = [...summary.companies];
     this.shipments = summary.liveShipments.slice(0, 8).map((s) => this.mapShipmentRow(s));
-    this.mapPinOrigins.length = 0;
-    summary.liveShipments.slice(0, 4).forEach((s, i) => {
-      this.mapPinOrigins.push({
-        x: 15 + ((s.lng + 20) % 30) * 2.2,
-        y: 20 + ((Math.abs(s.lat) % 8) * 8) + i * 2,
-        type: s.status === 'AT_BORDER' ? 'warning' : s.status === 'IN_TRANSIT' ? 'primary' : 'secondary',
-        label: s.vehicleReg,
-      });
-    });
-    this.mapPins = [...this.mapPinOrigins];
     this.liveOnTimePct = summary.onTimePct;
+
+    const volumeSpark = this.normalizeSpark(summary.weeklyVolume);
 
     this.kpiCards = this.kpiCards.map((card) => {
       if (card.label === 'Active Trips') {
@@ -608,18 +537,42 @@ export class DashboardComponent implements OnInit, OnDestroy {
           value: String(summary.activeTrips),
           trend: `${summary.activeShipments} active shipments`,
           up: summary.activeTrips > 0,
+          spark: volumeSpark,
         };
       }
       if (card.label === 'Invoices Due') {
         return {
           ...card,
           value: this.walletAdmin.formatCents(summary.pendingInvoicesCents),
-          trend: `${summary.organizationsWithActivity} orgs active`,
-          up: true,
+          trend: summary.pendingInvoicesCents > 0 ? 'Outstanding balance' : 'All clear',
+          up: summary.pendingInvoicesCents === 0,
+          spark: volumeSpark,
         };
+      }
+      if (card.label === 'Total Organizations') {
+        return { ...card, spark: volumeSpark };
       }
       return card;
     });
+  }
+
+  companyPerformancePct(co: PlatformCompanyOps): number {
+    const max = Math.max(
+      ...this.topActiveCompanies.map(
+        (row) => row.completedShipments * 2 + row.activeShipments + row.activeTrips,
+      ),
+      1,
+    );
+    const score = co.completedShipments * 2 + co.activeShipments + co.activeTrips;
+    return Math.round((score / max) * 100);
+  }
+
+  private normalizeSpark(values: number[]): number[] {
+    if (!values?.length) {
+      return [0, 0, 0, 0, 0, 0, 0, 0];
+    }
+    const max = Math.max(...values, 1);
+    return values.map((v) => Math.round((v / max) * 100));
   }
 
   private mapShipmentRow(s: PlatformShipmentOps): ShipmentRow {
@@ -657,12 +610,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private applyLiveTick(): void {
     this.liveTick += 1;
-    const t = this.liveTick * 0.35;
-
-    this.kpiCards = this.kpiCards.map((k) => ({
-      ...k,
-      spark: [...k.spark.slice(1), 18 + Math.round(Math.random() * 82)],
-    }));
 
     if (this.opsSnapshot) {
       this.platformOps
@@ -671,27 +618,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         .subscribe((summary) => {
           this.opsSnapshot = summary;
           this.shipments = summary.liveShipments.slice(0, 8).map((s) => this.mapShipmentRow(s));
-          this.mapPins = summary.liveShipments.slice(0, 4).map((s, i) => ({
-            x: Math.min(88, Math.max(12, 15 + ((s.lng + 20) % 30) * 2.2 + Math.sin(t * 0.8 + i * 1.1) * 2.8)),
-            y: Math.min(82, Math.max(18, 20 + ((Math.abs(s.lat) % 8) * 8) + Math.cos(t * 0.7 + i * 0.9) * 2.2)),
-            type: s.status === 'AT_BORDER' ? 'warning' : s.status === 'IN_TRANSIT' ? 'primary' : 'secondary',
-            label: s.vehicleReg,
-          }));
           this.liveOnTimePct = summary.onTimePct;
           this.cdr.markForCheck();
         });
-      return;
     }
-
-    this.mapPins = this.mapPinOrigins.map((p, i) => ({
-      ...p,
-      x: Math.min(88, Math.max(12, p.x + Math.sin(t * 0.8 + i * 1.1) * 2.8)),
-      y: Math.min(82, Math.max(18, p.y + Math.cos(t * 0.7 + i * 0.9) * 2.2)),
-    }));
-
-    this.liveOnTimePct = Math.min(99.4, Math.max(93.5, 96.2 + Math.sin(t * 0.4) * 1.8 + (Math.random() - 0.5) * 0.35));
-
-    this.cdr.markForCheck();
   }
 
   setPeriod(p: string): void {

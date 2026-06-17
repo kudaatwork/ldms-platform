@@ -31,7 +31,10 @@ import projectlx.billing.payments.business.auditable.impl.SubscriptionPackageSer
 import projectlx.billing.payments.business.auditable.impl.UsageChargeRecordServiceAuditableImpl;
 import projectlx.billing.payments.business.auditable.impl.WalletDepositServiceAuditableImpl;
 import projectlx.billing.payments.business.auditable.impl.WalletTransactionServiceAuditableImpl;
-import projectlx.billing.payments.business.logic.api.CurrencyManagementService;
+import projectlx.billing.payments.business.logic.api.PlatformDashboardService;
+import projectlx.billing.payments.business.logic.impl.PlatformDashboardServiceImpl;
+import projectlx.billing.payments.business.logic.support.PlatformDashboardSupport;
+import projectlx.billing.payments.repository.InvoiceRepository;
 import projectlx.billing.payments.business.logic.api.DriverExpenseReconciliationService;
 import projectlx.billing.payments.business.logic.api.InvoiceService;
 import projectlx.billing.payments.business.logic.api.PaymentService;
@@ -320,5 +323,15 @@ public class BusinessConfig {
                 walletTransactionServiceAuditable,
                 usageChargeRecordServiceAuditable,
                 platformWalletBillingServiceValidator);
+    }
+
+    @Bean
+    public PlatformDashboardSupport platformDashboardSupport(InvoiceRepository invoiceRepository) {
+        return new PlatformDashboardSupport(invoiceRepository);
+    }
+
+    @Bean
+    public PlatformDashboardService platformDashboardService(PlatformDashboardSupport platformDashboardSupport) {
+        return new PlatformDashboardServiceImpl(platformDashboardSupport);
     }
 }

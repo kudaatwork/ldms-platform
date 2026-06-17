@@ -13,9 +13,12 @@ import projectlx.trip.tracking.business.auditable.api.TripServiceAuditable;
 import projectlx.trip.tracking.business.auditable.impl.DeliveryOtpServiceAuditableImpl;
 import projectlx.trip.tracking.business.auditable.impl.TripEventServiceAuditableImpl;
 import projectlx.trip.tracking.business.auditable.impl.TripServiceAuditableImpl;
+import projectlx.trip.tracking.business.logic.api.PlatformDashboardService;
 import projectlx.trip.tracking.business.logic.api.TripLiveService;
 import projectlx.trip.tracking.business.logic.api.TripService;
 import projectlx.trip.tracking.business.logic.api.TripTelemetryIngestService;
+import projectlx.trip.tracking.business.logic.impl.PlatformDashboardServiceImpl;
+import projectlx.trip.tracking.business.logic.support.PlatformDashboardSupport;
 import projectlx.trip.tracking.business.logic.impl.TripLiveServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripTelemetryIngestServiceImpl;
@@ -49,6 +52,17 @@ import java.util.Optional;
 
 @Configuration
 public class BusinessConfig {
+
+    @Bean
+    public PlatformDashboardSupport platformDashboardSupport(TripRepository tripRepository) {
+        return new PlatformDashboardSupport(tripRepository);
+    }
+
+    @Bean
+    public PlatformDashboardService platformDashboardService(PlatformDashboardSupport platformDashboardSupport,
+                                                             MessageService messageService) {
+        return new PlatformDashboardServiceImpl(platformDashboardSupport, messageService);
+    }
 
     @Bean
     public TripServiceValidator tripServiceValidator(MessageService messageService) {
