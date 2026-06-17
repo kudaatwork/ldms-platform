@@ -59,19 +59,35 @@
     </article>
   </div>
 
-  <div class="revenue-charts lx-grid lx-grid-2 mb-lg" *ngIf="report && !loading">
-    <article class="lx-card revenue-chart">
-      <h3>Earned vs costs</h3>
-      <p>Monthly platform economics</p>
-      <div class="revenue-chart__canvas">
+  <div class="lx-chart-grid lx-grid lx-grid-2 mb-lg" *ngIf="report && !loading">
+    <article class="lx-card lx-chart-card">
+      <header class="lx-chart-card__hd">
+        <mat-icon class="lx-chart-card__icon" aria-hidden="true">bar_chart</mat-icon>
+        <div class="lx-chart-card__copy">
+          <h3>Earned vs costs</h3>
+          <p>Monthly platform economics</p>
+        </div>
+      </header>
+      <div class="lx-chart-card__body lx-chart-card__body--tall">
         <canvas baseChart [data]="revenueChartData" [options]="revenueChartOptions" type="bar"></canvas>
       </div>
     </article>
-    <article class="lx-card revenue-chart">
-      <h3>Cost breakdown</h3>
-      <p>Where platform spend goes</p>
-      <div class="revenue-chart__canvas revenue-chart__canvas--donut">
-        <canvas baseChart [data]="costDonutData" [options]="costDonutOptions" type="doughnut"></canvas>
+    <article class="lx-card lx-chart-card">
+      <header class="lx-chart-card__hd">
+        <mat-icon class="lx-chart-card__icon" aria-hidden="true">pie_chart</mat-icon>
+        <div class="lx-chart-card__copy">
+          <h3>Cost breakdown</h3>
+          <p>Where platform spend goes</p>
+        </div>
+      </header>
+      <div class="lx-chart-card__body lx-chart-card__body--donut">
+        <div class="lx-chart-card__donut-wrap">
+          <canvas baseChart [data]="costDonutData" [options]="costDonutOptions" type="doughnut"></canvas>
+          <div class="lx-chart-card__donut-center" *ngIf="costTotalCents">
+            <span class="lx-chart-card__donut-center-value">{{ formatMoney(costTotalCents) }}</span>
+            <span class="lx-chart-card__donut-center-label">Total costs</span>
+          </div>
+        </div>
       </div>
     </article>
   </div>

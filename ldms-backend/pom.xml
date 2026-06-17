@@ -61,7 +61,7 @@
         <module>ldms-fuel-expenses</module>
         <module>ldms-billing-payments</module>
         <module>ldms-notifications</module>
-        <!-- <module>ldms-messaging-bot</module> -->
+        <module>ldms-messaging-bot</module>
         <!-- <module>ldms-platform-admin</module> -->
         <!-- <module>ldms-integration</module> -->
         <!-- <module>ldms-reporting-analytics</module> -->

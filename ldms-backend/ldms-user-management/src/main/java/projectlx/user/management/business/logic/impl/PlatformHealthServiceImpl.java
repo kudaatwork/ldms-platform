@@ -62,7 +62,7 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
     public PlatformHealthResponse snapshot(Locale locale) {
         log.info("Building platform health snapshot");
 
-        List<PlatformHealthProperties.ServiceTarget> targets = properties.getServices();
+        List<PlatformHealthProperties.ServiceTarget> targets = resolveProbeTargets();
         List<ServiceHealthSnapshotDto> serviceSnapshots = targets.parallelStream()
                 .map(this::probeService)
                 .sorted(Comparator.comparing(ServiceHealthSnapshotDto::getDisplayName,
@@ -85,6 +85,97 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
         response.setInfrastructure(infrastructure);
         response.setEureka(eureka);
         return response;
+    }
+
+    /**
+     * Merges statically configured probe targets with every Eureka-registered application that is not
+     * already covered by a configured {@code eureka-name}, so the admin health dashboard reflects the
+     * full running fleet (not only the hard-coded subset).
+     */
+    private List<PlatformHealthProperties.ServiceTarget> resolveProbeTargets() {
+        List<PlatformHealthProperties.ServiceTarget> targets = new ArrayList<>(properties.getServices());
+        if (!properties.isAutoDiscoverEurekaServices()) {
+            return targets;
+        }
+
+        DiscoveryClient discoveryClient = discoveryClientProvider.getIfAvailable();
+        if (discoveryClient == null) {
+            return targets;
+        }
+
+        Set<String> monitoredEurekaNames = new LinkedHashSet<>();
+        for (PlatformHealthProperties.ServiceTarget target : targets) {
+            if (target.getEurekaName() == null || target.getEurekaName().isBlank()) {
+                continue;
+            }
+            for (ServiceInstance instance : resolveEurekaInstances(discoveryClient, target.getEurekaName())) {
+                if (instance.getServiceId() != null && !instance.getServiceId().isBlank()) {
+                    monitoredEurekaNames.add(instance.getServiceId().toLowerCase(Locale.ROOT));
+                }
+            }
+            monitoredEurekaNames.add(target.getEurekaName().trim().toLowerCase(Locale.ROOT));
+        }
+
+        for (String serviceName : discoveryClient.getServices()) {
+            if (serviceName == null || serviceName.isBlank()) {
+                continue;
+            }
+            if (monitoredEurekaNames.contains(serviceName.toLowerCase(Locale.ROOT))) {
+                continue;
+            }
+            List<ServiceInstance> instances = discoveryClient.getInstances(serviceName);
+            if (instances.isEmpty()) {
+                continue;
+            }
+            ServiceInstance primary = instances.get(0);
+            PlatformHealthProperties.ServiceTarget dynamic = new PlatformHealthProperties.ServiceTarget();
+            dynamic.setId(sanitizeServiceId(serviceName));
+            dynamic.setDisplayName(formatEurekaDisplayName(serviceName));
+            dynamic.setEurekaName(serviceName);
+            dynamic.setHost(primary.getHost());
+            dynamic.setPort(primary.getPort());
+            String managementPort = primary.getMetadata().get("management.port");
+            if (managementPort != null && !managementPort.isBlank()) {
+                try {
+                    dynamic.setManagementPort(Integer.parseInt(managementPort.trim()));
+                } catch (NumberFormatException ex) {
+                    log.debug("Invalid management.port metadata for {}: {}", serviceName, managementPort);
+                }
+            }
+            targets.add(dynamic);
+            monitoredEurekaNames.add(serviceName.toLowerCase(Locale.ROOT));
+        }
+        return targets;
+    }
+
+    private String sanitizeServiceId(String eurekaName) {
+        String normalized = eurekaName.trim().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-");
+        return normalized.replaceAll("^-+|-+$", "");
+    }
+
+    private String formatEurekaDisplayName(String eurekaName) {
+        String label = eurekaName.trim();
+        if (label.toLowerCase(Locale.ROOT).startsWith("ldms-")) {
+            label = label.substring(5);
+        }
+        if (label.toLowerCase(Locale.ROOT).endsWith("-service")) {
+            label = label.substring(0, label.length() - "-service".length());
+        }
+        String[] parts = label.split("-");
+        StringBuilder builder = new StringBuilder();
+        for (String part : parts) {
+            if (part.isBlank()) {
+                continue;
+            }
+            if (!builder.isEmpty()) {
+                builder.append(' ');
+            }
+            builder.append(part.substring(0, 1).toUpperCase(Locale.ROOT));
+            if (part.length() > 1) {
+                builder.append(part.substring(1).toLowerCase(Locale.ROOT));
+            }
+        }
+        return !builder.isEmpty() ? builder.toString() : eurekaName;
     }
 
     private ServiceHealthSnapshotDto probeService(PlatformHealthProperties.ServiceTarget target) {

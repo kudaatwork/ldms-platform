@@ -20,9 +20,13 @@ import {
   SupportTicket,
   SupportTicketCategory,
 } from '../../services/help-support.service';
+import {
+  BotChatService,
+  BotChatSession,
+} from '../../services/bot-chat.service';
 import { UserProfileService } from '../../../../core/services/user-profile.service';
 
-type HelpTab = 'overview' | 'faq' | 'ticket' | 'tickets' | 'status';
+type HelpTab = 'overview' | 'faq' | 'ticket' | 'tickets' | 'status' | 'assistant';
 
 export interface ChatThreadItem {
   id: string;
@@ -44,6 +48,7 @@ export interface ChatThreadItem {
 export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChecked {
   private readonly destroy$ = new Subject<void>();
   private readonly helpApi = inject(HelpSupportService);
+  private readonly botApi = inject(BotChatService);
   private readonly profileApi = inject(UserProfileService);
   private readonly cdr = inject(ChangeDetectorRef);
 
@@ -70,12 +75,19 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
   readonly isTyping = signal(false);
   readonly mobileShowChat = signal(false);
   readonly supportPresence = signal<'online' | 'away' | 'offline'>('offline');
+  readonly botSessions = signal<BotChatSession[]>([]);
+  readonly selectedBotSession = signal<BotChatSession | null>(null);
+  readonly botChatLoading = signal(false);
+  readonly botSending = signal(false);
+  readonly botRating = signal(false);
+  readonly botStarting = signal(false);
 
   articles: HelpArticle[] = [];
   tickets: SupportTicket[] = [];
   platformStatus: PlatformStatusSummary | null = null;
   userDisplayName = '';
   ticketReplyDraft = '';
+  botReplyDraft = '';
 
   readonly categoryFilters: { id: HelpArticleCategory | 'ALL'; label: string; icon: string }[] = [
     { id: 'ALL', label: 'All topics', icon: 'auto_awesome' },
@@ -129,6 +141,9 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
     if (tab !== 'tickets') {
       this.stopPolling();
       this.mobileShowChat.set(false);
+    }
+    if (tab === 'assistant') {
+      this.loadBotSessions();
     }
     if (tab === 'faq' && !this.selectedArticle() && this.filteredArticles.length) {
       this.openArticle(this.filteredArticles[0]);
@@ -659,5 +674,167 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
       return trimmed;
     }
     return trimmed.slice(0, max - 1) + '…';
+  }
+
+  loadBotSessions(): void {
+    this.botChatLoading.set(true);
+    this.botApi
+      .fetchMySessions()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (sessions) => {
+          this.botSessions.set(sessions);
+          if (!this.selectedBotSession() && sessions.length) {
+            this.openBotSession(sessions[0].sessionId);
+          } else {
+            this.botChatLoading.set(false);
+          }
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.loadError.set(err.message);
+          this.botChatLoading.set(false);
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  startBotChat(): void {
+    if (this.botStarting()) {
+      return;
+    }
+    this.botStarting.set(true);
+    this.botApi
+      .startSession()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (session) => {
+          this.botSessions.set([session, ...this.botSessions()]);
+          this.selectedBotSession.set(session);
+          this.botStarting.set(false);
+          this.botChatLoading.set(false);
+          this.scrollPending = true;
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.loadError.set(err.message);
+          this.botStarting.set(false);
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  openBotSession(sessionId: string): void {
+    this.botChatLoading.set(true);
+    this.botApi
+      .fetchSession(sessionId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (session) => {
+          this.selectedBotSession.set(session);
+          this.botChatLoading.set(false);
+          this.scrollPending = true;
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.loadError.set(err.message);
+          this.botChatLoading.set(false);
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  onBotReplyInput(value: string): void {
+    this.botReplyDraft = value;
+    this.cdr.markForCheck();
+  }
+
+  onBotReplyKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.sendBotReply();
+    }
+  }
+
+  sendBotReply(): void {
+    const session = this.selectedBotSession();
+    const body = this.botReplyDraft.trim();
+    if (!session || !body || this.botSending()) {
+      return;
+    }
+    this.botSending.set(true);
+    this.botApi
+      .sendMessage(session.sessionId, body)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (updated) => {
+          this.selectedBotSession.set(updated);
+          this.botReplyDraft = '';
+          this.botSending.set(false);
+          this.scrollPending = true;
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.loadError.set(err.message);
+          this.botSending.set(false);
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  rateBotChat(score: number): void {
+    const session = this.selectedBotSession();
+    if (!session || session.satisfactionScore || this.botRating()) {
+      return;
+    }
+    this.botRating.set(true);
+    this.botApi
+      .rateSession(session.sessionId, score)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (updated) => {
+          this.selectedBotSession.set(updated);
+          this.botRating.set(false);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.botRating.set(false);
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  botConversation(session: BotChatSession | null): ChatThreadItem[] {
+    if (!session?.messages?.length) {
+      return [];
+    }
+    return session.messages.map((message) => ({
+      id: message.id,
+      role: message.role === 'user' ? 'REQUESTER' : message.role === 'bot' ? 'HANDLER' : 'SYSTEM',
+      author: message.role === 'user' ? 'You' : message.role === 'bot' ? 'LDMS Assistant' : 'System',
+      at: message.sentAt,
+      body: message.body,
+      isMine: message.role === 'user',
+      dateKey: this.dateKey(message.sentAt),
+    }));
+  }
+
+  botDateGroups(session: BotChatSession | null): { dateKey: string; label: string; items: ChatThreadItem[] }[] {
+    const items = this.botConversation(session);
+    const map = new Map<string, ChatThreadItem[]>();
+    for (const item of items) {
+      const bucket = map.get(item.dateKey) ?? [];
+      bucket.push(item);
+      map.set(item.dateKey, bucket);
+    }
+    return [...map.entries()].map(([dateKey, groupItems]) => ({
+      dateKey,
+      label: this.dateLabel(groupItems[0]?.at ?? dateKey),
+      items: groupItems,
+    }));
+  }
+
+  trackBotSession(_: number, item: BotChatSession): string {
+    return item.sessionId;
   }
 }

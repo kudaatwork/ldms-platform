@@ -18,4 +18,8 @@ public interface TripLiveServiceProcessor {
     TripResponse resumeDemoSimulation(Long tripId, Locale locale, String username);
 
     SseEmitter subscribeLiveUpdates(Long tripId, Locale locale, String username);
+
+    TripResponse getLiveSnapshotBackoffice(Long tripId, Locale locale);
+
+    TripResponse getLiveSnapshotByShipmentBackoffice(Long shipmentId, Locale locale);
 }

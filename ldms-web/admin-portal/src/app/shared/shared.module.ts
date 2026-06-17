@@ -49,6 +49,7 @@ import { LxWorkspaceHeroActionsDirective } from './directives/lx-workspace-hero-
 import { LxWorkspaceHeroComponent } from './components/lx-workspace-hero/lx-workspace-hero.component';
 import { LxWorkspaceHeroStatComponent } from './components/lx-workspace-hero-stat/lx-workspace-hero-stat.component';
 import { PhoneVerificationDialogComponent } from './components/phone-verification-dialog/phone-verification-dialog.component';
+import { LxLeafletMapComponent } from './components/lx-leaflet-map/lx-leaflet-map.component';
 
 const MATERIAL_MODULES = [
   MatAutocompleteModule,
@@ -108,6 +109,7 @@ const MATERIAL_MODULES = [
     LxWorkspaceHeroComponent,
     LxWorkspaceHeroStatComponent,
     PhoneVerificationDialogComponent,
+    LxLeafletMapComponent,
   ],
   exports: [
     CommonModule,
@@ -123,6 +125,7 @@ const MATERIAL_MODULES = [
     LxWorkspaceHeroActionsDirective,
     LxWorkspaceHeroComponent,
     LxWorkspaceHeroStatComponent,
+    LxLeafletMapComponent,
     ...MATERIAL_MODULES,
   ],
 })

@@ -1,6 +1,7 @@
 target/
 *.class
 .env
+ldms-backend/ldms-messaging-bot/src/main/resources/ldms-local-dev-overrides.yml
 node_modules/
 .angular/
 build/

@@ -5,7 +5,9 @@ import { Subject, finalize, takeUntil } from 'rxjs';
 import { PlatformOpsAdminService } from '../../../../core/services/platform-ops-admin.service';
 import type { PlatformRevenueReport } from '../../../../core/services/platform-ops-mock.data';
 import { PlatformWalletAdminService } from '../../../settings/services/platform-wallet-admin.service';
-import { ensureChartJsRegistered } from '../../../dashboard/chartjs-register';
+import { ensureChartJsRegistered } from '@shared/charts/chartjs-register';
+import { LX_CHART_COLORS } from '@shared/charts/lx-chart-palettes';
+import { lxDoughnutChartOptions, lxGroupedBarChartOptions } from '@shared/charts/lx-chart-theme';
 
 @Component({
   selector: 'app-revenue-report-page',
@@ -16,42 +18,20 @@ import { ensureChartJsRegistered } from '../../../dashboard/chartjs-register';
 })
 export class RevenueReportPageComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
-  private readonly chartFont = "'Plus Jakarta Sans', sans-serif";
 
   loading = true;
   report: PlatformRevenueReport | null = null;
   selectedOrgId = signal<number | null>(null);
+  costTotalCents = 0;
 
   revenueChartData: ChartData<'bar'> = { labels: [], datasets: [] };
   costDonutData: ChartData<'doughnut'> = { labels: [], datasets: [] };
 
-  revenueChartOptions: ChartOptions<'bar'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { position: 'top', labels: { font: { family: this.chartFont, size: 11 } } } },
-    scales: {
-      x: { grid: { display: false }, ticks: { font: { family: this.chartFont, size: 11 } } },
-      y: {
-        grid: { color: 'rgba(148,163,184,0.12)' },
-        ticks: {
-          font: { family: this.chartFont, size: 11 },
-          callback: (v) => '$' + Number(v) / 100,
-        },
-      },
-    },
-  };
-
-  costDonutOptions: ChartOptions<'doughnut'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: '62%',
-    plugins: {
-      legend: {
-        position: 'right',
-        labels: { usePointStyle: true, font: { family: this.chartFont, size: 10 }, boxWidth: 8 },
-      },
-    },
-  };
+  revenueChartOptions: ChartOptions<'bar'> = lxGroupedBarChartOptions();
+  costDonutOptions: ChartOptions<'doughnut'> = lxDoughnutChartOptions({
+    cutout: '70%',
+    legendPosition: 'bottom',
+  });
 
   constructor(
     private readonly platformOps: PlatformOpsAdminService,
@@ -127,27 +107,35 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
         {
           label: 'Earned',
           data: report.earnedSeries,
-          backgroundColor: 'rgba(99, 102, 241, 0.85)',
+          backgroundColor: LX_CHART_COLORS.revenue.earned,
+          hoverBackgroundColor: LX_CHART_COLORS.revenue.earnedHover,
           borderRadius: 10,
-          maxBarThickness: 36,
+          borderSkipped: false,
+          maxBarThickness: 40,
         },
         {
           label: 'Platform costs',
           data: report.costSeries,
-          backgroundColor: 'rgba(244, 63, 94, 0.75)',
+          backgroundColor: LX_CHART_COLORS.revenue.costs,
+          hoverBackgroundColor: LX_CHART_COLORS.revenue.costsHover,
           borderRadius: 10,
-          maxBarThickness: 36,
+          borderSkipped: false,
+          maxBarThickness: 40,
         },
       ],
     };
+
+    const breakdown = report.costBreakdown;
+    this.costTotalCents = breakdown.reduce((sum, row) => sum + row.amountCents, 0);
     this.costDonutData = {
-      labels: report.costBreakdown.map((c) => c.category),
+      labels: breakdown.map((c) => c.category),
       datasets: [
         {
-          data: report.costBreakdown.map((c) => c.amountCents),
-          backgroundColor: report.costBreakdown.map((c) => c.color),
-          borderWidth: 0,
-          hoverOffset: 8,
+          data: breakdown.map((c) => c.amountCents),
+          backgroundColor: breakdown.map((c) => c.color),
+          borderWidth: 2,
+          borderColor: LX_CHART_COLORS.donutBorder,
+          hoverOffset: 10,
         },
       ],
     };

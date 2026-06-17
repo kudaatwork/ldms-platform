@@ -116,9 +116,9 @@
         </div>
 
         <button type="submit" class="lc-submit" [disabled]="loading">
-          <mat-spinner *ngIf="loading" diameter="18" style="margin-right:8px"></mat-spinner>
+          <span class="lc-spinner" *ngIf="loading" aria-hidden="true"></span>
           {{ loading ? 'Signing in...' : 'Sign in to Admin Console' }}
-          <mat-icon *ngIf="!loading" style="margin-left:4px">arrow_forward</mat-icon>
+          <mat-icon *ngIf="!loading">arrow_forward</mat-icon>
         </button>
       </form>
 
@@ -151,7 +151,7 @@
           />
         </div>
         <button type="button" class="lc-submit" [disabled]="loading" (click)="submitTwoFactor()">
-          <mat-spinner *ngIf="loading" diameter="18" style="margin-right:8px"></mat-spinner>
+          <span class="lc-spinner" *ngIf="loading" aria-hidden="true"></span>
           {{ loading ? 'Verifying…' : 'Verify and continue' }}
         </button>
         <button type="button" class="lc-back-link" (click)="backToPasswordStep()">

@@ -1,0 +1,40 @@
+<div class="lx-map-panel" [style.min-height]="minHeight">
+  <div class="lx-map-overlay">
+    <ng-content select="[lxMapOverlay]"></ng-content>
+  </div>
+
+  <div class="lx-map-float" *ngIf="showControls" (click)="$event.stopPropagation()">
+    <button type="button" class="lx-map-recenter" (click)="recenter()" title="Fit all vehicles on map">
+      <mat-icon>my_location</mat-icon>
+      Recenter
+    </button>
+
+    <div class="lx-map-float__row">
+      <div class="lx-map-zoom" role="group" aria-label="Map zoom">
+        <button type="button" class="lx-map-zoom__btn" (click)="mapZoomOut()" title="Zoom out" aria-label="Zoom out">
+          <mat-icon>remove</mat-icon>
+        </button>
+        <button type="button" class="lx-map-zoom__btn" (click)="mapZoomIn()" title="Zoom in" aria-label="Zoom in">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+
+      <div class="lx-map-style" role="group" aria-label="Map style">
+        <button type="button" class="lx-map-style__btn" [class.is-active]="mapStyle === 'standard'" (click)="setMapStyle('standard')">Standard</button>
+        <button type="button" class="lx-map-style__btn" [class.is-active]="mapStyle === 'satellite'" (click)="setMapStyle('satellite')">Satellite</button>
+        <button type="button" class="lx-map-style__btn" [class.is-active]="mapStyle === 'live'" (click)="setMapStyle('live')">Live</button>
+      </div>
+    </div>
+
+    <p class="lx-map-float__hint" *ngIf="!mapScrollEnabled">Click map to enable scroll zoom · drag to pan</p>
+  </div>
+
+  <div #mapHost class="lx-map-host" role="img" aria-label="Live corridor map" (click)="enableMapScroll()"></div>
+
+  <lx-table-loading [busy]="loading" message="Loading live positions…"></lx-table-loading>
+
+  <div class="lx-map-empty" *ngIf="!loading && !markers.length && routePoints.length < 2 && trailPoints.length < 2">
+    <mat-icon>map</mat-icon>
+    <p>{{ emptyMessage }}</p>
+  </div>
+</div>

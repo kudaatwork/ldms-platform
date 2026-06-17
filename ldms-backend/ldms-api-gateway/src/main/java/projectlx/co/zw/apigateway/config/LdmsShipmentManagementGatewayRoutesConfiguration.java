@@ -28,6 +28,11 @@ public class LdmsShipmentManagementGatewayRoutesConfiguration {
                         r -> r.order(-100)
                                 .path("/ldms-shipment-management/v1/frontend/**")
                                 .uri(uri))
+                .route(
+                        "ldms-shipment-management-backoffice",
+                        r -> r.order(-100)
+                                .path("/ldms-shipment-management/v1/backoffice/**")
+                                .uri(uri))
                 .build();
     }
 }
