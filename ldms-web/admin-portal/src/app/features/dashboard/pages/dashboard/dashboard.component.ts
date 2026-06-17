@@ -14,9 +14,13 @@ import type { KycQueueSummary } from '../../../organizations/services/organizati
 import { UsersAdminService } from '../../../users/services/users-admin.service';
 import { KycDocumentsAdminService } from '../../../kyc/services/kyc-documents-admin.service';
 import { formatWelcomeMessage } from '@core/utils/welcome-message.util';
+import { PlatformOpsAdminService } from '@core/services/platform-ops-admin.service';
+import type { PlatformCompanyOps, PlatformOpsSummary, PlatformShipmentOps } from '@core/services/platform-ops-mock.data';
+import { PlatformWalletAdminService } from '../../../settings/services/platform-wallet-admin.service';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
+  exportFormatLabel,
 } from '@shared/utils/lx-export.util';
 import { ChartData, ChartOptions } from 'chart.js';
 import { Subject, takeUntil, timer } from 'rxjs';
@@ -41,6 +45,10 @@ interface ShipmentRow {
   statusLabel: string;
   eta: string;
   progress: number;
+  organizationName?: string;
+  shipmentRef?: string;
+  organizationId?: number;
+  shipmentId?: number;
 }
 
 interface PipelineRow {
@@ -86,7 +94,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private liveTick = 0;
 
   loading = true;
+  opsLoading = true;
   kycLoading = true;
+  opsSnapshot: PlatformOpsSummary | null = null;
+  topActiveCompanies: PlatformCompanyOps[] = [];
   kycSnapshot: KycQueueSummary | null = null;
   kycStatTiles: DashboardStatTile[] = [];
   welcomeMessage = 'Welcome';
@@ -123,8 +134,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     },
     {
       label: 'Active Trips',
-      value: '38',
-      trend: '+8.7%',
+      value: '—',
+      trend: 'Cross-tenant',
       up: true,
       icon: 'local_shipping',
       iconBg: 'var(--success-light)',
@@ -133,8 +144,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     },
     {
       label: 'Invoices Due',
-      value: '$84K',
-      trend: '+5.2%',
+      value: '—',
+      trend: 'Platform-wide',
       up: true,
       icon: 'receipt',
       iconBg: 'var(--analytics-light)',
@@ -143,62 +154,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     },
   ];
 
-  shipments: ShipmentRow[] = [
-    {
-      reg: 'ZW-1234-A',
-      from: 'Harare',
-      to: 'Bulawayo',
-      status: 'transit',
-      statusLabel: 'In Transit',
-      eta: '14:30',
-      progress: 72,
-    },
-    {
-      reg: 'ZW-5678-B',
-      from: 'Mutare',
-      to: 'Beitbridge',
-      status: 'approved',
-      statusLabel: 'Approved',
-      eta: '17:00',
-      progress: 45,
-    },
-    {
-      reg: 'ZW-9012-C',
-      from: 'Gweru',
-      to: 'Harare',
-      status: 'stage1',
-      statusLabel: 'Stage 1',
-      eta: '09:00',
-      progress: 18,
-    },
-    {
-      reg: 'ZW-3456-D',
-      from: 'Masvingo',
-      to: 'Bulawayo',
-      status: 'submitted',
-      statusLabel: 'Submitted',
-      eta: '11:45',
-      progress: 88,
-    },
-    {
-      reg: 'ZW-7890-E',
-      from: 'Harare',
-      to: 'Chirundu',
-      status: 'transit',
-      statusLabel: 'In Transit',
-      eta: '16:15',
-      progress: 61,
-    },
-  ];
+  shipments: ShipmentRow[] = [];
 
   pipeline: PipelineRow[] = [];
 
-  private readonly mapPinOrigins: MapPin[] = [
-    { x: 28, y: 38, type: 'primary', label: 'ZW-1234-A' },
-    { x: 62, y: 25, type: 'secondary', label: 'ZW-5678-B' },
-    { x: 72, y: 58, type: 'warning', label: 'ZW-9012-C' },
-    { x: 18, y: 68, type: 'primary', label: 'ZW-3456-D' },
-  ];
+  private readonly mapPinOrigins: MapPin[] = [];
 
   mapPins: MapPin[] = [...this.mapPinOrigins];
 
@@ -337,6 +297,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly usersAdmin: UsersAdminService,
     private readonly kycDocuments: KycDocumentsAdminService,
     private readonly storage: StorageService,
+    private readonly platformOps: PlatformOpsAdminService,
+    private readonly walletAdmin: PlatformWalletAdminService,
   ) {}
 
   get filteredShipments(): ShipmentRow[] {
@@ -414,6 +376,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.kycLoading = false;
     }
     this.loadQuickActionCounts();
+    this.platformOps
+      .refresh()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (summary) => {
+          this.applyOpsSummary(summary);
+          this.opsLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.opsLoading = false;
+          this.cdr.markForCheck();
+        },
+      });
     timer(400, 2600)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => this.applyLiveTick());
@@ -607,6 +583,78 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
   }
 
+  private applyOpsSummary(summary: PlatformOpsSummary): void {
+    this.opsSnapshot = summary;
+    this.topActiveCompanies = [...summary.companies]
+      .sort((a, b) => b.activeShipments - a.activeShipments)
+      .slice(0, 6);
+    this.shipments = summary.liveShipments.slice(0, 8).map((s) => this.mapShipmentRow(s));
+    this.mapPinOrigins.length = 0;
+    summary.liveShipments.slice(0, 4).forEach((s, i) => {
+      this.mapPinOrigins.push({
+        x: 15 + ((s.lng + 20) % 30) * 2.2,
+        y: 20 + ((Math.abs(s.lat) % 8) * 8) + i * 2,
+        type: s.status === 'AT_BORDER' ? 'warning' : s.status === 'IN_TRANSIT' ? 'primary' : 'secondary',
+        label: s.vehicleReg,
+      });
+    });
+    this.mapPins = [...this.mapPinOrigins];
+    this.liveOnTimePct = summary.onTimePct;
+
+    this.kpiCards = this.kpiCards.map((card) => {
+      if (card.label === 'Active Trips') {
+        return {
+          ...card,
+          value: String(summary.activeTrips),
+          trend: `${summary.activeShipments} active shipments`,
+          up: summary.activeTrips > 0,
+        };
+      }
+      if (card.label === 'Invoices Due') {
+        return {
+          ...card,
+          value: this.walletAdmin.formatCents(summary.pendingInvoicesCents),
+          trend: `${summary.organizationsWithActivity} orgs active`,
+          up: true,
+        };
+      }
+      return card;
+    });
+  }
+
+  private mapShipmentRow(s: PlatformShipmentOps): ShipmentRow {
+    return {
+      reg: s.vehicleReg,
+      from: s.origin,
+      to: s.destination,
+      status: this.shipmentStatusClass(s.status),
+      statusLabel: s.statusLabel,
+      eta: s.eta,
+      progress: s.progressPct,
+      organizationName: s.organizationName,
+      shipmentRef: s.shipmentRef,
+      organizationId: s.organizationId,
+      shipmentId: s.shipmentId,
+    };
+  }
+
+  private shipmentStatusClass(status: string): string {
+    switch (status) {
+      case 'IN_TRANSIT':
+        return 'transit';
+      case 'AT_BORDER':
+        return 'stage1';
+      case 'APPROVED':
+        return 'approved';
+      case 'SUBMITTED':
+        return 'submitted';
+      case 'DELIVERED':
+        return 'approved';
+      default:
+        return 'submitted';
+    }
+  }
+
   private applyLiveTick(): void {
     this.liveTick += 1;
     const t = this.liveTick * 0.35;
@@ -615,6 +663,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
       ...k,
       spark: [...k.spark.slice(1), 18 + Math.round(Math.random() * 82)],
     }));
+
+    if (this.opsSnapshot) {
+      this.platformOps
+        .liveSummary()
+        .pipe(takeUntil(this.destroy$))
+        .subscribe((summary) => {
+          this.opsSnapshot = summary;
+          this.shipments = summary.liveShipments.slice(0, 8).map((s) => this.mapShipmentRow(s));
+          this.mapPins = summary.liveShipments.slice(0, 4).map((s, i) => ({
+            x: Math.min(88, Math.max(12, 15 + ((s.lng + 20) % 30) * 2.2 + Math.sin(t * 0.8 + i * 1.1) * 2.8)),
+            y: Math.min(82, Math.max(18, 20 + ((Math.abs(s.lat) % 8) * 8) + Math.cos(t * 0.7 + i * 0.9) * 2.2)),
+            type: s.status === 'AT_BORDER' ? 'warning' : s.status === 'IN_TRANSIT' ? 'primary' : 'secondary',
+            label: s.vehicleReg,
+          }));
+          this.liveOnTimePct = summary.onTimePct;
+          this.cdr.markForCheck();
+        });
+      return;
+    }
 
     this.mapPins = this.mapPinOrigins.map((p, i) => ({
       ...p,
@@ -698,7 +765,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
     );
     if (ok) {
-      this.snackBar.open('Exported dashboard shipments as CSV.', 'Close', {
+      this.snackBar.open(`Exported dashboard shipments as ${exportFormatLabel(format)}.`, 'Close', {
         duration: 3500,
         panelClass: ['app-snackbar-success'],
       });

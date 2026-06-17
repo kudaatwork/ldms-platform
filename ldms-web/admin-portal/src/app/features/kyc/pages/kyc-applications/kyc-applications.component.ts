@@ -8,6 +8,7 @@ import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
+  exportFormatLabel,
 } from '@shared/utils/lx-export.util';
 import type {
   KycApplicationDecisionResult,
@@ -211,7 +212,7 @@ export class KycApplicationsComponent implements OnInit, OnDestroy {
       (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
     );
     if (ok) {
-      this.snackBar.open('Exported KYC applications as CSV.', 'Close', {
+      this.snackBar.open(`Exported KYC applications as ${exportFormatLabel(format)}.`, 'Close', {
         duration: 3500,
         panelClass: ['app-snackbar-success'],
       });

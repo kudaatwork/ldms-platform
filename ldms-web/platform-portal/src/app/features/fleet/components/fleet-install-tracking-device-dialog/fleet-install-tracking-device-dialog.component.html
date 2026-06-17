@@ -83,7 +83,10 @@
             <option *ngFor="let v of assets" [ngValue]="v.id">{{ v.registration }} · {{ v.makeModel }}</option>
           </select>
         </div>
-        <div class="lx-field-hint">GPS events are matched to this vehicle's active trip.</div>
+        <div class="lx-field-hint">GPS events are matched to this vehicle's active trip. Link a vehicle to enable live ingestion.</div>
+        <div class="lx-field-error" *ngIf="hasError('fleetAssetId', 'required')">
+          Linking a vehicle is required for GPS ingest.
+        </div>
       </div>
 
       <!-- Optional driver -->
@@ -177,8 +180,8 @@
       <div>
         <strong>Device installed — save your credentials</strong>
         <p>
-          The ingest key is issued once. Copy it now; it will not be shown again. Share it only with the device or
-          driver using this tracker.
+          These credentials are tied to the selected vehicle. Copy the ingest key / topics now; they will not be shown
+          again. Configure your device to push telemetry so trip tracking can update live for this vehicle.
         </p>
       </div>
     </div>

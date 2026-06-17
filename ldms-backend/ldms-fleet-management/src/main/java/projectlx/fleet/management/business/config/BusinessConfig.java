@@ -22,6 +22,7 @@ import projectlx.fleet.management.business.logic.support.CallerOrganizationResol
 import projectlx.fleet.management.business.logic.support.FleetAssetRegistrationNotificationSupport;
 import projectlx.fleet.management.business.logic.support.FleetFileUploadHelper;
 import projectlx.fleet.management.business.logic.support.FleetOwnershipValidationSupport;
+import projectlx.fleet.management.business.logic.support.FleetShipmentAutoAllocationSupport;
 import projectlx.fleet.management.business.validator.api.FleetAssetServiceValidator;
 import projectlx.fleet.management.business.validator.api.FleetComplianceServiceValidator;
 import projectlx.fleet.management.business.validator.api.FleetDriverServiceValidator;
@@ -101,6 +102,7 @@ public class BusinessConfig {
             MessageService messageService,
             FleetAssetServiceAuditable fleetAssetServiceAuditable,
             FleetDriverRepository fleetDriverRepository,
+            FleetShipmentAutoAllocationSupport fleetShipmentAutoAllocationSupport,
             @Value("${ldms.fleet.compliance-expiring-soon-days:30}") int defaultExpiringSoonDays) {
         return new FleetAssetServiceImpl(
                 fleetAssetServiceValidator,
@@ -113,6 +115,7 @@ public class BusinessConfig {
                 messageService,
                 fleetAssetServiceAuditable,
                 fleetDriverRepository,
+                fleetShipmentAutoAllocationSupport,
                 defaultExpiringSoonDays);
     }
 

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -19,4 +20,6 @@ public class TripRouteWaypointDto {
     private BigDecimal latitude;
     private BigDecimal longitude;
     private String type;
+    private BigDecimal speedKmh;
+    private LocalDateTime recordedAt;
 }

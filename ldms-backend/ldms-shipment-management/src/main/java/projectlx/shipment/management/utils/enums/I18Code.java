@@ -30,6 +30,7 @@ public enum I18Code {
     MESSAGE_TRANSPORT_COMPANY_INVALID("shipment.transport.company.invalid"),
     MESSAGE_SHIPMENT_PENDING_FLEET_ALLOCATION("shipment.pending.fleet.allocation"),
     MESSAGE_SHIPMENT_FLEET_ALLOCATE_FORBIDDEN("shipment.fleet.allocate.forbidden"),
+    MESSAGE_SHIPMENT_FLEET_ALLOCATOR_REQUIRED("shipment.fleet.allocator.required"),
     MESSAGE_FLEET_DRIVER_ORG_MISMATCH("shipment.fleet.driver.org.mismatch"),
 
     // Border clearance

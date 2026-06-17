@@ -56,6 +56,42 @@ public class TripLiveFrontendResource {
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
+    @Auditable(action = "STOP_TRIP_DEMO_SIMULATION")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/demo-simulation/{tripId}/stop")
+    @Operation(summary = "Stop IoT demo simulation", description = "Ends corridor simulation and freezes the truck at its current position.")
+    public ResponseEntity<TripResponse> stopDemoSimulation(
+            @PathVariable Long tripId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        TripResponse response = tripLiveServiceProcessor.stopDemoSimulation(tripId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "PAUSE_TRIP_DEMO_SIMULATION")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/demo-simulation/{tripId}/pause")
+    @Operation(summary = "Halt vehicle on corridor", description = "Pauses movement while keeping simulation active — mirrors a driver break or manual stop.")
+    public ResponseEntity<TripResponse> pauseDemoSimulation(
+            @PathVariable Long tripId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        TripResponse response = tripLiveServiceProcessor.pauseDemoSimulation(tripId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "RESUME_TRIP_DEMO_SIMULATION")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/demo-simulation/{tripId}/resume")
+    @Operation(summary = "Resume corridor movement", description = "Resumes demo or telematics motion after a driver break.")
+    public ResponseEntity<TripResponse> resumeDemoSimulation(
+            @PathVariable Long tripId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        TripResponse response = tripLiveServiceProcessor.resumeDemoSimulation(tripId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
     @Auditable(action = "SUBSCRIBE_TRIP_LIVE_STREAM")
     @PreAuthorize("isAuthenticated()")
     @GetMapping(value = "/stream/{tripId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

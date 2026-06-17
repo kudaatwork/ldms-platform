@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
-import { MatRadioModule } from '@angular/material/radio';
 import { Subject, finalize, forkJoin, of, takeUntil } from 'rxjs';
 import type { DriverRosterSource, FleetDriverRow, FleetVehicleRow } from '../../models/fleet.model';
 import { FleetPortalService } from '../../services/fleet-portal.service';
@@ -24,17 +23,20 @@ type DriverRosterGroup = {
 @Component({
   selector: 'app-fleet-assign-driver-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatButtonModule, MatDialogModule, MatIconModule, MatRadioModule],
+  imports: [CommonModule, FormsModule, MatButtonModule, MatDialogModule, MatIconModule],
   templateUrl: './fleet-assign-driver-dialog.component.html',
   styleUrl: './fleet-assign-driver-dialog.component.scss',
 })
 export class FleetAssignDriverDialogComponent implements OnInit, OnDestroy {
   readonly vehicle: FleetVehicleRow;
   drivers: FleetDriverRow[] = [];
+  rosterGroups: DriverRosterGroup[] = [];
+  filteredDriverCount = 0;
   driversLoading = false;
   driversError = '';
   searchQuery = '';
-  selectedDriverId: number | 'none' | null = null;
+  /** Radio group value: `none` or `driver:{id}` */
+  selectedKey: string | null = null;
   submitting = false;
   saveError = '';
 
@@ -55,6 +57,7 @@ export class FleetAssignDriverDialogComponent implements OnInit, OnDestroy {
     const hasOrgCache = this.drivers.length > 0 && !isContracted;
     if (hasOrgCache) {
       this.prefillSelection();
+      this.rebuildRosterGroups();
       return;
     }
     this.loadDriverRoster();
@@ -79,54 +82,25 @@ export class FleetAssignDriverDialogComponent implements OnInit, OnDestroy {
       : `Assign a driver from your organisation or the contracted transporter's pool to ${this.vehicle.registration}.`;
   }
 
-  get filteredDrivers(): FleetDriverRow[] {
-    const q = this.searchQuery.trim().toLowerCase();
-    if (!q) {
-      return this.drivers;
-    }
-    return this.drivers.filter((driver) => {
-      const haystack = [
-        driver.fullName,
-        driver.phoneNumber,
-        driver.licenseNumber,
-        driver.licenseClass,
-        driver.employmentLabel,
-        driver.homeOrganizationName ?? '',
-        driver.rosterSource === 'transport_partner' ? 'transport partner' : 'organisation',
-      ]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(q);
-    });
-  }
-
-  get rosterGroups(): DriverRosterGroup[] {
-    const orgDrivers = this.filteredDrivers.filter((row) => row.rosterSource !== 'transport_partner');
-    const partnerDrivers = this.filteredDrivers.filter((row) => row.rosterSource === 'transport_partner');
-    const groups: DriverRosterGroup[] = [];
-    if (orgDrivers.length) {
-      groups.push({
-        key: 'organization',
-        label: 'Your organisation',
-        hint: 'Employed staff or drivers in your pool.',
-        drivers: orgDrivers,
-      });
-    }
-    if (partnerDrivers.length) {
-      const partnerName = this.vehicle.contractedTransporterOrganizationName?.trim() || 'Transport partner';
-      groups.push({
-        key: 'transport_partner',
-        label: partnerName,
-        hint: 'Drivers supplied by the contracted transporter — pool drivers can be allocated to any contracted vehicle.',
-        drivers: partnerDrivers,
-      });
-    }
-    return groups;
-  }
-
   get currentDriverLabel(): string {
     const name = String(this.vehicle.driverName ?? '').trim();
     return name && name !== '—' ? name : 'No driver assigned';
+  }
+
+  driverKey(driverId: number): string {
+    return `driver:${driverId}`;
+  }
+
+  trackDriver(_index: number, driver: FleetDriverRow): number {
+    return driver.id;
+  }
+
+  onSearchQueryChange(): void {
+    this.rebuildRosterGroups();
+  }
+
+  onSelectionChange(key: string): void {
+    this.selectedKey = key;
   }
 
   cancel(): void {
@@ -137,17 +111,17 @@ export class FleetAssignDriverDialogComponent implements OnInit, OnDestroy {
 
   save(): void {
     this.saveError = '';
-    if (this.selectedDriverId == null) {
+    if (this.selectedKey == null || this.selectedKey === '') {
       this.saveError = 'Select a driver from the roster, or choose Unassign.';
       return;
     }
 
     const driver =
-      this.selectedDriverId === 'none'
+      this.selectedKey === 'none'
         ? null
-        : this.drivers.find((row) => row.id === this.selectedDriverId) ?? null;
+        : this.drivers.find((row) => this.driverKey(row.id) === this.selectedKey) ?? null;
 
-    if (this.selectedDriverId !== 'none' && !driver) {
+    if (this.selectedKey !== 'none' && !driver) {
       this.saveError = 'Select a valid driver from the roster.';
       return;
     }
@@ -205,12 +179,64 @@ export class FleetAssignDriverDialogComponent implements OnInit, OnDestroy {
             this.driversError = 'No drivers found. Add drivers under the Drivers tab or ask your transport partner to register their pool.';
           }
           this.prefillSelection();
+          this.rebuildRosterGroups();
         },
         error: (err: Error) => {
           this.drivers = [];
           this.driversError = err.message ?? 'Could not load drivers.';
+          this.rebuildRosterGroups();
         },
       });
+  }
+
+  private rebuildRosterGroups(): void {
+    const filtered = this.filterDrivers(this.searchQuery);
+    this.filteredDriverCount = filtered.length;
+
+    const orgDrivers = filtered.filter((row) => row.rosterSource !== 'transport_partner');
+    const partnerDrivers = filtered.filter((row) => row.rosterSource === 'transport_partner');
+    const groups: DriverRosterGroup[] = [];
+
+    if (orgDrivers.length) {
+      groups.push({
+        key: 'organization',
+        label: 'Your organisation',
+        hint: 'Employed staff or drivers in your pool.',
+        drivers: orgDrivers,
+      });
+    }
+    if (partnerDrivers.length) {
+      const partnerName = this.vehicle.contractedTransporterOrganizationName?.trim() || 'Transport partner';
+      groups.push({
+        key: 'transport_partner',
+        label: partnerName,
+        hint: 'Drivers supplied by the contracted transporter — pool drivers can be allocated to any contracted vehicle.',
+        drivers: partnerDrivers,
+      });
+    }
+
+    this.rosterGroups = groups;
+  }
+
+  private filterDrivers(query: string): FleetDriverRow[] {
+    const q = query.trim().toLowerCase();
+    if (!q) {
+      return this.drivers;
+    }
+    return this.drivers.filter((driver) => {
+      const haystack = [
+        driver.fullName,
+        driver.phoneNumber,
+        driver.licenseNumber,
+        driver.licenseClass,
+        driver.employmentLabel,
+        driver.homeOrganizationName ?? '',
+        driver.rosterSource === 'transport_partner' ? 'transport partner' : 'organisation',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
   }
 
   private prefillSelection(): void {
@@ -218,17 +244,17 @@ export class FleetAssignDriverDialogComponent implements OnInit, OnDestroy {
     if (fleetDriverId != null && fleetDriverId > 0) {
       const byId = this.drivers.find((row) => row.id === fleetDriverId);
       if (byId) {
-        this.selectedDriverId = byId.id;
+        this.selectedKey = this.driverKey(byId.id);
         return;
       }
     }
 
     const current = String(this.vehicle.driverName ?? '').trim().toLowerCase();
     if (!current || current === '—' || current === '-') {
-      this.selectedDriverId = null;
+      this.selectedKey = null;
       return;
     }
     const match = this.drivers.find((row) => row.fullName.trim().toLowerCase() === current);
-    this.selectedDriverId = match?.id ?? null;
+    this.selectedKey = match ? this.driverKey(match.id) : null;
   }
 }

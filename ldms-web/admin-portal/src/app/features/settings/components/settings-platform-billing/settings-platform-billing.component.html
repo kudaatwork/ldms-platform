@@ -68,9 +68,28 @@
           {{ importing ? 'Importing…' : 'Import' }}
         </button>
         <button *ngIf="supportsImportExport" type="button" class="lx-btn lx-btn-ghost" (click)="downloadSampleCsv()">Sample CSV</button>
-        <button type="button" class="lx-btn lx-btn-success" (click)="exportCsv()" [disabled]="exporting">
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-export-trigger"
+          [matMenuTriggerFor]="billingExportMenu"
+          [disabled]="exporting"
+        >
           Export{{ exporting ? '…' : '' }}
         </button>
+        <mat-menu #billingExportMenu="matMenu" panelClass="lx-export-menu">
+          <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')" [disabled]="exporting">
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>Export PDF</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')" [disabled]="exporting">
+            <mat-icon>table_view</mat-icon>
+            <span>Export CSV</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')" [disabled]="exporting">
+            <mat-icon>grid_on</mat-icon>
+            <span>Export XLSX</span>
+          </button>
+        </mat-menu>
         <button
           *ngIf="activeTab === 'charges'"
           type="button"

@@ -13,6 +13,7 @@ import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
+  exportFormatLabel,
 } from '@shared/utils/lx-export.util';
 import {
   PlatformHealthAdminService,
@@ -278,7 +279,7 @@ export class SystemHealthComponent implements OnInit, OnDestroy {
       (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
     );
     if (ok) {
-      this.snackBar.open('Exported system health snapshot.', 'Close', {
+      this.snackBar.open(`Exported system health snapshot as ${exportFormatLabel(format)}.`, 'Close', {
         duration: 3500,
         panelClass: ['app-snackbar-success'],
       });

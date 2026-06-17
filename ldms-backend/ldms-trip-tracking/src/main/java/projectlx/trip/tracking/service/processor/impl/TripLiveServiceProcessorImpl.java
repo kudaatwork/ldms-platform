@@ -28,6 +28,24 @@ public class TripLiveServiceProcessorImpl implements TripLiveServiceProcessor {
     }
 
     @Override
+    public TripResponse stopDemoSimulation(Long tripId, Locale locale, String username) {
+        log.info("Processing demo simulation stop for trip {} by {}", tripId, username);
+        return tripLiveService.stopDemoSimulation(tripId, locale, username);
+    }
+
+    @Override
+    public TripResponse pauseDemoSimulation(Long tripId, Locale locale, String username) {
+        log.info("Processing demo simulation pause for trip {} by {}", tripId, username);
+        return tripLiveService.pauseDemoSimulation(tripId, locale, username);
+    }
+
+    @Override
+    public TripResponse resumeDemoSimulation(Long tripId, Locale locale, String username) {
+        log.info("Processing demo simulation resume for trip {} by {}", tripId, username);
+        return tripLiveService.resumeDemoSimulation(tripId, locale, username);
+    }
+
+    @Override
     public SseEmitter subscribeLiveUpdates(Long tripId, Locale locale, String username) {
         log.info("Opening SSE stream for trip {} by {}", tripId, username);
         return tripLiveService.subscribeLiveUpdates(tripId, locale, username);

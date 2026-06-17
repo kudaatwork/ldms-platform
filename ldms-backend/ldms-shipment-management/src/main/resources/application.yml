@@ -42,7 +42,8 @@ server:
   max-http-request-header-size: 65536
 
 jwt:
-  secret: ${JWT_SECRET:LDMS-local-dev-jwt-secret-at-least-thirty-two-chars-long}
+  # Must match ldms-authentication / ldms-config-repo `jwt.secret` (see ldms-trip-tracking application.yml).
+  secret: ${JWT_SECRET:dev-jwt-secret-change-me-please-override}
   access-token-expiration-ms: ${JWT_ACCESS_MS:900000}
   refresh-token-expiration-ms: ${JWT_REFRESH_MS:604800000}
 

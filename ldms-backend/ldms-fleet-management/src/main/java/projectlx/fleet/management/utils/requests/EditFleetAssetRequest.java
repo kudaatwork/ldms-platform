@@ -24,4 +24,5 @@ public class EditFleetAssetRequest {
     private String driverName;
     private Long fleetDriverId;
     private BigDecimal utilizationPct;
+    private BigDecimal maxSpeedKmh;
 }

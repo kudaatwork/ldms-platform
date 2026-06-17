@@ -12,6 +12,12 @@ public interface TripLiveService {
 
     TripResponse startDemoSimulation(Long tripId, Locale locale, String username);
 
+    TripResponse stopDemoSimulation(Long tripId, Locale locale, String username);
+
+    TripResponse pauseDemoSimulation(Long tripId, Locale locale, String username);
+
+    TripResponse resumeDemoSimulation(Long tripId, Locale locale, String username);
+
     SseEmitter subscribeLiveUpdates(Long tripId, Locale locale, String username);
 
     TripLiveSnapshotDto buildSnapshotFromPlan(Long tripId);

@@ -1090,6 +1090,8 @@
 
       <!-- Tracking devices -->
       <section class="flt-tracking" *ngIf="activeTab === 'tracking'">
+        <app-fleet-tracking-subnav></app-fleet-tracking-subnav>
+
         <header class="flt-section-head">
           <div>
             <h2>Device installation</h2>
@@ -1098,6 +1100,10 @@
             </p>
           </div>
           <div class="flt-section-head__actions">
+            <a routerLink="/fleet/tracking-api" class="lx-btn lx-btn-ghost lx-btn-sm">
+              <mat-icon>api</mat-icon>
+              Integration API
+            </a>
             <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openInstallDevice()" [disabled]="trackingLoading">
               <mat-icon>add</mat-icon>
               Install device
@@ -1105,37 +1111,65 @@
           </div>
         </header>
 
-        <!-- Stats bar -->
-        <div class="flt-tracking__stats lx-card" *ngIf="!trackingLoading && trackingDevices.length">
-          <article class="flt-drivers__stat">
-            <mat-icon>devices</mat-icon>
-            <div>
+        <!-- Stats palettes -->
+        <div
+          class="flt-tracking__stats"
+          *ngIf="!trackingLoading && (trackingDevices.length || ownFleet.length)"
+        >
+          <article class="flt-tracking__stat flt-tracking__stat--total">
+            <span class="flt-tracking__stat-glow" aria-hidden="true"></span>
+            <span class="flt-tracking__stat-icon"><mat-icon>devices</mat-icon></span>
+            <div class="flt-tracking__stat-copy">
               <strong>{{ trackingMetrics.total }}</strong>
-              <span>Total</span>
+              <span>Total devices</span>
             </div>
           </article>
-          <article class="flt-drivers__stat">
-            <mat-icon>check_circle</mat-icon>
-            <div>
+          <article class="flt-tracking__stat flt-tracking__stat--active">
+            <span class="flt-tracking__stat-glow" aria-hidden="true"></span>
+            <span class="flt-tracking__stat-icon"><mat-icon>check_circle</mat-icon></span>
+            <div class="flt-tracking__stat-copy">
               <strong>{{ trackingMetrics.active }}</strong>
               <span>Active</span>
             </div>
           </article>
-          <article class="flt-drivers__stat">
-            <mat-icon>smartphone</mat-icon>
-            <div>
+          <article class="flt-tracking__stat flt-tracking__stat--mobile">
+            <span class="flt-tracking__stat-glow" aria-hidden="true"></span>
+            <span class="flt-tracking__stat-icon"><mat-icon>smartphone</mat-icon></span>
+            <div class="flt-tracking__stat-copy">
               <strong>{{ trackingMetrics.mobile }}</strong>
-              <span>Mobile</span>
+              <span>Mobile phones</span>
             </div>
           </article>
-          <article class="flt-drivers__stat">
-            <mat-icon>gps_fixed</mat-icon>
-            <div>
+          <article class="flt-tracking__stat flt-tracking__stat--hardware">
+            <span class="flt-tracking__stat-glow" aria-hidden="true"></span>
+            <span class="flt-tracking__stat-icon"><mat-icon>gps_fixed</mat-icon></span>
+            <div class="flt-tracking__stat-copy">
               <strong>{{ trackingMetrics.hardware }}</strong>
-              <span>Hardware</span>
+              <span>Onboard hardware</span>
+            </div>
+          </article>
+          <article
+            class="flt-tracking__stat flt-tracking__stat--coverage"
+            [class.flt-tracking__stat--coverage-low]="trackingCoverage.missingVehicles > 0"
+            *ngIf="trackingCoverage.totalVehicles > 0"
+          >
+            <span class="flt-tracking__stat-glow" aria-hidden="true"></span>
+            <span class="flt-tracking__stat-icon"><mat-icon>verified</mat-icon></span>
+            <div class="flt-tracking__stat-copy">
+              <strong>{{ trackingCoverage.coveragePct }}%</strong>
+              <span>Fleet coverage</span>
             </div>
           </article>
         </div>
+
+        <p
+          class="flt-alert flt-alert--warning lx-card"
+          *ngIf="!trackingLoading && trackingCoverage.missingVehicles > 0"
+          role="alert"
+        >
+          <mat-icon>warning</mat-icon>
+          {{ trackingCoverage.missingVehicles }} vehicles have no ACTIVE tracking device. Install one per vehicle so trip tracking can update live.
+        </p>
 
         <!-- Search bar -->
         <div class="lx-card flt-tracking__controls" *ngIf="trackingDevices.length">

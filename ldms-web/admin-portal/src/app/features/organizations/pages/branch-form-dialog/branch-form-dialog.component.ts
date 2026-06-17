@@ -39,7 +39,10 @@ export interface BranchFormDialogResult {
 export class BranchFormDialogComponent implements OnInit {
   form: FormGroup;
   submitting = false;
+  loading = false;
   saveError: string | null = null;
+  loadError: string | null = null;
+  organizationDisplayName = '';
   organizations: Array<{ id: number; name: string }> = [];
 
   constructor(
@@ -59,16 +62,21 @@ export class BranchFormDialogComponent implements OnInit {
       phoneNumber: [row?.phoneNumber ?? '', Validators.maxLength(50)],
       headOffice: [row?.headOffice ?? false],
       active: [row?.active ?? true],
-      businessHours: ['', Validators.maxLength(200)],
+      businessHours: [row?.businessHours ?? '', Validators.maxLength(200)],
     });
 
     if (data.action === 'view') {
+      this.organizationDisplayName = row?.organizationName ?? '';
       this.form.disable();
     }
   }
 
   ngOnInit(): void {
-    if (this.data.action !== 'view') {
+    if (this.isView && this.data.row?.id) {
+      this.loadBranchDetails(this.data.row.id);
+      return;
+    }
+    if (!this.isView) {
       this.orgService.fetchOrganizationsForSelect().subscribe({
         next: (orgs) => (this.organizations = orgs),
         error: () => (this.organizations = []),
@@ -178,5 +186,48 @@ export class BranchFormDialogComponent implements OnInit {
   private optionalString(value: unknown): string | undefined {
     const s = String(value ?? '').trim();
     return s.length > 0 ? s : undefined;
+  }
+
+  private loadBranchDetails(id: number): void {
+    this.loading = true;
+    this.loadError = null;
+    this.form.disable();
+    this.orgService
+      .getBranch(id)
+      .pipe(finalize(() => (this.loading = false)))
+      .subscribe({
+        next: (row) => {
+          this.organizationDisplayName = this.displayText(row.organizationName);
+          this.patchFormFromRow(row);
+          this.form.disable();
+        },
+        error: (err: { message?: string; status?: number }) => {
+          this.loadError =
+            (err?.status === 0
+              ? 'Request failed before the server response reached the browser. Please retry.'
+              : undefined) ??
+            err?.message ??
+            'Failed to load branch details.';
+        },
+      });
+  }
+
+  private patchFormFromRow(row: BranchListRow): void {
+    this.form.patchValue({
+      organizationId: row.organizationId,
+      branchName: row.branchName,
+      branchCode: row.branchCode,
+      region: this.displayText(row.region, ''),
+      email: this.displayText(row.email, ''),
+      phoneNumber: this.displayText(row.phoneNumber, ''),
+      headOffice: row.headOffice,
+      active: row.active,
+      businessHours: row.businessHours ?? '',
+    });
+  }
+
+  private displayText(value: string | undefined | null, fallback = '—'): string {
+    const s = String(value ?? '').trim();
+    return s.length > 0 && s !== '—' ? s : fallback;
   }
 }

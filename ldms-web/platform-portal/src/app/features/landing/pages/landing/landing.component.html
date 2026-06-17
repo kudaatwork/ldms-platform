@@ -21,6 +21,7 @@
 
         <nav class="ldms-landing__nav-jump" aria-label="Page sections">
           <a class="ldms-landing__nav-jump-link" href="#ldms-platform">Platform</a>
+          <a class="ldms-landing__nav-jump-link" href="#ldms-mobile">Mobile apps</a>
           <a class="ldms-landing__nav-jump-link" href="#ldms-features">Features</a>
           <a class="ldms-landing__nav-jump-link" href="#ldms-industries">Industries</a>
           <a class="ldms-landing__nav-jump-link" href="#ldms-journey">How it works</a>
@@ -65,6 +66,7 @@
     >
       <nav class="ldms-landing__mobile-nav-links" aria-label="Mobile">
         <a class="ldms-landing__mobile-link" href="#ldms-platform" (click)="closeMobileNav()">Platform</a>
+        <a class="ldms-landing__mobile-link" href="#ldms-mobile" (click)="closeMobileNav()">Mobile apps</a>
         <a class="ldms-landing__mobile-link" href="#ldms-features" (click)="closeMobileNav()">Features</a>
         <a class="ldms-landing__mobile-link" href="#ldms-industries" (click)="closeMobileNav()">Industries</a>
         <a class="ldms-landing__mobile-link" href="#ldms-journey" (click)="closeMobileNav()">How it works</a>
@@ -104,6 +106,29 @@
             <button type="button" class="lx-btn lx-btn-secondary ldms-hero__cta-secondary" (click)="goBookDemo()">
               Book a demo
             </button>
+          </div>
+          <div class="ldms-hero__apps">
+            <p class="ldms-hero__apps-label">Take the corridor with you</p>
+            <div class="ldms-store-badges">
+              <a
+                class="ldms-store-badge"
+                [href]="appleAppStoreUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Download on the App Store"
+              >
+                <img src="images/badges/app-store-badge.svg" alt="" width="156" height="52" loading="lazy" />
+              </a>
+              <a
+                class="ldms-store-badge"
+                [href]="googlePlayStoreUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Get it on Google Play"
+              >
+                <img src="images/badges/google-play-badge.svg" alt="" width="176" height="52" loading="lazy" />
+              </a>
+            </div>
           </div>
         </div>
 
@@ -184,6 +209,111 @@
               <span class="material-icons" aria-hidden="true">arrow_forward</span>
             </button>
           </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Mobile apps -->
+    <section class="ldms-mobile ldms-reveal" id="ldms-mobile" aria-labelledby="ldms-mobile-title">
+      <div class="ldms-mobile__glow" aria-hidden="true"></div>
+      <div class="ldms-section__inner ldms-mobile__inner">
+        <div class="ldms-mobile__grid">
+          <div class="ldms-mobile__copy">
+            <p class="ldms-kicker ldms-mobile__kicker">Mobile suite</p>
+            <h2 id="ldms-mobile-title" class="ldms-section__title ldms-mobile__title">
+              Your corridor in every pocket
+            </h2>
+            <p class="ldms-section__lead ldms-mobile__lead">
+              Purpose-built Flutter apps for drivers, dispatchers, and receivers — offline-tolerant, GPS-native, and
+              wired to the same LDMS backbone as your web portal.
+            </p>
+
+            <div class="ldms-mobile__tabs" role="tablist" aria-label="Mobile applications">
+              <button
+                *ngFor="let app of mobileApps; let i = index"
+                type="button"
+                role="tab"
+                class="ldms-mobile__tab"
+                [class.ldms-mobile__tab--active]="activeMobileApp() === i"
+                [attr.aria-selected]="activeMobileApp() === i"
+                (click)="selectMobileApp(i)"
+              >
+                <span class="material-icons" aria-hidden="true">{{ app.icon }}</span>
+                <span class="ldms-mobile__tab-text">
+                  <span class="ldms-mobile__tab-name">{{ app.name }}</span>
+                  <span class="ldms-mobile__tab-tag">{{ app.tagline }}</span>
+                </span>
+              </button>
+            </div>
+
+            <ul class="ldms-mobile__features">
+              <li *ngFor="let feature of activeMobileAppData().features">
+                <span class="material-icons" aria-hidden="true">check_circle</span>
+                {{ feature }}
+              </li>
+            </ul>
+
+            <div class="ldms-mobile__download">
+              <p class="ldms-mobile__download-label">Download free on iOS &amp; Android</p>
+              <div class="ldms-store-badges ldms-store-badges--on-dark">
+                <a
+                  class="ldms-store-badge ldms-store-badge--large"
+                  [href]="appleAppStoreUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Download on the App Store"
+                >
+                  <img src="images/badges/app-store-badge.svg" alt="" width="156" height="52" loading="lazy" />
+                </a>
+                <a
+                  class="ldms-store-badge ldms-store-badge--large"
+                  [href]="googlePlayStoreUrl"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Get it on Google Play"
+                >
+                  <img src="images/badges/google-play-badge.svg" alt="" width="176" height="52" loading="lazy" />
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <div class="ldms-mobile__preview" aria-hidden="true">
+            <div class="ldms-mobile__phone">
+              <div class="ldms-mobile__phone-notch"></div>
+              <div class="ldms-mobile__screen">
+                <div class="ldms-mobile__screen-bar">
+                  <span class="ldms-mobile__screen-time">09:41</span>
+                  <span class="ldms-mobile__screen-icons">
+                    <span class="material-icons">signal_cellular_alt</span>
+                    <span class="material-icons">wifi</span>
+                    <span class="material-icons">battery_full</span>
+                  </span>
+                </div>
+                <div class="ldms-mobile__screen-content">
+                  <div
+                    class="ldms-mobile__screen-chip"
+                    [style.--app-accent]="activeMobileAppData().accent"
+                  >
+                    <span class="material-icons">{{ activeMobileAppData().icon }}</span>
+                    {{ activeMobileAppData().name }}
+                  </div>
+                  <p class="ldms-mobile__screen-title">{{ activeMobileAppData().screenTitle }}</p>
+                  <p class="ldms-mobile__screen-metric">{{ activeMobileAppData().screenMetric }}</p>
+                  <div class="ldms-mobile__screen-map">
+                    <svg viewBox="0 0 280 140" class="ldms-mobile__map-svg">
+                      <path class="ldms-mobile__map-route" d="M20,110 Q90,30 140,70 T260,40" />
+                      <circle class="ldms-mobile__map-dot" cx="140" cy="70" r="5" />
+                      <circle class="ldms-mobile__map-pulse" cx="140" cy="70" r="12" />
+                    </svg>
+                  </div>
+                  <p class="ldms-mobile__screen-status">{{ activeMobileAppData().screenStatus }}</p>
+                </div>
+              </div>
+            </div>
+            <div class="ldms-mobile__orbit ldms-mobile__orbit--a"></div>
+            <div class="ldms-mobile__orbit ldms-mobile__orbit--b"></div>
+          </div>
         </div>
       </div>
     </section>
@@ -471,6 +601,26 @@
           <button type="button" class="lx-btn lx-btn-secondary ldms-cta-band__ghost" (click)="goBookDemo()">
             Book a demo
           </button>
+          <div class="ldms-cta-band__stores">
+            <a
+              class="ldms-store-badge"
+              [href]="appleAppStoreUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Download on the App Store"
+            >
+              <img src="images/badges/app-store-badge.svg" alt="" width="140" height="47" loading="lazy" />
+            </a>
+            <a
+              class="ldms-store-badge"
+              [href]="googlePlayStoreUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Get it on Google Play"
+            >
+              <img src="images/badges/google-play-badge.svg" alt="" width="158" height="47" loading="lazy" />
+            </a>
+          </div>
         </div>
       </div>
     </section>
@@ -489,6 +639,7 @@
         <div class="ldms-footer__col">
           <h3>Product</h3>
           <a href="#ldms-features">Features</a>
+          <a href="#ldms-mobile">Mobile apps</a>
           <a href="#ldms-journey">How it works</a>
           <a routerLink="/contact">Book a demo</a>
         </div>
@@ -497,6 +648,29 @@
           <a routerLink="/auth/login">Sign in</a>
           <a routerLink="/signup">Create account</a>
           <a [href]="adminUrl + '/auth/login'" rel="noopener">Admin console</a>
+        </div>
+        <div class="ldms-footer__col ldms-footer__col--apps">
+          <h3>Mobile apps</h3>
+          <div class="ldms-footer__store-badges">
+            <a
+              class="ldms-store-badge ldms-store-badge--footer"
+              [href]="appleAppStoreUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Download on the App Store"
+            >
+              <img src="images/badges/app-store-badge.svg" alt="" width="132" height="44" loading="lazy" />
+            </a>
+            <a
+              class="ldms-store-badge ldms-store-badge--footer"
+              [href]="googlePlayStoreUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Get it on Google Play"
+            >
+              <img src="images/badges/google-play-badge.svg" alt="" width="148" height="44" loading="lazy" />
+            </a>
+          </div>
         </div>
       </div>
     </div>

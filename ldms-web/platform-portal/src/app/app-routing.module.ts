@@ -85,10 +85,13 @@ const routes: Routes = [
       },
       { path: 'billing', canActivate: [redirectBillingToSettings], children: [] },
       {
-        path: 'reports',
+        path: 'analytics',
         loadChildren: () => import('./features/reports/reports.module').then((m) => m.ReportsModule),
-        data: { breadcrumb: 'Reports' },
+        data: { breadcrumb: 'Analytics' },
       },
+      { path: 'reports', redirectTo: 'analytics/platform-usage', pathMatch: 'full' },
+      { path: 'reports/usage-charges', redirectTo: 'analytics/platform-usage', pathMatch: 'full' },
+      { path: 'reports/trip-journeys', redirectTo: 'analytics/trips', pathMatch: 'full' },
       {
         path: 'my-orders',
         loadChildren: () =>

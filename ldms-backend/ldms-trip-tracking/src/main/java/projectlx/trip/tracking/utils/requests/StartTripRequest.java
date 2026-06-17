@@ -10,6 +10,8 @@ import lombok.ToString;
 public class StartTripRequest {
 
     private Long shipmentId;
+    private Long inventoryTransferId;
+    private Long salesOrderId;
     private Long fleetDriverId;
     private Long fleetAssetId;
     private Long startedByUserId;

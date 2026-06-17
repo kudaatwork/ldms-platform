@@ -6,19 +6,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
-import projectlx.trip.tracking.business.auditable.api.TripEventServiceAuditable;
 import projectlx.trip.tracking.business.logic.api.TripTelemetryIngestService;
 import projectlx.trip.tracking.business.logic.support.TripRoutePlannerSupport;
 import projectlx.trip.tracking.business.logic.support.TripTelemetryPublisher;
 import projectlx.trip.tracking.clients.FleetManagementServiceClient;
 import projectlx.trip.tracking.model.Trip;
-import projectlx.trip.tracking.model.TripEvent;
 import projectlx.trip.tracking.model.TripRoutePlan;
 import projectlx.trip.tracking.repository.TripRepository;
 import projectlx.trip.tracking.repository.TripRoutePlanRepository;
 import projectlx.trip.tracking.utils.dtos.TripLiveSnapshotDto;
 import projectlx.trip.tracking.utils.dtos.TripRouteWaypointDto;
-import projectlx.trip.tracking.utils.enums.TripEventType;
 import projectlx.trip.tracking.utils.enums.TripStatus;
 import projectlx.trip.tracking.utils.requests.IngestTelemetryRequest;
 import projectlx.trip.tracking.utils.responses.FleetTrackingDeviceFeignResponse;
@@ -42,7 +39,6 @@ public class TripTelemetryIngestServiceImpl implements TripTelemetryIngestServic
     private final TripRepository tripRepository;
     private final TripRoutePlannerSupport routePlannerSupport;
     private final TripTelemetryPublisher telemetryPublisher;
-    private final TripEventServiceAuditable tripEventServiceAuditable;
     private final TripRoutePlanRepository tripRoutePlanRepository;
 
     // ================================================================
@@ -161,22 +157,9 @@ public class TripTelemetryIngestServiceImpl implements TripTelemetryIngestServic
         plan.setModifiedBy(INGEST_ACTOR);
         tripRoutePlanRepository.save(plan);
 
-        // STEP 8 — Build snapshot and publish
+        // STEP 8 — Build snapshot and publish (trail on route plan holds GPS history)
         TripLiveSnapshotDto snapshot = buildSnapshot(trip, plan, speedKmh, headingDeg);
         telemetryPublisher.publish(trip, snapshot);
-
-        // STEP 9 — Record CHECKPOINT trip event
-        TripEvent event = new TripEvent();
-        event.setTrip(trip);
-        event.setEventType(TripEventType.CHECKPOINT);
-        event.setEventTime(LocalDateTime.now());
-        event.setLatitude(latitude);
-        event.setLongitude(longitude);
-        event.setNotes("Telemetry checkpoint");
-        event.setEntityStatus(EntityStatus.ACTIVE);
-        event.setCreatedAt(LocalDateTime.now());
-        event.setCreatedBy(INGEST_ACTOR);
-        tripEventServiceAuditable.create(event, Locale.ENGLISH, INGEST_ACTOR);
 
         log.debug("Telemetry processed for trip id={} progress={}%",
                 trip.getId(), plan.getOverallProgressPct());
@@ -225,6 +208,11 @@ public class TripTelemetryIngestServiceImpl implements TripTelemetryIngestServic
         snapshot.setTripId(trip.getId());
         snapshot.setTripNumber(trip.getTripNumber());
         snapshot.setStatus(trip.getStatus() != null ? trip.getStatus().name() : null);
+        snapshot.setShipmentId(trip.getShipmentId());
+        snapshot.setShipmentNumber(trip.getShipmentNumber());
+        snapshot.setProductName(trip.getProductName());
+        snapshot.setProductCode(trip.getProductCode());
+        snapshot.setQuantity(trip.getQuantity());
         snapshot.setFromWarehouseName(trip.getFromWarehouseName());
         snapshot.setToWarehouseName(trip.getToWarehouseName());
         snapshot.setLatitude(plan.getCurrentLatitude());

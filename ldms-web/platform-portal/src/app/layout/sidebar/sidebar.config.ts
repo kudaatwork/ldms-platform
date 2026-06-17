@@ -73,6 +73,30 @@ export function withAuditLogNav(items: NavItem[]): NavItem[] {
   ];
 }
 
+/** Analytics hub with child routes — mirrors inventory submenu pattern. */
+export const ANALYTICS_NAV_ITEM: NavItem = {
+  label: 'Analytics',
+  route: '/analytics',
+  icon: 'insights',
+  children: [
+    { label: 'Platform usage & changes', icon: 'bar_chart', route: '/analytics/platform-usage' },
+    { label: 'Trips', icon: 'route', route: '/analytics/trips' },
+  ],
+};
+
+/** Replaces flat reports nav item with expandable Analytics submenu. */
+export function withAnalyticsNav(items: NavItem[]): NavItem[] {
+  const reportsIndex = items.findIndex((item) => item.route === '/reports' || item.route === '/analytics');
+  if (reportsIndex === -1) {
+    return items;
+  }
+  const existing = items[reportsIndex];
+  if (existing.route === ANALYTICS_NAV_ITEM.route && existing.children?.length) {
+    return items;
+  }
+  return [...items.slice(0, reportsIndex), ANALYTICS_NAV_ITEM, ...items.slice(reportsIndex + 1)];
+}
+
 /** Supplier inventory management with child routes for each workspace tab. */
 export const INVENTORY_NAV_ITEM: NavItem = {
   label: 'Inventory management',
@@ -103,6 +127,7 @@ export const FLEET_NAV_ITEM: NavItem = {
     { label: 'Drivers', icon: 'badge', route: '/fleet/drivers' },
     { label: 'Compliance', icon: 'verified', route: '/fleet/compliance' },
     { label: 'Device installation', icon: 'sensors', route: '/fleet/tracking' },
+    { label: 'Integration API', icon: 'api', route: '/fleet/tracking-api' },
   ],
 };
 
@@ -114,6 +139,7 @@ export const SHIPMENT_MANAGEMENT_NAV_ITEM: NavItem = {
   children: [
     { label: 'Shipments', icon: 'inventory_2', route: '/shipments/shipments' },
     { label: 'Trips', icon: 'route', route: '/shipments/trips' },
+    { label: 'Trip history', icon: 'history', route: '/shipments/history' },
     { label: 'Border clearance', icon: 'fact_check', route: '/shipments/clearances' },
   ],
 };
@@ -295,7 +321,7 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
     { label: 'Customers', route: '/customers', icon: 'groups' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
     { label: 'Billing', route: '/settings', icon: 'receipt_long', queryParams: { section: 'billing' } },
-    { label: 'Reports', route: '/reports', icon: 'analytics' },
+    { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
   CUSTOMER: [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
@@ -310,7 +336,7 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
     { ...FLEET_NAV_ITEM, label: 'Fleet & Transport', children: [...(FLEET_NAV_ITEM.children ?? [])] },
     { label: 'Invoices', route: '/invoices', icon: 'request_quote' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
-    { label: 'Reports', route: '/reports', icon: 'analytics' },
+    { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
   TRANSPORT_COMPANY: [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
@@ -321,7 +347,7 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
     },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
     { label: 'Billing', route: '/settings', icon: 'receipt_long', queryParams: { section: 'billing' } },
-    { label: 'Reports', route: '/reports', icon: 'analytics' },
+    { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
   CLEARING_AGENT: [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
@@ -331,26 +357,26 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
     },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
     { label: 'Billing', route: '/settings', icon: 'receipt_long', queryParams: { section: 'billing' } },
-    { label: 'Reports', route: '/reports', icon: 'analytics' },
+    { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
   SERVICE_STATION: [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
     { label: 'Truck Visits', route: '/truck-visits', icon: 'local_gas_station' },
     { label: 'Fuel Log', route: '/fuel-log', icon: 'oil_barrel' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
-    { label: 'Reports', route: '/reports', icon: 'analytics' },
+    { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
   ROADSIDE_SUPPORT_SERVICE: [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
     { label: 'Incidents', route: '/incidents', icon: 'car_crash' },
     { label: 'Service Log', route: '/service-log', icon: 'build' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
-    { label: 'Reports', route: '/reports', icon: 'analytics' },
+    { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
   GOVERNMENT_AGENCY: [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
     { label: 'Border Activity', route: '/border-activity', icon: 'border_outer' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
-    { label: 'Reports', route: '/reports', icon: 'analytics' },
+    { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
 };

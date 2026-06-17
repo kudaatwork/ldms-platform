@@ -55,6 +55,7 @@ import projectlx.user.management.business.logic.support.SupportTicketOperationsS
 import projectlx.user.management.business.logic.support.SupportTicketAssignmentService;
 import projectlx.user.management.business.validator.api.HelpSupportServiceValidator;
 import projectlx.user.management.business.validator.impl.HelpSupportServiceValidatorImpl;
+import projectlx.user.management.repository.DemoRequisitionRepository;
 import projectlx.user.management.repository.HelpArticleRepository;
 import projectlx.user.management.repository.SupportTicketMessageRepository;
 import projectlx.user.management.repository.SupportTicketRepository;
@@ -144,6 +145,7 @@ public class BusinessConfig {
     public HelpSupportService helpSupportService(HelpSupportServiceValidator helpSupportServiceValidator,
                                                  MessageService messageService,
                                                  HelpArticleRepository helpArticleRepository,
+                                                 DemoRequisitionRepository demoRequisitionRepository,
                                                  SupportTicketRepository supportTicketRepository,
                                                  UserRepository userRepository,
                                                  PlatformHealthService platformHealthService,
@@ -151,8 +153,8 @@ public class BusinessConfig {
                                                  SupportTicketOperationsSupport supportTicketOperationsSupport,
                                                  ModelMapper modelMapper) {
         return new HelpSupportServiceImpl(helpSupportServiceValidator, messageService, helpArticleRepository,
-                supportTicketRepository, userRepository, platformHealthService, supportTicketAssignmentService,
-                supportTicketOperationsSupport, modelMapper);
+                demoRequisitionRepository, supportTicketRepository, userRepository, platformHealthService,
+                supportTicketAssignmentService, supportTicketOperationsSupport, modelMapper);
     }
 
     @Bean

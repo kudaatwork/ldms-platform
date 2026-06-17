@@ -51,4 +51,8 @@ export interface CurrentUser {
   mustChangeCredentials?: boolean;
   /** Organisation user flagged to approve procurement workflow stages. */
   procurementApprover?: boolean;
+  /** Organisation user flagged to allocate fleet to shipments. */
+  shipmentFleetAllocator?: boolean;
+  /** Organisation workspace administrator (Administrator group). */
+  organizationWorkspaceAdministrator?: boolean;
 }

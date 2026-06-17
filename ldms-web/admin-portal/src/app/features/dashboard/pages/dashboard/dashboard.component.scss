@@ -740,6 +740,15 @@ html.theme-dark .dashboard-page {
       letter-spacing: -0.01em;
     }
 
+    .ship-org {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6366f1;
+      margin-top: 2px;
+    }
+
     .ship-route {
       display: flex;
       align-items: center;
@@ -1546,6 +1555,70 @@ html.theme-dark .dashboard-page {
 @keyframes pipeShimmer {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
+}
+
+.ops-accounts {
+  padding: 18px 20px;
+
+  &__hd {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+  }
+}
+
+.ops-account-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  text-decoration: none;
+  color: inherit;
+  background: linear-gradient(145deg, #fff, rgba(248, 250, 252, 0.9));
+  transition: all 0.18s ease;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--acct-accent) 40%, transparent);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--acct-accent) 14%, transparent);
+    transform: translateY(-2px);
+  }
+
+  &__name {
+    font-weight: 800;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+  }
+
+  &__meta {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--acct-accent);
+  }
+
+  &__stats {
+    display: flex;
+    gap: 12px;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #64748b;
+
+    strong {
+      color: #0f172a;
+      font-weight: 800;
+    }
+  }
 }
 
 @keyframes qaFadeIn {

@@ -1,0 +1,21 @@
+<div class="help-shell">
+  <nav class="help-shell__nav" aria-label="Help and support sections">
+    <a
+      *ngFor="let tab of tabs"
+      class="help-shell__tab"
+      [routerLink]="tab.route"
+      routerLinkActive="help-shell__tab--active"
+      [attr.aria-label]="tab.label"
+    >
+      <span class="material-icons help-shell__tab-icon" aria-hidden="true">{{ tab.icon }}</span>
+      <span class="help-shell__tab-copy">
+        <span class="help-shell__tab-label">{{ tab.label }}</span>
+        <span class="help-shell__tab-desc">{{ tab.description }}</span>
+      </span>
+      <span class="material-icons help-shell__tab-chevron" aria-hidden="true">chevron_right</span>
+    </a>
+  </nav>
+  <div class="help-shell__content">
+    <router-outlet></router-outlet>
+  </div>
+</div>

@@ -74,6 +74,7 @@ type RouteAccessRule = {
 const ROUTE_ACCESS_RULES: RouteAccessRule[] = [
   { prefix: '/account', public: true },
   { prefix: '/help', supportQueue: true },
+  { prefix: '/analytics', platformOnly: true },
   { prefix: '/settings', adminOnly: true },
   { prefix: '/system', platformOnly: true },
   { prefix: '/users/roles', modulePrefixes: ['user-management.roles'] },

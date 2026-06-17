@@ -1,7 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { ThemeService } from '../../../../core/services/theme.service';
+import { DemoRequisitionService } from '../../services/demo-requisition.service';
 
 @Component({
   selector: 'app-contact-demo',
@@ -13,11 +15,13 @@ import { ThemeService } from '../../../../core/services/theme.service';
 export class ContactDemoComponent {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
+  private readonly demoRequisition = inject(DemoRequisitionService);
   readonly theme = inject(ThemeService);
 
   readonly submitting = signal(false);
   readonly submittedOk = signal(false);
   readonly submitAttempted = signal(false);
+  readonly submitError = signal<string | null>(null);
 
   readonly form = this.fb.nonNullable.group({
     fullName: ['', [Validators.required, Validators.maxLength(200)]],
@@ -60,11 +64,23 @@ export class ContactDemoComponent {
     }
     this.submitting.set(true);
     this.submittedOk.set(false);
+    this.submitError.set(null);
+    const value = this.form.getRawValue();
     try {
-      await new Promise((r) => setTimeout(r, 650));
+      await firstValueFrom(
+        this.demoRequisition.submit({
+          fullName: value.fullName.trim(),
+          email: value.email.trim(),
+          phone: value.phone.trim(),
+          address: value.address.trim(),
+          demoRequest: value.demoRequest.trim(),
+        }),
+      );
       this.submittedOk.set(true);
       this.form.reset();
       this.submitAttempted.set(false);
+    } catch (err: unknown) {
+      this.submitError.set(err instanceof Error ? err.message : 'Could not submit your demo request.');
     } finally {
       this.submitting.set(false);
     }
@@ -76,5 +92,6 @@ export class ContactDemoComponent {
 
   prepareAnotherRequest(): void {
     this.submittedOk.set(false);
+    this.submitError.set(null);
   }
 }

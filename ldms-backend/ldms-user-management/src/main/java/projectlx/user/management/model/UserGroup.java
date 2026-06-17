@@ -40,6 +40,9 @@ public class UserGroup {
     /** When set, the group belongs to one organisation workspace; {@code null} = platform-wide (admin portal). */
     @jakarta.persistence.Column(name = "organization_id")
     private Long organizationId;
+    /** Organisation class for workspace groups (SUPPLIER, TRANSPORT_COMPANY, etc.). */
+    @jakarta.persistence.Column(name = "organization_classification", length = 50)
+    private String organizationClassification;
     private LocalDateTime createdAt; // Timestamp when the user group was created
     private LocalDateTime updatedAt; // Timestamp when the user group was last updated
     @Enumerated(EnumType.STRING)

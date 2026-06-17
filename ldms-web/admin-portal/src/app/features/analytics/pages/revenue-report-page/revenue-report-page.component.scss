@@ -1,0 +1,185 @@
+.revenue-page {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  max-width: 1320px;
+  margin-inline: auto;
+}
+
+.revenue-kpi {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--kpi-accent);
+  }
+
+  mat-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--kpi-accent) 12%, #fff);
+    color: var(--kpi-accent);
+  }
+
+  &__val {
+    display: block;
+    font-size: 1.35rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+
+  &__lbl {
+    font-size: 12px;
+    color: #64748b;
+  }
+}
+
+.revenue-chart {
+  padding: 20px 22px;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+  }
+
+  p {
+    margin: 4px 0 14px;
+    font-size: 12px;
+    color: #64748b;
+  }
+
+  &__canvas {
+    height: 280px;
+
+    &--donut {
+      height: 300px;
+    }
+  }
+}
+
+.revenue-orgs,
+.revenue-charges {
+  padding: 20px 22px;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 800;
+  }
+
+  p {
+    margin: 4px 0 16px;
+    font-size: 12px;
+    color: #64748b;
+  }
+}
+
+.revenue-org-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover,
+  &--on {
+    border-color: color-mix(in srgb, var(--org-accent) 45%, transparent);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--org-accent) 15%, transparent);
+  }
+
+  &--on {
+    background: color-mix(in srgb, var(--org-accent) 6%, #fff);
+  }
+
+  &__name {
+    font-weight: 800;
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  &__nums {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  &__earn {
+    color: #059669;
+  }
+  &__cost {
+    color: #e11d48;
+  }
+  &__net {
+    color: #4338ca;
+  }
+
+  &__bar {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(148, 163, 184, 0.2);
+    overflow: hidden;
+  }
+
+  &__earn-bar {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--org-accent), #22c55e);
+    transition: width 0.4s ease;
+  }
+}
+
+.revenue-charge {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &__label {
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  &__meta {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
+  }
+
+  &__amt {
+    font-weight: 800;
+    color: #4338ca;
+    white-space: nowrap;
+  }
+}
+
+.revenue-charges__empty {
+  color: #94a3b8;
+  font-size: 13px;
+}

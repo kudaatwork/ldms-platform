@@ -53,6 +53,17 @@ public class FleetTrackingDeviceServiceValidatorImpl implements FleetTrackingDev
                         new String[]{}, locale));
             }
         }
+
+        // Live trip tracking ingest requires the device to be bound to a specific vehicle asset.
+        // Trip telemetry resolution uses fleet_asset_id to find an active IN_TRANSIT trip.
+        boolean tracksGps = request.getTracksGps() == null || Boolean.TRUE.equals(request.getTracksGps());
+        if (tracksGps) {
+            if (request.getFleetAssetId() == null || request.getFleetAssetId() < 1) {
+                errors.add(messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(),
+                        new String[]{"fleetAssetId"}, locale));
+            }
+        }
+
         return errors.isEmpty() ? new ValidatorDto(true, null, new ArrayList<>())
                 : new ValidatorDto(false, null, errors);
     }
@@ -73,6 +84,15 @@ public class FleetTrackingDeviceServiceValidatorImpl implements FleetTrackingDev
             errors.add(messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(),
                     new String[]{"deviceLabel"}, locale));
         }
+
+        // If the device is configured to track GPS, it must remain bound to a vehicle asset.
+        if (Boolean.TRUE.equals(request.getTracksGps())) {
+            if (request.getFleetAssetId() == null || request.getFleetAssetId() < 1) {
+                errors.add(messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(),
+                        new String[]{"fleetAssetId"}, locale));
+            }
+        }
+
         return errors.isEmpty() ? new ValidatorDto(true, null, new ArrayList<>())
                 : new ValidatorDto(false, null, errors);
     }

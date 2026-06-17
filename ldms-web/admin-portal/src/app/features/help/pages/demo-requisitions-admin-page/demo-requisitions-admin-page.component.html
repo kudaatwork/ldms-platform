@@ -1,0 +1,241 @@
+<section class="dr-page">
+  <lx-workspace-hero
+    variant="violet"
+    eyebrow="Help &amp; Support · Requisitions"
+    eyebrowIcon="event_available"
+    title="Demo requisitions"
+    lead="Every Book a demo submission from the platform portal lands here — review, contact, schedule, and close the loop."
+    hubIcon="rocket_launch"
+    [orbitIcons]="['mail', 'calendar_month', 'handshake']"
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reload()" [disabled]="loading">
+      <mat-icon aria-hidden="true">refresh</mat-icon>
+      Refresh
+    </button>
+
+    <lx-workspace-hero-stat [value]="statDisplay(requisitions.length)" label="Total requests" icon="inbox" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="statDisplay(newCount)" label="New" icon="fiber_new" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="statDisplay(activeCount)" label="In pipeline" icon="pending_actions" theme="amber"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <div class="dr-alert" *ngIf="error" role="alert">
+    <span class="material-icons" aria-hidden="true">error_outline</span>
+    {{ error }}
+    <button type="button" class="dr-alert__action" (click)="reload()">Retry</button>
+  </div>
+
+  <div class="dr-kpis" [class.dr-kpis--loading]="loading">
+    <article class="dr-kpi lx-card">
+      <span class="material-icons dr-kpi__icon dr-kpi__icon--violet" aria-hidden="true">inbox</span>
+      <div>
+        <span class="dr-kpi__value">{{ statDisplay(requisitions.length) }}</span>
+        <span class="dr-kpi__label">All requests</span>
+      </div>
+    </article>
+    <article class="dr-kpi lx-card dr-kpi--new">
+      <span class="material-icons dr-kpi__icon" aria-hidden="true">auto_awesome</span>
+      <div>
+        <span class="dr-kpi__value">{{ statDisplay(newCount) }}</span>
+        <span class="dr-kpi__label">Awaiting first contact</span>
+      </div>
+    </article>
+    <article class="dr-kpi lx-card dr-kpi--active">
+      <span class="material-icons dr-kpi__icon" aria-hidden="true">route</span>
+      <div>
+        <span class="dr-kpi__value">{{ statDisplay(activeCount) }}</span>
+        <span class="dr-kpi__label">Active pipeline</span>
+      </div>
+    </article>
+  </div>
+
+  <div class="dr-workspace" [class.dr-workspace--mobile-detail]="mobileShowDetail()">
+    <aside class="dr-inbox lx-card" [class.dr-inbox--hidden-mobile]="mobileShowDetail()">
+      <div class="dr-inbox__head">
+        <h2 class="dr-inbox__title">Inbox</h2>
+        <span class="dr-inbox__count">{{ filteredRequisitions.length }}</span>
+      </div>
+
+      <label class="dr-search">
+        <span class="material-icons" aria-hidden="true">search</span>
+        <input
+          type="search"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+          placeholder="Search name, email, reference…"
+          autocomplete="off"
+          [disabled]="loading"
+        />
+      </label>
+
+      <nav class="dr-filters" aria-label="Filter by status">
+        <button
+          type="button"
+          *ngFor="let f of statusFilters"
+          class="dr-filter"
+          [class.dr-filter--on]="statusFilter() === f.id"
+          (click)="setStatusFilter(f.id)"
+        >
+          {{ f.label }}
+        </button>
+      </nav>
+
+      <div class="dr-inbox__loading" *ngIf="loading">
+        <span class="dr-spinner" aria-hidden="true"></span>
+        Loading requisitions…
+      </div>
+
+      <div class="dr-inbox__empty" *ngIf="!loading && !filteredRequisitions.length">
+        <span class="material-icons" aria-hidden="true">event_busy</span>
+        <p>No demo requests match your filters.</p>
+      </div>
+
+      <div class="dr-inbox__list" *ngIf="!loading && filteredRequisitions.length">
+        <button
+          type="button"
+          class="dr-inbox-item"
+          *ngFor="let row of filteredRequisitions"
+          [class.dr-inbox-item--selected]="selected?.id === row.id"
+          (click)="selectRequisition(row)"
+        >
+          <span class="dr-avatar" aria-hidden="true">{{ initials(row.fullName) }}</span>
+          <span class="dr-inbox-item__body">
+            <span class="dr-inbox-item__top">
+              <span class="dr-inbox-item__name">{{ row.fullName }}</span>
+              <span [class]="statusClass(row.status)">{{ statusLabel(row.status) }}</span>
+            </span>
+            <span class="dr-inbox-item__meta">{{ row.email }}</span>
+            <span class="dr-inbox-item__foot">
+              <span class="dr-inbox-item__ref">{{ row.requisitionNumber }}</span>
+              <span class="dr-inbox-item__time">{{ relativeWhen(row.createdAt) }}</span>
+            </span>
+          </span>
+        </button>
+      </div>
+    </aside>
+
+    <section class="dr-detail lx-card" [class.dr-detail--visible-mobile]="mobileShowDetail()">
+      <div class="dr-detail__empty" *ngIf="!selected && !detailLoading">
+        <div class="dr-detail__empty-art" aria-hidden="true">
+          <span class="material-icons">touch_app</span>
+        </div>
+        <h3>Select a requisition</h3>
+        <p>Choose a demo request from the inbox to view contact details and update its status.</p>
+      </div>
+
+      <div class="dr-detail__loading" *ngIf="detailLoading">
+        <span class="dr-spinner" aria-hidden="true"></span>
+        Loading details…
+      </div>
+
+      <ng-container *ngIf="selected && !detailLoading">
+        <button type="button" class="dr-detail__back" (click)="backToList()">
+          <span class="material-icons" aria-hidden="true">arrow_back</span>
+          Back to inbox
+        </button>
+
+        <header class="dr-detail__hero">
+          <div class="dr-detail__hero-glow" aria-hidden="true"></div>
+          <div class="dr-detail__hero-main">
+            <span class="dr-avatar dr-avatar--lg" aria-hidden="true">{{ initials(selected.fullName) }}</span>
+            <div>
+              <p class="dr-detail__eyebrow">{{ selected.requisitionNumber }}</p>
+              <h2 class="dr-detail__title">{{ selected.fullName }}</h2>
+              <p class="dr-detail__sub">{{ selected.email }} · {{ selected.phone }}</p>
+            </div>
+          </div>
+          <span [class]="statusClass(selected.status)">{{ statusLabel(selected.status) }}</span>
+        </header>
+
+        <p class="dr-detail__error" *ngIf="detailError" role="alert">{{ detailError }}</p>
+
+        <div class="dr-detail__grid">
+          <article class="dr-info-card">
+            <span class="material-icons" aria-hidden="true">location_on</span>
+            <div>
+              <h3>Address</h3>
+              <p>{{ selected.address }}</p>
+            </div>
+          </article>
+          <article class="dr-info-card">
+            <span class="material-icons" aria-hidden="true">schedule</span>
+            <div>
+              <h3>Submitted</h3>
+              <p>{{ formatWhen(selected.createdAt) }}</p>
+              <span class="dr-info-card__hint">{{ relativeWhen(selected.createdAt) }}</span>
+            </div>
+          </article>
+          <article class="dr-info-card" *ngIf="selected.assignedHandlerUsername">
+            <span class="material-icons" aria-hidden="true">support_agent</span>
+            <div>
+              <h3>Handler</h3>
+              <p>{{ selected.assignedHandlerUsername }}</p>
+            </div>
+          </article>
+        </div>
+
+        <article class="dr-request-card">
+          <div class="dr-request-card__head">
+            <span class="material-icons" aria-hidden="true">chat_bubble_outline</span>
+            <h3>What they want to see</h3>
+          </div>
+          <p class="dr-request-card__body">{{ selected.demoRequest }}</p>
+        </article>
+
+        <section class="dr-actions-panel">
+          <h3 class="dr-actions-panel__title">Workflow</h3>
+          <div class="dr-actions-panel__buttons">
+            <button type="button" class="dr-action dr-action--contact" [disabled]="actionBusy" (click)="updateStatus('CONTACTED')">
+              <span class="material-icons" aria-hidden="true">call</span>
+              Mark contacted
+            </button>
+            <button type="button" class="dr-action dr-action--schedule" [disabled]="actionBusy" (click)="updateStatus('SCHEDULED')">
+              <span class="material-icons" aria-hidden="true">event</span>
+              Schedule demo
+            </button>
+            <button type="button" class="dr-action dr-action--complete" [disabled]="actionBusy" (click)="updateStatus('COMPLETED')">
+              <span class="material-icons" aria-hidden="true">check_circle</span>
+              Complete
+            </button>
+            <button type="button" class="dr-action dr-action--cancel" [disabled]="actionBusy" (click)="updateStatus('CANCELLED')">
+              <span class="material-icons" aria-hidden="true">cancel</span>
+              Cancel
+            </button>
+          </div>
+
+          <label class="dr-field">
+            <span class="dr-field__label">Scheduled date &amp; time</span>
+            <input type="datetime-local" [(ngModel)]="scheduledAtDraft" [disabled]="actionBusy" />
+          </label>
+
+          <label class="dr-field">
+            <span class="dr-field__label">Internal notes</span>
+            <textarea
+              rows="4"
+              [(ngModel)]="adminNotesDraft"
+              placeholder="Call outcomes, demo link, follow-up actions…"
+              [disabled]="actionBusy"
+            ></textarea>
+          </label>
+
+          <div class="dr-timeline" *ngIf="selected.contactedAt || selected.scheduledAt || selected.completedAt">
+            <h4>Timeline</h4>
+            <ul>
+              <li *ngIf="selected.contactedAt">
+                <span class="material-icons" aria-hidden="true">call</span>
+                Contacted · {{ formatWhen(selected.contactedAt) }}
+              </li>
+              <li *ngIf="selected.scheduledAt">
+                <span class="material-icons" aria-hidden="true">event</span>
+                Scheduled · {{ formatWhen(selected.scheduledAt) }}
+              </li>
+              <li *ngIf="selected.completedAt">
+                <span class="material-icons" aria-hidden="true">task_alt</span>
+                Completed · {{ formatWhen(selected.completedAt) }}
+              </li>
+            </ul>
+          </div>
+        </section>
+      </ng-container>
+    </section>
+  </div>
+</section>

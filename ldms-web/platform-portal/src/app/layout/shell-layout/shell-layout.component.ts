@@ -24,6 +24,7 @@ import { SessionExpiryService } from '../../core/services/session-expiry.service
 import { AuthenticatedHistoryService } from '../../core/services/authenticated-history.service';
 import { PhoneVerificationPromptService } from '../../core/services/phone-verification-prompt.service';
 import { ShellNotification, ShellNotificationService } from '../../core/services/shell-notification.service';
+import { FuelAlertMonitorService } from '../../core/services/fuel-alert-monitor.service';
 import { CurrencyContextService } from '../../core/services/currency-context.service';
 import { PlatformWalletService, type OrganizationBillingMode, type PlatformWalletSummary } from '../../core/services/platform-wallet.service';
 import { DuplexTradingModeService } from '../../core/services/duplex-trading-mode.service';
@@ -33,6 +34,7 @@ import {
   AUDIT_LOG_NAV_ITEM,
   NAV_CONFIG,
   NavItem,
+  withAnalyticsNav,
   withAuditLogNav,
   withFleetNav,
   withInventoryNav,
@@ -91,6 +93,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     private readonly authenticatedHistory: AuthenticatedHistoryService,
     private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
     private readonly shellNotifications: ShellNotificationService,
+    private readonly fuelAlertMonitor: FuelAlertMonitorService,
     private readonly currencyContext: CurrencyContextService,
     private readonly platformWallet: PlatformWalletService,
     private readonly duplexTradingMode: DuplexTradingModeService,
@@ -147,6 +150,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
           }
         });
         this.shellNotifications.refresh();
+        this.fuelAlertMonitor.resumeWatching();
       }
       this.refreshWorkspaceNav();
       this.syncChromeFromUrl();
@@ -389,6 +393,13 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
       return;
     }
     this.notificationsOpen = false;
+    if (notification.action === 'fuel-alert') {
+      if (notification.tripId) {
+        void this.router.navigate(['/shipments/live', notification.tripId]);
+      }
+      this.cdr.markForCheck();
+      return;
+    }
     this.navigateToVerificationAction(notification.action);
     this.cdr.markForCheck();
   }
@@ -567,15 +578,17 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   private workspaceNav(classification: CurrentUser['orgClassification']): NavItem[] {
     const fallback: NavItem[] = [{ label: 'Dashboard', route: '/dashboard', icon: 'dashboard' }];
-    const base = withAuditLogNav(
-      withMyOrdersNav(
-        withShipmentsNav(
-          withFleetNav(
-            withInventoryNav(
-              withUsersNavAfterDocuments(
-                withOrganizationManagementNav(
-                  classification ? (NAV_CONFIG[classification] ?? fallback) : fallback,
-                  classification ?? undefined,
+    const base = withAnalyticsNav(
+      withAuditLogNav(
+        withMyOrdersNav(
+          withShipmentsNav(
+            withFleetNav(
+              withInventoryNav(
+                withUsersNavAfterDocuments(
+                  withOrganizationManagementNav(
+                    classification ? (NAV_CONFIG[classification] ?? fallback) : fallback,
+                    classification ?? undefined,
+                  ),
                 ),
               ),
             ),
@@ -669,6 +682,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
             !child.route.startsWith('/fleet/') &&
             !child.route.startsWith('/my-orders/') &&
             !child.route.startsWith('/shipments/') &&
+            !child.route.startsWith('/analytics/') &&
             !child.route.startsWith('/organization/') &&
             url.startsWith(child.route + '/'))
         ) {

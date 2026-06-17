@@ -21,6 +21,9 @@ export function initAdminTheme(theme: ThemeService): () => void {
 /** Non-blocking: never hold bootstrap on profile/KYC HTTP (prevents frozen login UI). */
 export function initAdminSession(auth: AuthService): () => void {
   return () => {
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth')) {
+      return;
+    }
     auth.bootstrapFromStorage();
   };
 }

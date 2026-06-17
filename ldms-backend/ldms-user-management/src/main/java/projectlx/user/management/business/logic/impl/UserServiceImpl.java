@@ -39,6 +39,7 @@ import projectlx.user.management.business.logic.api.UserTypeService;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
 import projectlx.user.management.business.logic.support.PhoneVerificationSupport;
 import projectlx.user.management.business.logic.support.SmsDeliveryDisabledException;
+import projectlx.user.management.utils.support.OrganizationPortalRolePolicy;
 import projectlx.user.management.model.OtpType;
 import projectlx.user.management.business.validator.api.UserServiceValidator;
 import projectlx.user.management.clients.FileUploadServiceClient;
@@ -251,6 +252,7 @@ public class UserServiceImpl implements UserService {
         applyOrganizationKycApproverFlag(userToBeSaved, createUserRequest);
         applyOperationalIssueHandlerFlag(userToBeSaved, createUserRequest);
         applyProcurementApproverFlag(userToBeSaved, createUserRequest);
+        applyShipmentFleetAllocatorFlag(userToBeSaved, createUserRequest);
 
         if (createUserRequest.getUserTypeDetails() != null) {
 
@@ -734,6 +736,12 @@ public class UserServiceImpl implements UserService {
                     I18Code.MESSAGE_CREATE_USER_PROCUREMENT_APPROVER_REQUIRES_ORG.getCode(), new String[]{}, locale);
             return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
         }
+        if (Boolean.TRUE.equals(resolveBooleanFormFlag(editUserRequest.getShipmentFleetAllocator()))
+                && organizationWorkspaceAccessSupport.effectiveOrganizationId(userToBeEdited).isEmpty()) {
+            message = messageService.getMessage(
+                    I18Code.MESSAGE_CREATE_USER_SHIPMENT_FLEET_ALLOCATOR_REQUIRES_ORG.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
+        }
         String normalizedNewEmail = editUserRequest.getEmail() != null
                 ? editUserRequest.getEmail().trim().toLowerCase(Locale.ROOT)
                 : "";
@@ -805,6 +813,7 @@ public class UserServiceImpl implements UserService {
         applyOrganizationKycApproverFlagOnUpdate(userToBeEdited, editUserRequest);
         applyOperationalIssueHandlerFlagOnUpdate(userToBeEdited, editUserRequest);
         applyProcurementApproverFlagOnUpdate(userToBeEdited, editUserRequest);
+        applyShipmentFleetAllocatorFlagOnUpdate(userToBeEdited, editUserRequest);
 
         User userEdited = userServiceAuditable.update(userToBeEdited, locale, username);
         applyUserAddressOnUpdate(userEdited, editUserRequest, locale, username);
@@ -1763,6 +1772,39 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    public UserResponse setShipmentFleetAllocator(Long id, boolean enabled, Locale locale, String username) {
+        ValidatorDto validation = userServiceValidator.isIdValid(id, locale);
+        if (!validation.getSuccess()) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_ID_SUPPLIED_INVALID.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, validation.getErrorMessages());
+        }
+        User user = userRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElse(null);
+        if (user == null) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(404, false, message, null, null, null);
+        }
+        if (!organizationWorkspaceAccessSupport.canReadUser(username, id)) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(404, false, message, null, null, null);
+        }
+        Optional<Long> targetOrg = organizationWorkspaceAccessSupport.effectiveOrganizationId(user);
+        if (enabled && targetOrg.isEmpty()) {
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_CREATE_USER_SHIPMENT_FLEET_ALLOCATOR_REQUIRES_ORG.getCode(), new String[]{}, locale);
+            return buildUserResponseWithErrors(400, false, message, null, null, List.of(message));
+        }
+        if (targetOrg.isPresent()
+                && !organizationWorkspaceAccessSupport.canReadOrganization(username, targetOrg.get())) {
+            String message = messageService.getMessage(I18Code.MESSAGE_USER_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildUserResponse(404, false, message, null, null, null);
+        }
+        user.setShipmentFleetAllocator(enabled);
+        User saved = userServiceAuditable.update(user, locale, username);
+        String message = messageService.getMessage(I18Code.MESSAGE_USER_UPDATED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, toUserDto(saved), null, null);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale) {
 
@@ -2627,6 +2669,12 @@ public class UserServiceImpl implements UserService {
         user.setProcurementApprover(approver);
     }
 
+    private void applyShipmentFleetAllocatorFlag(User user, CreateUserRequest request) {
+        boolean allocator = Boolean.TRUE.equals(request.getShipmentFleetAllocator())
+                && request.getOrganizationId() != null;
+        user.setShipmentFleetAllocator(allocator);
+    }
+
     private void applyOrganizationKycApproverFlagOnUpdate(User user, EditUserRequest request) {
         Boolean flag = resolveOrganizationKycApproverFlag(request.getOrganizationKycApprover());
         if (flag == null) {
@@ -2657,6 +2705,16 @@ public class UserServiceImpl implements UserService {
         boolean approver = Boolean.TRUE.equals(flag)
                 && organizationWorkspaceAccessSupport.effectiveOrganizationId(user).isPresent();
         user.setProcurementApprover(approver);
+    }
+
+    private void applyShipmentFleetAllocatorFlagOnUpdate(User user, EditUserRequest request) {
+        Boolean flag = resolveBooleanFormFlag(request.getShipmentFleetAllocator());
+        if (flag == null) {
+            return;
+        }
+        boolean allocator = Boolean.TRUE.equals(flag)
+                && organizationWorkspaceAccessSupport.effectiveOrganizationId(user).isPresent();
+        user.setShipmentFleetAllocator(allocator);
     }
 
     private Boolean resolveOrganizationKycApproverFlag(String raw) {
@@ -2700,9 +2758,20 @@ public class UserServiceImpl implements UserService {
         dto.setOrganizationKycApprover(user.isOrganizationKycApprover());
         dto.setOperationalIssueHandler(user.isOperationalIssueHandler());
         dto.setProcurementApprover(user.isProcurementApprover());
+        dto.setShipmentFleetAllocator(user.isShipmentFleetAllocator());
+        dto.setOrganizationWorkspaceAdministrator(hasOrganizationAdministratorRole(user));
         dto.setPhoneVerificationDue(phoneVerificationSupport.isPhoneVerificationDue(user));
         dto.setSmsDeliveryEnabled(phoneVerificationSupport.isSmsDeliveryEnabled());
         return dto;
+    }
+
+    private boolean hasOrganizationAdministratorRole(User user) {
+        if (user == null || user.getUserGroup() == null || user.getUserGroup().getUserRoles() == null) {
+            return false;
+        }
+        return user.getUserGroup().getUserRoles().stream()
+                .filter(role -> role != null && role.getEntityStatus() != EntityStatus.DELETED)
+                .anyMatch(role -> OrganizationPortalRolePolicy.ORGANIZATION_ADMINISTRATOR.equals(role.getRole()));
     }
 
     private UserDto toUserDtoWithRelations(User user) {

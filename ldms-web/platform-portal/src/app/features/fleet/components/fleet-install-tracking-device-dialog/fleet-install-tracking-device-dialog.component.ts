@@ -333,6 +333,13 @@ export class FleetInstallTrackingDeviceDialogComponent implements OnInit, OnDest
       tracksFuel: [false],
       notes: [''],
     });
+
+    // GPS ingest requires a vehicle so we can bind ingest to the vehicle's active IN_TRANSIT trip.
+    this.syncFleetAssetValidation();
+    this.form
+      .get('tracksGps')
+      ?.valueChanges.pipe(takeUntil(this.destroy$))
+      .subscribe(() => this.syncFleetAssetValidation());
   }
 
   private prefillForm(device: FleetTrackingDeviceRow): void {
@@ -348,6 +355,8 @@ export class FleetInstallTrackingDeviceDialogComponent implements OnInit, OnDest
       tracksFuel: device.tracksFuel,
       notes: device.notes ?? '',
     });
+
+    this.syncFleetAssetValidation();
   }
 
   private watchDeviceTypeChanges(): void {
@@ -364,5 +373,18 @@ export class FleetInstallTrackingDeviceDialogComponent implements OnInit, OnDest
         }
       }
     });
+  }
+
+  private syncFleetAssetValidation(): void {
+    const fleetAssetCtrl = this.form?.get('fleetAssetId');
+    if (!fleetAssetCtrl) return;
+
+    const tracksGps = this.form.get('tracksGps')?.value === true;
+    if (tracksGps) {
+      fleetAssetCtrl.setValidators([Validators.required]);
+    } else {
+      fleetAssetCtrl.clearValidators();
+    }
+    fleetAssetCtrl.updateValueAndValidity({ emitEvent: false });
   }
 }

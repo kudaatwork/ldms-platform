@@ -75,6 +75,12 @@ const routes: Routes = [
         loadChildren: () => import('./features/help/help.module').then((m) => m.HelpModule),
         data: { breadcrumb: 'Help & Support' },
       },
+      {
+        path: 'analytics',
+        loadChildren: () =>
+          import('./features/analytics/analytics.module').then((m) => m.AnalyticsModule),
+        data: { breadcrumb: 'Analytics' },
+      },
     ],
   },
 ];

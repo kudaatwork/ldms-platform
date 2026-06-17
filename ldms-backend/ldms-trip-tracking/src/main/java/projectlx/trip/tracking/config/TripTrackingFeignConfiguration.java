@@ -7,6 +7,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import projectlx.trip.tracking.clients.FleetManagementServiceClient;
+import projectlx.trip.tracking.clients.FuelExpensesServiceClient;
 import projectlx.trip.tracking.clients.InventoryManagementServiceClient;
 import projectlx.trip.tracking.clients.OrganizationManagementServiceClient;
 import projectlx.trip.tracking.clients.ShipmentManagementServiceClient;
@@ -82,6 +83,20 @@ public class TripTrackingFeignConfiguration {
                 .forType(FleetManagementServiceClient.class, "fleet-management-service")
                 .inheritParentContext(true)
                 .contextId("trip-fleet-management-service")
+                .url(url)
+                .build();
+    }
+
+    @Bean
+    public FuelExpensesServiceClient fuelExpensesServiceClient(ApplicationContext applicationContext) {
+        Environment env = applicationContext.getEnvironment();
+        String url = LdmsFeignUrls.resolveFuelExpensesServiceBaseUrl(env);
+        log.info("Fuel expenses Feign client base URL: {} (ldms.dev.force-local-feign-clients={})",
+                url, env.getProperty("ldms.dev.force-local-feign-clients", "false"));
+        return new FeignClientBuilder(applicationContext)
+                .forType(FuelExpensesServiceClient.class, "fuel-expenses-service")
+                .inheritParentContext(true)
+                .contextId("trip-fuel-expenses-service")
                 .url(url)
                 .build();
     }

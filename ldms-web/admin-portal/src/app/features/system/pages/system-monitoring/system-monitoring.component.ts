@@ -7,6 +7,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
+  exportFormatLabel,
 } from '@shared/utils/lx-export.util';
 
 export interface MonitoringRow {
@@ -130,7 +131,7 @@ export class SystemMonitoringComponent implements OnInit {
       (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
     );
     if (ok) {
-      this.snackBar.open('Exported monitoring metrics as CSV.', 'Close', {
+      this.snackBar.open(`Exported monitoring metrics as ${exportFormatLabel(format)}.`, 'Close', {
         duration: 3500,
         panelClass: ['app-snackbar-success'],
       });

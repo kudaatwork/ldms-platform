@@ -10,6 +10,7 @@ import projectlx.shipment.management.business.logic.api.BorderClearanceCaseServi
 import projectlx.shipment.management.business.logic.api.ShipmentService;
 import projectlx.shipment.management.business.logic.support.CallerOrganizationResolver;
 import projectlx.shipment.management.business.logic.support.LogisticsNotificationRecipientResolver;
+import projectlx.shipment.management.business.logic.support.ShipmentFleetAllocatorSupport;
 import projectlx.shipment.management.business.logic.support.ShipmentMapper;
 import projectlx.shipment.management.business.validator.api.ShipmentServiceValidator;
 import projectlx.shipment.management.model.Shipment;
@@ -23,6 +24,7 @@ import projectlx.shipment.management.utils.enums.ShipmentSourceType;
 import projectlx.shipment.management.utils.enums.ShipmentStatus;
 import projectlx.shipment.management.utils.requests.AllocateShipmentRequest;
 import projectlx.shipment.management.utils.requests.AssignTransportCompanyRequest;
+import projectlx.shipment.management.utils.requests.AutoAllocateShipmentFromFleetRequest;
 import projectlx.shipment.management.utils.requests.ShipmentMultipleFiltersRequest;
 import projectlx.shipment.management.utils.requests.UpdateShipmentStatusRequest;
 import projectlx.shipment.management.utils.requests.ValidateTransporterAssignmentFeignRequest;
@@ -44,6 +46,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -56,6 +59,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final ShipmentServiceAuditable shipmentServiceAuditable;
     private final ShipmentRepository shipmentRepository;
     private final CallerOrganizationResolver callerOrganizationResolver;
+    private final ShipmentFleetAllocatorSupport shipmentFleetAllocatorSupport;
     private final RabbitTemplate rabbitTemplate;
     private final MessageService messageService;
     private final LogisticsLifecycleNotificationSupport logisticsLifecycleNotificationSupport;
@@ -218,6 +222,19 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Override
     @Transactional(readOnly = true)
     public ShipmentResponse findById(Long id, Locale locale, String username) {
+        if (isSystemUser(username)) {
+            Shipment shipment = shipmentRepository.findByIdAndEntityStatusNot(
+                    id, EntityStatus.DELETED).orElse(null);
+            if (shipment == null) {
+                return errorResponse(404, messageService.getMessage(
+                        I18Code.MESSAGE_SHIPMENT_NOT_FOUND.getCode(), new String[]{}, locale));
+            }
+            ShipmentResponse response = successResponse(200, messageService.getMessage(
+                    I18Code.MESSAGE_SHIPMENT_FIND_SUCCESS.getCode(), new String[]{}, locale));
+            response.setShipmentDto(ShipmentMapper.toDto(shipment));
+            return response;
+        }
+
         Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
         if (organizationId == null) {
             return errorResponse(400, messageService.getMessage(
@@ -444,6 +461,11 @@ public class ShipmentServiceImpl implements ShipmentService {
     @Override
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public ShipmentResponse allocateFleet(AllocateShipmentRequest request, Locale locale, String username) {
+        return doAllocateFleet(request, locale, username, true);
+    }
+
+    private ShipmentResponse doAllocateFleet(AllocateShipmentRequest request, Locale locale, String username,
+                                             boolean requireAllocatorEligibility) {
 
         // ============================================================
         // STEP 1: Validate the request
@@ -480,12 +502,23 @@ public class ShipmentServiceImpl implements ShipmentService {
         }
 
         Long transportCompanyOrganizationId = shipment.getTransportCompanyOrganizationId();
-        if (transportCompanyOrganizationId == null || !transportCompanyOrganizationId.equals(organizationId)) {
+        boolean isAssignedTransportCompany = transportCompanyOrganizationId != null
+                && transportCompanyOrganizationId.equals(organizationId);
+        boolean isShipper = organizationId.equals(shipment.getOrganizationId());
+        if (!isAssignedTransportCompany && !isShipper) {
             return errorResponse(403, messageService.getMessage(
                     I18Code.MESSAGE_SHIPMENT_FLEET_ALLOCATE_FORBIDDEN.getCode(), new String[]{}, locale));
         }
 
-        if (!isFleetDriverOwnedByOrganization(request.getFleetDriverId(), organizationId, locale)) {
+        if (requireAllocatorEligibility) {
+            Optional<String> allocatorError = shipmentFleetAllocatorSupport.validateCallerCanAllocate(username, locale);
+            if (allocatorError.isPresent()) {
+                return errorResponse(403, messageService.getMessage(
+                        I18Code.MESSAGE_SHIPMENT_FLEET_ALLOCATOR_REQUIRED.getCode(), new String[]{}, locale));
+            }
+        }
+
+        if (!isFleetDriverEligibleForAllocation(request.getFleetDriverId(), shipment, organizationId, locale)) {
             return errorResponse(400, messageService.getMessage(
                     I18Code.MESSAGE_FLEET_DRIVER_ORG_MISMATCH.getCode(), new String[]{}, locale));
         }
@@ -524,6 +557,46 @@ public class ShipmentServiceImpl implements ShipmentService {
                 I18Code.MESSAGE_SHIPMENT_ALLOCATE_SUCCESS.getCode(), new String[]{}, locale));
         response.setShipmentDto(ShipmentMapper.toDto(saved));
         return response;
+    }
+
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public ShipmentResponse autoAllocateFromFleet(AutoAllocateShipmentFromFleetRequest request, Locale locale, String username) {
+        if (request == null
+                || request.getFleetAssetId() == null
+                || request.getFleetAssetId() < 1
+                || request.getFleetDriverId() == null
+                || request.getFleetDriverId() < 1
+                || request.getAssetOrganizationId() == null
+                || request.getAssetOrganizationId() < 1) {
+            ShipmentResponse response = successResponse(200, "No fleet assignment to sync.");
+            return response;
+        }
+
+        Long transportCompanyId = resolveTransportCompanyIdForFleetAsset(
+                request.getOwnershipType(), request.getAssetOrganizationId(), request.getContractedTransporterOrganizationId());
+        if (transportCompanyId == null) {
+            ShipmentResponse response = successResponse(200, "No transport company context for fleet auto-allocation.");
+            return response;
+        }
+
+        List<Shipment> pending = shipmentRepository
+                .findByOrganizationIdAndStatusAndTransportCompanyOrganizationIdAndEntityStatusNotOrderByIdAsc(
+                        request.getAssetOrganizationId(),
+                        ShipmentStatus.PENDING_FLEET_ALLOCATION,
+                        transportCompanyId,
+                        EntityStatus.DELETED);
+        if (pending.isEmpty()) {
+            ShipmentResponse response = successResponse(200, "No shipment awaiting fleet allocation.");
+            return response;
+        }
+
+        Shipment target = pending.get(0);
+        AllocateShipmentRequest allocateRequest = new AllocateShipmentRequest();
+        allocateRequest.setShipmentId(target.getId());
+        allocateRequest.setFleetDriverId(request.getFleetDriverId());
+        allocateRequest.setFleetAssetId(request.getFleetAssetId());
+        return doAllocateFleet(allocateRequest, locale, username, false);
     }
 
     // ============================================================
@@ -779,17 +852,37 @@ public class ShipmentServiceImpl implements ShipmentService {
         return "Transport company #" + transportCompanyOrganizationId;
     }
 
-    private boolean isFleetDriverOwnedByOrganization(Long fleetDriverId, Long organizationId, Locale locale) {
-        if (fleetDriverId == null || organizationId == null) {
+    private boolean isFleetDriverEligibleForAllocation(Long fleetDriverId, Shipment shipment, Long callerOrgId, Locale locale) {
+        if (fleetDriverId == null || callerOrgId == null) {
             return false;
         }
         try {
             FleetDriverFeignResponse response = fleetManagementServiceClient.findFleetDriverById(fleetDriverId, locale);
             FleetDriverSummaryDto driver = response != null ? response.getFleetDriverDto() : null;
-            return driver != null && organizationId.equals(driver.getOrganizationId());
+            if (driver == null || driver.getOrganizationId() == null) {
+                return false;
+            }
+            Long driverOrgId = driver.getOrganizationId();
+            if (callerOrgId.equals(driverOrgId)) {
+                return true;
+            }
+            Long transportCompanyId = shipment.getTransportCompanyOrganizationId();
+            return callerOrgId.equals(shipment.getOrganizationId())
+                    && transportCompanyId != null
+                    && transportCompanyId.equals(driverOrgId);
         } catch (Exception ex) {
-            log.warn("Failed to resolve fleet driver {} for ownership check: {}", fleetDriverId, ex.getMessage());
+            log.warn("Failed to resolve fleet driver {} for allocation eligibility: {}", fleetDriverId, ex.getMessage());
             return false;
         }
+    }
+
+    private Long resolveTransportCompanyIdForFleetAsset(String ownershipTypeRaw,
+                                                        Long assetOrganizationId,
+                                                        Long contractedTransporterOrganizationId) {
+        String ownership = ownershipTypeRaw == null ? "" : ownershipTypeRaw.trim().toUpperCase();
+        if ("CONTRACTED".equals(ownership)) {
+            return contractedTransporterOrganizationId;
+        }
+        return assetOrganizationId;
     }
 }

@@ -16,7 +16,7 @@ import { Subject, debounceTime, merge, of, takeUntil } from 'rxjs';
 import { catchError, switchMap, tap } from 'rxjs/operators';
 import { DeleteConfirmDialogComponent } from '@shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { VAULT_PAGE_SIZE, VAULT_PAGE_SIZE_OPTIONS } from '@shared/constants/table-pagination';
-import { LxExportFormat, exportClientTableAsCsv } from '@shared/utils/lx-export.util';
+import { LxExportFormat, exportClientTableAsCsv, exportFormatLabel } from '@shared/utils/lx-export.util';
 import { FileUploadAdminService } from '../../../../core/services/file-upload-admin.service';
 import {
   AdminStagedDocument,
@@ -328,9 +328,10 @@ export class KycDocumentsComponent implements OnInit, OnDestroy {
       ],
       'compliance-documents-page',
       (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
+      { title: 'Compliance documents' },
     );
     if (ok) {
-      this.snackBar.open('Exported current page as CSV.', 'Close', {
+      this.snackBar.open(`Exported current page as ${exportFormatLabel(format)}.`, 'Close', {
         duration: 3500,
         panelClass: ['app-snackbar-success'],
       });

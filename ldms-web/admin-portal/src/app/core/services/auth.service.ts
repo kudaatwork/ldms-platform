@@ -1,6 +1,6 @@
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, delay, of, throwError } from 'rxjs';
+import { Observable, delay, of, throwError, TimeoutError } from 'rxjs';
 import { catchError, finalize, map, switchMap, tap, timeout } from 'rxjs/operators';
 import { CurrentUserService } from './current-user.service';
 import { environment } from '../../../environments/environment';
@@ -46,8 +46,8 @@ function rolesForEmail(email: string): string[] {
 export class AuthService {
   /** {@code /ldms-authentication/v1/auth} (dev proxy → gateway :8091). */
   private readonly authBase = ldmsApiUrl('/ldms-authentication/v1/auth');
-  private static readonly AUTH_HTTP_TIMEOUT_MS = 20_000;
-  private static readonly SESSION_REFRESH_TIMEOUT_MS = 8_000;
+  private static readonly AUTH_HTTP_TIMEOUT_MS = 30_000;
+  private static readonly SESSION_REFRESH_TIMEOUT_MS = 12_000;
 
   constructor(
     private readonly http: HttpClient,
@@ -64,9 +64,7 @@ export class AuthService {
       .pipe(
         timeout(AuthService.AUTH_HTTP_TIMEOUT_MS),
         switchMap((res) => this.completeLogin(this.requireAccessToken(res))),
-        catchError((err: HttpErrorResponse) =>
-          throwError(() => new Error(this.messageFromHttp(err))),
-        ),
+        catchError((err: unknown) => throwError(() => new Error(this.mapAuthError(err)))),
       );
   }
 
@@ -109,9 +107,7 @@ export class AuthService {
             map(() => ({ kind: 'authenticated' as const })),
           );
         }),
-        catchError((err: HttpErrorResponse) =>
-          throwError(() => new Error(this.messageFromHttp(err))),
-        ),
+        catchError((err: unknown) => throwError(() => new Error(this.mapAuthError(err)))),
       );
   }
 
@@ -124,9 +120,7 @@ export class AuthService {
       .pipe(
         timeout(AuthService.AUTH_HTTP_TIMEOUT_MS),
         switchMap((res) => this.completeLogin(this.requireAccessToken(res)).pipe(map(() => void 0))),
-        catchError((err: HttpErrorResponse) =>
-          throwError(() => new Error(this.messageFromHttp(err))),
-        ),
+        catchError((err: unknown) => throwError(() => new Error(this.mapAuthError(err)))),
       );
   }
 
@@ -246,6 +240,23 @@ export class AuthService {
         this.currentUser.syncFromStorage();
       }),
     );
+  }
+
+  private mapAuthError(err: unknown): string {
+    if (err instanceof TimeoutError) {
+      return (
+        'Sign-in timed out waiting for the authentication service. Start ldms-api-gateway (8091), ' +
+        'ldms-authentication (8083), and ldms-user-management (8086), then run the admin portal with ' +
+        '`npm start` in ldms-web/admin-portal so /ldms-* requests proxy to the gateway.'
+      );
+    }
+    if (err instanceof HttpErrorResponse) {
+      return this.messageFromHttp(err);
+    }
+    if (err instanceof Error && err.message?.trim()) {
+      return err.message;
+    }
+    return 'Login failed';
   }
 
   private messageFromHttp(err: HttpErrorResponse): string {

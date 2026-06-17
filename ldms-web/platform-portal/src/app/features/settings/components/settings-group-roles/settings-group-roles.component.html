@@ -3,6 +3,7 @@
     <div>
       <h2>Group role mapping</h2>
       <p>Select a user group, then toggle which permission roles belong to it. Changes apply immediately.</p>
+      <p class="gr-head__meta" *ngIf="orgClassificationLabel">Organisation class: {{ orgClassificationLabel }}</p>
     </div>
   </header>
 
@@ -36,6 +37,9 @@
               <span class="gr-group-card__name">{{ group.name }}</span>
               <span class="gr-group-card__badge">{{ group.roles }} roles</span>
             </div>
+            <p class="gr-group-card__class" *ngIf="group.organizationClassification">
+              {{ group.organizationClassification.replace('_', ' ') }}
+            </p>
             <p class="gr-group-card__desc">{{ group.description || 'No description' }}</p>
             <div class="gr-group-card__meta">
               <mat-icon>people</mat-icon>
@@ -67,7 +71,7 @@
 
         <lx-table-loading [busy]="loadingRoles" message="Loading role catalog..."></lx-table-loading>
 
-        <div class="gr-modules" *ngIf="!loadingRoles">
+        <div class="gr-modules" *ngIf="!loadingRoles && roleModuleGroups.length">
           @for (module of roleModuleGroups; track module.section.key) {
             <section class="gr-module">
               <header class="gr-module__head">
@@ -93,6 +97,12 @@
               </div>
             </section>
           }
+        </div>
+
+        <div class="lx-empty gr-empty" *ngIf="!loadingRoles && !roleModuleGroups.length">
+          <mat-icon class="lx-empty-icon">admin_panel_settings</mat-icon>
+          <div class="lx-empty-title">No roles in catalog</div>
+          <div class="lx-empty-sub">Permission roles could not be loaded, or none match your organisation workspace.</div>
         </div>
       </ng-container>
 

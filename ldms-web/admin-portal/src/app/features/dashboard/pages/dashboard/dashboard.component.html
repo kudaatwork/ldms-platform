@@ -5,7 +5,7 @@
     eyebrow="Operations"
     eyebrowIcon="insights"
     [title]="greetingFirstName ? ('Welcome ' + greetingFirstName) : welcomeMessage"
-    lead="Route planning, KYC queue, fulfillment metrics, and compliance at a glance."
+    lead="Cross-tenant operations — active shipments, live trips, KYC queue, and platform health at a glance."
     hubIcon="dashboard"
     [orbitIcons]="['local_shipping', 'verified_user', 'analytics']"
   >
@@ -13,7 +13,7 @@
       <button type="button" class="lx-btn lx-btn-success lx-export-trigger" [matMenuTriggerFor]="dashboardExportMenu">
         Export Snapshot
       </button>
-      <button type="button" class="lx-btn lx-btn-primary lx-btn-accent">Create Dispatch Plan</button>
+      <button type="button" class="lx-btn lx-btn-primary lx-btn-accent" routerLink="/analytics">Open analytics</button>
     </div>
   </lx-workspace-hero>
   <mat-menu #dashboardExportMenu="matMenu" panelClass="lx-export-menu">
@@ -59,6 +59,34 @@
           <button type="button" class="lx-btn lx-btn-primary is-disabled">Syncing</button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="lx-card ops-accounts mb-lg" *ngIf="opsSnapshot && !opsLoading">
+    <div class="ops-accounts__hd">
+      <div>
+        <div class="card-hdtitle">Active across all accounts</div>
+        <div class="card-hdsub">
+          {{ opsSnapshot.organizationsWithActivity }} organisations with live logistics ·
+          {{ opsSnapshot.completedThisMonth }} completed this month
+        </div>
+      </div>
+      <a class="lx-btn lx-btn-ghost lx-btn-sm" routerLink="/analytics">Drill down</a>
+    </div>
+    <div class="ops-accounts__grid">
+      <a
+        class="ops-account-tile"
+        *ngFor="let co of topActiveCompanies"
+        [routerLink]="['/analytics/companies', co.organizationId]"
+        [style.--acct-accent]="co.accent"
+      >
+        <span class="ops-account-tile__name">{{ co.organizationName }}</span>
+        <span class="ops-account-tile__meta">{{ co.classificationLabel }}</span>
+        <div class="ops-account-tile__stats">
+          <span><strong>{{ co.activeShipments }}</strong> shipments</span>
+          <span><strong>{{ co.activeTrips }}</strong> live</span>
+        </div>
+      </a>
     </div>
   </div>
 
@@ -201,17 +229,18 @@
         </div>
         <div class="card-hd__copy">
           <div class="card-hdtitle">Active Shipments</div>
-          <div class="card-hdsub">{{ shipments.length }} vehicles on route</div>
+          <div class="card-hdsub">{{ filteredShipments.length }} loads across all organisations</div>
         </div>
-        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" routerLink="/organizations">View All</button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" routerLink="/analytics">View analytics</button>
       </div>
       <ng-container *ngIf="!loading; else listSkeleton">
-        <div class="ship-row" *ngFor="let s of shipments; trackBy: trackByReg">
+        <div class="ship-row" *ngFor="let s of filteredShipments; trackBy: trackByReg">
           <div class="ship-icon" [ngClass]="'ship-icon--' + s.status">
             <mat-icon>local_shipping</mat-icon>
           </div>
           <div class="ship-info">
-            <div class="ship-reg">{{ s.reg }}</div>
+            <div class="ship-reg">{{ s.shipmentRef || s.reg }}</div>
+            <div class="ship-org" *ngIf="s.organizationName">{{ s.organizationName }}</div>
             <div class="ship-route">
               <span>{{ s.from }}</span>
               <mat-icon class="ship-route__arrow">arrow_forward</mat-icon>
@@ -252,7 +281,7 @@
         </div>
         <div class="card-hd__copy">
           <div class="card-hdtitle">Live Tracking Grid</div>
-          <div class="card-hdsub">{{ shipments.length }} active trips</div>
+          <div class="card-hdsub">{{ filteredShipments.length }} active trips</div>
         </div>
         <span class="map-live-badge">
           <span class="map-live-badge__dot"></span>

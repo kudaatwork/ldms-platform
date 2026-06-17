@@ -36,6 +36,13 @@
         <small>Live tracking</small>
       </span>
     </button>
+    <a class="trt-tabs__btn trt-tabs__btn--link" routerLink="/shipments/history" routerLinkActive="is-on">
+      <mat-icon>history</mat-icon>
+      <span class="trt-tabs__copy">
+        <span>Trip history</span>
+        <small>Replay &amp; archive</small>
+      </span>
+    </a>
   </nav>
 
   <!-- ── Error banner ── -->
@@ -59,7 +66,7 @@
         <div class="lx-controls-head">
           <div class="lx-controls-head__text">
             <h3 class="lx-controls-title">Table controls</h3>
-            <p class="lx-controls-subtitle">Search shipments, filter by status, and allocate drivers once a transfer is approved.</p>
+            <p class="lx-controls-subtitle">Search shipments, filter by status, export, and allocate drivers once a transfer is approved.</p>
           </div>
         </div>
         <div class="lx-data-toolbar">
@@ -74,6 +81,14 @@
               [disabled]="!shipmentFiltersActive()"
             >
               Reset filters
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+              [matMenuTriggerFor]="shipmentExportMenu"
+              [disabled]="shipmentExporting || !shipments.length"
+            >
+              {{ shipmentExporting ? 'Exporting…' : 'Export' }}
             </button>
           </div>
           <div class="lx-data-toolbar__search">
@@ -97,6 +112,21 @@
             </button>
           </div>
         </div>
+
+        <mat-menu #shipmentExportMenu="matMenu" panelClass="lx-export-menu">
+          <button mat-menu-item class="lx-export-option--pdf" (click)="exportShipmentsAs('pdf')" [disabled]="shipmentExporting">
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>Export PDF</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--csv" (click)="exportShipmentsAs('csv')" [disabled]="shipmentExporting">
+            <mat-icon>table_view</mat-icon>
+            <span>Export CSV</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--xlsx" (click)="exportShipmentsAs('xlsx')" [disabled]="shipmentExporting">
+            <mat-icon>grid_on</mat-icon>
+            <span>Export Excel</span>
+          </button>
+        </mat-menu>
 
         <div class="lx-filter-panel" *ngIf="shipmentFilterFieldsOpen">
           <span class="lx-filter-panel__label">Column filters</span>
@@ -215,7 +245,7 @@
         <div class="lx-controls-head">
           <div class="lx-controls-head__text">
             <h3 class="lx-controls-title">Table controls</h3>
-            <p class="lx-controls-subtitle">Search active trips, filter by status, and open live corridor tracking.</p>
+            <p class="lx-controls-subtitle">Search active trips, filter by status, export, and open live corridor tracking.</p>
           </div>
         </div>
         <div class="lx-data-toolbar">
@@ -230,6 +260,14 @@
               [disabled]="!tripFiltersActive()"
             >
               Reset filters
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+              [matMenuTriggerFor]="tripExportMenu"
+              [disabled]="tripExporting || !trips.length"
+            >
+              {{ tripExporting ? 'Exporting…' : 'Export' }}
             </button>
           </div>
           <div class="lx-data-toolbar__search">
@@ -253,6 +291,21 @@
             </button>
           </div>
         </div>
+
+        <mat-menu #tripExportMenu="matMenu" panelClass="lx-export-menu">
+          <button mat-menu-item class="lx-export-option--pdf" (click)="exportTripsAs('pdf')" [disabled]="tripExporting">
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>Export PDF</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--csv" (click)="exportTripsAs('csv')" [disabled]="tripExporting">
+            <mat-icon>table_view</mat-icon>
+            <span>Export CSV</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--xlsx" (click)="exportTripsAs('xlsx')" [disabled]="tripExporting">
+            <mat-icon>grid_on</mat-icon>
+            <span>Export Excel</span>
+          </button>
+        </mat-menu>
 
         <div class="lx-filter-panel" *ngIf="tripFilterFieldsOpen">
           <span class="lx-filter-panel__label">Column filters</span>
@@ -291,6 +344,7 @@
                 <th>Trip #</th>
                 <th>Shipment #</th>
                 <th>Route</th>
+                <th>Goods on truck</th>
                 <th>Driver</th>
                 <th>Vehicle</th>
                 <th>Status</th>
@@ -304,6 +358,9 @@
                 <td class="trt-cell-mono">{{ t.tripNumber }}</td>
                 <td class="trt-cell-mono">{{ t.shipmentNumber }}</td>
                 <td>{{ t.route }}</td>
+                <td>
+                  <span class="trt-cell-product">{{ t.cargoLabel }}</span>
+                </td>
                 <td>{{ t.driverName }}</td>
                 <td>{{ t.vehicleRegistration }}</td>
                 <td>
@@ -324,6 +381,16 @@
                   >
                     <mat-icon>near_me</mat-icon>
                     Live
+                  </button>
+                  <button
+                    type="button"
+                    class="lx-btn lx-btn-ghost lx-btn-sm"
+                    *ngIf="canReplayTrip(t)"
+                    (click)="openReplay(t)"
+                    matTooltip="Replay corridor journey"
+                  >
+                    <mat-icon>play_circle</mat-icon>
+                    Replay
                   </button>
                   <button
                     type="button"

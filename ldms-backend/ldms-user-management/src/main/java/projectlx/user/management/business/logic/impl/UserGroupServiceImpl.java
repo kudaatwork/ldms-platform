@@ -393,7 +393,7 @@ public class UserGroupServiceImpl implements UserGroupService {
         Optional<Long> workspaceOrganizationId = resolveWorkspaceOrganizationFilter(
                 username, userGroupMultipleFiltersRequest);
         if (workspaceOrganizationId.isPresent()) {
-            spec = addToSpec(workspaceOrganizationId.get(), spec, UserGroupSpecification::organizationIdEquals);
+            spec = addToSpec(workspaceOrganizationId.get(), spec, UserGroupSpecification::organizationWorkspaceVisible);
         }
 
         Page<UserGroup> result = userGroupRepository.findAll(spec, pageable);
@@ -918,6 +918,11 @@ public class UserGroupServiceImpl implements UserGroupService {
         if (groups == null || groups.isEmpty()) {
             return List.of();
         }
+        boolean hasOrgScopedAdministrator = groups.stream()
+                .anyMatch(group -> group != null
+                        && isAdministratorGroupName(group.getName())
+                        && group.getOrganizationId() != null
+                        && group.getOrganizationId() > 0);
         List<UserGroup> filtered = new ArrayList<>();
         boolean platformAdministratorAdded = false;
         for (UserGroup group : groups) {
@@ -926,13 +931,15 @@ public class UserGroupServiceImpl implements UserGroupService {
             }
             if (isAdministratorGroupName(group.getName())) {
                 Long organizationId = group.getOrganizationId();
-                if (organizationId != null && organizationId > 0) {
-                    continue;
+                if (organizationId == null || organizationId <= 0) {
+                    if (hasOrgScopedAdministrator) {
+                        continue;
+                    }
+                    if (platformAdministratorAdded) {
+                        continue;
+                    }
+                    platformAdministratorAdded = true;
                 }
-                if (platformAdministratorAdded) {
-                    continue;
-                }
-                platformAdministratorAdded = true;
             }
             filtered.add(group);
         }

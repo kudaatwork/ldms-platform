@@ -201,6 +201,25 @@ export class AppComponent implements OnInit, OnDestroy {
     },
     { label: 'Notifications', icon: 'notifications', route: '/notifications' },
     {
+      label: 'Analytics',
+      icon: 'analytics',
+      route: '/analytics',
+      children: [
+        { label: 'Shipment analytics', icon: 'local_shipping', route: '/analytics' },
+        { label: 'Platform revenue', icon: 'payments', route: '/analytics/revenue' },
+      ],
+    },
+    {
+      label: 'Help & Support',
+      icon: 'help_outline',
+      route: '/help',
+      children: [
+        { label: 'Live chat', icon: 'forum', route: '/help/live-chat' },
+        { label: 'Demo requisitions', icon: 'event_available', route: '/help/requisitions' },
+        { label: 'Bot service', icon: 'smart_toy', route: '/help/bot-service' },
+      ],
+    },
+    {
       label: 'Audit Log',
       icon: 'receipt_long',
       route: '/activity',
@@ -599,8 +618,26 @@ export class AppComponent implements OnInit, OnDestroy {
     if (url.startsWith('/settings')) {
       return 'Settings';
     }
+    if (url.startsWith('/help/requisitions')) {
+      return 'Demo requisitions';
+    }
+    if (url.startsWith('/help/bot-service')) {
+      return 'Bot service';
+    }
+    if (url.startsWith('/help/live-chat') || url.startsWith('/help/tickets')) {
+      return 'Live chat';
+    }
     if (url.startsWith('/help')) {
       return 'Help & Support';
+    }
+    if (url.startsWith('/analytics/revenue')) {
+      return 'Platform revenue';
+    }
+    if (url.startsWith('/analytics/companies')) {
+      return 'Company analytics';
+    }
+    if (url.startsWith('/analytics')) {
+      return 'Analytics';
     }
     for (const item of this.visibleNavItems.length ? this.visibleNavItems : this.allNavItems) {
       if (item.children) {
@@ -782,7 +819,16 @@ export class AppComponent implements OnInit, OnDestroy {
         fallback.push({ label: 'KYC Queue', icon: 'verified_user', route: '/kyc/applications' });
       }
       if (stored?.operationalIssueHandler) {
-        fallback.push({ label: 'Help & Support', icon: 'help_outline', route: '/help' });
+        fallback.push({
+          label: 'Help & Support',
+          icon: 'help_outline',
+          route: '/help',
+          children: [
+            { label: 'Live chat', icon: 'forum', route: '/help/live-chat' },
+            { label: 'Demo requisitions', icon: 'event_available', route: '/help/requisitions' },
+            { label: 'Bot service', icon: 'smart_toy', route: '/help/bot-service' },
+          ],
+        });
       }
       this.visibleNavItems = fallback;
     }

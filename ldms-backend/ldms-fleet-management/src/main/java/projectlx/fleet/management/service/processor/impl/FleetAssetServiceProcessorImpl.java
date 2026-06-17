@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import projectlx.fleet.management.business.logic.api.FleetAssetService;
 import projectlx.fleet.management.service.processor.api.FleetAssetServiceProcessor;
+import projectlx.fleet.management.utils.requests.AssignFleetAssetDriverRequest;
 import projectlx.fleet.management.utils.requests.CompleteFleetAssetRegistrationRequest;
 import projectlx.fleet.management.utils.requests.CreateFleetAssetRequest;
 import projectlx.fleet.management.utils.requests.EditFleetAssetRequest;
@@ -36,6 +37,12 @@ public class FleetAssetServiceProcessorImpl implements FleetAssetServiceProcesso
     }
 
     @Override
+    public FleetAssetResponse assignDriver(Long id, AssignFleetAssetDriverRequest request, Locale locale, String username) {
+        log.info("Processing assign driver on fleet asset {} for user {}", id, username);
+        return fleetAssetService.assignDriver(id, request, locale, username);
+    }
+
+    @Override
     public FleetAssetResponse delete(Long id, Locale locale, String username) {
         log.info("Processing delete fleet asset {} for user {}", id, username);
         return fleetAssetService.delete(id, locale, username);
@@ -45,5 +52,11 @@ public class FleetAssetServiceProcessorImpl implements FleetAssetServiceProcesso
     public FleetAssetResponse completeRegistration(Long id, CompleteFleetAssetRegistrationRequest request, Locale locale, String username) {
         log.info("Processing complete-registration for fleet asset {} by user {}", id, username);
         return fleetAssetService.completeRegistration(id, request, locale, username);
+    }
+
+    @Override
+    public FleetAssetResponse findByIdForSystem(Long id, Locale locale) {
+        log.info("System request to find fleet asset by id={}", id);
+        return fleetAssetService.findByIdForSystem(id, locale);
     }
 }

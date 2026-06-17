@@ -176,7 +176,7 @@ export class SettingsBillingComponent implements OnInit, OnDestroy {
   }
 
   openUsageReport(): void {
-    void this.router.navigate(['/reports/usage-charges']);
+    void this.router.navigate(['/analytics/platform-usage']);
   }
 
   formatMoney(cents: number, currencyCode?: string): string {

@@ -12,8 +12,16 @@
   <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
     <div class="lx-form-grid">
 
-      <div class="lx-field span-2">
-        <label class="lx-field-label">Organisation <span class="req" *ngIf="!isView">*</span></label>
+      <div class="lx-field span-2" *ngIf="isView">
+        <label class="lx-field-label">Organisation</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">corporate_fare</mat-icon>
+          <input [value]="organizationDisplayName || '—'" readonly tabindex="-1" aria-label="Organisation" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2" *ngIf="!isView">
+        <label class="lx-field-label">Organisation <span class="req">*</span></label>
         <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('organizationId', 'required')">
           <mat-icon class="lx-input-shell__icon">corporate_fare</mat-icon>
           <select formControlName="organizationId" aria-label="Organisation">
@@ -91,6 +99,13 @@
       </div>
 
     </div>
+
+    <p class="lx-form-error" *ngIf="loadError">
+      <mat-icon>error_outline</mat-icon>
+      <span>{{ loadError }}</span>
+    </p>
+
+    <p class="lx-form-loading" *ngIf="loading">Loading branch details…</p>
 
     <p class="lx-form-error" *ngIf="saveError">
       <mat-icon>error_outline</mat-icon>

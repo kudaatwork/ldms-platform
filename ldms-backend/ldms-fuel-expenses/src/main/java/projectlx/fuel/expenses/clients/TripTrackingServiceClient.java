@@ -1,5 +1,7 @@
 package projectlx.fuel.expenses.clients;
 
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -18,5 +20,10 @@ public interface TripTrackingServiceClient {
     @PostMapping("/ldms-trip-tracking/v1/system/trip/record-event")
     Map<String, Object> recordTripEvent(
             @RequestBody RecordTripEventFeignRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
+
+    @GetMapping("/ldms-trip-tracking/v1/system/trip/find-by-id/{id}")
+    Map<String, Object> findTripById(
+            @PathVariable("id") Long id,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
 }

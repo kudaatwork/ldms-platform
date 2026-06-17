@@ -270,6 +270,18 @@
         </div>
       </div>
 
+      <div class="lx-field">
+        <label class="lx-field-label">Max speed (km/h)</label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError(detailsForm, 'maxSpeedKmh', 'min') || hasError(detailsForm, 'maxSpeedKmh', 'max')">
+          <mat-icon class="lx-input-shell__icon">speed</mat-icon>
+          <input type="number" formControlName="maxSpeedKmh" placeholder="e.g. 80" min="20" max="200" />
+        </div>
+        <div class="lx-field-hint">Corridor speed cap for telematics alerts and simulation.</div>
+        <div class="lx-field-error" *ngIf="hasError(detailsForm, 'maxSpeedKmh', 'min') || hasError(detailsForm, 'maxSpeedKmh', 'max')">
+          Use a value between 20 and 200 km/h
+        </div>
+      </div>
+
       <!-- Optional driver assignment -->
       <div class="lx-field span-2 own-fleet-driver" formGroupName="driverAssignment">
         <div class="own-fleet-driver__head">

@@ -23,4 +23,5 @@ public class CreateFleetAssetRequest {
     private String driverName;
     private Long fleetDriverId;
     private BigDecimal utilizationPct;
+    private BigDecimal maxSpeedKmh;
 }

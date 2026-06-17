@@ -1,0 +1,104 @@
+<div class="th lx-page">
+  <lx-workspace-hero
+    variant="violet"
+    eyebrow="Shipment management"
+    eyebrowIcon="history"
+    title="Trip history"
+    lead="Search completed and archived corridor runs. Open any trip to replay the full journey on the map — play, pause, scrub, and fast-forward through every stop and GPS point."
+    hubIcon="play_circle"
+    [orbitIcons]="['route', 'speed', 'replay']"
+  >
+    <div lxWorkspaceHeroActions>
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="loading">
+        {{ loading ? 'Refreshing…' : 'Refresh' }}
+      </button>
+      <a class="lx-btn lx-btn-primary lx-btn-sm" routerLink="/shipments/trips">
+        <mat-icon>near_me</mat-icon>
+        Active trips
+      </a>
+    </div>
+    <lx-workspace-hero-stat [value]="filteredTrips.length" label="In view" icon="filter_list" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="trips.length" label="Total loaded" icon="local_shipping" theme="teal"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <div class="th-controls lx-card">
+    <div class="lx-input-shell lx-search-field">
+      <mat-icon class="lx-input-shell__icon">search</mat-icon>
+      <input
+        [(ngModel)]="search"
+        (ngModelChange)="onSearchChange()"
+        placeholder="Search trip, route, driver, vehicle, cargo…"
+        aria-label="Search trip history"
+      />
+    </div>
+    <div class="lx-input-shell th-controls__status">
+      <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
+      <select [(ngModel)]="statusFilter" (ngModelChange)="onStatusChange()" aria-label="Filter by status">
+        <option *ngFor="let opt of statusOptions" [value]="opt.value">{{ opt.label }}</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="th-error lx-card" *ngIf="error" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ error }}</span>
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()">Retry</button>
+  </div>
+
+  <div class="lx-card th-table" *ngIf="!error">
+    <lx-table-loading [busy]="loading"></lx-table-loading>
+    <div class="lx-table-wrap" *ngIf="filteredTrips.length; else emptyState">
+      <table class="lx-data-table">
+        <thead>
+          <tr>
+            <th>Trip</th>
+            <th>Route</th>
+            <th>Goods on truck</th>
+            <th>Driver / vehicle</th>
+            <th>Status</th>
+            <th>Started</th>
+            <th class="th-col-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let t of filteredTrips">
+            <td class="th-mono">
+              <strong>{{ t.tripNumber }}</strong>
+              <small>{{ t.shipmentNumber }}</small>
+            </td>
+            <td>{{ t.route }}</td>
+            <td><span class="th-cargo">{{ t.cargoLabel }}</span></td>
+            <td>
+              <span>{{ t.driverName }}</span>
+              <small>{{ t.vehicleRegistration }}</small>
+            </td>
+            <td><span class="trt-status-badge trt-status--muted">{{ t.statusLabel }}</span></td>
+            <td>{{ t.startedAtLabel }}</td>
+            <td class="th-col-actions">
+              <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openReplay(t)">
+                <mat-icon>play_circle</mat-icon>
+                Replay
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm"
+                *ngIf="t.canLiveTrack"
+                (click)="openLive(t)"
+              >
+                <mat-icon>map</mat-icon>
+                Live
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #emptyState>
+      <div class="lx-empty lx-empty--compact" *ngIf="!loading">
+        <mat-icon class="lx-empty-icon">history</mat-icon>
+        <div class="lx-empty-title">No trips match your search</div>
+        <div class="lx-empty-sub">Completed and in-progress trips appear here once journeys have started.</div>
+      </div>
+    </ng-template>
+  </div>
+</div>

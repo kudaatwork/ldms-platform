@@ -27,6 +27,12 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long>,
     List<Shipment> findByTransportCompanyOrganizationIdAndEntityStatusNotOrderByIdDesc(
             Long transportCompanyOrganizationId, EntityStatus entityStatus);
 
+    List<Shipment> findByOrganizationIdAndStatusAndTransportCompanyOrganizationIdAndEntityStatusNotOrderByIdAsc(
+            Long organizationId,
+            projectlx.shipment.management.utils.enums.ShipmentStatus status,
+            Long transportCompanyOrganizationId,
+            EntityStatus entityStatus);
+
     boolean existsByInventoryTransferIdAndEntityStatusNot(Long inventoryTransferId, EntityStatus entityStatus);
 
     boolean existsBySalesOrderIdAndEntityStatusNot(Long salesOrderId, EntityStatus entityStatus);

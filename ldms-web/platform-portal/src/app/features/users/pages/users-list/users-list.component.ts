@@ -82,7 +82,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
     if (!this.orgScopeLocked) {
       cols.splice(statusIdx, 0, 'kycApproverEligible');
     } else {
-      cols.splice(statusIdx, 0, 'procurementApproverEligible');
+      cols.splice(statusIdx, 0, 'procurementApproverEligible', 'shipmentFleetAllocatorEligible');
     }
     return cols;
   }
@@ -126,6 +126,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
     branchId: '',
     organizationKycApprover: false,
     procurementApprover: false,
+    shipmentFleetAllocator: false,
     username: '',
     email: '',
     firstName: '',
@@ -650,6 +651,8 @@ export class UsersListComponent implements OnInit, OnDestroy {
           !this.createModel.organizationId && this.createModel.organizationKycApprover,
         procurementApprover:
           !!this.createModel.organizationId && this.createModel.procurementApprover,
+        shipmentFleetAllocator:
+          !!this.createModel.organizationId && this.createModel.shipmentFleetAllocator,
         username: this.createModel.username.trim(),
         email: this.createModel.email.trim(),
         firstName: this.createModel.firstName.trim(),
@@ -1218,6 +1221,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
       branchId: '',
       organizationKycApprover: false,
       procurementApprover: false,
+      shipmentFleetAllocator: false,
       username: '',
       email: '',
       firstName: '',
