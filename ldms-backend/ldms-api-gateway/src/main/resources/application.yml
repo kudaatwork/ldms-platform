@@ -98,6 +98,18 @@ spring:
           uri: http://${NOTIFICATIONS_HOST:127.0.0.1}:${NOTIFICATIONS_PORT:8094}
           predicates:
             - Path=/ldms-notifications/v1/backoffice/**
+        - id: local-system-messaging-inbound
+          uri: http://${MESSAGING_INBOUND_HOST:127.0.0.1}:${MESSAGING_INBOUND_PORT:8095}
+          predicates:
+            - Path=/ldms-messaging-inbound/v1/system/**
+        - id: local-frontend-messaging-inbound
+          uri: http://${MESSAGING_INBOUND_HOST:127.0.0.1}:${MESSAGING_INBOUND_PORT:8095}
+          predicates:
+            - Path=/ldms-messaging-inbound/v1/frontend/**
+        - id: local-backoffice-messaging-inbound
+          uri: http://${MESSAGING_INBOUND_HOST:127.0.0.1}:${MESSAGING_INBOUND_PORT:8095}
+          predicates:
+            - Path=/ldms-messaging-inbound/v1/backoffice/**
         - id: local-system-user-management
           uri: http://${USER_MANAGEMENT_HOST:127.0.0.1}:${USER_MANAGEMENT_PORT:8086}
           predicates:
@@ -215,7 +227,7 @@ ldms:
         management-port: ${USER_MANAGEMENT_MANAGEMENT_PORT:9086}
       - id: organization-management
         display-name: Organization Management
-        eureka-name: ldms-organization-management
+        eureka-name: organization-management-service
         host: ${ORGANIZATION_MANAGEMENT_HOST:127.0.0.1}
         port: ${ORGANIZATION_MANAGEMENT_PORT:8087}
       - id: notifications
@@ -223,6 +235,11 @@ ldms:
         eureka-name: ldms-notifications
         host: ${NOTIFICATIONS_HOST:127.0.0.1}
         port: ${NOTIFICATIONS_PORT:8094}
+      - id: messaging-inbound
+        display-name: Messaging Inbound & Bot
+        eureka-name: ldms-messaging-inbound
+        host: ${MESSAGING_INBOUND_HOST:127.0.0.1}
+        port: ${MESSAGING_INBOUND_PORT:8095}
       - id: audit-trail
         display-name: Audit Trail
         eureka-name: ldms-audit-trail
@@ -235,15 +252,30 @@ ldms:
         port: ${FLEET_MANAGEMENT_PORT:8089}
       - id: inventory-management
         display-name: Inventory Management
-        eureka-name: ldms-inventory-management
+        eureka-name: inventory-management-service
         host: ${INVENTORY_MANAGEMENT_HOST:127.0.0.1}
         port: ${INVENTORY_MANAGEMENT_PORT:8013}
       - id: billing-payments
         display-name: Billing & Payments
-        eureka-name: ldms-billing-payments
+        eureka-name: billing-payments-service
         host: ${BILLING_PAYMENTS_HOST:127.0.0.1}
         port: ${BILLING_PAYMENTS_PORT:8014}
         management-port: ${BILLING_PAYMENTS_MANAGEMENT_PORT:9014}
+      - id: shipment-management
+        display-name: Shipment Management
+        eureka-name: shipment-management-service
+        host: ${SHIPMENT_MANAGEMENT_HOST:127.0.0.1}
+        port: ${SHIPMENT_MANAGEMENT_PORT:8015}
+      - id: trip-tracking
+        display-name: Trip & Tracking
+        eureka-name: trip-tracking-service
+        host: ${TRIP_TRACKING_HOST:127.0.0.1}
+        port: ${TRIP_TRACKING_PORT:8016}
+      - id: fuel-expenses
+        display-name: Fuel & Expenses
+        eureka-name: fuel-expenses-service
+        host: ${FUEL_EXPENSES_HOST:127.0.0.1}
+        port: ${FUEL_EXPENSES_PORT:8017}
       - id: file-upload
         display-name: File Upload
         eureka-name: file-upload-service
@@ -259,6 +291,10 @@ ldms:
       routes-enabled: true
       host: ${NOTIFICATIONS_HOST:127.0.0.1}
       port: ${NOTIFICATIONS_PORT:8094}
+    messaging-inbound:
+      routes-enabled: true
+      host: ${MESSAGING_INBOUND_HOST:127.0.0.1}
+      port: ${MESSAGING_INBOUND_PORT:8095}
     audit-trail:
       routes-enabled: true
       host: ${AUDIT_TRAIL_HOST:127.0.0.1}

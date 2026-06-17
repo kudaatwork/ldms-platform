@@ -21,4 +21,10 @@ public interface TripLiveService {
     SseEmitter subscribeLiveUpdates(Long tripId, Locale locale, String username);
 
     TripLiveSnapshotDto buildSnapshotFromPlan(Long tripId);
+
+    /** Cross-tenant live snapshot for LX admin portal (no organisation scope). */
+    TripResponse getLiveSnapshotBackoffice(Long tripId, Locale locale);
+
+    /** Resolves the active trip for a shipment and returns its live snapshot. */
+    TripResponse getLiveSnapshotByShipmentBackoffice(Long shipmentId, Locale locale);
 }

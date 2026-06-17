@@ -1,0 +1,291 @@
+.lx-map-panel {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  border-radius: inherit;
+  isolation: isolate;
+  background: #1e293b;
+}
+
+.lx-map-overlay {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  right: 120px;
+  z-index: 500;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  pointer-events: none;
+
+  > * {
+    pointer-events: auto;
+  }
+}
+
+.lx-map-host {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #1e293b;
+}
+
+:host ::ng-deep .lx-map-host.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0;
+  font-family: inherit;
+  background: #1e293b;
+}
+
+.lx-map-float {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 650;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+  max-width: min(100% - 28px, 320px);
+
+  > * {
+    pointer-events: auto;
+  }
+
+  &__row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  &__hint {
+    margin: 0;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.72);
+    color: #cbd5e1;
+    font-size: 10px;
+    line-height: 1.35;
+    text-align: right;
+  }
+}
+
+.lx-map-recenter {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  border-radius: 14px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #f8fafc;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.35);
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.lx-map-zoom {
+  display: inline-flex;
+  overflow: hidden;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+
+  &__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    color: #f8fafc;
+    cursor: pointer;
+
+    &:hover {
+      background: rgba(148, 163, 184, 0.16);
+    }
+
+    & + & {
+      border-left: 1px solid rgba(148, 163, 184, 0.18);
+    }
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
+.lx-map-style {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  gap: 4px;
+
+  &__btn {
+    border: none;
+    background: transparent;
+    color: #cbd5e1;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 6px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+
+    &.is-active {
+      background: #38bdf8;
+      color: #0f172a;
+    }
+  }
+}
+
+.lx-map-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 450;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  color: #cbd5e1;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.35), rgba(15, 23, 42, 0.72));
+  pointer-events: none;
+
+  mat-icon {
+    font-size: 36px;
+    width: 36px;
+    height: 36px;
+    opacity: 0.75;
+  }
+
+  p {
+    margin: 0;
+    max-width: 28ch;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+}
+
+:host ::ng-deep .lx-map-truck {
+  background: transparent;
+  border: none;
+
+  .lx-map-truck__body {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.4s ease;
+  }
+
+  .lx-map-truck__cab,
+  .lx-map-truck__trailer {
+    position: absolute;
+    border-radius: 3px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  }
+
+  .lx-map-truck__cab {
+    width: 12px;
+    height: 10px;
+    background: #38bdf8;
+    transform: translate(-6px, 0);
+  }
+
+  .lx-map-truck__trailer {
+    width: 18px;
+    height: 12px;
+    background: #f8fafc;
+    transform: translate(4px, 0);
+  }
+
+  .lx-map-truck__pulse {
+    position: absolute;
+    inset: 4px;
+    border-radius: 50%;
+    border: 2px solid rgba(56, 189, 248, 0.5);
+    animation: lx-truck-pulse 2s infinite;
+  }
+
+  &--warning .lx-map-truck__cab {
+    background: #f59e0b;
+  }
+
+  &--warning .lx-map-truck__pulse {
+    border-color: rgba(245, 158, 11, 0.55);
+  }
+
+  &--secondary .lx-map-truck__cab {
+    background: #94a3b8;
+  }
+}
+
+@keyframes lx-truck-pulse {
+  0%,
+  100% {
+    transform: scale(0.85);
+    opacity: 0.8;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: 0.2;
+  }
+}
+
+:host ::ng-deep .lx-map-waypoint {
+  background: transparent;
+  border: none;
+
+  .lx-map-waypoint__dot {
+    display: block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #f8fafc;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    background: #64748b;
+  }
+
+  &--origin .lx-map-waypoint__dot {
+    background: #22c55e;
+  }
+
+  &--destination .lx-map-waypoint__dot {
+    background: #ef4444;
+  }
+
+  &--border .lx-map-waypoint__dot {
+    background: #f59e0b;
+  }
+
+  &--checkpoint .lx-map-waypoint__dot {
+    background: #38bdf8;
+  }
+}

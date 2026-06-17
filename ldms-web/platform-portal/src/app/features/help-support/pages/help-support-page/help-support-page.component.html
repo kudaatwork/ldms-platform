@@ -33,6 +33,9 @@
       <span class="material-icons" aria-hidden="true">confirmation_number</span> My tickets
       <span class="help-tab__badge" *ngIf="tickets.length">{{ tickets.length }}</span>
     </button>
+    <button type="button" class="help-tab" [class.help-tab--on]="activeTab() === 'assistant'" (click)="setTab('assistant')">
+      <span class="material-icons" aria-hidden="true">smart_toy</span> Assistant
+    </button>
     <button type="button" class="help-tab" [class.help-tab--on]="activeTab() === 'status'" (click)="setTab('status')">
       <span class="material-icons" aria-hidden="true">monitor_heart</span> Status
     </button>
@@ -57,6 +60,12 @@
         <h2 class="help-card__title">Knowledge base</h2>
         <p class="help-card__text">{{ articles.length }} articles on onboarding, operations, billing, and more.</p>
         <span class="help-card__cta">Browse FAQ →</span>
+      </article>
+      <article class="help-card help-card--accent" (click)="setTab('assistant')" tabindex="0" role="button">
+        <span class="material-icons help-card__icon" aria-hidden="true">smart_toy</span>
+        <h2 class="help-card__title">LDMS Assistant</h2>
+        <p class="help-card__text">Ask how onboarding, orders, shipments, trips, and billing work on the platform.</p>
+        <span class="help-card__cta">Chat with assistant →</span>
       </article>
       <article class="help-card" (click)="setTab('ticket')" tabindex="0" role="button">
         <span class="material-icons help-card__icon" aria-hidden="true">edit_note</span>
@@ -379,6 +388,136 @@
             </div>
           </div>
         </ng-template>
+      </div>
+    </div>
+
+    <!-- LDMS Assistant -->
+    <div class="help-assistant" *ngIf="activeTab() === 'assistant'">
+      <div class="hc-messenger">
+        <div class="hc-messenger__shell lx-card">
+        <aside class="hc-inbox">
+          <div class="hc-inbox__head">
+            <h2>Assistant chats</h2>
+            <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="startBotChat()" [disabled]="botStarting()">
+              {{ botStarting() ? 'Starting…' : 'New chat' }}
+            </button>
+          </div>
+          <div class="hc-inbox__list">
+            <button
+              type="button"
+              class="hc-convo"
+              *ngFor="let s of botSessions(); trackBy: trackBotSession"
+              [class.hc-convo--active]="selectedBotSession()?.sessionId === s.sessionId"
+              (click)="openBotSession(s.sessionId)"
+            >
+              <div class="hc-convo__avatar" data-status="ACTIVE">
+                <span class="material-icons" aria-hidden="true">smart_toy</span>
+              </div>
+              <div class="hc-convo__body">
+                <div class="hc-convo__row">
+                  <span class="hc-convo__subject">{{ s.topic || 'LDMS assistant' }}</span>
+                  <span class="hc-convo__time">{{ relativeTime(s.lastMessageAt) }}</span>
+                </div>
+                <div class="hc-convo__meta">
+                  <span class="hc-convo__number">{{ s.sessionId }}</span>
+                </div>
+              </div>
+            </button>
+            <p class="hc-inbox__empty" *ngIf="!botSessions().length && !botChatLoading()">
+              No chats yet — start a conversation with the LDMS assistant.
+            </p>
+          </div>
+        </aside>
+
+        <main class="hc-chat" *ngIf="selectedBotSession() as bs; else pickBotChat">
+          <header class="hc-chat__head">
+            <div>
+              <h2>LDMS Assistant</h2>
+              <p class="hc-chat__sub">{{ bs.topic || 'Ask about LDMS workflows' }}</p>
+            </div>
+            <span class="hc-chat__presence hc-chat__presence--online">AI · Gemini</span>
+          </header>
+
+          <div class="hc-chat__thread" #chatThread aria-live="polite">
+            <div class="hc-chat__loading" *ngIf="botChatLoading()">
+              <span class="hc-chat__loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+              Loading conversation…
+            </div>
+            <ng-container *ngIf="!botChatLoading()">
+              <ng-container *ngFor="let group of botDateGroups(bs); trackBy: trackDate">
+                <div class="hc-chat__date"><span>{{ group.label }}</span></div>
+                <article
+                  class="hc-bubble"
+                  *ngFor="let item of group.items; trackBy: trackMessage"
+                  [class.hc-bubble--mine]="item.isMine"
+                  [class.hc-bubble--theirs]="!item.isMine"
+                >
+                  <div class="hc-bubble__avatar" *ngIf="!item.isMine" aria-hidden="true">
+                    <span class="material-icons">{{ item.role === 'SYSTEM' ? 'info' : 'smart_toy' }}</span>
+                  </div>
+                  <div class="hc-bubble__content">
+                    <header class="hc-bubble__head">
+                      <strong>{{ item.author }}</strong>
+                      <time>{{ item.at | date : 'shortTime' }}</time>
+                    </header>
+                    <p class="hc-bubble__body">{{ item.body }}</p>
+                  </div>
+                  <div class="hc-bubble__avatar hc-bubble__avatar--mine" *ngIf="item.isMine" aria-hidden="true">
+                    {{ avatarInitials(userDisplayName || 'You') }}
+                  </div>
+                </article>
+              </ng-container>
+            </ng-container>
+          </div>
+
+          <footer class="hc-chat__compose">
+            <div class="hc-chat__feedback" *ngIf="bs.messageCount && bs.messageCount > 1">
+              <span>Was this helpful?</span>
+              <button type="button" class="hc-feedback-btn" (click)="rateBotChat(5)" [disabled]="botRating()">👍</button>
+              <button type="button" class="hc-feedback-btn" (click)="rateBotChat(2)" [disabled]="botRating()">👎</button>
+              <span class="hc-chat__feedback-done" *ngIf="bs.satisfactionScore">Thanks for your feedback!</span>
+            </div>
+            <div class="hc-compose">
+              <textarea
+                class="hc-compose__input"
+                rows="1"
+                [value]="botReplyDraft"
+                (input)="onBotReplyInput($any($event.target).value)"
+                (keydown)="onBotReplyKeydown($event)"
+                placeholder="Ask about LDMS — e.g. How do purchase orders become shipments?"
+                [disabled]="botSending() || botChatLoading()"
+                aria-label="Message to LDMS assistant"
+              ></textarea>
+              <button
+                type="button"
+                class="hc-compose__send"
+                (click)="sendBotReply()"
+                [disabled]="botSending() || botChatLoading() || !botReplyDraft.trim()"
+                aria-label="Send message"
+              >
+                <span class="material-icons" aria-hidden="true">{{ botSending() ? 'hourglass_top' : 'send' }}</span>
+              </button>
+            </div>
+            <p class="hc-compose__hint">
+              <span class="material-icons" aria-hidden="true">auto_awesome</span>
+              Answers use the LDMS platform guide. For account-specific issues, open a support ticket.
+            </p>
+          </footer>
+        </main>
+
+        <ng-template #pickBotChat>
+          <div class="hc-chat hc-chat--placeholder">
+            <div class="hc-chat__placeholder">
+              <span class="material-icons" aria-hidden="true">smart_toy</span>
+              <h2>LDMS Assistant</h2>
+              <p>Start a new chat to ask how LDMS onboarding, orders, shipments, trips, and billing work.</p>
+              <button type="button" class="lx-btn lx-btn-primary" (click)="startBotChat()" [disabled]="botStarting()">
+                {{ botStarting() ? 'Starting…' : 'Start chatting' }}
+              </button>
+            </div>
+          </div>
+        </ng-template>
+        </div>
       </div>
     </div>
 

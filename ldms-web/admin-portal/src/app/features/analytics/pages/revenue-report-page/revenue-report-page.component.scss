@@ -46,30 +46,6 @@
   }
 }
 
-.revenue-chart {
-  padding: 20px 22px;
-
-  h3 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 800;
-  }
-
-  p {
-    margin: 4px 0 14px;
-    font-size: 12px;
-    color: #64748b;
-  }
-
-  &__canvas {
-    height: 280px;
-
-    &--donut {
-      height: 300px;
-    }
-  }
-}
-
 .revenue-orgs,
 .revenue-charges {
   padding: 20px 22px;

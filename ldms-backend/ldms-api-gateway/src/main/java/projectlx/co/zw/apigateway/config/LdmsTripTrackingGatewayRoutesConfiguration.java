@@ -28,6 +28,11 @@ public class LdmsTripTrackingGatewayRoutesConfiguration {
                         r -> r.order(-100)
                                 .path("/ldms-trip-tracking/v1/frontend/**")
                                 .uri(uri))
+                .route(
+                        "ldms-trip-tracking-backoffice",
+                        r -> r.order(-100)
+                                .path("/ldms-trip-tracking/v1/backoffice/**")
+                                .uri(uri))
                 .build();
     }
 }

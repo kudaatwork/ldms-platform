@@ -133,6 +133,7 @@ ldms:
   platform-health:
     probe-timeout-ms: ${LDMS_PLATFORM_HEALTH_PROBE_TIMEOUT_MS:5000}
     default-host: ${API_GATEWAY_HOST:127.0.0.1}
+    auto-discover-eureka-services: true
     services:
       - id: api-gateway
         display-name: API Gateway
@@ -165,11 +166,47 @@ ldms:
         eureka-name: ldms-notifications
         host: ${API_GATEWAY_HOST:127.0.0.1}
         port: ${NOTIFICATIONS_SERVER_PORT:8094}
+      - id: messaging-inbound
+        display-name: Messaging Inbound & Bot
+        eureka-name: ldms-messaging-inbound
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${MESSAGING_INBOUND_PORT:8095}
       - id: audit-trail
         display-name: Audit Trail
         eureka-name: ldms-audit-trail
         host: ${API_GATEWAY_HOST:127.0.0.1}
         port: ${AUDIT_SERVER_PORT:8099}
+      - id: fleet-management
+        display-name: Fleet Management
+        eureka-name: ldms-fleet-management
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${FLEET_MANAGEMENT_PORT:8089}
+      - id: inventory-management
+        display-name: Inventory Management
+        eureka-name: inventory-management-service
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${INVENTORY_MANAGEMENT_PORT:8013}
+      - id: shipment-management
+        display-name: Shipment Management
+        eureka-name: shipment-management-service
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${SHIPMENT_MANAGEMENT_PORT:8015}
+      - id: trip-tracking
+        display-name: Trip & Tracking
+        eureka-name: trip-tracking-service
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${TRIP_TRACKING_PORT:8016}
+      - id: fuel-expenses
+        display-name: Fuel & Expenses
+        eureka-name: fuel-expenses-service
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${FUEL_EXPENSES_PORT:8017}
+      - id: billing-payments
+        display-name: Billing & Payments
+        eureka-name: billing-payments-service
+        host: ${API_GATEWAY_HOST:127.0.0.1}
+        port: ${BILLING_PAYMENTS_PORT:8014}
+        management-port: ${BILLING_PAYMENTS_MANAGEMENT_PORT:9014}
       - id: file-upload
         display-name: File Upload
         eureka-name: file-upload-service

@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import projectlx.trip.tracking.model.Trip;
+import projectlx.trip.tracking.repository.projection.OrganizationTripStatsProjection;
 import projectlx.trip.tracking.utils.enums.TripStatus;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
@@ -55,4 +56,18 @@ public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificat
                              @Param("search") String searchTerm,
                              @Param("entityStatus") EntityStatus entityStatus,
                              Pageable pageable);
+
+    @Query(value = """
+            SELECT t.organization_id AS organizationId,
+                   COUNT(*) AS activeTrips
+            FROM trip t
+            WHERE t.entity_status <> 'DELETED'
+              AND t.status IN ('SCHEDULED','IN_TRANSIT','AT_BORDER_HOLD','ROADSIDE_HOLD','ARRIVED','OTP_PENDING')
+            GROUP BY t.organization_id
+            """, nativeQuery = true)
+    List<OrganizationTripStatsProjection> aggregateActiveTripsByOrganization();
+
+    long countByStatusInAndEntityStatusNot(List<TripStatus> statuses, EntityStatus entityStatus);
+
+    long countByStatusAndEntityStatusNot(TripStatus status, EntityStatus entityStatus);
 }

@@ -9,7 +9,6 @@ import { Title } from '@angular/platform-browser';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { PageEvent } from '@angular/material/paginator';
 import { filterByGlobalAndColumns } from '@shared/utils/table-search.util';
-import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
@@ -66,7 +65,7 @@ export class SystemHealthComponent implements OnInit, OnDestroy {
   };
 
   pageIndex = 0;
-  pageSize = DEFAULT_TABLE_PAGE_SIZE;
+  pageSize = 50;
 
   readonly statusFilters = ['ALL', 'UP', 'DOWN', 'UNKNOWN'] as const;
 
@@ -235,6 +234,13 @@ export class SystemHealthComponent implements OnInit, OnDestroy {
     if (id.includes('notification')) return 'notifications';
     if (id.includes('audit')) return 'policy';
     if (id.includes('file') || id.includes('upload')) return 'cloud_upload';
+    if (id.includes('shipment')) return 'local_shipping';
+    if (id.includes('trip') || id.includes('tracking')) return 'route';
+    if (id.includes('fuel') || id.includes('expense')) return 'local_gas_station';
+    if (id.includes('billing') || id.includes('payment')) return 'payments';
+    if (id.includes('inventory')) return 'inventory_2';
+    if (id.includes('fleet')) return 'local_shipping';
+    if (id.includes('messaging') || id.includes('bot')) return 'smart_toy';
     return 'dns';
   }
 

@@ -23,6 +23,7 @@ import projectlx.trip.tracking.utils.enums.TripStatus;
 import projectlx.trip.tracking.utils.responses.TripResponse;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Locale;
 
 @Transactional(readOnly = true)
@@ -170,6 +171,39 @@ public class TripLiveServiceImpl implements TripLiveService {
             log.debug("Unable to send initial SSE snapshot for trip {}: {}", tripId, ex.getMessage());
         }
         return emitter;
+    }
+
+    @Override
+    public TripResponse getLiveSnapshotBackoffice(Long tripId, Locale locale) {
+        Trip trip = tripRepository.findByIdAndEntityStatusNotNoLock(tripId, EntityStatus.DELETED).orElse(null);
+        if (trip == null) {
+            return error(404, messageService.getMessage(
+                    I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        TripLiveSnapshotDto snapshot = buildSnapshotFromPlan(tripId);
+        if (snapshot == null) {
+            return error(404, messageService.getMessage(
+                    I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        TripResponse response = success(200, messageService.getMessage(
+                I18Code.MESSAGE_TRIP_LIVE_SNAPSHOT_SUCCESS.getCode(), new String[]{}, locale));
+        response.setLiveSnapshot(snapshot);
+        return response;
+    }
+
+    @Override
+    public TripResponse getLiveSnapshotByShipmentBackoffice(Long shipmentId, Locale locale) {
+        if (shipmentId == null || shipmentId < 1) {
+            return error(400, messageService.getMessage(
+                    I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        var activeTrips = tripRepository.findByShipmentIdAndStatusNotInAndEntityStatusNotOrderByIdDesc(
+                shipmentId, List.of(TripStatus.DELIVERED, TripStatus.CANCELLED), EntityStatus.DELETED);
+        if (activeTrips.isEmpty()) {
+            return error(404, messageService.getMessage(
+                    I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        return getLiveSnapshotBackoffice(activeTrips.get(0).getId(), locale);
     }
 
     @Override

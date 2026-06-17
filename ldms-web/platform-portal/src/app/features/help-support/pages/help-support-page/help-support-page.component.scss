@@ -1187,6 +1187,34 @@
   backdrop-filter: blur(12px);
 }
 
+.hc-chat__feedback {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--gray-500, #64748b);
+
+  .hc-feedback-btn {
+    border: 1px solid color-mix(in srgb, var(--gray-300) 80%, transparent);
+    background: var(--surface);
+    border-radius: 999px;
+    padding: 4px 10px;
+    cursor: pointer;
+    font-size: 14px;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+  }
+}
+
+.hc-chat__feedback-done {
+  color: #059669;
+  font-weight: 600;
+}
+
 .hc-compose {
   display: flex;
   align-items: flex-end;
