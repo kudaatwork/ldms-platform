@@ -12,6 +12,7 @@ import projectlx.fuel.expenses.business.auditable.api.FuelSessionServiceAuditabl
 import projectlx.fuel.expenses.business.logic.api.FuelSessionService;
 import projectlx.fuel.expenses.business.logic.api.FuelTelemetryLogService;
 import projectlx.fuel.expenses.business.validator.api.FuelSessionServiceValidator;
+import projectlx.fuel.expenses.clients.TripTrackingServiceClient;
 import projectlx.fuel.expenses.model.FuelSession;
 import projectlx.fuel.expenses.repository.FuelSessionRepository;
 import projectlx.fuel.expenses.utils.dtos.FuelSessionDto;
@@ -60,6 +61,7 @@ public class FuelSessionServiceImpl implements FuelSessionService {
     private final RabbitTemplate              rabbitTemplate;
     private final MessageService              messageService;
     private final FuelTelemetryLogService     fuelTelemetryLogService;
+    private final TripTrackingServiceClient   tripTrackingServiceClient;
 
     // ============================================================
     // TRIP STARTED — open a new fuel session
@@ -81,9 +83,19 @@ public class FuelSessionServiceImpl implements FuelSessionService {
             return;
         }
 
-        // ============================================================
-        // STEP 1: Build the new session from the event payload
-        // ============================================================
+        createSessionFromPayload(payload, "trip.started-consumer", false);
+    }
+
+    private void createSessionFromPayload(Map<String, Object> payload, String createdBy, boolean seedGpsFromPayload) {
+        Long tripId = extractLong(payload, "tripId");
+        if (tripId == null) {
+            log.warn("Cannot create FuelSession — tripId missing in payload");
+            return;
+        }
+        if (fuelSessionRepository.existsByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED)) {
+            return;
+        }
+
         FuelSession session = new FuelSession();
         session.setTripId(tripId);
         session.setOrganizationId(extractLong(payload, "organizationId"));
@@ -99,21 +111,67 @@ public class FuelSessionServiceImpl implements FuelSessionService {
         session.setMoving(false);
         session.setEntityStatus(EntityStatus.ACTIVE);
         session.setCreatedAt(LocalDateTime.now());
-        session.setCreatedBy("trip.started-consumer");
+        session.setCreatedBy(createdBy);
 
-        // Seed GPS position if the event carries it (optional).
         BigDecimal lat = extractDecimal(payload, "latitude");
         BigDecimal lng = extractDecimal(payload, "longitude");
-        if (lat != null && lng != null) {
+        if (seedGpsFromPayload && lat != null && lng != null) {
             session.setLastLatitude(lat);
             session.setLastLongitude(lng);
         }
 
-        // ============================================================
-        // STEP 2: Persist via auditable
-        // ============================================================
-        FuelSession saved = fuelSessionServiceAuditable.create(session, Locale.ENGLISH, "trip.started-consumer");
+        FuelSession saved = fuelSessionServiceAuditable.create(session, Locale.ENGLISH, createdBy);
         log.info("FuelSession created: id={} tripId={} fuelLevel={}%", saved.getId(), tripId, saved.getFuelLevelPct());
+    }
+
+    private void ensureSessionForTrip(Long tripId) {
+        if (fuelSessionRepository.existsByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED)) {
+            return;
+        }
+        try {
+            Map<String, Object> response = tripTrackingServiceClient.findTripById(tripId, Locale.ENGLISH);
+            Map<String, Object> tripDto = extractNestedMap(response, "tripDto");
+            if (tripDto.isEmpty()) {
+                log.warn("Trip lookup returned no tripDto for tripId={} — fuel session not bootstrapped", tripId);
+                return;
+            }
+            String status = String.valueOf(tripDto.getOrDefault("status", ""));
+            if (!"IN_TRANSIT".equalsIgnoreCase(status) && !"IN_PROGRESS".equalsIgnoreCase(status)
+                    && !"ROADSIDE_HOLD".equalsIgnoreCase(status)) {
+                log.debug("Trip {} status {} — skipping fuel session bootstrap", tripId, status);
+                return;
+            }
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("tripId", tripId);
+            payload.put("organizationId", tripDto.get("organizationId"));
+            payload.put("fleetAssetId", tripDto.get("fleetAssetId"));
+            payload.put("fleetDriverId", tripDto.get("fleetDriverId"));
+            payload.put("shipmentId", tripDto.get("shipmentId"));
+            createSessionFromPayload(payload, "fuel-session-bootstrap", false);
+        } catch (Exception ex) {
+            log.warn("Unable to bootstrap FuelSession for tripId={}: {}", tripId, ex.getMessage());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> extractNestedMap(Map<String, Object> response, String key) {
+        if (response == null) {
+            return Map.of();
+        }
+        Object direct = response.get(key);
+        if (direct instanceof Map<?, ?> map) {
+            return (Map<String, Object>) map;
+        }
+        for (String alt : List.of("data", "body", "payload")) {
+            Object nested = response.get(alt);
+            if (nested instanceof Map<?, ?> outer) {
+                Object inner = ((Map<String, Object>) outer).get(key);
+                if (inner instanceof Map<?, ?> map) {
+                    return (Map<String, Object>) map;
+                }
+            }
+        }
+        return Map.of();
     }
 
     // ============================================================
@@ -141,17 +199,31 @@ public class FuelSessionServiceImpl implements FuelSessionService {
                 .findByTripIdAndStatusAndEntityStatusNot(tripId, FuelSessionStatus.ACTIVE, EntityStatus.DELETED);
 
         if (sessionOpt.isEmpty()) {
+            createSessionFromPayload(payload, "trip.location_updated-bootstrap", false);
+            sessionOpt = fuelSessionRepository
+                    .findByTripIdAndStatusAndEntityStatusNot(tripId, FuelSessionStatus.ACTIVE, EntityStatus.DELETED);
+        }
+
+        if (sessionOpt.isEmpty()) {
             log.warn("No active FuelSession for tripId={} — location update ignored", tripId);
             return;
         }
 
         FuelSession session = sessionOpt.get();
+        boolean simulationActive = Boolean.TRUE.equals(extractBoolean(payload, "simulationActive"));
+        BigDecimal reportedFuelPct = extractDecimal(payload, "fuelLevelPct");
+        BigDecimal reportedRemaining = extractDecimal(payload, "fuelRemainingLiters");
+        BigDecimal reportedDistance = extractDecimal(payload, "distanceTravelledKm");
+        BigDecimal distanceKmDelta = extractDecimal(payload, "distanceKmDelta");
+        Boolean movingFlag = extractBoolean(payload, "moving");
 
         // ============================================================
-        // STEP 2: Haversine distance from last known position
+        // STEP 2: Distance travelled this tick
         // ============================================================
         BigDecimal distanceKm = BigDecimal.ZERO;
-        if (session.getLastLatitude() != null && session.getLastLongitude() != null) {
+        if (distanceKmDelta != null && distanceKmDelta.compareTo(BigDecimal.ZERO) > 0) {
+            distanceKm = distanceKmDelta;
+        } else if (session.getLastLatitude() != null && session.getLastLongitude() != null) {
             distanceKm = haversineKm(
                     session.getLastLatitude(), session.getLastLongitude(),
                     newLat, newLng);
@@ -159,9 +231,24 @@ public class FuelSessionServiceImpl implements FuelSessionService {
         }
 
         // ============================================================
-        // STEP 3: Fuel deduction — rate is in L per 100 km
+        // STEP 3: Fuel deduction / simulation sync
         // ============================================================
-        if (distanceKm.compareTo(BigDecimal.ZERO) > 0) {
+        if (simulationActive && reportedFuelPct != null) {
+            session.setFuelLevelPct(reportedFuelPct.setScale(2, RoundingMode.HALF_UP));
+            if (reportedRemaining != null) {
+                session.setFuelRemainingLiters(reportedRemaining.setScale(2, RoundingMode.HALF_UP));
+            } else {
+                session.setFuelRemainingLiters(
+                        reportedFuelPct.multiply(session.getTankCapacityLiters())
+                                .divide(HUNDRED, 2, RoundingMode.HALF_UP));
+            }
+            if (reportedDistance != null) {
+                session.setDistanceTravelledKm(reportedDistance.setScale(2, RoundingMode.HALF_UP));
+            } else if (distanceKm.compareTo(BigDecimal.ZERO) > 0) {
+                session.setDistanceTravelledKm(
+                        session.getDistanceTravelledKm().add(distanceKm).setScale(2, RoundingMode.HALF_UP));
+            }
+        } else if (distanceKm.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal consumed = session.getConsumptionRateLPer100km()
                     .multiply(distanceKm)
                     .divide(HUNDRED, 4, RoundingMode.HALF_UP);
@@ -186,7 +273,7 @@ public class FuelSessionServiceImpl implements FuelSessionService {
         // ============================================================
         session.setLastLatitude(newLat);
         session.setLastLongitude(newLng);
-        session.setMoving(true);
+        session.setMoving(movingFlag != null ? movingFlag : distanceKm.compareTo(BigDecimal.ZERO) > 0);
         session.setModifiedAt(LocalDateTime.now());
         session.setModifiedBy("trip.location_updated-consumer");
 
@@ -208,7 +295,7 @@ public class FuelSessionServiceImpl implements FuelSessionService {
         // ============================================================
         // STEP 6: Log CONSUMPTION_DELTA telemetry for audit / efficiency analysis
         // ============================================================
-        if (distanceKm.compareTo(BigDecimal.ZERO) > 0) {
+        if (distanceKm.compareTo(BigDecimal.ZERO) > 0 && !(simulationActive && reportedFuelPct != null)) {
             BigDecimal consumed = session.getConsumptionRateLPer100km()
                     .multiply(distanceKm)
                     .divide(HUNDRED, 4, RoundingMode.HALF_UP);
@@ -231,7 +318,7 @@ public class FuelSessionServiceImpl implements FuelSessionService {
     // ============================================================
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public FuelSessionResponse getLiveByTripId(Long tripId, Locale locale, String username) {
 
         // ============================================================
@@ -251,6 +338,11 @@ public class FuelSessionServiceImpl implements FuelSessionService {
         // ============================================================
         Optional<FuelSession> sessionOpt = fuelSessionRepository
                 .findByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED);
+
+        if (sessionOpt.isEmpty()) {
+            ensureSessionForTrip(tripId);
+            sessionOpt = fuelSessionRepository.findByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED);
+        }
 
         if (sessionOpt.isEmpty()) {
             FuelSessionResponse response = new FuelSessionResponse();
@@ -353,5 +445,16 @@ public class FuelSessionServiceImpl implements FuelSessionService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private static Boolean extractBoolean(Map<String, Object> map, String key) {
+        Object val = map.get(key);
+        if (val == null) {
+            return null;
+        }
+        if (val instanceof Boolean b) {
+            return b;
+        }
+        return Boolean.parseBoolean(val.toString());
     }
 }

@@ -53,6 +53,10 @@ public class User {
     @jakarta.persistence.Column(name = "procurement_approver", nullable = false)
     private boolean procurementApprover;
 
+    /** Platform-portal organisation user eligible to allocate fleet to shipments. */
+    @jakarta.persistence.Column(name = "shipment_fleet_allocator", nullable = false)
+    private boolean shipmentFleetAllocator;
+
     private String username;              // Unique username for login
     private String email;                 // User's email address
     private String firstName;             // User's first name

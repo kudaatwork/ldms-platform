@@ -8,8 +8,10 @@ import projectlx.user.management.model.HelpArticleCategory;
 import projectlx.user.management.service.processor.api.HelpSupportServiceProcessor;
 import projectlx.user.management.utils.requests.AddSupportTicketMessageRequest;
 import projectlx.user.management.utils.requests.AssignSupportTicketRequest;
+import projectlx.user.management.utils.requests.CreateDemoRequisitionRequest;
 import projectlx.user.management.utils.requests.CreateSupportTicketRequest;
 import projectlx.user.management.utils.requests.SupportTicketExportFilterRequest;
+import projectlx.user.management.utils.requests.UpdateDemoRequisitionStatusRequest;
 import projectlx.user.management.utils.requests.UpdateSupportTicketStatusRequest;
 import projectlx.user.management.utils.responses.HelpSupportResponse;
 
@@ -91,5 +93,30 @@ public class HelpSupportServiceProcessorImpl implements HelpSupportServiceProces
     @Override
     public byte[] exportSupportTickets(SupportTicketExportFilterRequest filters, String format, Locale locale) throws Exception {
         return helpSupportService.exportSupportTickets(filters, format, locale);
+    }
+
+    @Override
+    public HelpSupportResponse submitDemoRequisition(CreateDemoRequisitionRequest request, Locale locale) {
+        logger.info("Demo requisition submitted for {}", request != null ? request.getEmail() : "unknown");
+        return helpSupportService.submitDemoRequisition(request, locale);
+    }
+
+    @Override
+    public HelpSupportResponse listAllDemoRequisitions(Locale locale) {
+        return helpSupportService.listAllDemoRequisitions(locale);
+    }
+
+    @Override
+    public HelpSupportResponse findDemoRequisitionById(Long id, Locale locale) {
+        return helpSupportService.findDemoRequisitionById(id, locale);
+    }
+
+    @Override
+    public HelpSupportResponse updateDemoRequisitionStatus(UpdateDemoRequisitionStatusRequest request,
+                                                           Locale locale,
+                                                           String actorUsername) {
+        logger.info("Demo requisition {} status update requested by {}",
+                request != null ? request.getDemoRequisitionId() : null, actorUsername);
+        return helpSupportService.updateDemoRequisitionStatus(request, locale, actorUsername);
     }
 }

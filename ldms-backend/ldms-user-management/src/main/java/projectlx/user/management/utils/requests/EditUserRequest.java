@@ -50,6 +50,12 @@ public class EditUserRequest {
      */
     private String procurementApprover;
 
+    /**
+     * When set ({@code true} / {@code false}), toggles shipment fleet allocator eligibility for organisation users.
+     * Bound as {@link String} for reliable multipart form binding. Omit to leave unchanged.
+     */
+    private String shipmentFleetAllocator;
+
     /** When provided, creates or updates the user's linked address (same as user create). */
     private UserAddressDetails userAddressDetails;
 }

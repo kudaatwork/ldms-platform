@@ -12,6 +12,27 @@
       </p>
       <h1>{{ tripSnapshot?.tripNumber || ('Trip #' + tripId) }}</h1>
       <p class="lt-hero__route">{{ routeLabel }}</p>
+      <p class="lt-hero__cargo" *ngIf="tripSnapshot">
+        <mat-icon>inventory_2</mat-icon>
+        <span>{{ cargoLabel }}</span>
+        <span class="lt-hero__cargo-ref" *ngIf="shipmentRefLabel !== '—'">· {{ shipmentRefLabel }}</span>
+      </p>
+      <div class="lt-hero__journey" *ngIf="tripSnapshot">
+        <div class="lt-hero__clock" aria-live="polite">
+          <mat-icon>schedule</mat-icon>
+          <strong>{{ journeyView.totalLabel }}</strong>
+          <span>journey elapsed</span>
+        </div>
+        <div class="lt-hero__phase" [class]="'lt-hero__phase--' + journeyView.phase.toLowerCase()">
+          <mat-icon>{{ journeyPhaseIcon }}</mat-icon>
+          {{ journeyView.phaseLabel }}
+        </div>
+        <div class="lt-hero__mini-stats">
+          <span><em>In transit</em> {{ journeyView.transitLabel }}</span>
+          <span><em>Waiting</em> {{ journeyView.waitingLabel }}</span>
+          <span *ngIf="journeyView.etaSeconds"><em>ETA</em> {{ journeyView.etaLabel }}</span>
+        </div>
+      </div>
     </div>
 
     <div class="lt-hero__actions">
@@ -25,9 +46,43 @@
         <mat-icon>play_arrow</mat-icon>
         {{ simulationStarting ? 'Starting…' : 'Start IoT demo' }}
       </button>
-      <span class="lt-chip" *ngIf="tripSnapshot?.simulationActive">
+      <button
+        type="button"
+        class="lx-btn lx-btn-ghost lx-btn-sm"
+        *ngIf="tripSnapshot?.simulationActive && !tripSnapshot?.simulationPaused && !tripSnapshot?.onBreak"
+        (click)="pauseVehicle()"
+        [disabled]="simulationControlBusy"
+      >
+        <mat-icon>pause</mat-icon>
+        Halt vehicle
+      </button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-primary lx-btn-sm"
+        *ngIf="tripSnapshot?.simulationActive && (tripSnapshot?.simulationPaused || tripSnapshot?.onBreak)"
+        (click)="resumeVehicle()"
+        [disabled]="simulationControlBusy"
+      >
+        <mat-icon>play_arrow</mat-icon>
+        Resume
+      </button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-ghost lx-btn-sm"
+        *ngIf="tripSnapshot?.simulationActive"
+        (click)="stopSimulation()"
+        [disabled]="simulationControlBusy"
+      >
+        <mat-icon>stop</mat-icon>
+        Stop simulation
+      </button>
+      <span class="lt-chip" *ngIf="tripSnapshot?.simulationActive && !tripSnapshot?.simulationPaused">
         <mat-icon>gps_fixed</mat-icon>
         IoT simulation active
+      </span>
+      <span class="lt-chip lt-chip--warn" *ngIf="tripSnapshot?.simulationPaused || tripSnapshot?.onBreak">
+        <mat-icon>free_breakfast</mat-icon>
+        On break / halted
       </span>
       <span
         class="lt-chip lt-chip--live"
@@ -43,6 +98,14 @@
         <mat-icon>sensors_off</mat-icon>
         No telematics signal
       </span>
+      <span class="lt-chip lt-chip--fuel lt-chip--fuel-warn" *ngIf="fuelTone === 'warn'">
+        <mat-icon>local_gas_station</mat-icon>
+        Fuel low
+      </span>
+      <span class="lt-chip lt-chip--fuel lt-chip--fuel-critical" *ngIf="fuelTone === 'critical'">
+        <mat-icon>local_gas_station</mat-icon>
+        Critical fuel
+      </span>
       <a class="lt-chip lt-chip--link" routerLink="/fleet/tracking" title="Manage tracking devices">
         <mat-icon>add_circle_outline</mat-icon>
         Manage tracking devices
@@ -50,29 +113,213 @@
     </div>
   </header>
 
-  <div class="lt-alert lx-card" *ngIf="loadError" role="alert">
+  <div class="lt-alert lx-card" *ngIf="loadError && !tripSnapshot" role="alert">
     <mat-icon>error_outline</mat-icon>
     {{ loadError }}
   </div>
 
-  <div class="lt-grid" *ngIf="!loadError">
+  <div class="lt-grid" *ngIf="tripSnapshot || !loadError">
     <section class="lt-map-panel lx-card">
       <div class="lt-map-panel__overlay">
-        <div class="lt-stat-pill">
+        <div class="lt-stat-pill" [class.lt-stat-pill--alert]="tripSnapshot?.speedLimitExceeded">
           <mat-icon>speed</mat-icon>
           <span>{{ tripSnapshot?.speedKmh || 0 | number:'1.0-0' }} km/h</span>
+          <small *ngIf="maxSpeedKmh">/ {{ maxSpeedKmh | number:'1.0-0' }}</small>
         </div>
         <div class="lt-stat-pill">
           <mat-icon>route</mat-icon>
           <span>{{ tripSnapshot?.overallProgressPct || 0 | number:'1.0-0' }}% corridor</span>
         </div>
+        <div class="lt-stat-pill" *ngIf="distanceTravelledKm">
+          <mat-icon>straighten</mat-icon>
+          <span>{{ distanceTravelledKm | number:'1.1-1' }} km travelled</span>
+        </div>
+        <div
+          class="lt-stat-pill lt-stat-pill--fuel"
+          *ngIf="fuelSnapshot"
+          [class.lt-stat-pill--fuel-warn]="fuelTone === 'warn'"
+          [class.lt-stat-pill--fuel-critical]="fuelTone === 'critical'"
+        >
+          <mat-icon>local_gas_station</mat-icon>
+          <span>{{ fuelSnapshot.fuelLevelPct | number:fuelDisplayFormat }}% fuel</span>
+        </div>
+        <div
+          class="lt-stat-pill lt-stat-pill--phase"
+          *ngIf="tripSnapshot"
+          [class.lt-stat-pill--phase-transit]="journeyView.phase === 'TRANSIT'"
+          [class.lt-stat-pill--phase-wait]="journeyView.phase === 'WAITING'"
+        >
+          <mat-icon>{{ journeyPhaseIcon }}</mat-icon>
+          <span>{{ journeyView.totalLabel }}</span>
+        </div>
       </div>
-      <div #mapHost class="lt-map-host" role="img" aria-label="Live truck position map"></div>
+
+      <div class="lt-map-float" (click)="$event.stopPropagation()">
+        <button
+          type="button"
+          class="lt-map-recenter"
+          (click)="recenterOnTruck()"
+          title="Recenter on truck and corridor ahead"
+        >
+          <mat-icon>my_location</mat-icon>
+          Recenter truck
+        </button>
+
+        <div class="lt-map-float__row">
+          <div class="lt-map-zoom" role="group" aria-label="Map zoom">
+            <button type="button" class="lt-map-zoom__btn" (click)="mapZoomOut()" title="Zoom out" aria-label="Zoom out">
+              <mat-icon>remove</mat-icon>
+            </button>
+            <button type="button" class="lt-map-zoom__btn" (click)="mapZoomIn()" title="Zoom in" aria-label="Zoom in">
+              <mat-icon>add</mat-icon>
+            </button>
+          </div>
+
+          <div class="lt-map-style" role="group" aria-label="Map style">
+            <button type="button" class="lt-map-style__btn" [class.is-active]="mapStyle === 'standard'" (click)="setMapStyle('standard')">Standard</button>
+            <button type="button" class="lt-map-style__btn" [class.is-active]="mapStyle === 'satellite'" (click)="setMapStyle('satellite')">Satellite</button>
+            <button type="button" class="lt-map-style__btn" [class.is-active]="mapStyle === 'live'" (click)="setMapStyle('live')">Live</button>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="lt-map-follow"
+          [class.is-on]="followTruck"
+          (click)="toggleFollowTruck()"
+          title="Keep map following the truck automatically"
+        >
+          <mat-icon>{{ followTruck ? 'gps_fixed' : 'gps_not_fixed' }}</mat-icon>
+          {{ followTruck ? 'Following' : 'Follow truck' }}
+        </button>
+
+        <p class="lt-map-float__hint" *ngIf="!mapScrollEnabled">Click map to enable scroll zoom · drag to pan</p>
+      </div>
+
+      <div #mapHost class="lt-map-host" role="img" aria-label="Live truck position map" (click)="enableMapScroll()"></div>
       <lx-table-loading [busy]="loading" message="Loading live position…"></lx-table-loading>
     </section>
 
     <aside class="lt-side">
+      <div class="lt-cargo lx-card" *ngIf="tripSnapshot">
+        <div class="lt-cargo__head">
+          <div>
+            <p class="lt-cargo__eyebrow">Goods on truck</p>
+            <h2>{{ cargoLabel }}</h2>
+            <p class="lt-cargo__sub" *ngIf="shipmentRefLabel !== '—'">Shipment {{ shipmentRefLabel }}</p>
+          </div>
+          <mat-icon>inventory_2</mat-icon>
+        </div>
+        <div class="lt-cargo__route">
+          <span><mat-icon>warehouse</mat-icon>{{ tripSnapshot.fromWarehouseName }}</span>
+          <mat-icon>arrow_forward</mat-icon>
+          <span><mat-icon>flag</mat-icon>{{ tripSnapshot.toWarehouseName }}</span>
+        </div>
+      </div>
+
+      <div class="lt-journey lx-card" *ngIf="tripSnapshot" [class]="'lt-journey--' + journeyView.phase.toLowerCase()">
+        <div class="lt-journey__glow" aria-hidden="true"></div>
+        <div class="lt-journey__head">
+          <div>
+            <p class="lt-journey__eyebrow">Journey time</p>
+            <h2 class="lt-journey__clock">{{ journeyView.totalLabel }}</h2>
+            <p class="lt-journey__started" *ngIf="tripStartedAtLabel">Started {{ tripStartedAtLabel }}</p>
+          </div>
+          <div class="lt-journey__phase" [class]="'lt-journey__phase--' + journeyView.phase.toLowerCase()">
+            <mat-icon>{{ journeyPhaseIcon }}</mat-icon>
+            <span>{{ journeyView.phaseLabel }}</span>
+            <small>{{ journeyView.phaseHint }}</small>
+          </div>
+        </div>
+
+        <div
+          class="lt-journey__bar"
+          role="img"
+          [attr.aria-label]="'Transit ' + journeyView.transitPct + '%, waiting ' + journeyView.waitingPct + '%, idle ' + journeyView.idlePct + '%'"
+        >
+          <span class="lt-journey__bar-transit" [style.width.%]="journeyView.transitPct"></span>
+          <span class="lt-journey__bar-wait" [style.width.%]="journeyView.waitingPct"></span>
+          <span class="lt-journey__bar-idle" [style.width.%]="journeyView.idlePct"></span>
+        </div>
+
+        <div class="lt-journey__legend">
+          <span><i class="dot dot--transit"></i> In transit {{ journeyView.transitLabel }}</span>
+          <span><i class="dot dot--wait"></i> Waiting {{ journeyView.waitingLabel }}</span>
+          <span><i class="dot dot--idle"></i> Idle / prep {{ journeyView.idleLabel }}</span>
+        </div>
+
+        <div class="lt-journey__grid">
+          <div class="lt-journey__tile">
+            <mat-icon>local_shipping</mat-icon>
+            <span>Moving</span>
+            <strong>{{ journeyView.transitLabel }}</strong>
+          </div>
+          <div class="lt-journey__tile">
+            <mat-icon>pause_circle</mat-icon>
+            <span>Waiting</span>
+            <strong>{{ journeyView.waitingLabel }}</strong>
+          </div>
+          <div class="lt-journey__tile">
+            <mat-icon>hourglass_empty</mat-icon>
+            <span>Standing by</span>
+            <strong>{{ journeyView.idleLabel }}</strong>
+          </div>
+          <div class="lt-journey__tile lt-journey__tile--eta">
+            <mat-icon>near_me</mat-icon>
+            <span>Est. arrival</span>
+            <strong>{{ journeyView.etaLabel }}</strong>
+          </div>
+        </div>
+
+        <ul class="lt-journey__segments" *ngIf="journeyView.eventSegments.length">
+          <li *ngFor="let seg of journeyView.eventSegments" [class]="'is-' + seg.tone">
+            <span class="lt-journey__seg-label">{{ seg.label }}</span>
+            <span class="lt-journey__seg-time">{{ seg.durationLabel }}</span>
+          </li>
+        </ul>
+      </div>
+
+      <div class="lt-telematics lx-card">
+        <div class="lt-telematics__head">
+          <div>
+            <p class="lt-telematics__eyebrow">Live telematics</p>
+            <h2>{{ vehicleLabel }}</h2>
+            <p class="lt-telematics__sub">{{ driverLabel }}</p>
+          </div>
+          <mat-icon>local_shipping</mat-icon>
+        </div>
+
+        <div class="lt-speed-gauge" [class.is-over]="tripSnapshot?.speedLimitExceeded">
+          <div class="lt-speed-gauge__bar">
+            <div class="lt-speed-gauge__fill" [style.width.%]="speedGaugePct"></div>
+          </div>
+          <div class="lt-speed-gauge__labels">
+            <strong>{{ tripSnapshot?.speedKmh || 0 | number:'1.0-0' }} km/h</strong>
+            <span *ngIf="maxSpeedKmh">Limit {{ maxSpeedKmh | number:'1.0-0' }} km/h</span>
+            <span *ngIf="!maxSpeedKmh">No speed cap set</span>
+          </div>
+        </div>
+
+        <div class="lt-telematics__stats">
+          <div>
+            <span>Distance</span>
+            <strong>{{ distanceTravelledKm | number:'1.1-1' }} km</strong>
+          </div>
+          <div>
+            <span>Trail points</span>
+            <strong>{{ trailPointCount }}</strong>
+          </div>
+          <div>
+            <span>Status</span>
+            <strong>{{ tripSnapshot?.moving ? 'Moving' : (tripSnapshot?.onBreak ? 'On break' : 'Stopped') }}</strong>
+          </div>
+        </div>
+      </div>
       <div class="lt-fuel lx-card" [class]="'lt-fuel--' + fuelTone">
+        <div class="lt-fuel__banner" *ngIf="fuelAlertMessage" role="status">
+          <mat-icon>{{ fuelTone === 'critical' ? 'warning' : 'info' }}</mat-icon>
+          <span>{{ fuelAlertMessage }}</span>
+        </div>
         <div class="lt-fuel__header">
           <div>
             <p class="lt-fuel__eyebrow">Fuel &amp; expenses</p>
@@ -93,8 +340,8 @@
             />
           </svg>
           <div class="lt-fuel__value">
-            <strong>{{ fuelSnapshot?.fuelLevelPct ?? 100 | number:'1.0-0' }}%</strong>
-            <small>{{ fuelSnapshot?.fuelRemainingLiters ?? 400 | number:'1.0-0' }} L left</small>
+            <strong>{{ fuelSnapshot?.fuelLevelPct ?? 100 | number:fuelDisplayFormat }}%</strong>
+            <small>{{ fuelSnapshot?.fuelRemainingLiters ?? 400 | number:fuelDisplayFormat }} L left</small>
           </div>
         </div>
 
@@ -113,26 +360,48 @@
           </div>
         </div>
 
-        <p class="lt-fuel__note" *ngIf="fuelSnapshot?.moving">
+        <p class="lt-fuel__note" *ngIf="fuelSnapshot?.moving && fuelTone === 'ok'">
           Fuel decreasing as the truck moves along the corridor.
         </p>
-        <p class="lt-fuel__note" *ngIf="!fuelSnapshot?.moving">
+        <p class="lt-fuel__note" *ngIf="!fuelSnapshot?.moving && fuelTone === 'ok'">
           Fuel telemetry syncs when the vehicle is in motion.
         </p>
       </div>
 
       <div class="lt-progress lx-card">
         <div class="lt-progress__head">
-          <h3>Journey progress</h3>
+          <div>
+            <h3>Journey progress</h3>
+            <p class="lt-progress__sub">{{ journeyProgress.completionLabel }}</p>
+          </div>
           <span>{{ tripSnapshot?.overallProgressPct || 0 | number:'1.0-0' }}%</span>
         </div>
         <div class="lt-progress__bar">
           <div class="lt-progress__fill" [style.width.%]="tripSnapshot?.overallProgressPct || 0"></div>
         </div>
-        <ul class="lt-progress__legs" *ngIf="tripSnapshot?.routeWaypoints?.length">
-          <li *ngFor="let wp of tripSnapshot?.routeWaypoints; let i = index" [class.is-end]="wp.type === 'DESTINATION'">
-            <span class="lt-progress__dot"></span>
-            <span>{{ wp.label }}</span>
+        <p class="lt-progress__current" *ngIf="journeyProgress.currentLegLabel !== '—'">
+          <mat-icon>navigation</mat-icon>
+          Heading to <strong>{{ journeyProgress.currentLegLabel }}</strong>
+          <span *ngIf="journeyProgress.segmentProgressPct > 0 && journeyProgress.segmentProgressPct < 100">
+            · {{ journeyProgress.segmentProgressPct | number:'1.0-0' }}% of this leg
+          </span>
+        </p>
+        <ul class="lt-progress__legs" *ngIf="journeyProgress.legs.length">
+          <li
+            *ngFor="let leg of journeyProgress.legs"
+            [class.is-completed]="leg.status === 'completed'"
+            [class.is-current]="leg.status === 'current'"
+            [class.is-pending]="leg.status === 'pending'"
+            [class.is-end]="leg.type === 'DESTINATION'"
+          >
+            <span class="lt-progress__dot" aria-hidden="true">
+              <mat-icon *ngIf="leg.status === 'completed'">check</mat-icon>
+              <mat-icon *ngIf="leg.status === 'current'">local_shipping</mat-icon>
+            </span>
+            <div class="lt-progress__leg-copy">
+              <strong>{{ leg.label }}</strong>
+              <small>{{ leg.statusLabel }}</small>
+            </div>
           </li>
         </ul>
       </div>
@@ -173,23 +442,59 @@
         </div>
 
         <div class="lt-request-form" *ngIf="showRequestForm && !isRoadsideHold">
-          <mat-button-toggle-group [(ngModel)]="requestType" aria-label="Request type">
+          <mat-button-toggle-group
+            class="lt-request-form__types"
+            [(ngModel)]="requestType"
+            aria-label="Request type"
+          >
             <mat-button-toggle value="FUEL_TOP_UP">Fuel top-up</mat-button-toggle>
             <mat-button-toggle value="MECHANIC">Mechanic</mat-button-toggle>
             <mat-button-toggle value="FUNDS">Funds</mat-button-toggle>
           </mat-button-toggle-group>
-          <mat-form-field appearance="outline" *ngIf="requestType === 'FUEL_TOP_UP'" subscriptSizing="dynamic">
-            <mat-label>Litres requested</mat-label>
-            <input matInput type="number" [(ngModel)]="requestLiters" min="1" />
-          </mat-form-field>
-          <mat-form-field appearance="outline" *ngIf="requestType === 'FUNDS'" subscriptSizing="dynamic">
-            <mat-label>Amount (USD)</mat-label>
-            <input matInput type="number" [(ngModel)]="requestAmount" min="1" />
-          </mat-form-field>
-          <mat-form-field appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Driver notes</mat-label>
-            <input matInput [(ngModel)]="requestNotes" placeholder="Low fuel near Kadoma…" />
-          </mat-form-field>
+
+          <div class="lt-request-form__fields">
+            <div class="lx-field" *ngIf="requestType === 'FUEL_TOP_UP'">
+              <label class="lx-field-label" for="lt-request-liters">Litres requested</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">local_gas_station</mat-icon>
+                <input
+                  id="lt-request-liters"
+                  type="number"
+                  [(ngModel)]="requestLiters"
+                  min="1"
+                  placeholder="e.g. 80"
+                />
+              </div>
+            </div>
+
+            <div class="lx-field" *ngIf="requestType === 'FUNDS'">
+              <label class="lx-field-label" for="lt-request-amount">Amount (USD)</label>
+              <div class="lx-input-shell">
+                <mat-icon class="lx-input-shell__icon">payments</mat-icon>
+                <input
+                  id="lt-request-amount"
+                  type="number"
+                  [(ngModel)]="requestAmount"
+                  min="1"
+                  placeholder="e.g. 150"
+                />
+              </div>
+            </div>
+
+            <div class="lx-field">
+              <label class="lx-field-label" for="lt-request-notes">Driver notes</label>
+              <div class="lx-input-shell lx-input-shell--textarea">
+                <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+                <textarea
+                  id="lt-request-notes"
+                  [(ngModel)]="requestNotes"
+                  rows="2"
+                  placeholder="Low fuel near Kadoma…"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
           <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="submitFundRequest()" [disabled]="requestBusy">
             Submit request
           </button>
@@ -223,6 +528,45 @@
         <ng-template #noRequests>
           <p class="lt-requests__empty">No driver requests for this trip yet.</p>
         </ng-template>
+      </div>
+
+      <div class="lt-stops lx-card" *ngIf="meaningfulStops.length">
+        <h3><mat-icon>pin_drop</mat-icon> Stops &amp; breaks</h3>
+        <ul>
+          <li *ngFor="let stop of meaningfulStops">
+            <span class="lt-stops__icon"><mat-icon>{{ stopIcon(stop.eventType) }}</mat-icon></span>
+            <div class="lt-stops__copy">
+              <strong>{{ stop.eventTypeLabel }}</strong>
+              <span>{{ stop.recordedAtLabel }}</span>
+              <small *ngIf="stop.notes">{{ stop.notes }}</small>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="lt-history lx-card">
+        <div class="lt-history__head">
+          <h3><mat-icon>history</mat-icon> Journey history</h3>
+          <span>{{ trailPointCount }} GPS points</span>
+        </div>
+        <p class="lt-history__lead">
+          Route replay is stored server-side and syncs from devices when connected.
+          Simulation builds the same trail your telematics feed will use.
+        </p>
+        <div class="lt-history__stats">
+          <div>
+            <span>Corridor progress</span>
+            <strong>{{ tripSnapshot?.overallProgressPct || 0 | number:'1.0-0' }}%</strong>
+          </div>
+          <div>
+            <span>Fuel distance</span>
+            <strong>{{ fuelSnapshot?.distanceTravelledKm ?? 0 | number:'1.1-1' }} km</strong>
+          </div>
+          <div>
+            <span>Recorded stops</span>
+            <strong>{{ meaningfulStops.length }}</strong>
+          </div>
+        </div>
       </div>
 
       <div class="lt-telemetry lx-card" *ngIf="telemetryLogs.length">

@@ -109,7 +109,8 @@
                   child.route.startsWith('/products-inventory/') ||
                   child.route.startsWith('/fleet/') ||
                   child.route.startsWith('/my-orders/') ||
-                  child.route.startsWith('/shipments/')
+                  child.route.startsWith('/shipments/') ||
+                  child.route.startsWith('/analytics/')
                     ? { exact: true }
                     : { exact: false }
                 "
@@ -249,6 +250,7 @@
                 class="tb-flyout__item"
                 [class.tb-flyout__item--action]="n.action"
                 [class.tb-flyout__item--urgent]="n.urgent"
+                [class.tb-flyout__item--warn]="n.tone === 'warn'"
               >
                 <button
                   type="button"

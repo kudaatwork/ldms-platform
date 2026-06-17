@@ -1,0 +1,125 @@
+<section class="lx-page bot-page">
+  <lx-workspace-hero
+    variant="violet"
+    eyebrow="Messaging · Inbound bot"
+    eyebrowIcon="smart_toy"
+    title="Bot service monitor"
+    lead="Watch users chatting with the LDMS assistant across WhatsApp, web, and SMS — see prompts, replies, and escalations in real time."
+    hubIcon="smart_toy"
+    [orbitIcons]="['chat', 'forum', 'support_agent']"
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reload()" [disabled]="loading">
+      <mat-icon aria-hidden="true">refresh</mat-icon>
+      Refresh
+    </button>
+    <lx-workspace-hero-stat [value]="sessions.length" label="Sessions today" icon="forum" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="activeCount" label="Active" icon="bolt" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="waitingCount" label="Awaiting user" icon="hourglass_empty" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="escalatedCount" label="Escalated" icon="support_agent" theme="amber"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <div class="bot-alert" *ngIf="error" role="alert">
+    <mat-icon aria-hidden="true">error_outline</mat-icon>
+    {{ error }}
+    <button type="button" class="bot-alert__action" (click)="reload()">Retry</button>
+  </div>
+
+  <div class="bot-layout" [class.bot-layout--loading]="loading">
+    <aside class="bot-inbox lx-card">
+      <div class="bot-inbox__hd">
+        <span class="bot-inbox__title">Conversations</span>
+        <span class="bot-live-pill"><span class="bot-live-pill__dot"></span>Live</span>
+      </div>
+      <label class="bot-search">
+        <mat-icon aria-hidden="true">search</mat-icon>
+        <input
+          type="search"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+          placeholder="Search user, org, topic…"
+          autocomplete="off"
+        />
+      </label>
+      <nav class="bot-filters" aria-label="Filter by status">
+        <button
+          type="button"
+          *ngFor="let f of statusFilters"
+          class="bot-filter"
+          [class.bot-filter--on]="statusFilter() === f.id"
+          (click)="setStatusFilter(f.id)"
+        >
+          {{ f.label }}
+        </button>
+      </nav>
+      <div class="bot-inbox__list" *ngIf="!loading; else inboxSkeleton">
+        <button
+          type="button"
+          class="bot-thread"
+          *ngFor="let s of filteredSessions; trackBy: trackBySessionId"
+          [class.bot-thread--active]="selected?.sessionId === s.sessionId"
+          (click)="selectSession(s)"
+        >
+          <div class="bot-thread__avatar">{{ s.userDisplayName.charAt(0) }}</div>
+          <div class="bot-thread__copy">
+            <div class="bot-thread__row">
+              <span class="bot-thread__name">{{ s.userDisplayName }}</span>
+              <span class="bot-thread__time">{{ formatTime(s.lastMessageAt) }}</span>
+            </div>
+            <div class="bot-thread__org">{{ s.organizationName }}</div>
+            <div class="bot-thread__topic">{{ s.topic }}</div>
+          </div>
+          <span class="bot-thread__channel" [matTooltip]="s.channel">
+            <mat-icon>{{ channelIcon(s.channel) }}</mat-icon>
+          </span>
+        </button>
+        <p class="bot-inbox__empty" *ngIf="!filteredSessions.length">No conversations match your filters.</p>
+      </div>
+      <ng-template #inboxSkeleton>
+        <div class="bot-skeleton" *ngFor="let i of [1,2,3,4]"></div>
+      </ng-template>
+    </aside>
+
+    <main class="bot-chat lx-card" *ngIf="selected as chat">
+      <header class="bot-chat__hd">
+        <div>
+          <h2 class="bot-chat__title">{{ chat.userDisplayName }}</h2>
+          <p class="bot-chat__meta">
+            {{ chat.organizationName }} · {{ chat.userPhone }} · {{ chat.channel }}
+          </p>
+        </div>
+        <span class="bot-status" [ngClass]="statusClass(chat.status)">{{ chat.statusLabel }}</span>
+      </header>
+      <div class="bot-chat__topic">
+        <mat-icon aria-hidden="true">topic</mat-icon>
+        {{ chat.topic }}
+      </div>
+      <div class="bot-chat__messages">
+        <article
+          *ngFor="let m of chat.messages; trackBy: trackByMessageId"
+          class="bot-bubble"
+          [class.bot-bubble--user]="m.role === 'user'"
+          [class.bot-bubble--bot]="m.role === 'bot'"
+          [class.bot-bubble--system]="m.role === 'system'"
+        >
+          <div class="bot-bubble__role" *ngIf="m.role !== 'user'">
+            {{ m.role === 'bot' ? 'LDMS Bot' : 'System' }}
+          </div>
+          <p class="bot-bubble__body">{{ m.body }}</p>
+          <time class="bot-bubble__time">{{ formatTime(m.sentAt) }}</time>
+        </article>
+      </div>
+      <footer class="bot-chat__ft">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        Read-only monitor — replies are sent by the bot or escalated to Help &amp; Support.
+        <span *ngIf="chat.satisfactionScore" class="bot-chat__score">
+          <mat-icon>star</mat-icon>{{ chat.satisfactionScore }}/5
+        </span>
+      </footer>
+    </main>
+
+    <div class="bot-chat bot-chat--empty lx-card" *ngIf="!selected && !loading">
+      <mat-icon>smart_toy</mat-icon>
+      <p>Select a conversation to inspect the message thread.</p>
+    </div>
+  </div>
+</section>

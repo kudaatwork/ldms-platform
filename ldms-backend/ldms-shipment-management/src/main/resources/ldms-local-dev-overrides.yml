@@ -5,3 +5,7 @@ server:
 management:
   server:
     port: 9015
+
+# Keep JWT signing aligned with ldms-authentication when Config Server is slow/offline at startup.
+jwt:
+  secret: ${JWT_SECRET:dev-jwt-secret-change-me-please-override}

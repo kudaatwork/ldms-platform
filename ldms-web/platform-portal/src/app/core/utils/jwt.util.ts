@@ -12,6 +12,8 @@ export interface LdmsJwtPayload {
   roles?: string[];
   mustChangeCredentials?: boolean;
   procurementApprover?: boolean;
+  shipmentFleetAllocator?: boolean;
+  organizationWorkspaceAdministrator?: boolean;
   /** Seconds since Unix epoch (standard JWT {@code exp} claim). */
   exp?: number;
 }
@@ -92,5 +94,6 @@ export function currentUserFromJwt(token: string): CurrentUser | null {
     lastName: lastName || undefined,
     mustChangeCredentials: payload.mustChangeCredentials === true,
     procurementApprover: payload.procurementApprover === true,
+    shipmentFleetAllocator: payload.shipmentFleetAllocator === true,
   };
 }

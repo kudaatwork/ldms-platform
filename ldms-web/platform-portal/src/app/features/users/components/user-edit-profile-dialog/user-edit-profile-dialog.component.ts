@@ -56,6 +56,7 @@ export class UserEditProfileDialogComponent {
   timezone = '';
   organizationKycApprover = false;
   procurementApprover = false;
+  shipmentFleetAllocator = false;
   private readonly preferencesId: number;
   private readonly organizationId?: number;
 
@@ -100,6 +101,11 @@ export class UserEditProfileDialogComponent {
     return !!this.organizationId;
   }
 
+  /** Shipment fleet allocator flag applies to organisation workspace users only. */
+  get canEditShipmentFleetAllocator(): boolean {
+    return !!this.organizationId;
+  }
+
   get maximumDateOfBirth(): string {
     return maximumDateOfBirthInput();
   }
@@ -118,6 +124,7 @@ export class UserEditProfileDialogComponent {
     this.organizationId = Number.isFinite(orgId) && orgId > 0 ? orgId : undefined;
     this.organizationKycApprover = this.readOrganizationKycApprover(u['organizationKycApprover']);
     this.procurementApprover = this.readProcurementApprover(u['procurementApprover']);
+    this.shipmentFleetAllocator = this.readShipmentFleetAllocator(u['shipmentFleetAllocator']);
     this.username = String(u['username'] ?? '').trim();
     this.email = String(u['email'] ?? '').trim();
     this.firstName = String(u['firstName'] ?? '').trim();
@@ -294,6 +301,19 @@ export class UserEditProfileDialogComponent {
             switchMap((procResp) => {
               if (this.usersPortal.isUserMutationFailure(procResp)) {
                 return throwError(() => procResp);
+              }
+              return of(userResp);
+            }),
+          );
+        }),
+        switchMap((userResp) => {
+          if (this.scope === 'profile-only' || !this.canEditShipmentFleetAllocator) {
+            return of(userResp);
+          }
+          return this.usersPortal.setShipmentFleetAllocator(this.userId, this.shipmentFleetAllocator).pipe(
+            switchMap((allocResp) => {
+              if (this.usersPortal.isUserMutationFailure(allocResp)) {
+                return throwError(() => allocResp);
               }
               return of(userResp);
             }),
@@ -493,6 +513,10 @@ export class UserEditProfileDialogComponent {
   }
 
   private readProcurementApprover(raw: unknown): boolean {
+    return this.readBooleanFlag(raw);
+  }
+
+  private readShipmentFleetAllocator(raw: unknown): boolean {
     return this.readBooleanFlag(raw);
   }
 

@@ -13,11 +13,9 @@ import {
   ACTION_CHARGE_SAMPLE_CSV,
   SUBSCRIPTION_PACKAGE_IMPORT_DISCLAIMER,
   SUBSCRIPTION_PACKAGE_SAMPLE_CSV,
-  actionChargesToCsv,
   downloadTextFile,
   parseActionChargeCsv,
   parseSubscriptionPackageCsv,
-  subscriptionPackagesToCsv,
 } from '../../utils/platform-billing-csv.util';
 import {
   PlatformActionChargeFormDialogComponent,
@@ -28,6 +26,12 @@ import {
   type SubscriptionPackageFormDialogData,
 } from '../subscription-package-form-dialog/subscription-package-form-dialog.component';
 import { PLATFORM_BILLING_MODULES, moduleLabel } from '../../utils/platform-billing-modules.util';
+import {
+  exportClientTableAsCsv,
+  exportFormatLabel,
+  type LxExportColumn,
+  type LxExportFormat,
+} from '@shared/utils/lx-export.util';
 
 type BillingTab = 'charges' | 'packages' | 'deposits';
 
@@ -271,26 +275,81 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
     }
   }
 
-  exportCsv(): void {
-    if (this.exporting) return;
-    this.exporting = true;
-    try {
-      if (this.activeTab === 'charges') {
-        downloadTextFile('platform-action-charges.csv', actionChargesToCsv(this.filteredActionCharges));
-      } else if (this.activeTab === 'packages') {
-        downloadTextFile('subscription-packages.csv', subscriptionPackagesToCsv(this.filteredPackages));
-      } else {
-        const lines = ['organizationId,amountCents,currencyCode,referenceNumber,createdAt'];
-        for (const row of this.filteredDeposits) {
-          lines.push([row.organizationId ?? '', row.amountCents, row.currencyCode ?? 'USD', `"${(row.referenceNumber ?? '').replace(/"/g, '""')}"`, row.createdAt ?? ''].join(','));
-        }
-        downloadTextFile('pending-wallet-deposits.csv', lines.join('\n'));
-      }
-      this.snackBar.open('Export downloaded.', 'Close', { duration: 2500 });
-    } finally {
-      this.exporting = false;
-      this.cdr.markForCheck();
+  exportAs(format: LxExportFormat): void {
+    if (this.exporting) {
+      return;
     }
+    const { rows, columns, filenameBase, title } = this.exportContext();
+    if (!rows.length) {
+      this.snackBar.open('No rows to export.', 'Close', { duration: 3000 });
+      return;
+    }
+    this.exporting = true;
+    const saved = exportClientTableAsCsv(
+      format,
+      rows,
+      columns,
+      filenameBase,
+      (message) => this.snackBar.open(message, 'Close', { duration: 4500 }),
+      { title },
+    );
+    this.exporting = false;
+    this.cdr.markForCheck();
+    if (saved) {
+      this.snackBar.open(`Exported as ${exportFormatLabel(format)}.`, 'Close', { duration: 2500 });
+    }
+  }
+
+  private exportContext(): {
+    rows: readonly object[];
+    columns: readonly LxExportColumn<object>[];
+    filenameBase: string;
+    title: string;
+  } {
+    if (this.activeTab === 'charges') {
+      return {
+        rows: this.filteredActionCharges,
+        filenameBase: 'platform-action-charges',
+        title: 'Platform action charges',
+        columns: [
+          { header: 'actionCode', value: (r) => (r as PlatformActionChargeRow).actionCode },
+          { header: 'displayName', value: (r) => (r as PlatformActionChargeRow).displayName },
+          { header: 'description', value: (r) => (r as PlatformActionChargeRow).description ?? '' },
+          { header: 'chargeCents', value: (r) => (r as PlatformActionChargeRow).chargeCents },
+          { header: 'category', value: (r) => (r as PlatformActionChargeRow).category ?? '' },
+          { header: 'active', value: (r) => (r as PlatformActionChargeRow).active !== false },
+        ],
+      };
+    }
+    if (this.activeTab === 'packages') {
+      return {
+        rows: this.filteredPackages,
+        filenameBase: 'subscription-packages',
+        title: 'Subscription packages',
+        columns: [
+          { header: 'code', value: (r) => (r as SubscriptionPackageRow).code },
+          { header: 'name', value: (r) => (r as SubscriptionPackageRow).name },
+          { header: 'description', value: (r) => (r as SubscriptionPackageRow).description ?? '' },
+          { header: 'monthlyPriceCents', value: (r) => (r as SubscriptionPackageRow).monthlyPriceCents },
+          { header: 'currencyCode', value: (r) => (r as SubscriptionPackageRow).currencyCode ?? 'USD' },
+          { header: 'sortOrder', value: (r) => (r as SubscriptionPackageRow).sortOrder ?? '' },
+          { header: 'featured', value: (r) => (r as SubscriptionPackageRow).featured === true },
+          { header: 'active', value: (r) => (r as SubscriptionPackageRow).active !== false },
+        ],
+      };
+    }
+    return {
+      rows: this.filteredDeposits,
+      filenameBase: 'pending-wallet-deposits',
+      title: 'Pending wallet deposits',
+      columns: [
+        { header: 'organizationId', value: (r) => (r as WalletDepositRow).organizationId ?? '' },
+        { header: 'amountCents', value: (r) => (r as WalletDepositRow).amountCents },
+        { header: 'currencyCode', value: (r) => (r as WalletDepositRow).currencyCode ?? 'USD' },
+        { header: 'referenceNumber', value: (r) => (r as WalletDepositRow).referenceNumber ?? '' },
+        { header: 'createdAt', value: (r) => (r as WalletDepositRow).createdAt ?? '' },
+      ],
+    };
   }
 
   triggerImport(): void {

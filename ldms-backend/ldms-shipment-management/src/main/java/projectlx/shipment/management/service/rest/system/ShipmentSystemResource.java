@@ -8,8 +8,6 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -21,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import projectlx.shipment.management.service.processor.api.ShipmentServiceProcessor;
 import projectlx.shipment.management.utils.requests.ShipmentMultipleFiltersRequest;
+import projectlx.shipment.management.utils.requests.AutoAllocateShipmentFromFleetRequest;
 import projectlx.shipment.management.utils.requests.UpdateShipmentStatusRequest;
 import projectlx.shipment.management.utils.responses.ShipmentResponse;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
@@ -40,7 +39,6 @@ public class ShipmentSystemResource {
     private final ShipmentServiceProcessor shipmentServiceProcessor;
 
     @Auditable(action = "SYSTEM_FIND_SHIPMENT_BY_ID")
-    @PreAuthorize("isAuthenticated()")
     @GetMapping("/find-by-id/{id}")
     @Operation(summary = "System: find shipment by id", description = "Returns a shipment by id — used by inter-service callers.")
     @ApiResponses({
@@ -50,13 +48,20 @@ public class ShipmentSystemResource {
     public ResponseEntity<ShipmentResponse> findById(
             @PathVariable final Long id,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        ShipmentResponse response = shipmentServiceProcessor.findById(id, locale, username);
+        ShipmentResponse response = shipmentServiceProcessor.findById(id, locale, "SYSTEM");
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
+    @Auditable(action = "SYSTEM_FIND_SHIPMENT_BY_ID")
+    @GetMapping("/by-id/{id}")
+    @Operation(summary = "System: find shipment by id (alias)", description = "Alias for find-by-id used by inter-service callers.")
+    public ResponseEntity<ShipmentResponse> findByIdAlias(
+            @PathVariable final Long id,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return findById(id, locale);
+    }
+
     @Auditable(action = "SYSTEM_FIND_SHIPMENTS_BY_FILTERS")
-    @PreAuthorize("isAuthenticated()")
     @PostMapping("/find-by-multiple-filters")
     @Operation(summary = "System: find shipments by filters", description = "Filters shipments by multiple criteria — used by inter-service callers.")
     @ApiResponses({
@@ -66,13 +71,11 @@ public class ShipmentSystemResource {
     public ResponseEntity<ShipmentResponse> findByMultipleFilters(
             @RequestBody final ShipmentMultipleFiltersRequest request,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        ShipmentResponse response = shipmentServiceProcessor.findByMultipleFilters(request, locale, username);
+        ShipmentResponse response = shipmentServiceProcessor.findByMultipleFilters(request, locale, "SYSTEM");
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
     @Auditable(action = "SYSTEM_FIND_SHIPMENT_BY_TRANSFER")
-    @PreAuthorize("isAuthenticated()")
     @GetMapping("/by-transfer/{transferId}")
     @Operation(summary = "System: find shipment by inventory transfer id",
             description = "Returns the shipment linked to the given inventory transfer — used by inter-service callers.")
@@ -88,7 +91,6 @@ public class ShipmentSystemResource {
     }
 
     @Auditable(action = "SYSTEM_FIND_SHIPMENT_BY_SALES_ORDER")
-    @PreAuthorize("isAuthenticated()")
     @GetMapping("/by-sales-order/{salesOrderId}")
     @Operation(summary = "System: find shipment by sales order id",
             description = "Returns the shipment linked to a bought-goods sales order.")
@@ -104,7 +106,6 @@ public class ShipmentSystemResource {
     }
 
     @Auditable(action = "SYSTEM_UPDATE_SHIPMENT_STATUS")
-    @PreAuthorize("isAuthenticated()")
     @PatchMapping("/status")
     @Operation(summary = "System: update shipment status",
             description = "Transitions a shipment's status (e.g. IN_TRANSIT, ARRIVED_PENDING_OTP, DELIVERED). "
@@ -117,8 +118,23 @@ public class ShipmentSystemResource {
     public ResponseEntity<ShipmentResponse> updateStatus(
             @RequestBody final UpdateShipmentStatusRequest request,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        ShipmentResponse response = shipmentServiceProcessor.updateStatus(request, locale, username);
+        ShipmentResponse response = shipmentServiceProcessor.updateStatus(request, locale, "SYSTEM");
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "SYSTEM_AUTO_ALLOCATE_SHIPMENT_FROM_FLEET")
+    @PostMapping("/auto-allocate-from-fleet")
+    @Operation(summary = "System: auto-allocate shipment from fleet driver assignment",
+            description = "When a transport company or shipper assigns a driver to a fleet vehicle, "
+                    + "links the oldest matching shipment in PENDING_FLEET_ALLOCATION to that driver and vehicle.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Auto-allocation applied or no matching shipment"),
+            @ApiResponse(responseCode = "400", description = "Allocation validation failed")
+    })
+    public ResponseEntity<ShipmentResponse> autoAllocateFromFleet(
+            @RequestBody final AutoAllocateShipmentFromFleetRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        ShipmentResponse response = shipmentServiceProcessor.autoAllocateFromFleet(request, locale, "SYSTEM");
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 }

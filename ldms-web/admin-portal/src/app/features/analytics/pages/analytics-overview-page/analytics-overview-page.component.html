@@ -1,0 +1,131 @@
+<section class="lx-page analytics-page">
+  <lx-workspace-hero
+    variant="brand"
+    eyebrow="Platform intelligence"
+    eyebrowIcon="analytics"
+    title="Shipment analytics"
+    lead="Drill into every organisation on LDMS — active loads, completed history, and on-time performance across the network."
+    hubIcon="insights"
+    [orbitIcons]="['local_shipping', 'corporate_fare', 'timeline']"
+  >
+    <a lxWorkspaceHeroActions class="lx-btn lx-btn-primary lx-btn-accent" routerLink="/analytics/revenue">
+      <mat-icon aria-hidden="true">payments</mat-icon>
+      Platform revenue
+    </a>
+    <lx-workspace-hero-stat
+      *ngIf="summary"
+      [value]="summary.activeShipments"
+      label="Active shipments"
+      icon="local_shipping"
+      theme="mint"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      *ngIf="summary"
+      [value]="summary.completedThisMonth"
+      label="Completed (MTD)"
+      icon="task_alt"
+      theme="teal"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      *ngIf="summary"
+      [value]="summary.onTimePct + '%'"
+      label="On-time"
+      icon="schedule"
+      theme="amber"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      *ngIf="summary"
+      [value]="summary.organizationsWithActivity"
+      label="Orgs active"
+      icon="corporate_fare"
+      theme="violet"
+    ></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <div class="analytics-charts lx-grid lx-grid-2 mb-lg" *ngIf="summary && !loading">
+    <article class="lx-card analytics-chart-card">
+      <header class="analytics-chart-card__hd">
+        <mat-icon>trending_up</mat-icon>
+        <div>
+          <h3>Weekly shipment volume</h3>
+          <p>Across all tenant organisations</p>
+        </div>
+      </header>
+      <div class="analytics-chart-card__body">
+        <canvas baseChart [data]="volumeChartData" [options]="volumeChartOptions" type="line"></canvas>
+      </div>
+    </article>
+    <article class="lx-card analytics-chart-card">
+      <header class="analytics-chart-card__hd">
+        <mat-icon>donut_large</mat-icon>
+        <div>
+          <h3>Status mix</h3>
+          <p>Live pipeline distribution</p>
+        </div>
+      </header>
+      <div class="analytics-chart-card__body analytics-chart-card__body--donut">
+        <canvas baseChart [data]="statusChartData" [options]="statusChartOptions" type="doughnut"></canvas>
+      </div>
+    </article>
+  </div>
+
+  <div class="lx-card analytics-companies">
+    <header class="analytics-companies__hd">
+      <div>
+        <h2>Organisations</h2>
+        <p>Click a company to explore shipments and live tracking</p>
+      </div>
+      <label class="analytics-search">
+        <mat-icon aria-hidden="true">search</mat-icon>
+        <input
+          type="search"
+          [value]="search()"
+          (input)="search.set($any($event.target).value)"
+          placeholder="Filter companies…"
+        />
+      </label>
+    </header>
+
+    <div class="analytics-company-grid" *ngIf="!loading; else gridSkeleton">
+      <button
+        type="button"
+        class="analytics-co-card"
+        *ngFor="let co of filteredCompanies; trackBy: trackByOrgId"
+        (click)="openCompany(co)"
+        [style.--co-accent]="co.accent"
+      >
+        <div class="analytics-co-card__glow" aria-hidden="true"></div>
+        <div class="analytics-co-card__top">
+          <span class="analytics-co-card__badge">{{ co.classificationLabel }}</span>
+          <mat-icon>chevron_right</mat-icon>
+        </div>
+        <h3 class="analytics-co-card__name">{{ co.organizationName }}</h3>
+        <div class="analytics-co-card__metrics">
+          <div>
+            <span class="analytics-co-card__val">{{ co.activeShipments }}</span>
+            <span class="analytics-co-card__lbl">Active</span>
+          </div>
+          <div>
+            <span class="analytics-co-card__val">{{ co.completedShipments }}</span>
+            <span class="analytics-co-card__lbl">Completed</span>
+          </div>
+          <div>
+            <span class="analytics-co-card__val">{{ co.onTimePct }}%</span>
+            <span class="analytics-co-card__lbl">On-time</span>
+          </div>
+        </div>
+        <div class="analytics-co-card__foot">
+          <span>{{ formatMoney(co.revenueCents) }} billed</span>
+          <span class="analytics-co-card__live" *ngIf="co.activeTrips > 0">
+            <span class="analytics-co-card__dot"></span>{{ co.activeTrips }} live trips
+          </span>
+        </div>
+      </button>
+    </div>
+    <ng-template #gridSkeleton>
+      <div class="analytics-company-grid">
+        <div class="analytics-co-skeleton" *ngFor="let i of [1,2,3,4,5,6]"></div>
+      </div>
+    </ng-template>
+  </div>
+</section>

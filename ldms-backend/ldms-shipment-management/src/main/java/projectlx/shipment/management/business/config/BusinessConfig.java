@@ -15,6 +15,7 @@ import projectlx.shipment.management.business.logic.impl.BorderClearanceCaseServ
 import projectlx.shipment.management.business.logic.impl.ShipmentServiceImpl;
 import projectlx.shipment.management.business.logic.support.CallerOrganizationResolver;
 import projectlx.shipment.management.business.logic.support.LogisticsNotificationRecipientResolver;
+import projectlx.shipment.management.business.logic.support.ShipmentFleetAllocatorSupport;
 import projectlx.shipment.management.business.validator.api.BorderClearanceCaseServiceValidator;
 import projectlx.shipment.management.business.validator.api.ShipmentServiceValidator;
 import projectlx.shipment.management.business.validator.impl.BorderClearanceCaseServiceValidatorImpl;
@@ -82,10 +83,17 @@ public class BusinessConfig {
     }
 
     @Bean
+    public ShipmentFleetAllocatorSupport shipmentFleetAllocatorSupport(
+            UserManagementServiceClient userManagementServiceClient) {
+        return new ShipmentFleetAllocatorSupport(userManagementServiceClient);
+    }
+
+    @Bean
     public ShipmentService shipmentService(ShipmentServiceValidator shipmentServiceValidator,
                                            ShipmentServiceAuditable shipmentServiceAuditable,
                                            ShipmentRepository shipmentRepository,
                                            CallerOrganizationResolver callerOrganizationResolver,
+                                           ShipmentFleetAllocatorSupport shipmentFleetAllocatorSupport,
                                            RabbitTemplate rabbitTemplate,
                                            MessageService messageService,
                                            LogisticsLifecycleNotificationSupport logisticsLifecycleNotificationSupport,
@@ -94,7 +102,7 @@ public class BusinessConfig {
                                            FleetManagementServiceClient fleetManagementServiceClient,
                                            BorderClearanceCaseService borderClearanceCaseService) {
         return new ShipmentServiceImpl(shipmentServiceValidator, shipmentServiceAuditable,
-                shipmentRepository, callerOrganizationResolver, rabbitTemplate, messageService,
+                shipmentRepository, callerOrganizationResolver, shipmentFleetAllocatorSupport, rabbitTemplate, messageService,
                 logisticsLifecycleNotificationSupport, logisticsNotificationRecipientResolver,
                 organizationManagementServiceClient, fleetManagementServiceClient, borderClearanceCaseService);
     }

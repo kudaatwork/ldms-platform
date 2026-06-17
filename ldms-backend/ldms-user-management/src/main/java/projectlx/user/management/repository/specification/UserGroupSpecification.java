@@ -45,4 +45,27 @@ public class UserGroupSpecification {
     public static Specification<UserGroup> organizationIdEquals(final Long organizationId) {
         return (root, query, cb) -> cb.equal(root.get("organizationId"), organizationId);
     }
+
+    /**
+     * Groups owned by the organisation workspace, plus platform-wide groups currently assigned to its users.
+     */
+    public static Specification<UserGroup> organizationWorkspaceVisible(final Long organizationId) {
+        return (root, query, cb) -> {
+            if (organizationId == null || organizationId <= 0) {
+                return cb.conjunction();
+            }
+            var subquery = query.subquery(Long.class);
+            var userRoot = subquery.from(projectlx.user.management.model.User.class);
+            subquery.select(userRoot.get("userGroup").get("id"))
+                    .where(
+                            cb.equal(userRoot.get("organizationId"), organizationId),
+                            cb.notEqual(userRoot.get("entityStatus"), EntityStatus.DELETED),
+                            cb.isNotNull(userRoot.get("userGroup")));
+            return cb.or(
+                    cb.equal(root.get("organizationId"), organizationId),
+                    cb.and(
+                            cb.isNull(root.get("organizationId")),
+                            root.get("id").in(subquery)));
+        };
+    }
 }

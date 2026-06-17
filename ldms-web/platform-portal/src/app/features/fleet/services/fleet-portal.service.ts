@@ -116,7 +116,7 @@ export class FleetPortalService {
       status: vehicle.status,
       ownershipType: vehicle.ownershipType,
       contractedTransporterOrganizationId: vehicle.contractedTransporterOrganizationId,
-      contractScope: vehicle.contractScope,
+      contractScope: vehicle.contractScope ?? (vehicle.ownershipType === 'contracted' ? 'long_term' : undefined),
       contractStartDate: vehicle.contractStartDate,
       contractEndDate: vehicle.contractEndDate,
       driverName: driver?.fullName?.trim() || undefined,
@@ -125,9 +125,43 @@ export class FleetPortalService {
     };
   }
 
-  /** Assign or clear the driver on a vehicle (persists fleetDriverId + display name). */
+  /** Assign or clear the driver on a vehicle (driver-only update — no contract re-validation). */
   assignDriverToVehicle(vehicle: FleetVehicleRow, driver: FleetDriverRow | null): Observable<FleetVehicleRow> {
-    return this.updateFleetVehicle(vehicle.id, this.vehicleToEditPayload(vehicle, driver));
+    const body: Record<string, unknown> = {};
+    if (driver?.id != null && driver.id > 0) {
+      body['fleetDriverId'] = driver.id;
+    } else {
+      body['fleetDriverId'] = null;
+    }
+    const assignUrl = `${this.fleetBase}/assets/${vehicle.id}/assign-driver`;
+    return this.http.post<unknown>(assignUrl, body).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        const dto = this.extractSingleFleetVehicle(resp);
+        return this.mapVehicleRow(dto);
+      }),
+      catchError((err: HttpErrorResponse | Error) => {
+        if (err instanceof HttpErrorResponse && (err.status === 404 || err.status === 405)) {
+          const payload = this.vehicleToEditPayload(vehicle, driver);
+          return this.updateFleetVehicle(vehicle.id, this.ensureContractFieldsOnEditPayload(payload));
+        }
+        return throwError(() => this.toError(err));
+      }),
+    );
+  }
+
+  /** Ensures contracted vehicles always send scope + contract dates on full PUT updates. */
+  private ensureContractFieldsOnEditPayload(payload: EditFleetVehiclePayload): EditFleetVehiclePayload {
+    if (payload.ownershipType !== 'contracted') {
+      return payload;
+    }
+    const scope = payload.contractScope ?? 'long_term';
+    return {
+      ...payload,
+      contractScope: scope,
+      contractStartDate: payload.contractStartDate,
+      contractEndDate: payload.contractEndDate,
+    };
   }
 
   /** DELETE /assets/{id} — soft-delete a fleet asset. */
@@ -637,6 +671,9 @@ export class FleetPortalService {
       driverName: payload.driverName,
       utilizationPct: payload.utilizationPct ?? 0,
     };
+    if (payload.maxSpeedKmh != null && payload.maxSpeedKmh > 0) {
+      body['maxSpeedKmh'] = payload.maxSpeedKmh;
+    }
     if (payload.fleetDriverId != null && payload.fleetDriverId > 0) {
       body['fleetDriverId'] = payload.fleetDriverId;
     } else if ('fleetDriverId' in payload && payload.fleetDriverId === null) {
@@ -645,18 +682,21 @@ export class FleetPortalService {
     if (ownershipType === 'contracted' && payload.contractedTransporterOrganizationId != null) {
       body['contractedTransporterOrganizationId'] = payload.contractedTransporterOrganizationId;
     }
-    if (ownershipType === 'contracted' && payload.contractScope) {
-      body['contractScope'] = payload.contractScope.toUpperCase();
-    }
-    if (ownershipType === 'contracted' && payload.contractScope === 'job' && payload.jobReference) {
-      body['jobReference'] = payload.jobReference;
-    }
-    if (ownershipType === 'contracted' && payload.contractScope === 'long_term') {
-      if (payload.contractStartDate) {
-        body['contractStartDate'] = payload.contractStartDate;
+    if (ownershipType === 'contracted') {
+      const scope = (payload.contractScope ?? 'long_term') as FleetContractScope;
+      body['contractScope'] = scope === 'job' ? 'JOB' : 'LONG_TERM';
+      if (scope === 'job' && payload.jobReference) {
+        body['jobReference'] = payload.jobReference;
       }
-      if (payload.contractEndDate) {
-        body['contractEndDate'] = payload.contractEndDate;
+      if (scope === 'long_term') {
+        const contractStartDate = String(payload.contractStartDate ?? '').trim();
+        const contractEndDate = String(payload.contractEndDate ?? '').trim();
+        if (contractStartDate) {
+          body['contractStartDate'] = contractStartDate;
+        }
+        if (contractEndDate) {
+          body['contractEndDate'] = contractEndDate;
+        }
       }
     }
     return body;
@@ -679,12 +719,18 @@ export class FleetPortalService {
       dto['contractedTransporterOrganizationName'] ?? dto['contracted_transporter_organization_name'] ?? '',
     ).trim();
     const contractScopeRaw = String(dto['contractScope'] ?? dto['contract_scope'] ?? '').trim().toLowerCase();
-    const contractScope =
-      contractScopeRaw === 'job' || contractScopeRaw === 'long_term'
-        ? (contractScopeRaw as FleetContractScope)
-        : undefined;
-    const contractStartDate = String(dto['contractStartDate'] ?? dto['contract_start_date'] ?? '').trim() || undefined;
-    const contractEndDate = String(dto['contractEndDate'] ?? dto['contract_end_date'] ?? '').trim() || undefined;
+    const contractScope: FleetContractScope | undefined =
+      contractScopeRaw === 'job'
+        ? 'job'
+        : contractScopeRaw === 'long_term'
+          ? 'long_term'
+          : ownershipType === 'contracted'
+            ? 'long_term'
+            : undefined;
+    const contractStartDate =
+      this.apiDateToInputString(dto['contractStartDate'] ?? dto['contract_start_date']) || undefined;
+    const contractEndDate =
+      this.apiDateToInputString(dto['contractEndDate'] ?? dto['contract_end_date']) || undefined;
     const lastTripRaw = dto['lastTripAt'] ?? dto['last_trip_at'];
     const lastTripLabel =
       String(dto['lastTripLabel'] ?? dto['last_trip_label'] ?? '').trim() ||
@@ -704,6 +750,7 @@ export class FleetPortalService {
       contractStartDate,
       contractEndDate,
       utilizationPct: Math.min(100, Math.max(0, Number(dto['utilizationPct'] ?? dto['utilization_pct'] ?? 0))),
+      maxSpeedKmh: dto['maxSpeedKmh'] != null ? Number(dto['maxSpeedKmh']) : dto['max_speed_kmh'] != null ? Number(dto['max_speed_kmh']) : undefined,
       lastTripLabel,
       driverName: String(dto['driverName'] ?? dto['driver_name'] ?? '—').trim() || '—',
       fleetDriverId: this.optionalLongFromDto(dto, 'fleetDriverId') ?? this.optionalLongFromDto(dto, 'fleet_driver_id'),
@@ -867,9 +914,43 @@ export class FleetPortalService {
       contractStatus: contract.status,
       contractStatusLabel: contract.statusLabel,
       partnerKind: 'contracted',
-      contractStartDate: String(dto['contractStartDate'] ?? '').trim() || undefined,
-      contractEndDate: String(dto['contractEndDate'] ?? '').trim() || undefined,
+      contractStartDate: this.apiDateToInputString(dto['contractStartDate']) || undefined,
+      contractEndDate: this.apiDateToInputString(dto['contractEndDate']) || undefined,
     };
+  }
+
+  /** Normalises API dates (ISO string, Jackson [y,m,d] array, or {year,month,day} object) to yyyy-MM-dd. */
+  private apiDateToInputString(value: unknown): string {
+    if (value == null || value === '') {
+      return '';
+    }
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+        return trimmed.slice(0, 10);
+      }
+      const parsed = new Date(trimmed);
+      return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+    }
+    if (Array.isArray(value) && value.length >= 3) {
+      const year = Number(value[0]);
+      const month = Number(value[1]);
+      const day = Number(value[2]);
+      if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+        return '';
+      }
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    }
+    if (typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const year = Number(record['year']);
+      const month = Number(record['monthValue'] ?? record['month']);
+      const day = Number(record['dayOfMonth'] ?? record['day']);
+      if (Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)) {
+        return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
+    }
+    return '';
   }
 
   private toPositiveId(value: unknown): number | undefined {

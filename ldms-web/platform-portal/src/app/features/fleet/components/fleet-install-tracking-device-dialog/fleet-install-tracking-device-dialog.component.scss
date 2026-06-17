@@ -1,3 +1,80 @@
+// ── Wizard step indicator ──────────────────────────────────────────────────
+// This dialog reuses `.lx-wizard-steps` markup from other fleet wizards.
+// We include the styles here too, because styles are component-scoped in Angular.
+.lx-wizard-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 24px 20px;
+}
+
+.lx-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &__dot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--gray-100, #f1f5f9);
+    color: var(--gray-400, #94a3b8);
+    font-size: 13px;
+    font-weight: 600;
+    border: 2px solid var(--gray-200, #e2e8f0);
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+
+  &__label {
+    font-size: 13px;
+    color: var(--gray-400, #94a3b8);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  &__connector {
+    flex: 1;
+    height: 2px;
+    background: var(--gray-200, #e2e8f0);
+    margin: 0 12px;
+    min-width: 32px;
+  }
+
+  &--active {
+    .lx-step__dot {
+      background: var(--primary-600, #0ea5e9);
+      color: #fff;
+      border-color: var(--primary-600, #0ea5e9);
+    }
+
+    .lx-step__label {
+      color: var(--primary-700, #0369a1);
+      font-weight: 600;
+    }
+  }
+
+  &--done {
+    .lx-step__dot {
+      background: var(--emerald-500, #10b981);
+      color: #fff;
+      border-color: var(--emerald-500, #10b981);
+    }
+
+    .lx-step__label {
+      color: var(--emerald-700, #047857);
+    }
+  }
+}
+
 .flt-tracking-dialog {
   display: flex;
   flex-direction: column;
@@ -7,9 +84,10 @@
 /* ── Device type grid ────────────────────────────────────────────────────── */
 
 .flt-tracking-dialog__type-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: stretch;
 }
 
 .flt-tracking-dialog__type-card {
@@ -21,6 +99,8 @@
   border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
+  flex: 1 1 260px;
+  min-width: 240px;
 
   input[type='radio'] {
     display: none;
@@ -81,8 +161,9 @@
 
 .flt-tracking-dialog__caps {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-wrap: wrap;
+  flex-direction: row;
+  gap: 12px;
 }
 
 .flt-tracking-dialog__cap {
@@ -94,6 +175,8 @@
   border-radius: 8px;
   cursor: pointer;
   transition: border-color 0.15s;
+  flex: 1 1 260px;
+  min-width: 240px;
 
   input[type='checkbox'] {
     margin-top: 3px;

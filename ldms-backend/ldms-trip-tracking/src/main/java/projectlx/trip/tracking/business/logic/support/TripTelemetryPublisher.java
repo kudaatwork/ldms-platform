@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import projectlx.trip.tracking.clients.FuelExpensesServiceClient;
 import projectlx.trip.tracking.model.Trip;
 import projectlx.trip.tracking.utils.config.IotIntegrationProperties;
 import projectlx.trip.tracking.utils.config.RabbitMQProducerConfig;
@@ -13,6 +14,7 @@ import projectlx.trip.tracking.utils.dtos.TripLiveSnapshotDto;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -28,11 +30,13 @@ public class TripTelemetryPublisher {
     private final IotIntegrationProperties iotProperties;
     private final ObjectMapper objectMapper;
     private final Optional<MqttClient> mqttClient;
+    private final Optional<FuelExpensesServiceClient> fuelExpensesServiceClient;
 
     public void publish(Trip trip, TripLiveSnapshotDto snapshot) {
         snapshot.setRecordedAt(LocalDateTime.now());
         sseRegistry.broadcast(trip.getId(), snapshot);
         publishRabbit(trip, snapshot);
+        syncSimulatedFuelSession(trip, snapshot);
         publishMqtt(trip, snapshot);
     }
 
@@ -51,6 +55,11 @@ public class TripTelemetryPublisher {
             payload.put("headingDeg", snapshot.getHeadingDeg());
             payload.put("overallProgressPct", snapshot.getOverallProgressPct());
             payload.put("moving", snapshot.isMoving());
+            payload.put("simulationActive", snapshot.isSimulationActive());
+            payload.put("distanceTravelledKm", snapshot.getDistanceTravelledKm());
+            payload.put("distanceKmDelta", snapshot.getDistanceKmDelta());
+            payload.put("fuelLevelPct", snapshot.getFuelLevelPct());
+            payload.put("fuelRemainingLiters", snapshot.getFuelRemainingLiters());
             payload.put("recordedAt", snapshot.getRecordedAt() != null ? snapshot.getRecordedAt().toString() : null);
             rabbitTemplate.convertAndSend(
                     RabbitMQProducerConfig.TRIP_EXCHANGE,
@@ -58,6 +67,36 @@ public class TripTelemetryPublisher {
                     payload);
         } catch (Exception ex) {
             log.error("Failed to publish trip.location_updated for trip {}: {}", trip.getId(), ex.getMessage());
+        }
+    }
+
+    private void syncSimulatedFuelSession(Trip trip, TripLiveSnapshotDto snapshot) {
+        if (!snapshot.isSimulationActive() || fuelExpensesServiceClient.isEmpty()) {
+            return;
+        }
+        if (snapshot.getLatitude() == null || snapshot.getLongitude() == null) {
+            return;
+        }
+        try {
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("tripId", trip.getId());
+            payload.put("organizationId", trip.getOrganizationId());
+            payload.put("fleetAssetId", trip.getFleetAssetId());
+            payload.put("fleetDriverId", trip.getFleetDriverId());
+            payload.put("shipmentId", trip.getShipmentId());
+            payload.put("latitude", snapshot.getLatitude());
+            payload.put("longitude", snapshot.getLongitude());
+            payload.put("speedKmh", snapshot.getSpeedKmh());
+            payload.put("headingDeg", snapshot.getHeadingDeg());
+            payload.put("moving", snapshot.isMoving());
+            payload.put("simulationActive", true);
+            payload.put("distanceTravelledKm", snapshot.getDistanceTravelledKm());
+            payload.put("distanceKmDelta", snapshot.getDistanceKmDelta());
+            payload.put("fuelLevelPct", snapshot.getFuelLevelPct());
+            payload.put("fuelRemainingLiters", snapshot.getFuelRemainingLiters());
+            fuelExpensesServiceClient.get().notifyLocationUpdated(payload, Locale.ENGLISH);
+        } catch (Exception ex) {
+            log.debug("Direct fuel sync skipped for simulated trip {}: {}", trip.getId(), ex.getMessage());
         }
     }
 
@@ -85,6 +124,11 @@ public class TripTelemetryPublisher {
         dto.setTripId(trip.getId());
         dto.setTripNumber(trip.getTripNumber());
         dto.setStatus(trip.getStatus() != null ? trip.getStatus().name() : null);
+        dto.setShipmentId(trip.getShipmentId());
+        dto.setShipmentNumber(trip.getShipmentNumber());
+        dto.setProductName(trip.getProductName());
+        dto.setProductCode(trip.getProductCode());
+        dto.setQuantity(trip.getQuantity());
         dto.setFromWarehouseName(trip.getFromWarehouseName());
         dto.setToWarehouseName(trip.getToWarehouseName());
         dto.setLatitude(lat);

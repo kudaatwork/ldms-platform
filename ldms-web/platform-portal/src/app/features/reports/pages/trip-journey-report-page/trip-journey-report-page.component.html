@@ -1,0 +1,213 @@
+<div class="lx-page trip-journey-report">
+  <app-analytics-subnav></app-analytics-subnav>
+
+  <lx-workspace-hero
+    variant="teal"
+    eyebrow="Analytics"
+    eyebrowIcon="route"
+    title="Trip analytics"
+    lead="Corridor statistics, journey breakdowns, and live progress for active and recent trips — transit, waiting, idle, and corridor completion."
+    hubIcon="local_shipping"
+    [orbitIcons]="['schedule', 'pin_drop', 'speed']"
+  >
+    <div lxWorkspaceHeroActions>
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="loadReport()" [disabled]="loading">
+        {{ loading ? 'Refreshing…' : 'Refresh' }}
+      </button>
+      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="loadReport()" [disabled]="loading">
+        Run report
+      </button>
+    </div>
+
+    <lx-workspace-hero-stat [value]="activeTripCount" label="Active trips" icon="local_shipping" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      [value]="avgProgressPct + '%'"
+      label="Avg corridor"
+      icon="trending_up"
+      theme="amber"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      [value]="filteredRows.length"
+      label="In this view"
+      icon="filter_list"
+      theme="violet"
+    ></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <section class="tjr-charts" *ngIf="rows.length && !loading">
+    <article class="lx-card tjr-chart-card">
+      <header class="tjr-chart-card__head">
+        <div>
+          <h3>Journey phase mix</h3>
+          <p>How active trips are spending corridor time right now.</p>
+        </div>
+        <mat-icon>donut_large</mat-icon>
+      </header>
+      <div class="tjr-donut" *ngIf="phaseBreakdown.length; else noPhaseData">
+        <div class="tjr-donut__ring" [style.background]="phaseDonutGradient">
+          <div class="tjr-donut__core">
+            <strong>{{ activeTripCount }}</strong>
+            <span>trips</span>
+          </div>
+        </div>
+        <ul class="tjr-legend">
+          <li *ngFor="let item of phaseBreakdown">
+            <span class="tjr-legend__swatch" [style.background]="item.color"></span>
+            <span class="tjr-legend__label">{{ item.label }}</span>
+            <span class="tjr-legend__value">{{ item.count }} · {{ item.pct }}%</span>
+          </li>
+        </ul>
+      </div>
+      <ng-template #noPhaseData>
+        <p class="tjr-chart-card__empty">No phase data yet.</p>
+      </ng-template>
+    </article>
+
+    <article class="lx-card tjr-chart-card">
+      <header class="tjr-chart-card__head">
+        <div>
+          <h3>Corridor completion</h3>
+          <p>Distribution of route progress across the fleet.</p>
+        </div>
+        <mat-icon>stacked_bar_chart</mat-icon>
+      </header>
+      <div class="tjr-bars">
+        <div class="tjr-bar-row" *ngFor="let bucket of progressDistribution">
+          <span class="tjr-bar-row__label">{{ bucket.label }}</span>
+          <div class="tjr-bar-row__track">
+            <span [style.width.%]="bucket.pct || (bucket.count ? 4 : 0)"></span>
+          </div>
+          <span class="tjr-bar-row__meta">{{ bucket.count }} · {{ bucket.pct }}%</span>
+        </div>
+      </div>
+    </article>
+
+    <article class="lx-card tjr-chart-card tjr-chart-card--cta">
+      <header class="tjr-chart-card__head">
+        <div>
+          <h3>Trip history &amp; replay</h3>
+          <p>Search completed journeys and replay corridor simulation with play, pause, and speed controls.</p>
+        </div>
+        <mat-icon>play_circle</mat-icon>
+      </header>
+      <div class="tjr-cta">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="openHistory()">
+          <mat-icon>history</mat-icon>
+          Open trip history
+        </button>
+      </div>
+    </article>
+  </section>
+
+  <lx-inline-busy *ngIf="loading && !rows.length" message="Loading trip journeys…" />
+
+  <div class="trip-journey-report__error lx-card" *ngIf="error" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <p>{{ error }}</p>
+  </div>
+
+  <div class="lx-card trip-journey-report__controls" *ngIf="rows.length || !loading">
+    <div class="lx-input-shell lx-search-field">
+      <mat-icon class="lx-input-shell__icon">search</mat-icon>
+      <input [(ngModel)]="tableSearch" placeholder="Search trip, route, driver, vehicle…" />
+    </div>
+  </div>
+
+  <div class="lx-card trip-journey-report__table" *ngIf="filteredRows.length; else emptyState">
+    <header class="tjr-table-card__head">
+      <div>
+        <h3>Journey analytics per trip</h3>
+        <p>Corridor progress, checkpoints, journey timing, and quick links to replay or live tracking.</p>
+      </div>
+      <div class="tjr-table-card__actions">
+        <span class="lx-fetch-hint" *ngIf="loading">Refreshing…</span>
+        <mat-icon>analytics</mat-icon>
+      </div>
+    </header>
+
+    <div class="lx-table-wrap">
+      <table mat-table [dataSource]="filteredRows" class="lx-mat-table">
+        <ng-container matColumnDef="trip">
+          <th mat-header-cell *matHeaderCellDef>Trip</th>
+          <td mat-cell *matCellDef="let row">
+            <strong>{{ row.trip.tripNumber }}</strong>
+            <small>{{ row.trip.vehicleRegistration }}</small>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="route">
+          <th mat-header-cell *matHeaderCellDef>Route</th>
+          <td mat-cell *matCellDef="let row">{{ row.trip.route }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="progress">
+          <th mat-header-cell *matHeaderCellDef>Corridor</th>
+          <td mat-cell *matCellDef="let row">
+            <div class="tjr-progress">
+              <div class="tjr-progress__bar"><span [style.width.%]="row.progressPct"></span></div>
+              <span>{{ row.progressPct | number:'1.0-0' }}%</span>
+            </div>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="checkpoints">
+          <th mat-header-cell *matHeaderCellDef>Checkpoints</th>
+          <td mat-cell *matCellDef="let row">
+            <strong>{{ row.completionLabel }}</strong>
+            <small *ngIf="row.currentLegLabel !== '—'">→ {{ row.currentLegLabel }}</small>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="journeyTime">
+          <th mat-header-cell *matHeaderCellDef>Journey</th>
+          <td mat-cell *matCellDef="let row"><code>{{ row.totalLabel }}</code></td>
+        </ng-container>
+
+        <ng-container matColumnDef="transit">
+          <th mat-header-cell *matHeaderCellDef>In transit</th>
+          <td mat-cell *matCellDef="let row">{{ row.transitLabel }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="waiting">
+          <th mat-header-cell *matHeaderCellDef>Waiting</th>
+          <td mat-cell *matCellDef="let row">{{ row.waitingLabel }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="phase">
+          <th mat-header-cell *matHeaderCellDef>Phase</th>
+          <td mat-cell *matCellDef="let row">
+            <span class="tjr-phase">
+              <mat-icon>{{ row.phaseIcon }}</mat-icon>
+              {{ row.phaseLabel }}
+            </span>
+          </td>
+        </ng-container>
+
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef></th>
+          <td mat-cell *matCellDef="let row">
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openReplay(row)" matTooltip="Replay journey">
+              <mat-icon>play_circle</mat-icon>
+              Replay
+            </button>
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openLive(row)">
+              <mat-icon>map</mat-icon>
+              Live
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+      </table>
+    </div>
+  </div>
+
+  <ng-template #emptyState>
+    <div class="lx-card lx-empty lx-empty--compact" *ngIf="!loading && !error">
+      <mat-icon class="lx-empty-icon">route</mat-icon>
+      <div class="lx-empty-title">No active trip journeys</div>
+      <div class="lx-empty-sub">Start or track in-transit trips to populate this report.</div>
+    </div>
+  </ng-template>
+</div>

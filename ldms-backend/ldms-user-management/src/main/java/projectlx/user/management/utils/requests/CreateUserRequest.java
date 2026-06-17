@@ -30,6 +30,9 @@ public class CreateUserRequest {
     /** When true, user may approve procurement workflow stages (requires organisation assignment). */
     private Boolean procurementApprover;
 
+    /** When true, user may allocate fleet (driver + vehicle) to shipments (requires organisation assignment). */
+    private Boolean shipmentFleetAllocator;
+
     private Long locationId;
 
     // ===========================

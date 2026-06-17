@@ -180,19 +180,6 @@
           </div>
           <span class="sb-label">My account</span>
         </a>
-        <a
-          *ngIf="navAccess.canAccessRoute('/help')"
-          class="sb-item"
-          routerLink="/help"
-          routerLinkActive="active"
-          [matTooltip]="collapsed ? 'Help & Support' : ''"
-          matTooltipPosition="right"
-        >
-          <div class="sb-icon">
-            <mat-icon>help_outline</mat-icon>
-          </div>
-          <span class="sb-label">Help &amp; Support</span>
-        </a>
       </nav>
 
       <!-- Footer -->

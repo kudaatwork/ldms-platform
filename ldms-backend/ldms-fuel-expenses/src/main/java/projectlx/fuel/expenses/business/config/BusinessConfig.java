@@ -51,14 +51,16 @@ public class BusinessConfig {
                                                  FuelSessionRepository fuelSessionRepository,
                                                  RabbitTemplate rabbitTemplate,
                                                  MessageService messageService,
-                                                 FuelTelemetryLogService fuelTelemetryLogService) {
+                                                 FuelTelemetryLogService fuelTelemetryLogService,
+                                                 TripTrackingServiceClient tripTrackingServiceClient) {
         return new FuelSessionServiceImpl(
                 fuelSessionServiceValidator,
                 fuelSessionServiceAuditable,
                 fuelSessionRepository,
                 rabbitTemplate,
                 messageService,
-                fuelTelemetryLogService);
+                fuelTelemetryLogService,
+                tripTrackingServiceClient);
     }
 
     // ── FuelTelemetryLog ─────────────────────────────────────────

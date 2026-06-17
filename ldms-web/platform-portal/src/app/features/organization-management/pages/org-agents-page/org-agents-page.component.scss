@@ -1,4 +1,4 @@
-@import '../org-branches-page/org-branches-page.component.scss';
+@use '../org-branches-page/org-branches-page.component.scss' as *;
 
 .om-form-grid--wide {
   grid-template-columns: repeat(3, minmax(0, 1fr));

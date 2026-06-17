@@ -20,12 +20,18 @@ public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificat
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Trip> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
 
+    @Query("SELECT t FROM Trip t WHERE t.id = :id AND t.entityStatus <> :entityStatus")
+    Optional<Trip> findByIdAndEntityStatusNotNoLock(@Param("id") Long id, @Param("entityStatus") EntityStatus entityStatus);
+
     Optional<Trip> findByTripNumberAndEntityStatusNot(String tripNumber, EntityStatus entityStatus);
 
     Optional<Trip> findByShipmentIdAndStatusInAndEntityStatusNot(
             Long shipmentId, List<TripStatus> statuses, EntityStatus entityStatus);
 
     boolean existsByShipmentIdAndStatusNotInAndEntityStatusNot(
+            Long shipmentId, List<TripStatus> excludedStatuses, EntityStatus entityStatus);
+
+    List<Trip> findByShipmentIdAndStatusNotInAndEntityStatusNotOrderByIdDesc(
             Long shipmentId, List<TripStatus> excludedStatuses, EntityStatus entityStatus);
 
     Page<Trip> findByOrganizationIdAndEntityStatusNot(Long organizationId, EntityStatus entityStatus, Pageable pageable);

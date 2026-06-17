@@ -1,0 +1,157 @@
+package projectlx.trip.tracking.business.logic.support;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import projectlx.trip.tracking.clients.FleetManagementServiceClient;
+import projectlx.trip.tracking.clients.ShipmentManagementServiceClient;
+import projectlx.trip.tracking.repository.TripRoutePlanRepository;
+import projectlx.trip.tracking.model.Trip;
+import projectlx.trip.tracking.model.TripRoutePlan;
+import projectlx.trip.tracking.utils.dtos.FleetAssetSummaryDto;
+import projectlx.trip.tracking.utils.dtos.FleetDriverSummaryDto;
+import projectlx.trip.tracking.utils.dtos.TripLiveSnapshotDto;
+import projectlx.trip.tracking.utils.enums.TripStatus;
+import projectlx.trip.tracking.utils.responses.FleetAssetFeignResponse;
+import projectlx.trip.tracking.utils.responses.FleetDriverFeignResponse;
+import projectlx.trip.tracking.utils.responses.ShipmentFeignResponse;
+import projectlx.trip.tracking.utils.dtos.ShipmentSummaryDto;
+
+import java.math.BigDecimal;
+import java.util.Locale;
+
+@RequiredArgsConstructor
+@Slf4j
+public class TripLiveSnapshotEnricher {
+
+    private final FleetManagementServiceClient fleetManagementServiceClient;
+    private final ShipmentManagementServiceClient shipmentManagementServiceClient;
+    private final TripTrailSupport tripTrailSupport;
+    private final TripJourneyTimingSupport journeyTimingSupport;
+    private final TripRoutePlanRepository tripRoutePlanRepository;
+
+    public void enrich(Trip trip, TripRoutePlan plan, TripLiveSnapshotDto snapshot) {
+        if (trip == null || snapshot == null) {
+            return;
+        }
+        snapshot.setFleetAssetId(trip.getFleetAssetId());
+        boolean moving = snapshot.isMoving();
+        if (plan != null) {
+            snapshot.setSimulationPaused(plan.isSimulationPaused());
+            snapshot.setDistanceTravelledKm(plan.getDistanceTravelledKm());
+            snapshot.setTrail(tripTrailSupport.parseTrail(plan));
+            snapshot.setOnBreak(plan.isSimulationPaused() || trip.getStatus() == TripStatus.ROADSIDE_HOLD);
+            snapshot.setCurrentSegmentIndex(plan.getCurrentSegmentIndex());
+            snapshot.setSegmentProgressPct(plan.getSegmentProgressPct());
+            applyWaypointProgress(snapshot, plan.getCurrentSegmentIndex(), plan.getOverallProgressPct());
+            moving = plan.isSimulationActive() && !plan.isSimulationPaused()
+                    && trip.getStatus() == TripStatus.IN_TRANSIT
+                    && snapshot.getSpeedKmh() != null
+                    && snapshot.getSpeedKmh().compareTo(BigDecimal.ZERO) > 0;
+            snapshot.setMoving(moving);
+            journeyTimingSupport.flush(plan, moving, java.time.LocalDateTime.now());
+            tripRoutePlanRepository.save(plan);
+        }
+        journeyTimingSupport.populateSnapshot(trip, plan, snapshot, moving);
+        applyCargoFields(trip, snapshot);
+        applyFleetAsset(trip, snapshot);
+        applyFleetDriver(trip, snapshot);
+        if (plan != null && plan.isSimulationActive()) {
+            TripSimulationFuelSupport.applyToSnapshot(snapshot, plan.getDistanceTravelledKm());
+        }
+        if (snapshot.getMaxSpeedKmh() != null && snapshot.getSpeedKmh() != null) {
+            snapshot.setSpeedLimitExceeded(snapshot.getSpeedKmh().compareTo(snapshot.getMaxSpeedKmh()) > 0);
+        }
+    }
+
+    private void applyCargoFields(Trip trip, TripLiveSnapshotDto snapshot) {
+        snapshot.setShipmentId(trip.getShipmentId());
+        snapshot.setShipmentNumber(trip.getShipmentNumber());
+        snapshot.setProductName(trip.getProductName());
+        snapshot.setProductCode(trip.getProductCode());
+        snapshot.setQuantity(trip.getQuantity());
+        if (snapshot.getQuantity() != null || trip.getShipmentId() == null) {
+            return;
+        }
+        try {
+            ShipmentFeignResponse response = shipmentManagementServiceClient.findShipmentById(
+                    trip.getShipmentId(), Locale.ENGLISH);
+            ShipmentSummaryDto shipment = response != null ? response.getShipmentDto() : null;
+            if (shipment == null) {
+                return;
+            }
+            if (snapshot.getShipmentNumber() == null) {
+                snapshot.setShipmentNumber(shipment.getShipmentNumber());
+            }
+            if (snapshot.getProductName() == null) {
+                snapshot.setProductName(shipment.getProductName());
+            }
+            snapshot.setProductCode(shipment.getProductCode());
+            snapshot.setQuantity(shipment.getQuantity());
+        } catch (Exception ex) {
+            log.debug("Shipment cargo enrich skipped for trip {}: {}", trip.getId(), ex.getMessage());
+        }
+    }
+
+    private void applyFleetAsset(Trip trip, TripLiveSnapshotDto snapshot) {
+        if (trip.getFleetAssetId() == null) {
+            return;
+        }
+        try {
+            FleetAssetFeignResponse response = fleetManagementServiceClient.findFleetAssetById(
+                    trip.getFleetAssetId(), Locale.ENGLISH);
+            FleetAssetSummaryDto asset = response != null ? response.getFleetAssetDto() : null;
+            if (asset == null) {
+                return;
+            }
+            snapshot.setVehicleRegistration(asset.getRegistration());
+            snapshot.setMaxSpeedKmh(asset.getMaxSpeedKmh());
+            if (snapshot.getDriverName() == null) {
+                snapshot.setDriverName(asset.getDriverName());
+            }
+        } catch (Exception ex) {
+            log.debug("Fleet asset enrich skipped for trip {}: {}", trip.getId(), ex.getMessage());
+        }
+    }
+
+    private void applyFleetDriver(Trip trip, TripLiveSnapshotDto snapshot) {
+        if (trip.getFleetDriverId() == null) {
+            return;
+        }
+        try {
+            FleetDriverFeignResponse response = fleetManagementServiceClient.findFleetDriverById(
+                    trip.getFleetDriverId(), Locale.ENGLISH);
+            FleetDriverSummaryDto driver = response != null ? response.getFleetDriverDto() : null;
+            if (driver == null) {
+                return;
+            }
+            String name = buildDriverName(driver.getFirstName(), driver.getLastName());
+            if (name != null) {
+                snapshot.setDriverName(name);
+            }
+        } catch (Exception ex) {
+            log.debug("Fleet driver enrich skipped for trip {}: {}", trip.getId(), ex.getMessage());
+        }
+    }
+
+    private static String buildDriverName(String first, String last) {
+        String f = first != null ? first.trim() : "";
+        String l = last != null ? last.trim() : "";
+        String combined = (f + " " + l).trim();
+        return combined.isEmpty() ? null : combined;
+    }
+
+    private void applyWaypointProgress(TripLiveSnapshotDto snapshot, int segmentIndex, BigDecimal overallProgressPct) {
+        int total = snapshot.getRouteWaypoints() != null ? snapshot.getRouteWaypoints().size() : 0;
+        snapshot.setTotalWaypointCount(total);
+        if (total <= 0) {
+            snapshot.setCompletedWaypointCount(0);
+            return;
+        }
+        if (overallProgressPct != null && overallProgressPct.compareTo(new BigDecimal("100")) >= 0) {
+            snapshot.setCompletedWaypointCount(total);
+            return;
+        }
+        int completed = Math.min(Math.max(segmentIndex, 0) + 1, total);
+        snapshot.setCompletedWaypointCount(completed);
+    }
+}

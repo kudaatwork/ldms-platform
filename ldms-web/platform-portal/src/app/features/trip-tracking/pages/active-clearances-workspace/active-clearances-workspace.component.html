@@ -18,6 +18,30 @@
       <mat-icon>refresh</mat-icon>
       Refresh
     </button>
+    <button
+      type="button"
+      lxWorkspaceHeroActions
+      class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+      [matMenuTriggerFor]="clearanceExportMenu"
+      [disabled]="clearanceExporting || !cases.length"
+    >
+      {{ clearanceExporting ? 'Exporting…' : 'Export' }}
+    </button>
+
+    <mat-menu #clearanceExportMenu="matMenu" panelClass="lx-export-menu">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="exportClearancesAs('pdf')" [disabled]="clearanceExporting">
+        <mat-icon>picture_as_pdf</mat-icon>
+        <span>Export PDF</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--csv" (click)="exportClearancesAs('csv')" [disabled]="clearanceExporting">
+        <mat-icon>table_view</mat-icon>
+        <span>Export CSV</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="exportClearancesAs('xlsx')" [disabled]="clearanceExporting">
+        <mat-icon>grid_on</mat-icon>
+        <span>Export Excel</span>
+      </button>
+    </mat-menu>
 
     <lx-workspace-hero-stat [value]="metrics.total" label="Open cases" icon="folder_open" theme="teal"></lx-workspace-hero-stat>
     <lx-workspace-hero-stat [value]="metrics.awaiting" label="Awaiting docs" icon="upload_file" theme="amber"></lx-workspace-hero-stat>

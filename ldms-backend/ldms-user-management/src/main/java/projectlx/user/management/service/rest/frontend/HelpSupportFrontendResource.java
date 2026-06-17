@@ -120,4 +120,18 @@ public class HelpSupportFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return helpSupportServiceProcessor.platformStatus(locale);
     }
+
+    @Auditable(action = "SUBMIT_DEMO_REQUISITION")
+    @PostMapping("/demo-requisition/submit")
+    @Operation(summary = "Submit a demo booking request", description = "Public endpoint for the marketing contact page.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Demo requisition recorded"),
+            @ApiResponse(responseCode = "400", description = "Invalid request")
+    })
+    public HelpSupportResponse submitDemoRequisition(
+            @Valid @RequestBody projectlx.user.management.utils.requests.CreateDemoRequisitionRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return helpSupportServiceProcessor.submitDemoRequisition(request, locale);
+    }
 }

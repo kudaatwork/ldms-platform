@@ -14,6 +14,8 @@ export type SupportTicketStatus =
   | 'RESOLVED'
   | 'CLOSED';
 
+export type DemoRequisitionStatus = 'NEW' | 'CONTACTED' | 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
+
 export type SupportTicketMessageVisibility = 'PUBLIC' | 'INTERNAL';
 export type SupportTicketMessageAuthorRole = 'REQUESTER' | 'HANDLER' | 'SYSTEM';
 
@@ -53,6 +55,29 @@ export interface SupportTicketExportFilters {
   search?: string;
 }
 
+export interface AdminDemoRequisition {
+  id: number;
+  requisitionNumber: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  address: string;
+  demoRequest: string;
+  status: DemoRequisitionStatus;
+  assignedHandlerUsername?: string;
+  adminNotes?: string;
+  contactedAt?: string;
+  scheduledAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  modifiedAt?: string;
+}
+
+export interface DemoRequisitionUpdatePayload {
+  adminNotes?: string;
+  scheduledAt?: string;
+}
+
 interface HelpSupportApiResponse {
   isSuccess?: boolean;
   success?: boolean;
@@ -60,6 +85,8 @@ interface HelpSupportApiResponse {
   message?: string;
   supportTicketDto?: AdminSupportTicket;
   supportTicketDtoList?: AdminSupportTicket[];
+  demoRequisitionDto?: AdminDemoRequisition;
+  demoRequisitionDtoList?: AdminDemoRequisition[];
 }
 
 function mapHelpSupportHttpError(err: unknown, fallback: string): Error {
@@ -179,6 +206,44 @@ export class HelpSupportAdminService {
       );
   }
 
+  fetchAllDemoRequisitions(): Observable<AdminDemoRequisition[]> {
+    if (environment.useMocks) {
+      return of([]);
+    }
+    return this.http.get<HelpSupportApiResponse>(`${this.base}/demo-requisition/list`).pipe(
+      timeout(API_TIMEOUT_MS),
+      map((resp) => this.unwrapDemoRequisitionList(resp)),
+      catchError((err) => this.handleError(err, 'Could not load demo requisitions.')),
+    );
+  }
+
+  fetchDemoRequisitionById(id: number): Observable<AdminDemoRequisition> {
+    return this.http.get<HelpSupportApiResponse>(`${this.base}/demo-requisition/find-by-id/${id}`).pipe(
+      timeout(API_TIMEOUT_MS),
+      map((resp) => this.unwrapDemoRequisition(resp)),
+      catchError((err) => this.handleError(err, 'Could not load demo requisition.')),
+    );
+  }
+
+  updateDemoRequisitionStatus(
+    demoRequisitionId: number,
+    status: DemoRequisitionStatus,
+    payload: DemoRequisitionUpdatePayload = {},
+  ): Observable<AdminDemoRequisition> {
+    return this.http
+      .put<HelpSupportApiResponse>(`${this.base}/demo-requisition/update-status`, {
+        demoRequisitionId,
+        status,
+        adminNotes: payload.adminNotes,
+        scheduledAt: payload.scheduledAt,
+      })
+      .pipe(
+        timeout(API_TIMEOUT_MS),
+        map((resp) => this.unwrapDemoRequisition(resp)),
+        catchError((err) => this.handleError(err, 'Could not update demo requisition.')),
+      );
+  }
+
   private unwrapTicketList(resp: HelpSupportApiResponse): AdminSupportTicket[] {
     if (!apiOk(resp)) {
       throw new Error(resp.message ?? 'Could not load support tickets.');
@@ -191,6 +256,20 @@ export class HelpSupportAdminService {
       throw new Error(resp.message ?? 'Support ticket response was empty.');
     }
     return resp.supportTicketDto;
+  }
+
+  private unwrapDemoRequisitionList(resp: HelpSupportApiResponse): AdminDemoRequisition[] {
+    if (!apiOk(resp)) {
+      throw new Error(resp.message ?? 'Could not load demo requisitions.');
+    }
+    return Array.isArray(resp.demoRequisitionDtoList) ? resp.demoRequisitionDtoList : [];
+  }
+
+  private unwrapDemoRequisition(resp: HelpSupportApiResponse): AdminDemoRequisition {
+    if (!apiOk(resp) || !resp.demoRequisitionDto) {
+      throw new Error(resp.message ?? 'Demo requisition response was empty.');
+    }
+    return resp.demoRequisitionDto;
   }
 
   private handleError(err: unknown, fallback: string): Observable<never> {

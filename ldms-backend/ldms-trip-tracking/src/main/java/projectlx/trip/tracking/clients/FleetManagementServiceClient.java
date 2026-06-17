@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
+import projectlx.trip.tracking.utils.responses.FleetAssetFeignResponse;
 import projectlx.trip.tracking.utils.responses.FleetDriverFeignResponse;
 import projectlx.trip.tracking.utils.responses.FleetTrackingDeviceFeignResponse;
 
@@ -14,6 +15,11 @@ public interface FleetManagementServiceClient {
 
     @GetMapping("/ldms-fleet-management/v1/system/fleet-driver/find-by-id/{id}")
     FleetDriverFeignResponse findFleetDriverById(
+            @PathVariable("id") Long id,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
+
+    @GetMapping("/ldms-fleet-management/v1/system/fleet-asset/find-by-id/{id}")
+    FleetAssetFeignResponse findFleetAssetById(
             @PathVariable("id") Long id,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
 

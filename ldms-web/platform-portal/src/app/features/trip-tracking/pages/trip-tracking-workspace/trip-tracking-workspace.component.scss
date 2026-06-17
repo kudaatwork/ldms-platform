@@ -47,6 +47,11 @@
       color: var(--primary);
       font-weight: 600;
     }
+
+    &--link {
+      text-decoration: none;
+      margin-left: auto;
+    }
   }
 
   &__copy {

@@ -104,6 +104,10 @@
           </button>
           <button type="button" class="lx-btn lx-btn-ghost" (click)="goHome()">Cancel</button>
         </div>
+
+        <p *ngIf="submitError() as err" class="ldms-contact__error ldms-contact__error--banner" role="alert">
+          {{ err }}
+        </p>
       </form>
     </div>
   </main>

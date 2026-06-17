@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +18,7 @@ import projectlx.trip.tracking.business.logic.support.LogisticsNotificationRecip
 import projectlx.trip.tracking.business.logic.support.TripIotDemoSimulator;
 import projectlx.trip.tracking.business.logic.support.TripMapper;
 import projectlx.trip.tracking.business.logic.support.TripNumberGenerator;
+import projectlx.trip.tracking.business.logic.support.ShipmentTripStartLock;
 import projectlx.trip.tracking.business.logic.support.TripRoutePlannerSupport;
 import projectlx.trip.tracking.business.logic.support.TripTelemetryPublisher;
 import projectlx.trip.tracking.model.TripRoutePlan;
@@ -64,9 +66,11 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Transactional
 @RequiredArgsConstructor
@@ -92,6 +96,7 @@ public class TripServiceImpl implements TripService {
     private final TripTelemetryPublisher telemetryPublisher;
     private final TripRoutePlanRepository tripRoutePlanRepository;
     private final IotIntegrationProperties iotProperties;
+    private final ShipmentTripStartLock shipmentTripStartLock;
     private final LogisticsLifecycleNotificationSupport logisticsLifecycleNotificationSupport;
     private final LogisticsNotificationRecipientResolver recipientResolver;
 
@@ -114,8 +119,21 @@ public class TripServiceImpl implements TripService {
      * 9. Publish trip.started
      */
     @Override
-    @Transactional(isolation = Isolation.READ_COMMITTED)
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     public TripResponse startTrip(StartTripRequest request, Locale locale, String username) {
+
+        if (!shipmentTripStartLock.tryLock(request.getShipmentId())) {
+            return errorResponse(409, messageService.getMessage(
+                    I18Code.MESSAGE_TRIP_START_LOCK_UNAVAILABLE.getCode(), new String[]{}, locale));
+        }
+        try {
+            return doStartTrip(request, locale, username);
+        } finally {
+            shipmentTripStartLock.unlock(request.getShipmentId());
+        }
+    }
+
+    private TripResponse doStartTrip(StartTripRequest request, Locale locale, String username) {
 
         // ============================================================
         // STEP 1: Validate request
@@ -149,17 +167,12 @@ public class TripServiceImpl implements TripService {
         // ============================================================
         // STEP 4: Fetch shipment details and validate ALLOCATED status
         // ============================================================
-        ShipmentSummaryDto shipment = null;
-        try {
-            ShipmentFeignResponse shipmentResponse =
-                    shipmentManagementServiceClient.findShipmentById(request.getShipmentId(), locale);
-            if (shipmentResponse != null && shipmentResponse.isSuccess()) {
-                shipment = shipmentResponse.getShipmentDto();
-            }
-        } catch (Exception ex) {
-            log.warn("Could not fetch shipment {} from shipment-management: {}", request.getShipmentId(), ex.getMessage());
-        }
-        if (shipment == null || !"ALLOCATED".equalsIgnoreCase(shipment.getStatus())) {
+        ShipmentSummaryDto shipment = fetchAllocatedShipmentForTripStart(
+                request.getShipmentId(),
+                request.getInventoryTransferId(),
+                request.getSalesOrderId(),
+                locale);
+        if (shipment == null) {
             return errorResponse(400, messageService.getMessage(
                     I18Code.MESSAGE_TRIP_SHIPMENT_NOT_ALLOCATED.getCode(), new String[]{}, locale));
         }
@@ -172,6 +185,7 @@ public class TripServiceImpl implements TripService {
         trip.setTripNumber(tripNumberGenerator.generate());
         trip.setOrganizationId(organizationId);
         trip.setShipmentId(request.getShipmentId());
+        trip.setShipmentNumber(shipment.getShipmentNumber());
         trip.setInventoryTransferId(shipment.getInventoryTransferId());
         trip.setSalesOrderId(shipment.getSalesOrderId());
         trip.setFleetDriverId(request.getFleetDriverId());
@@ -181,6 +195,8 @@ public class TripServiceImpl implements TripService {
         trip.setFromWarehouseName(shipment.getFromWarehouseName());
         trip.setToWarehouseName(shipment.getToWarehouseName());
         trip.setProductName(shipment.getProductName());
+        trip.setProductCode(shipment.getProductCode());
+        trip.setQuantity(shipment.getQuantity());
         trip.setEntityStatus(EntityStatus.ACTIVE);
         trip.setCreatedAt(now);
         trip.setCreatedBy(username);
@@ -221,7 +237,7 @@ public class TripServiceImpl implements TripService {
         }
 
         // ============================================================
-        // STEP 7: Update shipment status → IN_TRANSIT
+        // STEP 7: Update shipment status → IN_TRANSIT (required)
         // ============================================================
         try {
             UpdateShipmentStatusFeignRequest statusUpdate = new UpdateShipmentStatusFeignRequest();
@@ -231,7 +247,11 @@ public class TripServiceImpl implements TripService {
             shipmentManagementServiceClient.updateShipmentStatus(statusUpdate, locale);
         } catch (Exception ex) {
             log.error("Failed to update shipment {} to IN_TRANSIT: {}", saved.getShipmentId(), ex.getMessage());
+            throw new IllegalStateException(messageService.getMessage(
+                    I18Code.MESSAGE_TRIP_SHIPMENT_STATUS_SYNC_FAILED.getCode(), new String[]{}, locale), ex);
         }
+
+        cancelSupersededActiveTrips(saved.getShipmentId(), saved.getId(), locale, username);
 
         // ============================================================
         // STEP 8: Record DEPARTED event
@@ -654,12 +674,11 @@ public class TripServiceImpl implements TripService {
     @Override
     @Transactional(readOnly = true)
     public TripResponse findById(Long id, Locale locale, String username) {
-        Trip trip = tripRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElse(null);
+        Trip trip = tripRepository.findByIdAndEntityStatusNotNoLock(id, EntityStatus.DELETED).orElse(null);
         if (trip == null) {
             return errorResponse(404, messageService.getMessage(I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
         }
-        List<TripEvent> events = tripEventRepository
-                .findTop10ByTripIdAndEntityStatusNotOrderByEventTimeDesc(trip.getId(), EntityStatus.DELETED);
+        List<TripEvent> events = loadTimelineEvents(trip.getId(), PageRequest.of(0, 10));
         TripResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_TRIP_FIND_SUCCESS.getCode(), new String[]{}, locale));
         response.setTripDto(TripMapper.toDtoWithEvents(trip, events));
@@ -688,7 +707,8 @@ public class TripServiceImpl implements TripService {
                 EntityStatus.DELETED,
                 PageRequest.of(page, size));
 
-        List<TripDto> dtos = trips.getContent().stream().map(TripMapper::toDto).toList();
+        List<TripDto> dtos = dedupeActiveTripsPerShipment(
+                trips.getContent().stream().map(TripMapper::toDto).toList());
 
         TripResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_TRIP_FIND_ALL_SUCCESS.getCode(), new String[]{}, locale));
@@ -703,16 +723,23 @@ public class TripServiceImpl implements TripService {
     @Override
     @Transactional(readOnly = true)
     public TripResponse track(Long id, Locale locale) {
-        Trip trip = tripRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED).orElse(null);
+        Trip trip = tripRepository.findByIdAndEntityStatusNotNoLock(id, EntityStatus.DELETED).orElse(null);
         if (trip == null) {
             return errorResponse(404, messageService.getMessage(I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
         }
-        List<TripEvent> events = tripEventRepository
-                .findByTripIdAndEntityStatusNotOrderByEventTimeDesc(trip.getId(), EntityStatus.DELETED);
+        List<TripEvent> events = loadTimelineEvents(trip.getId(), PageRequest.of(0, 100));
         TripResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_TRIP_TRACK_SUCCESS.getCode(), new String[]{}, locale));
         response.setTripDto(TripMapper.toDtoWithEvents(trip, events));
         return response;
+    }
+
+    /**
+     * Milestone events for operator timelines — excludes high-frequency GPS CHECKPOINT pings.
+     */
+    private List<TripEvent> loadTimelineEvents(Long tripId, Pageable pageable) {
+        return tripEventRepository.findByTrip_IdAndEventTypeNotAndEntityStatusNotOrderByEventTimeDesc(
+                tripId, TripEventType.CHECKPOINT, EntityStatus.DELETED, pageable);
     }
 
     // ============================================================
@@ -794,6 +821,79 @@ public class TripServiceImpl implements TripService {
     // Private helpers
     // ============================================================
 
+    private ShipmentSummaryDto fetchAllocatedShipmentForTripStart(
+            Long shipmentId, Long inventoryTransferId, Long salesOrderId, Locale locale) {
+        if (shipmentId == null) {
+            return null;
+        }
+        ShipmentSummaryDto dto = null;
+        if (inventoryTransferId != null) {
+            dto = fetchShipmentSummary(() ->
+                    shipmentManagementServiceClient.findShipmentByTransferId(inventoryTransferId, locale),
+                    "transfer", inventoryTransferId);
+            if (dto != null && !shipmentId.equals(dto.getId())) {
+                log.warn("Inventory transfer {} is linked to shipment {} but trip start referenced shipment {}",
+                        inventoryTransferId, dto.getId(), shipmentId);
+                dto = null;
+            }
+        }
+        if (dto == null && salesOrderId != null) {
+            dto = fetchShipmentSummary(() ->
+                    shipmentManagementServiceClient.findShipmentBySalesOrderId(salesOrderId, locale),
+                    "sales-order", salesOrderId);
+            if (dto != null && !shipmentId.equals(dto.getId())) {
+                log.warn("Sales order {} is linked to shipment {} but trip start referenced shipment {}",
+                        salesOrderId, dto.getId(), shipmentId);
+                dto = null;
+            }
+        }
+        if (dto == null) {
+            dto = fetchShipmentSummary(() ->
+                    shipmentManagementServiceClient.findShipmentById(shipmentId, locale),
+                    "shipment", shipmentId);
+        }
+        if (dto == null) {
+            return null;
+        }
+        if (!"ALLOCATED".equalsIgnoreCase(dto.getStatus())) {
+            log.warn("Shipment {} is not ALLOCATED for trip start (status={})", shipmentId, dto.getStatus());
+            return null;
+        }
+        return dto;
+    }
+
+    private ShipmentSummaryDto fetchShipmentSummary(
+            java.util.function.Supplier<ShipmentFeignResponse> loader,
+            String lookupKind,
+            Long lookupId) {
+        try {
+            ShipmentFeignResponse response = loader.get();
+            ShipmentSummaryDto dto = extractShipmentSummary(response);
+            if (dto == null) {
+                log.warn("Shipment lookup by {} {} returned no payload (success={}, statusCode={})",
+                        lookupKind,
+                        lookupId,
+                        response != null && response.isSuccess(),
+                        response != null ? response.getStatusCode() : null);
+            }
+            return dto;
+        } catch (Exception ex) {
+            log.warn("Could not fetch shipment by {} {} from shipment-management: {}",
+                    lookupKind, lookupId, ex.getMessage());
+            return null;
+        }
+    }
+
+    private ShipmentSummaryDto extractShipmentSummary(ShipmentFeignResponse response) {
+        if (response == null || response.getShipmentDto() == null) {
+            return null;
+        }
+        if (!response.isSuccess() && response.getStatusCode() >= 400) {
+            return null;
+        }
+        return response.getShipmentDto();
+    }
+
     private TripEvent recordTripEvent(Trip trip, TripEventType type,
                                       BigDecimal lat, BigDecimal lng,
                                       String notes, Long recordedByUserId,
@@ -810,6 +910,42 @@ public class TripServiceImpl implements TripService {
         event.setCreatedAt(eventTime);
         event.setCreatedBy(createdBy);
         return tripEventServiceAuditable.create(event, locale, createdBy);
+    }
+
+    private void cancelSupersededActiveTrips(Long shipmentId, Long keepTripId, Locale locale, String username) {
+        List<Trip> activeTrips = tripRepository.findByShipmentIdAndStatusNotInAndEntityStatusNotOrderByIdDesc(
+                shipmentId, List.of(TripStatus.DELIVERED, TripStatus.CANCELLED), EntityStatus.DELETED);
+        LocalDateTime now = LocalDateTime.now();
+        for (Trip other : activeTrips) {
+            if (other.getId().equals(keepTripId)) {
+                continue;
+            }
+            other.setStatus(TripStatus.CANCELLED);
+            other.setModifiedAt(now);
+            other.setModifiedBy(username);
+            tripServiceAuditable.update(other, locale, username);
+            log.warn("Cancelled superseded trip id={} for shipment {} (keeping trip {})",
+                    other.getId(), shipmentId, keepTripId);
+        }
+    }
+
+    /**
+     * When duplicate active trips exist for one shipment, expose only the newest row in list views.
+     */
+    private List<TripDto> dedupeActiveTripsPerShipment(List<TripDto> trips) {
+        Set<Long> seenActiveShipments = new HashSet<>();
+        List<TripDto> result = new ArrayList<>();
+        for (TripDto dto : trips) {
+            boolean terminal = dto.getStatus() == TripStatus.DELIVERED || dto.getStatus() == TripStatus.CANCELLED;
+            if (dto.getShipmentId() == null || terminal) {
+                result.add(dto);
+                continue;
+            }
+            if (seenActiveShipments.add(dto.getShipmentId())) {
+                result.add(dto);
+            }
+        }
+        return result;
     }
 
     private void publishTripEvent(String routingKey, Trip trip) {

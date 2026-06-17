@@ -1,0 +1,96 @@
+<div class="trp">
+  <header class="trp-topbar">
+    <button type="button" class="trp-back lx-btn lx-btn-ghost lx-btn-sm" (click)="goBack()">
+      <mat-icon>arrow_back</mat-icon>
+      Trip history
+    </button>
+    <div class="trp-topbar__title" *ngIf="snapshot">
+      <span class="trp-topbar__eyebrow">Corridor replay</span>
+      <h1>{{ snapshot.tripNumber }}</h1>
+      <p>{{ routeLabel }}</p>
+    </div>
+    <div class="trp-topbar__stats" *ngIf="currentFrame">
+      <span><mat-icon>speed</mat-icon>{{ currentFrame.speedKmh | number:'1.0-0' }} km/h</span>
+      <span><mat-icon>route</mat-icon>{{ currentFrame.progressPct | number:'1.0-0' }}%</span>
+      <span><mat-icon>schedule</mat-icon>{{ cursorLabel }} / {{ durationLabel }}</span>
+    </div>
+  </header>
+
+  <div class="trp-alert lx-card" *ngIf="loadError && !loading" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    {{ loadError }}
+  </div>
+
+  <div class="trp-stage" *ngIf="!loadError || loading">
+    <section class="trp-map-wrap lx-card">
+      <div #mapHost class="trp-map" role="img" aria-label="Trip replay map"></div>
+      <lx-table-loading [busy]="loading" message="Loading corridor replay…"></lx-table-loading>
+
+      <div class="trp-playback" *ngIf="frames.length">
+        <div class="trp-playback__progress">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="0.1"
+            [value]="scrubPct"
+            (input)="onScrubInput($any($event.target).value)"
+            aria-label="Scrub trip timeline"
+          />
+        </div>
+        <div class="trp-playback__controls">
+          <button type="button" class="trp-btn" (click)="rewind()" title="Rewind to start">
+            <mat-icon>skip_previous</mat-icon>
+          </button>
+          <button type="button" class="trp-btn trp-btn--primary" (click)="togglePlay()" [attr.aria-label]="playing ? 'Pause' : 'Play'">
+            <mat-icon>{{ playing ? 'pause' : 'play_arrow' }}</mat-icon>
+          </button>
+          <div class="trp-speed" role="group" aria-label="Playback speed">
+            <button
+              type="button"
+              class="trp-speed__btn"
+              *ngFor="let s of speedOptions"
+              [class.is-active]="speed === s"
+              (click)="setSpeed(s)"
+            >
+              {{ s }}×
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="trp-side">
+      <div class="trp-side__card lx-card" *ngIf="detail">
+        <p class="trp-side__eyebrow">Trip summary</p>
+        <h2>{{ detail.driverName }}</h2>
+        <p class="trp-side__sub">{{ detail.vehicleRegistration }}</p>
+        <div class="trp-side__meta">
+          <span class="trp-badge">{{ detail.statusLabel }}</span>
+          <span>Started {{ detail.startedAtLabel }}</span>
+        </div>
+      </div>
+
+      <div class="trp-side__card lx-card trp-events">
+        <div class="trp-events__head">
+          <h3><mat-icon>timeline</mat-icon> Journey events</h3>
+          <span>{{ events.length }}</span>
+        </div>
+        <ol class="trp-events__list" *ngIf="events.length; else noEvents">
+          <li
+            *ngFor="let ev of events; let i = index"
+            [class.is-active]="i === activeEventIndex"
+            (click)="jumpToEvent(ev)"
+          >
+            <span class="trp-events__type">{{ ev.eventTypeLabel }}</span>
+            <span class="trp-events__time">{{ ev.recordedAtLabel }}</span>
+            <p *ngIf="ev.notes">{{ ev.notes }}</p>
+          </li>
+        </ol>
+        <ng-template #noEvents>
+          <p class="trp-events__empty">No milestone events — GPS trail still replays corridor movement.</p>
+        </ng-template>
+      </div>
+    </aside>
+  </div>
+</div>

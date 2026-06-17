@@ -1,0 +1,402 @@
+<div class="lx-page fta">
+  <app-fleet-tracking-subnav></app-fleet-tracking-subnav>
+
+  <lx-workspace-hero
+    variant="teal"
+    eyebrow="Fleet &amp; IoT"
+    eyebrowIcon="api"
+    title="Tracking Integration API"
+    lead="Connect your phones, OBD units, and existing GPS platforms to LDMS with a simple REST contract. No OAuth — just your device ingest key."
+    hubIcon="sensors"
+    [orbitIcons]="['http', 'hub', 'code']"
+    note="Install a device first to receive credentials, then push telemetry using the samples below."
+  >
+    <a lxWorkspaceHeroActions routerLink="/fleet/tracking" class="lx-btn lx-btn-ghost lx-btn-sm">
+      <mat-icon>sensors</mat-icon>
+      Install device
+    </a>
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-primary lx-btn-sm" (click)="setSection('playground')">
+      <mat-icon>play_circle</mat-icon>
+      Try mock API
+    </button>
+
+    <lx-workspace-hero-stat value="REST" label="Primary transport" icon="http" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat value="1" label="Endpoint to learn" icon="route" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat value="7" label="Code samples" icon="code" theme="violet"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <!-- Section nav -->
+  <nav class="fta-section-nav lx-card" aria-label="API documentation sections">
+    <button
+      type="button"
+      *ngFor="let s of sections"
+      class="fta-section-nav__btn"
+      [class.is-active]="activeSection === s.id"
+      (click)="setSection(s.id)"
+    >
+      <mat-icon>{{ s.icon }}</mat-icon>
+      {{ s.label }}
+    </button>
+  </nav>
+
+  <div class="fta-layout">
+    <main class="fta-main">
+      <!-- Overview -->
+      <section class="fta-panel lx-card" *ngIf="activeSection === 'overview'" id="section-overview">
+        <header class="fta-panel__head">
+          <mat-icon>rocket_launch</mat-icon>
+          <div>
+            <h2>Get live in three steps</h2>
+            <p>LDMS uses a single REST ingest endpoint. Your device authenticates with an ingest key — no JWT, no API keys dashboard.</p>
+          </div>
+        </header>
+
+        <ol class="fta-steps">
+          <li>
+            <span class="fta-steps__num">1</span>
+            <div>
+              <strong>Install &amp; link a device</strong>
+              <p>Register the phone or hardware on <a routerLink="/fleet/tracking">Device installation</a> and link it to a vehicle. GPS ingest requires a vehicle link.</p>
+            </div>
+          </li>
+          <li>
+            <span class="fta-steps__num">2</span>
+            <div>
+              <strong>Copy your ingest key</strong>
+              <p>Shown once after install. Store it securely in your app config or device firmware — it identifies this tracker on the platform.</p>
+            </div>
+          </li>
+          <li>
+            <span class="fta-steps__num">3</span>
+            <div>
+              <strong>POST telemetry</strong>
+              <p>Send latitude, longitude, and optional speed/heading every few seconds. When a trip is IN_TRANSIT for that vehicle, the live map updates instantly.</p>
+            </div>
+          </li>
+        </ol>
+
+        <div class="fta-path-grid">
+          <article class="fta-path-card" *ngFor="let path of integrationPaths">
+            <span class="fta-path-card__icon"><mat-icon>{{ path.icon }}</mat-icon></span>
+            <h3>{{ path.title }}</h3>
+            <p class="fta-path-card__tagline">{{ path.tagline }}</p>
+            <ol>
+              <li *ngFor="let step of path.steps">{{ step }}</li>
+            </ol>
+            <footer><mat-icon>thumb_up</mat-icon> {{ path.bestFor }}</footer>
+          </article>
+        </div>
+      </section>
+
+      <!-- REST Contract -->
+      <section class="fta-panel lx-card" *ngIf="activeSection === 'contract'" id="section-contract">
+        <header class="fta-panel__head">
+          <mat-icon>description</mat-icon>
+          <div>
+            <h2>REST contract</h2>
+            <p>Open, stateless JSON over HTTPS. Designed for mobile apps, cron jobs, and telematics forwarders.</p>
+          </div>
+        </header>
+
+        <div class="fta-endpoint lx-card--subsection">
+          <span class="fta-endpoint__method">POST</span>
+          <code class="fta-endpoint__url">{{ ingestUrl }}</code>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyText('url', ingestUrl)">
+            <mat-icon>{{ copiedToken === 'url' ? 'check' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+
+        <div class="fta-contract-grid">
+          <div>
+            <h3>Request headers</h3>
+            <table class="fta-table">
+              <thead><tr><th>Header</th><th>Value</th><th>Required</th></tr></thead>
+              <tbody>
+                <tr><td><code>Content-Type</code></td><td><code>application/json</code></td><td>Yes</td></tr>
+                <tr><td><code>Authorization</code></td><td>—</td><td>No — use <code>ingestKey</code> in body</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Request body</h3>
+            <div class="fta-table-wrap">
+              <table class="fta-table">
+                <thead>
+                  <tr><th>Field</th><th>Type</th><th>Req</th><th>Description</th></tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let f of requestFields">
+                    <td><code>{{ f.name }}</code></td>
+                    <td>{{ f.type }}</td>
+                    <td><span class="fta-pill" [class.fta-pill--req]="f.required">{{ f.required ? 'Yes' : 'No' }}</span></td>
+                    <td>{{ f.description }} <em>e.g. {{ f.example }}</em></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h3>Response codes</h3>
+            <ul class="fta-response-list">
+              <li *ngFor="let r of responseCodes">
+                <span class="fta-status" [ngClass]="statusClass(r.code)">{{ r.code }}</span>
+                <div>
+                  <strong>{{ r.label }}</strong>
+                  <p>{{ r.detail }}</p>
+                </div>
+              </li>
+            </ul>
+
+            <h3>Example success (200)</h3>
+            <pre class="fta-code"><code>{{ '{' }}
+  "statusCode": 200,
+  "success": true,
+  "message": "Telemetry ingested and trip updated",
+  "tripId": 10482,
+  "tripNumber": "TRP-20260617-0042"
+{{ '}' }}</code></pre>
+
+            <h3>Example — no active trip (202)</h3>
+            <pre class="fta-code"><code>{{ '{' }}
+  "statusCode": 202,
+  "success": true,
+  "message": "Telemetry received; no active trip for this device"
+{{ '}' }}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Code samples -->
+      <section class="fta-panel lx-card" *ngIf="activeSection === 'samples'" id="section-samples">
+        <header class="fta-panel__head">
+          <mat-icon>code</mat-icon>
+          <div>
+            <h2>Sample integrations</h2>
+            <p>Copy-paste starters in popular languages. Values update from the playground on the right.</p>
+          </div>
+        </header>
+
+        <div class="fta-lang-tabs">
+          <button
+            type="button"
+            *ngFor="let lang of languages"
+            class="fta-lang-tabs__btn"
+            [class.is-active]="activeLanguage === lang.id"
+            (click)="setLanguage(lang.id)"
+          >
+            {{ lang.label }}
+          </button>
+        </div>
+
+        <div class="fta-code-toolbar">
+          <span>{{ activeLanguage | uppercase }} · POST telemetry ingest</span>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyText('sample', activeCodeSample)">
+            <mat-icon>{{ copiedToken === 'sample' ? 'check' : 'content_copy' }}</mat-icon>
+            Copy
+          </button>
+        </div>
+        <pre class="fta-code fta-code--sample"><code>{{ activeCodeSample }}</code></pre>
+
+        <div class="fta-mqtt-note lx-card--subsection">
+          <mat-icon>wifi_tethering</mat-icon>
+          <div>
+            <strong>MQTT alternative</strong>
+            <p>
+              Hardware devices can publish to <code>ldms/iot/{{ '{' }}orgId{{ '}' }}/{{ '{' }}assetId{{ '}' }}/gps</code>
+              instead of REST. Payload accepts <code>latitude</code>/<code>lat</code>, <code>longitude</code>/<code>lng</code>,
+              <code>speedKmh</code>/<code>speed</code>, and <code>headingDeg</code>/<code>heading</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Connect trackers -->
+      <section class="fta-panel lx-card" *ngIf="activeSection === 'connect'" id="section-connect">
+        <header class="fta-panel__head">
+          <mat-icon>hub</mat-icon>
+          <div>
+            <h2>Plug in your existing trackers</h2>
+            <p>You do not need to replace hardware. Forward positions from your current platform into LDMS.</p>
+          </div>
+        </header>
+
+        <div class="fta-provider-grid">
+          <article class="fta-provider-card" *ngFor="let p of providerBridges">
+            <span class="fta-provider-card__icon"><mat-icon>{{ p.icon }}</mat-icon></span>
+            <h3>{{ p.name }}</h3>
+            <p>{{ p.description }}</p>
+            <footer>{{ p.howTo }}</footer>
+          </article>
+        </div>
+
+        <div class="fta-bridge-flow lx-card--subsection">
+          <h3>Typical forwarder architecture</h3>
+          <div class="fta-bridge-flow__diagram" aria-hidden="true">
+            <span class="fta-bridge-node"><mat-icon>gps_fixed</mat-icon> Your GPS device</span>
+            <span class="fta-bridge-arrow">→</span>
+            <span class="fta-bridge-node"><mat-icon>dns</mat-icon> Your telematics platform</span>
+            <span class="fta-bridge-arrow">→</span>
+            <span class="fta-bridge-node fta-bridge-node--ldms"><mat-icon>cloud_upload</mat-icon> LDMS REST ingest</span>
+            <span class="fta-bridge-arrow">→</span>
+            <span class="fta-bridge-node fta-bridge-node--ldms"><mat-icon>map</mat-icon> Live trip map</span>
+          </div>
+          <p class="fta-bridge-flow__hint">
+            Map each external device to an LDMS device record using <strong>External device ID</strong> during install.
+            LDMS matches incoming telemetry to the correct vehicle and active trip.
+          </p>
+        </div>
+      </section>
+
+      <!-- Partner SDK -->
+      <section class="fta-panel lx-card" *ngIf="activeSection === 'partner'" id="section-partner">
+        <header class="fta-panel__head">
+          <mat-icon>handshake</mat-icon>
+          <div>
+            <h2>Bring your SDK — we integrate</h2>
+            <p>Have proprietary hardware or a closed SDK? Our integration team can build the connector for you.</p>
+          </div>
+        </header>
+
+        <div class="fta-partner-grid">
+          <div class="fta-partner-card fta-partner-card--hero">
+            <mat-icon>engineering</mat-icon>
+            <h3>White-glove integration</h3>
+            <p>
+              Share your SDK docs and sample payloads. We implement the LDMS adapter — REST forwarder, MQTT bridge,
+              or scheduled pull — and validate against a pilot vehicle before go-live.
+            </p>
+            <ul>
+              <li *ngFor="let item of partnerDeliverables">{{ item }}</li>
+            </ul>
+            <a href="mailto:integrations@projectlx.co.zw?subject=LDMS%20tracker%20integration" class="lx-btn lx-btn-primary">
+              <mat-icon>mail</mat-icon>
+              Contact integrations team
+            </a>
+          </div>
+
+          <div class="fta-partner-card">
+            <mat-icon>schedule</mat-icon>
+            <h3>Typical timeline</h3>
+            <ol class="fta-partner-timeline">
+              <li><strong>Week 1</strong> — SDK review &amp; field mapping workshop</li>
+              <li><strong>Week 2–3</strong> — Adapter build &amp; sandbox testing</li>
+              <li><strong>Week 4</strong> — Pilot on 1–3 vehicles, corridor validation</li>
+              <li><strong>Go-live</strong> — Rollout documentation &amp; monitoring</li>
+            </ol>
+          </div>
+
+          <div class="fta-partner-card">
+            <mat-icon>verified</mat-icon>
+            <h3>What you get</h3>
+            <ul class="fta-partner-checklist">
+              <li><mat-icon>check_circle</mat-icon> Production-ready forwarder or firmware snippet</li>
+              <li><mat-icon>check_circle</mat-icon> Runbook for your ops team</li>
+              <li><mat-icon>check_circle</mat-icon> Test ingest keys and validation checklist</li>
+              <li><mat-icon>check_circle</mat-icon> Optional MQTT topic provisioning</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Playground (inline duplicate for mobile / section jump) -->
+      <section class="fta-panel lx-card fta-panel--playground-mobile" *ngIf="activeSection === 'playground'" id="section-playground">
+        <header class="fta-panel__head">
+          <mat-icon>play_circle</mat-icon>
+          <div>
+            <h2>API playground</h2>
+            <p>Use mock mode to explore responses without a real device, or switch to live to hit your environment.</p>
+          </div>
+        </header>
+        <p class="fta-playground-mobile-hint">The interactive console is in the panel on the right (or below on small screens).</p>
+      </section>
+    </main>
+
+    <!-- Sticky playground -->
+    <aside class="fta-playground lx-card" id="api-playground">
+      <header class="fta-playground__head">
+        <div>
+          <p class="fta-playground__eyebrow"><mat-icon>science</mat-icon> Try it</p>
+          <h2>Mock API console</h2>
+        </div>
+        <label class="fta-toggle">
+          <input type="checkbox" [(ngModel)]="mockMode" />
+          <span class="fta-toggle__track"></span>
+          <span class="fta-toggle__label">{{ mockMode ? 'Mock' : 'Live' }}</span>
+        </label>
+      </header>
+
+      <div class="fta-mock-scenarios" *ngIf="mockMode">
+        <span class="fta-mock-scenarios__label">Demo scenarios</span>
+        <div class="fta-mock-scenarios__chips">
+          <button
+            type="button"
+            *ngFor="let sc of mockScenarios"
+            class="fta-chip"
+            [class.is-active]="mockScenario === sc.id"
+            (click)="applyMockScenario(sc.id)"
+            [matTooltip]="sc.hint"
+          >
+            {{ sc.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="fta-playground__fields">
+        <div class="lx-field">
+          <label class="lx-field-label" for="pg-key">Ingest key</label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">key</mat-icon>
+            <input id="pg-key" type="text" [(ngModel)]="playground.ingestKey" placeholder="Paste your ingest key" />
+          </div>
+        </div>
+        <div class="fta-playground__row">
+          <div class="lx-field">
+            <label class="lx-field-label" for="pg-lat">Latitude</label>
+            <input id="pg-lat" type="number" step="0.0001" [(ngModel)]="playground.latitude" class="fta-input" />
+          </div>
+          <div class="lx-field">
+            <label class="lx-field-label" for="pg-lng">Longitude</label>
+            <input id="pg-lng" type="number" step="0.0001" [(ngModel)]="playground.longitude" class="fta-input" />
+          </div>
+        </div>
+        <div class="fta-playground__row">
+          <div class="lx-field">
+            <label class="lx-field-label" for="pg-speed">Speed (km/h)</label>
+            <input id="pg-speed" type="number" step="0.1" [(ngModel)]="playground.speedKmh" class="fta-input" />
+          </div>
+          <div class="lx-field">
+            <label class="lx-field-label" for="pg-heading">Heading (°)</label>
+            <input id="pg-heading" type="number" step="1" [(ngModel)]="playground.headingDeg" class="fta-input" />
+          </div>
+        </div>
+      </div>
+
+      <div class="fta-playground__request">
+        <div class="fta-code-toolbar">
+          <span>Request · POST</span>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyText('req', requestPayloadJson)">
+            <mat-icon>{{ copiedToken === 'req' ? 'check' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+        <pre class="fta-code fta-code--compact"><code>{{ requestPayloadJson }}</code></pre>
+      </div>
+
+      <button type="button" class="lx-btn lx-btn-primary fta-playground__send" (click)="sendRequest()" [disabled]="sending">
+        <mat-icon>{{ sending ? 'hourglass_empty' : 'send' }}</mat-icon>
+        {{ sending ? 'Sending…' : (mockMode ? 'Send mock request' : 'Send live request') }}
+      </button>
+
+      <div class="fta-playground__response" *ngIf="lastResult">
+        <div class="fta-playground__response-head">
+          <span class="fta-status" [ngClass]="statusClass(lastResult.status)">{{ lastResult.status || 'ERR' }}</span>
+          <span class="fta-playground__timing">{{ lastResult.durationMs }} ms</span>
+        </div>
+        <pre class="fta-code fta-code--response"><code>{{ lastResult.body | json }}</code></pre>
+      </div>
+
+      <p class="fta-playground__footnote" *ngIf="mockMode">
+        Mock mode simulates LDMS responses locally. Use demo keys above or paste a real key in live mode.
+      </p>
+    </aside>
+  </div>
+</div>

@@ -144,4 +144,33 @@ public class HelpSupportBackofficeResource {
         }
         return auth.getName();
     }
+
+    @Auditable(action = "LIST_ALL_DEMO_REQUISITIONS")
+    @GetMapping("/demo-requisition/list")
+    @Operation(summary = "List all demo booking requisitions")
+    public HelpSupportResponse listAllDemoRequisitions(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return helpSupportServiceProcessor.listAllDemoRequisitions(locale);
+    }
+
+    @Auditable(action = "FIND_DEMO_REQUISITION_BY_ID")
+    @GetMapping("/demo-requisition/find-by-id/{id}")
+    @Operation(summary = "Find demo requisition by id")
+    public HelpSupportResponse findDemoRequisitionById(
+            @PathVariable("id") Long id,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return helpSupportServiceProcessor.findDemoRequisitionById(id, locale);
+    }
+
+    @Auditable(action = "UPDATE_DEMO_REQUISITION_STATUS")
+    @PutMapping("/demo-requisition/update-status")
+    @Operation(summary = "Update demo requisition status")
+    public HelpSupportResponse updateDemoRequisitionStatus(
+            @Valid @RequestBody projectlx.user.management.utils.requests.UpdateDemoRequisitionStatusRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return helpSupportServiceProcessor.updateDemoRequisitionStatus(request, locale, actorUsername());
+    }
 }

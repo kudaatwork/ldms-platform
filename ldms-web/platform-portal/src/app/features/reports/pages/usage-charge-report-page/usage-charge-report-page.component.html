@@ -1,10 +1,12 @@
 <div class="lx-page usage-report-page">
+  <app-analytics-subnav></app-analytics-subnav>
+
   <lx-workspace-hero
     variant="violet"
-    eyebrow="Reports"
+    eyebrow="Analytics"
     eyebrowIcon="insights"
-    title="Platform usage charges"
-    lead="Review platform action usage for your organisation — charges deducted on prepaid wallet or tracked on subscription. Filter by trip, season, or date range."
+    title="Platform usage &amp; changes"
+    lead="Review platform action usage and billing charges for your organisation. Pair with audit activity for a full picture of who changed what."
     hubIcon="bar_chart"
     [orbitIcons]="['trip_origin', 'calendar_month', 'payments']"
   >
@@ -14,12 +16,26 @@
       </button>
       <button
         type="button"
-        class="lx-btn lx-btn-ghost lx-btn-sm"
-        (click)="exportCsv()"
+        class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+        [matMenuTriggerFor]="usageExportMenu"
         [disabled]="!report?.records?.length || exporting"
       >
-        {{ exporting ? 'Exporting…' : 'Export CSV' }}
+        {{ exporting ? 'Exporting…' : 'Export' }}
       </button>
+      <mat-menu #usageExportMenu="matMenu" panelClass="lx-export-menu">
+        <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')" [disabled]="exporting">
+          <mat-icon>picture_as_pdf</mat-icon>
+          <span>Export PDF</span>
+        </button>
+        <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')" [disabled]="exporting">
+          <mat-icon>table_view</mat-icon>
+          <span>Export CSV</span>
+        </button>
+        <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')" [disabled]="exporting">
+          <mat-icon>grid_on</mat-icon>
+          <span>Export XLSX</span>
+        </button>
+      </mat-menu>
       <button type="button" class="lx-btn lx-btn-primary lx-btn-sm lx-ws-hero__btn--accent" (click)="loadReport()" [disabled]="loading">
         Run report
       </button>

@@ -199,7 +199,7 @@ export class TripTrackingPortalService {
     return {
       totalShipments: shipments.length,
       allocatedShipments: shipments.filter((s) => s.status !== 'PENDING').length,
-      activeTrips: trips.filter((t) => t.status === 'IN_PROGRESS' || t.status === 'ARRIVED').length,
+      activeTrips: trips.filter((t) => this.isActiveTrip(t.status)).length,
       deliveredToday: trips.filter((t) => t.status === 'DELIVERED').length,
     };
   }
@@ -214,6 +214,7 @@ export class TripTrackingPortalService {
     return {
       id: Number(dto['id'] ?? 0),
       shipmentNumber: String(dto['shipmentNumber'] ?? dto['shipmentNo'] ?? `SHP-${dto['id']}`),
+      organizationId: dto['organizationId'] ? Number(dto['organizationId']) : undefined,
       transferReference: transferId
         ? `TRF-${transferId}`
         : String(dto['transferReference'] ?? dto['reference'] ?? '—'),
@@ -248,16 +249,26 @@ export class TripTrackingPortalService {
   mapShipmentRowForViewer(
     row: ShipmentRow,
     viewerOrganizationId: number,
-    isShipperOrg: boolean,
+    orgClassification: string,
+    canAllocateFleet: boolean,
   ): ShipmentRow {
     const assignedToViewer =
       !!row.transportCompanyOrganizationId && row.transportCompanyOrganizationId === viewerOrganizationId;
-    const ownedByViewer = isShipperOrg;
+    const ownedByViewer =
+      !!row.organizationId
+      && row.organizationId === viewerOrganizationId
+      && (orgClassification === 'SUPPLIER' || orgClassification === 'CUSTOMER');
+    const transporterViewer = orgClassification === 'TRANSPORT_COMPANY';
+    const mayActOnShipment = ownedByViewer || (transporterViewer && assignedToViewer);
     return {
       ...row,
       canAssignTransport: row.status === 'PENDING' && ownedByViewer,
-      canAllocate: row.status === 'PENDING_FLEET' && assignedToViewer,
-      canStartTrip: row.status === 'ALLOCATED' && !!row.fleetDriverId && !!row.fleetAssetId && (ownedByViewer || assignedToViewer),
+      canAllocate: row.status === 'PENDING_FLEET' && mayActOnShipment && canAllocateFleet,
+      canStartTrip:
+        row.status === 'ALLOCATED'
+        && !!row.fleetDriverId
+        && !!row.fleetAssetId
+        && (ownedByViewer || assignedToViewer),
     };
   }
 
@@ -273,6 +284,10 @@ export class TripTrackingPortalService {
       shipmentId: Number(dto['shipmentId'] ?? 0),
       shipmentNumber: String(dto['shipmentNumber'] ?? (dto['shipmentId'] ? `SHP-${dto['shipmentId']}` : '—')),
       route: this.buildRoute(dto),
+      productName: String(dto['productName'] ?? '—'),
+      productCode: dto['productCode'] != null ? String(dto['productCode']) : undefined,
+      quantity: dto['quantity'] != null ? Number(dto['quantity']) : undefined,
+      cargoLabel: this.buildCargoLabel(dto),
       driverName: String(dto['driverName'] ?? (dto['fleetDriverId'] ? `Driver #${dto['fleetDriverId']}` : '—')),
       vehicleRegistration: String(
         dto['vehicleRegistration'] ?? (dto['fleetAssetId'] ? `Vehicle #${dto['fleetAssetId']}` : '—'),
@@ -337,6 +352,7 @@ export class TripTrackingPortalService {
       notes: String(dto['notes'] ?? ''),
       recordedBy: String(dto['recordedBy'] ?? dto['createdBy'] ?? '—'),
       recordedAtLabel: this.formatDate(dto['eventTime'] ?? dto['recordedAt'] ?? dto['createdAt']),
+      recordedAtIso: String(dto['eventTime'] ?? dto['recordedAt'] ?? dto['createdAt'] ?? ''),
     };
   }
 
@@ -351,6 +367,26 @@ export class TripTrackingPortalService {
       return `${from} → ${to}`;
     }
     return from || to || '—';
+  }
+
+  private buildCargoLabel(dto: Record<string, unknown>): string {
+    const product = String(dto['productName'] ?? '').trim();
+    const code = dto['productCode'] != null ? String(dto['productCode']).trim() : '';
+    const qty = dto['quantity'] != null ? Number(dto['quantity']) : null;
+    if (!product && (qty == null || Number.isNaN(qty))) {
+      return '—';
+    }
+    const parts: string[] = [];
+    if (product) {
+      parts.push(product);
+    }
+    if (code) {
+      parts.push(`(${code})`);
+    }
+    if (qty != null && !Number.isNaN(qty)) {
+      parts.push(`× ${qty.toLocaleString()}`);
+    }
+    return parts.join(' ') || '—';
   }
 
   private mapShipmentStatus(raw: string): ShipmentStatus {
@@ -396,6 +432,11 @@ export class TripTrackingPortalService {
       default:
         return status;
     }
+  }
+
+  /** Trip is still on the road or awaiting delivery confirmation. */
+  isActiveTrip(status: TripStatus): boolean {
+    return status === 'IN_PROGRESS' || status === 'ARRIVED';
   }
 
   private mapTripStatus(raw: string): TripStatus {
@@ -489,6 +530,10 @@ export class TripTrackingPortalService {
         return 'Roadside mechanic stop';
       case 'ROADSIDE_RESUMED':
         return 'Resumed after roadside stop';
+      case 'DRIVER_BREAK':
+        return 'Driver break / vehicle halted';
+      case 'DRIVER_RESUMED':
+        return 'Driver resumed movement';
       case 'CHECKPOINT':
         return 'Checkpoint';
       case 'BREAK':
@@ -590,6 +635,11 @@ export class TripTrackingPortalService {
 
   private toError(err: unknown): Error {
     if (err instanceof HttpErrorResponse) {
+      if (err.status === 401 && (err.url ?? '').includes('shipment-management')) {
+        return new Error(
+          'Shipment service rejected your sign-in token. Restart ldms-shipment-management (port 8015) so its JWT secret matches authentication, then refresh this page.',
+        );
+      }
       const msg = readApiFailureMessage(err.error, err.message);
       return new Error(msg || 'Network error.');
     }

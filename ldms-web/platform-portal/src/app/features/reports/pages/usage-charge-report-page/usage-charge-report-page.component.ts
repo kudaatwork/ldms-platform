@@ -8,6 +8,10 @@ import {
   type UsageChargeRecordRow,
   type UsageChargeReport,
 } from '../../../../core/services/platform-wallet.service';
+import {
+  exportClientTableAsCsv,
+  type LxExportFormat,
+} from '../../../../shared/utils/lx-export.util';
 
 @Component({
   selector: 'app-usage-charge-report-page',
@@ -265,30 +269,33 @@ export class UsageChargeReportPageComponent implements OnInit, OnDestroy {
     this.tableSearchQuery = '';
   }
 
-  exportCsv(): void {
+  exportAs(format: LxExportFormat): void {
     const rows = this.filteredRecords;
     if (!rows.length || this.exporting) {
       return;
     }
     this.exporting = true;
-    try {
-      const header = 'createdAt,actionCode,actionDisplayName,chargeCents,deducted,tripId,seasonId';
-      const lines = rows.map((row) =>
-        [
-          row.createdAt ?? '',
-          row.actionCode,
-          `"${(row.actionDisplayName ?? '').replace(/"/g, '""')}"`,
-          row.chargeCents ?? 0,
-          row.deducted ? 'true' : 'false',
-          row.tripId ?? '',
-          row.seasonId ?? '',
-        ].join(','),
-      );
-      this.downloadCsv('platform-usage-charges-report.csv', [header, ...lines].join('\n'));
-    } finally {
-      this.exporting = false;
-      this.cdr.markForCheck();
-    }
+    exportClientTableAsCsv(
+      format,
+      rows,
+      [
+        { header: 'createdAt', value: (r) => r.createdAt ?? '' },
+        { header: 'actionCode', value: (r) => r.actionCode },
+        { header: 'actionDisplayName', value: (r) => r.actionDisplayName ?? '' },
+        { header: 'chargeCents', value: (r) => r.chargeCents ?? 0 },
+        { header: 'deducted', value: (r) => r.deducted },
+        { header: 'tripId', value: (r) => r.tripId ?? '' },
+        { header: 'seasonId', value: (r) => r.seasonId ?? '' },
+      ],
+      'platform-usage-charges-report',
+      () => {
+        this.error = 'Export failed. Try another format.';
+        this.cdr.markForCheck();
+      },
+      { title: 'Platform usage charges' },
+    );
+    this.exporting = false;
+    this.cdr.markForCheck();
   }
 
   formatMoney(cents: number): string {
@@ -330,15 +337,5 @@ export class UsageChargeReportPageComponent implements OnInit, OnDestroy {
     }
     const parsed = Number(trimmed);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-  }
-
-  private downloadCsv(filename: string, contents: string): void {
-    const blob = new Blob([contents], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    anchor.click();
-    URL.revokeObjectURL(url);
   }
 }

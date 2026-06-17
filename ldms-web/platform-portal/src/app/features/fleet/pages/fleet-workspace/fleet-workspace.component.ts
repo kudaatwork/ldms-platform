@@ -1596,6 +1596,30 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
     };
   }
 
+  get trackingCoverage(): {
+    totalVehicles: number;
+    coveredVehicles: number;
+    missingVehicles: number;
+    coveragePct: number;
+  } {
+    const totalVehicles = this.ownFleet.length;
+    if (!totalVehicles) {
+      return { totalVehicles: 0, coveredVehicles: 0, missingVehicles: 0, coveragePct: 0 };
+    }
+
+    const activeAssets = new Set(
+      this.trackingDevices
+        .filter((d) => d.installStatus === 'ACTIVE' && d.fleetAssetId != null)
+        .map((d) => d.fleetAssetId as number),
+    );
+
+    const coveredVehicles = activeAssets.size;
+    const missingVehicles = Math.max(0, totalVehicles - coveredVehicles);
+    const coveragePct = totalVehicles ? Math.round((coveredVehicles / totalVehicles) * 100) : 0;
+
+    return { totalVehicles, coveredVehicles, missingVehicles, coveragePct };
+  }
+
   deviceTypeIcon(type: TrackingDeviceType): string {
     const map: Record<TrackingDeviceType, string> = {
       MOBILE_PHONE: 'smartphone',
