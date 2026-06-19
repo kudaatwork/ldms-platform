@@ -11,8 +11,10 @@ import {
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
 import * as L from 'leaflet';
-import { Subject, interval, switchMap, takeUntil, catchError, of, startWith } from 'rxjs';
+import { Subject, interval, switchMap, takeUntil, catchError, of, startWith, take } from 'rxjs';
 import { NotificationService } from '../../../../core/services/notification.service';
+import { AuthStateService } from '../../../../core/services/auth-state.service';
+import { DriverPortalService } from '../../../driver-portal/services/driver-portal.service';
 import { fuelAlertTone } from '../../../../core/constants/fuel-alert.constants';
 import { FuelAlertMonitorService } from '../../../../core/services/fuel-alert-monitor.service';
 import { ShellNotificationService } from '../../../../core/services/shell-notification.service';
@@ -92,6 +94,8 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
     private readonly tripPortal: TripTrackingPortalService,
     private readonly fuelExpenses: FuelExpensesPortalService,
     private readonly notifications: NotificationService,
+    private readonly authState: AuthStateService,
+    private readonly driverPortal: DriverPortalService,
     private readonly shellNotifications: ShellNotificationService,
     private readonly fuelAlertMonitor: FuelAlertMonitorService,
     private readonly cdr: ChangeDetectorRef,
@@ -387,8 +391,73 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
     return circumference * (1 - pct / 100);
   }
 
+  get progressLabel(): string {
+    return `${Math.round(this.tripSnapshot?.overallProgressPct ?? 0)}`;
+  }
+
+  get showArrivalPrompt(): boolean {
+    const s = this.tripSnapshot;
+    return !!(
+      s?.awaitingArrivalConfirmation
+      || ((s?.overallProgressPct ?? 0) >= 97 && s?.status === 'IN_TRANSIT')
+    );
+  }
+
+  get showDeliveryBanner(): boolean {
+    const status = String(this.tripSnapshot?.status ?? '').toUpperCase();
+    return ['ARRIVED', 'COUNTING_STOCK', 'COUNT_COMPLETE', 'OTP_PENDING', 'DELIVERED'].includes(status);
+  }
+
+  get showReturnBanner(): boolean {
+    return this.tripSnapshot?.returnJourneyActive === true
+      || String(this.tripSnapshot?.status ?? '').toUpperCase() === 'RETURN_IN_TRANSIT';
+  }
+
+  openDeliveryWorkflow(): void {
+    void this.router.navigate(['/driver/trip', this.tripId], { queryParams: { workflow: '1' } });
+  }
+
+  confirmArrivalFromLive(): void {
+    const userId = Number(this.authState.currentUser?.userId ?? 0);
+    if (!userId) {
+      this.notifications.error('Sign in to confirm arrival.');
+      return;
+    }
+    this.tripPortal
+      .triggerArrival({ tripId: this.tripId, driverUserId: userId })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.notifications.success('Arrival confirmed.');
+          this.driverPortal
+            .getMyTripById(this.tripId)
+            .pipe(take(1), takeUntil(this.destroy$))
+            .subscribe({
+              next: () => this.openDeliveryWorkflow(),
+              error: () => {
+                this.notifications.info(
+                  'Arrival recorded. Continue delivery steps from this live map or your dispatcher workspace.',
+                );
+                this.cdr.markForCheck();
+              },
+            });
+        },
+        error: (err: Error) => this.notifications.error(err.message || 'Could not confirm arrival.'),
+      });
+  }
+
   goBack(): void {
     void this.router.navigate(['/shipments/trips']);
+  }
+
+  /** Navigate to the driver trip workflow with arrival suggested flag. */
+  confirmArrivalFromMap(): void {
+    if (!this.tripId) {
+      return;
+    }
+    void this.router.navigate(['/driver', 'trip', this.tripId], {
+      queryParams: { workflow: '1', arrivalSuggested: '1' },
+    });
   }
 
   startSimulation(): void {
@@ -568,10 +637,10 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
         takeUntil(this.destroy$),
       )
       .subscribe((fuel) => {
-        if (fuel && !this.tripSnapshot?.simulationActive) {
-          this.applyFuelSnapshot(fuel);
-          this.cdr.markForCheck();
+        if (fuel) {
+          this.applyFuelSnapshot(this.mergeFuelWithTripSnapshot(fuel));
         }
+        this.cdr.markForCheck();
       });
 
     interval(5000)
@@ -590,8 +659,8 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
       tripNumber: snap.tripNumber,
       vehicleLabel: snap.vehicleRegistration || undefined,
     });
-    if (snap.simulationActive) {
-      this.applySimulationFuelFromTripSnapshot(snap);
+    if (snap.fuelLevelPct != null || snap.fuelRemainingLiters != null || (snap.distanceTravelledKm ?? 0) > 0) {
+      this.applyFuelSnapshot(this.deriveFuelFromTripSnapshot(snap));
     }
     this.ensureMap();
 
@@ -625,14 +694,16 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
     });
   }
 
-  private applySimulationFuelFromTripSnapshot(snap: TripLiveSnapshot): void {
+  private deriveFuelFromTripSnapshot(snap: TripLiveSnapshot): FuelLiveSnapshot {
     const distanceKm = snap.distanceTravelledKm ?? 0;
     const fuelRemainingLiters =
       snap.fuelRemainingLiters ?? Math.max(0, 400 - distanceKm * 0.35);
     const fuelLevelPct =
       snap.fuelLevelPct ?? Math.max(0, (fuelRemainingLiters / 400) * 100);
-    this.applyFuelSnapshot({
+    return {
       tripId: snap.tripId,
+      fleetDriverId: this.fuelSnapshot?.fleetDriverId,
+      fleetAssetId: snap.fleetAssetId ?? this.fuelSnapshot?.fleetAssetId,
       fuelLevelPct,
       fuelRemainingLiters,
       tankCapacityLiters: 400,
@@ -640,11 +711,48 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
       consumptionRateLPer100Km: 35,
       moving: snap.moving,
       status: 'ACTIVE',
-    });
+    };
+  }
+
+  private mergeFuelWithTripSnapshot(fuel: FuelLiveSnapshot): FuelLiveSnapshot {
+    const snap = this.tripSnapshot;
+    if (!snap) {
+      return fuel;
+    }
+    const derived = this.deriveFuelFromTripSnapshot(snap);
+    const derivedHasProgress =
+      (snap.distanceTravelledKm ?? 0) > 0
+      || snap.fuelLevelPct != null
+      || snap.fuelRemainingLiters != null;
+    if (!derivedHasProgress) {
+      return fuel;
+    }
+    const useDerived =
+      fuel.fuelLevelPct >= 99.95 && derived.fuelLevelPct < fuel.fuelLevelPct;
+    if (useDerived || derived.fuelLevelPct < fuel.fuelLevelPct) {
+      return {
+        ...fuel,
+        fuelLevelPct: derived.fuelLevelPct,
+        fuelRemainingLiters: derived.fuelRemainingLiters,
+        distanceTravelledKm: derived.distanceTravelledKm ?? fuel.distanceTravelledKm,
+        moving: snap.moving || fuel.moving,
+      };
+    }
+    return fuel;
   }
 
   get fuelDisplayFormat(): string {
-    return this.tripSnapshot?.simulationActive ? '1.0-1' : '1.0-0';
+    if (this.tripSnapshot?.moving || this.tripSnapshot?.simulationActive) {
+      return '1.1-2';
+    }
+    return '1.0-0';
+  }
+
+  get fuelLitersDisplayFormat(): string {
+    if (this.tripSnapshot?.moving || this.tripSnapshot?.simulationActive) {
+      return '1.1-1';
+    }
+    return '1.0-0';
   }
 
   private animateTo(targetLat: number, targetLng: number, heading: number): void {

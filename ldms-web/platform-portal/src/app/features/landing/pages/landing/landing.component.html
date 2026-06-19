@@ -2,8 +2,14 @@
   <div class="ldms-scroll-bar" aria-hidden="true"></div>
 
   <div class="ldms-landing__bg" aria-hidden="true">
+    <div class="ldms-landing__aurora">
+      <div class="ldms-landing__aurora-beam ldms-landing__aurora-beam--1"></div>
+      <div class="ldms-landing__aurora-beam ldms-landing__aurora-beam--2"></div>
+      <div class="ldms-landing__aurora-beam ldms-landing__aurora-beam--3"></div>
+    </div>
     <div class="ldms-orb-global ldms-orb-global--a"></div>
     <div class="ldms-orb-global ldms-orb-global--b"></div>
+    <div class="ldms-orb-global ldms-orb-global--c"></div>
   </div>
   <div class="ldms-landing__grid-faint" aria-hidden="true"></div>
 
@@ -89,6 +95,11 @@
 
       <div class="ldms-hero__inner">
         <div class="ldms-hero__copy">
+          <div class="ldms-hero__pills">
+            <span class="ldms-hero__pill"><span class="material-icons" aria-hidden="true">public</span> Cross-border corridors</span>
+            <span class="ldms-hero__pill"><span class="material-icons" aria-hidden="true">bolt</span> Event-driven LDMS</span>
+            <span class="ldms-hero__pill"><span class="material-icons" aria-hidden="true">verified</span> KYC-ready</span>
+          </div>
           <p class="ldms-hero__eyebrow">Secure corridor success with logistics digitalization</p>
           <h1 id="ldms-hero-title" class="ldms-hero__title">
             The distribution platform
@@ -133,6 +144,7 @@
         </div>
 
         <div class="ldms-hero__visual" aria-hidden="true">
+          <div class="ldms-hero__glow-ring"></div>
           <div class="ldms-hero__dashboard">
             <div class="ldms-hero__dashboard-bar">
               <span class="ldms-hero__dashboard-dot ldms-hero__dashboard-dot--r"></span>
@@ -571,6 +583,19 @@
               </div>
             </div>
           </article>
+          <article class="ldms-access__card ldms-access__card--driver">
+            <div class="ldms-access__driver-icon" aria-hidden="true">
+              <span class="material-icons">local_shipping</span>
+            </div>
+            <div class="ldms-access__body">
+              <h3>Driver portal</h3>
+              <p>For truck drivers — manage trips, confirm deliveries, and track your journey in real time.</p>
+              <div class="ldms-access__actions">
+                <button type="button" class="lx-btn lx-btn-primary" (click)="goDriverSignup()">Join as driver</button>
+                <a routerLink="/driver/workspace" class="lx-btn lx-btn-ghost">Driver sign in</a>
+              </div>
+            </div>
+          </article>
           <article class="ldms-access__card ldms-access__card--accent">
             <img [src]="accessAdminCardImage" alt="" class="ldms-access__hero" loading="lazy" />
             <div class="ldms-access__body">
@@ -598,6 +623,10 @@
         </div>
         <div class="ldms-cta-band__actions">
           <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup()">Create organisation account</button>
+          <button type="button" class="lx-btn lx-btn-secondary ldms-cta-band__ghost" (click)="goDriverSignup()">
+            <span class="material-icons" aria-hidden="true">local_shipping</span>
+            Join as driver
+          </button>
           <button type="button" class="lx-btn lx-btn-secondary ldms-cta-band__ghost" (click)="goBookDemo()">
             Book a demo
           </button>

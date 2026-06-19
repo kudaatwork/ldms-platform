@@ -60,7 +60,31 @@ public enum I18Code {
     MESSAGE_TRACKING_DEVICE_UPDATE_INVALID("fleet.tracking.device.update.invalid"),
     MESSAGE_TRACKING_DEVICE_TYPE_INVALID("fleet.tracking.device.type.invalid"),
     MESSAGE_TRACKING_INTEGRATION_PROVIDER_INVALID("fleet.tracking.integration.provider.invalid"),
-    MESSAGE_TRACKING_DEVICE_RESOLVED("fleet.tracking.device.resolved");
+    MESSAGE_TRACKING_DEVICE_RESOLVED("fleet.tracking.device.resolved"),
+
+    // Tracking integration credentials (integrator ingest keys)
+    MESSAGE_TRACKING_INTEGRATION_CREDENTIAL_INVALID("fleet.tracking.integration.credential.invalid"),
+    MESSAGE_TRACKING_INTEGRATION_CREDENTIAL_NOT_FOUND("fleet.tracking.integration.credential.not.found"),
+    MESSAGE_TRACKING_INTEGRATION_CREDENTIAL_CREATE_SUCCESS("fleet.tracking.integration.credential.create.success"),
+    MESSAGE_TRACKING_INTEGRATION_CREDENTIAL_LIST_SUCCESS("fleet.tracking.integration.credential.list.success"),
+    MESSAGE_TRACKING_INTEGRATION_CREDENTIAL_SUSPEND_SUCCESS("fleet.tracking.integration.credential.suspend.success"),
+    MESSAGE_TRACKING_INTEGRATION_CREDENTIAL_DELETE_SUCCESS("fleet.tracking.integration.credential.delete.success"),
+    MESSAGE_TRACKING_INTEGRATION_CREDENTIAL_ORG_MISMATCH("fleet.tracking.integration.credential.org.mismatch"),
+    MESSAGE_TRACKING_INTEGRATION_CREDENTIAL_PROVIDER_NOT_ALLOWED("fleet.tracking.integration.credential.provider.not.allowed"),
+
+    // Driver signup request
+    MESSAGE_DRIVER_SIGNUP_REQUEST_SUBMIT_SUCCESS("fleet.driver.signup.request.submit.success"),
+    MESSAGE_DRIVER_SIGNUP_REQUEST_SUBMIT_INVALID("fleet.driver.signup.request.submit.invalid"),
+    MESSAGE_DRIVER_SIGNUP_REQUEST_EMAIL_ALREADY_PENDING("fleet.driver.signup.request.email.already.pending"),
+    MESSAGE_DRIVER_SIGNUP_REQUEST_LIST_SUCCESS("fleet.driver.signup.request.list.success"),
+    MESSAGE_DRIVER_SIGNUP_REQUEST_NOT_FOUND("fleet.driver.signup.request.not.found"),
+    MESSAGE_DRIVER_SIGNUP_REQUEST_NOT_PENDING("fleet.driver.signup.request.not.pending"),
+    MESSAGE_DRIVER_SIGNUP_REQUEST_APPROVE_SUCCESS("fleet.driver.signup.request.approve.success"),
+    MESSAGE_DRIVER_SIGNUP_REQUEST_REJECT_SUCCESS("fleet.driver.signup.request.reject.success"),
+    MESSAGE_DRIVER_SIGNUP_DOCUMENT_UPLOAD_SUCCESS("fleet.driver.signup.document.upload.success"),
+    MESSAGE_DRIVER_SIGNUP_DOCUMENT_UPLOAD_FAILED("fleet.driver.signup.document.upload.failed"),
+    MESSAGE_DRIVER_SIGNUP_DOCUMENTS_REQUIRED("fleet.driver.signup.documents.required"),
+    MESSAGE_DRIVER_SIGNUP_DOCUMENTS_INVALID("fleet.driver.signup.documents.invalid");
 
     private final String code;
 }

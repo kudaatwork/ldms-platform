@@ -35,6 +35,9 @@ public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificat
     List<Trip> findByShipmentIdAndStatusNotInAndEntityStatusNotOrderByIdDesc(
             Long shipmentId, List<TripStatus> excludedStatuses, EntityStatus entityStatus);
 
+    List<Trip> findByFleetDriverIdAndEntityStatusNotOrderByStartedAtDesc(
+            Long fleetDriverId, EntityStatus entityStatus);
+
     Page<Trip> findByOrganizationIdAndEntityStatusNot(Long organizationId, EntityStatus entityStatus, Pageable pageable);
 
     Page<Trip> findByOrganizationIdAndStatusAndEntityStatusNot(
@@ -62,7 +65,9 @@ public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificat
                    COUNT(*) AS activeTrips
             FROM trip t
             WHERE t.entity_status <> 'DELETED'
-              AND t.status IN ('SCHEDULED','IN_TRANSIT','AT_BORDER_HOLD','ROADSIDE_HOLD','ARRIVED','OTP_PENDING')
+              AND t.status IN ('SCHEDULED','IN_TRANSIT','AT_BORDER_HOLD','ROADSIDE_HOLD',
+                               'ARRIVED','COUNTING_STOCK','COUNT_COMPLETE','OTP_PENDING',
+                               'RETURN_IN_TRANSIT')
             GROUP BY t.organization_id
             """, nativeQuery = true)
     List<OrganizationTripStatsProjection> aggregateActiveTripsByOrganization();

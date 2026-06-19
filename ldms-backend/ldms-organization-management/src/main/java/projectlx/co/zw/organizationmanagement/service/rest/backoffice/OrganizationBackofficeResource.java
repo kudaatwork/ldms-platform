@@ -47,6 +47,7 @@ import projectlx.co.zw.organizationmanagement.utils.requests.UpdateBranchRequest
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateIndustryRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateKycApprovalPolicyRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationKycStagesRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.responses.OrganizationManagementResponse;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
@@ -340,6 +341,18 @@ public class OrganizationBackofficeResource {
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         return organizationServiceProcessor.updateOrganizationKycStages(id, request, locale, BACKOFFICE);
+    }
+
+    @Auditable(action = "ORG_BACKOFFICE_UPDATE_OPERATIONAL_SETTINGS")
+    @PutMapping("/{id}/operational-settings")
+    @Operation(summary = "Update operational settings for an organisation by ID",
+            description = "Backoffice: update standaloneMode, inventoryManagementEnabled, crossDockingEnabled, inventoryDataSource for any organisation.")
+    public OrganizationResponse updateOperationalSettingsForOrganization(
+            @PathVariable Long id,
+            @RequestBody UpdateOrganizationOperationalSettingsRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.updateOperationalSettingsForOrganization(id, request, locale, BACKOFFICE);
     }
 
     @Auditable(action = "ORG_SYSTEM_KYC_REVIEWS")

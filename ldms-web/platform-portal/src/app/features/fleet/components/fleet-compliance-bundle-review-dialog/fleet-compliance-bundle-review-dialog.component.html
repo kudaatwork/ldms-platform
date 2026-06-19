@@ -1,0 +1,224 @@
+<div class="lx-dialog-shell lx-dialog-shell--wide fcbr-shell">
+  <div class="lx-dialog-header fcbr-header">
+    <div class="lx-header-text">
+      <p class="fcbr-eyebrow">
+        <mat-icon>{{ subjectIcon }}</mat-icon>
+        Compliance review
+      </p>
+      <h2 class="lx-dialog-title">{{ bundle.subjectLabel }}</h2>
+      <p class="lx-dialog-subtitle">
+        {{ bundle.subjectType === 'driver' ? 'Driver' : 'Fleet asset' }} ·
+        {{ remainingCount }} document{{ remainingCount === 1 ? '' : 's' }} awaiting review
+        <span *ngIf="completedCount"> · {{ completedCount }} decided this session</span>
+      </p>
+    </div>
+    <button mat-icon-button type="button" class="lx-close-button" aria-label="Close" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="fcbr-body" *ngIf="pendingRecords.length; else allDone">
+    <aside class="fcbr-sidebar" aria-label="Documents in this bundle">
+      <div class="fcbr-sidebar__head">
+        <span>Documents</span>
+        <span class="fcbr-sidebar__count">{{ remainingCount }}</span>
+      </div>
+      <ul class="fcbr-doc-list">
+        <li *ngFor="let doc of pendingRecords">
+          <button
+            type="button"
+            class="fcbr-doc"
+            [class.fcbr-doc--active]="selectedId === doc.id"
+            [ngClass]="docStatusClass(doc)"
+            (click)="selectDocument(doc)"
+          >
+            <mat-icon class="fcbr-doc__icon">{{ docStatusIcon(doc) }}</mat-icon>
+            <span class="fcbr-doc__copy">
+              <strong>{{ doc.complianceTypeLabel }}</strong>
+              <small>{{ doc.expiresLabel }}</small>
+            </span>
+            <span class="fcbr-doc__badge" *ngIf="!viewedDocIds.has(doc.id)">View</span>
+          </button>
+        </li>
+      </ul>
+      <p class="fcbr-sidebar__hint">
+        <mat-icon>info_outline</mat-icon>
+        Open each document before approving or rejecting.
+      </p>
+    </aside>
+
+    <section class="fcbr-stage" aria-label="Document preview">
+      <ng-container *ngIf="selectedRecord as active">
+        <header class="fcbr-stage__head">
+          <div>
+            <h3>{{ active.complianceTypeLabel }}</h3>
+            <p>{{ documentFileName || 'Compliance document' }}</p>
+          </div>
+          <span class="fcbr-stage__status" [class.fcbr-stage__status--viewed]="selectedIsViewed">
+            {{ selectedIsViewed ? 'Reviewed' : 'Not yet viewed' }}
+          </span>
+        </header>
+
+        <div class="fcbr-stage__loading" *ngIf="documentLoading">
+          <mat-progress-spinner mode="indeterminate" diameter="36"></mat-progress-spinner>
+          <span>Loading document…</span>
+        </div>
+
+        <p class="fcbr-stage__error" *ngIf="!documentLoading && documentError">
+          <mat-icon>error_outline</mat-icon>
+          {{ documentError }}
+        </p>
+
+        <div class="fcbr-stage__preview" *ngIf="!documentLoading && hasDocumentPreview">
+          <img
+            *ngIf="previewImageUrl"
+            class="fcbr-stage__image"
+            [src]="previewImageUrl"
+            [alt]="documentFileName || 'Document preview'"
+          />
+          <iframe
+            *ngIf="previewPdfUrl && !previewImageUrl"
+            class="fcbr-stage__pdf"
+            [src]="previewPdfUrl"
+            title="Document preview"
+          ></iframe>
+        </div>
+
+        <div class="fcbr-stage__toolbar" *ngIf="!documentLoading">
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" *ngIf="canOpenPdfInNewTab" (click)="openPdfInNewTab()">
+            <mat-icon>open_in_new</mat-icon>
+            Open PDF
+          </button>
+        </div>
+
+        <div class="fcbr-decision" *ngIf="selectedIsViewed">
+          <div class="fcbr-decision__head">
+            <mat-icon>gavel</mat-icon>
+            <div>
+              <strong>Decision for this document</strong>
+              <p>Approve when the scan matches your records, or reject with a clear reason.</p>
+            </div>
+          </div>
+
+          <div class="fcbr-decision__field" [formGroup]="individualForm">
+            <label class="lx-field-label" for="fcbr-reject-reason">Rejection reason</label>
+            <div class="lx-input-shell">
+              <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+              <textarea
+                id="fcbr-reject-reason"
+                rows="2"
+                placeholder="Required when rejecting — e.g. expired disc, illegible scan…"
+                formControlName="rejectReason"
+              ></textarea>
+            </div>
+            <p class="fcbr-decision__hint" *ngIf="individualForm.get('rejectReason')?.invalid && individualForm.get('rejectReason')?.touched">
+              Enter at least 3 characters when rejecting.
+            </p>
+          </div>
+
+          <div class="fcbr-decision__actions">
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost fcbr-btn--reject"
+              [disabled]="individualSubmitting"
+              (click)="rejectSelected()"
+            >
+              <mat-icon>cancel</mat-icon>
+              Reject
+            </button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-primary"
+              [disabled]="individualSubmitting"
+              (click)="approveSelected()"
+            >
+              <mat-icon>check_circle</mat-icon>
+              {{ individualSubmitting ? 'Saving…' : 'Approve' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="fcbr-decision fcbr-decision--locked" *ngIf="!selectedIsViewed && !documentLoading">
+          <mat-icon>visibility</mat-icon>
+          <p>Select and load this document in the preview above before you can approve or reject it.</p>
+        </div>
+      </ng-container>
+    </section>
+  </div>
+
+  <ng-template #allDone>
+    <div class="fcbr-done">
+      <mat-icon>verified</mat-icon>
+      <h3>All documents reviewed</h3>
+      <p>Every pending document in this bundle has been decided.</p>
+      <button type="button" class="lx-btn lx-btn-primary" (click)="close()">Close</button>
+    </div>
+  </ng-template>
+
+  <p class="fcbr-action-error" *ngIf="actionError">
+    <mat-icon>warning_amber</mat-icon>
+    {{ actionError }}
+  </p>
+
+  <footer class="fcbr-footer" *ngIf="pendingRecords.length">
+    <div class="fcbr-footer__progress">
+      <span>{{ viewedPendingCount }} of {{ remainingCount }} viewed</span>
+      <div class="fcbr-footer__meter">
+        <span [style.width.%]="remainingCount ? (viewedPendingCount / remainingCount) * 100 : 0"></span>
+      </div>
+    </div>
+
+    <div class="fcbr-footer__bulk" *ngIf="!showBulkReject">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="close()" [disabled]="bulkSubmitting">
+        Close
+      </button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-ghost fcbr-btn--reject"
+        [disabled]="!allDocumentsViewed || bulkSubmitting"
+        [title]="allDocumentsViewed ? 'Reject every document in this bundle' : 'View every document first'"
+        (click)="openBulkReject()"
+      >
+        <mat-icon>cancel</mat-icon>
+        Reject all
+      </button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-primary"
+        [disabled]="!allDocumentsViewed || bulkSubmitting"
+        [title]="allDocumentsViewed ? 'Approve every document in this bundle' : 'View every document first'"
+        (click)="approveAll()"
+      >
+        <mat-icon>done_all</mat-icon>
+        {{ bulkSubmitting ? 'Processing…' : 'Approve all' }}
+      </button>
+    </div>
+
+    <div class="fcbr-footer__bulk-reject" *ngIf="showBulkReject" [formGroup]="bulkRejectForm">
+      <label class="lx-field-label" for="fcbr-bulk-reason">Reason for rejecting all documents</label>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+        <textarea
+          id="fcbr-bulk-reason"
+          rows="2"
+          placeholder="This reason will apply to every document in the bundle…"
+          formControlName="rejectReason"
+        ></textarea>
+      </div>
+      <div class="fcbr-footer__bulk-reject-actions">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="cancelBulkReject()" [disabled]="bulkSubmitting">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-primary fcbr-btn--reject-solid"
+          [disabled]="bulkRejectForm.invalid || bulkSubmitting"
+          (click)="rejectAll()"
+        >
+          <mat-icon>cancel</mat-icon>
+          {{ bulkSubmitting ? 'Rejecting…' : 'Confirm reject all' }}
+        </button>
+      </div>
+    </div>
+  </footer>
+</div>

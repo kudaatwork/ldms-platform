@@ -17,4 +17,15 @@ public interface FleetDriverServiceProcessor {
 
     /** System/internal lookup — no organisation-workspace check. */
     FleetDriverResponse findByIdForSystem(Long id, Locale locale);
+
+    FleetDriverResponse findByUserIdForSystem(Long userId, Locale locale);
+
+    /** Returns the FleetDriver profile for the currently authenticated user. */
+    FleetDriverResponse findMyProfile(Locale locale, String username);
+
+    /** Marketplace: search drivers available for hire. */
+    FleetDriverResponse searchMarketplace(String term, String licenseClass, Locale locale, String username);
+
+    /** Marketplace: hire a driver from the marketplace into caller's org. */
+    FleetDriverResponse hireFromMarketplace(Long driverId, Locale locale, String username);
 }

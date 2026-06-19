@@ -16,4 +16,8 @@ import java.util.List;
 public class FleetDriverResponse extends CommonResponse {
     private FleetDriverDto fleetDriverDto;
     private List<FleetDriverDto> fleetDriverDtoList;
+    private List<String> errorMessages;
+    /** Plain-text credentials returned once when platform access is provisioned. */
+    private String temporaryUsername;
+    private String temporaryPassword;
 }

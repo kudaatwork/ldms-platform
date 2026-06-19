@@ -1,4 +1,31 @@
 <div class="lt">
+
+  <!-- ═══════════════════════════════════════ ARRIVAL PROMPT FLOATING CARD -->
+  <!-- Shown when the truck is IN_TRANSIT and geofence detects proximity to destination -->
+  <div class="lt-arrival-prompt"
+       *ngIf="tripSnapshot && (tripSnapshot.nearDestination || tripSnapshot.arrivalPromptVisible) && tripSnapshot.status === 'IN_TRANSIT'">
+    <div class="lt-arrival-prompt__pulse" aria-hidden="true"></div>
+    <div class="lt-arrival-prompt__icon">
+      <mat-icon>near_me</mat-icon>
+    </div>
+    <div class="lt-arrival-prompt__body">
+      <strong>Have you arrived?</strong>
+      <span *ngIf="tripSnapshot.distanceToDestinationKm != null">
+        ~{{ tripSnapshot.distanceToDestinationKm | number:'1.1-1' }} km to destination
+      </span>
+      <span *ngIf="tripSnapshot.distanceToDestinationKm == null">
+        GPS says you're near the delivery point
+      </span>
+    </div>
+    <button class="lt-arrival-prompt__btn"
+            type="button"
+            (click)="confirmArrivalFromMap()">
+      Confirm arrival
+      <mat-icon>arrow_forward</mat-icon>
+    </button>
+  </div>
+  <!-- ══════════════════════════════════════ / ARRIVAL PROMPT FLOATING CARD -->
+
   <header class="lt-hero lx-card">
     <button type="button" class="lt-back lx-btn lx-btn-ghost lx-btn-sm" (click)="goBack()">
       <mat-icon>arrow_back</mat-icon>
@@ -112,6 +139,33 @@
       </a>
     </div>
   </header>
+
+  <section class="lt-delivery-banner lt-delivery-banner--arrival lx-card" *ngIf="showArrivalPrompt && !loading">
+    <mat-icon>help_outline</mat-icon>
+    <div>
+      <strong>Has the truck arrived at destination?</strong>
+      <p>Corridor progress is near 100%. Confirm arrival to start delivery — stock counting, OTP, and returns.</p>
+    </div>
+    <button type="button" class="lx-btn lx-btn-primary" (click)="confirmArrivalFromLive()">Yes, confirm arrival</button>
+  </section>
+
+  <section class="lt-delivery-banner lt-delivery-banner--delivery lx-card" *ngIf="showDeliveryBanner && !loading">
+    <mat-icon>inventory</mat-icon>
+    <div>
+      <strong>{{ tripSnapshot?.deliveryPhaseLabel || 'Delivery in progress' }}</strong>
+      <p>Run the guided delivery flow: count stock together, send OTP to the customer, capture notes, then start the return leg.</p>
+    </div>
+    <button type="button" class="lx-btn lx-btn-primary" (click)="openDeliveryWorkflow()">Open delivery workflow</button>
+  </section>
+
+  <section class="lt-delivery-banner lt-delivery-banner--return lx-card" *ngIf="showReturnBanner && !loading">
+    <mat-icon>undo</mat-icon>
+    <div>
+      <strong>Return journey active</strong>
+      <p>The truck is heading back. Record any returns with reasons and confirm when the depot receives the vehicle.</p>
+    </div>
+    <button type="button" class="lx-btn lx-btn-ghost" (click)="openDeliveryWorkflow()">Manage returns</button>
+  </section>
 
   <div class="lt-alert lx-card" *ngIf="loadError && !tripSnapshot" role="alert">
     <mat-icon>error_outline</mat-icon>
@@ -340,8 +394,8 @@
             />
           </svg>
           <div class="lt-fuel__value">
-            <strong>{{ fuelSnapshot?.fuelLevelPct ?? 100 | number:fuelDisplayFormat }}%</strong>
-            <small>{{ fuelSnapshot?.fuelRemainingLiters ?? 400 | number:fuelDisplayFormat }} L left</small>
+            <strong>{{ (fuelSnapshot?.fuelLevelPct ?? 100) | number:fuelDisplayFormat }}%</strong>
+            <small>{{ (fuelSnapshot?.fuelRemainingLiters ?? 400) | number:fuelLitersDisplayFormat }} L left</small>
           </div>
         </div>
 

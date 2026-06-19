@@ -19,6 +19,7 @@ import lombok.Getter;
 import lombok.Setter;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.enums.Gender;
+import projectlx.co.zw.shared_library.utils.enums.InventoryDataSource;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -58,6 +59,34 @@ public class Organization {
     /** When true, the org may buy from and sell to different partners; classification is the primary portal role. */
     @Column(name = "duplex_mode", nullable = false)
     private boolean duplexMode = false;
+
+    // === OPERATIONAL MODE ===
+
+    /** When true, the org runs solo logistics; counterparty is a CRM/trading-partner record only (no platform user). */
+    @Column(name = "standalone_mode", nullable = false)
+    private boolean standaloneMode = false;
+
+    /** When true, full stock management is enabled via the LDMS Inventory module. */
+    @Column(name = "inventory_management_enabled", nullable = false)
+    private boolean inventoryManagementEnabled = true;
+
+    /** When true, org operates cross-dock logistics (mutually exclusive with full inventory management). */
+    @Column(name = "cross_docking_enabled", nullable = false)
+    private boolean crossDockingEnabled = false;
+
+    /** How inventory data is sourced. Defaults to INTERNAL. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "inventory_data_source", nullable = false, length = 50)
+    private InventoryDataSource inventoryDataSource = InventoryDataSource.INTERNAL;
+
+    /**
+     * When {@link #standaloneMode} is false, defines whether counterparties are CRM records only
+     * or full platform organisations (register new or link existing).
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "counterparty_engagement_mode", nullable = false, length = 50)
+    private projectlx.co.zw.shared_library.utils.enums.CounterpartyEngagementMode counterpartyEngagementMode =
+            projectlx.co.zw.shared_library.utils.enums.CounterpartyEngagementMode.PLATFORM_ORG;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "industry_id")

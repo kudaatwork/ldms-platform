@@ -8,20 +8,30 @@ import org.springframework.core.env.Environment;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.ResourcePatternResolver;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import projectlx.messaging.inbound.business.auditable.api.BotFaqServiceAuditable;
 import projectlx.messaging.inbound.business.auditable.api.BotSessionServiceAuditable;
+import projectlx.messaging.inbound.business.auditable.impl.BotFaqServiceAuditableImpl;
 import projectlx.messaging.inbound.business.auditable.impl.BotSessionServiceAuditableImpl;
+import projectlx.messaging.inbound.business.logic.api.BotAnalyticsService;
+import projectlx.messaging.inbound.business.logic.api.BotFaqService;
 import projectlx.messaging.inbound.business.logic.api.BotKnowledgeService;
 import projectlx.messaging.inbound.business.logic.api.BotSessionService;
+import projectlx.messaging.inbound.business.logic.impl.BotAnalyticsServiceImpl;
+import projectlx.messaging.inbound.business.logic.impl.BotFaqServiceImpl;
 import projectlx.messaging.inbound.business.logic.impl.BotKnowledgeServiceImpl;
 import projectlx.messaging.inbound.business.logic.impl.BotSessionServiceImpl;
 import projectlx.messaging.inbound.business.logic.support.BotCallerProfileSupport;
+import projectlx.messaging.inbound.business.logic.support.BotFaqRagSupport;
 import projectlx.messaging.inbound.business.logic.support.BotSessionMapper;
 import projectlx.messaging.inbound.business.logic.support.GeminiLlmClient;
 import projectlx.messaging.inbound.business.logic.support.LdmsKnowledgeContextSupport;
+import projectlx.messaging.inbound.business.validator.api.BotFaqServiceValidator;
 import projectlx.messaging.inbound.business.validator.api.BotSessionServiceValidator;
+import projectlx.messaging.inbound.business.validator.impl.BotFaqServiceValidatorImpl;
 import projectlx.messaging.inbound.business.validator.impl.BotSessionServiceValidatorImpl;
 import projectlx.messaging.inbound.clients.OrganizationManagementServiceClient;
 import projectlx.messaging.inbound.clients.UserManagementServiceClient;
+import projectlx.messaging.inbound.repository.BotFaqRepository;
 import projectlx.messaging.inbound.repository.BotMessageRepository;
 import projectlx.messaging.inbound.repository.BotSessionRepository;
 import projectlx.messaging.inbound.utils.config.BotKnowledgeProperties;
@@ -39,8 +49,14 @@ public class BusinessConfig {
     }
 
     @Bean
-    public BotKnowledgeService botKnowledgeService(LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport) {
-        return new BotKnowledgeServiceImpl(ldmsKnowledgeContextSupport);
+    public BotFaqRagSupport botFaqRagSupport(BotFaqRepository botFaqRepository) {
+        return new BotFaqRagSupport(botFaqRepository);
+    }
+
+    @Bean
+    public BotKnowledgeService botKnowledgeService(LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport,
+                                                   BotFaqRagSupport botFaqRagSupport) {
+        return new BotKnowledgeServiceImpl(ldmsKnowledgeContextSupport, botFaqRagSupport);
     }
 
     @Bean
@@ -75,6 +91,42 @@ public class BusinessConfig {
     }
 
     @Bean
+    public BotFaqServiceValidator botFaqServiceValidator(MessageService messageService) {
+        return new BotFaqServiceValidatorImpl(messageService);
+    }
+
+    @Bean
+    public BotFaqServiceAuditable botFaqServiceAuditable(BotFaqRepository botFaqRepository) {
+        return new BotFaqServiceAuditableImpl(botFaqRepository);
+    }
+
+    @Bean
+    public BotFaqService botFaqService(BotFaqServiceValidator botFaqServiceValidator,
+                                       BotFaqServiceAuditable botFaqServiceAuditable,
+                                       BotFaqRepository botFaqRepository,
+                                       BotFaqRagSupport botFaqRagSupport,
+                                       MessageService messageService) {
+        return new BotFaqServiceImpl(
+                botFaqServiceValidator,
+                botFaqServiceAuditable,
+                botFaqRepository,
+                botFaqRagSupport,
+                messageService);
+    }
+
+    @Bean
+    public BotAnalyticsService botAnalyticsService(BotSessionRepository botSessionRepository,
+                                                   BotMessageRepository botMessageRepository,
+                                                   BotFaqRepository botFaqRepository,
+                                                   MessageService messageService) {
+        return new BotAnalyticsServiceImpl(
+                botSessionRepository,
+                botMessageRepository,
+                botFaqRepository,
+                messageService);
+    }
+
+    @Bean
     public BotSessionService botSessionService(BotSessionRepository botSessionRepository,
                                                BotMessageRepository botMessageRepository,
                                                BotSessionServiceAuditable botSessionServiceAuditable,
@@ -82,6 +134,7 @@ public class BusinessConfig {
                                                BotCallerProfileSupport botCallerProfileSupport,
                                                BotSessionMapper botSessionMapper,
                                                LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport,
+                                               BotFaqRagSupport botFaqRagSupport,
                                                GeminiLlmClient geminiLlmClient,
                                                MessageService messageService) {
         return new BotSessionServiceImpl(
@@ -92,6 +145,7 @@ public class BusinessConfig {
                 botCallerProfileSupport,
                 botSessionMapper,
                 ldmsKnowledgeContextSupport,
+                botFaqRagSupport,
                 geminiLlmClient,
                 messageService);
     }

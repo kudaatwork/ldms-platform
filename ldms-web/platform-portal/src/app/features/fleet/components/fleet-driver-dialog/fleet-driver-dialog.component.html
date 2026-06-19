@@ -130,6 +130,31 @@
           <input formControlName="phoneNumber" placeholder="e.g. +263771234567" autocomplete="tel" />
         </div>
       </div>
+
+      <!-- Platform access provisioning (manual, create mode only) -->
+      <div class="lx-field span-2 flt-driver-dialog__provision-row" *ngIf="showProvisionAccess">
+        <label class="flt-driver-dialog__provision-check">
+          <input type="checkbox" formControlName="provisionPlatformAccess"
+                 (change)="onProvisionAccessToggle()" />
+          <span class="flt-driver-dialog__provision-label">
+            <mat-icon>lock_open</mat-icon>
+            Create platform login &amp; email temporary credentials to driver
+          </span>
+        </label>
+        <p class="lx-field-hint">
+          When checked, the system creates a platform user account for this driver and emails them a temporary username and password. The driver must sign in and set permanent credentials. You do <strong>not</strong> set the password.
+        </p>
+      </div>
+
+      <div class="lx-field span-2" *ngIf="showProvisionAccess && provisionPlatformAccess">
+        <label class="lx-field-label">Driver email <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('email', 'required') || hasError('email', 'email')">
+          <mat-icon class="lx-input-shell__icon">email</mat-icon>
+          <input type="email" formControlName="email" placeholder="driver@example.com" autocomplete="email" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('email', 'required')">Email is required when provisioning platform access.</div>
+        <div class="lx-field-error" *ngIf="hasError('email', 'email')">Enter a valid email address.</div>
+      </div>
     </div>
 
     <div class="flt-driver-dialog__section lx-form-grid">

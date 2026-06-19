@@ -16,6 +16,7 @@ public class FleetDriverDto {
     private Long organizationId;
     private Long userId;
     private String employmentType;
+    private Boolean marketplaceVisible;
 
     /** Populated when listing a contracted partner's roster (cross-org read). */
     private String rosterSource;
@@ -28,11 +29,13 @@ public class FleetDriverDto {
     private String licenseNumber;
     private String licenseClass;
     private Long licenseUploadId;
+    private Long licenseBackUploadId;
 
     // Identity documents
     private String nationalIdNumber;
     private LocalDate nationalIdExpiryDate;
     private Long nationalIdUploadId;
+    private Long nationalIdBackUploadId;
     private String passportNumber;
     private LocalDate passportExpiryDate;
     private Long passportUploadId;

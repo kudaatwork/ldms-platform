@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +28,9 @@ import projectlx.fleet.management.service.processor.api.FleetAssetServiceProcess
 import projectlx.fleet.management.service.processor.api.FleetComplianceServiceProcessor;
 import projectlx.fleet.management.service.processor.api.FleetDriverServiceProcessor;
 import projectlx.fleet.management.service.processor.api.FleetTrackingDeviceServiceProcessor;
+import projectlx.fleet.management.service.processor.api.FleetTrackingIntegrationCredentialServiceProcessor;
 import projectlx.fleet.management.utils.requests.AssignFleetAssetDriverRequest;
+import projectlx.fleet.management.utils.requests.CreateFleetTrackingIntegrationCredentialRequest;
 import projectlx.fleet.management.utils.requests.CompleteFleetAssetRegistrationRequest;
 import projectlx.fleet.management.utils.requests.CreateFleetAssetRequest;
 import projectlx.fleet.management.utils.requests.CreateFleetComplianceRecordRequest;
@@ -41,6 +44,7 @@ import projectlx.fleet.management.utils.responses.FleetAssetResponse;
 import projectlx.fleet.management.utils.responses.FleetComplianceRecordResponse;
 import projectlx.fleet.management.utils.responses.FleetDriverResponse;
 import projectlx.fleet.management.utils.responses.FleetTrackingDeviceResponse;
+import projectlx.fleet.management.utils.responses.FleetTrackingIntegrationCredentialResponse;
 import projectlx.fleet.management.utils.security.FleetRoles;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
@@ -60,6 +64,7 @@ public class FleetFrontendResource {
     private final FleetDriverServiceProcessor fleetDriverServiceProcessor;
     private final FleetComplianceServiceProcessor fleetComplianceServiceProcessor;
     private final FleetTrackingDeviceServiceProcessor fleetTrackingDeviceServiceProcessor;
+    private final FleetTrackingIntegrationCredentialServiceProcessor fleetTrackingIntegrationCredentialServiceProcessor;
 
     @Auditable(action = "LIST_FLEET_ASSETS")
     @PreAuthorize("isAuthenticated()")
@@ -175,6 +180,23 @@ public class FleetFrontendResource {
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
+    @Auditable(action = "GET_MY_DRIVER_PROFILE")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/drivers/me")
+    @Operation(summary = "Get my driver profile",
+               description = "Returns the FleetDriver profile linked to the currently authenticated user's account.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Driver profile retrieved"),
+            @ApiResponse(responseCode = "404", description = "No driver profile linked to this user"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    public ResponseEntity<FleetDriverResponse> getMyDriverProfile(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetDriverResponse response = fleetDriverServiceProcessor.findMyProfile(locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
     @Auditable(action = "LIST_TRANSPORT_PARTNER_DRIVERS")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/transporter-partners/{transporterOrganizationId}/drivers")
@@ -223,6 +245,47 @@ public class FleetFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         FleetDriverResponse response = fleetDriverServiceProcessor.delete(id, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    // ================================================================
+    // DRIVER MARKETPLACE
+    // ================================================================
+
+    @Auditable(action = "SEARCH_DRIVER_MARKETPLACE")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/drivers/marketplace/search")
+    @Operation(summary = "Search driver marketplace",
+            description = "Returns marketplace-visible drivers not already employed by the caller's organisation. " +
+                          "Optional filters: free-text term, licenseClass.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Marketplace drivers retrieved"),
+            @ApiResponse(responseCode = "401", description = "Unauthorised")
+    })
+    public ResponseEntity<FleetDriverResponse> searchDriverMarketplace(
+            @RequestParam(required = false) final String term,
+            @RequestParam(required = false) final String licenseClass,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetDriverResponse response = fleetDriverServiceProcessor.searchMarketplace(term, licenseClass, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "HIRE_FROM_DRIVER_MARKETPLACE")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/drivers/marketplace/{driverId}/hire")
+    @Operation(summary = "Hire a driver from the marketplace",
+            description = "Creates a POOL employment record for the driver under the caller's organisation.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Driver hired successfully"),
+            @ApiResponse(responseCode = "404", description = "Driver not found or not marketplace-visible"),
+            @ApiResponse(responseCode = "409", description = "Driver already employed by this organisation")
+    })
+    public ResponseEntity<FleetDriverResponse> hireDriverFromMarketplace(
+            @PathVariable final Long driverId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetDriverResponse response = fleetDriverServiceProcessor.hireFromMarketplace(driverId, locale, username);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
@@ -345,6 +408,75 @@ public class FleetFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         FleetTrackingDeviceResponse response = fleetTrackingDeviceServiceProcessor.delete(id, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    // ================================================================
+    // TRACKING INTEGRATION CREDENTIALS (integrator ingest keys)
+    // ================================================================
+
+    @Auditable(action = "CREATE_TRACKING_INTEGRATION_CREDENTIAL")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/tracking-integration-credentials/create")
+    @Operation(summary = "Create tracking integration credential",
+               description = "Registers an integrator ingest key linked to a fleet vehicle.")
+    public ResponseEntity<FleetTrackingIntegrationCredentialResponse> createTrackingIntegrationCredential(
+            @Valid @RequestBody final CreateFleetTrackingIntegrationCredentialRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetTrackingIntegrationCredentialResponse response =
+                fleetTrackingIntegrationCredentialServiceProcessor.create(request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/tracking-integration-credentials/find-by-organization/{organizationId}")
+    @Operation(summary = "List tracking integration credentials for an organization")
+    public ResponseEntity<FleetTrackingIntegrationCredentialResponse> listTrackingIntegrationCredentials(
+            @PathVariable final Long organizationId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetTrackingIntegrationCredentialResponse response =
+                fleetTrackingIntegrationCredentialServiceProcessor.findAllByOrganization(
+                        organizationId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/tracking-integration-credentials/find-by-id/{id}")
+    @Operation(summary = "Find tracking integration credential by ID")
+    public ResponseEntity<FleetTrackingIntegrationCredentialResponse> findTrackingIntegrationCredentialById(
+            @PathVariable final Long id,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetTrackingIntegrationCredentialResponse response =
+                fleetTrackingIntegrationCredentialServiceProcessor.findById(id, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "SUSPEND_TRACKING_INTEGRATION_CREDENTIAL")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/tracking-integration-credentials/{id}/suspend")
+    @Operation(summary = "Suspend a tracking integration credential")
+    public ResponseEntity<FleetTrackingIntegrationCredentialResponse> suspendTrackingIntegrationCredential(
+            @PathVariable final Long id,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetTrackingIntegrationCredentialResponse response =
+                fleetTrackingIntegrationCredentialServiceProcessor.suspend(id, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "DELETE_TRACKING_INTEGRATION_CREDENTIAL")
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping("/tracking-integration-credentials/delete/{id}")
+    @Operation(summary = "Soft-delete a tracking integration credential")
+    public ResponseEntity<FleetTrackingIntegrationCredentialResponse> deleteTrackingIntegrationCredential(
+            @PathVariable final Long id,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetTrackingIntegrationCredentialResponse response =
+                fleetTrackingIntegrationCredentialServiceProcessor.delete(id, locale, username);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 }

@@ -38,6 +38,161 @@
         </label>
       </div>
 
+      <ng-container *ngIf="showOperationalMode">
+        <div class="lx-form-section span-2">
+          <div class="lx-form-section-title">Operating model</div>
+          <p class="lx-form-section-lead">
+            How this organisation trades on LDMS and whether stock is managed internally or via cross-docking.
+            <strong>Inventory management is permanent</strong> once selected.
+          </p>
+        </div>
+
+        <div class="lx-field span-2 reg-opm">
+          <p class="reg-opm__label">
+            {{ orgClassification === 'SUPPLIER' ? 'How will they work with customers?' : 'How will they work with suppliers?' }}
+          </p>
+          <div class="reg-opm__panel-grid">
+            <article class="reg-opm__panel" [class.reg-opm__panel--active]="tradingModel === 'PLATFORM_PARTNERS'">
+              <button type="button" class="reg-opm__panel-head" (click)="setTradingModel('PLATFORM_PARTNERS')">
+                <span class="reg-opm__panel-icon"><mat-icon>hub</mat-icon></span>
+                <span class="reg-opm__panel-head-text">
+                  <strong>{{ orgClassification === 'SUPPLIER' ? 'Work with customers on the platform' : 'Work with suppliers on the platform' }}</strong>
+                  <span class="reg-opm__panel-note">Record-only entries or linked platform organisations.</span>
+                </span>
+              </button>
+              <div class="reg-opm__panel-body" *ngIf="tradingModel === 'PLATFORM_PARTNERS'">
+                <div class="reg-opm__tab-bar">
+                  <button type="button" class="reg-opm__tab" [class.reg-opm__tab--active]="platformTab === 'RECORD_ONLY'" (click)="setPlatformTab('RECORD_ONLY')">
+                    <mat-icon>edit_note</mat-icon>
+                    Register for records only
+                  </button>
+                  <button type="button" class="reg-opm__tab" [class.reg-opm__tab--active]="platformTab === 'PLATFORM_ORG'" (click)="setPlatformTab('PLATFORM_ORG')">
+                    <mat-icon>link</mat-icon>
+                    Register or link on the platform
+                  </button>
+                </div>
+                <div class="reg-opm__tab-panel" *ngIf="platformTab === 'RECORD_ONLY'">
+                  <h4>Record-only {{ counterpartyLabel }}</h4>
+                  <ul class="reg-opm__list">
+                    <li><mat-icon>check_circle</mat-icon> Register {{ counterpartyLabel }} in <strong>Trading partners</strong> — no login credentials.</li>
+                    <li><mat-icon>check_circle</mat-icon> Supplier runs POs, shipments, and proof of delivery; {{ counterpartyLabel }} do not sign in.</li>
+                    <li><mat-icon>info</mat-icon> For knowing <em>who</em> was delivered to without onboarding platform users.</li>
+                  </ul>
+                </div>
+                <div class="reg-opm__tab-panel" *ngIf="platformTab === 'PLATFORM_ORG'">
+                  <h4>Platform {{ counterpartyLabel }}</h4>
+                  <ul class="reg-opm__list">
+                    <li><mat-icon>check_circle</mat-icon> <strong>Register new</strong> {{ counterpartyLabel }} organisations (they receive credentials).</li>
+                    <li><mat-icon>check_circle</mat-icon> <strong>Search and link</strong> {{ counterpartyLabel }} already on LDMS.</li>
+                    <li><mat-icon>check_circle</mat-icon> Both parties collaborate on POs, shipments, GRVs, and billing.</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+
+            <article class="reg-opm__panel" [class.reg-opm__panel--active]="tradingModel === 'STANDALONE'">
+              <button type="button" class="reg-opm__panel-head" (click)="setTradingModel('STANDALONE')">
+                <span class="reg-opm__panel-icon"><mat-icon>storefront</mat-icon></span>
+                <span class="reg-opm__panel-head-text">
+                  <strong>Use the system alone</strong>
+                  <span class="reg-opm__panel-note">No counterparty workspaces on LDMS.</span>
+                </span>
+              </button>
+              <div class="reg-opm__panel-body" *ngIf="tradingModel === 'STANDALONE'">
+                <div class="reg-opm__tab-panel">
+                  <ul class="reg-opm__list">
+                    <li><mat-icon>check_circle</mat-icon> {{ counterpartyLabel | titlecase }} managed as CRM records in Trading partners.</li>
+                    <li><mat-icon>check_circle</mat-icon> Fleet, trips, shipments, and inventory remain available to this organisation.</li>
+                  </ul>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+
+        <div class="lx-field span-2 reg-opm">
+          <p class="reg-opm__label">Inventory &amp; logistics model</p>
+          <div class="reg-opm__panel-grid">
+            <article class="reg-opm__panel" [class.reg-opm__panel--active]="inventoryModel === 'FULL_INVENTORY'">
+              <button type="button" class="reg-opm__panel-head" (click)="setInventoryModel('FULL_INVENTORY')">
+                <span class="reg-opm__panel-icon"><mat-icon>inventory_2</mat-icon></span>
+                <span class="reg-opm__panel-head-text">
+                  <strong>Inventory management</strong>
+                  <span class="reg-opm__panel-note">Products, stock, transfers, POs, and GRVs. <em>Cannot be reversed to cross-docking.</em></span>
+                </span>
+              </button>
+              <div class="reg-opm__panel-body" *ngIf="inventoryModel === 'FULL_INVENTORY'">
+                <p class="reg-opm__body-lead">Choose how LDMS receives inventory data.</p>
+                <div class="reg-opm__tab-bar">
+                  <button type="button" class="reg-opm__tab" [class.reg-opm__tab--active]="inventoryMgmtTab === 'INTERNAL'" (click)="setInventoryMgmtTab('INTERNAL')">
+                    <mat-icon>inventory_2</mat-icon> Capture in LDMS
+                  </button>
+                  <button type="button" class="reg-opm__tab" [class.reg-opm__tab--active]="inventoryMgmtTab === 'EXTERNAL_API'" (click)="setInventoryMgmtTab('EXTERNAL_API')">
+                    <mat-icon>api</mat-icon> Sync via API
+                  </button>
+                </div>
+                <div class="reg-opm__tab-panel" *ngIf="inventoryMgmtTab === 'INTERNAL'">
+                  <p>Full stock ledger in LDMS — products, warehouses, on-hand, WAC, transfers, POs, and GRVs captured in the platform.</p>
+                </div>
+                <div class="reg-opm__tab-panel" *ngIf="inventoryMgmtTab === 'EXTERNAL_API'">
+                  <p>ERP/WMS pushes products, categories, stock levels, and transfers via REST. Organisation configures keys on the platform portal Integration API page after signup.</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="reg-opm__panel reg-opm__panel--crossdock" [class.reg-opm__panel--active]="inventoryModel === 'CROSS_DOCKING'">
+              <button type="button" class="reg-opm__panel-head" (click)="setInventoryModel('CROSS_DOCKING')">
+                <span class="reg-opm__panel-icon reg-opm__panel-icon--violet"><mat-icon>swap_horiz</mat-icon></span>
+                <span class="reg-opm__panel-head-text">
+                  <strong>Cross-docking</strong>
+                  <span class="reg-opm__panel-note">Movement tracker only — may upgrade to inventory management later.</span>
+                </span>
+              </button>
+              <div class="reg-opm__panel-body" *ngIf="inventoryModel === 'CROSS_DOCKING'">
+                <div class="reg-opm__crossdock-intro">
+                  <h4>Movement tracker, not a stock ledger</h4>
+                  <p>Goods pass through the hub without shelf time. LDMS tracks arrival, loading, and departure — not on-hand stock or WAC.</p>
+                </div>
+                <div class="reg-opm__crossdock-grid">
+                  <div class="reg-opm__crossdock-col reg-opm__crossdock-col--tracks">
+                    <strong>LDMS tracks</strong>
+                    <ul class="reg-opm__list">
+                      <li><mat-icon>check_circle</mat-icon> Inbound arrival, outbound truck, transit status</li>
+                      <li><mat-icon>check_circle</mat-icon> Document matching (manifest vs delivery note)</li>
+                    </ul>
+                  </div>
+                  <div class="reg-opm__crossdock-col reg-opm__crossdock-col--not">
+                    <strong>LDMS does not track</strong>
+                    <ul class="reg-opm__list reg-opm__list--muted">
+                      <li><mat-icon>block</mat-icon> On-hand stock, bins, WAC, reservations</li>
+                    </ul>
+                  </div>
+                </div>
+                <div class="reg-opm__choice-block">
+                  <span class="reg-opm__source-label">How dispatch data reaches LDMS</span>
+                  <div class="reg-opm__choice-list">
+                    <label class="reg-opm__choice" [class.reg-opm__choice--active]="inventoryDataSource === 'EXTERNAL_API'">
+                      <input type="radio" name="regDs" [checked]="inventoryDataSource === 'EXTERNAL_API'" (change)="setCrossDockFlow('EXTERNAL_API')" />
+                      <span class="reg-opm__choice-copy">
+                        <strong>API integration</strong>
+                        <small>Push inbound/outbound events from your WMS.</small>
+                      </span>
+                    </label>
+                    <label class="reg-opm__choice" [class.reg-opm__choice--active]="inventoryDataSource === 'MANUAL_ACK'">
+                      <input type="radio" name="regDs" [checked]="inventoryDataSource === 'MANUAL_ACK'" (change)="setCrossDockFlow('MANUAL_ACK')" />
+                      <span class="reg-opm__choice-copy">
+                        <strong>Manual acknowledgement</strong>
+                        <small>Operators confirm arrival, loading, and departure in the portal.</small>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </ng-container>
+
       <div class="lx-field span-2">
         <label class="lx-field-label">Organisation type <span class="req">*</span></label>
         <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('organizationType', 'required')">

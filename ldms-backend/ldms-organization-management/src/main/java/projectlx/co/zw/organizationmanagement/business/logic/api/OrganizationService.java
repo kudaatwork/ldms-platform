@@ -242,4 +242,13 @@ public interface OrganizationService {
     OrganizationResponse updateFleetVehicle(Long id, EditFleetVehicleRequest request, Locale locale, String username);
 
     OrganizationResponse deleteFleetVehicle(Long id, Locale locale, String username);
+
+    OrganizationResponse updateOperationalSettings(
+            projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest request,
+            Locale locale, String username);
+
+    OrganizationResponse updateOperationalSettingsForOrganization(
+            Long organizationId,
+            projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest request,
+            Locale locale, String username);
 }

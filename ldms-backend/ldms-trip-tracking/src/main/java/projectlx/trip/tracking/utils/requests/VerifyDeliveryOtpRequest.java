@@ -12,4 +12,7 @@ public class VerifyDeliveryOtpRequest {
     private Long tripId;
     private String otp;
     private Long receiverUserId;
+
+    /** Optional delivery notes captured at OTP verification. */
+    private String deliveryNotes;
 }

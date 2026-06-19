@@ -245,4 +245,13 @@ public interface OrganizationServiceProcessor {
     OrganizationResponse validateTransporterAssignment(
             projectlx.co.zw.organizationmanagement.utils.requests.ValidateTransporterAssignmentRequest request,
             Locale locale);
+
+    OrganizationResponse updateOperationalSettings(
+            projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest request,
+            Locale locale, String username);
+
+    OrganizationResponse updateOperationalSettingsForOrganization(
+            Long organizationId,
+            projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest request,
+            Locale locale, String username);
 }

@@ -1,4 +1,46 @@
 /* Layout mirrors sign-in: navy left panel + light form column */
+
+// ── Account type tabs ─────────────────────────────────────────────────────────
+.su-account-tabs {
+  display: flex;
+  gap: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1.5px solid var(--gray-200, #e2e8f0);
+  margin-bottom: 20px;
+  background: var(--surface, #fff);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.su-account-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  justify-content: center;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-500, #6b7280);
+  text-decoration: none;
+  transition: background 0.18s, color 0.18s;
+  border: none;
+  background: none;
+  cursor: pointer;
+
+  .material-icons { font-size: 18px; }
+
+  &--active {
+    background: var(--primary, #3b82f6);
+    color: #fff;
+  }
+
+  &:not(&--active):hover {
+    background: var(--gray-50, #f8fafc);
+    color: var(--gray-700, #334155);
+  }
+}
+
 .su-root {
   display: flex;
   min-height: 100vh;
@@ -250,7 +292,12 @@
 }
 
 .su-card--wide {
-  max-width: min(100%, 680px);
+  max-width: min(100%, 760px);
+}
+
+.su-panel app-operational-mode-picker {
+  display: block;
+  width: 100%;
 }
 
 .su-success {

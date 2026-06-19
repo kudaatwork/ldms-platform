@@ -1,0 +1,76 @@
+<div class="lx-dialog-shell transfer-edit">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Edit transfer</h2>
+      <p class="lx-dialog-subtitle">{{ transfer.transferNumber }} · {{ transfer.productName }}</p>
+    </div>
+    <button mat-icon-button type="button" aria-label="Close" (click)="cancel()" [disabled]="submitting">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form class="lx-step-content transfer-edit__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <p class="transfer-edit__hint lx-card">
+      <mat-icon>info</mat-icon>
+      Only transfers in <strong>Requested</strong> status can be edited. Update route depots before approval.
+    </p>
+
+    <div class="transfer-edit__grid">
+      <div class="lx-field">
+        <label>From warehouse</label>
+        <select formControlName="fromLocationId" (change)="onFromWarehouseChange()">
+          <option [ngValue]="null" disabled>Select source</option>
+          <option *ngFor="let w of warehouses" [ngValue]="w.id">{{ w.name }}</option>
+        </select>
+      </div>
+      <div class="lx-field">
+        <label>To warehouse</label>
+        <select formControlName="toLocationId">
+          <option [ngValue]="null" disabled>Select destination</option>
+          <option *ngFor="let w of toWarehouses" [ngValue]="w.id">{{ w.name }}</option>
+        </select>
+      </div>
+      <div class="lx-field">
+        <label>Quantity</label>
+        <input type="number" formControlName="quantity" min="0.01" step="0.01" />
+      </div>
+      <div class="lx-field span-2">
+        <label>Reference</label>
+        <input type="text" formControlName="reference" placeholder="Optional internal reference" />
+      </div>
+      <div class="lx-field span-2 transfer-edit__cross-border">
+        <mat-checkbox formControlName="crossBorder" [disabled]="submitting">
+          International / cross-border transfer (requires border clearance after approval)
+        </mat-checkbox>
+      </div>
+    </div>
+
+    <app-en-route-warehouse-stops
+      class="transfer-edit__stops"
+      [warehouses]="warehouses"
+      [fromLocationId]="fromLocationId"
+      [toLocationId]="toLocationId"
+      [stopIds]="selectedDepotIds"
+      [disabled]="submitting"
+      (stopIdsChange)="onEnRouteStopsChange($event)"
+    ></app-en-route-warehouse-stops>
+
+    <app-logistics-route-journey
+      class="transfer-edit__preview"
+      [originLabel]="originLabel"
+      [destinationLabel]="destinationLabel"
+      [stops]="previewRouteStops"
+      [compact]="true"
+    ></app-logistics-route-journey>
+
+    <p class="lx-field-error" *ngIf="submitError" role="alert">{{ submitError }}</p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+        <mat-icon>save</mat-icon>
+        Save changes
+      </button>
+    </div>
+  </form>
+</div>

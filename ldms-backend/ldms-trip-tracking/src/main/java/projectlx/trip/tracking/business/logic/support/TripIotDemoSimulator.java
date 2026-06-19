@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.trip.tracking.business.auditable.api.TripEventServiceAuditable;
+import projectlx.trip.tracking.business.auditable.api.TripServiceAuditable;
 import projectlx.trip.tracking.clients.FleetManagementServiceClient;
 import projectlx.trip.tracking.model.Trip;
 import projectlx.trip.tracking.model.TripEvent;
@@ -43,6 +44,7 @@ public class TripIotDemoSimulator {
     private final TripRoutePlannerSupport routePlannerSupport;
     private final TripTelemetryPublisher telemetryPublisher;
     private final TripEventServiceAuditable tripEventServiceAuditable;
+    private final TripServiceAuditable tripServiceAuditable;
     private final TripTrailSupport tripTrailSupport;
     private final TripJourneyTimingSupport journeyTimingSupport;
     private final IotIntegrationProperties iotProperties;
@@ -228,6 +230,26 @@ public class TripIotDemoSimulator {
         tripTrailSupport.appendTrailPoint(plan, destination.getLatitude(), destination.getLongitude(), BigDecimal.ZERO);
         tripRoutePlanRepository.save(plan);
         maxSpeedCache.remove(plan.getTripId());
+
+        if (trip.getStatus() == TripStatus.IN_TRANSIT) {
+            LocalDateTime now = LocalDateTime.now();
+            trip.setStatus(TripStatus.ARRIVED);
+            trip.setArrivedAt(now);
+            trip.setModifiedAt(now);
+            trip.setModifiedBy(SYSTEM_USER);
+            tripServiceAuditable.update(trip, Locale.ENGLISH, SYSTEM_USER);
+            TripEvent event = new TripEvent();
+            event.setTrip(trip);
+            event.setEventType(TripEventType.ARRIVED);
+            event.setEventTime(now);
+            event.setLatitude(destination.getLatitude());
+            event.setLongitude(destination.getLongitude());
+            event.setNotes("Simulation reached destination — awaiting delivery confirmation");
+            event.setEntityStatus(EntityStatus.ACTIVE);
+            event.setCreatedAt(now);
+            event.setCreatedBy(SYSTEM_USER);
+            tripEventServiceAuditable.create(event, Locale.ENGLISH, SYSTEM_USER);
+        }
 
         TripLiveSnapshotDto snapshot = telemetryPublisher.buildSnapshot(
                 trip, destination.getLatitude(), destination.getLongitude(),

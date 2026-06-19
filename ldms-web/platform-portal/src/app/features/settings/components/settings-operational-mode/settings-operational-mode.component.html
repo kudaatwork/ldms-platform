@@ -1,0 +1,153 @@
+<div class="opm">
+  <header class="opm__header">
+    <div>
+      <h2 class="opm__title">Operational mode</h2>
+      <p class="opm__lead">
+        Choose how your organisation uses the LDMS platform — from a fully integrated supply chain to standalone logistics or cross-docking.
+        Changes take effect immediately after saving.
+      </p>
+    </div>
+  </header>
+
+  <div *ngIf="loading" class="opm__loading">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading current configuration…</span>
+  </div>
+
+  <ng-container *ngIf="!loading">
+    <!-- ── Scenario cards ─────────────────────────────── -->
+    <div class="opm-scenario-grid">
+      <!-- SCENARIO 1: Platform full -->
+      <article
+        class="opm-scenario-card"
+        [class.opm-scenario-card--active]="activeScenario === 'platform-full'"
+      >
+        <span class="opm-scenario-card__badge">
+          <mat-icon>hub</mat-icon>
+        </span>
+        <div class="opm-scenario-card__body">
+          <h3>Platform full</h3>
+          <p class="opm-scenario-card__tagline">Both trading parties, full inventory management</p>
+          <ul class="opm-scenario-card__list">
+            <li><mat-icon>check_circle</mat-icon> Suppliers and customers on the platform</li>
+            <li><mat-icon>check_circle</mat-icon> Internal inventory management (products, stock, POs, GRVs)</li>
+            <li><mat-icon>check_circle</mat-icon> Full shipment and billing workflows</li>
+            <li><mat-icon>check_circle</mat-icon> Recommended for new organisations</li>
+          </ul>
+          <span class="opm-scenario-card__flag opm-scenario-card__flag--default">Default</span>
+        </div>
+        <span class="opm-scenario-card__active-dot" *ngIf="activeScenario === 'platform-full'">
+          <mat-icon>radio_button_checked</mat-icon> Active
+        </span>
+      </article>
+
+      <!-- SCENARIO 2: Standalone + inventory -->
+      <article
+        class="opm-scenario-card"
+        [class.opm-scenario-card--active]="activeScenario === 'standalone-inventory'"
+      >
+        <span class="opm-scenario-card__badge opm-scenario-card__badge--amber">
+          <mat-icon>storefront</mat-icon>
+        </span>
+        <div class="opm-scenario-card__body">
+          <h3>Standalone + inventory</h3>
+          <p class="opm-scenario-card__tagline">Solo logistics operator with CRM counterparties</p>
+          <ul class="opm-scenario-card__list">
+            <li><mat-icon>check_circle</mat-icon> Your customers and suppliers managed as CRM trading partners</li>
+            <li><mat-icon>check_circle</mat-icon> Full internal inventory retained (warehouses, stock, transfers)</li>
+            <li><mat-icon>check_circle</mat-icon> Fleet and shipments remain fully operational</li>
+            <li><mat-icon>info</mat-icon> Trading partners do not log in to the platform</li>
+          </ul>
+          <span class="opm-scenario-card__flag opm-scenario-card__flag--amber">Standalone</span>
+        </div>
+        <span class="opm-scenario-card__active-dot" *ngIf="activeScenario === 'standalone-inventory'">
+          <mat-icon>radio_button_checked</mat-icon> Active
+        </span>
+      </article>
+
+      <!-- SCENARIO 3: Cross-docking -->
+      <article
+        class="opm-scenario-card"
+        [class.opm-scenario-card--active]="activeScenario === 'cross-docking'"
+      >
+        <span class="opm-scenario-card__badge opm-scenario-card__badge--violet">
+          <mat-icon>swap_horiz</mat-icon>
+        </span>
+        <div class="opm-scenario-card__body">
+          <h3>Cross-docking</h3>
+          <p class="opm-scenario-card__tagline">No internal inventory — integrate externally or manually</p>
+          <ul class="opm-scenario-card__list">
+            <li><mat-icon>check_circle</mat-icon> Inventory sourced from external API or manual acknowledgement</li>
+            <li><mat-icon>check_circle</mat-icon> Full fleet, trip, and shipment management retained</li>
+            <li><mat-icon>check_circle</mat-icon> GRV callbacks sent to your external system</li>
+            <li><mat-icon>info</mat-icon> Internal inventory management is disabled</li>
+          </ul>
+          <span class="opm-scenario-card__flag opm-scenario-card__flag--violet">Cross-dock</span>
+        </div>
+        <span class="opm-scenario-card__active-dot" *ngIf="activeScenario === 'cross-docking'">
+          <mat-icon>radio_button_checked</mat-icon> Active
+        </span>
+      </article>
+    </div>
+
+    <!-- Trading / counterparty engagement -->
+    <div class="opm-controls lx-card--subsection" *ngIf="orgClassification === 'SUPPLIER' || orgClassification === 'CUSTOMER'">
+      <h3 class="opm-controls__heading">
+        <mat-icon>groups</mat-icon>
+        Counterparty engagement
+      </h3>
+      <app-operational-mode-picker
+        [classification]="orgClassification"
+        [standaloneMode]="standaloneMode"
+        [counterpartyEngagementMode]="counterpartyEngagementMode"
+        [inventoryManagementEnabled]="inventoryManagementEnabled"
+        [crossDockingEnabled]="crossDockingEnabled"
+        [inventoryDataSource]="inventoryDataSource"
+        [inventoryLocked]="inventoryLocked"
+        [showTradingSection]="true"
+        [showInventorySection]="false"
+        [disabled]="saving"
+        (selectionChange)="onTradingModeChange($event)"
+      ></app-operational-mode-picker>
+    </div>
+
+    <!-- Inventory & cross-dock model -->
+    <div class="opm-controls lx-card--subsection">
+      <h3 class="opm-controls__heading">
+        <mat-icon>inventory_2</mat-icon>
+        Inventory &amp; logistics model
+      </h3>
+      <app-operational-mode-picker
+        [classification]="orgClassification"
+        [standaloneMode]="standaloneMode"
+        [counterpartyEngagementMode]="counterpartyEngagementMode"
+        [inventoryManagementEnabled]="inventoryManagementEnabled"
+        [crossDockingEnabled]="crossDockingEnabled"
+        [inventoryDataSource]="inventoryDataSource"
+        [inventoryLocked]="inventoryLocked"
+        [showTradingSection]="false"
+        [showInventorySection]="true"
+        [disabled]="saving"
+        (selectionChange)="onInventoryModeChange($event)"
+      ></app-operational-mode-picker>
+    </div>
+
+    <!-- ── Error & Actions ─────────────────────────── -->
+    <p class="lx-list-error" *ngIf="error">
+      <mat-icon>warning_amber</mat-icon>
+      {{ error }}
+    </p>
+
+    <div class="opm-actions">
+      <button
+        type="button"
+        class="lx-btn lx-btn-primary"
+        (click)="save()"
+        [disabled]="saving || crossDockConflict"
+      >
+        <mat-icon>{{ saving ? 'hourglass_empty' : 'save' }}</mat-icon>
+        {{ saving ? 'Saving…' : 'Save operational settings' }}
+      </button>
+    </div>
+  </ng-container>
+</div>

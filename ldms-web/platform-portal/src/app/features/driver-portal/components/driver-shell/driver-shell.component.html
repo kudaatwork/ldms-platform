@@ -1,0 +1,32 @@
+<div class="drv-shell">
+  <!-- Page content -->
+  <main class="drv-shell__content">
+    <router-outlet></router-outlet>
+  </main>
+
+  <!-- Bottom navigation bar -->
+  <nav class="drv-shell__bottom-nav" aria-label="Driver navigation">
+    <a class="drv-bottom-nav__item"
+       routerLink="/driver/workspace"
+       routerLinkActive="drv-bottom-nav__item--active"
+       [routerLinkActiveOptions]="{ exact: false }"
+       aria-label="My trips">
+      <span class="material-icons drv-bottom-nav__icon">local_shipping</span>
+      <span class="drv-bottom-nav__label">Trips</span>
+    </a>
+
+    <a class="drv-bottom-nav__item"
+       routerLink="/shipments/trips"
+       aria-label="Live tracking">
+      <span class="material-icons drv-bottom-nav__icon">location_on</span>
+      <span class="drv-bottom-nav__label">Live</span>
+    </a>
+
+    <button class="drv-bottom-nav__item drv-bottom-nav__item--logout"
+            (click)="logout()"
+            aria-label="Sign out">
+      <span class="material-icons drv-bottom-nav__icon">logout</span>
+      <span class="drv-bottom-nav__label">Sign out</span>
+    </button>
+  </nav>
+</div>

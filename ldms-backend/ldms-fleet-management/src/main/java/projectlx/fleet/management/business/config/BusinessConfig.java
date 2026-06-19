@@ -9,37 +9,49 @@ import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.fleet.management.business.auditable.api.FleetAssetServiceAuditable;
 import projectlx.fleet.management.business.auditable.api.FleetComplianceRecordServiceAuditable;
 import projectlx.fleet.management.business.auditable.api.FleetDriverServiceAuditable;
+import projectlx.fleet.management.business.auditable.api.FleetDriverSignupRequestServiceAuditable;
 import projectlx.fleet.management.business.auditable.impl.FleetAssetServiceAuditableImpl;
 import projectlx.fleet.management.business.auditable.impl.FleetComplianceRecordServiceAuditableImpl;
 import projectlx.fleet.management.business.auditable.impl.FleetDriverServiceAuditableImpl;
+import projectlx.fleet.management.business.auditable.impl.FleetDriverSignupRequestServiceAuditableImpl;
 import projectlx.fleet.management.business.logic.api.FleetAssetService;
 import projectlx.fleet.management.business.logic.api.FleetComplianceService;
 import projectlx.fleet.management.business.logic.api.FleetDriverService;
+import projectlx.fleet.management.business.logic.api.FleetDriverSignupRequestService;
 import projectlx.fleet.management.business.logic.impl.FleetAssetServiceImpl;
 import projectlx.fleet.management.business.logic.impl.FleetComplianceServiceImpl;
 import projectlx.fleet.management.business.logic.impl.FleetDriverServiceImpl;
+import projectlx.fleet.management.business.logic.impl.FleetDriverSignupRequestServiceImpl;
 import projectlx.fleet.management.business.logic.support.CallerOrganizationResolver;
 import projectlx.fleet.management.business.logic.support.FleetAssetRegistrationNotificationSupport;
+import projectlx.fleet.management.business.logic.support.FleetDriverOnboardingSupport;
+import projectlx.fleet.management.business.logic.support.FleetDriverSignupDocumentSupport;
 import projectlx.fleet.management.business.logic.support.FleetFileUploadHelper;
 import projectlx.fleet.management.business.logic.support.FleetOwnershipValidationSupport;
 import projectlx.fleet.management.business.logic.support.FleetShipmentAutoAllocationSupport;
 import projectlx.fleet.management.business.validator.api.FleetAssetServiceValidator;
 import projectlx.fleet.management.business.validator.api.FleetComplianceServiceValidator;
 import projectlx.fleet.management.business.validator.api.FleetDriverServiceValidator;
+import projectlx.fleet.management.business.validator.api.FleetDriverSignupRequestServiceValidator;
 import projectlx.fleet.management.business.validator.impl.FleetAssetServiceValidatorImpl;
 import projectlx.fleet.management.business.validator.impl.FleetComplianceServiceValidatorImpl;
 import projectlx.fleet.management.business.validator.impl.FleetDriverServiceValidatorImpl;
+import projectlx.fleet.management.business.validator.impl.FleetDriverSignupRequestServiceValidatorImpl;
 import projectlx.fleet.management.business.auditable.api.FleetTrackingDeviceServiceAuditable;
 import projectlx.fleet.management.business.auditable.impl.FleetTrackingDeviceServiceAuditableImpl;
 import projectlx.fleet.management.business.logic.api.FleetTrackingDeviceService;
+import projectlx.fleet.management.business.logic.api.FleetTrackingIntegrationCredentialService;
 import projectlx.fleet.management.business.logic.impl.FleetTrackingDeviceServiceImpl;
+import projectlx.fleet.management.business.logic.impl.FleetTrackingIntegrationCredentialServiceImpl;
 import projectlx.fleet.management.business.validator.api.FleetTrackingDeviceServiceValidator;
+import projectlx.fleet.management.business.validator.api.FleetTrackingIntegrationCredentialServiceValidator;
 import projectlx.fleet.management.business.validator.impl.FleetTrackingDeviceServiceValidatorImpl;
+import projectlx.fleet.management.business.validator.impl.FleetTrackingIntegrationCredentialServiceValidatorImpl;
 import projectlx.fleet.management.repository.FleetAssetRepository;
 import projectlx.fleet.management.repository.FleetComplianceRecordRepository;
 import projectlx.fleet.management.repository.FleetDriverRepository;
+import projectlx.fleet.management.repository.FleetDriverSignupRequestRepository;
 import projectlx.fleet.management.repository.FleetTrackingDeviceRepository;
-
 @Configuration
 @Import({UtilsConfig.class})
 public class BusinessConfig {
@@ -127,7 +139,9 @@ public class BusinessConfig {
             MessageService messageService,
             FleetDriverServiceAuditable fleetDriverServiceAuditable,
             FleetFileUploadHelper fleetFileUploadHelper,
-            FleetOwnershipValidationSupport fleetOwnershipValidationSupport) {
+            FleetOwnershipValidationSupport fleetOwnershipValidationSupport,
+            projectlx.fleet.management.clients.UserManagementServiceClient userManagementServiceClient,
+            FleetDriverOnboardingSupport fleetDriverOnboardingSupport) {
         return new FleetDriverServiceImpl(
                 fleetDriverServiceValidator,
                 fleetDriverRepository,
@@ -135,7 +149,9 @@ public class BusinessConfig {
                 messageService,
                 fleetDriverServiceAuditable,
                 fleetFileUploadHelper,
-                fleetOwnershipValidationSupport);
+                fleetOwnershipValidationSupport,
+                userManagementServiceClient,
+                fleetDriverOnboardingSupport);
     }
 
     // ============================================================
@@ -171,6 +187,29 @@ public class BusinessConfig {
     }
 
     @Bean
+    public FleetTrackingIntegrationCredentialServiceValidator fleetTrackingIntegrationCredentialServiceValidator(
+            MessageService messageService) {
+        return new FleetTrackingIntegrationCredentialServiceValidatorImpl(messageService);
+    }
+
+    @Bean
+    public FleetTrackingIntegrationCredentialService fleetTrackingIntegrationCredentialService(
+            FleetTrackingIntegrationCredentialServiceValidator fleetTrackingIntegrationCredentialServiceValidator,
+            FleetTrackingDeviceService fleetTrackingDeviceService,
+            FleetTrackingDeviceRepository fleetTrackingDeviceRepository,
+            FleetAssetRepository fleetAssetRepository,
+            CallerOrganizationResolver callerOrganizationResolver,
+            MessageService messageService) {
+        return new FleetTrackingIntegrationCredentialServiceImpl(
+                fleetTrackingIntegrationCredentialServiceValidator,
+                fleetTrackingDeviceService,
+                fleetTrackingDeviceRepository,
+                fleetAssetRepository,
+                callerOrganizationResolver,
+                messageService);
+    }
+
+    @Bean
     public FleetComplianceService fleetComplianceService(
             FleetComplianceServiceValidator fleetComplianceServiceValidator,
             FleetComplianceRecordRepository fleetComplianceRecordRepository,
@@ -190,5 +229,44 @@ public class BusinessConfig {
                 messageService,
                 fleetComplianceRecordServiceAuditable,
                 fleetComplianceExpiringSoonDays);
+    }
+
+    // ============================================================
+    // Driver signup request beans
+    // ============================================================
+
+    @Bean
+    public FleetDriverSignupRequestServiceAuditable fleetDriverSignupRequestServiceAuditable(
+            FleetDriverSignupRequestRepository fleetDriverSignupRequestRepository) {
+        return new FleetDriverSignupRequestServiceAuditableImpl(fleetDriverSignupRequestRepository);
+    }
+
+    @Bean
+    public FleetDriverSignupRequestServiceValidator fleetDriverSignupRequestServiceValidator(
+            MessageService messageService) {
+        return new FleetDriverSignupRequestServiceValidatorImpl(messageService);
+    }
+
+    @Bean
+    public FleetDriverSignupRequestService fleetDriverSignupRequestService(
+            FleetDriverSignupRequestServiceValidator fleetDriverSignupRequestServiceValidator,
+            FleetDriverSignupRequestServiceAuditable fleetDriverSignupRequestServiceAuditable,
+            FleetDriverSignupRequestRepository fleetDriverSignupRequestRepository,
+            MessageService messageService,
+            CallerOrganizationResolver callerOrganizationResolver,
+            FleetDriverRepository fleetDriverRepository,
+            FleetDriverServiceAuditable fleetDriverServiceAuditable,
+            FleetDriverOnboardingSupport fleetDriverOnboardingSupport,
+            FleetDriverSignupDocumentSupport fleetDriverSignupDocumentSupport) {
+        return new FleetDriverSignupRequestServiceImpl(
+                fleetDriverSignupRequestServiceValidator,
+                fleetDriverSignupRequestServiceAuditable,
+                fleetDriverSignupRequestRepository,
+                messageService,
+                callerOrganizationResolver,
+                fleetDriverRepository,
+                fleetDriverServiceAuditable,
+                fleetDriverOnboardingSupport,
+                fleetDriverSignupDocumentSupport);
     }
 }

@@ -39,6 +39,7 @@ import {
   withFleetNav,
   withInventoryNav,
   withMyOrdersNav,
+  withOperationalModeNav,
   withOrganizationManagementNav,
   withShipmentsNav,
   withUsersNavAfterDocuments,
@@ -326,6 +327,62 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  onNavCollapsedGroupClick(item: NavItem, event: Event): void {
+    event.preventDefault();
+    const target = item.children?.[0];
+    if (target) {
+      this.onNavChildClick(target, event);
+      return;
+    }
+    this.onNavParentClick(item, event);
+  }
+
+  onNavParentClick(item: NavItem, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const target = item.children?.[0];
+    if (target) {
+      this.onNavChildClick(target, event);
+      return;
+    }
+    this.closeMobileSidebar();
+    void this.router.navigate(this.navCommands(item.route), { queryParams: item.queryParams });
+  }
+
+  onNavChildClick(
+    child: { route: string; queryParams?: Record<string, string> },
+    event?: Event,
+  ): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.closeMobileSidebar();
+    const commands = this.navCommands(child.route);
+    const tree = this.router.createUrlTree(commands, { queryParams: child.queryParams });
+    const targetPath = this.router.serializeUrl(tree).split('?')[0].split('#')[0];
+    const currentPath = this.router.url.split('?')[0].split('#')[0];
+    if (targetPath === currentPath) {
+      return;
+    }
+    void this.router.navigateByUrl(tree);
+  }
+
+  isNavChildActive(child: { route: string; queryParams?: Record<string, string> }): boolean {
+    const target = this.router.serializeUrl(
+      this.router.createUrlTree(this.navCommands(child.route), { queryParams: child.queryParams }),
+    );
+    const current = this.router.url.split('#')[0];
+    return current === target || current.split('?')[0] === target.split('?')[0];
+  }
+
+  /** Absolute app paths such as `/products-inventory/warehouses` → `['/products-inventory', 'warehouses']`. */
+  private navCommands(route: string): string[] {
+    const parts = route.split('/').filter(Boolean);
+    if (!parts.length) {
+      return ['/'];
+    }
+    return ['/' + parts[0], ...parts.slice(1)];
+  }
+
   isGroupExpanded(key: string): boolean {
     return this.expandedGroups[key] ?? false;
   }
@@ -578,16 +635,24 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   private workspaceNav(classification: CurrentUser['orgClassification']): NavItem[] {
     const fallback: NavItem[] = [{ label: 'Dashboard', route: '/dashboard', icon: 'dashboard' }];
-    const base = withAnalyticsNav(
-      withAuditLogNav(
-        withMyOrdersNav(
-          withShipmentsNav(
-            withFleetNav(
-              withInventoryNav(
-                withUsersNavAfterDocuments(
-                  withOrganizationManagementNav(
-                    classification ? (NAV_CONFIG[classification] ?? fallback) : fallback,
-                    classification ?? undefined,
+    const crossDocking = this.currentUser?.crossDockingEnabled ?? false;
+    const inventoryMgmt = this.currentUser?.inventoryManagementEnabled ?? true;
+    const standalone = this.currentUser?.standaloneMode ?? false;
+    const counterpartyEngagement = this.currentUser?.counterpartyEngagementMode ?? 'PLATFORM_ORG';
+    const inventoryDataSource = this.currentUser?.inventoryDataSource ?? 'INTERNAL';
+
+    const base = withOperationalModeNav(
+      withAnalyticsNav(
+        withAuditLogNav(
+          withMyOrdersNav(
+            withShipmentsNav(
+              withFleetNav(
+                withInventoryNav(
+                  withUsersNavAfterDocuments(
+                    withOrganizationManagementNav(
+                      classification ? (NAV_CONFIG[classification] ?? fallback) : fallback,
+                      classification ?? undefined,
+                    ),
                   ),
                 ),
               ),
@@ -595,6 +660,11 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
           ),
         ),
       ),
+      crossDocking,
+      inventoryMgmt,
+      standalone,
+      counterpartyEngagement,
+      inventoryDataSource,
     );
     return this.navAccess.filterNavItems(base);
   }

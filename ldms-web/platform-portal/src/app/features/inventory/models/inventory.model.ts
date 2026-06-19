@@ -262,6 +262,17 @@ export interface PurchaseOrderRow {
   supplierApprovalComplete?: boolean;
 }
 
+/** Ordered logistics stop on a transfer, PO, or SO. */
+export interface LogisticsRouteStopRow {
+  id?: number;
+  stopSequence: number;
+  stopType: RouteStopType;
+  warehouseLocationId?: number;
+  branchId?: number;
+  locationLabel?: string;
+  warehouseName?: string;
+}
+
 /** View row for inventory transfer list. */
 export interface TransferRow {
   id: number;
@@ -293,6 +304,20 @@ export interface TransferRow {
   canComplete?: boolean;
   canCancel?: boolean;
   crossBorder?: boolean;
+  routeStops?: LogisticsRouteStopRow[];
+}
+
+/** PUT /inventory-transfer/update */
+export interface EditTransferPayload {
+  inventoryTransferId: number;
+  productId?: number;
+  fromLocationId?: number;
+  toLocationId?: number;
+  quantity?: number;
+  reference?: string;
+  crossBorder?: boolean;
+  updatedByUserId: number;
+  enRouteDepotIds?: number[];
 }
 
 /** PO line for goods receipt dialog. */
@@ -527,6 +552,8 @@ export interface CreateTransferPayload {
   status?: TransferStatus;
   reference?: string;
   crossBorder?: boolean;
+  /** Intermediate depot warehouse IDs the transfer passes through before the final destination. */
+  enRouteDepotIds?: number[];
   createdByUserId: number;
 }
 
@@ -603,7 +630,46 @@ export type InventoryWorkspaceTab =
   | 'requisitions'
   | 'quotations'
   | 'purchase-orders'
-  | 'sales-orders';
+  | 'sales-orders'
+  | 'integration-setup';
+
+export type RouteStopType = 'ORIGIN' | 'EN_ROUTE_DEPOT' | 'DESTINATION';
+
+export interface RouteStopPayload {
+  stopSequence: number;
+  stopType: RouteStopType;
+  warehouseLocationId?: number;
+  branchId?: number;
+  locationLabel?: string;
+}
+
+export type IntegrationCredentialStatus = 'ACTIVE' | 'SUSPENDED';
+
+export interface InventoryIntegrationCredentialRow {
+  id: number;
+  organizationId: number;
+  credentialLabel: string;
+  apiKey: string;
+  webhookUrl?: string;
+  callbackGrvUrl?: string;
+  status: IntegrationCredentialStatus;
+  lastUsedAt?: string;
+}
+
+export interface CreateIntegrationCredentialPayload {
+  organizationId: number;
+  credentialLabel: string;
+  webhookUrl?: string;
+  callbackGrvUrl?: string;
+}
+
+export interface EditIntegrationCredentialPayload {
+  id: number;
+  credentialLabel: string;
+  webhookUrl?: string;
+  callbackGrvUrl?: string;
+  status?: IntegrationCredentialStatus;
+}
 export type OrdersWorkspaceTab =
   | 'requisitions'
   | 'quotations'

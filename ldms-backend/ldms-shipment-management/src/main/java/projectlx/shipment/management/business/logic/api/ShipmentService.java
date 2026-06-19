@@ -20,6 +20,12 @@ public interface ShipmentService {
 
     void createFromSalesOrderApprovedEvent(Map<String, Object> event, Locale locale);
 
+    /**
+     * Idempotently creates a shipment from a cross.dock.dispatch.created event payload.
+     * No-ops if a shipment already exists for the given crossDockDispatchId.
+     */
+    void createFromCrossDockDispatchCreatedEvent(Map<String, Object> event, Locale locale);
+
     ShipmentResponse findById(Long id, Locale locale, String username);
 
     ShipmentResponse findByMultipleFilters(ShipmentMultipleFiltersRequest request, Locale locale, String username);

@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.trip.tracking.business.logic.api.TripTelemetryIngestService;
 import projectlx.trip.tracking.business.logic.support.TripRoutePlannerSupport;
+import projectlx.trip.tracking.business.logic.support.TripSimulationFuelSupport;
 import projectlx.trip.tracking.business.logic.support.TripTelemetryPublisher;
 import projectlx.trip.tracking.clients.FleetManagementServiceClient;
 import projectlx.trip.tracking.model.Trip;
@@ -142,6 +143,16 @@ public class TripTelemetryIngestServiceImpl implements TripTelemetryIngestServic
             plan.setSimulationActive(false);
         }
 
+        BigDecimal previousLatitude = plan.getCurrentLatitude();
+        BigDecimal previousLongitude = plan.getCurrentLongitude();
+        BigDecimal distanceKmDelta = computeDistanceKmDelta(previousLatitude, previousLongitude, latitude, longitude);
+        if (distanceKmDelta.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal travelled = plan.getDistanceTravelledKm() != null
+                    ? plan.getDistanceTravelledKm()
+                    : BigDecimal.ZERO;
+            plan.setDistanceTravelledKm(travelled.add(distanceKmDelta).setScale(2, RoundingMode.HALF_UP));
+        }
+
         // STEP 6 — Update plan position, speed, heading
         if (latitude != null) plan.setCurrentLatitude(latitude);
         if (longitude != null) plan.setCurrentLongitude(longitude);
@@ -158,7 +169,7 @@ public class TripTelemetryIngestServiceImpl implements TripTelemetryIngestServic
         tripRoutePlanRepository.save(plan);
 
         // STEP 8 — Build snapshot and publish (trail on route plan holds GPS history)
-        TripLiveSnapshotDto snapshot = buildSnapshot(trip, plan, speedKmh, headingDeg);
+        TripLiveSnapshotDto snapshot = buildSnapshot(trip, plan, speedKmh, headingDeg, distanceKmDelta);
         telemetryPublisher.publish(trip, snapshot);
 
         log.debug("Telemetry processed for trip id={} progress={}%",
@@ -203,7 +214,8 @@ public class TripTelemetryIngestServiceImpl implements TripTelemetryIngestServic
     }
 
     private TripLiveSnapshotDto buildSnapshot(Trip trip, TripRoutePlan plan,
-                                              BigDecimal speedKmh, BigDecimal headingDeg) {
+                                              BigDecimal speedKmh, BigDecimal headingDeg,
+                                              BigDecimal distanceKmDelta) {
         TripLiveSnapshotDto snapshot = new TripLiveSnapshotDto();
         snapshot.setTripId(trip.getId());
         snapshot.setTripNumber(trip.getTripNumber());
@@ -220,9 +232,30 @@ public class TripTelemetryIngestServiceImpl implements TripTelemetryIngestServic
         snapshot.setSpeedKmh(speedKmh != null ? speedKmh : plan.getCurrentSpeedKmh());
         snapshot.setHeadingDeg(headingDeg != null ? headingDeg : plan.getCurrentHeadingDeg());
         snapshot.setOverallProgressPct(plan.getOverallProgressPct());
+        snapshot.setDistanceTravelledKm(plan.getDistanceTravelledKm());
+        snapshot.setDistanceKmDelta(distanceKmDelta);
         snapshot.setSimulationActive(false);
         snapshot.setMoving(speedKmh != null && speedKmh.compareTo(BigDecimal.ONE) > 0);
+        TripSimulationFuelSupport.applyToSnapshot(snapshot, plan.getDistanceTravelledKm());
         return snapshot;
+    }
+
+    private BigDecimal computeDistanceKmDelta(BigDecimal previousLatitude, BigDecimal previousLongitude,
+                                              BigDecimal latitude, BigDecimal longitude) {
+        if (previousLatitude == null || previousLongitude == null || latitude == null || longitude == null) {
+            return BigDecimal.ZERO;
+        }
+        TripRouteWaypointDto from = new TripRouteWaypointDto();
+        from.setLatitude(previousLatitude);
+        from.setLongitude(previousLongitude);
+        TripRouteWaypointDto to = new TripRouteWaypointDto();
+        to.setLatitude(latitude);
+        to.setLongitude(longitude);
+        double km = routePlannerSupport.haversineKm(from, to);
+        if (km <= 0.0) {
+            return BigDecimal.ZERO;
+        }
+        return BigDecimal.valueOf(km).setScale(4, RoundingMode.HALF_UP);
     }
 
     private void markDeviceTelemetry(Long deviceId) {

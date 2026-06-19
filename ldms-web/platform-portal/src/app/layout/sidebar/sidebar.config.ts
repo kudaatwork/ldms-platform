@@ -5,6 +5,9 @@ export interface NavChild {
   route: string;
   /** Material Symbols name */
   icon: string;
+  queryParams?: Record<string, string>;
+  /** Shown only when inventory data source is EXTERNAL_API (ERP/WMS sync). */
+  integrationOnly?: boolean;
 }
 
 export interface NavItem {
@@ -112,6 +115,8 @@ export const INVENTORY_NAV_ITEM: NavItem = {
     { label: 'Quotations', icon: 'description', route: '/products-inventory/quotations' },
     { label: 'Purchase orders', icon: 'shopping_cart', route: '/products-inventory/purchase-orders' },
     { label: 'Sales orders', icon: 'sell', route: '/products-inventory/sales-orders' },
+    { label: 'Inventory integration API', icon: 'api', route: '/products-inventory/integration-api', queryParams: { mode: 'inventory' } },
+    { label: 'Inventory integration setup', icon: 'key', route: '/products-inventory/integration-setup', integrationOnly: true },
   ],
 };
 
@@ -127,7 +132,8 @@ export const FLEET_NAV_ITEM: NavItem = {
     { label: 'Drivers', icon: 'badge', route: '/fleet/drivers' },
     { label: 'Compliance', icon: 'verified', route: '/fleet/compliance' },
     { label: 'Device installation', icon: 'sensors', route: '/fleet/tracking' },
-    { label: 'Integration API', icon: 'api', route: '/fleet/tracking-api' },
+    { label: 'Tracking integration API', icon: 'api', route: '/fleet/tracking-api' },
+    { label: 'Tracking integration setup', icon: 'key', route: '/fleet/tracking-setup' },
   ],
 };
 
@@ -230,6 +236,24 @@ export function withFleetNav(items: NavItem[]): NavItem[] {
   return [...items.slice(0, fleetIndex), fleetItem, ...items.slice(fleetIndex + 1)];
 }
 
+/** CRM trading partners — for standalone mode suppliers/customers. */
+export const TRADING_PARTNERS_NAV_ITEM: NavItem = {
+  label: 'Trading partners',
+  route: '/trading-partners',
+  icon: 'handshake',
+};
+
+/** Cross-docking logistics nav — shown when crossDockingEnabled && !inventoryManagementEnabled. */
+export const CROSS_DOCKING_NAV_ITEM: NavItem = {
+  label: 'Cross-dock logistics',
+  route: '/products-inventory',
+  icon: 'swap_horiz',
+  children: [
+    { label: 'Cross-dock integration API', icon: 'api', route: '/products-inventory/integration-api', queryParams: { mode: 'crossdock' } },
+    { label: 'Cross-dock integration setup', icon: 'key', route: '/products-inventory/integration-setup', queryParams: { mode: 'crossdock' } },
+  ],
+};
+
 /** Customer order management with child routes for each workspace tab. */
 export const MY_ORDERS_NAV_ITEM: NavItem = {
   label: 'My Orders',
@@ -256,6 +280,74 @@ export function withInventoryNav(items: NavItem[]): NavItem[] {
     return items;
   }
   return [...items.slice(0, inventoryIndex), INVENTORY_NAV_ITEM, ...items.slice(inventoryIndex + 1)];
+}
+
+/**
+ * Applies operational mode filtering to nav items:
+ * - Hides internal inventory nav when crossDocking is on and inventoryManagement is off.
+ * - Injects CROSS_DOCKING_NAV_ITEM after Fleet when cross-docking is enabled.
+ * - Injects TRADING_PARTNERS_NAV_ITEM and hides Customers when standalone mode is on.
+ */
+export function withOperationalModeNav(
+  items: NavItem[],
+  crossDockingEnabled: boolean,
+  inventoryManagementEnabled: boolean,
+  standaloneMode = false,
+  counterpartyEngagementMode: 'RECORD_ONLY' | 'PLATFORM_ORG' = 'PLATFORM_ORG',
+  inventoryDataSource: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK' = 'INTERNAL',
+): NavItem[] {
+  let result = [...items];
+  const showErpIntegration = inventoryDataSource === 'EXTERNAL_API';
+
+  const applyIntegrationFilter = (item: NavItem): NavItem => {
+    if (!item.children?.length) {
+      return item;
+    }
+    return {
+      ...item,
+      children: item.children.filter((child) => !child.integrationOnly || showErpIntegration),
+    };
+  };
+
+  if (crossDockingEnabled && !inventoryManagementEnabled) {
+    // Remove the full inventory nav item.
+    result = result.filter((item) => item.route !== INVENTORY_NAV_ITEM.route);
+
+    // Inject cross-dock nav after Fleet or at end if not already present.
+    const alreadyPresent = result.some((item) => item.route === CROSS_DOCKING_NAV_ITEM.route);
+    if (!alreadyPresent) {
+      const fleetIndex = result.findIndex((item) => item.route === '/fleet');
+      const insertAt = fleetIndex !== -1 ? fleetIndex + 1 : result.length;
+      result = [
+        ...result.slice(0, insertAt),
+        applyIntegrationFilter({ ...CROSS_DOCKING_NAV_ITEM, children: [...(CROSS_DOCKING_NAV_ITEM.children ?? [])] }),
+        ...result.slice(insertAt),
+      ];
+    }
+  }
+
+  const useTradingPartners = standaloneMode || counterpartyEngagementMode === 'RECORD_ONLY';
+
+  if (useTradingPartners) {
+    result = result.filter((item) => item.route !== '/customers');
+    if (!result.some((item) => item.route === TRADING_PARTNERS_NAV_ITEM.route)) {
+      const fleetIndex = result.findIndex((item) => item.route === '/fleet');
+      const insertAt = fleetIndex !== -1 ? fleetIndex + 1 : result.length;
+      result = [
+        ...result.slice(0, insertAt),
+        { ...TRADING_PARTNERS_NAV_ITEM },
+        ...result.slice(insertAt),
+      ];
+    }
+  } else {
+    result = result.filter((item) => item.route !== TRADING_PARTNERS_NAV_ITEM.route);
+  }
+
+  return result.map((item) =>
+    item.route === INVENTORY_NAV_ITEM.route || item.route === CROSS_DOCKING_NAV_ITEM.route
+      ? applyIntegrationFilter(item)
+      : item,
+  );
 }
 
 /** Replaces flat My Orders nav item with expandable submenu when not already present. */

@@ -64,6 +64,7 @@ export interface ShipmentRow {
   canAssignTransport: boolean;
   canAllocate: boolean;
   canStartTrip: boolean;
+  crossBorder?: boolean;
 }
 
 /** View row displayed in the active trips table. */
@@ -246,6 +247,15 @@ export interface TripLiveSnapshot {
   segmentProgressPct?: number;
   completedWaypointCount?: number;
   totalWaypointCount?: number;
+  awaitingArrivalConfirmation?: boolean;
+  returnJourneyActive?: boolean;
+  deliveryPhaseLabel?: string;
+  /** True when the truck is within the geofence radius of the destination. */
+  nearDestination?: boolean;
+  /** When true, the UI should show the "Have you arrived?" floating prompt. */
+  arrivalPromptVisible?: boolean;
+  /** Distance in km remaining to the destination. */
+  distanceToDestinationKm?: number;
   /** Client-side live clock anchor (set when snapshot is received). */
   lastTimingTickMs?: number;
 }

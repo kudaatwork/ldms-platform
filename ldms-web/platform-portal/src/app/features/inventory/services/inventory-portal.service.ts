@@ -36,7 +36,13 @@ import {
   CreateProductSubCategoryPayload,
   CreateRequisitionPayload,
   CreateTransferPayload,
+  EditTransferPayload,
   CreateWarehouseLocationPayload,
+  CreateIntegrationCredentialPayload,
+  EditIntegrationCredentialPayload,
+  InventoryIntegrationCredentialRow,
+  LogisticsRouteStopRow,
+  RouteStopPayload,
   EditProductCategoryPayload,
   EditProductPayload,
   EditProductSubCategoryPayload,
@@ -96,8 +102,10 @@ export class InventoryPortalService {
   private readonly poBase = ldmsServiceUrl('inventory-management', 'purchase-order', undefined, 'frontend');
   private readonly poLineBase = ldmsServiceUrl('inventory-management', 'purchase-order-line', undefined, 'frontend');
   private readonly transferBase = ldmsServiceUrl('inventory-management', 'inventory-transfer', undefined, 'frontend');
+  private readonly routeStopBase = ldmsServiceUrl('inventory-management', 'logistics-route-stop', undefined, 'frontend');
   private readonly procurementWorkflowBase = ldmsServiceUrl('inventory-management', 'procurement-workflow', undefined, 'frontend');
   private readonly soBase = ldmsServiceUrl('inventory-management', 'sales-order', undefined, 'frontend');
+  private readonly integrationCredentialBase = ldmsServiceUrl('inventory-management', 'integration-credential', undefined, 'frontend');
   private readonly fileUploadBase = ldmsApiUrl('/ldms-file-upload-service/v1/frontend/file-upload');
 
   constructor(private readonly http: HttpClient, private readonly currencyContext: CurrencyContextService) {}
@@ -557,6 +565,16 @@ export class InventoryPortalService {
         productName: row.productName || product?.name || (row.productId ? `Product #${row.productId}` : ''),
         fromWarehouse: row.fromWarehouse || fromWarehouse?.name || (row.fromLocationId ? `WH #${row.fromLocationId}` : ''),
         toWarehouse: row.toWarehouse || toWarehouse?.name || (row.toLocationId ? `WH #${row.toLocationId}` : ''),
+        routeStops: (row.routeStops ?? []).map((stop) => ({
+          ...stop,
+          warehouseName:
+            stop.warehouseName ||
+            (stop.warehouseLocationId ? warehouseById.get(stop.warehouseLocationId)?.name : undefined) ||
+            stop.locationLabel,
+          locationLabel:
+            stop.locationLabel ||
+            (stop.warehouseLocationId ? warehouseById.get(stop.warehouseLocationId)?.name : undefined),
+        })),
       };
     });
   }
@@ -911,7 +929,8 @@ export class InventoryPortalService {
 
   /** POST /inventory-transfer/create — initiate a warehouse-to-warehouse transfer. */
   createTransfer(payload: CreateTransferPayload): Observable<TransferRow> {
-    return this.http.post<unknown>(`${this.transferBase}/create`, payload).pipe(
+    const body = this.buildTransferCreateBody(payload);
+    return this.http.post<unknown>(`${this.transferBase}/create`, body).pipe(
       map((resp) => {
         this.assertSuccess(resp);
         const dto = this.extractSingle(resp, 'inventoryTransferDto');
@@ -919,6 +938,46 @@ export class InventoryPortalService {
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
+  }
+
+  /** PUT /inventory-transfer/update — edit a REQUESTED transfer and optional route stops. */
+  updateTransfer(payload: EditTransferPayload): Observable<TransferRow> {
+    const routeStops = this.buildRouteStopsFromEdit(payload);
+    const body: Record<string, unknown> = {
+      inventoryTransferId: payload.inventoryTransferId,
+      productId: payload.productId,
+      fromLocationId: payload.fromLocationId,
+      toLocationId: payload.toLocationId,
+      quantity: payload.quantity,
+      reference: payload.reference,
+      crossBorder: payload.crossBorder,
+      updatedByUserId: payload.updatedByUserId,
+      routeStops,
+    };
+    return this.http.put<unknown>(`${this.transferBase}/update`, body).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        const dto = this.extractSingle(resp, 'inventoryTransferDto');
+        return this.mapTransferRow(dto);
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** GET /logistics-route-stop/find-by-context */
+  listRouteStops(
+    contextType: 'INVENTORY_TRANSFER' | 'PURCHASE_ORDER' | 'SALES_ORDER',
+    contextId: number,
+  ): Observable<LogisticsRouteStopRow[]> {
+    const params = new HttpParams().set('contextType', contextType).set('contextId', String(contextId));
+    return this.http
+      .get<unknown>(`${this.routeStopBase}/find-by-context`, { params })
+      .pipe(
+        map((resp) =>
+          this.extractListOrEmpty(resp, 'logisticsRouteStopDtoList').map((dto) => this.mapRouteStopRow(dto)),
+        ),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
   }
 
   /** POST /inventory-transfer/reject — reject a requested transfer with a reason. */
@@ -1514,6 +1573,29 @@ export class InventoryPortalService {
       canComplete: dto['canComplete'] === true,
       canCancel: dto['canCancel'] === true,
       crossBorder: dto['crossBorder'] === true,
+      routeStops: this.mapRouteStopList(dto['routeStops']),
+    };
+  }
+
+  private mapRouteStopList(raw: unknown): LogisticsRouteStopRow[] {
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw
+      .filter((item): item is Record<string, unknown> => !!this.toObj(item))
+      .map((item) => this.mapRouteStopRow(item))
+      .sort((a, b) => a.stopSequence - b.stopSequence);
+  }
+
+  private mapRouteStopRow(dto: Record<string, unknown>): LogisticsRouteStopRow {
+    return {
+      id: Number(dto['id'] ?? 0) || undefined,
+      stopSequence: Number(dto['stopSequence'] ?? 0),
+      stopType: (String(dto['stopType'] ?? 'EN_ROUTE_DEPOT').toUpperCase() as LogisticsRouteStopRow['stopType']),
+      warehouseLocationId: Number(dto['warehouseLocationId'] ?? 0) || undefined,
+      branchId: Number(dto['branchId'] ?? 0) || undefined,
+      locationLabel: dto['locationLabel'] != null ? String(dto['locationLabel']) : undefined,
+      warehouseName: dto['warehouseName'] != null ? String(dto['warehouseName']) : undefined,
     };
   }
 
@@ -1696,6 +1778,127 @@ export class InventoryPortalService {
     return value && typeof value === 'object' && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : null;
+  }
+
+  // ── Integration credentials ───────────────────────────────────────────────
+
+  listIntegrationCredentials(organizationId: number): Observable<InventoryIntegrationCredentialRow[]> {
+    return this.http
+      .get<unknown>(`${this.integrationCredentialBase}/find-by-organization/${organizationId}`)
+      .pipe(
+        map((resp) =>
+          this.extractListOrEmpty(resp, 'inventoryIntegrationCredentialDtoList').map((dto) =>
+            this.mapIntegrationCredentialRow(dto),
+          ),
+        ),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
+  }
+
+  createIntegrationCredential(
+    payload: CreateIntegrationCredentialPayload,
+  ): Observable<InventoryIntegrationCredentialRow> {
+    return this.http.post<unknown>(`${this.integrationCredentialBase}/create`, payload).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        const dto = this.extractSingle(resp, 'inventoryIntegrationCredentialDto');
+        return this.mapIntegrationCredentialRow(dto);
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  updateIntegrationCredential(
+    payload: EditIntegrationCredentialPayload,
+  ): Observable<InventoryIntegrationCredentialRow> {
+    return this.http.put<unknown>(`${this.integrationCredentialBase}/update`, payload).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        const dto = this.extractSingle(resp, 'inventoryIntegrationCredentialDto');
+        return this.mapIntegrationCredentialRow(dto);
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  deleteIntegrationCredential(id: number): Observable<void> {
+    return this.http.delete<unknown>(`${this.integrationCredentialBase}/delete/${id}`).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  private buildTransferCreateBody(payload: CreateTransferPayload): Record<string, unknown> {
+    const routeStops = this.buildRouteStopsFromTransfer(payload);
+    const body: Record<string, unknown> = { ...payload };
+    delete body['enRouteDepotIds'];
+    if (routeStops.length > 0) {
+      body['routeStops'] = routeStops;
+    }
+    return body;
+  }
+
+  private buildRouteStopsFromTransfer(payload: CreateTransferPayload): RouteStopPayload[] {
+    const stops: RouteStopPayload[] = [];
+    let sequence = 0;
+
+    if (payload.fromLocationId > 0) {
+      stops.push({
+        stopSequence: sequence++,
+        stopType: 'ORIGIN',
+        warehouseLocationId: payload.fromLocationId,
+      });
+    }
+
+    for (const depotId of payload.enRouteDepotIds ?? []) {
+      if (depotId > 0) {
+        stops.push({
+          stopSequence: sequence++,
+          stopType: 'EN_ROUTE_DEPOT',
+          warehouseLocationId: depotId,
+        });
+      }
+    }
+
+    if (payload.toLocationId > 0) {
+      stops.push({
+        stopSequence: sequence,
+        stopType: 'DESTINATION',
+        warehouseLocationId: payload.toLocationId,
+      });
+    }
+
+    return stops;
+  }
+
+  private buildRouteStopsFromEdit(payload: EditTransferPayload): RouteStopPayload[] {
+    if (!payload.fromLocationId || !payload.toLocationId) {
+      return [];
+    }
+    return this.buildRouteStopsFromTransfer({
+      transferNumber: '',
+      productId: payload.productId ?? 0,
+      fromLocationId: payload.fromLocationId,
+      toLocationId: payload.toLocationId,
+      quantity: payload.quantity ?? 0,
+      enRouteDepotIds: payload.enRouteDepotIds,
+      createdByUserId: payload.updatedByUserId,
+    });
+  }
+
+  private mapIntegrationCredentialRow(dto: Record<string, unknown>): InventoryIntegrationCredentialRow {
+    return {
+      id: Number(dto['id'] ?? 0),
+      organizationId: Number(dto['organizationId'] ?? 0),
+      credentialLabel: String(dto['credentialLabel'] ?? ''),
+      apiKey: String(dto['apiKey'] ?? ''),
+      webhookUrl: dto['webhookUrl'] != null ? String(dto['webhookUrl']) : undefined,
+      callbackGrvUrl: dto['callbackGrvUrl'] != null ? String(dto['callbackGrvUrl']) : undefined,
+      status: (dto['status'] as InventoryIntegrationCredentialRow['status']) ?? 'ACTIVE',
+      lastUsedAt: dto['lastUsedAt'] != null ? String(dto['lastUsedAt']) : undefined,
+    };
   }
 
   private toError(err: HttpErrorResponse | Error): Error {

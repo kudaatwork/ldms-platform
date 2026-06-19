@@ -4,6 +4,14 @@
   gap: 1.65rem;
 }
 
+.settings-empty {
+  margin: 0;
+  padding: 1.25rem 1.35rem;
+  color: var(--gray-600);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
 .settings-head__eyebrow {
   margin: 0 0 0.35rem;
   font-size: 0.75rem;

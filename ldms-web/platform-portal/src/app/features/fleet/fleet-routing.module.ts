@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { RouterModule, Routes } from '@angular/router';
 import { FleetWorkspaceComponent } from './pages/fleet-workspace/fleet-workspace.component';
 import { FleetTrackingApiPageComponent } from './pages/fleet-tracking-api-page/fleet-tracking-api-page.component';
+import { FleetTrackingIntegrationSetupPageComponent } from './pages/fleet-tracking-integration-setup-page/fleet-tracking-integration-setup-page.component';
 
 const routes: Routes = [
   {
@@ -43,6 +44,11 @@ const routes: Routes = [
     path: 'tracking-api',
     component: FleetTrackingApiPageComponent,
     data: { tab: 'tracking', title: 'Integration API', breadcrumb: 'Integration API' },
+  },
+  {
+    path: 'tracking-setup',
+    component: FleetTrackingIntegrationSetupPageComponent,
+    data: { tab: 'tracking', title: 'Integration setup', breadcrumb: 'Integration setup' },
   },
 ];
 

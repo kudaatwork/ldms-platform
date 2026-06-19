@@ -1,0 +1,74 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ isEdit ? 'Edit trading partner' : 'Add trading partner' }}</h2>
+      <p class="lx-dialog-subtitle">
+        {{ isEdit ? 'Update contact details for this CRM partner.' : 'Add a customer, supplier, or transporter managed outside the platform.' }}
+      </p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close" (click)="cancel()" [disabled]="submitting">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="onSubmit()" novalidate>
+    <div class="lx-form-grid">
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required') || hasError('name', 'maxlength')">
+          <mat-icon class="lx-input-shell__icon">person</mat-icon>
+          <input formControlName="name" placeholder="Organisation or person name" />
+        </div>
+        <p class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required.</p>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Role <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">label</mat-icon>
+          <select formControlName="role">
+            <option *ngFor="let r of roles" [value]="r.value">{{ r.label }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Email</label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('email', 'email')">
+          <mat-icon class="lx-input-shell__icon">email</mat-icon>
+          <input formControlName="email" type="email" placeholder="partner@company.com" />
+        </div>
+        <p class="lx-field-error" *ngIf="hasError('email', 'email')">Invalid email address.</p>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Phone number</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+          <input formControlName="phoneNumber" type="tel" placeholder="+263 77 000 0000" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Notes</label>
+        <div class="lx-input-shell lx-input-shell--textarea">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="notes" rows="3" placeholder="Optional notes about this partner…"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="submitError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ submitError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+        {{ submitting ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save changes' : 'Add partner') }}
+      </button>
+    </div>
+  </form>
+</div>

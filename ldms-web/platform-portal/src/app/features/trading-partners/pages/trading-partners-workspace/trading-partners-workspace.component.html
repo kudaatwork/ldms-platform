@@ -1,0 +1,121 @@
+<div class="lx-page tp">
+  <lx-workspace-hero
+    variant="slate"
+    eyebrow="CRM"
+    eyebrowIcon="groups"
+    title="Trading Partners"
+    lead="Manage customers, suppliers, and transporters that operate outside the platform. In standalone mode these CRM partners replace platform-registered organisations."
+    hubIcon="groups"
+    [orbitIcons]="['person', 'storefront', 'local_shipping']"
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddDialog()">
+      <mat-icon>add</mat-icon>
+      Add partner
+    </button>
+
+    <lx-workspace-hero-stat [value]="partners.length.toString()" label="Total partners" icon="groups" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="customerCount.toString()" label="Customers" icon="person" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="supplierCount.toString()" label="Suppliers" icon="storefront" theme="mint"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <!-- Record-only counterparty hint -->
+  <div class="tp-standalone-hint lx-card" *ngIf="showRecordOnlyHint">
+    <mat-icon>info_outline</mat-icon>
+    <div>
+      <strong>Record-only {{ counterpartyLabel }}</strong>
+      <p>
+        Add {{ counterpartyLabel }} here for delivery and order tracking. They will <strong>not</strong> receive login credentials
+        or sign in to LDMS — you manage logistics and proof of delivery on their behalf.
+        To register or link full platform {{ counterpartyLabel }} instead, change your mode under
+        <a routerLink="/settings" [queryParams]="{ section: 'operational-mode' }">Settings → Operational mode</a>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Filter bar -->
+  <div class="tp-filter-bar">
+    <div class="tp-role-chips">
+      <button
+        type="button"
+        *ngFor="let r of roles"
+        class="tp-role-chip"
+        [class.tp-role-chip--active]="activeRole === r.value"
+        (click)="setRoleFilter(r.value)"
+      >
+        <mat-icon>{{ r.icon }}</mat-icon>
+        {{ r.label }}
+      </button>
+    </div>
+
+    <div class="lx-input-shell tp-search">
+      <mat-icon class="lx-input-shell__icon">search</mat-icon>
+      <input
+        type="text"
+        [ngModel]="searchTerm"
+        (ngModelChange)="onSearch($event)"
+        placeholder="Search partners…"
+      />
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="tp-loading" *ngIf="loading">
+    <mat-spinner diameter="36"></mat-spinner>
+    <span>Loading trading partners…</span>
+  </div>
+
+  <!-- Error -->
+  <div class="lx-list-error" *ngIf="error && !loading">
+    <mat-icon>warning_amber</mat-icon>
+    {{ error }}
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="loadPartners()">Retry</button>
+  </div>
+
+  <!-- Empty state -->
+  <div class="tp-empty lx-card" *ngIf="!loading && !error && filteredPartners.length === 0">
+    <mat-icon>groups</mat-icon>
+    <h3>No trading partners yet</h3>
+    <p *ngIf="searchTerm || activeRole !== 'ALL'">No partners match your current filter. Try clearing the search or role filter.</p>
+    <p *ngIf="!searchTerm && activeRole === 'ALL'">
+      Add your first CRM trading partner — customers, suppliers, or transporters managed outside the LDMS platform.
+    </p>
+    <button type="button" class="lx-btn lx-btn-primary" (click)="openAddDialog()" *ngIf="!searchTerm && activeRole === 'ALL'">
+      <mat-icon>add</mat-icon>
+      Add first partner
+    </button>
+  </div>
+
+  <!-- Partner cards -->
+  <div class="tp-grid" *ngIf="!loading && filteredPartners.length > 0">
+    <article class="tp-card lx-card" *ngFor="let partner of filteredPartners">
+      <div class="tp-card__icon" [attr.data-role]="partner.role">
+        <mat-icon>{{ roleIcon(partner.role) }}</mat-icon>
+      </div>
+      <div class="tp-card__body">
+        <div class="tp-card__head">
+          <h3 class="tp-card__name">{{ partner.name }}</h3>
+          <span class="tp-card__role-pill">{{ roleLabel(partner.role) }}</span>
+        </div>
+        <div class="tp-card__meta">
+          <span *ngIf="partner.email" class="tp-card__meta-item">
+            <mat-icon>email</mat-icon>
+            {{ partner.email }}
+          </span>
+          <span *ngIf="partner.phoneNumber" class="tp-card__meta-item">
+            <mat-icon>phone</mat-icon>
+            {{ partner.phoneNumber }}
+          </span>
+        </div>
+        <p class="tp-card__notes" *ngIf="partner.notes">{{ partner.notes }}</p>
+      </div>
+      <div class="tp-card__actions">
+        <button type="button" mat-icon-button class="tp-card__action-btn" [matTooltip]="'Edit ' + partner.name" (click)="openEditDialog(partner)">
+          <mat-icon>edit</mat-icon>
+        </button>
+        <button type="button" mat-icon-button class="tp-card__action-btn tp-card__action-btn--danger" [matTooltip]="'Remove ' + partner.name" (click)="deletePartner(partner)">
+          <mat-icon>delete_outline</mat-icon>
+        </button>
+      </div>
+    </article>
+  </div>
+</div>

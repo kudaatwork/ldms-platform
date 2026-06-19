@@ -611,6 +611,10 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     void this.router.navigate(['/signup']);
   }
 
+  goDriverSignup(): void {
+    void this.router.navigate(['/driver/signup']);
+  }
+
   goBookDemo(): void {
     void this.router.navigate(['/contact']);
   }

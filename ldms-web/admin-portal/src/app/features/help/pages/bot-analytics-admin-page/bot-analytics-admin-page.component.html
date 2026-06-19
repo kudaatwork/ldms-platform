@@ -1,0 +1,119 @@
+<section class="lx-page lx-page--audit bot-analytics-page">
+  <lx-workspace-hero
+    variant="violet"
+    eyebrow="Messaging · Bot analytics"
+    eyebrowIcon="insights"
+    title="Assistant usage"
+    lead="Session volume, message activity, satisfaction scores, and popular topics from the LDMS web assistant."
+    hubIcon="insights"
+    [orbitIcons]="['forum', 'smart_toy', 'star']"
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="load()" [disabled]="loading">
+      <mat-icon aria-hidden="true">refresh</mat-icon>
+      Refresh
+    </button>
+    <nav class="bot-analytics-days" lxWorkspaceHeroActions aria-label="Analytics window">
+      <button type="button" class="bot-analytics-days__btn" [class.bot-analytics-days__btn--on]="days === 7" (click)="setDays(7)">7d</button>
+      <button type="button" class="bot-analytics-days__btn" [class.bot-analytics-days__btn--on]="days === 30" (click)="setDays(30)">30d</button>
+      <button type="button" class="bot-analytics-days__btn" [class.bot-analytics-days__btn--on]="days === 90" (click)="setDays(90)">90d</button>
+    </nav>
+    <lx-workspace-hero-stat [value]="summary?.totalSessions ?? 0" label="Total sessions" icon="forum" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="summary?.sessionsToday ?? 0" label="Today" icon="today" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="summary?.totalMessages ?? 0" label="Messages" icon="chat" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="formatScore(summary?.averageSatisfactionScore)" label="Avg rating" icon="star" theme="violet"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <div class="bot-alert" *ngIf="error" role="alert">
+    <mat-icon aria-hidden="true">error_outline</mat-icon>
+    {{ error }}
+    <button type="button" class="bot-alert__action" (click)="load()">Retry</button>
+  </div>
+
+  <div class="bot-analytics-grid" *ngIf="!loading && summary">
+    <div class="lx-card bot-analytics-card bot-analytics-card--metrics">
+      <header class="bot-analytics-card__hd">
+        <mat-icon aria-hidden="true">speed</mat-icon>
+        <h3>Engagement</h3>
+      </header>
+      <div class="bot-analytics-metrics">
+        <div class="bot-analytics-metric">
+          <span class="bot-analytics-metric__label">Sessions (7 days)</span>
+          <strong>{{ summary.sessionsLast7Days }}</strong>
+        </div>
+        <div class="bot-analytics-metric">
+          <span class="bot-analytics-metric__label">User messages</span>
+          <strong>{{ summary.userMessages }}</strong>
+        </div>
+        <div class="bot-analytics-metric">
+          <span class="bot-analytics-metric__label">Bot replies</span>
+          <strong>{{ summary.botMessages }}</strong>
+        </div>
+        <div class="bot-analytics-metric">
+          <span class="bot-analytics-metric__label">Avg / session</span>
+          <strong>{{ summary.averageMessagesPerSession }}</strong>
+        </div>
+        <div class="bot-analytics-metric">
+          <span class="bot-analytics-metric__label">Rated sessions</span>
+          <strong>{{ summary.ratedSessionCount }}</strong>
+        </div>
+        <div class="bot-analytics-metric">
+          <span class="bot-analytics-metric__label">Published FAQs</span>
+          <strong>{{ summary.publishedFaqCount }}</strong>
+        </div>
+      </div>
+    </div>
+
+    <div class="lx-card bot-analytics-card bot-analytics-card--chart">
+      <header class="bot-analytics-card__hd">
+        <mat-icon aria-hidden="true">bar_chart</mat-icon>
+        <h3>Sessions by day</h3>
+      </header>
+      <div class="bot-analytics-bars">
+        <div class="bot-analytics-bar" *ngFor="let row of summary.sessionsByDay">
+          <span class="bot-analytics-bar__label">{{ row.date }}</span>
+          <div class="bot-analytics-bar__track">
+            <div class="bot-analytics-bar__fill" [style.width.%]="barWidth(row.count)"></div>
+          </div>
+          <span class="bot-analytics-bar__val">{{ row.count }}</span>
+        </div>
+        <p class="bot-analytics-empty" *ngIf="!summary.sessionsByDay.length">No sessions in this window yet.</p>
+      </div>
+    </div>
+
+    <div class="lx-card bot-analytics-card">
+      <header class="bot-analytics-card__hd">
+        <mat-icon aria-hidden="true">topic</mat-icon>
+        <h3>Top topics</h3>
+      </header>
+      <ul class="bot-analytics-list">
+        <li *ngFor="let t of summary.topTopics; let i = index">
+          <span class="bot-analytics-list__rank">{{ i + 1 }}</span>
+          <span class="bot-analytics-list__label">{{ t.topic }}</span>
+          <strong>{{ t.count }}</strong>
+        </li>
+        <li class="bot-analytics-empty" *ngIf="!summary.topTopics.length">No topics recorded yet.</li>
+      </ul>
+    </div>
+
+    <div class="lx-card bot-analytics-card">
+      <header class="bot-analytics-card__hd">
+        <mat-icon aria-hidden="true">devices</mat-icon>
+        <h3>Channels</h3>
+      </header>
+      <ul class="bot-analytics-list bot-analytics-list--channels">
+        <li *ngFor="let c of summary.channelBreakdown">
+          <span class="bot-analytics-list__label">{{ c.channel }}</span>
+          <div class="bot-analytics-channel-bar">
+            <div [style.width.%]="channelWidth(c.count)"></div>
+          </div>
+          <strong>{{ c.count }}</strong>
+        </li>
+        <li class="bot-analytics-empty" *ngIf="!summary.channelBreakdown.length">No channel data yet.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="bot-analytics-skeleton lx-card" *ngIf="loading">
+    <div class="bot-skeleton" *ngFor="let i of [1,2,3,4]"></div>
+  </div>
+</section>

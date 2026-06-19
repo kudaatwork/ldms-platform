@@ -58,4 +58,18 @@ public class TripLiveSnapshotDto {
     private Long idleSeconds;
     private String journeyPhase;
     private Long estimatedArrivalSeconds;
+    /** True when corridor progress suggests the truck may have reached destination. */
+    private boolean awaitingArrivalConfirmation;
+    /** True when the trip is on the empty return leg. */
+    private boolean returnJourneyActive;
+    private String deliveryPhaseLabel;
+
+    // === PROXIMITY / ARRIVAL PROMPT ===
+
+    /** True when driver is within 2 km of the destination waypoint. */
+    private boolean nearDestination;
+    /** True when the trip is IN_TRANSIT and nearDestination — triggers arrival confirmation prompt on driver app. */
+    private boolean arrivalPromptVisible;
+    /** Computed straight-line distance to the last route waypoint (destination), in kilometres. */
+    private BigDecimal destinationDistanceKm;
 }
