@@ -22,6 +22,7 @@ import {
   ldmsPasswordFormatValidator,
 } from '../../../../core/utils/ldms-password.util';
 import { Subject, of } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
 import {
   catchError,
   debounceTime,
@@ -72,6 +73,7 @@ export class SetupCredentialsComponent implements OnInit, OnDestroy {
     private readonly authService: AuthService,
     private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
     private readonly cdr: ChangeDetectorRef,
     private readonly title: Title,
     readonly theme: ThemeService,
@@ -190,7 +192,12 @@ export class SetupCredentialsComponent implements OnInit, OnDestroy {
                 return;
               }
               this.phoneVerificationPrompt.markPromptAfterSetup();
-              void this.router.navigate(this.authService.postLoginRoute());
+              const returnPortal = this.route.snapshot.queryParamMap.get('portal');
+              const destination =
+                returnPortal === 'driver'
+                  ? ['/driver/workspace']
+                  : this.authService.postLoginRoute();
+              void this.router.navigate(destination);
             },
             error: (e: Error) => {
               this.loading = false;

@@ -55,4 +55,13 @@ export interface CurrentUser {
   shipmentFleetAllocator?: boolean;
   /** Organisation workspace administrator (Administrator group). */
   organizationWorkspaceAdministrator?: boolean;
+  /** Standalone mode: org operates without platform trading partners (uses CRM trading partners instead). */
+  standaloneMode?: boolean;
+  /** Inventory management is enabled for this organisation. */
+  inventoryManagementEnabled?: boolean;
+  /** Cross-docking mode: no internal inventory — uses external API or manual acknowledgement. */
+  crossDockingEnabled?: boolean;
+  /** How inventory data is sourced when not managed internally. */
+  inventoryDataSource?: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
+  counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
 }

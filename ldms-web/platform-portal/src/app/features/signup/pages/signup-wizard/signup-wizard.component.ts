@@ -8,7 +8,8 @@ import {
   ORG_TYPES,
 } from '../../../../core/models/auth.model';
 import { ThemeService } from '../../../../core/services/theme.service';
-import { OrganizationService } from '../../../../core/services/organization.service';
+import { OrganizationService, RegisterOrganizationPayload } from '../../../../core/services/organization.service';
+import type { OperationalModeSelection } from '../../../../shared/components/operational-mode-picker/operational-mode-picker.component';
 import {
   dateOfBirthMinimumAgeMessage,
   isDateOfBirthAtLeastMinimumAge,
@@ -39,7 +40,7 @@ const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY'] as 
   standalone: false,
 })
 export class SignupWizardComponent {
-  readonly steps = ['Organisation type', 'Organisation', 'Contact', 'Complete'];
+  readonly steps = ['Organisation type', 'Operating model', 'Organisation', 'Contact', 'Complete'];
   readonly organizationTypes = ORG_TYPES;
   readonly genderOptions = GENDER_OPTIONS;
   currentStep = 0;
@@ -98,6 +99,11 @@ export class SignupWizardComponent {
 
   classification: OrganizationClassification | null = null;
   duplexMode = false;
+  standaloneMode = false;
+  inventoryManagementEnabled = true;
+  crossDockingEnabled = false;
+  inventoryDataSource: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK' = 'INTERNAL';
+  counterpartyEngagementMode: 'RECORD_ONLY' | 'PLATFORM_ORG' = 'PLATFORM_ORG';
   submitting = false;
   complete = false;
   submitError = '';
@@ -177,34 +183,59 @@ export class SignupWizardComponent {
     this.cdr.markForCheck();
   }
 
+  get showOperationalStep(): boolean {
+    return this.classification === 'SUPPLIER' || this.classification === 'CUSTOMER';
+  }
+
+  onOperationalModeChange(selection: OperationalModeSelection): void {
+    this.standaloneMode = selection.standaloneMode;
+    this.inventoryManagementEnabled = selection.inventoryManagementEnabled;
+    this.crossDockingEnabled = selection.crossDockingEnabled;
+    this.inventoryDataSource = selection.inventoryDataSource;
+    this.counterpartyEngagementMode = selection.counterpartyEngagementMode;
+    this.cdr.markForCheck();
+  }
+
   canAdvanceFromStep0(): boolean {
     return this.classification != null;
   }
 
   next(): void {
-    if (this.currentStep >= 2) {
+    if (this.currentStep >= 3) {
       return;
     }
     if (this.currentStep === 0 && !this.canAdvanceFromStep0()) {
       return;
     }
-    if (this.currentStep === 1 && !this.validateOrgStep(true)) {
+    if (this.currentStep === 1 && !this.showOperationalStep) {
+      this.currentStep = 2;
       this.cdr.markForCheck();
       return;
     }
-    if (this.currentStep === 2 && !this.validateContactStep(true)) {
+    if (this.currentStep === 2 && !this.validateOrgStep(true)) {
+      this.cdr.markForCheck();
+      return;
+    }
+    if (this.currentStep === 3 && !this.validateContactStep(true)) {
       this.cdr.markForCheck();
       return;
     }
     if (this.currentStep < this.steps.length - 1) {
       this.currentStep++;
+      if (this.currentStep === 1 && !this.showOperationalStep) {
+        this.currentStep = 2;
+      }
       this.cdr.markForCheck();
     }
   }
 
   back(): void {
     if (this.currentStep > 0) {
-      this.currentStep--;
+      if (this.currentStep === 2 && !this.showOperationalStep) {
+        this.currentStep = 0;
+      } else {
+        this.currentStep--;
+      }
       this.cdr.markForCheck();
     }
   }
@@ -251,7 +282,7 @@ export class SignupWizardComponent {
     const nationalComplete = nationalIdNumber.length > 0 && !!this.nationalIdUpload;
     const passportComplete = passportNumber.length > 0 && !!this.passportUpload;
 
-    const payload = {
+    const payload: RegisterOrganizationPayload = {
       name: String(org.orgName).trim(),
       email: String(org.orgEmail).trim(),
       phoneNumber: String(org.phone).trim(),
@@ -278,6 +309,13 @@ export class SignupWizardComponent {
       taxClearanceCertificateUpload: this.taxClearanceUpload ?? undefined,
       duplexMode: this.duplexMode && this.showDuplexOption ? true : undefined,
     };
+    if (this.showOperationalStep) {
+      payload.standaloneMode = this.standaloneMode;
+      payload.inventoryManagementEnabled = this.inventoryManagementEnabled;
+      payload.crossDockingEnabled = this.crossDockingEnabled;
+      payload.inventoryDataSource = this.inventoryDataSource;
+      payload.counterpartyEngagementMode = this.counterpartyEngagementMode;
+    }
     this.orgService.register(payload).subscribe({
       next: (summary) => {
         this.submitting = false;
@@ -290,7 +328,7 @@ export class SignupWizardComponent {
           STORAGE_ORG_CLASSIFICATION,
           summary.organizationClassification ?? this.classification ?? '',
         );
-        this.currentStep = 3;
+        this.currentStep = 4;
         this.cdr.markForCheck();
       },
       error: (err: Error) => {

@@ -19,6 +19,8 @@ public class RabbitMQConsumerConfig {
     public static final String TRANSFER_APPROVED_ROUTING_KEY = "inventory.transfer.approved";
     public static final String SALES_ORDER_APPROVED_QUEUE = "shipment.sales.order.approved.queue";
     public static final String SALES_ORDER_APPROVED_ROUTING_KEY = "sales.order.approved";
+    public static final String CROSS_DOCK_DISPATCH_CREATED_QUEUE = "shipment.cross.dock.dispatch.created.queue";
+    public static final String CROSS_DOCK_DISPATCH_CREATED_ROUTING_KEY = "cross.dock.dispatch.created";
     public static final String DLX_EXCHANGE = "shipment.dlx.exchange";
     public static final String DLQ_SUFFIX = ".dlq";
 
@@ -88,5 +90,34 @@ public class RabbitMQConsumerConfig {
         return BindingBuilder.bind(shipmentSalesOrderApprovedDlq())
                 .to(shipmentDeadLetterExchange())
                 .with(SALES_ORDER_APPROVED_QUEUE + DLQ_SUFFIX);
+    }
+
+    // === CROSS-DOCK DISPATCH CREATED CONSUMER ===
+
+    @Bean
+    public Queue shipmentCrossDockDispatchCreatedQueue() {
+        return QueueBuilder.durable(CROSS_DOCK_DISPATCH_CREATED_QUEUE)
+                .withArgument("x-dead-letter-exchange", DLX_EXCHANGE)
+                .withArgument("x-dead-letter-routing-key", CROSS_DOCK_DISPATCH_CREATED_QUEUE + DLQ_SUFFIX)
+                .build();
+    }
+
+    @Bean
+    public Queue shipmentCrossDockDispatchCreatedDlq() {
+        return QueueBuilder.durable(CROSS_DOCK_DISPATCH_CREATED_QUEUE + DLQ_SUFFIX).build();
+    }
+
+    @Bean
+    public Binding shipmentCrossDockDispatchCreatedBinding() {
+        return BindingBuilder.bind(shipmentCrossDockDispatchCreatedQueue())
+                .to(inventoryExchange())
+                .with(CROSS_DOCK_DISPATCH_CREATED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding shipmentCrossDockDispatchCreatedDlqBinding() {
+        return BindingBuilder.bind(shipmentCrossDockDispatchCreatedDlq())
+                .to(shipmentDeadLetterExchange())
+                .with(CROSS_DOCK_DISPATCH_CREATED_QUEUE + DLQ_SUFFIX);
     }
 }

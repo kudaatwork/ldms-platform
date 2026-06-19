@@ -663,10 +663,20 @@
             <h2>Driver roster</h2>
             <p>Licensed drivers for {{ orgName }} — employed staff and pool drivers you can assign to any vehicle.</p>
           </div>
-          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddDriver()">
-            <mat-icon>person_add</mat-icon>
-            Add driver
-          </button>
+          <div class="flt-section-head__actions">
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openDriverSignupRequests()">
+              <mat-icon>inbox</mat-icon>
+              Signup requests
+            </button>
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openMarketplaceSearch()">
+              <mat-icon>person_search</mat-icon>
+              Find freelance drivers
+            </button>
+            <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddDriver()">
+              <mat-icon>person_add</mat-icon>
+              Add driver
+            </button>
+          </div>
         </header>
 
         <div class="flt-drivers__stats lx-card" *ngIf="!driversLoading && drivers.length">
@@ -1001,6 +1011,42 @@
           {{ complianceError }}
         </p>
 
+        <section class="flt-compliance__queue lx-card" *ngIf="!complianceLoading && filteredPendingComplianceBundles.length">
+          <header class="flt-compliance__queue-head">
+            <div>
+              <h3>Awaiting review</h3>
+              <p>Open each asset or driver bundle, view every document, then approve or reject individually or in bulk.</p>
+            </div>
+            <span class="flt-compliance__queue-badge">{{ filteredPendingComplianceBundles.length }} bundle{{ filteredPendingComplianceBundles.length === 1 ? '' : 's' }}</span>
+          </header>
+          <div class="flt-compliance__queue-grid">
+            <article class="flt-compliance__bundle" *ngFor="let bundle of filteredPendingComplianceBundles">
+              <div class="flt-compliance__bundle-icon" aria-hidden="true">
+                <mat-icon>{{ complianceBundleIcon(bundle) }}</mat-icon>
+              </div>
+              <div class="flt-compliance__bundle-copy">
+                <strong>{{ bundle.subjectLabel }}</strong>
+                <span>{{ bundle.subjectType === 'driver' ? 'Driver' : 'Fleet asset' }}</span>
+                <ul class="flt-compliance__bundle-docs">
+                  <li *ngFor="let doc of bundle.pendingRecords | slice: 0 : 4">{{ doc.complianceTypeLabel }}</li>
+                  <li *ngIf="bundle.pendingCount > 4">+{{ bundle.pendingCount - 4 }} more</li>
+                </ul>
+              </div>
+              <div class="flt-compliance__bundle-meta">
+                <span class="flt-pill flt-pill--warn">{{ bundle.pendingCount }} pending</span>
+              </div>
+              <button
+                type="button"
+                class="lx-btn lx-btn-primary lx-btn-sm flt-compliance__bundle-btn"
+                (click)="openComplianceBundleReview(bundle)"
+              >
+                <mat-icon>visibility</mat-icon>
+                Review documents
+              </button>
+            </article>
+          </div>
+        </section>
+
         <div class="flt-compliance__table lx-card" *ngIf="!complianceLoading && filteredCompliance.length">
           <table>
             <thead>
@@ -1024,28 +1070,15 @@
                 </td>
                 <td>{{ row.statusLabel }}</td>
                 <td class="flt-compliance__actions">
-                  <ng-container *ngIf="isCompliancePendingReview(row)">
-                    <button
-                      type="button"
-                      class="lx-btn lx-btn-ghost lx-btn-sm flt-compliance__review-btn flt-compliance__review-btn--approve"
-                      title="Approve document"
-                      [disabled]="complianceReviewingId === row.id"
-                      (click)="approveCompliance(row, $event)"
-                    >
-                      <mat-icon>check_circle</mat-icon>
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      class="lx-btn lx-btn-ghost lx-btn-sm flt-compliance__review-btn flt-compliance__review-btn--reject"
-                      title="Reject document"
-                      [disabled]="complianceReviewingId === row.id"
-                      (click)="rejectCompliance(row, $event)"
-                    >
-                      <mat-icon>cancel</mat-icon>
-                      Reject
-                    </button>
-                  </ng-container>
+                  <button
+                    type="button"
+                    class="lx-btn lx-btn-primary lx-btn-sm"
+                    *ngIf="hasPendingBundleForRow(row)"
+                    (click)="openComplianceReviewForRow(row, $event)"
+                  >
+                    <mat-icon>visibility</mat-icon>
+                    Review
+                  </button>
                   <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEditCompliance(row, $event)">
                     <mat-icon>edit</mat-icon>
                   </button>

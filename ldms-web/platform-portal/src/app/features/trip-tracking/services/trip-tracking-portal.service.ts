@@ -243,6 +243,7 @@ export class TripTrackingPortalService {
       canAssignTransport: status === 'PENDING',
       canAllocate: status === 'PENDING_FLEET',
       canStartTrip: status === 'ALLOCATED' && !!fleetDriverId && !!fleetAssetId,
+      crossBorder: dto['crossBorder'] === true,
     };
   }
 

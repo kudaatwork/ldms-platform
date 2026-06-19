@@ -6,6 +6,7 @@ import { BranchesListComponent } from './pages/branches-list/branches-list.compo
 import { AgentsListComponent } from './pages/agents-list/agents-list.component';
 import { IndustriesListComponent } from './pages/industries-list/industries-list.component';
 import { OrganizationDetailShellComponent } from './pages/organization-detail-shell/organization-detail-shell.component';
+import { OrgAdminOperationalModeComponent } from './components/org-admin-operational-mode/org-admin-operational-mode.component';
 import { BranchFormDialogComponent } from './pages/branch-form-dialog/branch-form-dialog.component';
 import { AgentFormDialogComponent } from './pages/agent-form-dialog/agent-form-dialog.component';
 import { LinkOrganizationDialogComponent } from './pages/link-organization-dialog/link-organization-dialog.component';
@@ -21,6 +22,7 @@ import { OrganizationContactPersonPanelComponent } from '../../shared/components
     AgentsListComponent,
     IndustriesListComponent,
     OrganizationDetailShellComponent,
+    OrgAdminOperationalModeComponent,
   ],
   imports: [
     SharedModule,

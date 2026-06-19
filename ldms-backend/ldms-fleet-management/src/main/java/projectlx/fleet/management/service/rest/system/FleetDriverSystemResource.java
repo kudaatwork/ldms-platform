@@ -54,4 +54,22 @@ public class FleetDriverSystemResource {
         logger.info("System request to find fleet driver by id={}", id);
         return fleetDriverServiceProcessor.findByIdForSystem(id, locale);
     }
+
+    @Auditable(action = "SYSTEM_FIND_FLEET_DRIVER_BY_USER_ID")
+    @GetMapping("/find-by-user-id/{userId}")
+    @Operation(summary = "Find fleet driver by platform user ID (system)",
+            description = "Returns fleet driver linked to the given user-management user id.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Fleet driver found successfully"),
+            @ApiResponse(responseCode = "404", description = "Fleet driver not found"),
+            @ApiResponse(responseCode = "400", description = "Invalid user ID")
+    })
+    public FleetDriverResponse findByUserIdForSystem(
+            @PathVariable("userId") final Long userId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        logger.info("System request to find fleet driver by userId={}", userId);
+        return fleetDriverServiceProcessor.findByUserIdForSystem(userId, locale);
+    }
 }

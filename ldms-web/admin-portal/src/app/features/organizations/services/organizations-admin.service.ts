@@ -16,6 +16,7 @@ import type {
   OrganizationLinkRow,
   OrganizationProfileDetail,
   OrganizationType,
+  OperationalSettingsPayload,
   RegisterOrganizationPayload,
   UpdateOrganizationPayload,
 } from '../models/organization.model';
@@ -619,6 +620,28 @@ export class OrganizationsAdminService {
     );
   }
 
+  saveOperationalSettings(
+    organizationId: number,
+    payload: OperationalSettingsPayload,
+  ): Observable<Pick<OrganizationProfileDetail, 'standaloneMode' | 'inventoryManagementEnabled' | 'crossDockingEnabled' | 'inventoryDataSource' | 'counterpartyEngagementMode'>> {
+    return this.http
+      .put<unknown>(`${this.url(String(organizationId))}/operational-settings`, payload)
+      .pipe(
+        map((resp) => {
+          this.assertOrganizationMutationSuccess(resp);
+          const dto = this.extractSingle(resp);
+          return {
+            standaloneMode: Boolean(dto['standaloneMode']),
+            inventoryManagementEnabled: dto['inventoryManagementEnabled'] !== false,
+            crossDockingEnabled: Boolean(dto['crossDockingEnabled']),
+            inventoryDataSource: (String(dto['inventoryDataSource'] ?? 'INTERNAL') as OperationalSettingsPayload['inventoryDataSource']),
+            counterpartyEngagementMode: this.readCounterpartyEngagementMode(dto),
+          };
+        }),
+        catchError((err: HttpErrorResponse) => throwError(() => this.toError(err))),
+      );
+  }
+
   /** DELETE `/{id}` (soft-delete on server). */
   deleteOrganization(id: number): Observable<void> {
     return this.http.delete<unknown>(this.url(String(id))).pipe(
@@ -655,6 +678,21 @@ export class OrganizationsAdminService {
     this.appendFormValue(form, 'createdViaSignup', payload.createdViaSignup ?? false);
     if (payload.duplexMode) {
       this.appendFormValue(form, 'duplexMode', true);
+    }
+    if (payload.standaloneMode != null) {
+      this.appendFormValue(form, 'standaloneMode', payload.standaloneMode);
+    }
+    if (payload.inventoryManagementEnabled != null) {
+      this.appendFormValue(form, 'inventoryManagementEnabled', payload.inventoryManagementEnabled);
+    }
+    if (payload.crossDockingEnabled != null) {
+      this.appendFormValue(form, 'crossDockingEnabled', payload.crossDockingEnabled);
+    }
+    if (payload.inventoryDataSource) {
+      this.appendFormValue(form, 'inventoryDataSource', payload.inventoryDataSource);
+    }
+    if (payload.counterpartyEngagementMode) {
+      this.appendFormValue(form, 'counterpartyEngagementMode', payload.counterpartyEngagementMode);
     }
     this.appendFormValue(form, 'taxClearanceCertificateUploadId', payload.taxClearanceCertificateUploadId);
     this.appendFormFile(form, 'taxClearanceCertificateUpload', payload.taxClearanceCertificateUpload);
@@ -1211,7 +1249,22 @@ export class OrganizationsAdminService {
       customers,
       transporters,
       clearingAgents,
+      standaloneMode: Boolean(dto['standaloneMode']),
+      inventoryManagementEnabled: dto['inventoryManagementEnabled'] !== false,
+      crossDockingEnabled: Boolean(dto['crossDockingEnabled']),
+      inventoryDataSource: String(dto['inventoryDataSource'] ?? 'INTERNAL') as OrganizationProfileDetail['inventoryDataSource'],
+      counterpartyEngagementMode: this.readCounterpartyEngagementMode(dto),
     };
+  }
+
+  private readCounterpartyEngagementMode(
+    dto: Record<string, unknown>,
+  ): 'RECORD_ONLY' | 'PLATFORM_ORG' | undefined {
+    const raw = String(dto['counterpartyEngagementMode'] ?? '').trim().toUpperCase();
+    if (raw === 'RECORD_ONLY' || raw === 'PLATFORM_ORG') {
+      return raw;
+    }
+    return undefined;
   }
 
   private mapOrganizationLinkRow(dto: Record<string, unknown>): OrganizationLinkRow {

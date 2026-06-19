@@ -22,8 +22,17 @@ import { FleetAssignDriverDialogComponent } from '../../components/fleet-assign-
 import type { FleetAssignDriverDialogData } from '../../components/fleet-assign-driver-dialog/fleet-assign-driver-dialog.component';
 import { FleetComplianceDialogComponent } from '../../components/fleet-compliance-dialog/fleet-compliance-dialog.component';
 import type { FleetComplianceDialogData } from '../../components/fleet-compliance-dialog/fleet-compliance-dialog.component';
+import { FleetComplianceBundleReviewDialogComponent } from '../../components/fleet-compliance-bundle-review-dialog/fleet-compliance-bundle-review-dialog.component';
+import type { FleetComplianceBundleReviewDialogData } from '../../components/fleet-compliance-bundle-review-dialog/fleet-compliance-bundle-review-dialog.component';
+import {
+  findComplianceBundleForRow,
+  pendingComplianceBundles,
+  type FleetComplianceSubjectBundle,
+} from '../../utils/fleet-compliance-bundle.util';
 import { FleetInstallTrackingDeviceDialogComponent } from '../../components/fleet-install-tracking-device-dialog/fleet-install-tracking-device-dialog.component';
 import type { FleetInstallTrackingDeviceDialogData } from '../../components/fleet-install-tracking-device-dialog/fleet-install-tracking-device-dialog.component';
+import { DriverMarketplaceSearchComponent } from '../../components/driver-marketplace-search/driver-marketplace-search.component';
+import { DriverSignupRequestsComponent } from '../../components/driver-signup-requests/driver-signup-requests.component';
 import type { OrganizationPartnerMetadata } from '../../../../shared/models/organization-metadata.model';
 import {
   FleetComplianceRow,
@@ -111,7 +120,6 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
   complianceError = '';
   complianceFilter: 'all' | 'expiring' = 'all';
   complianceSearch = '';
-  complianceReviewingId: number | null = null;
   trackingDevices: FleetTrackingDeviceRow[] = [];
   trackingLoading = false;
   trackingError = '';
@@ -494,6 +502,28 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
 
   get visibleCompliance(): FleetComplianceRow[] {
     return this.filteredCompliance;
+  }
+
+  get pendingComplianceBundles(): FleetComplianceSubjectBundle[] {
+    return pendingComplianceBundles(this.compliance);
+  }
+
+  get filteredPendingComplianceBundles(): FleetComplianceSubjectBundle[] {
+    const q = this.complianceSearch.trim().toLowerCase();
+    const bundles = this.pendingComplianceBundles;
+    if (!q) {
+      return bundles;
+    }
+    return bundles.filter((bundle) => {
+      const hay = [
+        bundle.subjectLabel,
+        bundle.subjectType,
+        ...bundle.pendingRecords.map((r) => r.complianceTypeLabel),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
   }
 
   pageSummary(page: FleetTablePage, total: number): string {
@@ -1170,6 +1200,31 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
       });
   }
 
+  openMarketplaceSearch(): void {
+    this.dialog
+      .open(DriverMarketplaceSearchComponent, {
+        width: '680px',
+        maxWidth: '96vw',
+        maxHeight: '90vh',
+      })
+      .afterClosed()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((hired: FleetDriverRow | undefined) => {
+        if (hired) {
+          this.notifications.success(`${hired.fullName} was hired and added to your roster.`);
+          this.loadDrivers();
+        }
+      });
+  }
+
+  openDriverSignupRequests(): void {
+    this.dialog.open(DriverSignupRequestsComponent, {
+      width: '720px',
+      maxWidth: '96vw',
+      maxHeight: '90vh',
+    });
+  }
+
   openEditDriver(driver: FleetDriverRow, event?: Event): void {
     event?.stopPropagation();
     this.dialog
@@ -1277,61 +1332,45 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
     return isCompliancePendingReview(record.status);
   }
 
-  approveCompliance(record: FleetComplianceRow, event?: Event): void {
+  hasPendingBundleForRow(row: FleetComplianceRow): boolean {
+    return this.isCompliancePendingReview(row);
+  }
+
+  openComplianceBundleReview(bundle: FleetComplianceSubjectBundle, event?: Event): void {
     event?.stopPropagation();
-    if (this.complianceReviewingId != null) {
+    if (!bundle.pendingCount) {
       return;
     }
-    this.complianceReviewingId = record.id;
-    this.fleet
-      .updateCompliance(record.id, {
-        expiresAt: record.expiresAt,
-        notes: record.notes || undefined,
+    this.dialog
+      .open(FleetComplianceBundleReviewDialogComponent, {
+        width: 'min(1120px, 98vw)',
+        maxWidth: '98vw',
+        maxHeight: '96vh',
+        panelClass: 'lx-dialog-panel--wide',
+        disableClose: true,
+        data: { bundle } satisfies FleetComplianceBundleReviewDialogData,
       })
-      .pipe(
-        finalize(() => {
-          this.complianceReviewingId = null;
-          this.cdr.detectChanges();
-        }),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: () => {
-          this.notifications.success('Compliance document approved.');
+      .afterClosed()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((result) => {
+        if (result?.changed) {
+          this.notifications.success('Compliance documents were updated.');
           this.loadCompliance();
           this.loadExpiringCompliance();
-        },
-        error: (err: Error) => this.notifications.error(err.message ?? 'Could not approve compliance record.'),
+        }
       });
   }
 
-  rejectCompliance(record: FleetComplianceRow, event?: Event): void {
+  openComplianceReviewForRow(row: FleetComplianceRow, event?: Event): void {
     event?.stopPropagation();
-    if (this.complianceReviewingId != null) {
-      return;
+    const bundle = findComplianceBundleForRow(this.compliance, row);
+    if (bundle?.pendingCount) {
+      this.openComplianceBundleReview(bundle, event);
     }
-    this.complianceReviewingId = record.id;
-    this.fleet
-      .updateCompliance(record.id, {
-        status: 'REVOKED',
-        expiresAt: record.expiresAt,
-        notes: record.notes || undefined,
-      })
-      .pipe(
-        finalize(() => {
-          this.complianceReviewingId = null;
-          this.cdr.detectChanges();
-        }),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: () => {
-          this.notifications.success('Compliance document rejected.');
-          this.loadCompliance();
-          this.loadExpiringCompliance();
-        },
-        error: (err: Error) => this.notifications.error(err.message ?? 'Could not reject compliance record.'),
-      });
+  }
+
+  complianceBundleIcon(bundle: FleetComplianceSubjectBundle): string {
+    return bundle.subjectType === 'driver' ? 'badge' : 'local_shipping';
   }
 
   contractPillClass(status: TransporterPartnerRow['contractStatus']): string {

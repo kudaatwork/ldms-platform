@@ -163,6 +163,19 @@ export interface OrganizationProfileDetail {
   customers: OrganizationLinkRow[];
   transporters: OrganizationLinkRow[];
   clearingAgents: OrganizationLinkRow[];
+  standaloneMode?: boolean;
+  inventoryManagementEnabled?: boolean;
+  crossDockingEnabled?: boolean;
+  inventoryDataSource?: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
+  counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
+}
+
+export interface OperationalSettingsPayload {
+  standaloneMode: boolean;
+  inventoryManagementEnabled: boolean;
+  crossDockingEnabled: boolean;
+  inventoryDataSource: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
+  counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
 }
 
 /**
@@ -210,6 +223,11 @@ export interface RegisterOrganizationPayload {
   taxClearanceCertificateUpload?: File;
   taxClearanceCertificateUploadId?: number;
   duplexMode?: boolean;
+  standaloneMode?: boolean;
+  inventoryManagementEnabled?: boolean;
+  crossDockingEnabled?: boolean;
+  inventoryDataSource?: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
+  counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
 }
 
 export interface KycDecisionPayload {

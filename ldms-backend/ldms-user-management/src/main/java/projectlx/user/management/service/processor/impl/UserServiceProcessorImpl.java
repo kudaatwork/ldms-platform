@@ -3,6 +3,7 @@ package projectlx.user.management.service.processor.impl;
 import com.lowagie.text.DocumentException;
 import org.springframework.data.domain.Page;
 import projectlx.user.management.business.logic.api.UserService;
+import projectlx.user.management.business.logic.support.DriverPlatformProvisioner;
 import projectlx.user.management.business.logic.support.OrganizationContactCredentialsIssuer;
 import projectlx.user.management.business.logic.support.OrganizationContactPersonProvisioner;
 import projectlx.user.management.service.processor.api.UserServiceProcessor;
@@ -13,6 +14,7 @@ import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
 import projectlx.user.management.utils.requests.CompleteCredentialsSetupRequest;
 import projectlx.user.management.utils.requests.IssueOrganizationContactCredentialsRequest;
+import projectlx.user.management.utils.requests.ProvisionDriverPlatformUserRequest;
 import projectlx.user.management.utils.requests.ProvisionOrganizationContactPersonRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UsernameAvailabilityResponse;
@@ -34,6 +36,7 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
     private final UserService userService;
     private final OrganizationContactPersonProvisioner organizationContactPersonProvisioner;
     private final OrganizationContactCredentialsIssuer organizationContactCredentialsIssuer;
+    private final DriverPlatformProvisioner driverPlatformProvisioner;
     private static final Logger logger = LoggerFactory.getLogger(UserServiceProcessorImpl.class);
 
     @Override
@@ -506,5 +509,16 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
     public UserResponse verifyLoginOtp(String usernameOrPhone, String otp, Locale locale) {
         logger.info("Incoming system request to verify login OTP for: {}", usernameOrPhone);
         return userService.verifyLoginOtp(usernameOrPhone, otp, locale);
+    }
+
+    @Override
+    public UserResponse provisionDriverPlatformAccess(
+            ProvisionDriverPlatformUserRequest request, Locale locale, String actor) {
+        logger.info("Incoming request to provision driver platform access for org={}, email={}",
+                request != null ? request.getOrganizationId() : null,
+                request != null ? request.getEmail() : null);
+        UserResponse response = driverPlatformProvisioner.provisionWithTemporaryCredentials(request, locale, actor);
+        logger.info("Driver provisioning result: success={} status={}", response.isSuccess(), response.getStatusCode());
+        return response;
     }
 }

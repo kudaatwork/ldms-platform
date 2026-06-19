@@ -58,6 +58,8 @@ public class SharedJwtSecurityConfig {
                 ).permitAll()
                 .requestMatchers(HttpMethod.POST, "/ldms-*/v1/frontend/organization/register").permitAll()
                 .requestMatchers(HttpMethod.POST, "/ldms-*/v1/frontend/help-support/demo-requisition/submit").permitAll()
+                .requestMatchers(HttpMethod.POST, "/ldms-fleet-management/v1/frontend/fleet/drivers/signup-request").permitAll()
+                .requestMatchers(HttpMethod.POST, "/ldms-fleet-management/v1/frontend/fleet/drivers/signup-request/document-upload").permitAll()
                 .requestMatchers(HttpMethod.GET, "/ldms-*/v1/frontend/organization/onboarding-status/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/ldms-*/v1/system/organization/onboarding-status/**").permitAll()
                 // Admin portal (backoffice): JWT checked at the gateway; services trust internal calls.

@@ -1,0 +1,109 @@
+<section class="oam lx-card">
+  <header class="oam__head">
+    <div>
+      <h3>Operational mode</h3>
+      <p>Configure how <strong>{{ profile.name }}</strong> uses inventory, logistics, and trading partners.</p>
+    </div>
+    <span class="oam__badge">{{ activeModeLabel }}</span>
+  </header>
+
+  <label class="oam__toggle">
+    <input type="checkbox" [(ngModel)]="standaloneMode" [disabled]="saving" />
+    <span class="oam__toggle-copy">
+      <strong>Standalone logistics</strong>
+      <small>Org runs solo — counterparty is a CRM record (Trading partners), not a full platform org.</small>
+    </span>
+  </label>
+
+  <div class="oam__inventory">
+    <p class="oam__inventory-label">Inventory &amp; logistics model</p>
+    <p class="oam__lock-banner" *ngIf="inventoryLocked">
+      <mat-icon>lock</mat-icon>
+      Inventory management is the permanent choice — cross-docking cannot be selected.
+    </p>
+
+    <div class="oam__panel-grid">
+      <article class="oam__panel" [class.oam__panel--active]="inventoryModel === 'FULL_INVENTORY'">
+        <button type="button" class="oam__panel-head" [disabled]="saving" (click)="setInventoryModel('FULL_INVENTORY')">
+          <span class="oam__panel-icon"><mat-icon>inventory_2</mat-icon></span>
+          <span class="oam__panel-head-text">
+            <strong>Inventory management</strong>
+            <span class="oam__panel-note">Products, stock, transfers, POs, and GRVs. Cannot revert to cross-docking.</span>
+          </span>
+        </button>
+        <div class="oam__panel-body" *ngIf="inventoryModel === 'FULL_INVENTORY'">
+          <p class="oam__body-lead">Choose how LDMS receives inventory data.</p>
+          <div class="oam__tab-bar">
+            <button type="button" class="oam__tab" [class.oam__tab--active]="inventoryMgmtTab === 'INTERNAL'" [disabled]="saving" (click)="setInventoryMgmtTab('INTERNAL')">
+              <mat-icon>inventory_2</mat-icon> Capture in LDMS
+            </button>
+            <button type="button" class="oam__tab" [class.oam__tab--active]="inventoryMgmtTab === 'EXTERNAL_API'" [disabled]="saving" (click)="setInventoryMgmtTab('EXTERNAL_API')">
+              <mat-icon>api</mat-icon> Sync via API
+            </button>
+          </div>
+          <div class="oam__tab-panel" *ngIf="inventoryMgmtTab === 'INTERNAL'">
+            <p>Full stock ledger in LDMS — products, warehouses, on-hand quantities, WAC, bin locations, transfers, POs, and GRVs.</p>
+          </div>
+          <div class="oam__tab-panel" *ngIf="inventoryMgmtTab === 'EXTERNAL_API'">
+            <p>ERP/WMS pushes products, categories, stock levels, and transfers via REST. Organisation configures API keys on the platform portal Integration API page.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="oam__panel oam__panel--crossdock" [class.oam__panel--active]="inventoryModel === 'CROSS_DOCKING'" [class.oam__panel--disabled]="inventoryLocked">
+        <button type="button" class="oam__panel-head" [disabled]="saving || inventoryLocked" (click)="setInventoryModel('CROSS_DOCKING')">
+          <span class="oam__panel-icon oam__panel-icon--violet"><mat-icon>swap_horiz</mat-icon></span>
+          <span class="oam__panel-head-text">
+            <strong>Cross-docking</strong>
+            <span class="oam__panel-note">Movement tracker only — may upgrade to inventory management later.</span>
+          </span>
+        </button>
+        <div class="oam__panel-body" *ngIf="inventoryModel === 'CROSS_DOCKING' && !inventoryLocked">
+          <div class="oam__crossdock-intro">
+            <h4>Movement tracker, not a stock ledger</h4>
+            <p>Goods pass through the hub without shelf time or warehouse bins.</p>
+          </div>
+          <div class="oam__crossdock-grid">
+            <div class="oam__crossdock-col oam__crossdock-col--tracks">
+              <strong>LDMS tracks</strong>
+              <ul class="oam__list">
+                <li>Inbound arrival, outbound truck, transit status, document matching</li>
+              </ul>
+            </div>
+            <div class="oam__crossdock-col oam__crossdock-col--not">
+              <strong>LDMS does not track</strong>
+              <ul class="oam__list oam__list--muted">
+                <li>On-hand stock, bins, WAC, reservations, reorder points</li>
+              </ul>
+            </div>
+          </div>
+          <div class="oam__choice-block">
+            <span class="oam__source-label">How dispatch data reaches LDMS</span>
+            <div class="oam__choice-list">
+              <label class="oam__choice" [class.oam__choice--active]="inventoryDataSource === 'EXTERNAL_API'">
+                <input type="radio" name="oamDs" [checked]="inventoryDataSource === 'EXTERNAL_API'" (change)="setCrossDockFlow('EXTERNAL_API')" [disabled]="saving" />
+                <span class="oam__choice-copy">
+                  <strong>API integration</strong>
+                  <small>Push inbound/outbound events from your WMS.</small>
+                </span>
+              </label>
+              <label class="oam__choice" [class.oam__choice--active]="inventoryDataSource === 'MANUAL_ACK'">
+                <input type="radio" name="oamDs" [checked]="inventoryDataSource === 'MANUAL_ACK'" (change)="setCrossDockFlow('MANUAL_ACK')" [disabled]="saving" />
+                <span class="oam__choice-copy">
+                  <strong>Manual acknowledgement</strong>
+                  <small>Operators confirm arrival, loading, and departure in the portal.</small>
+                </span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+
+  <footer class="oam__actions">
+    <button mat-flat-button color="primary" type="button" (click)="save()" [disabled]="saving">
+      Save operational mode
+    </button>
+  </footer>
+</section>

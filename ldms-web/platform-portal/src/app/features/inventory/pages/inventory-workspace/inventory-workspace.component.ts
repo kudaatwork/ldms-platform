@@ -21,6 +21,7 @@ import {
   salesOrderStatusCssClass,
   transferStatusCssClass,
 } from '../../utils/inventory-status.util';
+import { transferRouteSummary } from '../../utils/route-stops.util';
 import {
   STOCK_STATUS_FILTER_OPTIONS,
   stockLevelStatusCssClass,
@@ -52,6 +53,8 @@ import {
 } from '../../components/inventory-detail-dialog/inventory-detail-dialog.component';
 import { ViewTransferDialogComponent } from '../../components/view-transfer-dialog/view-transfer-dialog.component';
 import type { ViewTransferDialogResult } from '../../components/view-transfer-dialog/view-transfer-dialog.component';
+import { EditTransferDialogComponent } from '../../components/edit-transfer-dialog/edit-transfer-dialog.component';
+import type { EditTransferDialogData } from '../../components/edit-transfer-dialog/edit-transfer-dialog.component';
 import { WarehouseSharingDialogComponent } from '../../components/warehouse-sharing-dialog/warehouse-sharing-dialog.component';
 import type { WarehouseSharingDialogData } from '../../components/warehouse-sharing-dialog/warehouse-sharing-dialog.component';
 import {
@@ -327,12 +330,10 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
         this.cdr.markForCheck();
       });
 
-    this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
-      const tab = params.get('tab') as InventoryWorkspaceTab | null;
-      if (tab && this.isValidTab(tab)) {
-        this.applyRouteTab(tab);
-      }
+    this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.syncTabFromRoute();
     });
+    this.syncTabFromRoute();
 
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
       const tab = params.get('tab') as InventoryWorkspaceTab | null;
@@ -378,6 +379,19 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       user?.duplexMode,
       this.duplexTradingMode.activeMode,
     );
+  }
+
+  /** ERP / cross-dock API key setup — only when inventory is fed via external API or cross-dock mode. */
+  get showIntegrationSetupTab(): boolean {
+    const user = this.authState.currentUser;
+    if (!user) {
+      return false;
+    }
+    const crossDockOnly = !!user.crossDockingEnabled && user.inventoryManagementEnabled === false;
+    if (crossDockOnly) {
+      return true;
+    }
+    return user.inventoryDataSource === 'EXTERNAL_API';
   }
 
   get isOrgAdministrator(): boolean {
@@ -1880,6 +1894,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
         fields: this.transferDetailFields(transfer),
         canApprove: this.canApproveTransfer(transfer),
         canReject: this.canRejectTransfer(transfer),
+        canEdit: transfer.status === 'REQUESTED',
       },
     });
 
@@ -1890,11 +1905,50 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
         if (!result) {
           return;
         }
+        if (result.action === 'edit') {
+          this.openEditTransfer(transfer);
+          return;
+        }
         if (result.action === 'approved') {
           this.onApproveTransfer(transfer);
           return;
         }
         this.onRejectTransfer(transfer, result.reason);
+      });
+  }
+
+  openEditTransfer(transfer: TransferRow): void {
+    const userId = Number(this.authState.currentUser?.userId ?? 0);
+    if (!userId) {
+      this.notifications.error('Sign in again to edit transfers.');
+      return;
+    }
+    this.dialog
+      .open(EditTransferDialogComponent, {
+        width: '720px',
+        maxWidth: '95vw',
+        panelClass: 'lx-location-dialog-panel',
+        data: {
+          transfer,
+          products: this.products,
+          warehouses: this.warehouses,
+          stock: this.stock,
+          updatedByUserId: userId,
+        } satisfies EditTransferDialogData,
+      })
+      .afterClosed()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((updated: TransferRow | undefined) => {
+        if (!updated) {
+          return;
+        }
+        this.transfers = this.inventoryService.enrichTransferRows(
+          this.transfers.map((row) => (row.id === updated.id ? updated : row)),
+          this.products,
+          this.warehouses,
+        );
+        this.notifications.success('Transfer updated.');
+        this.cdr.markForCheck();
       });
   }
 
@@ -2486,6 +2540,10 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   readonly entityStatusClass = entityStatusCssClass;
   readonly entityStatusText = entityStatusLabel;
   readonly transferStatusClass = transferStatusCssClass;
+
+  transferRouteLabel(row: TransferRow): string {
+    return transferRouteSummary(row.routeStops);
+  }
   readonly requisitionStatusClass = requisitionStatusCssClass;
   readonly purchaseOrderStatusClass = purchaseOrderStatusCssClass;
   readonly salesOrderStatusClass = salesOrderStatusCssClass;
@@ -2523,6 +2581,15 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   // ── Private loaders ───────────────────────────────────────────────────────
+
+  private syncTabFromRoute(): void {
+    const tabParam = this.route.snapshot.paramMap.get('tab');
+    const dataTab = this.route.snapshot.data['tab'];
+    const candidate = (tabParam ?? dataTab) as InventoryWorkspaceTab | null;
+    if (candidate && this.isValidTab(candidate)) {
+      this.applyRouteTab(candidate);
+    }
+  }
 
   private applyRouteTab(tab: InventoryWorkspaceTab): void {
     if (tab === 'stock' && !this.preserveStockDrillOnRoute) {
@@ -2987,6 +3054,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       'quotations',
       'purchase-orders',
       'sales-orders',
+      'integration-setup',
     ].includes(tab);
   }
 

@@ -115,6 +115,36 @@
         <p class="lx-field-hint" *ngIf="suggestCrossBorder">
           Source and destination appear to be in different countries — border clearance will be required after approval.
         </p>
+        <div class="transfer-cross-border__callout lx-card" *ngIf="crossBorderSelected">
+          <mat-icon>public</mat-icon>
+          <div>
+            <strong>What happens after approval</strong>
+            <p>
+              LDMS creates a shipment for this transfer. A <strong>border clearance case</strong> is opened automatically
+              under <em>Shipments → Border clearance</em>. Upload customs documents there before the truck can cross the border.
+              En-route warehouse stops still apply — the truck can stage at depots before and after the border.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- En-route warehouse stops -->
+      <div class="lx-field span-2" *ngIf="fromWarehouseSelected && toLocationId > 0">
+        <app-en-route-warehouse-stops
+          [warehouses]="warehouses"
+          [fromLocationId]="fromLocationId"
+          [toLocationId]="toLocationId"
+          [stopIds]="selectedDepotIds"
+          [disabled]="submitting"
+          (stopIdsChange)="onEnRouteStopsChange($event)"
+        ></app-en-route-warehouse-stops>
+        <app-logistics-route-journey
+          class="transfer-depots__preview"
+          [originLabel]="originLabel"
+          [destinationLabel]="destinationLabel"
+          [stops]="previewRouteStops"
+          [compact]="true"
+        ></app-logistics-route-journey>
       </div>
 
       <div class="lx-field span-2" *ngIf="selectedFromStock">

@@ -6,6 +6,7 @@ import org.springframework.web.multipart.MultipartFile;
 import projectlx.co.zw.organizationmanagement.model.OrganizationClassification;
 import projectlx.co.zw.organizationmanagement.model.OrganizationType;
 import projectlx.co.zw.shared_library.utils.enums.Gender;
+import projectlx.co.zw.shared_library.utils.enums.InventoryDataSource;
 
 @Getter
 @Setter
@@ -65,4 +66,36 @@ public class RegisterOrganizationRequest {
     private String contractStartDate;
     /** ISO date {@code yyyy-MM-dd}; optional open-ended contract when omitted. */
     private String contractEndDate;
+
+    // === Operational mode defaults (optional; defaults applied server-side when null) ===
+
+    /**
+     * When true, org runs solo logistics; counterparty is a CRM/trading-partner record only.
+     * Defaults to {@code false} when not supplied.
+     */
+    private Boolean standaloneMode;
+
+    /**
+     * When true, full stock management is enabled via the LDMS Inventory module.
+     * Defaults to {@code true} when not supplied.
+     */
+    private Boolean inventoryManagementEnabled;
+
+    /**
+     * When true, org operates cross-dock logistics (mutually exclusive with full inventory management).
+     * Defaults to {@code false} when not supplied.
+     */
+    private Boolean crossDockingEnabled;
+
+    /**
+     * How inventory data is sourced.
+     * Defaults to {@link InventoryDataSource#INTERNAL} when not supplied.
+     */
+    private InventoryDataSource inventoryDataSource;
+
+    /**
+     * When {@link #standaloneMode} is false: RECORD_ONLY or PLATFORM_ORG.
+     * Defaults to PLATFORM_ORG when not supplied.
+     */
+    private projectlx.co.zw.shared_library.utils.enums.CounterpartyEngagementMode counterpartyEngagementMode;
 }

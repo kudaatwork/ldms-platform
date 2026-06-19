@@ -1,0 +1,59 @@
+<div class="ers lx-card">
+  <header class="ers__head">
+    <mat-icon>alt_route</mat-icon>
+    <div>
+      <strong>{{ label }}</strong>
+      <p>{{ hint }}</p>
+    </div>
+  </header>
+
+  <div class="ers__route" *ngIf="fromLocationId > 0 && toLocationId > 0">
+    <div class="ers__endpoint ers__endpoint--from">
+      <span class="ers__endpoint-tag">From</span>
+      <strong>{{ fromLabel }}</strong>
+    </div>
+
+    <div class="ers__stops">
+      <div class="ers__stop-row" *ngFor="let stopId of stopIds; let i = index">
+        <span class="ers__stop-num">{{ i + 1 }}</span>
+        <select
+          class="ers__stop-select"
+          [value]="stopId"
+          [disabled]="disabled"
+          (change)="onStopChange(i, +$any($event.target).value)"
+        >
+          <option *ngFor="let w of optionsForRow(i)" [value]="w.id">{{ w.name }}</option>
+        </select>
+        <button type="button" class="ers__remove" [disabled]="disabled" (click)="removeStop(i)" aria-label="Remove stop">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
+      <div class="ers__add-row">
+        <button
+          type="button"
+          class="ers__add-btn"
+          [disabled]="disabled || !canAddStop()"
+          (click)="addStop()"
+          aria-label="Add en-route warehouse stop"
+          [attr.title]="addStopHint"
+        >
+          <mat-icon>add</mat-icon>
+        </button>
+        <div class="ers__add-copy">
+          <span class="ers__add-label">Add en-route warehouse</span>
+          <span class="ers__add-hint">{{ addStopHint }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="ers__endpoint ers__endpoint--to">
+      <span class="ers__endpoint-tag">To</span>
+      <strong>{{ toLabel }}</strong>
+    </div>
+  </div>
+
+  <p class="ers__empty" *ngIf="fromLocationId <= 0 || toLocationId <= 0">
+    Select source and destination warehouses first, then add intermediate stops.
+  </p>
+</div>

@@ -217,6 +217,7 @@ public class TripLiveServiceImpl implements TripLiveService {
             TripLiveSnapshotDto snapshot = telemetryPublisher.buildSnapshot(
                     trip, null, null, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, false, false);
             snapshotEnricher.enrich(trip, null, snapshot);
+            applyDeliveryUxFields(trip, null, snapshot);
             return snapshot;
         }
         TripLiveSnapshotDto snapshot = telemetryPublisher.buildSnapshot(
@@ -234,7 +235,36 @@ public class TripLiveServiceImpl implements TripLiveService {
             log.warn("Unable to build corridor path for trip {}: {}", tripId, ex.getMessage());
         }
         snapshotEnricher.enrich(trip, plan, snapshot);
+        applyDeliveryUxFields(trip, plan, snapshot);
         return snapshot;
+    }
+
+    private void applyDeliveryUxFields(Trip trip, TripRoutePlan plan, TripLiveSnapshotDto snapshot) {
+        if (trip == null || snapshot == null) {
+            return;
+        }
+        TripStatus status = trip.getStatus();
+        snapshot.setReturnJourneyActive(status == TripStatus.RETURN_IN_TRANSIT);
+        if (status == TripStatus.RETURN_IN_TRANSIT) {
+            snapshot.setDeliveryPhaseLabel("Returning to depot");
+        } else if (status == TripStatus.RETURNED) {
+            snapshot.setDeliveryPhaseLabel("Return complete");
+        } else if (status == TripStatus.DELIVERED) {
+            snapshot.setDeliveryPhaseLabel("Delivered — ready for return");
+        } else if (status == TripStatus.OTP_PENDING) {
+            snapshot.setDeliveryPhaseLabel("Awaiting OTP verification");
+        } else if (status == TripStatus.COUNTING_STOCK) {
+            snapshot.setDeliveryPhaseLabel("Stock counting in progress");
+        } else if (status == TripStatus.COUNT_COMPLETE) {
+            snapshot.setDeliveryPhaseLabel("Counting complete — send OTP");
+        } else if (status == TripStatus.ARRIVED) {
+            snapshot.setDeliveryPhaseLabel("At destination — start delivery");
+        }
+        BigDecimal progress = snapshot.getOverallProgressPct();
+        boolean nearDestination = progress != null && progress.compareTo(new BigDecimal("97")) >= 0;
+        snapshot.setAwaitingArrivalConfirmation(
+                status == TripStatus.IN_TRANSIT && nearDestination
+                        && (plan == null || !plan.isSimulationActive()));
     }
 
     private static BigDecimal nullSafe(BigDecimal value) {

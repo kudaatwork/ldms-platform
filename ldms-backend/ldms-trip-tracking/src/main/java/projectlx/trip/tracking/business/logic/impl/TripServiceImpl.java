@@ -14,6 +14,7 @@ import projectlx.trip.tracking.business.auditable.api.TripEventServiceAuditable;
 import projectlx.trip.tracking.business.auditable.api.TripServiceAuditable;
 import projectlx.trip.tracking.business.logic.api.TripService;
 import projectlx.trip.tracking.business.logic.support.CallerOrganizationResolver;
+import projectlx.trip.tracking.business.logic.support.TripDriverPortalSupport;
 import projectlx.trip.tracking.business.logic.support.LogisticsNotificationRecipientResolver;
 import projectlx.trip.tracking.business.logic.support.TripIotDemoSimulator;
 import projectlx.trip.tracking.business.logic.support.TripMapper;
@@ -42,6 +43,8 @@ import projectlx.trip.tracking.utils.dtos.InventoryStartTransitDto;
 import projectlx.trip.tracking.utils.dtos.ShipmentSummaryDto;
 import projectlx.trip.tracking.utils.requests.UpdateShipmentStatusFeignRequest;
 import projectlx.trip.tracking.utils.responses.ShipmentFeignResponse;
+import projectlx.trip.tracking.utils.dtos.DriverTripMetricsDto;
+import projectlx.trip.tracking.utils.dtos.DriverTripSummaryDto;
 import projectlx.trip.tracking.utils.dtos.TripDto;
 import projectlx.trip.tracking.utils.dtos.TripEventDto;
 import projectlx.trip.tracking.utils.enums.I18Code;
@@ -99,10 +102,12 @@ public class TripServiceImpl implements TripService {
     private final ShipmentTripStartLock shipmentTripStartLock;
     private final LogisticsLifecycleNotificationSupport logisticsLifecycleNotificationSupport;
     private final LogisticsNotificationRecipientResolver recipientResolver;
+    private final TripDriverPortalSupport tripDriverPortalSupport;
 
     private static final List<TripStatus> ACTIVE_STATUSES = List.of(
             TripStatus.SCHEDULED, TripStatus.IN_TRANSIT, TripStatus.AT_BORDER_HOLD,
-            TripStatus.ROADSIDE_HOLD, TripStatus.ARRIVED, TripStatus.OTP_PENDING);
+            TripStatus.ROADSIDE_HOLD, TripStatus.ARRIVED, TripStatus.COUNTING_STOCK,
+            TripStatus.COUNT_COMPLETE, TripStatus.OTP_PENDING);
 
     /**
      * Start Trip: Allocate driver + asset, link inventory transfer, notify shipment service.
@@ -419,16 +424,18 @@ public class TripServiceImpl implements TripService {
     }
 
     /**
-     * Trigger arrival: sets trip ARRIVED → OTP_PENDING, generates OTP, sends notification.
+     * Trigger arrival: sets trip status ARRIVED, creates the delivery workflow, notifies shipment service.
+     *
+     * NOTE: OTP generation has been moved to TripDeliveryService.sendDeliveryOtp — call that endpoint
+     * after stock counting is complete (COUNT_COMPLETE) to generate and send the OTP.
      *
      * Flow:
      * 1. Validate
      * 2. Load trip and assert IN_TRANSIT
-     * 3. Set ARRIVED and OTP_PENDING
-     * 4. Generate 6-digit OTP, BCrypt hash, persist delivery_otp (expires 30 min)
-     * 5. Publish OTP notification via RabbitMQ notifications.direct
-     * 6. Record ARRIVED + OTP_SENT events
-     * 7. Update shipment to ARRIVED_PENDING_OTP
+     * 3. Set status ARRIVED, record arrivedAt
+     * 4. Create/ensure trip_delivery_workflow
+     * 5. Record ARRIVED event
+     * 6. Update shipment to ARRIVED_PENDING_OTP
      */
     @Override
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -445,7 +452,7 @@ public class TripServiceImpl implements TripService {
         }
 
         // ============================================================
-        // STEP 2: Load and lock trip
+        // STEP 2: Load trip and assert IN_TRANSIT
         // ============================================================
         Trip trip = tripRepository.findByIdAndEntityStatusNot(request.getTripId(), EntityStatus.DELETED).orElse(null);
         if (trip == null) {
@@ -457,61 +464,24 @@ public class TripServiceImpl implements TripService {
         }
 
         // ============================================================
-        // STEP 3: Transition trip status → OTP_PENDING
+        // STEP 3: Transition trip status → ARRIVED
         // ============================================================
         LocalDateTime now = LocalDateTime.now();
-        trip.setStatus(TripStatus.OTP_PENDING);
+        trip.setStatus(TripStatus.ARRIVED);
         trip.setArrivedAt(now);
         trip.setModifiedAt(now);
         trip.setModifiedBy(username);
         tripServiceAuditable.update(trip, locale, username);
+        log.info("Trip {} status set to ARRIVED at {}", trip.getId(), now);
 
         // ============================================================
-        // STEP 4: Generate and store OTP
-        // ============================================================
-        String rawOtp = generateSixDigitOtp();
-        String otpHash = bCryptPasswordEncoder.encode(rawOtp);
-        LocalDateTime otpExpiry = now.plusMinutes(30);
-
-        DeliveryOtp deliveryOtp = new DeliveryOtp();
-        deliveryOtp.setTrip(trip);
-        deliveryOtp.setOtpCodeHash(otpHash);
-        deliveryOtp.setExpiresAt(otpExpiry);
-        deliveryOtp.setSentToUserId(request.getDriverUserId());
-        deliveryOtp.setSentAt(now);
-        deliveryOtp.setEntityStatus(EntityStatus.ACTIVE);
-        deliveryOtp.setCreatedAt(now);
-        deliveryOtp.setCreatedBy(username);
-        deliveryOtpServiceAuditable.create(deliveryOtp, locale, username);
-        log.info("OTP generated for trip {} expires at {}", trip.getId(), otpExpiry);
-
-        // ============================================================
-        // STEP 5: Publish OTP notification via notifications.direct
-        // ============================================================
-        try {
-            Map<String, Object> notificationPayload = new HashMap<>();
-            notificationPayload.put("templateCode", "DELIVERY_ARRIVAL_OTP");
-            notificationPayload.put("tripId", trip.getId());
-            notificationPayload.put("tripNumber", trip.getTripNumber());
-            notificationPayload.put("recipientUserId", request.getDriverUserId());
-            notificationPayload.put("otp", rawOtp); // dev-mode: include raw OTP for SMS
-            notificationPayload.put("expiresAt", otpExpiry.toString());
-            rabbitTemplate.convertAndSend("notifications.direct", "notifications.send", notificationPayload);
-            log.info("OTP notification enqueued for trip {}", trip.getId());
-        } catch (Exception ex) {
-            log.error("Failed to publish OTP notification for trip {}: {}", trip.getId(), ex.getMessage());
-        }
-
-        // ============================================================
-        // STEP 6: Record ARRIVED + OTP_SENT events
+        // STEP 4: Record ARRIVED event
         // ============================================================
         recordTripEvent(trip, TripEventType.ARRIVED, null, null,
                 "Driver arrived at destination", request.getDriverUserId(), username, now, locale);
-        recordTripEvent(trip, TripEventType.OTP_SENT, null, null,
-                "OTP sent to user " + request.getDriverUserId(), request.getDriverUserId(), username, now, locale);
 
         // ============================================================
-        // STEP 7: Update shipment → ARRIVED_PENDING_OTP
+        // STEP 5: Update shipment → ARRIVED_PENDING_OTP
         // ============================================================
         try {
             UpdateShipmentStatusFeignRequest statusUpdate = new UpdateShipmentStatusFeignRequest();
@@ -734,6 +704,55 @@ public class TripServiceImpl implements TripService {
         return response;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public TripResponse listMyTrips(Locale locale, String username) {
+        Long fleetDriverId = tripDriverPortalSupport.resolveFleetDriverId(username, locale);
+        if (fleetDriverId == null) {
+            return errorResponse(404, messageService.getMessage(
+                    I18Code.MESSAGE_DRIVER_PROFILE_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        List<DriverTripSummaryDto> trips = tripDriverPortalSupport.listTripsForDriver(fleetDriverId);
+        TripResponse response = successResponse(200,
+                messageService.getMessage(I18Code.MESSAGE_TRIP_FIND_ALL_SUCCESS.getCode(), new String[]{}, locale));
+        response.setDriverTripSummaryDtoList(trips);
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TripResponse findMyTripById(Long tripId, Locale locale, String username) {
+        Long sessionUserId = tripDriverPortalSupport.resolveSessionUserId(username, locale);
+        Long fleetDriverId = tripDriverPortalSupport.resolveFleetDriverId(username, locale);
+        if (fleetDriverId == null) {
+            return errorResponse(404, messageService.getMessage(
+                    I18Code.MESSAGE_DRIVER_PROFILE_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        Trip trip = tripRepository.findByIdAndEntityStatusNotNoLock(tripId, EntityStatus.DELETED).orElse(null);
+        if (trip == null || !tripDriverPortalSupport.isTripAccessibleToDriver(trip, fleetDriverId, sessionUserId, locale)) {
+            return errorResponse(404, messageService.getMessage(I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        TripResponse response = successResponse(200,
+                messageService.getMessage(I18Code.MESSAGE_TRIP_FIND_SUCCESS.getCode(), new String[]{}, locale));
+        response.setDriverTripSummaryDto(tripDriverPortalSupport.toSummary(trip));
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TripResponse getMyTripMetrics(Locale locale, String username) {
+        Long fleetDriverId = tripDriverPortalSupport.resolveFleetDriverId(username, locale);
+        if (fleetDriverId == null) {
+            return errorResponse(404, messageService.getMessage(
+                    I18Code.MESSAGE_DRIVER_PROFILE_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        DriverTripMetricsDto metrics = tripDriverPortalSupport.metricsForDriver(fleetDriverId);
+        TripResponse response = successResponse(200,
+                messageService.getMessage(I18Code.MESSAGE_TRIP_FIND_ALL_SUCCESS.getCode(), new String[]{}, locale));
+        response.setDriverTripMetricsDto(metrics);
+        return response;
+    }
+
     /**
      * Milestone events for operator timelines — excludes high-frequency GPS CHECKPOINT pings.
      */
@@ -936,7 +955,9 @@ public class TripServiceImpl implements TripService {
         Set<Long> seenActiveShipments = new HashSet<>();
         List<TripDto> result = new ArrayList<>();
         for (TripDto dto : trips) {
-            boolean terminal = dto.getStatus() == TripStatus.DELIVERED || dto.getStatus() == TripStatus.CANCELLED;
+            boolean terminal = dto.getStatus() == TripStatus.DELIVERED
+                    || dto.getStatus() == TripStatus.RETURNED
+                    || dto.getStatus() == TripStatus.CANCELLED;
             if (dto.getShipmentId() == null || terminal) {
                 result.add(dto);
                 continue;

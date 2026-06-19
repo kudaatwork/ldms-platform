@@ -219,6 +219,14 @@ export class AuthService {
     return portalHomeRoute(this.authState.currentUser, this.duplexTradingMode.activeMode);
   }
 
+  /** Route commands for the driver portal after login or credential setup. */
+  postLoginRouteForDriver(): string[] {
+    if (this.authState.currentUser?.mustChangeCredentials) {
+      return ['/auth/setup-credentials'];
+    }
+    return ['/driver/workspace'];
+  }
+
   logout(): void {
     this.clearSessionCache();
     this.sessionExpiry.clearWatch();
@@ -313,15 +321,9 @@ export class AuthService {
     this.sessionEnrichment$.subscribe();
   }
 
-  private shouldFetchOrganization(token: string): boolean {
-    const jwt = currentUserFromJwt(token);
-    if (!jwt) {
-      return true;
-    }
-    const hasId = !!String(jwt.organizationId ?? '').trim();
-    const hasClass = !!String(jwt.orgClassification ?? '').trim();
-    const hasName = !!String(jwt.orgName ?? '').trim();
-    return !(hasId && hasClass && hasName);
+  private shouldFetchOrganization(_token: string): boolean {
+    // Always load org profile so operational mode (inventory API, cross-dock) is available for nav and guards.
+    return true;
   }
 
   private clearSessionCache(): void {
@@ -345,6 +347,11 @@ export class AuthService {
       orgClassification: org.organizationClassification ?? base.orgClassification,
       orgName: org.name ?? base.orgName,
       duplexMode: org.duplexMode ?? base.duplexMode,
+      standaloneMode: org.standaloneMode ?? base.standaloneMode,
+      inventoryManagementEnabled: org.inventoryManagementEnabled ?? base.inventoryManagementEnabled,
+      crossDockingEnabled: org.crossDockingEnabled ?? base.crossDockingEnabled,
+      inventoryDataSource: org.inventoryDataSource ?? base.inventoryDataSource,
+      counterpartyEngagementMode: org.counterpartyEngagementMode ?? base.counterpartyEngagementMode,
     };
   }
 

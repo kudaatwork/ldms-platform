@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import projectlx.trip.tracking.utils.dtos.DriverTripMetricsDto;
+import projectlx.trip.tracking.utils.dtos.DriverTripSummaryDto;
 import projectlx.trip.tracking.utils.dtos.TripDto;
 import projectlx.trip.tracking.utils.dtos.TripEventDto;
 import projectlx.trip.tracking.utils.dtos.TripLiveSnapshotDto;
@@ -22,4 +24,7 @@ public class TripResponse extends CommonResponse {
     private TripEventDto tripEventDto;
     private List<TripEventDto> tripEventDtoList;
     private TripLiveSnapshotDto liveSnapshot;
+    private DriverTripSummaryDto driverTripSummaryDto;
+    private List<DriverTripSummaryDto> driverTripSummaryDtoList;
+    private DriverTripMetricsDto driverTripMetricsDto;
 }

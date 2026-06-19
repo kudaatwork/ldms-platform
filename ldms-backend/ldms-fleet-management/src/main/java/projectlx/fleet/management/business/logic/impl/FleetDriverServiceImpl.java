@@ -7,10 +7,12 @@ import org.springframework.transaction.annotation.Transactional;
 import projectlx.fleet.management.business.auditable.api.FleetDriverServiceAuditable;
 import projectlx.fleet.management.business.logic.api.FleetDriverService;
 import projectlx.fleet.management.business.logic.support.CallerOrganizationResolver;
+import projectlx.fleet.management.business.logic.support.FleetDriverOnboardingSupport;
 import projectlx.fleet.management.business.logic.support.FleetFileUploadHelper;
 import projectlx.fleet.management.business.logic.support.FleetMapper;
 import projectlx.fleet.management.business.logic.support.FleetOwnershipValidationSupport;
 import projectlx.fleet.management.business.validator.api.FleetDriverServiceValidator;
+import projectlx.fleet.management.clients.UserManagementServiceClient;
 import projectlx.fleet.management.model.FleetDriver;
 import projectlx.fleet.management.repository.FleetDriverRepository;
 import projectlx.fleet.management.utils.enums.DriverEmploymentType;
@@ -22,6 +24,8 @@ import projectlx.fleet.management.utils.responses.FleetDriverResponse;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import projectlx.co.zw.shared_library.utils.responses.UserResponse;
+import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -40,6 +44,8 @@ public class FleetDriverServiceImpl implements FleetDriverService {
     private final FleetDriverServiceAuditable fleetDriverServiceAuditable;
     private final FleetFileUploadHelper fleetFileUploadHelper;
     private final FleetOwnershipValidationSupport fleetOwnershipValidationSupport;
+    private final UserManagementServiceClient userManagementServiceClient;
+    private final FleetDriverOnboardingSupport fleetDriverOnboardingSupport;
 
     @Override
     @Transactional(readOnly = true)
@@ -115,6 +121,27 @@ public class FleetDriverServiceImpl implements FleetDriverService {
         driver.setCreatedBy(username);
 
         FleetDriver saved = fleetDriverServiceAuditable.create(driver, locale, username);
+
+        // ============================================================
+        // STEP 3: Optionally provision platform user account
+        // ============================================================
+        if (Boolean.TRUE.equals(request.getProvisionPlatformAccess())
+                && saved.getUserId() == null
+                && StringUtils.hasText(request.getEmail())) {
+            try {
+                UserResponse userResponse = fleetDriverOnboardingSupport
+                        .provisionAndNotify(saved, request.getEmail().trim().toLowerCase(), locale, username);
+                if (userResponse.isSuccess() && userResponse.getUserDto() != null
+                        && userResponse.getUserDto().getId() != null) {
+                    saved.setUserId(userResponse.getUserDto().getId());
+                    saved.setModifiedAt(java.time.LocalDateTime.now());
+                    saved.setModifiedBy(username);
+                    fleetDriverServiceAuditable.update(saved, locale, username);
+                }
+            } catch (Exception ex) {
+                log.warn("Driver platform provisioning failed for driverId={}: {}", saved.getId(), ex.getMessage());
+            }
+        }
 
         FleetDriverResponse response = successResponse(201,
                 messageService.getMessage(I18Code.MESSAGE_DRIVER_CREATE_SUCCESS.getCode(), new String[]{}, locale));
@@ -225,6 +252,133 @@ public class FleetDriverServiceImpl implements FleetDriverService {
         FleetDriverResponse response = successResponse(200, messageService.getMessage(
                 I18Code.MESSAGE_DRIVER_LIST_SUCCESS.getCode(), new String[]{}, locale));
         response.setFleetDriverDto(FleetMapper.toDto(driver));
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FleetDriverResponse findByUserIdForSystem(Long userId, Locale locale) {
+        if (userId == null || userId < 1) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(), new String[]{}, locale));
+        }
+        FleetDriver driver = fleetDriverRepository.findByUserIdAndEntityStatusNot(userId, EntityStatus.DELETED).orElse(null);
+        if (driver == null) {
+            return errorResponse(404, messageService.getMessage(
+                    I18Code.MESSAGE_DRIVER_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+        FleetDriverResponse response = successResponse(200, messageService.getMessage(
+                I18Code.MESSAGE_DRIVER_LIST_SUCCESS.getCode(), new String[]{}, locale));
+        response.setFleetDriverDto(FleetMapper.toDto(driver));
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public FleetDriverResponse findMyProfile(Locale locale, String username) {
+
+        // ============================================================
+        // STEP 1: Resolve platform userId from username
+        // ============================================================
+        Long userId = resolveUserIdFromUsername(username);
+        if (userId == null) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(), new String[]{}, locale));
+        }
+
+        // ============================================================
+        // STEP 2: Look up driver profile linked to userId
+        // ============================================================
+        FleetDriver driver = fleetDriverRepository.findByUserIdAndEntityStatusNot(userId, EntityStatus.DELETED).orElse(null);
+        if (driver == null) {
+            return errorResponse(404, messageService.getMessage(
+                    I18Code.MESSAGE_DRIVER_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+
+        FleetDriverResponse response = successResponse(200, messageService.getMessage(
+                I18Code.MESSAGE_DRIVER_LIST_SUCCESS.getCode(), new String[]{}, locale));
+        response.setFleetDriverDto(FleetMapper.toDto(driver));
+        return response;
+    }
+
+    private Long resolveUserIdFromUsername(String username) {
+        if (username == null || username.isBlank()) {
+            return null;
+        }
+        try {
+            UserResponse userResponse = userManagementServiceClient.findSessionProfileByUsername(username.trim());
+            if (userResponse != null && userResponse.isSuccess() && userResponse.getUserDto() != null
+                    && userResponse.getUserDto().getId() != null && userResponse.getUserDto().getId() > 0) {
+                return userResponse.getUserDto().getId();
+            }
+        } catch (Exception ex) {
+            log.warn("Could not resolve userId for username {} via user-management: {}", username, ex.getMessage());
+        }
+        return null;
+    }
+
+    // ============================================================
+    // Marketplace
+    // ============================================================
+
+    @Override
+    @Transactional(readOnly = true)
+    public FleetDriverResponse searchMarketplace(String term, String licenseClass, Locale locale, String username) {
+        Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
+        if (organizationId == null) {
+            return errorResponse(400, messageService.getMessage(I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(),
+                    new String[]{}, locale));
+        }
+        String termParam = StringUtils.hasText(term) ? term.trim() : null;
+        String licenseClassParam = StringUtils.hasText(licenseClass) ? licenseClass.trim() : null;
+        List<FleetDriver> drivers = fleetDriverRepository.searchMarketplace(
+                EntityStatus.DELETED, organizationId, termParam, licenseClassParam);
+        FleetDriverResponse response = successResponse(200,
+                messageService.getMessage(I18Code.MESSAGE_DRIVER_LIST_SUCCESS.getCode(), new String[]{}, locale));
+        response.setFleetDriverDtoList(drivers.stream().map(FleetMapper::toDto).toList());
+        return response;
+    }
+
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public FleetDriverResponse hireFromMarketplace(Long driverId, Locale locale, String username) {
+        Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
+        if (organizationId == null) {
+            return errorResponse(400, messageService.getMessage(I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(),
+                    new String[]{}, locale));
+        }
+
+        FleetDriver source = fleetDriverRepository.findByIdForReadOnly(driverId, EntityStatus.DELETED).orElse(null);
+        if (source == null || !Boolean.TRUE.equals(source.getMarketplaceVisible())) {
+            return errorResponse(404, messageService.getMessage(I18Code.MESSAGE_DRIVER_NOT_FOUND.getCode(),
+                    new String[]{}, locale));
+        }
+        if (source.getUserId() == null) {
+            return errorResponse(400, "Marketplace driver does not have a platform user account.");
+        }
+        boolean alreadyHired = fleetDriverRepository.existsByUserIdAndOrganizationIdAndEntityStatusNot(
+                source.getUserId(), organizationId, EntityStatus.DELETED);
+        if (alreadyHired) {
+            return errorResponse(409, "This driver is already in your organisation.");
+        }
+
+        FleetDriver hired = new FleetDriver();
+        hired.setOrganizationId(organizationId);
+        hired.setUserId(source.getUserId());
+        hired.setFirstName(source.getFirstName());
+        hired.setLastName(source.getLastName());
+        hired.setPhoneNumber(source.getPhoneNumber());
+        hired.setLicenseNumber(source.getLicenseNumber());
+        hired.setLicenseClass(source.getLicenseClass());
+        hired.setEmploymentType(DriverEmploymentType.POOL);
+        hired.setEntityStatus(EntityStatus.ACTIVE);
+        hired.setCreatedAt(LocalDateTime.now());
+        hired.setCreatedBy(username);
+
+        FleetDriver saved = fleetDriverServiceAuditable.create(hired, locale, username);
+        FleetDriverResponse response = successResponse(201,
+                messageService.getMessage(I18Code.MESSAGE_DRIVER_CREATE_SUCCESS.getCode(), new String[]{}, locale));
+        response.setFleetDriverDto(FleetMapper.toDto(saved));
         return response;
     }
 

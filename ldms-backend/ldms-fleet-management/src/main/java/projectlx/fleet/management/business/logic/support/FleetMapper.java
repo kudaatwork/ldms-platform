@@ -46,6 +46,7 @@ public final class FleetMapper {
         dto.setOrganizationId(entity.getOrganizationId());
         dto.setUserId(entity.getUserId());
         dto.setEmploymentType(entity.getEmploymentType() != null ? entity.getEmploymentType().name() : null);
+        dto.setMarketplaceVisible(entity.getMarketplaceVisible());
         dto.setRosterSource("organization");
 
         // Personal details
@@ -55,11 +56,13 @@ public final class FleetMapper {
         dto.setLicenseNumber(entity.getLicenseNumber());
         dto.setLicenseClass(entity.getLicenseClass());
         dto.setLicenseUploadId(entity.getLicenseUploadId());
+        dto.setLicenseBackUploadId(entity.getLicenseBackUploadId());
 
         // Identity documents
         dto.setNationalIdNumber(entity.getNationalIdNumber());
         dto.setNationalIdExpiryDate(entity.getNationalIdExpiryDate());
         dto.setNationalIdUploadId(entity.getNationalIdUploadId());
+        dto.setNationalIdBackUploadId(entity.getNationalIdBackUploadId());
         dto.setPassportNumber(entity.getPassportNumber());
         dto.setPassportExpiryDate(entity.getPassportExpiryDate());
         dto.setPassportUploadId(entity.getPassportUploadId());
@@ -89,6 +92,11 @@ public final class FleetMapper {
     }
 
     public static FleetTrackingDeviceDto toTrackingDeviceDto(FleetTrackingDevice entity, FleetAsset asset) {
+        return toTrackingDeviceDto(entity, asset, false);
+    }
+
+    public static FleetTrackingDeviceDto toTrackingDeviceDto(
+            FleetTrackingDevice entity, FleetAsset asset, boolean maskIngestKey) {
         FleetTrackingDeviceDto dto = new FleetTrackingDeviceDto();
         dto.setId(entity.getId());
         dto.setOrganizationId(entity.getOrganizationId());
@@ -101,7 +109,7 @@ public final class FleetMapper {
         dto.setDeviceLabel(entity.getDeviceLabel());
         dto.setDeviceSerial(entity.getDeviceSerial());
         dto.setExternalDeviceId(entity.getExternalDeviceId());
-        dto.setIngestKey(entity.getIngestKey());
+        dto.setIngestKey(maskIngestKey ? maskIngestKey(entity.getIngestKey()) : entity.getIngestKey());
         dto.setTracksGps(entity.isTracksGps());
         dto.setTracksFuel(entity.isTracksFuel());
         dto.setMqttTopic(entity.getMqttTopic());
@@ -119,6 +127,13 @@ public final class FleetMapper {
             dto.setVehicleMakeModel(asset.getMakeModel());
         }
         return dto;
+    }
+
+    public static String maskIngestKey(String ingestKey) {
+        if (ingestKey == null || ingestKey.length() <= 16) {
+            return ingestKey;
+        }
+        return ingestKey.substring(0, 8) + "…" + ingestKey.substring(ingestKey.length() - 4);
     }
 
     public static FleetComplianceRecordDto toDto(FleetComplianceRecord entity) {

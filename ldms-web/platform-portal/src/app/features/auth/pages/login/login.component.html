@@ -45,9 +45,28 @@
 
   <div class="login-right">
     <div class="login-card">
+
+      <!-- Portal type tab switcher -->
+      <div class="lc-portal-tabs" *ngIf="!twoFactorStep">
+        <button class="lc-portal-tab" [class.lc-portal-tab--active]="portalTab === 'org'"
+          (click)="selectTab('org')" type="button">
+          <span class="material-icons" aria-hidden="true">business</span>
+          Organisation
+        </button>
+        <button class="lc-portal-tab" [class.lc-portal-tab--active]="portalTab === 'driver'"
+          (click)="selectTab('driver')" type="button">
+          <span class="material-icons" aria-hidden="true">local_shipping</span>
+          Driver
+        </button>
+      </div>
+
       <div class="lc-header">
         <h1 class="lc-title">{{ twoFactorStep ? 'Two-step verification' : 'Sign in' }}</h1>
-        <p class="lc-sub" *ngIf="!twoFactorStep">Platform Portal · Organisation access</p>
+        <p class="lc-sub" *ngIf="!twoFactorStep && portalTab === 'org'">Platform Portal · Organisation access</p>
+        <p class="lc-sub lc-sub--driver" *ngIf="!twoFactorStep && portalTab === 'driver'">
+          <span class="material-icons" aria-hidden="true">local_shipping</span>
+          Driver Portal · Mobile logistics workspace
+        </p>
       </div>
 
       <div class="lc-error" *ngIf="error">
@@ -95,9 +114,9 @@
           <a routerLink="/auth/reset-password">Reset password</a>
         </div>
 
-        <button type="submit" class="lc-submit" [disabled]="loading">
+        <button type="submit" class="lc-submit" [class.lc-submit--driver]="portalTab === 'driver'" [disabled]="loading">
           <span class="lc-spinner" *ngIf="loading"></span>
-          {{ loading ? 'Signing in...' : 'Sign in to Platform Portal' }}
+          {{ loading ? 'Signing in...' : (portalTab === 'driver' ? 'Sign in to Driver Portal' : 'Sign in to Platform Portal') }}
           <span class="material-icons" *ngIf="!loading" aria-hidden="true">arrow_forward</span>
         </button>
       </form>
@@ -168,7 +187,12 @@
       <p class="lc-footer-links">
         <a routerLink="/welcome">Back to home</a>
         <span class="lc-footer-links__sep">·</span>
-        <a routerLink="/signup">Create organisation account</a>
+        <ng-container *ngIf="portalTab === 'org'">
+          <a routerLink="/signup">Create organisation account</a>
+        </ng-container>
+        <ng-container *ngIf="portalTab === 'driver'">
+          <a routerLink="/driver/signup">Join as a driver</a>
+        </ng-container>
       </p>
     </div>
   </div>

@@ -201,6 +201,21 @@ public class OrganizationServiceImpl implements OrganizationService {
         org.setPhoneNumber(request.getPhoneNumber());
         org.setOrganizationClassification(request.getOrganizationClassification());
         org.setDuplexMode(Boolean.TRUE.equals(request.getDuplexMode()));
+
+        // Apply operational mode from request with mutual-exclusivity rules
+        projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationOperationalModeSupport
+                .applySettings(
+                        org,
+                        request.getStandaloneMode(),
+                        request.getInventoryManagementEnabled() == null
+                                ? Boolean.TRUE
+                                : request.getInventoryManagementEnabled(),
+                        request.getCrossDockingEnabled(),
+                        request.getInventoryDataSource() != null
+                                ? request.getInventoryDataSource()
+                                : projectlx.co.zw.shared_library.utils.enums.InventoryDataSource.INTERNAL,
+                        request.getCounterpartyEngagementMode());
+
         if (request.getOrganizationType() != null) {
             org.setOrganizationType(request.getOrganizationType());
         }
@@ -491,19 +506,39 @@ public class OrganizationServiceImpl implements OrganizationService {
             return buildOrganizationResponseWithErrors(v.getErrorMessages());
         }
         Organization org = loadForUser(username);
-        KycStatus ks = org.getKycStatus();
-        if (ks != KycStatus.DRAFT && ks != KycStatus.RESUBMITTED) {
-            return buildOrganizationResponseWithErrors(
-                    List.of(messageService.getMessage(I18Code.ORG_UPDATE_FORBIDDEN_STATUS.getCode(), new String[]{}, locale)));
-        }
-        if (request.getName() != null) {
+
+        // ============================================================
+        // Identity-locked fields: name and email may not be changed once
+        // the organisation contact person is established or KYC has
+        // progressed past DRAFT / RESUBMITTED for signup organisations.
+        // ============================================================
+        boolean identityLocked = isContactIdentityLocked(org);
+
+        if (!identityLocked && request.getName() != null) {
             org.setName(request.getName());
         }
+
+        if (!identityLocked && request.getEmail() != null) {
+            String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
+            if (StringUtils.hasText(normalizedEmail)) {
+                Optional<Organization> emailOwner = organizationRepository
+                        .findByEmailAndEntityStatusNot(normalizedEmail, EntityStatus.DELETED);
+                if (emailOwner.isPresent() && !emailOwner.get().getId().equals(org.getId())) {
+                    return buildOrganizationResponseWithErrors(
+                            List.of(messageService.getMessage(I18Code.ORG_EMAIL_EXISTS.getCode(), new String[]{}, locale)));
+                }
+                if (!normalizedEmail.equals(org.getEmail())) {
+                    org.setEmail(normalizedEmail);
+                    org.setVerified(false);
+                }
+            }
+        }
+
+        // ============================================================
+        // Fields always editable regardless of KYC status
+        // ============================================================
         if (request.getPhoneNumber() != null) {
             org.setPhoneNumber(request.getPhoneNumber());
-        }
-        if (request.getLocationId() != null) {
-            org.setLocationId(request.getLocationId());
         }
         if (request.getWebsiteUrl() != null) {
             org.setWebsiteUrl(request.getWebsiteUrl());
@@ -523,10 +558,32 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (request.getRegionsServed() != null) {
             org.setRegionsServed(request.getRegionsServed());
         }
+
+        // ============================================================
+        // Address / locationId: explicit id takes priority; otherwise
+        // resolve from inline address fields via ldms-locations.
+        // ============================================================
+        if (request.getLocationId() != null && request.getLocationId() > 0) {
+            org.setLocationId(request.getLocationId());
+        } else if (hasAnyAddressFieldForUpdateMy(request)) {
+            Long resolvedLocationId = organizationRegistrationAddressSupport
+                    .resolveLocationIdForUpdateMy(request, locale);
+            if (resolvedLocationId != null) {
+                org.setLocationId(resolvedLocationId);
+            }
+        }
+
         org.setModifiedAt(LocalDateTime.now());
         org.setModifiedBy(username);
         Organization saved = organizationServiceAuditable.save(org);
         return buildOrganizationResponse(OrganizationMapping.toDto(saved));
+    }
+
+    private boolean hasAnyAddressFieldForUpdateMy(UpdateMyOrganizationRequest request) {
+        return StringUtils.hasText(request.getAddressLine1())
+                || StringUtils.hasText(request.getAddressLine2())
+                || StringUtils.hasText(request.getPostalCode())
+                || (request.getSuburbId() != null && request.getSuburbId() > 0);
     }
 
     @Override
@@ -2147,6 +2204,22 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (request.getTaxNumber() != null) {
             org.setTaxNumber(request.getTaxNumber().trim());
         }
+
+        if (request.getStandaloneMode() != null
+                || request.getInventoryManagementEnabled() != null
+                || request.getCrossDockingEnabled() != null
+                || request.getInventoryDataSource() != null
+                || request.getCounterpartyEngagementMode() != null) {
+            projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationOperationalModeSupport
+                    .applySettings(
+                            org,
+                            request.getStandaloneMode(),
+                            request.getInventoryManagementEnabled(),
+                            request.getCrossDockingEnabled(),
+                            request.getInventoryDataSource(),
+                            request.getCounterpartyEngagementMode());
+        }
+
         org.setKycStatus(KycStatus.DRAFT);
         org.setVerified(false);
         org.setSubmittedAt(null);
@@ -3882,5 +3955,141 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         return buildOrganizationResponseWithErrors(
                 List.of(messageService.getMessage(I18Code.ORG_CUSTOMER_REGISTRATION_NOT_LINKABLE.getCode(), new String[]{}, locale)));
+    }
+
+    // =========================================================
+    // Operational mode settings
+    // =========================================================
+
+    /**
+     * Update operational mode settings for the signed-in organisation.
+     *
+     * Flow:
+     * 1. Resolve the organisation from the authenticated username.
+     * 2. Validate the requested transition via OrganizationOperationalModeSupport.
+     * 3. Apply settings and persist via OrganizationServiceAuditable.
+     */
+    @Override
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public OrganizationResponse updateOperationalSettings(
+            projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest request,
+            Locale locale, String username) {
+
+        // ============================================================
+        // STEP 1: Resolve organisation for authenticated user
+        // ============================================================
+        Organization org = loadForUser(username);
+
+        // ============================================================
+        // STEP 2: Validate transition
+        // ============================================================
+        java.util.Optional<String> transitionError =
+                projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationOperationalModeSupport
+                        .validateTransition(
+                                org,
+                                request.getStandaloneMode(),
+                                request.getInventoryManagementEnabled(),
+                                request.getCrossDockingEnabled(),
+                                request.getInventoryDataSource());
+
+        if (transitionError.isPresent()) {
+            OrganizationResponse response = buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(transitionError.get(), new String[]{}, locale)));
+            response.setStatusCode(422);
+            return response;
+        }
+
+        // ============================================================
+        // STEP 3: Apply settings and persist
+        // ============================================================
+        projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationOperationalModeSupport
+                .applySettings(
+                        org,
+                        request.getStandaloneMode(),
+                        request.getInventoryManagementEnabled(),
+                        request.getCrossDockingEnabled(),
+                        request.getInventoryDataSource(),
+                        request.getCounterpartyEngagementMode());
+
+        org.setModifiedAt(java.time.LocalDateTime.now());
+        org.setModifiedBy(username);
+        Organization saved = organizationServiceAuditable.save(org);
+
+        log.info("Operational settings updated for org={} by user={}", saved.getId(), username);
+
+        OrganizationResponse response = buildOrganizationResponse(OrganizationMapping.toDto(saved));
+        response.setMessage(messageService.getMessage(I18Code.ORG_OP_SETTINGS_UPDATED.getCode(), new String[]{}, locale));
+        return response;
+    }
+
+    /**
+     * Update operational mode settings for an organisation identified by ID (backoffice).
+     *
+     * Flow:
+     * 1. Resolve the organisation by ID (not from authenticated user).
+     * 2. Validate the requested transition via OrganizationOperationalModeSupport.
+     * 3. Apply settings and persist via OrganizationServiceAuditable.
+     */
+    @Override
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public OrganizationResponse updateOperationalSettingsForOrganization(
+            Long organizationId,
+            projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest request,
+            Locale locale, String username) {
+
+        // ============================================================
+        // STEP 1: Resolve organisation by ID
+        // ============================================================
+        Organization org = organizationRepository.findByIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
+                .orElse(null);
+
+        if (org == null) {
+            OrganizationResponse response = buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_NOT_FOUND.getCode(),
+                            new String[]{}, locale)));
+            response.setStatusCode(404);
+            return response;
+        }
+
+        // ============================================================
+        // STEP 2: Validate transition
+        // ============================================================
+        java.util.Optional<String> transitionError =
+                projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationOperationalModeSupport
+                        .validateTransition(
+                                org,
+                                request.getStandaloneMode(),
+                                request.getInventoryManagementEnabled(),
+                                request.getCrossDockingEnabled(),
+                                request.getInventoryDataSource());
+
+        if (transitionError.isPresent()) {
+            OrganizationResponse response = buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(transitionError.get(), new String[]{}, locale)));
+            response.setStatusCode(422);
+            return response;
+        }
+
+        // ============================================================
+        // STEP 3: Apply settings and persist
+        // ============================================================
+        projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationOperationalModeSupport
+                .applySettings(
+                        org,
+                        request.getStandaloneMode(),
+                        request.getInventoryManagementEnabled(),
+                        request.getCrossDockingEnabled(),
+                        request.getInventoryDataSource(),
+                        request.getCounterpartyEngagementMode());
+
+        org.setModifiedAt(java.time.LocalDateTime.now());
+        org.setModifiedBy(username);
+        Organization saved = organizationServiceAuditable.save(org);
+
+        log.info("Operational settings updated for org={} by backoffice user={}", saved.getId(), username);
+
+        OrganizationResponse response = buildOrganizationResponse(OrganizationMapping.toDto(saved));
+        response.setMessage(messageService.getMessage(I18Code.ORG_OP_SETTINGS_UPDATED.getCode(), new String[]{}, locale));
+        return response;
     }
 }

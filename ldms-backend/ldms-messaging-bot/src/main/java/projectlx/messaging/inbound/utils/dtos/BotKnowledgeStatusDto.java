@@ -14,5 +14,6 @@ public class BotKnowledgeStatusDto {
     private LocalDateTime lastLoadedAt;
     private int documentCount;
     private int characterCount;
+    private int faqCount;
     private List<String> sources;
 }

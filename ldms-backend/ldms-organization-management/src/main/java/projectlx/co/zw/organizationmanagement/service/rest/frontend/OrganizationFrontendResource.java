@@ -36,6 +36,7 @@ import projectlx.co.zw.organizationmanagement.utils.requests.LinkTransporterRequ
 import projectlx.co.zw.organizationmanagement.utils.requests.OrganizationMultipleFiltersRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateAgentRequest;
 import projectlx.co.zw.organizationmanagement.utils.requests.UpdateBranchRequest;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
@@ -554,6 +555,24 @@ public class OrganizationFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return organizationServiceProcessor.deleteFleetVehicle(id, locale, username);
+    }
+
+    // =========================================================
+    // Operational mode settings
+    // =========================================================
+
+    @Auditable(action = "ORG_UPDATE_OPERATIONAL_SETTINGS")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).UPDATE_MY_ORGAN.toString())")
+    @PutMapping("/operational-settings")
+    @Operation(summary = "Update operational mode settings for the signed-in organisation",
+            description = "Controls standalone mode, inventory management, cross-docking, and inventory data source. " +
+                    "Transition rules are enforced server-side.")
+    public OrganizationResponse updateOperationalSettings(
+            @RequestBody UpdateOrganizationOperationalSettingsRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.updateOperationalSettings(request, locale, username);
     }
 
     private ResponseEntity<byte[]> exportResponse(byte[] data, String format, String entityName) {

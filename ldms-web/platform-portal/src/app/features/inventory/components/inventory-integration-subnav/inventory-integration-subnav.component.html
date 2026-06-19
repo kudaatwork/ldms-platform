@@ -1,0 +1,14 @@
+<nav class="inv-int-subnav" aria-label="Inventory integration sections">
+  <a
+    routerLink="/products-inventory/integration-api"
+    [queryParams]="(docQueryParams$ | async) ?? { mode: 'inventory' }"
+    routerLinkActive="is-active"
+  >
+    <mat-icon>menu_book</mat-icon>
+    Integration documentation
+  </a>
+  <a routerLink="/products-inventory/integration-setup" [queryParams]="(docQueryParams$ | async) ?? { mode: 'inventory' }" routerLinkActive="is-active">
+    <mat-icon>key</mat-icon>
+    API keys &amp; setup
+  </a>
+</nav>

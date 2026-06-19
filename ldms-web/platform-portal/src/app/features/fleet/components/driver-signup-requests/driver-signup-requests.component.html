@@ -1,0 +1,120 @@
+<div class="lx-dialog-shell dsr-dialog">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">
+        Driver signup requests
+        <span class="dsr-badge" *ngIf="pendingCount > 0">{{ pendingCount }}</span>
+      </h2>
+      <p class="lx-dialog-subtitle">Review and approve or reject drivers who requested to join your organisation.</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Error banners -->
+  <div class="dsr-error" *ngIf="error">
+    <mat-icon>error_outline</mat-icon>
+    {{ error }}
+  </div>
+  <div class="dsr-error dsr-error--action" *ngIf="actionError">
+    <mat-icon>warning</mat-icon>
+    {{ actionError }}
+  </div>
+
+  <!-- Loading -->
+  <div class="dsr-loading" *ngIf="loading">
+    <mat-icon class="spin">autorenew</mat-icon>
+    Loading signup requests…
+  </div>
+
+  <!-- Empty state -->
+  <div class="dsr-empty" *ngIf="!loading && !requests.length">
+    <mat-icon>inbox</mat-icon>
+    <span>No driver signup requests.</span>
+  </div>
+
+  <!-- Request rows -->
+  <div class="dsr-list" *ngIf="!loading && requests.length">
+    <div
+      class="dsr-row"
+      [attr.data-status]="request.status"
+      *ngFor="let request of requests"
+    >
+      <div class="dsr-row__avatar" [style.--hue]="request.accentHue">
+        {{ request.initials }}
+      </div>
+
+      <div class="dsr-row__info">
+        <span class="dsr-row__name">{{ request.fullName }}</span>
+        <span class="dsr-row__detail">
+          <mat-icon>email</mat-icon>{{ request.email || '—' }}
+        </span>
+        <span class="dsr-row__detail">
+          <mat-icon>phone</mat-icon>{{ request.phoneNumber }}
+        </span>
+        <span class="dsr-row__detail">
+          <mat-icon>badge</mat-icon>{{ request.nationalIdNumber }}
+          &nbsp;·&nbsp;
+          <mat-icon>credit_card</mat-icon>{{ request.licenseNumber }}
+          <ng-container *ngIf="request.licenseClass !== '—'">&nbsp;({{ request.licenseClass }})</ng-container>
+        </span>
+        <div class="dsr-row__docs" *ngIf="documentLinks(request).length">
+          <span class="dsr-row__docs-label">Documents:</span>
+          <button
+            type="button"
+            class="dsr-doc-link"
+            *ngFor="let link of documentLinks(request)"
+            (click)="viewDocument(request, link)"
+          >
+            <mat-icon>visibility</mat-icon>{{ link.label }}
+          </button>
+        </div>
+        <div class="dsr-row__tags">
+          <span class="dsr-tag dsr-tag--type" [class.dsr-tag--freelance]="request.freelance">
+            <mat-icon>{{ request.freelance ? 'hail' : 'business' }}</mat-icon>
+            {{ request.freelance ? 'Freelance' : 'Company' }}
+          </span>
+          <span class="dsr-tag" [attr.data-status]="request.status">{{ request.statusLabel }}</span>
+          <span class="dsr-tag dsr-tag--date">
+            <mat-icon>calendar_today</mat-icon>{{ request.createdAtLabel }}
+          </span>
+        </div>
+      </div>
+
+      <div class="dsr-row__actions" *ngIf="request.status === 'PENDING'">
+        <button
+          mat-raised-button
+          color="primary"
+          class="dsr-btn dsr-btn--approve"
+          [disabled]="actioningId !== null"
+          (click)="approve(request)"
+        >
+          <mat-icon *ngIf="actioningId !== request.id">check</mat-icon>
+          <mat-icon *ngIf="actioningId === request.id" class="spin">autorenew</mat-icon>
+          {{ actioningId === request.id ? 'Approving…' : 'Approve' }}
+        </button>
+        <button
+          mat-stroked-button
+          color="warn"
+          class="dsr-btn"
+          [disabled]="actioningId !== null"
+          (click)="reject(request)"
+        >
+          <mat-icon>close</mat-icon>
+          Reject
+        </button>
+      </div>
+
+      <div class="dsr-row__resolved" *ngIf="request.status !== 'PENDING'">
+        <mat-icon *ngIf="request.status === 'APPROVED'" class="dsr-resolved--ok">check_circle</mat-icon>
+        <mat-icon *ngIf="request.status === 'REJECTED'" class="dsr-resolved--no">cancel</mat-icon>
+        <span>{{ request.statusLabel }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div mat-dialog-actions class="dsr-actions">
+    <button mat-button (click)="close()">Close</button>
+  </div>
+</div>

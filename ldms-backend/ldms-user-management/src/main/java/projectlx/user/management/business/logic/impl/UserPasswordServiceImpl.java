@@ -374,10 +374,11 @@ public class UserPasswordServiceImpl implements UserPasswordService {
             return passwordResponse; // Return the error response as-is
         }
 
-        // Clear reset token after successful password change - HANDLE DIRECTLY
+        // Clear reset token and allow normal login after successful password reset
         user.setPasswordResetToken(null);
         user.setPasswordResetTokenExpiry(null);
-        userServiceAuditable.update(user, locale, username); // Use injected UserServiceAuditable
+        user.setMustChangeCredentials(false);
+        userServiceAuditable.update(user, locale, username);
 
         // Send password change confirmation email - HANDLE DIRECTLY
         sendPasswordChangeConfirmationEmail(user);

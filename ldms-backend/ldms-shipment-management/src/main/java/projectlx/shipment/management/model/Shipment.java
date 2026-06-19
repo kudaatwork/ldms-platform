@@ -24,6 +24,7 @@ import java.time.LocalDateTime;
         @Index(name = "idx_shipment_org_id", columnList = "organization_id"),
         @Index(name = "idx_shipment_transfer_id", columnList = "inventory_transfer_id"),
         @Index(name = "idx_shipment_sales_order_id", columnList = "sales_order_id"),
+        @Index(name = "idx_shipment_cross_dock_id", columnList = "cross_dock_dispatch_id"),
         @Index(name = "idx_shipment_status", columnList = "status, entity_status")
 })
 @Getter
@@ -52,6 +53,9 @@ public class Shipment implements DomainMarkerInterface {
 
     @Column(name = "sales_order_id")
     private Long salesOrderId;
+
+    @Column(name = "cross_dock_dispatch_id")
+    private Long crossDockDispatchId;
 
     @Column(name = "purchase_order_id")
     private Long purchaseOrderId;

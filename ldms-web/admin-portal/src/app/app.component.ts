@@ -217,6 +217,8 @@ export class AppComponent implements OnInit, OnDestroy {
         { label: 'Live chat', icon: 'forum', route: '/help/live-chat' },
         { label: 'Demo requisitions', icon: 'event_available', route: '/help/requisitions' },
         { label: 'Bot service', icon: 'smart_toy', route: '/help/bot-service' },
+        { label: 'Bot analytics', icon: 'insights', route: '/help/bot-analytics' },
+        { label: 'Bot knowledge', icon: 'menu_book', route: '/help/bot-knowledge' },
       ],
     },
     {
@@ -621,6 +623,12 @@ export class AppComponent implements OnInit, OnDestroy {
     if (url.startsWith('/help/requisitions')) {
       return 'Demo requisitions';
     }
+    if (url.startsWith('/help/bot-analytics')) {
+      return 'Bot analytics';
+    }
+    if (url.startsWith('/help/bot-knowledge')) {
+      return 'Bot knowledge';
+    }
     if (url.startsWith('/help/bot-service')) {
       return 'Bot service';
     }
@@ -827,6 +835,8 @@ export class AppComponent implements OnInit, OnDestroy {
             { label: 'Live chat', icon: 'forum', route: '/help/live-chat' },
             { label: 'Demo requisitions', icon: 'event_available', route: '/help/requisitions' },
             { label: 'Bot service', icon: 'smart_toy', route: '/help/bot-service' },
+        { label: 'Bot analytics', icon: 'insights', route: '/help/bot-analytics' },
+        { label: 'Bot knowledge', icon: 'menu_book', route: '/help/bot-knowledge' },
           ],
         });
       }

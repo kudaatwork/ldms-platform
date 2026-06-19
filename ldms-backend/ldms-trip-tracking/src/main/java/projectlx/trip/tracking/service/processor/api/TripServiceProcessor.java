@@ -33,4 +33,10 @@ public interface TripServiceProcessor {
     TripResponse findByMultipleFilters(TripFilterRequest request, Locale locale, String username);
 
     TripResponse track(Long id, Locale locale);
+
+    TripResponse listMyTrips(Locale locale, String username);
+
+    TripResponse findMyTripById(Long tripId, Locale locale, String username);
+
+    TripResponse getMyTripMetrics(Locale locale, String username);
 }

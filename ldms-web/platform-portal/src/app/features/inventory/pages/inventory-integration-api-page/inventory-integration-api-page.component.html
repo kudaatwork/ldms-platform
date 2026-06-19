@@ -1,0 +1,761 @@
+<div class="lx-page iia">
+  <app-inventory-integration-subnav></app-inventory-integration-subnav>
+
+  <nav class="iia-mode-nav lx-card" *ngIf="apiMode === 'crossdock'" aria-label="Integration API mode">
+    <button type="button" class="iia-mode-nav__btn" (click)="setApiMode('inventory')">
+      <mat-icon>inventory_2</mat-icon>
+      Inventory management integration
+    </button>
+    <button type="button" class="iia-mode-nav__btn is-active">
+      <mat-icon>swap_horiz</mat-icon>
+      Cross-dock movement API
+    </button>
+  </nav>
+
+  <p class="iia-mode-hint lx-card" *ngIf="apiMode === 'inventory'">
+    <mat-icon>info</mat-icon>
+    Documentation for connecting your ERP or WMS to <strong>inventory management</strong> (Sync via API).
+    Using cross-docking instead?
+    <button type="button" class="iia-inline-link" (click)="setApiMode('crossdock')">View cross-dock integration API</button>.
+  </p>
+
+  <lx-workspace-hero
+    variant="teal"
+    eyebrow="Inventory management"
+    eyebrowIcon="api"
+    [title]="heroTitle"
+    [lead]="heroLead"
+    hubIcon="integration_instructions"
+    [orbitIcons]="apiMode === 'inventory' ? ['inventory_2', 'category', 'sync'] : ['api', 'webhook', 'local_shipping']"
+    note="Generate your API key on Inventory integration setup before calling live sync endpoints."
+  >
+    <a lxWorkspaceHeroActions routerLink="/products-inventory/integration-setup" [queryParams]="apiMode === 'crossdock' ? { mode: 'crossdock' } : { mode: 'inventory' }" class="lx-btn lx-btn-ghost lx-btn-sm">
+      <mat-icon>key</mat-icon>
+      {{ apiMode === 'crossdock' ? 'Cross-dock setup' : 'Inventory integration setup' }}
+    </a>
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-primary lx-btn-sm" (click)="setSection('playground')">
+      <mat-icon>play_circle</mat-icon>
+      Try mock API
+    </button>
+
+    <lx-workspace-hero-stat *ngIf="apiMode === 'inventory'" [value]="inventoryEndpointCount + ''" label="Sync endpoints" icon="route" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat *ngIf="apiMode === 'inventory'" value="REST" label="ERP / WMS push" icon="sync" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat *ngIf="apiMode === 'inventory'" value="10" label="Portal modules" icon="view_module" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat *ngIf="apiMode === 'inventory'" value="7" label="Code samples" icon="code" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat *ngIf="apiMode === 'crossdock'" value="REST" label="Primary transport" icon="http" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat *ngIf="apiMode === 'crossdock'" value="1" label="Ingest endpoint" icon="route" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat value="4" label="Code samples" icon="code" theme="violet" *ngIf="apiMode === 'crossdock'"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <!-- Section nav -->
+  <nav class="iia-section-nav lx-card" aria-label="API documentation sections">
+    <button
+      type="button"
+      *ngFor="let s of sections"
+      class="iia-section-nav__btn"
+      [class.is-active]="activeSection === s.id"
+      (click)="setSection(s.id)"
+    >
+      <mat-icon>{{ s.icon }}</mat-icon>
+      {{ s.label }}
+    </button>
+  </nav>
+
+  <div class="iia-layout">
+    <main class="iia-main">
+
+      <!-- Overview: full inventory sync -->
+      <section class="iia-panel lx-card" *ngIf="activeSection === 'overview' && apiMode === 'inventory'" id="section-overview-inv">
+        <header class="iia-panel__head">
+          <mat-icon>rocket_launch</mat-icon>
+          <div>
+            <h2>Get live in three steps</h2>
+            <p>LDMS inventory management exposes REST system endpoints under <code>/ldms-inventory-management/v1/system/*</code>. Your ERP authenticates with an integration API key — no JWT.</p>
+          </div>
+        </header>
+
+        <ol class="iia-steps">
+          <li>
+            <span class="iia-steps__num">1</span>
+            <div>
+              <strong>Generate an integration API key</strong>
+              <p>On <a routerLink="/products-inventory/integration-setup" [queryParams]="{ mode: 'inventory' }">Inventory integration setup</a>, create a key for your ERP or WMS middleware.</p>
+            </div>
+          </li>
+          <li>
+            <span class="iia-steps__num">2</span>
+            <div>
+              <strong>Push master data</strong>
+              <p>POST categories, products, and warehouse locations. Use SKU and location codes as idempotency keys — LDMS upserts on match.</p>
+            </div>
+          </li>
+          <li>
+            <span class="iia-steps__num">3</span>
+            <div>
+              <strong>Sync stock, transfers &amp; orders</strong>
+              <p>Keep on-hand quantities current, then push transfers, requisitions, purchase orders, and sales orders as they are approved in your ERP.</p>
+            </div>
+          </li>
+        </ol>
+
+        <div class="iia-path-grid">
+          <article class="iia-path-card" *ngFor="let path of integrationPaths">
+            <span class="iia-path-card__icon"><mat-icon>{{ path.icon }}</mat-icon></span>
+            <h3>{{ path.title }}</h3>
+            <p class="iia-path-card__tagline">{{ path.tagline }}</p>
+            <ol>
+              <li *ngFor="let step of path.steps">{{ step }}</li>
+            </ol>
+            <footer><mat-icon>thumb_up</mat-icon> {{ path.bestFor }}</footer>
+          </article>
+        </div>
+
+        <p class="iia-overview-foot">
+          See how every portal module maps to APIs and sync order on the
+          <button type="button" class="iia-inline-link" (click)="setSection('components')">Components</button> tab.
+        </p>
+      </section>
+
+      <!-- Components: full inventory module map -->
+      <section class="iia-panel lx-card" *ngIf="activeSection === 'components' && apiMode === 'inventory'" id="section-components">
+        <header class="iia-panel__head">
+          <mat-icon>view_module</mat-icon>
+          <div>
+            <h2>Inventory components &amp; integration map</h2>
+            <p>
+              Every module in <strong>Inventory management</strong> has a role in the ERP ↔ LDMS bridge.
+              Push data in phase order; LDMS runs logistics workflows and fires webhooks back.
+            </p>
+          </div>
+        </header>
+
+        <div class="iia-phase-timeline">
+          <article class="iia-phase" *ngFor="let phase of syncPhases">
+            <div class="iia-phase__head">
+              <span class="iia-phase__order">{{ phase.order }}</span>
+              <div>
+                <strong>{{ phase.title }}</strong>
+                <p>{{ phase.summary }}</p>
+              </div>
+            </div>
+            <div class="iia-phase__chips">
+              <span class="iia-phase__chip" *ngFor="let comp of componentsForPhase(phase.order)">
+                <mat-icon>{{ comp.icon }}</mat-icon>
+                {{ comp.portalLabel }}
+              </span>
+            </div>
+          </article>
+        </div>
+
+        <h3 class="iia-section-title">Module reference</h3>
+        <div class="iia-component-grid">
+          <article class="iia-component-card" *ngFor="let comp of moduleComponents">
+            <header class="iia-component-card__head">
+              <span class="iia-component-card__icon"><mat-icon>{{ comp.icon }}</mat-icon></span>
+              <div>
+                <strong>{{ comp.portalLabel }}</strong>
+                <span class="iia-component-card__phase">{{ comp.phaseLabel }}</span>
+              </div>
+              <a class="iia-component-card__portal" [routerLink]="comp.portalRoute" matTooltip="Open in portal">
+                <mat-icon>open_in_new</mat-icon>
+              </a>
+            </header>
+
+            <dl class="iia-component-card__meta">
+              <div>
+                <dt>ERP / WMS pushes</dt>
+                <dd>{{ comp.erpRole }}</dd>
+              </div>
+              <div>
+                <dt>LDMS operates</dt>
+                <dd>{{ comp.ldmsRole }}</dd>
+              </div>
+              <div *ngIf="comp.pushEndpoints.length">
+                <dt>Inbound APIs</dt>
+                <dd>
+                  <code *ngFor="let ep of comp.pushEndpoints" class="iia-component-card__ep">{{ ep }}</code>
+                </dd>
+              </div>
+              <div *ngIf="comp.outboundEvents.length">
+                <dt>Outbound events</dt>
+                <dd>
+                  <code *ngFor="let ev of comp.outboundEvents" class="iia-component-card__ev">{{ ev }}</code>
+                </dd>
+              </div>
+              <div *ngIf="comp.dependsOn.length">
+                <dt>Depends on</dt>
+                <dd>{{ comp.dependsOn.join(', ') }}</dd>
+              </div>
+            </dl>
+
+            <p class="iia-component-card__notes">{{ comp.notes }}</p>
+
+            <footer class="iia-component-card__actions" *ngIf="comp.pushEndpoints.length">
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openComponentContract(comp)">
+                <mat-icon>description</mat-icon>
+                View REST contract
+              </button>
+            </footer>
+          </article>
+        </div>
+
+        <h3 class="iia-section-title">End-to-end workflows</h3>
+        <div class="iia-workflow-grid">
+          <article class="iia-workflow-card" *ngFor="let flow of integrationWorkflows">
+            <span class="iia-workflow-card__icon"><mat-icon>{{ flow.icon }}</mat-icon></span>
+            <h4>{{ flow.title }}</h4>
+            <p class="iia-workflow-card__trigger"><strong>Trigger:</strong> {{ flow.trigger }}</p>
+            <ol>
+              <li *ngFor="let step of flow.steps">{{ step }}</li>
+            </ol>
+            <footer>
+              <span class="iia-workflow-card__label">Components</span>
+              <span class="iia-workflow-card__tags">
+                <span *ngFor="let id of flow.components">{{ id }}</span>
+              </span>
+            </footer>
+          </article>
+        </div>
+
+        <div class="iia-erp-note lx-card--subsection">
+          <mat-icon>sync</mat-icon>
+          <div>
+            <strong>Who owns what?</strong>
+            <p>
+              With <em>Sync via API</em>, your ERP remains the system of record for master data and opening stock.
+              LDMS owns operational workflows — reservations, transfers with en-route stops, GRVs, shipments, and billing —
+              using the data you push. Configure outbound webhooks on
+              <a routerLink="/products-inventory/integration-setup" [queryParams]="{ mode: 'inventory' }">Inventory integration setup</a>
+              so LDMS changes flow back to your ERP.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Overview: cross-dock (existing) -->
+      <section class="iia-panel lx-card" *ngIf="activeSection === 'overview' && apiMode === 'crossdock'" id="section-overview">
+        <header class="iia-panel__head">
+          <mat-icon>rocket_launch</mat-icon>
+          <div>
+            <h2>Get live in three steps</h2>
+            <p>Push dispatches from your ERP or WMS to LDMS — the platform handles GRV, billing, and shipment creation automatically.</p>
+          </div>
+        </header>
+
+        <ol class="iia-steps">
+          <li>
+            <span class="iia-steps__num">1</span>
+            <div>
+              <strong>Generate an API key</strong>
+              <p>Go to <a routerLink="/products-inventory/integration-setup" [queryParams]="{ mode: 'crossdock' }">Cross-dock integration setup</a> and create a key for your external system.</p>
+            </div>
+          </li>
+          <li>
+            <span class="iia-steps__num">2</span>
+            <div>
+              <strong>POST a dispatch ingest</strong>
+              <p>When your ERP confirms a dispatch, POST the order reference, customer, warehouse, and line items to the ingest endpoint. Use your SKU codes or LDMS product IDs.</p>
+            </div>
+          </li>
+          <li>
+            <span class="iia-steps__num">3</span>
+            <div>
+              <strong>Receive the GRV callback</strong>
+              <p>When goods are received, LDMS posts a webhook to your registered callback URL with the GRV reference, matched items, and delivery timestamps.</p>
+            </div>
+          </li>
+        </ol>
+
+        <div class="iia-use-case-grid">
+          <article class="iia-use-case-card">
+            <span class="iia-use-case-card__icon"><mat-icon>swap_horiz</mat-icon></span>
+            <h3>Cross-docking</h3>
+            <p>Use when cross-docking mode is active — your WMS owns stock, LDMS manages shipments and GRV receipts.</p>
+          </article>
+          <article class="iia-use-case-card">
+            <span class="iia-use-case-card__icon"><mat-icon>integration_instructions</mat-icon></span>
+            <h3>ERP bridge</h3>
+            <p>Connect SAP, Sage, or a custom ERP to LDMS without migrating inventory data. The API is your bridge.</p>
+          </article>
+          <article class="iia-use-case-card">
+            <span class="iia-use-case-card__icon"><mat-icon>done_all</mat-icon></span>
+            <h3>Manual acknowledgement</h3>
+            <p>No system integration? Use the LDMS portal to manually acknowledge dispatches. The same webhook fires on save.</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- REST Contract: inventory sync -->
+      <section class="iia-panel lx-card" *ngIf="activeSection === 'contract' && apiMode === 'inventory'" id="section-contract-inv">
+        <header class="iia-panel__head">
+          <mat-icon>description</mat-icon>
+          <div>
+            <h2>REST contract</h2>
+            <p>Open, stateless JSON over HTTPS. {{ inventoryEndpointCount }} system endpoints cover master data, stock, transfers, procurement, and fulfillment.</p>
+          </div>
+        </header>
+
+        <div class="iia-contract-picker">
+          <div class="iia-contract-groups">
+            <button
+              type="button"
+              *ngFor="let group of endpointGroups"
+              class="iia-contract-groups__btn"
+              [class.is-active]="activeContractGroupId === group.id"
+              (click)="selectContractGroup(group.id)"
+            >
+              <mat-icon>{{ group.icon }}</mat-icon>
+              {{ group.label }}
+            </button>
+          </div>
+          <div class="iia-contract-endpoints">
+            <button
+              type="button"
+              *ngFor="let ep of endpointsInActiveGroup"
+              class="iia-contract-endpoints__btn"
+              [class.is-active]="activeEndpointId === ep.id"
+              (click)="selectEndpoint(ep.id)"
+            >
+              <span class="iia-endpoint__method iia-endpoint__method--sm">{{ ep.method }}</span>
+              {{ ep.title }}
+            </button>
+          </div>
+        </div>
+
+        <p class="iia-contract-summary">{{ activeEndpoint.summary }}</p>
+
+        <div class="iia-endpoint lx-card--subsection">
+          <span class="iia-endpoint__method">{{ activeEndpoint.method }}</span>
+          <code class="iia-endpoint__url">{{ activeEndpointUrl }}</code>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyText('url', activeEndpointUrl)">
+            <mat-icon>{{ copiedToken === 'url' ? 'check' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+
+        <div class="iia-contract-grid">
+          <div>
+            <h3>Request headers</h3>
+            <table class="iia-table">
+              <thead><tr><th>Header</th><th>Value</th><th>Required</th></tr></thead>
+              <tbody>
+                <tr><td><code>Content-Type</code></td><td><code>application/json</code></td><td>Yes</td></tr>
+                <tr><td><code>Authorization</code></td><td>—</td><td>No — use <code>apiKey</code> in body</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Request body</h3>
+            <div class="iia-table-wrap">
+              <table class="iia-table">
+                <thead><tr><th>Field</th><th>Type</th><th>Req</th><th>Description</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let f of activeEndpoint.fields">
+                    <td><code>{{ f.name }}</code></td>
+                    <td>{{ f.type }}</td>
+                    <td><span class="iia-pill" [class.iia-pill--req]="f.required">{{ f.required ? 'Yes' : 'No' }}</span></td>
+                    <td>{{ f.description }} <em>e.g. {{ f.example }}</em></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h3>Response codes</h3>
+            <ul class="iia-response-list">
+              <li *ngFor="let r of syncResponseCodes">
+                <span class="iia-status" [ngClass]="statusClass(r.code)">{{ r.code }}</span>
+                <div>
+                  <strong>{{ r.label }}</strong>
+                  <p>{{ r.detail }}</p>
+                </div>
+              </li>
+            </ul>
+
+            <h3>Example success (200)</h3>
+            <pre class="iia-code"><code>{{ activeEndpoint.successExample }}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- REST Contract: cross-dock (existing) -->
+      <section class="iia-panel lx-card" *ngIf="activeSection === 'contract' && apiMode === 'crossdock'" id="section-contract">
+        <header class="iia-panel__head">
+          <mat-icon>description</mat-icon>
+          <div>
+            <h2>REST contract</h2>
+            <p>Stateless JSON over HTTPS. Authenticate with your API key in the request body.</p>
+          </div>
+        </header>
+
+        <!-- Dispatch ingest endpoint -->
+        <h3 class="iia-contract-section">Dispatch ingest</h3>
+        <div class="iia-endpoint lx-card--subsection">
+          <span class="iia-endpoint__method">POST</span>
+          <code class="iia-endpoint__url">{{ dispatchIngestUrl }}</code>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyText('url', dispatchIngestUrl)">
+            <mat-icon>{{ copiedToken === 'url' ? 'check' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+
+        <div class="iia-contract-grid">
+          <div>
+            <h3>Request headers</h3>
+            <table class="iia-table">
+              <thead><tr><th>Header</th><th>Value</th><th>Required</th></tr></thead>
+              <tbody>
+                <tr><td><code>Content-Type</code></td><td><code>application/json</code></td><td>Yes</td></tr>
+                <tr><td><code>Authorization</code></td><td>—</td><td>No — use <code>apiKey</code> in body</td></tr>
+              </tbody>
+            </table>
+
+            <h3>Request body</h3>
+            <div class="iia-table-wrap">
+              <table class="iia-table">
+                <thead><tr><th>Field</th><th>Type</th><th>Req</th><th>Description</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let f of dispatchIngestFields">
+                    <td><code>{{ f.name }}</code></td>
+                    <td>{{ f.type }}</td>
+                    <td><span class="iia-pill" [class.iia-pill--req]="f.required">{{ f.required ? 'Yes' : 'No' }}</span></td>
+                    <td>{{ f.description }} <em>e.g. {{ f.example }}</em></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h3>Response codes</h3>
+            <ul class="iia-response-list">
+              <li *ngFor="let r of responseCodes">
+                <span class="iia-status" [ngClass]="statusClass(r.code)">{{ r.code }}</span>
+                <div>
+                  <strong>{{ r.label }}</strong>
+                  <p>{{ r.detail }}</p>
+                </div>
+              </li>
+            </ul>
+
+            <h3>Example success (200)</h3>
+            <pre class="iia-code"><code>{{ '{' }}
+  "statusCode": 200,
+  "success": true,
+  "message": "Dispatch ingested and GRV callback queued",
+  "dispatchId": "DISP-INT-1718619123456",
+  "grvCallbackRegistered": true
+{{ '}' }}</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- Code samples -->
+      <section class="iia-panel lx-card" *ngIf="activeSection === 'samples'" id="section-samples">
+        <header class="iia-panel__head">
+          <mat-icon>code</mat-icon>
+          <div>
+            <h2>Sample integrations</h2>
+            <p *ngIf="apiMode === 'inventory'">Copy-paste starters for pushing product master and stock levels from your ERP or WMS.</p>
+            <p *ngIf="apiMode === 'crossdock'">Copy-paste starters for dispatch ingest. Values update from the playground fields.</p>
+          </div>
+        </header>
+
+        <div class="iia-lang-tabs">
+          <button
+            type="button"
+            *ngFor="let lang of languages"
+            class="iia-lang-tabs__btn"
+            [class.is-active]="activeLanguage === lang.id"
+            (click)="setLanguage(lang.id)"
+          >
+            {{ lang.label }}
+          </button>
+        </div>
+
+        <div class="iia-code-toolbar">
+          <span>{{ activeLanguage | uppercase }} · {{ codeSampleLabel }}</span>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyText('sample', activeCodeSample)">
+            <mat-icon>{{ copiedToken === 'sample' ? 'check' : 'content_copy' }}</mat-icon>
+            Copy
+          </button>
+        </div>
+        <pre class="iia-code iia-code--sample"><code>{{ activeCodeSample }}</code></pre>
+
+        <div class="iia-erp-note lx-card--subsection" *ngIf="apiMode === 'inventory'">
+          <mat-icon>info</mat-icon>
+          <div>
+            <strong>Endpoint-aware samples</strong>
+            <p>
+              Samples follow the endpoint selected on the <button type="button" class="iia-inline-link" (click)="setSection('contract')">REST contract</button> tab
+              and values from the mock console. Switch between product, stock, and transfer scenarios in the playground.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="iia-panel lx-card" *ngIf="activeSection === 'connect' && apiMode === 'inventory'" id="section-connect">
+        <header class="iia-panel__head">
+          <mat-icon>hub</mat-icon>
+          <div>
+            <h2>Connect your ERP or WMS</h2>
+            <p>You do not need to replace your system of record. Forward approved master data and stock snapshots into LDMS.</p>
+          </div>
+        </header>
+
+        <div class="iia-provider-grid">
+          <article class="iia-provider-card" *ngFor="let p of erpBridges">
+            <span class="iia-provider-card__icon"><mat-icon>{{ p.icon }}</mat-icon></span>
+            <h3>{{ p.name }}</h3>
+            <p>{{ p.description }}</p>
+            <footer>{{ p.howTo }}</footer>
+          </article>
+        </div>
+
+        <div class="iia-bridge-flow lx-card--subsection">
+          <h3>Typical middleware architecture</h3>
+          <div class="iia-bridge-flow__diagram" aria-hidden="true">
+            <span class="iia-bridge-node"><mat-icon>store</mat-icon> Your ERP / WMS</span>
+            <span class="iia-bridge-arrow">→</span>
+            <span class="iia-bridge-node"><mat-icon>dns</mat-icon> Integration middleware</span>
+            <span class="iia-bridge-arrow">→</span>
+            <span class="iia-bridge-node iia-bridge-node--ldms"><mat-icon>cloud_upload</mat-icon> LDMS inventory APIs</span>
+            <span class="iia-bridge-arrow">→</span>
+            <span class="iia-bridge-node iia-bridge-node--ldms"><mat-icon>inventory_2</mat-icon> POs, GRVs &amp; transfers</span>
+          </div>
+          <p class="iia-bridge-flow__hint">
+            Map each external SKU and warehouse code to LDMS records using stable codes on create endpoints.
+            LDMS runs logistics workflows on the synced ledger.
+          </p>
+        </div>
+      </section>
+
+      <!-- Webhooks -->
+      <section class="iia-panel lx-card" *ngIf="activeSection === 'webhooks' && apiMode === 'crossdock'" id="section-webhooks">
+        <header class="iia-panel__head">
+          <mat-icon>webhook</mat-icon>
+          <div>
+            <h2>GRV callback webhook</h2>
+            <p>When goods are received (GRV created), LDMS sends a POST to your registered callback URL.</p>
+          </div>
+        </header>
+
+        <div class="iia-webhook-info lx-card--subsection">
+          <div class="iia-endpoint">
+            <span class="iia-endpoint__method iia-endpoint__method--out">POST → Your URL</span>
+            <code class="iia-endpoint__url">https://your-system.com/ldms/grv-callback</code>
+          </div>
+          <p class="iia-webhook-note">
+            Register your callback URL on <a routerLink="/products-inventory/integration-setup" [queryParams]="{ mode: 'crossdock' }">Cross-dock integration setup</a>.
+            LDMS retries up to 3 times with exponential back-off on non-2xx responses.
+          </p>
+        </div>
+
+        <h3>Callback payload</h3>
+        <pre class="iia-code"><code>{{ '{' }}
+  "event": "grv.created",
+  "dispatchRef": "DISP-20260617-001",
+  "grvId": 10842,
+  "grvNumber": "GRV-20260617-0042",
+  "warehouseId": 1,
+  "receivedAt": "2026-06-17T14:30:00",
+  "items": [
+    {{ '{' }}
+      "sku": "PRD-001",
+      "quantityReceived": 48,
+      "quantityExpected": 50,
+      "unitOfMeasure": "KG",
+      "variance": -2
+    {{ '}' }}
+  ],
+  "customerRef": "CUST-001",
+  "status": "COMPLETE"
+{{ '}' }}</code></pre>
+
+        <div class="iia-webhook-security lx-card--subsection">
+          <mat-icon>security</mat-icon>
+          <div>
+            <strong>Signature verification</strong>
+            <p>
+              Each POST includes an <code>X-LDMS-Signature</code> header: <code>HMAC-SHA256(secret, raw_body)</code>.
+              Your callback secret is configured on Inventory integration setup. Verify the signature before processing.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="iia-panel lx-card" *ngIf="activeSection === 'webhooks' && apiMode === 'inventory'" id="section-webhooks-inv">
+        <header class="iia-panel__head">
+          <mat-icon>webhook</mat-icon>
+          <div>
+            <h2>Outbound events (inventory sync)</h2>
+            <p>When stock changes originate inside LDMS (GRV, transfer completion), optional webhooks notify your ERP.</p>
+          </div>
+        </header>
+        <pre class="iia-code"><code>{{ '{' }}
+  "event": "inventory.stock.updated",
+  "organizationId": 42,
+  "warehouseLocationId": 1,
+  "productSku": "PRD-001",
+  "quantityOnHand": 480,
+  "reservedQuantity": 20,
+  "unitCost": 12.50,
+  "updatedAt": "2026-06-17T14:30:00"
+{{ '}' }}</code></pre>
+        <p class="iia-webhook-note">
+          Register your <strong>Stock sync webhook URL</strong> and <strong>GRV callback URL</strong> on
+          <a routerLink="/products-inventory/integration-setup" [queryParams]="{ mode: 'inventory' }">Inventory integration setup</a>.
+        </p>
+      </section>
+
+      <!-- Playground placeholder for mobile -->
+      <section class="iia-panel lx-card iia-panel--playground-mobile" *ngIf="activeSection === 'playground'" id="section-playground">
+        <header class="iia-panel__head">
+          <mat-icon>play_circle</mat-icon>
+          <div>
+            <h2>API playground</h2>
+            <p>Use mock mode to explore responses, or switch to live to hit your environment.</p>
+          </div>
+        </header>
+        <p class="iia-playground-mobile-hint">The interactive console is in the panel on the right (or below on small screens).</p>
+      </section>
+    </main>
+
+    <!-- Sticky playground -->
+    <aside class="iia-playground lx-card" id="inv-api-playground">
+      <header class="iia-playground__head">
+        <div>
+          <p class="iia-playground__eyebrow"><mat-icon>science</mat-icon> Try it</p>
+          <h2>Mock API console</h2>
+        </div>
+        <label class="iia-toggle">
+          <input type="checkbox" [(ngModel)]="mockMode" />
+          <span class="iia-toggle__track"></span>
+          <span class="iia-toggle__label">{{ mockMode ? 'Mock' : 'Live' }}</span>
+        </label>
+      </header>
+
+      <ng-container *ngIf="apiMode === 'inventory'">
+        <div class="iia-mock-scenarios" *ngIf="mockMode">
+          <span class="iia-mock-scenarios__label">Demo scenarios</span>
+          <div class="iia-mock-scenarios__chips">
+            <button type="button" *ngFor="let sc of syncMockScenarios" class="iia-chip" [class.is-active]="syncMockScenario === sc.id" (click)="applySyncMockScenario(sc.id)" [matTooltip]="sc.hint">{{ sc.label }}</button>
+          </div>
+        </div>
+        <div class="iia-playground__fields">
+          <div class="lx-field">
+            <label class="lx-field-label" for="pg-sync-key">API key</label>
+            <div class="lx-input-shell">
+              <mat-icon class="lx-input-shell__icon">key</mat-icon>
+              <input id="pg-sync-key" type="text" [(ngModel)]="syncPlayground.apiKey" placeholder="Paste your integration API key" />
+            </div>
+          </div>
+          <div class="lx-field">
+            <label class="lx-field-label" for="pg-sku">SKU</label>
+            <input id="pg-sku" type="text" class="iia-input" [(ngModel)]="syncPlayground.sku" />
+          </div>
+          <div class="lx-field" *ngIf="syncMockScenario !== 'stock_ok' && syncMockScenario !== 'transfer_ok'">
+            <label class="lx-field-label" for="pg-name">Product name</label>
+            <input id="pg-name" type="text" class="iia-input" [(ngModel)]="syncPlayground.productName" />
+          </div>
+          <div class="iia-playground__row" *ngIf="syncMockScenario === 'stock_ok' || syncMockScenario === 'transfer_ok'">
+            <div class="lx-field">
+              <label class="lx-field-label" for="pg-wh">Warehouse ID</label>
+              <input id="pg-wh" type="number" class="iia-input" [(ngModel)]="syncPlayground.warehouseId" min="1" />
+            </div>
+            <div class="lx-field">
+              <label class="lx-field-label" for="pg-qty">Quantity</label>
+              <input id="pg-qty" type="number" class="iia-input" [(ngModel)]="syncPlayground.quantityOnHand" />
+            </div>
+          </div>
+        </div>
+        <div class="iia-playground__request">
+          <div class="iia-code-toolbar">
+            <span>Request · {{ activeEndpoint.method }}</span>
+            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyText('req', syncRequestPayloadJson)">
+              <mat-icon>{{ copiedToken === 'req' ? 'check' : 'content_copy' }}</mat-icon>
+            </button>
+          </div>
+          <pre class="iia-code iia-code--compact"><code>{{ syncRequestPayloadJson }}</code></pre>
+        </div>
+        <button type="button" class="lx-btn lx-btn-primary iia-playground__send" (click)="sendSyncRequest()" [disabled]="sending">
+          <mat-icon>{{ sending ? 'hourglass_empty' : 'send' }}</mat-icon>
+          {{ sending ? 'Sending…' : (mockMode ? 'Send mock request' : 'Send live request') }}
+        </button>
+      </ng-container>
+
+      <ng-container *ngIf="apiMode === 'crossdock'">
+        <div class="iia-mock-scenarios" *ngIf="mockMode">
+          <span class="iia-mock-scenarios__label">Demo scenarios</span>
+          <div class="iia-mock-scenarios__chips">
+            <button
+              type="button"
+              *ngFor="let sc of mockScenarios"
+              class="iia-chip"
+              [class.is-active]="mockScenario === sc.id"
+              (click)="applyMockScenario(sc.id)"
+              [matTooltip]="sc.hint"
+            >
+              {{ sc.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="iia-playground__fields">
+        <div class="lx-field">
+          <label class="lx-field-label" for="pg-key">API key</label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">key</mat-icon>
+            <input id="pg-key" type="text" [(ngModel)]="playground.apiKey" placeholder="Paste your integration API key" />
+          </div>
+        </div>
+        <div class="lx-field">
+          <label class="lx-field-label" for="pg-ref">Dispatch reference</label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input id="pg-ref" type="text" [(ngModel)]="playground.dispatchRef" placeholder="DISP-…" />
+          </div>
+        </div>
+        <div class="iia-playground__row">
+          <div class="lx-field">
+            <label class="lx-field-label" for="pg-customer">Customer ref</label>
+            <input id="pg-customer" type="text" [(ngModel)]="playground.customerRef" class="iia-input" placeholder="Optional" />
+          </div>
+          <div class="lx-field">
+            <label class="lx-field-label" for="pg-wh">Warehouse ID</label>
+            <input id="pg-wh" type="number" [(ngModel)]="playground.warehouseId" class="iia-input" min="1" />
+          </div>
+        </div>
+      </div>
+
+      <div class="iia-playground__request">
+        <div class="iia-code-toolbar">
+          <span>Request · POST</span>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyText('req', requestPayloadJson)">
+            <mat-icon>{{ copiedToken === 'req' ? 'check' : 'content_copy' }}</mat-icon>
+          </button>
+        </div>
+        <pre class="iia-code iia-code--compact"><code>{{ requestPayloadJson }}</code></pre>
+      </div>
+
+      <button type="button" class="lx-btn lx-btn-primary iia-playground__send" (click)="sendRequest()" [disabled]="sending">
+        <mat-icon>{{ sending ? 'hourglass_empty' : 'send' }}</mat-icon>
+        {{ sending ? 'Sending…' : (mockMode ? 'Send mock request' : 'Send live request') }}
+      </button>
+      </ng-container>
+
+      <div class="iia-playground__response" *ngIf="lastResult">
+        <div class="iia-playground__response-head">
+          <span class="iia-status" [ngClass]="statusClass(lastResult.status)">{{ lastResult.status || 'ERR' }}</span>
+          <span class="iia-playground__timing">{{ lastResult.durationMs }} ms</span>
+        </div>
+        <pre class="iia-code iia-code--response"><code>{{ lastResult.body | json }}</code></pre>
+      </div>
+
+      <p class="iia-playground__footnote" *ngIf="mockMode && apiMode === 'crossdock'">
+        Mock mode simulates LDMS responses locally. Switch to live to hit your environment.
+      </p>
+      <p class="iia-playground__footnote" *ngIf="mockMode && apiMode === 'inventory'">
+        Mock mode simulates LDMS responses locally. Use demo keys above or paste a real key in live mode.
+      </p>
+    </aside>
+  </div>
+</div>

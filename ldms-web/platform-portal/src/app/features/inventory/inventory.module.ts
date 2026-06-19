@@ -2,6 +2,11 @@ import { NgModule } from '@angular/core';
 import { SharedModule } from '../../shared/shared.module';
 import { InventoryRoutingModule } from './inventory-routing.module';
 import { InventoryWorkspaceComponent } from './pages/inventory-workspace/inventory-workspace.component';
+import { InventoryIntegrationApiPageComponent } from './pages/inventory-integration-api-page/inventory-integration-api-page.component';
+import { InventoryIntegrationSubnavComponent } from './components/inventory-integration-subnav/inventory-integration-subnav.component';
+import { InventoryIntegrationSetupPanelComponent } from './components/inventory-integration-setup-panel/inventory-integration-setup-panel.component';
+import { LogisticsRouteJourneyComponent } from './components/logistics-route-journey/logistics-route-journey.component';
+import { EditTransferDialogComponent } from './components/edit-transfer-dialog/edit-transfer-dialog.component';
 import { CategoryDialogComponent } from './components/category-dialog/category-dialog.component';
 import type { CategoryDialogData } from './components/category-dialog/category-dialog.component';
 import { SubcategoryDialogComponent } from './components/subcategory-dialog/subcategory-dialog.component';
@@ -18,6 +23,7 @@ import { SubmitSupplierQuoteDialogComponent } from './components/submit-supplier
 import { UserAddressCascadeFieldsComponent } from '../users/components/user-address-cascade-fields/user-address-cascade-fields.component';
 import { SearchableProductPickerComponent } from './components/searchable-product-picker/searchable-product-picker.component';
 import { SearchableWarehousePickerComponent } from './components/searchable-warehouse-picker/searchable-warehouse-picker.component';
+import { EnRouteWarehouseStopsComponent } from './components/en-route-warehouse-stops/en-route-warehouse-stops.component';
 
 /** SUPPLIER inventory module: products, warehouses, stock levels, and transfers. */
 @NgModule({
@@ -33,6 +39,12 @@ import { SearchableWarehousePickerComponent } from './components/searchable-ware
     ViewTransferDialogComponent,
     WarehouseSharingDialogComponent,
     SubmitSupplierQuoteDialogComponent,
+    InventoryIntegrationApiPageComponent,
+    InventoryIntegrationSubnavComponent,
+    InventoryIntegrationSetupPanelComponent,
+    LogisticsRouteJourneyComponent,
+    EditTransferDialogComponent,
+    EnRouteWarehouseStopsComponent,
   ],
   imports: [
     SharedModule,

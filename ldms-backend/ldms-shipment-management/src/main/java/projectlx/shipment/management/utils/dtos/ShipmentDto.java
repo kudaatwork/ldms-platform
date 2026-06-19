@@ -18,6 +18,7 @@ public class ShipmentDto {
     private String sourceType;
     private Long inventoryTransferId;
     private Long salesOrderId;
+    private Long crossDockDispatchId;
     private Long purchaseOrderId;
     private Long customerOrganizationId;
     private Long fromWarehouseLocationId;

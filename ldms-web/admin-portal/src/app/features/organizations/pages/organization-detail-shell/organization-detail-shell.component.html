@@ -327,7 +327,14 @@
           </section>
         </mat-tab>
 
-        <mat-tab label="Contact person">
+        <mat-tab label="Operational mode">
+          <section class="ods-tab-pane" *ngIf="profile">
+            <app-org-admin-operational-mode [profile]="profile"></app-org-admin-operational-mode>
+          </section>
+        </mat-tab>
+
+        <mat-tab>
+          <ng-template mat-tab-label>Contact person</ng-template>
           <section class="ods-tab-pane">
             <p class="lx-form-section-lead">
               Portal account for the primary contact — same profile, address, and account fields as Users management.

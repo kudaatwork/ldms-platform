@@ -50,6 +50,7 @@ import { LxWorkspaceHeroComponent } from './components/lx-workspace-hero/lx-work
 import { LxWorkspaceHeroStatComponent } from './components/lx-workspace-hero-stat/lx-workspace-hero-stat.component';
 import { PhoneVerificationDialogComponent } from './components/phone-verification-dialog/phone-verification-dialog.component';
 import { LxOrganizationMetadataPanelComponent } from './components/lx-organization-metadata-panel/lx-organization-metadata-panel.component';
+import { OperationalModePickerComponent } from './components/operational-mode-picker/operational-mode-picker.component';
 
 const MATERIAL_MODULES = [
   MatAutocompleteModule,
@@ -96,6 +97,7 @@ const MATERIAL_MODULES = [
     FormsModule,
     ReactiveFormsModule,
     LxTablePaginatorDirective,
+    OperationalModePickerComponent,
     ...MATERIAL_MODULES,
   ],
   declarations: [
@@ -127,6 +129,7 @@ const MATERIAL_MODULES = [
     LxOrganizationMetadataPanelComponent,
     LxWorkspaceHeroComponent,
     LxWorkspaceHeroStatComponent,
+    OperationalModePickerComponent,
     ...MATERIAL_MODULES,
   ],
 })

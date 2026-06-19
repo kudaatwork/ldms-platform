@@ -1,0 +1,24 @@
+<div class="lrj" [class.lrj--compact]="compact">
+  <div class="lrj__track" *ngIf="journeyStops.length; else emptyJourney">
+    <article
+      class="lrj__stop"
+      *ngFor="let stop of journeyStops; let last = last"
+      [class.lrj__stop--origin]="stop.stopType === 'ORIGIN'"
+      [class.lrj__stop--depot]="stop.stopType === 'EN_ROUTE_DEPOT'"
+      [class.lrj__stop--dest]="stop.stopType === 'DESTINATION'"
+      [class.lrj__stop--last]="last"
+    >
+      <div class="lrj__node" aria-hidden="true">
+        <mat-icon>{{ stopIcon(stop.stopType) }}</mat-icon>
+      </div>
+      <div class="lrj__copy">
+        <span class="lrj__type">{{ stopSubtitle(stop) }}</span>
+        <strong>{{ stopTitle(stop) }}</strong>
+      </div>
+    </article>
+  </div>
+
+  <ng-template #emptyJourney>
+    <p class="lrj__empty">No route stops defined — goods move directly from origin to destination.</p>
+  </ng-template>
+</div>

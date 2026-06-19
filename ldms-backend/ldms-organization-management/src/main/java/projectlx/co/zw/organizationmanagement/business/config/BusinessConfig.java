@@ -8,11 +8,13 @@ import projectlx.co.zw.organizationmanagement.business.auditable.api.BranchServi
 import projectlx.co.zw.organizationmanagement.business.auditable.api.IndustryServiceAuditable;
 import projectlx.co.zw.organizationmanagement.business.auditable.api.OrganizationKycReviewServiceAuditable;
 import projectlx.co.zw.organizationmanagement.business.auditable.api.OrganizationServiceAuditable;
+import projectlx.co.zw.organizationmanagement.business.auditable.api.TradingPartnerServiceAuditable;
 import projectlx.co.zw.organizationmanagement.business.auditable.impl.AgentServiceAuditableImpl;
 import projectlx.co.zw.organizationmanagement.business.auditable.impl.BranchServiceAuditableImpl;
 import projectlx.co.zw.organizationmanagement.business.auditable.impl.IndustryServiceAuditableImpl;
 import projectlx.co.zw.organizationmanagement.business.auditable.impl.OrganizationKycReviewServiceAuditableImpl;
 import projectlx.co.zw.organizationmanagement.business.auditable.impl.OrganizationServiceAuditableImpl;
+import projectlx.co.zw.organizationmanagement.business.auditable.impl.TradingPartnerServiceAuditableImpl;
 import projectlx.co.zw.organizationmanagement.business.kyc.KycApprovalStageResolver;
 import projectlx.co.zw.organizationmanagement.business.kyc.KycApproverAssignmentService;
 import projectlx.co.zw.organizationmanagement.business.kyc.KycStateMachine;
@@ -31,8 +33,13 @@ import projectlx.co.zw.organizationmanagement.business.logic.support.Organizatio
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationKycNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationAddressSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationNotifier;
+import projectlx.co.zw.organizationmanagement.business.logic.api.TradingPartnerService;
+import projectlx.co.zw.organizationmanagement.business.logic.impl.TradingPartnerServiceImpl;
 import projectlx.co.zw.organizationmanagement.business.validation.api.OrganizationServiceValidator;
+import projectlx.co.zw.organizationmanagement.business.validation.api.TradingPartnerServiceValidator;
 import projectlx.co.zw.organizationmanagement.business.validation.impl.OrganizationServiceValidatorImpl;
+import projectlx.co.zw.organizationmanagement.business.validation.impl.TradingPartnerServiceValidatorImpl;
+import projectlx.co.zw.organizationmanagement.repository.TradingPartnerRepository;
 import projectlx.co.zw.organizationmanagement.repository.AgentRepository;
 import projectlx.co.zw.organizationmanagement.repository.BranchRepository;
 import projectlx.co.zw.organizationmanagement.repository.FleetVehicleRepository;
@@ -84,6 +91,31 @@ public class BusinessConfig {
     @Bean
     public OrganizationEventPublisher organizationEventPublisher(RabbitTemplate rabbitTemplate) {
         return new OrganizationEventPublisher(rabbitTemplate);
+    }
+
+    @Bean
+    public TradingPartnerServiceAuditable tradingPartnerServiceAuditable(TradingPartnerRepository tradingPartnerRepository) {
+        return new TradingPartnerServiceAuditableImpl(tradingPartnerRepository);
+    }
+
+    @Bean
+    public TradingPartnerServiceValidator tradingPartnerServiceValidator(MessageService messageService) {
+        return new TradingPartnerServiceValidatorImpl(messageService);
+    }
+
+    @Bean
+    public TradingPartnerService tradingPartnerService(
+            TradingPartnerRepository tradingPartnerRepository,
+            OrganizationRepository organizationRepository,
+            TradingPartnerServiceAuditable tradingPartnerServiceAuditable,
+            TradingPartnerServiceValidator tradingPartnerServiceValidator,
+            MessageService messageService) {
+        return new TradingPartnerServiceImpl(
+                tradingPartnerRepository,
+                organizationRepository,
+                tradingPartnerServiceAuditable,
+                tradingPartnerServiceValidator,
+                messageService);
     }
 
     @Bean

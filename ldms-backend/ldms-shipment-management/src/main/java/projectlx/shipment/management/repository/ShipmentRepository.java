@@ -43,6 +43,8 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long>,
 
     boolean existsBySalesOrderIdAndEntityStatusNot(Long salesOrderId, EntityStatus entityStatus);
 
+    boolean existsByCrossDockDispatchIdAndEntityStatusNot(Long crossDockDispatchId, EntityStatus entityStatus);
+
     @Query(value = """
             SELECT s.organization_id AS organizationId,
                    SUM(CASE WHEN s.status IN ('PENDING_ALLOCATION','PENDING_FLEET_ALLOCATION','ALLOCATED','IN_TRANSIT','ARRIVED_PENDING_OTP')

@@ -135,6 +135,43 @@ public class FleetFileUploadHelper {
         }
     }
 
+    /**
+     * Validates a staging upload created during public driver signup
+     * ({@code FLEET_DRIVER_SIGNUP} owner with {@code stagingSessionId}).
+     */
+    public boolean validateSignupDocumentReference(Long fileUploadId, Long stagingSessionId, Locale locale) {
+        if (fileUploadId == null || fileUploadId < 1) {
+            return false;
+        }
+        if (stagingSessionId == null || stagingSessionId < 1) {
+            return false;
+        }
+        try {
+            FileUploadResponse response = fileUploadServiceClient.findById(fileUploadId);
+            if (response == null || !response.isSuccess()) {
+                return false;
+            }
+            FileUploadDto dto = response.getFileUploadDto();
+            if (dto == null || dto.getOwnerType() == null || dto.getOwnerId() == null) {
+                return false;
+            }
+            if (!OwnerType.FLEET_DRIVER_SIGNUP.name().equals(dto.getOwnerType().name())) {
+                log.warn("File upload {} ownerType mismatch for signup staging: expected {}, got {}",
+                        fileUploadId, OwnerType.FLEET_DRIVER_SIGNUP, dto.getOwnerType());
+                return false;
+            }
+            if (!stagingSessionId.equals(dto.getOwnerId())) {
+                log.warn("File upload {} stagingSessionId mismatch: expected {}, got {}",
+                        fileUploadId, stagingSessionId, dto.getOwnerId());
+                return false;
+            }
+            return true;
+        } catch (Exception ex) {
+            log.warn("Failed to validate signup document upload {}: {}", fileUploadId, ex.getMessage());
+            return false;
+        }
+    }
+
     /** Resolves expiry from an optional calendar date (end of day) or file-upload metadata. */
     public LocalDateTime resolveExpiresAt(LocalDate expiresAt, Long fileUploadId) {
         if (expiresAt != null) {

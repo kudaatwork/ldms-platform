@@ -3,7 +3,8 @@ import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { finalize } from 'rxjs/operators';
 import { InventoryPortalService } from '../../services/inventory-portal.service';
-import { ProductRow, StockRow, TransferRow, WarehouseRow } from '../../models/inventory.model';
+import { ProductRow, StockRow, TransferRow, WarehouseRow, LogisticsRouteStopRow } from '../../models/inventory.model';
+import { buildRoutePreviewStops } from '../../utils/route-stops.util';
 
 export interface CreateTransferDialogData {
   products: ProductRow[];
@@ -42,6 +43,7 @@ export class CreateTransferDialogComponent implements OnInit {
       unitCost: [0, [Validators.min(0)]],
       reference: [''],
       crossBorder: [false],
+      enRouteDepotIds: [[] as number[]],
     });
   }
 
@@ -119,6 +121,61 @@ export class CreateTransferDialogComponent implements OnInit {
     return this.warehouses.filter((warehouse) => warehouse.id !== this.fromLocationId);
   }
 
+  /**
+   * Depot warehouses eligible as en-route stops.
+   * Excludes source and destination warehouses.
+   */
+  get depotWarehouses(): WarehouseRow[] {
+    const toId = Number(this.form.get('toLocationId')?.value ?? 0);
+    return this.warehouses.filter(
+      (w) =>
+        w.id !== this.fromLocationId &&
+        w.id !== toId &&
+        (w.warehouseType?.toUpperCase() === 'DEPOT' || (w as WarehouseRow & { depot?: boolean }).depot === true),
+    );
+  }
+
+  get selectedDepotIds(): number[] {
+    return (this.form.get('enRouteDepotIds')?.value as number[]) ?? [];
+  }
+
+  get originLabel(): string {
+    return this.warehouses.find((w) => w.id === this.fromLocationId)?.name ?? '';
+  }
+
+  get destinationLabel(): string {
+    const toId = Number(this.form.get('toLocationId')?.value ?? 0);
+    return this.warehouses.find((w) => w.id === toId)?.name ?? '';
+  }
+
+  get toLocationId(): number {
+    return Number(this.form.get('toLocationId')?.value ?? 0);
+  }
+
+  get crossBorderSelected(): boolean {
+    return !!this.form.get('crossBorder')?.value;
+  }
+
+  get previewRouteStops(): LogisticsRouteStopRow[] {
+    return buildRoutePreviewStops(this.fromLocationId, this.toLocationId, this.selectedDepotIds, this.warehouses, {
+      fromLabel: this.originLabel,
+      toLabel: this.destinationLabel,
+    });
+  }
+
+  isDepotSelected(warehouseId: number): boolean {
+    return this.selectedDepotIds.includes(warehouseId);
+  }
+
+  toggleDepot(warehouseId: number): void {
+    if (this.submitting) return;
+    const current = this.selectedDepotIds;
+    const updated = current.includes(warehouseId)
+      ? current.filter((id) => id !== warehouseId)
+      : [...current, warehouseId];
+    this.form.patchValue({ enRouteDepotIds: updated });
+  }
+
   get toWarehouseHint(): string {
     return this.fromWarehouseSelected ? '' : 'Select the source warehouse first.';
   }
@@ -136,8 +193,23 @@ export class CreateTransferDialogComponent implements OnInit {
   }
 
   onToWarehouseChange(): void {
+    this.pruneEnRouteStops();
     if (this.suggestCrossBorder && !this.form.get('crossBorder')?.dirty) {
       this.form.patchValue({ crossBorder: true });
+    }
+  }
+
+  onEnRouteStopsChange(stopIds: number[]): void {
+    this.form.patchValue({ enRouteDepotIds: stopIds });
+  }
+
+  private pruneEnRouteStops(): void {
+    const toId = Number(this.form.get('toLocationId')?.value ?? 0);
+    const valid = this.selectedDepotIds.filter(
+      (id) => id > 0 && id !== this.fromLocationId && id !== toId,
+    );
+    if (valid.length !== this.selectedDepotIds.length) {
+      this.form.patchValue({ enRouteDepotIds: valid });
     }
   }
 
@@ -170,6 +242,7 @@ export class CreateTransferDialogComponent implements OnInit {
       patch.toLocationId = null;
     }
     this.form.patchValue(patch);
+    this.pruneEnRouteStops();
     this.applyCapturedUnitCost();
     this.updateQuantityValidators();
   }
@@ -218,6 +291,8 @@ export class CreateTransferDialogComponent implements OnInit {
     this.submitError = '';
     const transferNumber = `TRF-${Date.now()}`;
 
+    const depotIds = (raw.enRouteDepotIds as number[] | undefined)?.filter((id) => id > 0) ?? [];
+
     this.inventoryService
       .createTransfer({
         transferNumber,
@@ -229,6 +304,7 @@ export class CreateTransferDialogComponent implements OnInit {
         status: 'REQUESTED',
         reference: String(raw.reference ?? '').trim() || undefined,
         crossBorder: !!raw.crossBorder,
+        enRouteDepotIds: depotIds.length > 0 ? depotIds : undefined,
         createdByUserId: this.data.createdByUserId,
       })
       .pipe(finalize(() => (this.submitting = false)))

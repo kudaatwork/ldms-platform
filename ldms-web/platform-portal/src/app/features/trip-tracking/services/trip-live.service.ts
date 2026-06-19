@@ -104,6 +104,9 @@ export class TripLiveService {
       completedWaypointCount:
         dto['completedWaypointCount'] != null ? Number(dto['completedWaypointCount']) : undefined,
       totalWaypointCount: dto['totalWaypointCount'] != null ? Number(dto['totalWaypointCount']) : undefined,
+      awaitingArrivalConfirmation: Boolean(dto['awaitingArrivalConfirmation']),
+      returnJourneyActive: Boolean(dto['returnJourneyActive']),
+      deliveryPhaseLabel: dto['deliveryPhaseLabel'] != null ? String(dto['deliveryPhaseLabel']) : undefined,
       lastTimingTickMs: Date.now(),
     };
   }

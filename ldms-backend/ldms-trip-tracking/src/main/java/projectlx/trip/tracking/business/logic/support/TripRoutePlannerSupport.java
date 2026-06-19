@@ -3,25 +3,30 @@ package projectlx.trip.tracking.business.logic.support;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
+import projectlx.trip.tracking.clients.InventoryManagementServiceClient;
 import projectlx.trip.tracking.model.Trip;
 import projectlx.trip.tracking.model.TripRoutePlan;
 import projectlx.trip.tracking.repository.TripRoutePlanRepository;
+import projectlx.trip.tracking.utils.dtos.InventoryRouteStopFeignDto;
+import projectlx.trip.tracking.utils.dtos.InventoryRouteStopListFeignResponse;
 import projectlx.trip.tracking.utils.dtos.TripRouteWaypointDto;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 
 /**
  * Builds corridor route plans using real Zimbabwe GPS coordinates on the Harare–Bulawayo freight corridor.
- * Origin/destination labels come from the trip's warehouse names when available.
+ * When the trip has an inventoryTransferId or salesOrderId, real route stops are fetched from inventory-management.
+ * Falls back to hardcoded corridor when no stops are available.
  */
-@RequiredArgsConstructor
 @Slf4j
 public class TripRoutePlannerSupport {
 
@@ -32,6 +37,22 @@ public class TripRoutePlannerSupport {
 
     private final TripRoutePlanRepository tripRoutePlanRepository;
     private final ObjectMapper objectMapper;
+    private final Optional<InventoryManagementServiceClient> inventoryClient;
+
+    public TripRoutePlannerSupport(TripRoutePlanRepository tripRoutePlanRepository,
+                                   ObjectMapper objectMapper) {
+        this.tripRoutePlanRepository = tripRoutePlanRepository;
+        this.objectMapper = objectMapper;
+        this.inventoryClient = Optional.empty();
+    }
+
+    public TripRoutePlannerSupport(TripRoutePlanRepository tripRoutePlanRepository,
+                                   ObjectMapper objectMapper,
+                                   InventoryManagementServiceClient inventoryClient) {
+        this.tripRoutePlanRepository = tripRoutePlanRepository;
+        this.objectMapper = objectMapper;
+        this.inventoryClient = Optional.ofNullable(inventoryClient);
+    }
 
     public TripRoutePlan ensureRoutePlan(Trip trip, String username) {
         return tripRoutePlanRepository.findByTripIdAndEntityStatusNot(trip.getId(), EntityStatus.DELETED)
@@ -96,14 +117,14 @@ public class TripRoutePlannerSupport {
         String originLabel = defaultLabel(trip.getFromWarehouseName(), "Harare Distribution Centre");
         String destLabel = defaultLabel(trip.getToWarehouseName(), "Bulawayo Regional Depot");
 
-        List<TripRouteWaypointDto> corridor = List.of(
-                waypoint("Chitungwiza Bypass", new BigDecimal("-18.0128000"), new BigDecimal("31.0756000"), "CHECKPOINT"),
-                waypoint("Norton Toll Plaza", new BigDecimal("-17.8833000"), new BigDecimal("30.7000000"), "CHECKPOINT"),
-                waypoint("Kadoma Logistics Hub", new BigDecimal("-18.3333000"), new BigDecimal("29.9153000"), "CHECKPOINT"),
-                waypoint("Gweru Corridor Stop", new BigDecimal("-19.4500000"), new BigDecimal("29.8167000"), "CHECKPOINT"),
-                waypoint("Shangani River Crossing", new BigDecimal("-19.7833000"), new BigDecimal("29.3500000"), "CHECKPOINT")
-        );
+        // ============================================================
+        // STEP 1: Attempt to load real route stops from inventory-management
+        // ============================================================
+        List<TripRouteWaypointDto> corridor = buildCorridorFromInventoryStops(trip, originLabel, destLabel);
 
+        // ============================================================
+        // STEP 2: Build and persist route plan
+        // ============================================================
         TripRoutePlan plan = new TripRoutePlan();
         plan.setTripId(trip.getId());
         plan.setOrganizationId(trip.getOrganizationId());
@@ -131,6 +152,101 @@ public class TripRoutePlannerSupport {
         plan.setTotalDistanceKm(estimateTotalDistanceKm(fullPath));
 
         return tripRoutePlanRepository.save(plan);
+    }
+
+    /**
+     * Build corridor waypoints from real inventory route stops when available.
+     * Interpolates lat/lng between origin and destination based on stop sequence fraction.
+     * Falls back to the hardcoded Harare–Bulawayo corridor when no stops are found.
+     */
+    private List<TripRouteWaypointDto> buildCorridorFromInventoryStops(
+            Trip trip, String originLabel, String destLabel) {
+
+        if (inventoryClient.isEmpty()) {
+            return hardcodedCorridor();
+        }
+
+        String contextType = null;
+        Long contextId = null;
+
+        if (trip.getInventoryTransferId() != null) {
+            contextType = "INVENTORY_TRANSFER";
+            contextId = trip.getInventoryTransferId();
+        } else if (trip.getSalesOrderId() != null) {
+            contextType = "SALES_ORDER";
+            contextId = trip.getSalesOrderId();
+        }
+
+        if (contextType == null) {
+            return hardcodedCorridor();
+        }
+
+        try {
+            InventoryRouteStopListFeignResponse response =
+                    inventoryClient.get().findRouteStopsByContext(contextType, contextId, Locale.ENGLISH);
+
+            if (response == null || !response.isSuccess()
+                    || response.getLogisticsRouteStopDtoList() == null
+                    || response.getLogisticsRouteStopDtoList().isEmpty()) {
+                log.debug("No route stops found for contextType={} contextId={}; using hardcoded corridor.",
+                        contextType, contextId);
+                return hardcodedCorridor();
+            }
+
+            List<InventoryRouteStopFeignDto> stops = response.getLogisticsRouteStopDtoList().stream()
+                    .filter(stop -> "EN_ROUTE_DEPOT".equalsIgnoreCase(stop.getStopType()))
+                    .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+
+            if (stops.isEmpty()) {
+                log.debug("No en-route depot stops for contextType={} contextId={}; using hardcoded corridor.",
+                        contextType, contextId);
+                return hardcodedCorridor();
+            }
+
+            Collections.sort(stops, (a, b) -> {
+                int seqA = a.getStopSequence() != null ? a.getStopSequence() : 0;
+                int seqB = b.getStopSequence() != null ? b.getStopSequence() : 0;
+                return Integer.compare(seqA, seqB);
+            });
+
+            int total = stops.size() + 1;
+            List<TripRouteWaypointDto> waypoints = new ArrayList<>();
+
+            for (int i = 0; i < stops.size(); i++) {
+                InventoryRouteStopFeignDto stop = stops.get(i);
+                String label = stop.getLocationLabel() != null ? stop.getLocationLabel()
+                        : "Depot " + (i + 1);
+                // Fraction along the origin→destination segment
+                double fraction = (double) (i + 1) / total;
+                BigDecimal lat = interpolate(HARARE_MSASA_LAT, BULAWAYO_WH_LAT, fraction);
+                BigDecimal lng = interpolate(HARARE_MSASA_LNG, BULAWAYO_WH_LNG, fraction);
+                waypoints.add(waypoint(label, lat, lng, "CHECKPOINT"));
+            }
+
+            log.info("Built {} real route stops for contextType={} contextId={}",
+                    waypoints.size(), contextType, contextId);
+            return waypoints;
+
+        } catch (Exception ex) {
+            log.warn("Failed to fetch route stops from inventory [contextType={} contextId={}]: {}; falling back to hardcoded corridor.",
+                    contextType, contextId, ex.getMessage());
+            return hardcodedCorridor();
+        }
+    }
+
+    private List<TripRouteWaypointDto> hardcodedCorridor() {
+        return List.of(
+                waypoint("Chitungwiza Bypass", new BigDecimal("-18.0128000"), new BigDecimal("31.0756000"), "CHECKPOINT"),
+                waypoint("Norton Toll Plaza", new BigDecimal("-17.8833000"), new BigDecimal("30.7000000"), "CHECKPOINT"),
+                waypoint("Kadoma Logistics Hub", new BigDecimal("-18.3333000"), new BigDecimal("29.9153000"), "CHECKPOINT"),
+                waypoint("Gweru Corridor Stop", new BigDecimal("-19.4500000"), new BigDecimal("29.8167000"), "CHECKPOINT"),
+                waypoint("Shangani River Crossing", new BigDecimal("-19.7833000"), new BigDecimal("29.3500000"), "CHECKPOINT")
+        );
+    }
+
+    private static BigDecimal interpolate(BigDecimal start, BigDecimal end, double fraction) {
+        double result = start.doubleValue() + (end.doubleValue() - start.doubleValue()) * fraction;
+        return BigDecimal.valueOf(result).setScale(7, RoundingMode.HALF_UP);
     }
 
     private String writeJson(List<TripRouteWaypointDto> waypoints) {

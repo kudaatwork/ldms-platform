@@ -25,6 +25,7 @@ public class OrganizationWorkspaceProvisioner {
     public static final String ADMINISTRATOR_GROUP_NAME = "Administrator";
     private static final String USER_TYPE_ORGANIZATION_CONTACT = "ORGANIZATION_CONTACT";
     private static final String USER_TYPE_ORGANIZATION_MEMBER = "ORGANIZATION_MEMBER";
+    private static final String USER_TYPE_FLEET_DRIVER = "FLEET_DRIVER";
 
     private final DataSource dataSource;
     private final UserGroupRepository userGroupRepository;
@@ -73,6 +74,9 @@ public class OrganizationWorkspaceProvisioner {
         ensureUserType(
                 USER_TYPE_ORGANIZATION_MEMBER,
                 "Standard organisation user on the platform portal");
+        ensureUserType(
+                USER_TYPE_FLEET_DRIVER,
+                "Fleet driver with mobile app access");
     }
 
     private void syncRoleCatalog() {

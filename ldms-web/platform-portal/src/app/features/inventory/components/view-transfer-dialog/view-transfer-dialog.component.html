@@ -8,6 +8,10 @@
       <p class="lx-dialog-subtitle">
         <span class="inv-transfer-view__ref">{{ transfer.transferNumber }}</span>
         <ng-container *ngIf="transfer.productName"> · {{ transfer.productName }}</ng-container>
+        <span class="inv-transfer-view__badge" *ngIf="isCrossBorder">
+          <mat-icon>public</mat-icon>
+          Cross-border
+        </span>
       </p>
     </div>
     <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="close()">
@@ -17,28 +21,33 @@
 
   <div class="lx-step-content inv-transfer-view-body">
     <div class="inv-transfer-route-card lx-card">
-      <div class="inv-transfer-route-card__endpoint">
-        <span class="inv-transfer-route-card__label">From</span>
-        <strong>{{ transfer.fromWarehouse || '—' }}</strong>
-        <span class="inv-transfer-route-card__meta" *ngIf="transfer.fromLocationId > 0">Location #{{ transfer.fromLocationId }}</span>
-      </div>
-      <div class="inv-transfer-route-card__bridge" aria-hidden="true">
-        <div class="inv-transfer-route-card__qty">
-          <mat-icon>inventory_2</mat-icon>
-          <span>{{ quantityLabel }}</span>
+      <header class="inv-transfer-route-card__head">
+        <mat-icon>alt_route</mat-icon>
+        <div>
+          <strong>Route journey</strong>
+          <span>{{ hasEnRouteStops ? routeStops.length + ' stops' : 'Direct route' }}</span>
         </div>
-        <div class="inv-transfer-route-card__line">
-          <span class="inv-transfer-route-card__dot"></span>
-          <mat-icon>east</mat-icon>
-          <span class="inv-transfer-route-card__dot inv-transfer-route-card__dot--end"></span>
-        </div>
-      </div>
-      <div class="inv-transfer-route-card__endpoint inv-transfer-route-card__endpoint--dest">
-        <span class="inv-transfer-route-card__label">To</span>
-        <strong>{{ transfer.toWarehouse || '—' }}</strong>
-        <span class="inv-transfer-route-card__meta" *ngIf="transfer.toLocationId > 0">Location #{{ transfer.toLocationId }}</span>
-      </div>
+      </header>
+      <app-logistics-route-journey
+        [originLabel]="transfer.fromWarehouse"
+        [destinationLabel]="transfer.toWarehouse"
+        [stops]="routeStops"
+      ></app-logistics-route-journey>
     </div>
+
+    <section class="inv-transfer-cross-border lx-card" *ngIf="isCrossBorder">
+      <mat-icon>fact_check</mat-icon>
+      <div>
+        <strong>Border clearance required</strong>
+        <p>
+          When this transfer is approved, LDMS opens a clearance case automatically. Prepare customs documents before the truck crosses the border.
+        </p>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" *ngIf="canTrackShipment" (click)="openBorderClearance()">
+          <mat-icon>open_in_new</mat-icon>
+          Open border clearance
+        </button>
+      </div>
+    </section>
 
     <div class="inv-transfer-timeline lx-card" [class.inv-transfer-timeline--rejected]="isRejected">
       <div
@@ -176,6 +185,11 @@
 
     <div class="lx-dialog-actions inv-transfer-view-actions">
       <button type="button" class="lx-btn lx-btn-ghost" (click)="close()">Close</button>
+
+      <button type="button" class="lx-btn lx-btn-ghost" *ngIf="canEdit && !rejectMode" (click)="edit()">
+        <mat-icon>edit</mat-icon>
+        Edit route
+      </button>
 
       <ng-container *ngIf="showWorkflowActions && !rejectMode">
         <button

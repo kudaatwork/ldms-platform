@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { CanActivate, Router, UrlTree } from '@angular/router';
-import { map, Observable } from 'rxjs';
+import { map, Observable, of } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { AuthStateService } from '../services/auth-state.service';
 import { DuplexTradingModeService } from '../services/duplex-trading-mode.service';
@@ -17,17 +17,21 @@ export class SupplierClassificationGuard implements CanActivate {
   ) {}
 
   canActivate(): Observable<boolean | UrlTree> {
-    return this.authService.initializeSession().pipe(
-      map(() => {
-        this.duplexMode.syncFromUser(this.authState.currentUser);
-        return isSupplierOrganization(
-          this.authState.currentUser?.orgClassification,
-          this.authState.currentUser?.duplexMode,
-          this.duplexMode.activeMode,
-        )
-          ? true
-          : this.router.createUrlTree(['/my-orders']);
-      }),
-    );
+    const immediate = this.evaluate();
+    if (immediate !== null) {
+      return of(immediate);
+    }
+    return this.authService.initializeSession().pipe(map(() => this.evaluate() ?? this.router.createUrlTree(['/my-orders'])));
+  }
+
+  private evaluate(): boolean | UrlTree | null {
+    const user = this.authState.currentUser;
+    if (!user?.orgClassification) {
+      return null;
+    }
+    this.duplexMode.syncFromUser(user);
+    return isSupplierOrganization(user.orgClassification, user.duplexMode, this.duplexMode.activeMode)
+      ? true
+      : this.router.createUrlTree(['/my-orders']);
   }
 }

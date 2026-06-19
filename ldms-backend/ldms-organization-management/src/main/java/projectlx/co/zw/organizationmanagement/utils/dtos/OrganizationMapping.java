@@ -127,6 +127,11 @@ public final class OrganizationMapping {
         dto.setResubmissionCount(o.getResubmissionCount());
         dto.setIsVerified(o.isVerified());
         dto.setDuplexMode(o.isDuplexMode());
+        dto.setStandaloneMode(o.isStandaloneMode());
+        dto.setInventoryManagementEnabled(o.isInventoryManagementEnabled());
+        dto.setCrossDockingEnabled(o.isCrossDockingEnabled());
+        dto.setInventoryDataSource(o.getInventoryDataSource());
+        dto.setCounterpartyEngagementMode(o.getCounterpartyEngagementMode());
         dto.setCreatedViaSignup(o.getCreatedViaSignup());
         dto.setCreatedAt(o.getCreatedAt());
         dto.setUpdatedAt(o.getModifiedAt());

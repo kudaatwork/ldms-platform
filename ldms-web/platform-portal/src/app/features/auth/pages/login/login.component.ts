@@ -1,7 +1,7 @@
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, NavigationExtras, Router } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
 import { GoogleGsiService } from '../../../../core/services/google-gsi.service';
 import { ThemeService } from '../../../../core/services/theme.service';
@@ -31,6 +31,9 @@ export class LoginComponent implements OnInit, AfterViewInit {
   mfaChallengeToken = '';
   twoFactorOtp = '';
   twoFactorMethod: 'SMS' | 'AUTHENTICATOR_APP' = 'SMS';
+
+  /** Active portal tab: organisation workspace or driver mobile portal. */
+  portalTab: 'org' | 'driver' = 'org';
 
   readonly googleClientId = (environment.googleOAuthClientId ?? '').trim();
   @ViewChild('googleSignInHost', { static: false }) googleSignInHost?: ElementRef<HTMLElement>;
@@ -64,6 +67,9 @@ export class LoginComponent implements OnInit, AfterViewInit {
     if (email) {
       this.form.patchValue({ usernameOrEmail: email });
     }
+    if (this.route.snapshot.queryParamMap.get('portal') === 'driver') {
+      this.portalTab = 'driver';
+    }
     const logoutReason = this.route.snapshot.queryParamMap.get('reason');
     if (logoutReason === 'inactivity') {
       this.infoMessage = 'You were signed out after inactivity. Please sign in again.';
@@ -81,9 +87,24 @@ export class LoginComponent implements OnInit, AfterViewInit {
 
   /** Replace login in browser history so Back does not return to the sign-in form after entry. */
   private async navigateAfterLogin(): Promise<void> {
-    const commands = this.authService.postLoginRoute();
+    // Always check mustChangeCredentials first — applies to both org and driver logins.
+    const postLoginRoute = this.authService.postLoginRoute();
+    const needsCredentialSetup = postLoginRoute[0] === '/auth/setup-credentials';
+
+    let commands: string[];
+    let extras: NavigationExtras = { replaceUrl: true };
+
+    if (needsCredentialSetup) {
+      commands = ['/auth/setup-credentials'];
+      if (this.portalTab === 'driver') {
+        extras = { ...extras, queryParams: { portal: 'driver' } };
+      }
+    } else {
+      commands = this.portalTab === 'driver' ? ['/driver'] : postLoginRoute;
+    }
+
     try {
-      let ok = await this.router.navigate(commands, { replaceUrl: true });
+      let ok = await this.router.navigate(commands, extras);
       if (!ok) {
         const path = `/${commands.filter(Boolean).join('/')}`;
         ok = await this.router.navigateByUrl(path, { replaceUrl: true });
@@ -136,6 +157,15 @@ export class LoginComponent implements OnInit, AfterViewInit {
         this.cdr.markForCheck();
       },
     });
+  }
+
+  selectTab(tab: 'org' | 'driver'): void {
+    this.portalTab = tab;
+    this.error = '';
+    this.infoMessage = '';
+    this.twoFactorStep = false;
+    this.form.reset();
+    this.cdr.markForCheck();
   }
 
   toggleTheme(): void {

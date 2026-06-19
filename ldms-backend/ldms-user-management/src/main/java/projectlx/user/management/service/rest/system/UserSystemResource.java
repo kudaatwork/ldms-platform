@@ -17,6 +17,7 @@ import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
 import projectlx.user.management.utils.requests.CompleteCredentialsSetupRequest;
 import projectlx.user.management.utils.requests.IssueOrganizationContactCredentialsRequest;
+import projectlx.user.management.utils.requests.ProvisionDriverPlatformUserRequest;
 import projectlx.user.management.utils.requests.ProvisionOrganizationContactPersonRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
 import projectlx.user.management.utils.config.EmailVerificationLinkProperties;
@@ -559,5 +560,23 @@ public class UserSystemResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                     defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         return userServiceProcessor.verifyLoginOtp(usernameOrPhone, otp, locale);
+    }
+
+    @Auditable(action = "PROVISION_DRIVER_PLATFORM_ACCESS")
+    @PostMapping(value = "/provision-driver-platform-access")
+    @Operation(summary = "Provision fleet driver platform access",
+            description = "Creates or reuses a platform user for a fleet driver and issues temporary credentials. " +
+                          "Called by ldms-fleet-management after driver creation or signup request approval.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Driver platform access provisioned"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "500", description = "Provisioning failed")
+    })
+    public UserResponse provisionDriverPlatformAccess(
+            @Valid @RequestBody ProvisionDriverPlatformUserRequest request,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        return userServiceProcessor.provisionDriverPlatformAccess(request, locale, "SYSTEM");
     }
 }

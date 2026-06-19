@@ -150,6 +150,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Primary;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.web.client.RestTemplate;
 import projectlx.inventory.management.business.validator.api.ProductServiceValidator;
 import projectlx.inventory.management.business.logic.api.OutboxService;
 import projectlx.inventory.management.business.logic.impl.OutboxServiceImpl;
@@ -497,7 +498,8 @@ public class BusinessConfig {
             projectlx.inventory.management.business.logic.support.TransitWarehouseSupport transitWarehouseSupport,
             projectlx.inventory.management.business.logic.support.StockTransferSupport stockTransferSupport,
             GoodsReceivedVoucherServiceAuditable goodsReceivedVoucherServiceAuditable,
-            GoodsReceivedVoucherRepository goodsReceivedVoucherRepository
+            GoodsReceivedVoucherRepository goodsReceivedVoucherRepository,
+            @Lazy projectlx.inventory.management.business.logic.api.LogisticsRouteStopService logisticsRouteStopService
     ) {
         return new InventoryTransferServiceImpl(
                 repository,
@@ -518,7 +520,8 @@ public class BusinessConfig {
                 transitWarehouseSupport,
                 stockTransferSupport,
                 goodsReceivedVoucherServiceAuditable,
-                goodsReceivedVoucherRepository
+                goodsReceivedVoucherRepository,
+                logisticsRouteStopService
         );
     }
 
@@ -762,6 +765,11 @@ public class BusinessConfig {
     }
 
     @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
+    }
+
+    @Bean
     public SalesOrderService salesOrderService(
             SalesOrderRepository salesOrderRepository,
             ProductRepository productRepository,
@@ -858,6 +866,115 @@ public class BusinessConfig {
                 modelMapper,
                 messageService
         );
+    }
+
+    // ======= Logistics Route Stop =======
+
+    @Bean
+    public projectlx.inventory.management.business.auditable.api.LogisticsRouteStopServiceAuditable
+    logisticsRouteStopServiceAuditable(
+            projectlx.inventory.management.repository.LogisticsRouteStopRepository logisticsRouteStopRepository) {
+        return new projectlx.inventory.management.business.auditable.impl.LogisticsRouteStopServiceAuditableImpl(
+                logisticsRouteStopRepository);
+    }
+
+    @Bean
+    public projectlx.inventory.management.business.validator.api.LogisticsRouteStopServiceValidator
+    logisticsRouteStopServiceValidator(MessageService messageService) {
+        return new projectlx.inventory.management.business.validator.impl.LogisticsRouteStopServiceValidatorImpl(
+                messageService);
+    }
+
+    @Bean
+    public projectlx.inventory.management.business.logic.api.LogisticsRouteStopService
+    logisticsRouteStopService(
+            projectlx.inventory.management.repository.LogisticsRouteStopRepository logisticsRouteStopRepository,
+            projectlx.inventory.management.business.auditable.api.LogisticsRouteStopServiceAuditable logisticsRouteStopServiceAuditable,
+            projectlx.inventory.management.business.validator.api.LogisticsRouteStopServiceValidator logisticsRouteStopServiceValidator,
+            ModelMapper modelMapper,
+            MessageService messageService) {
+        return new projectlx.inventory.management.business.logic.impl.LogisticsRouteStopServiceImpl(
+                logisticsRouteStopRepository,
+                logisticsRouteStopServiceAuditable,
+                logisticsRouteStopServiceValidator,
+                modelMapper,
+                messageService);
+    }
+
+    // ======= Inventory Integration Credential =======
+
+    @Bean
+    public projectlx.inventory.management.business.auditable.api.InventoryIntegrationCredentialServiceAuditable
+    inventoryIntegrationCredentialServiceAuditable(
+            projectlx.inventory.management.repository.InventoryIntegrationCredentialRepository credentialRepository) {
+        return new projectlx.inventory.management.business.auditable.impl.InventoryIntegrationCredentialServiceAuditableImpl(
+                credentialRepository);
+    }
+
+    @Bean
+    public projectlx.inventory.management.business.validator.api.InventoryIntegrationCredentialServiceValidator
+    inventoryIntegrationCredentialServiceValidator(MessageService messageService) {
+        return new projectlx.inventory.management.business.validator.impl.InventoryIntegrationCredentialServiceValidatorImpl(
+                messageService);
+    }
+
+    @Bean
+    public projectlx.inventory.management.business.logic.api.InventoryIntegrationCredentialService
+    inventoryIntegrationCredentialService(
+            projectlx.inventory.management.repository.InventoryIntegrationCredentialRepository credentialRepository,
+            projectlx.inventory.management.business.auditable.api.InventoryIntegrationCredentialServiceAuditable inventoryIntegrationCredentialServiceAuditable,
+            projectlx.inventory.management.business.validator.api.InventoryIntegrationCredentialServiceValidator inventoryIntegrationCredentialServiceValidator,
+            ModelMapper modelMapper,
+            MessageService messageService) {
+        return new projectlx.inventory.management.business.logic.impl.InventoryIntegrationCredentialServiceImpl(
+                credentialRepository,
+                inventoryIntegrationCredentialServiceAuditable,
+                inventoryIntegrationCredentialServiceValidator,
+                modelMapper,
+                messageService);
+    }
+
+    // ======= Cross-Dock Dispatch =======
+
+    @Bean
+    public projectlx.inventory.management.business.auditable.api.CrossDockDispatchServiceAuditable
+    crossDockDispatchServiceAuditable(
+            projectlx.inventory.management.repository.CrossDockDispatchRepository crossDockDispatchRepository) {
+        return new projectlx.inventory.management.business.auditable.impl.CrossDockDispatchServiceAuditableImpl(
+                crossDockDispatchRepository);
+    }
+
+    @Bean
+    public projectlx.inventory.management.business.validator.api.CrossDockDispatchServiceValidator
+    crossDockDispatchServiceValidator(MessageService messageService) {
+        return new projectlx.inventory.management.business.validator.impl.CrossDockDispatchServiceValidatorImpl(
+                messageService);
+    }
+
+    @Bean
+    public projectlx.inventory.management.business.logic.api.CrossDockDispatchService
+    crossDockDispatchService(
+            projectlx.inventory.management.repository.CrossDockDispatchRepository crossDockDispatchRepository,
+            projectlx.inventory.management.business.auditable.api.CrossDockDispatchServiceAuditable crossDockDispatchServiceAuditable,
+            projectlx.inventory.management.business.auditable.api.InventoryIntegrationCredentialServiceAuditable inventoryIntegrationCredentialServiceAuditable,
+            projectlx.inventory.management.business.validator.api.CrossDockDispatchServiceValidator crossDockDispatchServiceValidator,
+            projectlx.inventory.management.business.logic.api.InventoryIntegrationCredentialService inventoryIntegrationCredentialService,
+            ModelMapper modelMapper,
+            MessageService messageService,
+            RabbitTemplate rabbitTemplate,
+            com.fasterxml.jackson.databind.ObjectMapper objectMapper,
+            RestTemplate restTemplate) {
+        return new projectlx.inventory.management.business.logic.impl.CrossDockDispatchServiceImpl(
+                crossDockDispatchRepository,
+                crossDockDispatchServiceAuditable,
+                crossDockDispatchServiceValidator,
+                inventoryIntegrationCredentialService,
+                inventoryIntegrationCredentialServiceAuditable,
+                modelMapper,
+                messageService,
+                rabbitTemplate,
+                objectMapper,
+                restTemplate);
     }
 
 }

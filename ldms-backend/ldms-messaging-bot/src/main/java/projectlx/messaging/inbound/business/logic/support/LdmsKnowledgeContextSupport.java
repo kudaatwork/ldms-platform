@@ -60,36 +60,43 @@ public class LdmsKnowledgeContextSupport {
         log.info("LDMS bot knowledge loaded: {} document(s), {} characters", sources.size(), knowledgeText.length());
     }
 
-    public BotKnowledgeStatusDto status() {
+    public BotKnowledgeStatusDto status(BotFaqRagSupport botFaqRagSupport) {
         BotKnowledgeStatusDto dto = new BotKnowledgeStatusDto();
         dto.setLastLoadedAt(lastLoadedAt);
         dto.setDocumentCount(loadedSources.size());
         dto.setCharacterCount(knowledgeText.length());
+        dto.setFaqCount(botFaqRagSupport != null ? botFaqRagSupport.publishedCount() : 0);
         dto.setSources(loadedSources);
         return dto;
     }
 
-    public String systemPrompt(String userDisplayName, String organizationName) {
+    public String systemPrompt(String userDisplayName, String organizationName, String userQuery,
+                               BotFaqRagSupport botFaqRagSupport) {
         String callerContext = buildCallerContext(userDisplayName, organizationName);
+        String faqContext = botFaqRagSupport != null ? botFaqRagSupport.retrieveContextForQuery(userQuery) : "";
+        String faqSection = faqContext.isBlank() ? "" : faqContext + "\n\n";
         return """
                 You are the LDMS (Logistics and Distribution Management System) assistant for Project LX.
                 Answer questions about how LDMS works: onboarding, purchase orders, shipments, trips, billing,
                 fleet, help & support, and platform roles (suppliers, customers, transporters, drivers, admins).
 
                 Rules:
-                - Use ONLY the LDMS reference documents below and the conversation history. Do not invent features.
+                - Use ONLY the LDMS reference documents below, admin FAQ knowledge, and the conversation history. Do not invent features.
                 - If the answer is not in the documents, say you are not sure and suggest opening a Help & Support ticket.
                 - Be concise, practical, and friendly. Use bullet points for multi-step flows.
                 - Never reveal API keys, internal credentials, or JWT secrets.
                 - For live shipment/trip/invoice status, explain where to find it in the portal (e.g. Track shipments, Billing).
                 - When the user belongs to an organisation, tailor examples to their role where the documents allow it.
 
-                %s
-                LDMS reference documents:
+                %s%sLDMS reference documents:
                 ---
                 %s
                 ---
-                """.formatted(callerContext, knowledgeText);
+                """.formatted(callerContext, faqSection, knowledgeText);
+    }
+
+    public String systemPrompt(String userDisplayName, String organizationName) {
+        return systemPrompt(userDisplayName, organizationName, null, null);
     }
 
     private String buildCallerContext(String userDisplayName, String organizationName) {
