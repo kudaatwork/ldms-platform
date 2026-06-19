@@ -18,6 +18,11 @@ public interface FleetManagementServiceClient {
             @PathVariable("id") Long id,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
 
+    @GetMapping("/ldms-fleet-management/v1/system/fleet-driver/find-by-user-id/{userId}")
+    FleetDriverFeignResponse findFleetDriverByUserId(
+            @PathVariable("userId") Long userId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
+
     @GetMapping("/ldms-fleet-management/v1/system/fleet-asset/find-by-id/{id}")
     FleetAssetFeignResponse findFleetAssetById(
             @PathVariable("id") Long id,

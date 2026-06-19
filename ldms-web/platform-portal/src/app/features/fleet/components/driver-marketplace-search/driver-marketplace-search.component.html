@@ -1,0 +1,85 @@
+<div class="lx-dialog-shell mkt-dialog">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Find freelance drivers</h2>
+      <p class="lx-dialog-subtitle">Browse available drivers on the platform marketplace. Hire a driver to add them to your roster.</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close" (click)="close()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <!-- Search bar -->
+  <div class="mkt-search-bar">
+    <div class="lx-input-shell mkt-search-input">
+      <mat-icon class="lx-input-shell__icon">search</mat-icon>
+      <input
+        [(ngModel)]="query"
+        (ngModelChange)="onQueryChange()"
+        placeholder="Search by name, licence number, or phone…"
+        autocomplete="off"
+        aria-label="Search drivers"
+      />
+    </div>
+  </div>
+
+  <!-- Error banner -->
+  <div class="mkt-error" *ngIf="error">
+    <mat-icon>error_outline</mat-icon>
+    {{ error }}
+  </div>
+  <div class="mkt-error mkt-error--hire" *ngIf="hireError">
+    <mat-icon>warning</mat-icon>
+    {{ hireError }}
+  </div>
+
+  <!-- Loading -->
+  <div class="mkt-loading" *ngIf="loading && !drivers.length">
+    <mat-icon class="mkt-loading__icon spin">autorenew</mat-icon>
+    Searching marketplace…
+  </div>
+
+  <!-- Driver cards -->
+  <div class="mkt-results" *ngIf="!loading || drivers.length">
+    <div class="mkt-empty" *ngIf="!drivers.length && !loading">
+      <mat-icon>person_search</mat-icon>
+      <span>No freelance drivers match your search.</span>
+    </div>
+
+    <div class="mkt-card" *ngFor="let driver of drivers">
+      <div class="mkt-card__avatar" [style.--hue]="driver.accentHue">
+        {{ driver.initials }}
+      </div>
+      <div class="mkt-card__info">
+        <span class="mkt-card__name">{{ driver.fullName }}</span>
+        <span class="mkt-card__detail">
+          <mat-icon>credit_card</mat-icon>
+          {{ driver.licenseNumber }}
+          <ng-container *ngIf="driver.licenseClass !== '—'"> · {{ driver.licenseClass }}</ng-container>
+        </span>
+        <span class="mkt-card__detail">
+          <mat-icon>phone</mat-icon>
+          {{ driver.phoneNumber }}
+        </span>
+        <span class="mkt-card__availability" [attr.data-status]="driver.availability">
+          {{ driver.availabilityLabel }}
+        </span>
+      </div>
+      <button
+        mat-raised-button
+        color="primary"
+        class="mkt-card__hire-btn"
+        [disabled]="hiringId !== null || driver.availability !== 'AVAILABLE'"
+        (click)="hire(driver)"
+      >
+        <mat-icon *ngIf="hiringId !== driver.id">person_add</mat-icon>
+        <mat-icon *ngIf="hiringId === driver.id" class="spin">autorenew</mat-icon>
+        {{ hiringId === driver.id ? 'Hiring…' : 'Hire driver' }}
+      </button>
+    </div>
+  </div>
+
+  <div mat-dialog-actions class="mkt-actions">
+    <button mat-button (click)="close()">Close</button>
+  </div>
+</div>

@@ -199,7 +199,7 @@ public class FuelSessionServiceImpl implements FuelSessionService {
                 .findByTripIdAndStatusAndEntityStatusNot(tripId, FuelSessionStatus.ACTIVE, EntityStatus.DELETED);
 
         if (sessionOpt.isEmpty()) {
-            createSessionFromPayload(payload, "trip.location_updated-bootstrap", false);
+            createSessionFromPayload(payload, "trip.location_updated-bootstrap", true);
             sessionOpt = fuelSessionRepository
                     .findByTripIdAndStatusAndEntityStatusNot(tripId, FuelSessionStatus.ACTIVE, EntityStatus.DELETED);
         }

@@ -10,7 +10,34 @@ export class ThemeService {
   /** When true, `theme-dark` is applied on the document root. */
   readonly dark = signal(false);
 
+  /** True while the public landing route is active (theme toggle does not persist). */
+  readonly onLanding = signal(false);
+
   initFromStorage(): void {
+    this.syncWithUrl(this.currentPath());
+  }
+
+  /** Apply landing-dark vs app theme whenever navigation completes. */
+  syncWithUrl(url: string): void {
+    const path = this.normalizePath(url);
+    const landing = this.isLandingPath(path);
+    this.onLanding.set(landing);
+    if (landing) {
+      this.setDarkClass(true);
+      return;
+    }
+    this.applyAppTheme();
+  }
+
+  toggle(): void {
+    const next = !this.dark();
+    this.setDarkClass(next);
+    if (!this.onLanding()) {
+      localStorage.setItem(STORAGE_KEY, next ? 'dark' : 'light');
+    }
+  }
+
+  private applyAppTheme(): void {
     const stored = localStorage.getItem(STORAGE_KEY);
     let useDark = false;
     if (stored === 'dark') {
@@ -18,21 +45,28 @@ export class ThemeService {
     } else if (stored === 'light') {
       useDark = false;
     } else {
-      useDark =
-        this.document.defaultView?.matchMedia('(prefers-color-scheme: dark)')
-          .matches ?? false;
+      // App workspace defaults to light unless the user explicitly chose dark.
+      useDark = false;
     }
     this.setDarkClass(useDark);
-  }
-
-  toggle(): void {
-    const next = !this.dark();
-    this.setDarkClass(next);
-    localStorage.setItem(STORAGE_KEY, next ? 'dark' : 'light');
   }
 
   private setDarkClass(dark: boolean): void {
     this.dark.set(dark);
     this.document.documentElement.classList.toggle('theme-dark', dark);
+  }
+
+  private currentPath(): string {
+    return this.document.defaultView?.location.pathname ?? '/';
+  }
+
+  private normalizePath(url: string): string {
+    const path = url.split('?')[0]?.split('#')[0] ?? '/';
+    return path.replace(/\/+$/, '') || '/';
+  }
+
+  private isLandingPath(path: string): boolean {
+    const normalized = this.normalizePath(path);
+    return normalized === '/welcome' || normalized === '/';
   }
 }

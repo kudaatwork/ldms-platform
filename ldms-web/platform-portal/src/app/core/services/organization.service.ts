@@ -27,6 +27,11 @@ export interface RegisterOrganizationPayload {
   taxClearanceCertificateUpload?: File;
   createdViaSignup?: boolean;
   duplexMode?: boolean;
+  standaloneMode?: boolean;
+  inventoryManagementEnabled?: boolean;
+  crossDockingEnabled?: boolean;
+  inventoryDataSource?: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
+  counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
 }
 
 export interface OrganizationSummary {
@@ -35,16 +40,31 @@ export interface OrganizationSummary {
   email: string;
   phoneNumber?: string;
   locationId?: number;
+  websiteUrl?: string;
+  organizationDescription?: string;
+  numberOfEmployees?: number;
+  annualRevenueEstimate?: number;
   regionsServed?: string;
   businessHours?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  addressPostalCode?: string;
+  addressSuburbId?: number;
+  addressCityId?: number;
   addressCityName?: string;
   addressDistrictName?: string;
   addressProvinceName?: string;
+  createdViaSignup?: boolean;
   headOfficeBranch?: BranchDetail;
   kycStatus: string;
   isVerified: boolean;
   organizationClassification?: OrganizationClassification;
   duplexMode?: boolean;
+  standaloneMode?: boolean;
+  inventoryManagementEnabled?: boolean;
+  crossDockingEnabled?: boolean;
+  inventoryDataSource?: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
+  counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
   branches?: BranchAllocationOption[];
 }
 
@@ -99,6 +119,51 @@ export interface OnboardingStatus {
   lastRejectionReason?: string;
 }
 
+export interface OperationalSettingsPayload {
+  standaloneMode: boolean;
+  inventoryManagementEnabled: boolean;
+  crossDockingEnabled: boolean;
+  inventoryDataSource: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
+  counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
+}
+
+export interface UpdateMyOrganizationPayload {
+  name?: string;
+  email?: string;
+  phoneNumber?: string;
+  locationId?: number;
+  websiteUrl?: string;
+  organizationDescription?: string;
+  businessHours?: string;
+  numberOfEmployees?: number;
+  annualRevenueEstimate?: number;
+  regionsServed?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  postalCode?: string;
+  suburbId?: number;
+  cityId?: number;
+}
+
+export interface TradingPartner {
+  id: number;
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  role: 'CUSTOMER' | 'SUPPLIER' | 'TRANSPORTER' | 'OTHER';
+  notes?: string;
+  entityStatus: string;
+  createdAt?: string;
+}
+
+export interface TradingPartnerPayload {
+  name: string;
+  email?: string;
+  phoneNumber?: string;
+  role: 'CUSTOMER' | 'SUPPLIER' | 'TRANSPORTER' | 'OTHER';
+  notes?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OrganizationService {
   private readonly base = ldmsServiceUrl('organization-management', 'organization');
@@ -146,6 +211,21 @@ export class OrganizationService {
     if (payload.duplexMode) {
       this.appendFormValue(form, 'duplexMode', true);
     }
+    if (payload.standaloneMode != null) {
+      this.appendFormValue(form, 'standaloneMode', payload.standaloneMode);
+    }
+    if (payload.inventoryManagementEnabled != null) {
+      this.appendFormValue(form, 'inventoryManagementEnabled', payload.inventoryManagementEnabled);
+    }
+    if (payload.crossDockingEnabled != null) {
+      this.appendFormValue(form, 'crossDockingEnabled', payload.crossDockingEnabled);
+    }
+    if (payload.inventoryDataSource) {
+      this.appendFormValue(form, 'inventoryDataSource', payload.inventoryDataSource);
+    }
+    if (payload.counterpartyEngagementMode) {
+      this.appendFormValue(form, 'counterpartyEngagementMode', payload.counterpartyEngagementMode);
+    }
     this.appendFormFile(form, 'contactPersonNationalIdUpload', payload.contactPersonNationalIdUpload);
     this.appendFormFile(form, 'contactPersonPassportUpload', payload.contactPersonPassportUpload);
     this.appendFormFile(form, 'taxClearanceCertificateUpload', payload.taxClearanceCertificateUpload);
@@ -157,6 +237,13 @@ export class OrganizationService {
 
   getMy(): Observable<OrganizationSummary> {
     return this.http.get<unknown>(`${this.base}/my`).pipe(
+      map((resp) => this.mapSummaryWithBranches(this.extractDto(resp), resp)),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  updateMyOrganization(payload: UpdateMyOrganizationPayload): Observable<OrganizationSummary> {
+    return this.http.put<unknown>(`${this.base}/my/update`, payload).pipe(
       map((resp) => this.mapSummaryWithBranches(this.extractDto(resp), resp)),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -375,15 +462,31 @@ export class OrganizationService {
       email: String(dto['email'] ?? ''),
       phoneNumber: String(dto['phoneNumber'] ?? '').trim() || undefined,
       locationId: dto['locationId'] != null ? Number(dto['locationId']) : undefined,
+      websiteUrl: String(dto['websiteUrl'] ?? '').trim() || undefined,
+      organizationDescription: String(dto['organizationDescription'] ?? '').trim() || undefined,
+      numberOfEmployees: dto['numberOfEmployees'] != null ? Number(dto['numberOfEmployees']) : undefined,
+      annualRevenueEstimate:
+        dto['annualRevenueEstimate'] != null ? Number(dto['annualRevenueEstimate']) : undefined,
       regionsServed: String(dto['regionsServed'] ?? '').trim() || undefined,
       businessHours: String(dto['businessHours'] ?? '').trim() || undefined,
+      addressLine1: String(dto['addressLine1'] ?? '').trim() || undefined,
+      addressLine2: String(dto['addressLine2'] ?? '').trim() || undefined,
+      addressPostalCode: String(dto['addressPostalCode'] ?? '').trim() || undefined,
+      addressSuburbId: dto['addressSuburbId'] != null ? Number(dto['addressSuburbId']) : undefined,
+      addressCityId: dto['addressCityId'] != null ? Number(dto['addressCityId']) : undefined,
       addressCityName: String(dto['addressCityName'] ?? '').trim() || undefined,
       addressDistrictName: String(dto['addressDistrictName'] ?? '').trim() || undefined,
       addressProvinceName: String(dto['addressProvinceName'] ?? '').trim() || undefined,
+      createdViaSignup: dto['createdViaSignup'] != null ? Boolean(dto['createdViaSignup']) : undefined,
       kycStatus: String(dto['kycStatus'] ?? 'DRAFT'),
       isVerified: Boolean(dto['isVerified']),
       organizationClassification,
       duplexMode: Boolean(dto['duplexMode']),
+      standaloneMode: Boolean(dto['standaloneMode']),
+      inventoryManagementEnabled: Boolean(dto['inventoryManagementEnabled']),
+      crossDockingEnabled: Boolean(dto['crossDockingEnabled']),
+      inventoryDataSource: this.readInventoryDataSource(dto),
+      counterpartyEngagementMode: this.readCounterpartyEngagementMode(dto),
     };
   }
 
@@ -401,6 +504,98 @@ export class OrganizationService {
       }
     }
     return undefined;
+  }
+
+  private readInventoryDataSource(dto: Record<string, unknown>): 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK' | undefined {
+    const raw = String(dto['inventoryDataSource'] ?? '').trim().toUpperCase();
+    if (raw === 'EXTERNAL_API' || raw === 'MANUAL_ACK' || raw === 'INTERNAL') {
+      return raw as 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
+    }
+    return undefined;
+  }
+
+  private readCounterpartyEngagementMode(
+    dto: Record<string, unknown>,
+  ): 'RECORD_ONLY' | 'PLATFORM_ORG' | undefined {
+    const raw = String(dto['counterpartyEngagementMode'] ?? '').trim().toUpperCase();
+    if (raw === 'RECORD_ONLY' || raw === 'PLATFORM_ORG') {
+      return raw;
+    }
+    return undefined;
+  }
+
+  saveOperationalSettings(payload: OperationalSettingsPayload): Observable<OrganizationSummary> {
+    return this.http.put<unknown>(`${this.base}/operational-settings`, payload).pipe(
+      map((resp) => this.mapSummary(this.extractDto(resp))),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  listTradingPartners(): Observable<TradingPartner[]> {
+    const url = ldmsServiceUrl('organization-management', 'organization', 'trading-partners');
+    return this.http.get<unknown>(url).pipe(
+      map((resp) => this.mapTradingPartnerList(resp)),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  createTradingPartner(payload: TradingPartnerPayload): Observable<TradingPartner> {
+    const url = ldmsServiceUrl('organization-management', 'organization', 'trading-partners');
+    return this.http.post<unknown>(url, payload).pipe(
+      map((resp) => this.mapTradingPartner(this.extractTradingPartnerDto(resp))),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  updateTradingPartner(id: number, payload: TradingPartnerPayload): Observable<TradingPartner> {
+    const url = ldmsServiceUrl('organization-management', 'organization', `trading-partners/${id}`);
+    return this.http.put<unknown>(url, payload).pipe(
+      map((resp) => this.mapTradingPartner(this.extractTradingPartnerDto(resp))),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  deleteTradingPartner(id: number): Observable<void> {
+    const url = ldmsServiceUrl('organization-management', 'organization', `trading-partners/${id}`);
+    return this.http.delete<unknown>(url).pipe(
+      map(() => void 0),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  private mapTradingPartnerList(response: unknown): TradingPartner[] {
+    const root = this.toObj(response);
+    const data = this.toObj(root?.['data']) ?? root;
+    const list = Array.isArray(data?.['tradingPartnerDtoList'])
+      ? data['tradingPartnerDtoList']
+      : Array.isArray(data?.['list'])
+        ? data['list']
+        : Array.isArray(data)
+          ? data
+          : [];
+    return (list as unknown[])
+      .map((item) => this.toObj(item))
+      .filter((item): item is Record<string, unknown> => !!item)
+      .map((item) => this.mapTradingPartner(item));
+  }
+
+  private extractTradingPartnerDto(response: unknown): Record<string, unknown> {
+    const root = this.toObj(response);
+    const data = this.toObj(root?.['data']) ?? root;
+    return this.toObj(data?.['tradingPartnerDto']) ?? data ?? {};
+  }
+
+  private mapTradingPartner(dto: Record<string, unknown>): TradingPartner {
+    return {
+      id: Number(dto['id'] ?? 0),
+      name: String(dto['name'] ?? '').trim(),
+      email: this.readOptionalString(dto, 'email'),
+      phoneNumber: this.readOptionalString(dto, 'phoneNumber'),
+      role: (String(dto['role'] ?? 'OTHER').trim().toUpperCase() as TradingPartner['role']) || 'OTHER',
+      notes: this.readOptionalString(dto, 'notes'),
+      entityStatus: String(dto['entityStatus'] ?? 'ACTIVE'),
+      createdAt: this.readOptionalString(dto, 'createdAt'),
+    };
   }
 
   private extractDto(response: unknown): Record<string, unknown> {

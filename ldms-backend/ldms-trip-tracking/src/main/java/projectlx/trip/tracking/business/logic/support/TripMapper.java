@@ -1,7 +1,11 @@
 package projectlx.trip.tracking.business.logic.support;
 
 import projectlx.trip.tracking.model.Trip;
+import projectlx.trip.tracking.model.TripDeliveryReturnLine;
+import projectlx.trip.tracking.model.TripDeliveryWorkflow;
 import projectlx.trip.tracking.model.TripEvent;
+import projectlx.trip.tracking.utils.dtos.TripDeliveryReturnLineDto;
+import projectlx.trip.tracking.utils.dtos.TripDeliveryWorkflowDto;
 import projectlx.trip.tracking.utils.dtos.TripDto;
 import projectlx.trip.tracking.utils.dtos.TripEventDto;
 
@@ -67,6 +71,57 @@ public final class TripMapper {
         dto.setNotes(event.getNotes());
         dto.setRecordedByUserId(event.getRecordedByUserId());
         dto.setCreatedAt(event.getCreatedAt());
+        return dto;
+    }
+
+    public static TripDeliveryWorkflowDto toWorkflowDto(TripDeliveryWorkflow workflow) {
+        if (workflow == null) {
+            return null;
+        }
+        TripDeliveryWorkflowDto dto = new TripDeliveryWorkflowDto();
+        dto.setId(workflow.getId());
+        if (workflow.getTrip() != null) {
+            dto.setTripId(workflow.getTrip().getId());
+            dto.setTripNumber(workflow.getTrip().getTripNumber());
+        }
+        dto.setDriverCountingStartedAt(workflow.getDriverCountingStartedAt());
+        dto.setDriverCountingFinishedAt(workflow.getDriverCountingFinishedAt());
+        dto.setCustomerCountingStartedAt(workflow.getCustomerCountingStartedAt());
+        dto.setCustomerCountingFinishedAt(workflow.getCustomerCountingFinishedAt());
+        dto.setExpectedQuantity(workflow.getExpectedQuantity());
+        dto.setCountedQuantity(workflow.getCountedQuantity());
+        dto.setOtpChannel(workflow.getOtpChannel());
+        dto.setOtpRecipient(workflow.getOtpRecipient());
+        dto.setDeliveryNotes(workflow.getDeliveryNotes());
+        dto.setReturnInitiatedAt(workflow.getReturnInitiatedAt());
+        dto.setReturnCompletedAt(workflow.getReturnCompletedAt());
+        dto.setEntityStatus(workflow.getEntityStatus() != null ? workflow.getEntityStatus().name() : null);
+        dto.setCreatedAt(workflow.getCreatedAt());
+        dto.setCreatedBy(workflow.getCreatedBy());
+        dto.setModifiedAt(workflow.getModifiedAt());
+        dto.setModifiedBy(workflow.getModifiedBy());
+        if (workflow.getReturnLines() != null) {
+            dto.setReturnLines(workflow.getReturnLines().stream()
+                    .map(TripMapper::toReturnLineDto)
+                    .toList());
+        }
+        return dto;
+    }
+
+    public static TripDeliveryReturnLineDto toReturnLineDto(TripDeliveryReturnLine line) {
+        if (line == null) {
+            return null;
+        }
+        TripDeliveryReturnLineDto dto = new TripDeliveryReturnLineDto();
+        dto.setId(line.getId());
+        dto.setWorkflowId(line.getWorkflow() != null ? line.getWorkflow().getId() : null);
+        dto.setProductName(line.getProductName());
+        dto.setQuantity(line.getQuantity());
+        dto.setReason(line.getReason());
+        dto.setRecordedByRole(line.getRecordedByRole());
+        dto.setEntityStatus(line.getEntityStatus() != null ? line.getEntityStatus().name() : null);
+        dto.setCreatedAt(line.getCreatedAt());
+        dto.setCreatedBy(line.getCreatedBy());
         return dto;
     }
 }

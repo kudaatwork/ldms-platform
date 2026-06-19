@@ -9,6 +9,7 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -50,4 +51,6 @@ public class InventoryTransferDto {
     private Boolean canStartTransit;
     private Boolean canComplete;
     private Boolean canCancel;
+
+    private List<LogisticsRouteStopDto> routeStops;
 }

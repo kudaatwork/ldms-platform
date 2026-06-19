@@ -184,4 +184,38 @@ public class TripFrontendResource {
         TripResponse response = tripServiceProcessor.track(id, locale);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
+
+    @Auditable(action = "LIST_MY_TRIPS")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/my-trips")
+    @Operation(summary = "List trips assigned to the logged-in driver")
+    public ResponseEntity<TripResponse> listMyTrips(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        TripResponse response = tripServiceProcessor.listMyTrips(locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "MY_TRIP_METRICS")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/my-trips/metrics")
+    @Operation(summary = "Driver workspace metrics")
+    public ResponseEntity<TripResponse> getMyTripMetrics(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        TripResponse response = tripServiceProcessor.getMyTripMetrics(locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "FIND_MY_TRIP")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/my-trips/{tripId}")
+    @Operation(summary = "Find a trip assigned to the logged-in driver")
+    public ResponseEntity<TripResponse> findMyTripById(
+            @PathVariable final Long tripId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        TripResponse response = tripServiceProcessor.findMyTripById(tripId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
 }

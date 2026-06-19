@@ -62,6 +62,9 @@ public class FleetDriver implements DomainMarkerInterface {
     @Column(name = "license_upload_id")
     private Long licenseUploadId;
 
+    @Column(name = "license_back_upload_id")
+    private Long licenseBackUploadId;
+
     // === IDENTITY DOCUMENTS ===
 
     @Column(name = "national_id_number", length = 100)
@@ -72,6 +75,9 @@ public class FleetDriver implements DomainMarkerInterface {
 
     @Column(name = "national_id_upload_id")
     private Long nationalIdUploadId;
+
+    @Column(name = "national_id_back_upload_id")
+    private Long nationalIdBackUploadId;
 
     @Column(name = "passport_number", length = 100)
     private String passportNumber;
@@ -101,6 +107,12 @@ public class FleetDriver implements DomainMarkerInterface {
 
     @Column(name = "address_country", length = 100)
     private String addressCountry;
+
+    // === MARKETPLACE ===
+
+    /** When true the driver appears in the freelance marketplace. */
+    @Column(name = "marketplace_visible", nullable = false)
+    private Boolean marketplaceVisible = Boolean.FALSE;
 
     // === AUDIT ===
 

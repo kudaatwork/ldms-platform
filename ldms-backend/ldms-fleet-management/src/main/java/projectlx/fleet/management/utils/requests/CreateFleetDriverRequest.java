@@ -13,6 +13,18 @@ public class CreateFleetDriverRequest {
 
     private Long userId;
 
+    /**
+     * Optional email address.
+     * Required when {@code provisionPlatformAccess=true} so the user account can be created.
+     */
+    private String email;
+
+    /**
+     * When {@code true} and no {@code userId} is supplied, a platform user account will be
+     * provisioned for the driver and temporary credentials returned in the response.
+     */
+    private Boolean provisionPlatformAccess;
+
     // Personal details
     private String firstName;
     private String lastName;

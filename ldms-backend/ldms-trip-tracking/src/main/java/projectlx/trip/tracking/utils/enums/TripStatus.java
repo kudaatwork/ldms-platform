@@ -6,7 +6,11 @@ public enum TripStatus {
     AT_BORDER_HOLD,
     ROADSIDE_HOLD,
     ARRIVED,
+    COUNTING_STOCK,
+    COUNT_COMPLETE,
     OTP_PENDING,
     DELIVERED,
+    RETURN_IN_TRANSIT,
+    RETURNED,
     CANCELLED
 }

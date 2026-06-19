@@ -4,12 +4,12 @@
     eyebrow="Workspace"
     eyebrowIcon="tune"
     title="Settings"
-    lead="Configure identity and access for your organisation — map permission roles to user groups and KYC approval stages."
+    lead="Configure your organisation profile, operational options, identity and access — only sections you are permitted to manage are shown."
     hubIcon="settings"
-    [orbitIcons]="['group', 'verified_user', 'rule']"
+    [orbitIcons]="['business', 'group', 'verified_user', 'rule']"
   ></lx-workspace-hero>
 
-  <nav class="settings-nav" aria-label="Settings sections">
+  <nav class="settings-nav" aria-label="Settings sections" *ngIf="sections.length">
     @for (section of sections; track section.id) {
       <button
         type="button"
@@ -28,21 +28,31 @@
     }
   </nav>
 
-  <div class="settings-panel lx-card">
-    @if (activeSection === 'group-roles') {
+  <p class="settings-empty lx-card" *ngIf="!sections.length">
+    You do not have permission to manage any settings for this organisation. Contact your workspace administrator.
+  </p>
+
+  <div class="settings-panel lx-card" *ngIf="sections.length && panelSection">
+    @if (panelSection === 'organization') {
+      <app-settings-organization />
+    }
+    @if (panelSection === 'group-roles') {
       <app-settings-group-roles />
     }
-    @if (activeSection === 'kyc-approvers') {
+    @if (panelSection === 'kyc-approvers') {
       <app-settings-kyc-approvers />
     }
-    @if (activeSection === 'currency') {
+    @if (panelSection === 'currency') {
       <app-settings-currency />
     }
-    @if (activeSection === 'procurement-approvers') {
+    @if (panelSection === 'procurement-approvers') {
       <app-settings-procurement-approvers />
     }
-    @if (activeSection === 'billing') {
+    @if (panelSection === 'billing') {
       <app-settings-billing />
+    }
+    @if (panelSection === 'operational-mode') {
+      <app-settings-operational-mode />
     }
   </div>
 </div>

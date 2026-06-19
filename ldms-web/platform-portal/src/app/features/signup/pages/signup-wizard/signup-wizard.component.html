@@ -43,7 +43,20 @@
   </aside>
 
   <div class="su-right">
-    <div class="su-card lx-card" [class.su-card--wide]="currentStep === 0 || currentStep === 2" *ngIf="!complete">
+
+    <!-- Account type tabs: Organisation or Driver -->
+    <div class="su-account-tabs">
+      <a class="su-account-tab su-account-tab--active" routerLink="/signup" aria-current="page">
+        <span class="material-icons" aria-hidden="true">business</span>
+        Register organisation
+      </a>
+      <a class="su-account-tab" routerLink="/driver/signup">
+        <span class="material-icons" aria-hidden="true">local_shipping</span>
+        Join as driver
+      </a>
+    </div>
+
+    <div class="su-card lx-card" [class.su-card--wide]="currentStep === 0 || currentStep === 1 || currentStep === 3" *ngIf="!complete">
       <div class="su-progress">
         <div class="su-progress-steps">
           <div
@@ -95,8 +108,27 @@
         </div>
       </section>
 
-      <!-- Step 1 -->
-      <section *ngIf="currentStep === 1" class="su-panel">
+      <!-- Step 1 — operating model (supplier / customer) -->
+      <section *ngIf="currentStep === 1 && showOperationalStep" class="su-panel">
+        <h2 class="su-title">How you will operate</h2>
+        <p class="su-sub">
+          Tell us how you trade on LDMS and whether you will manage stock inside the platform or use cross-docking.
+          <strong>Inventory management is permanent</strong> — you cannot switch to cross-docking later.
+        </p>
+        <app-operational-mode-picker
+          [classification]="classification"
+          [standaloneMode]="standaloneMode"
+          [inventoryManagementEnabled]="inventoryManagementEnabled"
+          [crossDockingEnabled]="crossDockingEnabled"
+          [inventoryDataSource]="inventoryDataSource"
+          [counterpartyEngagementMode]="counterpartyEngagementMode"
+          panelLayout="stacked"
+          (selectionChange)="onOperationalModeChange($event)"
+        ></app-operational-mode-picker>
+      </section>
+
+      <!-- Step 2 -->
+      <section *ngIf="currentStep === 2" class="su-panel">
         <h2 class="su-title">Organisation details</h2>
         <p class="su-sub">We will use this to verify and onboard your workspace.</p>
         <form [formGroup]="orgForm" class="su-form">
@@ -176,8 +208,8 @@
         </form>
       </section>
 
-      <!-- Step 2 — primary contact (same fields as Add user) -->
-      <section *ngIf="currentStep === 2" class="su-panel">
+      <!-- Step 3 — primary contact -->
+      <section *ngIf="currentStep === 3" class="su-panel">
         <h2 class="su-title">Primary contact</h2>
         <p class="su-sub">
           This person becomes the first administrator. Enter the same profile and identification details as when adding a
@@ -316,7 +348,7 @@
           </div>
 
           <p class="su-field-error su-field--full" *ngIf="identificationError">{{ identificationError }}</p>
-          <p class="su-field-error su-field--full" *ngIf="submitError && currentStep === 2">{{ submitError }}</p>
+          <p class="su-field-error su-field--full" *ngIf="submitError && currentStep === 3">{{ submitError }}</p>
 
           <label class="su-terms su-field--full">
             <input type="checkbox" formControlName="acceptTerms" />
@@ -326,13 +358,13 @@
       </section>
 
       <footer class="su-actions">
-        <button type="button" class="lx-btn lx-btn-ghost" (click)="back()" *ngIf="currentStep > 0 && currentStep < 3">Back</button>
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="back()" *ngIf="currentStep > 0 && currentStep < 4">Back</button>
         <span class="su-spacer"></span>
-        <button type="button" class="lx-btn lx-btn-primary" (click)="next()" *ngIf="currentStep < 2" [disabled]="currentStep === 0 && !canAdvanceFromStep0()">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="next()" *ngIf="currentStep < 3" [disabled]="currentStep === 0 && !canAdvanceFromStep0()">
           Continue
         </button>
-        <p class="su-field-error su-field-error--block" *ngIf="submitError">{{ submitError }}</p>
-        <button type="button" class="lx-btn lx-btn-primary" (click)="submit()" *ngIf="currentStep === 2" [disabled]="submitting">
+        <p class="su-field-error su-field-error--block" *ngIf="submitError && currentStep !== 3">{{ submitError }}</p>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="submit()" *ngIf="currentStep === 3" [disabled]="submitting">
           {{ submitting ? 'Submitting…' : 'Submit registration' }}
         </button>
       </footer>

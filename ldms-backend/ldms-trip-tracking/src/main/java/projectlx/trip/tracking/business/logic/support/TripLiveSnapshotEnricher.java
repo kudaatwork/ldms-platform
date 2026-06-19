@@ -17,6 +17,7 @@ import projectlx.trip.tracking.utils.responses.ShipmentFeignResponse;
 import projectlx.trip.tracking.utils.dtos.ShipmentSummaryDto;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.Locale;
 
 @RequiredArgsConstructor
@@ -55,12 +56,53 @@ public class TripLiveSnapshotEnricher {
         applyCargoFields(trip, snapshot);
         applyFleetAsset(trip, snapshot);
         applyFleetDriver(trip, snapshot);
-        if (plan != null && plan.isSimulationActive()) {
-            TripSimulationFuelSupport.applyToSnapshot(snapshot, plan.getDistanceTravelledKm());
+        if (plan != null) {
+            BigDecimal distanceTravelledKm = plan.getDistanceTravelledKm();
+            if (distanceTravelledKm != null && distanceTravelledKm.compareTo(BigDecimal.ZERO) > 0) {
+                TripSimulationFuelSupport.applyToSnapshot(snapshot, distanceTravelledKm);
+            }
         }
         if (snapshot.getMaxSpeedKmh() != null && snapshot.getSpeedKmh() != null) {
             snapshot.setSpeedLimitExceeded(snapshot.getSpeedKmh().compareTo(snapshot.getMaxSpeedKmh()) > 0);
         }
+        applyProximity(trip, plan, snapshot);
+    }
+
+    /**
+     * Computes the straight-line distance from the current position to the route's destination.
+     * Sets nearDestination=true when within 2 km, and arrivalPromptVisible=true when IN_TRANSIT and nearDestination.
+     *
+     * Uses the Haversine formula (Earth radius 6371 km).
+     */
+    private void applyProximity(Trip trip, TripRoutePlan plan, TripLiveSnapshotDto snapshot) {
+        if (plan == null
+                || snapshot.getLatitude() == null || snapshot.getLongitude() == null
+                || plan.getDestinationLatitude() == null || plan.getDestinationLongitude() == null) {
+            return;
+        }
+        BigDecimal distKm = haversineKm(
+                snapshot.getLatitude(), snapshot.getLongitude(),
+                plan.getDestinationLatitude(), plan.getDestinationLongitude());
+        snapshot.setDestinationDistanceKm(distKm);
+        boolean near = distKm.compareTo(NEAR_DESTINATION_KM) <= 0;
+        snapshot.setNearDestination(near);
+        snapshot.setArrivalPromptVisible(near && trip.getStatus() == TripStatus.IN_TRANSIT);
+    }
+
+    private static final BigDecimal EARTH_RADIUS_KM = new BigDecimal("6371");
+    private static final BigDecimal NEAR_DESTINATION_KM = new BigDecimal("2");
+    private static final double DEG_TO_RAD = Math.PI / 180.0;
+
+    private static BigDecimal haversineKm(BigDecimal lat1, BigDecimal lon1,
+                                          BigDecimal lat2, BigDecimal lon2) {
+        double dLat = (lat2.doubleValue() - lat1.doubleValue()) * DEG_TO_RAD;
+        double dLon = (lon2.doubleValue() - lon1.doubleValue()) * DEG_TO_RAD;
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(lat1.doubleValue() * DEG_TO_RAD) * Math.cos(lat2.doubleValue() * DEG_TO_RAD)
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return BigDecimal.valueOf(EARTH_RADIUS_KM.doubleValue() * c)
+                .round(new MathContext(6));
     }
 
     private void applyCargoFields(Trip trip, TripLiveSnapshotDto snapshot) {

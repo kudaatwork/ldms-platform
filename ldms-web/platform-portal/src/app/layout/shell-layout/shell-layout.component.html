@@ -70,7 +70,8 @@
           <a
             *ngIf="collapsed"
             class="sb-item"
-            [routerLink]="item.route"
+            href="#"
+            (click)="onNavCollapsedGroupClick(item, $event)"
             [class.active]="isSectionActive(item.route)"
             [attr.title]="item.label"
           >
@@ -80,46 +81,30 @@
             <span class="sb-label">{{ item.label }}</span>
           </a>
           <ng-container *ngIf="!collapsed">
-            <button
-              type="button"
+            <a
               class="sb-item sb-item--parent"
+              href="#"
               [class.active]="isSectionActive(item.route)"
-              (click)="toggleGroup(groupExpandKey(item), $event)"
+              (click)="onNavParentClick(item, $event)"
             >
               <div class="sb-icon">
                 <span class="material-icons sb-mi" aria-hidden="true">{{ item.icon }}</span>
               </div>
               <span class="sb-label">{{ item.label }}</span>
-              <span class="material-icons sb-mi sb-chevron" aria-hidden="true">{{
-                isGroupExpanded(groupExpandKey(item)) ? 'expand_less' : 'expand_more'
-              }}</span>
-            </button>
-            <div
-              class="sb-children"
-              *ngIf="isGroupExpanded(groupExpandKey(item))"
-              [attr.data-nav-group]="groupExpandKey(item)"
-            >
-              <a
+            </a>
+            <div class="sb-children" [attr.data-nav-group]="groupExpandKey(item)">
+              <button
+                type="button"
                 *ngFor="let child of item.children; trackBy: trackByChildRoute"
                 class="sb-subitem"
-                [routerLink]="child.route"
-                routerLinkActive="active"
-                [routerLinkActiveOptions]="
-                  child.route === '/users' ||
-                  child.route.startsWith('/products-inventory/') ||
-                  child.route.startsWith('/fleet/') ||
-                  child.route.startsWith('/my-orders/') ||
-                  child.route.startsWith('/shipments/') ||
-                  child.route.startsWith('/analytics/')
-                    ? { exact: true }
-                    : { exact: false }
-                "
+                [class.active]="isNavChildActive(child)"
+                (click)="onNavChildClick(child, $event)"
               >
                 <div class="sb-subicon">
                   <span class="material-icons sb-mi" aria-hidden="true">{{ child.icon }}</span>
                 </div>
                 <span class="sb-sublabel">{{ child.label }}</span>
-              </a>
+              </button>
             </div>
           </ng-container>
         </div>

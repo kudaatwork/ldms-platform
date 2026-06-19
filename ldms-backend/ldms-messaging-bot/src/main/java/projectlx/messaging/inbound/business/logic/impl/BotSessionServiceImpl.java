@@ -9,6 +9,7 @@ import projectlx.messaging.inbound.business.logic.api.BotSessionService;
 import projectlx.messaging.inbound.business.logic.support.BotCallerProfileSupport;
 import projectlx.messaging.inbound.business.logic.support.BotSessionMapper;
 import projectlx.messaging.inbound.business.logic.support.GeminiLlmClient;
+import projectlx.messaging.inbound.business.logic.support.BotFaqRagSupport;
 import projectlx.messaging.inbound.business.logic.support.LdmsKnowledgeContextSupport;
 import projectlx.messaging.inbound.business.validator.api.BotSessionServiceValidator;
 import projectlx.messaging.inbound.model.BotMessage;
@@ -40,6 +41,7 @@ public class BotSessionServiceImpl implements BotSessionService {
     private final BotCallerProfileSupport botCallerProfileSupport;
     private final BotSessionMapper botSessionMapper;
     private final LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport;
+    private final BotFaqRagSupport botFaqRagSupport;
     private final GeminiLlmClient geminiLlmClient;
     private final MessageService messageService;
 
@@ -50,6 +52,7 @@ public class BotSessionServiceImpl implements BotSessionService {
                                  BotCallerProfileSupport botCallerProfileSupport,
                                  BotSessionMapper botSessionMapper,
                                  LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport,
+                                 BotFaqRagSupport botFaqRagSupport,
                                  GeminiLlmClient geminiLlmClient,
                                  MessageService messageService) {
         this.botSessionRepository = botSessionRepository;
@@ -59,6 +62,7 @@ public class BotSessionServiceImpl implements BotSessionService {
         this.botCallerProfileSupport = botCallerProfileSupport;
         this.botSessionMapper = botSessionMapper;
         this.ldmsKnowledgeContextSupport = ldmsKnowledgeContextSupport;
+        this.botFaqRagSupport = botFaqRagSupport;
         this.geminiLlmClient = geminiLlmClient;
         this.messageService = messageService;
     }
@@ -148,7 +152,7 @@ public class BotSessionServiceImpl implements BotSessionService {
                 session.getId(), EntityStatus.ACTIVE);
         String botReply = geminiLlmClient.generateReply(
                 ldmsKnowledgeContextSupport.systemPrompt(
-                        session.getUserDisplayName(), session.getOrganizationName()),
+                        session.getUserDisplayName(), session.getOrganizationName(), userBody, botFaqRagSupport),
                 history);
 
         BotMessage botMessage = new BotMessage();

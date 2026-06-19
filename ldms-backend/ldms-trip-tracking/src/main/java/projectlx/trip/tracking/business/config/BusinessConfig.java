@@ -8,20 +8,25 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.trip.tracking.business.auditable.api.DeliveryOtpServiceAuditable;
+import projectlx.trip.tracking.business.auditable.api.TripDeliveryWorkflowServiceAuditable;
 import projectlx.trip.tracking.business.auditable.api.TripEventServiceAuditable;
 import projectlx.trip.tracking.business.auditable.api.TripServiceAuditable;
 import projectlx.trip.tracking.business.auditable.impl.DeliveryOtpServiceAuditableImpl;
+import projectlx.trip.tracking.business.auditable.impl.TripDeliveryWorkflowServiceAuditableImpl;
 import projectlx.trip.tracking.business.auditable.impl.TripEventServiceAuditableImpl;
 import projectlx.trip.tracking.business.auditable.impl.TripServiceAuditableImpl;
 import projectlx.trip.tracking.business.logic.api.PlatformDashboardService;
+import projectlx.trip.tracking.business.logic.api.TripDeliveryService;
 import projectlx.trip.tracking.business.logic.api.TripLiveService;
 import projectlx.trip.tracking.business.logic.api.TripService;
 import projectlx.trip.tracking.business.logic.api.TripTelemetryIngestService;
 import projectlx.trip.tracking.business.logic.impl.PlatformDashboardServiceImpl;
 import projectlx.trip.tracking.business.logic.support.PlatformDashboardSupport;
+import projectlx.trip.tracking.business.logic.impl.TripDeliveryServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripLiveServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripTelemetryIngestServiceImpl;
+import projectlx.trip.tracking.business.logic.support.TripDriverPortalSupport;
 import projectlx.trip.tracking.business.logic.support.CallerOrganizationResolver;
 import projectlx.trip.tracking.business.logic.support.TripJourneyTimingSupport;
 import projectlx.trip.tracking.business.logic.support.TripIotDemoSimulator;
@@ -32,7 +37,9 @@ import projectlx.trip.tracking.business.logic.support.TripNumberGenerator;
 import projectlx.trip.tracking.business.logic.support.ShipmentTripStartLock;
 import projectlx.trip.tracking.business.logic.support.TripRoutePlannerSupport;
 import projectlx.trip.tracking.business.logic.support.TripTelemetryPublisher;
+import projectlx.trip.tracking.business.validator.api.TripDeliveryServiceValidator;
 import projectlx.trip.tracking.business.validator.api.TripServiceValidator;
+import projectlx.trip.tracking.business.validator.impl.TripDeliveryServiceValidatorImpl;
 import projectlx.trip.tracking.business.validator.impl.TripServiceValidatorImpl;
 import projectlx.trip.tracking.clients.FleetManagementServiceClient;
 import projectlx.trip.tracking.clients.FuelExpensesServiceClient;
@@ -42,6 +49,8 @@ import projectlx.trip.tracking.clients.ShipmentManagementServiceClient;
 import projectlx.trip.tracking.clients.UserManagementServiceClient;
 import projectlx.trip.tracking.business.logic.support.LogisticsNotificationRecipientResolver;
 import projectlx.trip.tracking.repository.DeliveryOtpRepository;
+import projectlx.trip.tracking.repository.TripDeliveryReturnLineRepository;
+import projectlx.trip.tracking.repository.TripDeliveryWorkflowRepository;
 import projectlx.trip.tracking.repository.TripEventRepository;
 import projectlx.trip.tracking.repository.TripRepository;
 import projectlx.trip.tracking.repository.TripRoutePlanRepository;
@@ -86,8 +95,9 @@ public class BusinessConfig {
 
     @Bean
     public TripRoutePlannerSupport tripRoutePlannerSupport(TripRoutePlanRepository tripRoutePlanRepository,
-                                                           ObjectMapper objectMapper) {
-        return new TripRoutePlannerSupport(tripRoutePlanRepository, objectMapper);
+                                                           ObjectMapper objectMapper,
+                                                           InventoryManagementServiceClient inventoryManagementServiceClient) {
+        return new TripRoutePlannerSupport(tripRoutePlanRepository, objectMapper, inventoryManagementServiceClient);
     }
 
     @Bean
@@ -127,13 +137,15 @@ public class BusinessConfig {
                                                      TripRoutePlannerSupport tripRoutePlannerSupport,
                                                      TripTelemetryPublisher tripTelemetryPublisher,
                                                      TripEventServiceAuditable tripEventServiceAuditable,
+                                                     TripServiceAuditable tripServiceAuditable,
                                                      TripTrailSupport tripTrailSupport,
                                                      TripJourneyTimingSupport tripJourneyTimingSupport,
                                                      IotIntegrationProperties iotProperties,
                                                      FleetManagementServiceClient fleetManagementServiceClient) {
         return new TripIotDemoSimulator(tripRoutePlanRepository, tripRepository,
                 tripRoutePlannerSupport, tripTelemetryPublisher, tripEventServiceAuditable,
-                tripTrailSupport, tripJourneyTimingSupport, iotProperties, fleetManagementServiceClient);
+                tripServiceAuditable, tripTrailSupport, tripJourneyTimingSupport, iotProperties,
+                fleetManagementServiceClient);
     }
 
     @Bean
@@ -145,6 +157,13 @@ public class BusinessConfig {
                 organizationManagementServiceClient,
                 userManagementServiceClient,
                 fleetManagementServiceClient);
+    }
+
+    @Bean
+    public TripDriverPortalSupport tripDriverPortalSupport(TripRepository tripRepository,
+                                                           UserManagementServiceClient userManagementServiceClient,
+                                                           FleetManagementServiceClient fleetManagementServiceClient) {
+        return new TripDriverPortalSupport(tripRepository, userManagementServiceClient, fleetManagementServiceClient);
     }
 
     @Bean
@@ -169,13 +188,15 @@ public class BusinessConfig {
                                    IotIntegrationProperties iotProperties,
                                    ShipmentTripStartLock shipmentTripStartLock,
                                    LogisticsLifecycleNotificationSupport logisticsLifecycleNotificationSupport,
-                                   LogisticsNotificationRecipientResolver logisticsNotificationRecipientResolver) {
+                                   LogisticsNotificationRecipientResolver logisticsNotificationRecipientResolver,
+                                   TripDriverPortalSupport tripDriverPortalSupport) {
         return new TripServiceImpl(tripServiceValidator, tripServiceAuditable, tripEventServiceAuditable,
                 deliveryOtpServiceAuditable, tripRepository, tripEventRepository, deliveryOtpRepository,
                 callerOrganizationResolver, tripNumberGenerator, shipmentManagementServiceClient,
                 inventoryManagementServiceClient, rabbitTemplate, messageService, bCryptPasswordEncoder,
                 routePlannerSupport, demoSimulator, telemetryPublisher, tripRoutePlanRepository, iotProperties,
-                shipmentTripStartLock, logisticsLifecycleNotificationSupport, logisticsNotificationRecipientResolver);
+                shipmentTripStartLock, logisticsLifecycleNotificationSupport, logisticsNotificationRecipientResolver,
+                tripDriverPortalSupport);
     }
 
     @Bean
@@ -205,5 +226,52 @@ public class BusinessConfig {
                                            MessageService messageService) {
         return new TripLiveServiceImpl(tripRepository, tripRoutePlanRepository, callerOrganizationResolver,
                 routePlannerSupport, demoSimulator, sseRegistry, telemetryPublisher, snapshotEnricher, messageService);
+    }
+
+    // ============================================================
+    // Trip Delivery Workflow beans
+    // ============================================================
+
+    @Bean
+    public TripDeliveryWorkflowServiceAuditable tripDeliveryWorkflowServiceAuditable(
+            TripDeliveryWorkflowRepository workflowRepository,
+            TripDeliveryReturnLineRepository returnLineRepository) {
+        return new TripDeliveryWorkflowServiceAuditableImpl(workflowRepository, returnLineRepository);
+    }
+
+    @Bean
+    public TripDeliveryServiceValidator tripDeliveryServiceValidator(MessageService messageService) {
+        return new TripDeliveryServiceValidatorImpl(messageService);
+    }
+
+    @Bean
+    public TripDeliveryService tripDeliveryService(
+            TripDeliveryServiceValidator tripDeliveryServiceValidator,
+            TripDeliveryWorkflowServiceAuditable tripDeliveryWorkflowServiceAuditable,
+            TripServiceAuditable tripServiceAuditable,
+            TripEventServiceAuditable tripEventServiceAuditable,
+            DeliveryOtpServiceAuditable deliveryOtpServiceAuditable,
+            TripRepository tripRepository,
+            TripDeliveryWorkflowRepository tripDeliveryWorkflowRepository,
+            DeliveryOtpRepository deliveryOtpRepository,
+            ShipmentManagementServiceClient shipmentManagementServiceClient,
+            InventoryManagementServiceClient inventoryManagementServiceClient,
+            RabbitTemplate rabbitTemplate,
+            MessageService messageService,
+            BCryptPasswordEncoder bCryptPasswordEncoder) {
+        return new TripDeliveryServiceImpl(
+                tripDeliveryServiceValidator,
+                tripDeliveryWorkflowServiceAuditable,
+                tripServiceAuditable,
+                tripEventServiceAuditable,
+                deliveryOtpServiceAuditable,
+                tripRepository,
+                tripDeliveryWorkflowRepository,
+                deliveryOtpRepository,
+                shipmentManagementServiceClient,
+                inventoryManagementServiceClient,
+                rabbitTemplate,
+                messageService,
+                bCryptPasswordEncoder);
     }
 }

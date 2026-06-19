@@ -215,6 +215,66 @@ public class ShipmentServiceImpl implements ShipmentService {
         }
     }
 
+    /**
+     * Create a shipment from a cross.dock.dispatch.created event.
+     */
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public void createFromCrossDockDispatchCreatedEvent(Map<String, Object> event, Locale locale) {
+
+        // ============================================================
+        // STEP 1: Extract required fields from event payload
+        // ============================================================
+        if (event == null || !event.containsKey("dispatchId")) {
+            log.warn("cross.dock.dispatch.created event missing dispatchId; ignoring.");
+            return;
+        }
+
+        Long dispatchId = toLong(event.get("dispatchId"));
+        if (dispatchId == null) {
+            log.warn("cross.dock.dispatch.created event has null dispatchId; ignoring.");
+            return;
+        }
+
+        // ============================================================
+        // STEP 2: Idempotency check — skip if shipment already exists
+        // ============================================================
+        boolean alreadyExists = shipmentRepository.existsByCrossDockDispatchIdAndEntityStatusNot(
+                dispatchId, EntityStatus.DELETED);
+        if (alreadyExists) {
+            log.info("Shipment already exists for crossDockDispatchId={}; skipping duplicate creation.", dispatchId);
+            return;
+        }
+
+        // ============================================================
+        // STEP 3: Build and persist the shipment
+        // ============================================================
+        Long organizationId = toLong(event.get("organizationId"));
+        String fromLocationLabel = toStr(event.get("fromLocationLabel"));
+        String toLocationLabel = toStr(event.get("toLocationLabel"));
+
+        Object quantityObj = event.get("quantity");
+        BigDecimal quantity = quantityObj != null ? new BigDecimal(quantityObj.toString()) : BigDecimal.ZERO;
+
+        Shipment shipment = new Shipment();
+        shipment.setShipmentNumber(generateShipmentNumber());
+        shipment.setOrganizationId(organizationId);
+        shipment.setSourceType(ShipmentSourceType.CROSS_DOCK_DISPATCH);
+        shipment.setCrossDockDispatchId(dispatchId);
+        shipment.setFromWarehouseName(fromLocationLabel);
+        shipment.setToWarehouseName(toLocationLabel);
+        shipment.setProductCode(toStr(event.get("productCode")));
+        shipment.setQuantity(quantity);
+        shipment.setStatus(ShipmentStatus.PENDING_ALLOCATION);
+        shipment.setEntityStatus(EntityStatus.ACTIVE);
+        shipment.setCreatedAt(LocalDateTime.now());
+        shipment.setCreatedBy("system");
+
+        Shipment saved = shipmentServiceAuditable.create(shipment, locale, "system");
+        log.info("Shipment created from cross.dock.dispatch.created event: id={} number={} dispatchId={}",
+                saved.getId(), saved.getShipmentNumber(), dispatchId);
+    }
+
     // ============================================================
     // QUERIES
     // ============================================================

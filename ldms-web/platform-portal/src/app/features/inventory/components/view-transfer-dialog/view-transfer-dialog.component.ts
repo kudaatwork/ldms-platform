@@ -4,20 +4,24 @@ import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import type { InventoryDetailField } from '../inventory-detail-dialog/inventory-detail-dialog.component';
-import type { TransferRow, TransferStatus } from '../../models/inventory.model';
+import type { LogisticsRouteStopRow, TransferRow, TransferStatus } from '../../models/inventory.model';
 import type { ShipmentRow } from '../../../trip-tracking/models/trip-tracking.model';
 import { TripTrackingPortalService } from '../../../trip-tracking/services/trip-tracking-portal.service';
+import { InventoryPortalService } from '../../services/inventory-portal.service';
+import { transferEnRouteDepotCount } from '../../utils/route-stops.util';
 import { transferStatusCssClass } from '../../utils/inventory-status.util';
 
 export type ViewTransferDialogResult =
   | { action: 'approved' }
-  | { action: 'rejected'; reason: string };
+  | { action: 'rejected'; reason: string }
+  | { action: 'edit' };
 
 export interface ViewTransferDialogData {
   transfer: TransferRow;
   fields: InventoryDetailField[];
   canApprove: boolean;
   canReject: boolean;
+  canEdit?: boolean;
 }
 
 interface TransferWorkflowStep {
@@ -39,6 +43,7 @@ export class ViewTransferDialogComponent implements OnInit, OnDestroy {
 
   shipment: ShipmentRow | null = null;
   shipmentLoading = false;
+  routeStopsLoaded: LogisticsRouteStopRow[] = [];
 
   readonly workflowSteps: TransferWorkflowStep[] = [
     { key: 'REQUESTED', label: 'Requested', icon: 'inbox' },
@@ -53,10 +58,25 @@ export class ViewTransferDialogComponent implements OnInit, OnDestroy {
     private readonly dialogRef: MatDialogRef<ViewTransferDialogComponent, ViewTransferDialogResult | undefined>,
     @Inject(MAT_DIALOG_DATA) public readonly data: ViewTransferDialogData,
     private readonly tripTracking: TripTrackingPortalService,
+    private readonly inventoryService: InventoryPortalService,
     private readonly router: Router,
   ) {}
 
   ngOnInit(): void {
+    this.routeStopsLoaded = [...(this.data.transfer.routeStops ?? [])];
+    if (!transferEnRouteDepotCount(this.routeStopsLoaded) && this.data.transfer.id > 0) {
+      this.inventoryService
+        .listRouteStops('INVENTORY_TRANSFER', this.data.transfer.id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (stops) => {
+            if (stops.length) {
+              this.routeStopsLoaded = stops;
+            }
+          },
+        });
+    }
+
     if (this.canTrackShipment) {
       this.shipmentLoading = true;
       this.tripTracking
@@ -149,6 +169,33 @@ export class ViewTransferDialogComponent implements OnInit, OnDestroy {
     void this.router.navigate(['/shipments/shipments'], {
       queryParams: { transferId: this.transfer.id },
     });
+  }
+
+  openBorderClearance(): void {
+    this.dialogRef.close();
+    void this.router.navigate(['/shipments/border-clearance'], {
+      queryParams: { transferId: this.transfer.id },
+    });
+  }
+
+  get canEdit(): boolean {
+    return !!this.data.canEdit && this.transfer.status === 'REQUESTED';
+  }
+
+  get routeStops() {
+    return this.routeStopsLoaded;
+  }
+
+  get hasEnRouteStops(): boolean {
+    return transferEnRouteDepotCount(this.routeStops) > 0;
+  }
+
+  get isCrossBorder(): boolean {
+    return !!this.transfer.crossBorder;
+  }
+
+  edit(): void {
+    this.dialogRef.close({ action: 'edit' });
   }
 
   close(): void {

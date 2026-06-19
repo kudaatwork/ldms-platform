@@ -11,6 +11,7 @@ import projectlx.co.zw.organizationmanagement.clients.dto.LocationAddressRespons
 import projectlx.co.zw.organizationmanagement.model.Branch;
 import projectlx.co.zw.organizationmanagement.model.Organization;
 import projectlx.co.zw.organizationmanagement.utils.requests.RegisterOrganizationRequest;
+import projectlx.co.zw.organizationmanagement.utils.requests.UpdateMyOrganizationRequest;
 import projectlx.co.zw.shared_library.utils.dtos.BranchDto;
 import projectlx.co.zw.shared_library.utils.dtos.OrganizationDto;
 
@@ -28,6 +29,51 @@ public class OrganizationRegistrationAddressSupport {
      * Resolves {@code locationId} for organisation registration: explicit id, or create address in ldms-locations.
      */
     public Long resolveLocationId(RegisterOrganizationRequest request, Locale locale) {
+        if (request.getLocationId() != null && request.getLocationId() > 0) {
+            return request.getLocationId();
+        }
+        String line1 = request.getAddressLine1() != null ? request.getAddressLine1().trim() : "";
+        Long suburbId = request.getSuburbId();
+        boolean hasAnyAddressInput = StringUtils.hasText(line1)
+                || StringUtils.hasText(request.getAddressLine2())
+                || StringUtils.hasText(request.getPostalCode())
+                || (suburbId != null && suburbId > 0);
+        if (!hasAnyAddressInput) {
+            return null;
+        }
+        if (!StringUtils.hasText(line1)
+                || !StringUtils.hasText(request.getPostalCode())
+                || suburbId == null
+                || suburbId < 1) {
+            throw new IllegalArgumentException(
+                    "Address requires line 1, postal code, and a selected suburb when any address field is provided.");
+        }
+        LocationAddressCreateRequest create = new LocationAddressCreateRequest();
+        create.setLine1(line1);
+        if (StringUtils.hasText(request.getAddressLine2())) {
+            create.setLine2(request.getAddressLine2().trim());
+        }
+        if (StringUtils.hasText(request.getPostalCode())) {
+            create.setPostalCode(request.getPostalCode().trim());
+        }
+        create.setSuburbId(suburbId);
+        if (request.getCityId() != null && request.getCityId() > 0) {
+            create.setCityId(request.getCityId());
+        }
+        LocationAddressResponse response = locationsServiceClient.create(create, locale);
+        if (response == null || !response.isSuccess() || response.getAddressDto() == null
+                || response.getAddressDto().getId() == null || response.getAddressDto().getId() < 1) {
+            throw new IllegalStateException("Could not create organisation address in the locations service.");
+        }
+        return response.getAddressDto().getId();
+    }
+
+    /**
+     * Resolves {@code locationId} for an organisation self-service profile update.
+     * Mirrors {@link #resolveLocationId(RegisterOrganizationRequest, Locale)} but reads from
+     * {@link UpdateMyOrganizationRequest}.  Returns {@code null} when no address input is present.
+     */
+    public Long resolveLocationIdForUpdateMy(UpdateMyOrganizationRequest request, Locale locale) {
         if (request.getLocationId() != null && request.getLocationId() > 0) {
             return request.getLocationId();
         }

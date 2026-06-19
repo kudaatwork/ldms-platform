@@ -134,6 +134,9 @@ public class GatewayDownstreamErrorWebExceptionHandler implements ErrorWebExcept
         if (path.startsWith("/ldms-trip-tracking")) {
             return "Trip tracking service is not running. Start ldms-trip-tracking on port 8016, then retry.";
         }
+        if (path.startsWith("/ldms-messaging-inbound")) {
+            return "Messaging bot service is not running or needs a restart. Start ldms-messaging-bot on port 8095 with the latest build, then retry.";
+        }
         if (path.startsWith("/ldms-audit-trail")) {
             return "Audit trail service is not running. Start ldms-audit-trail on port "
                     + auditTrailPort + ", then retry.";

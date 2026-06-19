@@ -29,6 +29,11 @@ const routes: Routes = [
     path: 'auth',
     loadChildren: () => import('./features/auth/auth.module').then((m) => m.AuthModule),
   },
+  {
+    path: 'driver',
+    loadChildren: () =>
+      import('./features/driver-portal/driver-portal.module').then((m) => m.DriverPortalModule),
+  },
   { path: '', pathMatch: 'full', redirectTo: 'welcome' },
   {
     path: '',
@@ -144,6 +149,12 @@ const routes: Routes = [
         path: 'settings',
         loadChildren: () => import('./features/settings/settings.module').then((m) => m.SettingsModule),
         data: { breadcrumb: 'Settings' },
+      },
+      {
+        path: 'trading-partners',
+        loadChildren: () =>
+          import('./features/trading-partners/trading-partners.module').then((m) => m.TradingPartnersModule),
+        data: { breadcrumb: 'Trading Partners' },
       },
       {
         path: 'help',

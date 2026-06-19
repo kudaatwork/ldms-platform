@@ -9,8 +9,12 @@
     lead="Connect your phones, OBD units, and existing GPS platforms to LDMS with a simple REST contract. No OAuth — just your device ingest key."
     hubIcon="sensors"
     [orbitIcons]="['http', 'hub', 'code']"
-    note="Install a device first to receive credentials, then push telemetry using the samples below."
+    note="Create integrator ingest keys on Integration setup, then push telemetry using the samples below."
   >
+    <a lxWorkspaceHeroActions routerLink="/fleet/tracking-setup" class="lx-btn lx-btn-ghost lx-btn-sm">
+      <mat-icon>key</mat-icon>
+      Integration setup
+    </a>
     <a lxWorkspaceHeroActions routerLink="/fleet/tracking" class="lx-btn lx-btn-ghost lx-btn-sm">
       <mat-icon>sensors</mat-icon>
       Install device
@@ -47,7 +51,7 @@
           <mat-icon>rocket_launch</mat-icon>
           <div>
             <h2>Get live in three steps</h2>
-            <p>LDMS uses a single REST ingest endpoint. Your device authenticates with an ingest key — no JWT, no API keys dashboard.</p>
+            <p>LDMS uses a single REST ingest endpoint. Your integrator authenticates with an ingest key created on <a routerLink="/fleet/tracking-setup">Integration setup</a>.</p>
           </div>
         </header>
 
@@ -55,15 +59,15 @@
           <li>
             <span class="fta-steps__num">1</span>
             <div>
-              <strong>Install &amp; link a device</strong>
-              <p>Register the phone or hardware on <a routerLink="/fleet/tracking">Device installation</a> and link it to a vehicle. GPS ingest requires a vehicle link.</p>
+              <strong>Create an integrator ingest key</strong>
+              <p>On <a routerLink="/fleet/tracking-setup">Integration setup</a>, register your telematics platform and link it to a vehicle. For phones or fuel sensors, use <a routerLink="/fleet/tracking">Device installation</a> instead.</p>
             </div>
           </li>
           <li>
             <span class="fta-steps__num">2</span>
             <div>
               <strong>Copy your ingest key</strong>
-              <p>Shown once after install. Store it securely in your app config or device firmware — it identifies this tracker on the platform.</p>
+              <p>Shown once after key creation. Store it in your integrator config, firmware, or secret manager.</p>
             </div>
           </li>
           <li>

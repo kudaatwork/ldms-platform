@@ -1,7 +1,8 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
+import { apiEnvelopeOk, mapBotAdminApiError } from './bot-admin-api.util';
 import {
   BotConversationSession,
   BotMessage,
@@ -18,36 +19,6 @@ interface BotSessionApiResponse {
   botSessionDtoList?: BotConversationSession[];
 }
 
-function apiOk(resp: BotSessionApiResponse): boolean {
-  return (
-    resp.isSuccess === true ||
-    resp.success === true ||
-    (resp.statusCode != null && resp.statusCode >= 200 && resp.statusCode < 300)
-  );
-}
-
-function mapHttpError(err: unknown, fallback: string): Error {
-  if (err instanceof HttpErrorResponse) {
-    const body = err.error as BotSessionApiResponse | undefined;
-    if (err.status === 404) {
-      return new Error(
-        'Bot service API returned HTTP 404. Start ldms-messaging-bot (8095) and ensure the API gateway routes /ldms-messaging-inbound/**.',
-      );
-    }
-    if (err.status === 0) {
-      return new Error('Cannot reach the API gateway. Confirm ldms-api-gateway (8091) and ldms-messaging-bot (8095) are running.');
-    }
-    if (body?.message) {
-      return new Error(body.message);
-    }
-    return new Error(`${fallback} (HTTP ${err.status}).`);
-  }
-  if (err instanceof Error && err.message) {
-    return err;
-  }
-  return new Error(fallback);
-}
-
 @Injectable({ providedIn: 'root' })
 export class BotServiceAdminService {
   private readonly base = ldmsServiceUrl('messaging-inbound', 'bot-session', undefined, 'backoffice');
@@ -57,12 +28,12 @@ export class BotServiceAdminService {
   listSessions(): Observable<BotConversationSession[]> {
     return this.http.get<BotSessionApiResponse>(`${this.base}/list`).pipe(
       map((resp) => {
-        if (!apiOk(resp)) {
+        if (!apiEnvelopeOk(resp)) {
           throw new Error(resp.message ?? 'Could not load bot conversations.');
         }
         return (resp.botSessionDtoList ?? []).map(normalizeSession);
       }),
-      catchError((err) => throwError(() => mapHttpError(err, 'Could not load bot conversations.'))),
+      catchError((err) => throwError(() => mapBotAdminApiError(err, 'Could not load bot conversations.'))),
     );
   }
 
@@ -71,12 +42,12 @@ export class BotServiceAdminService {
       .get<BotSessionApiResponse>(`${this.base}/find-by-id/${encodeURIComponent(sessionId)}`)
       .pipe(
         map((resp) => {
-          if (!apiOk(resp) || !resp.botSessionDto) {
+          if (!apiEnvelopeOk(resp) || !resp.botSessionDto) {
             return null;
           }
           return normalizeSession(resp.botSessionDto);
         }),
-        catchError((err) => throwError(() => mapHttpError(err, 'Could not load bot conversation.'))),
+        catchError((err) => throwError(() => mapBotAdminApiError(err, 'Could not load bot conversation.'))),
       );
   }
 

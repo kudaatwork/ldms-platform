@@ -1,0 +1,230 @@
+<div class="omp" [class.omp--stacked]="panelLayout === 'stacked'">
+  <section class="omp__section" *ngIf="showTradingSection && showTradingChoice">
+    <h3 class="omp__title">{{ classification === 'SUPPLIER' ? 'How will you work with customers?' : 'How will you work with suppliers?' }}</h3>
+    <div class="omp__panel-grid">
+      <article class="omp__panel" [class.omp__panel--active]="tradingModel === 'PLATFORM_PARTNERS'">
+        <button
+          type="button"
+          class="omp__panel-head"
+          [disabled]="disabled"
+          (click)="setTradingModel('PLATFORM_PARTNERS')"
+        >
+          <span class="omp__panel-icon"><mat-icon>hub</mat-icon></span>
+          <span class="omp__panel-head-text">
+            <strong>{{ classification === 'SUPPLIER' ? 'Work with customers on the platform' : 'Work with suppliers on the platform' }}</strong>
+            <span class="omp__panel-note">Manage {{ counterpartyLabel }} as record-only entries or linked platform organisations.</span>
+          </span>
+        </button>
+        <div class="omp__panel-body" *ngIf="tradingModel === 'PLATFORM_PARTNERS'">
+          <div class="omp__tab-bar" role="tablist">
+            <button
+              type="button"
+              class="omp__tab"
+              role="tab"
+              [class.omp__tab--active]="platformTab === 'RECORD_ONLY'"
+              [disabled]="disabled"
+              (click)="setPlatformTab('RECORD_ONLY')"
+            >
+              <mat-icon>edit_note</mat-icon>
+              Register for records only
+            </button>
+            <button
+              type="button"
+              class="omp__tab"
+              role="tab"
+              [class.omp__tab--active]="platformTab === 'PLATFORM_ORG'"
+              [disabled]="disabled"
+              (click)="setPlatformTab('PLATFORM_ORG')"
+            >
+              <mat-icon>link</mat-icon>
+              Register or link on the platform
+            </button>
+          </div>
+          <div class="omp__tab-panel" *ngIf="platformTab === 'RECORD_ONLY'">
+            <h4>Record-only {{ counterpartyLabel }}</h4>
+            <ul class="omp__behaviour-list">
+              <li><mat-icon>check_circle</mat-icon> You register {{ counterpartyLabel }} in <strong>Trading partners</strong> for delivery and order tracking.</li>
+              <li><mat-icon>check_circle</mat-icon> {{ classification === 'SUPPLIER' ? 'Customers' : 'Suppliers' }} <strong>do not receive login credentials</strong> and cannot sign in to LDMS.</li>
+              <li><mat-icon>check_circle</mat-icon> You run POs, shipments, trips, and proof of delivery — the {{ counterpartyLabelSingular }} does not witness activity in their own workspace.</li>
+              <li><mat-icon>info</mat-icon> Use this when you need to know <em>who</em> you delivered to without onboarding them as platform users.</li>
+            </ul>
+          </div>
+          <div class="omp__tab-panel" *ngIf="platformTab === 'PLATFORM_ORG'">
+            <h4>Platform {{ counterpartyLabel }}</h4>
+            <ul class="omp__behaviour-list">
+              <li><mat-icon>check_circle</mat-icon> <strong>Register new</strong> {{ counterpartyLabel }} as organisations — they receive credentials and verify email.</li>
+              <li><mat-icon>check_circle</mat-icon> <strong>Search and link</strong> {{ counterpartyLabel }} already on LDMS instead of creating duplicates.</li>
+              <li><mat-icon>check_circle</mat-icon> Both parties participate in requisitions, POs, shipments, GRVs, and billing on the platform.</li>
+              <li><mat-icon>info</mat-icon> Use this when {{ counterpartyLabel }} need their own LDMS workspace to collaborate with you.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <article class="omp__panel" [class.omp__panel--active]="tradingModel === 'STANDALONE'">
+        <button type="button" class="omp__panel-head" [disabled]="disabled" (click)="setTradingModel('STANDALONE')">
+          <span class="omp__panel-icon"><mat-icon>storefront</mat-icon></span>
+          <span class="omp__panel-head-text">
+            <strong>Use the system alone</strong>
+            <span class="omp__panel-note">Run logistics and inventory without counterparty workspaces on LDMS.</span>
+          </span>
+        </button>
+        <div class="omp__panel-body" *ngIf="tradingModel === 'STANDALONE'">
+          <div class="omp__tab-panel omp__tab-panel--solo">
+            <ul class="omp__behaviour-list">
+              <li><mat-icon>check_circle</mat-icon> {{ counterpartyLabel | titlecase }} are managed as CRM records in <strong>Trading partners</strong> — no platform login.</li>
+              <li><mat-icon>check_circle</mat-icon> Fleet, trips, shipments, and inventory workflows remain fully available to your organisation.</li>
+              <li><mat-icon>info</mat-icon> Best when you operate solo and only need to record who you deliver to or receive from.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="omp__section" *ngIf="showInventorySection">
+    <h3 class="omp__title">Inventory &amp; logistics model</h3>
+    <p class="omp__lead" *ngIf="inventoryLocked">
+      <mat-icon>lock</mat-icon>
+      Inventory management is your permanent choice — cross-docking cannot be selected after this.
+    </p>
+    <div class="omp__panel-grid">
+      <article class="omp__panel omp__panel--inventory" [class.omp__panel--active]="inventoryModel === 'FULL_INVENTORY'">
+        <button
+          type="button"
+          class="omp__panel-head"
+          [disabled]="disabled"
+          (click)="setInventoryModel('FULL_INVENTORY')"
+        >
+          <span class="omp__panel-icon"><mat-icon>inventory_2</mat-icon></span>
+          <span class="omp__panel-head-text">
+            <strong>Inventory management</strong>
+            <span class="omp__panel-note">Products, warehouses, stock, transfers, POs, and GRVs inside LDMS. <em>Cannot be reversed to cross-docking.</em></span>
+          </span>
+        </button>
+        <div class="omp__panel-body" *ngIf="inventoryModel === 'FULL_INVENTORY'">
+          <p class="omp__body-lead">Choose how LDMS receives your inventory data.</p>
+          <div class="omp__tab-bar" role="tablist">
+            <button
+              type="button"
+              class="omp__tab"
+              role="tab"
+              [class.omp__tab--active]="inventoryMgmtTab === 'INTERNAL'"
+              [disabled]="disabled"
+              (click)="setInventoryMgmtTab('INTERNAL')"
+            >
+              <mat-icon>inventory_2</mat-icon>
+              Capture in LDMS
+            </button>
+            <button
+              type="button"
+              class="omp__tab"
+              role="tab"
+              [class.omp__tab--active]="inventoryMgmtTab === 'EXTERNAL_API'"
+              [disabled]="disabled"
+              (click)="setInventoryMgmtTab('EXTERNAL_API')"
+            >
+              <mat-icon>api</mat-icon>
+              Sync via API
+            </button>
+          </div>
+          <div class="omp__tab-panel" *ngIf="inventoryMgmtTab === 'INTERNAL'">
+            <h4>Full stock ledger inside LDMS</h4>
+            <ul class="omp__behaviour-list">
+              <li><mat-icon>check_circle</mat-icon> Products, categories, warehouses, stock levels, transfers, POs, and GRVs are captured and managed in the platform.</li>
+              <li><mat-icon>check_circle</mat-icon> On-hand quantities, reserved stock, WAC, bin locations, and reorder thresholds are maintained here.</li>
+              <li><mat-icon>info</mat-icon> Best when LDMS is your system of record for inventory.</li>
+            </ul>
+          </div>
+          <div class="omp__tab-panel" *ngIf="inventoryMgmtTab === 'EXTERNAL_API'">
+            <h4>ERP / WMS pushes inventory to LDMS</h4>
+            <ul class="omp__behaviour-list">
+              <li><mat-icon>check_circle</mat-icon> Your external system sends products, categories, stock levels, transfers, and related master data via REST.</li>
+              <li><mat-icon>check_circle</mat-icon> LDMS still runs the full inventory module — logistics, POs, and GRVs use the synced data.</li>
+              <li><mat-icon>check_circle</mat-icon> Generate an API key and follow the integration guide to connect endpoints.</li>
+            </ul>
+            <a class="omp__api-link" [routerLink]="fullInventoryApiLink" [queryParams]="{ mode: 'inventory' }">
+              <mat-icon>menu_book</mat-icon>
+              Inventory management integration — API docs, samples &amp; mock console
+            </a>
+            <a class="omp__api-link omp__api-link--secondary" routerLink="/products-inventory/integration-setup" [queryParams]="{ mode: 'inventory' }">
+              <mat-icon>key</mat-icon>
+              Inventory integration setup — generate API keys
+            </a>
+          </div>
+        </div>
+      </article>
+
+      <article
+        class="omp__panel omp__panel--crossdock"
+        [class.omp__panel--active]="inventoryModel === 'CROSS_DOCKING'"
+        [class.omp__panel--disabled]="inventoryLocked"
+      >
+        <button
+          type="button"
+          class="omp__panel-head"
+          [disabled]="disabled || inventoryLocked"
+          (click)="setInventoryModel('CROSS_DOCKING')"
+        >
+          <span class="omp__panel-icon omp__panel-icon--violet"><mat-icon>swap_horiz</mat-icon></span>
+          <span class="omp__panel-head-text">
+            <strong>Cross-docking</strong>
+            <span class="omp__panel-note">Movement tracker only — no stock ledger. You may upgrade to inventory management later.</span>
+          </span>
+        </button>
+        <div class="omp__panel-body" *ngIf="inventoryModel === 'CROSS_DOCKING' && !inventoryLocked">
+          <div class="omp__crossdock-intro">
+            <h4>Movement tracker, not a stock ledger</h4>
+            <p>
+              Goods arrive at a hub and transfer directly to outbound trucks <strong>without being put into storage</strong>.
+              No shelf time, no stock count, no warehouse bin.
+            </p>
+          </div>
+          <div class="omp__crossdock-grid">
+            <div class="omp__crossdock-col omp__crossdock-col--tracks">
+              <strong>What LDMS tracks</strong>
+              <ul class="omp__behaviour-list">
+                <li><mat-icon>check_circle</mat-icon> Inbound shipment arrival time</li>
+                <li><mat-icon>check_circle</mat-icon> Outbound truck assignment</li>
+                <li><mat-icon>check_circle</mat-icon> Transit status (arrived → loaded → departed)</li>
+                <li><mat-icon>check_circle</mat-icon> Document matching (inbound manifest vs outbound delivery note)</li>
+              </ul>
+            </div>
+            <div class="omp__crossdock-col omp__crossdock-col--not">
+              <strong>What LDMS does <em>not</em> track</strong>
+              <ul class="omp__behaviour-list omp__behaviour-list--muted">
+                <li><mat-icon>block</mat-icon> Stock levels on hand</li>
+                <li><mat-icon>block</mat-icon> Warehouse bin locations</li>
+                <li><mat-icon>block</mat-icon> Weighted average cost (WAC)</li>
+                <li><mat-icon>block</mat-icon> Reserved quantities or reorder points</li>
+              </ul>
+            </div>
+          </div>
+          <div class="omp__choice-block">
+            <span class="omp__source-label">How dispatch data reaches LDMS</span>
+            <div class="omp__choice-list">
+              <label class="omp__choice" [class.omp__choice--active]="inventoryDataSource === 'EXTERNAL_API'">
+                <input type="radio" name="ompCrossDs" [checked]="inventoryDataSource === 'EXTERNAL_API'" (change)="setCrossDockFlow('EXTERNAL_API')" [disabled]="disabled" />
+                <span class="omp__choice-copy">
+                  <strong>API integration</strong>
+                  <small>Push inbound/outbound events from your WMS; receive GRV callbacks.</small>
+                </span>
+              </label>
+              <label class="omp__choice" [class.omp__choice--active]="inventoryDataSource === 'MANUAL_ACK'">
+                <input type="radio" name="ompCrossDs" [checked]="inventoryDataSource === 'MANUAL_ACK'" (change)="setCrossDockFlow('MANUAL_ACK')" [disabled]="disabled" />
+                <span class="omp__choice-copy">
+                  <strong>Manual acknowledgement</strong>
+                  <small>Operators confirm arrival, loading, and departure in the portal.</small>
+                </span>
+              </label>
+            </div>
+            <a class="omp__api-link" *ngIf="inventoryDataSource === 'EXTERNAL_API'" [routerLink]="crossDockApiLink" [queryParams]="{ mode: 'crossdock' }">
+              <mat-icon>menu_book</mat-icon>
+              Cross-dock Integration API — dispatch ingest, webhooks &amp; mock console
+            </a>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+</div>

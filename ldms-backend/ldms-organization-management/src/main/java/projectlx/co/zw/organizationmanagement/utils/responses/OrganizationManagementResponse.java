@@ -10,6 +10,7 @@ import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryUsageDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.KycApprovalPolicyDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OnboardingStatusDto;
 import projectlx.co.zw.organizationmanagement.utils.dtos.OrganizationKycReviewDto;
+import projectlx.co.zw.organizationmanagement.utils.dtos.TradingPartnerDto;
 import projectlx.co.zw.shared_library.utils.dtos.AgentDto;
 import projectlx.co.zw.shared_library.utils.dtos.BranchDto;
 import projectlx.co.zw.shared_library.utils.responses.OrganizationResponse;
@@ -33,4 +34,7 @@ public class OrganizationManagementResponse extends OrganizationResponse {
     private OnboardingStatusDto onboardingStatusDto;
     private FleetVehicleDto fleetVehicleDto;
     private List<FleetVehicleDto> fleetVehicleDtoList;
+
+    private TradingPartnerDto tradingPartnerDto;
+    private List<TradingPartnerDto> tradingPartnerDtoList;
 }

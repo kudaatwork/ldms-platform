@@ -1,0 +1,348 @@
+<div class="dwf">
+
+  <!-- ════════════════════════════════════════════ PROGRESS STRIP -->
+  <div class="dwf-progress" *ngIf="!isComplete">
+    <div class="dwf-progress__track">
+      <div class="dwf-progress__fill"
+        [style.width.%]="((currentStepIndex + 1) / PHASES.length) * 100">
+      </div>
+    </div>
+    <div class="dwf-progress__label">
+      Step {{ currentStepIndex + 1 }} of {{ PHASES.length }}
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ STEPPER DOTS -->
+  <div class="dwf-dots" *ngIf="!isComplete">
+    <div class="dwf-dot"
+      *ngFor="let phase of PHASES; let i = index"
+      [class.dwf-dot--done]="i < currentStepIndex"
+      [class.dwf-dot--active]="i === currentStepIndex">
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════ ERROR BANNER -->
+  <div class="dwf-error" *ngIf="error">
+    <span class="material-icons" aria-hidden="true">error_outline</span>
+    {{ error }}
+    <button class="dwf-error__dismiss" (click)="error = ''">
+      <span class="material-icons">close</span>
+    </button>
+  </div>
+
+  <div class="dwf-body">
+
+    <!-- ════════════════════ STEP 1: ARRIVAL -->
+    <div class="dwf-step" *ngIf="currentPhase === 'ARRIVAL'">
+
+      <!-- Geofence arrival suggestion banner -->
+      <div class="dwf-geofence-alert" *ngIf="arrivalSuggested">
+        <div class="dwf-geofence-alert__pulse" aria-hidden="true"></div>
+        <span class="material-icons" aria-hidden="true">near_me</span>
+        <div class="dwf-geofence-alert__text">
+          <strong>GPS says you're close!</strong>
+          <span>You appear to be near the delivery point. Ready to confirm?</span>
+        </div>
+      </div>
+
+      <div class="dwf-step__icon dwf-step__icon--arrival">
+        <span class="material-icons" aria-hidden="true">place</span>
+      </div>
+      <h2 class="dwf-step__title">Truck at destination</h2>
+      <p class="dwf-step__desc">
+        Confirm that you have arrived at the delivery point and are ready to begin offloading.
+      </p>
+      <div class="dwf-arrival-banner">
+        <span class="material-icons" aria-hidden="true">local_shipping</span>
+        You are parked and ready to unload
+      </div>
+      <button class="dwf-action dwf-action--primary" (click)="confirmArrival()" [disabled]="loading">
+        <span class="dwf-spinner" *ngIf="loading"></span>
+        <span class="material-icons" *ngIf="!loading" aria-hidden="true">check_circle</span>
+        {{ loading ? 'Confirming...' : 'Confirm arrival' }}
+      </button>
+    </div>
+
+    <!-- ════════════════════ STEP 2: STOCK COUNTING -->
+    <div class="dwf-step" *ngIf="currentPhase === 'STOCK_COUNTING'">
+      <div class="dwf-step__icon dwf-step__icon--counting">
+        <span class="material-icons" aria-hidden="true">calculate</span>
+      </div>
+      <h2 class="dwf-step__title">Stock counting</h2>
+      <p class="dwf-step__desc">
+        Both the driver and the customer representative must confirm they are counting the delivered goods.
+      </p>
+
+      <div class="dwf-progress-arc">
+        <svg viewBox="0 0 100 60" aria-hidden="true">
+          <path d="M 5 55 A 45 45 0 0 1 95 55" fill="none" stroke="var(--gray-200,#e2e8f0)" stroke-width="8" stroke-linecap="round"/>
+          <path d="M 5 55 A 45 45 0 0 1 95 55" fill="none" stroke="var(--primary,#3b82f6)" stroke-width="8"
+            stroke-linecap="round" stroke-dasharray="141.3" [attr.stroke-dashoffset]="141.3 - (141.3 * countingProgress / 100)"/>
+        </svg>
+        <div class="dwf-progress-arc__pct">{{ countingProgress }}%</div>
+      </div>
+
+      <div class="dwf-toggle-row">
+        <button class="dwf-toggle" [class.dwf-toggle--on]="driverConfirmedCounting"
+          (click)="toggleDriverCounting()">
+          <span class="material-icons">{{ driverConfirmedCounting ? 'check_circle' : 'radio_button_unchecked' }}</span>
+          <div class="dwf-toggle__labels">
+            <span class="dwf-toggle__who">Driver (you)</span>
+            <span class="dwf-toggle__state">{{ driverConfirmedCounting ? "We're counting" : 'Tap to confirm' }}</span>
+          </div>
+        </button>
+        <button class="dwf-toggle" [class.dwf-toggle--on]="customerConfirmedCounting"
+          (click)="toggleCustomerCounting()">
+          <span class="material-icons">{{ customerConfirmedCounting ? 'check_circle' : 'radio_button_unchecked' }}</span>
+          <div class="dwf-toggle__labels">
+            <span class="dwf-toggle__who">Customer rep</span>
+            <span class="dwf-toggle__state">{{ customerConfirmedCounting ? "We're counting" : 'Tap to confirm' }}</span>
+          </div>
+        </button>
+      </div>
+
+      <button class="dwf-action dwf-action--primary" [disabled]="!canProceedFromCounting || loading"
+        (click)="proceedFromCounting()">
+        <span class="material-icons" aria-hidden="true">arrow_forward</span>
+        Both counting — continue
+      </button>
+    </div>
+
+    <!-- ════════════════════ STEP 3: FINISHED COUNTING -->
+    <div class="dwf-step" *ngIf="currentPhase === 'FINISHED_COUNTING'">
+      <div class="dwf-step__icon dwf-step__icon--finished">
+        <span class="material-icons" aria-hidden="true">done_all</span>
+      </div>
+      <h2 class="dwf-step__title">Finished counting</h2>
+      <p class="dwf-step__desc">
+        Both parties must confirm counting is complete before we issue the delivery OTP.
+      </p>
+      <div class="dwf-toggle-row">
+        <button class="dwf-toggle" [class.dwf-toggle--on]="driverConfirmedFinished"
+          (click)="toggleDriverFinished()">
+          <span class="material-icons">{{ driverConfirmedFinished ? 'check_circle' : 'radio_button_unchecked' }}</span>
+          <div class="dwf-toggle__labels">
+            <span class="dwf-toggle__who">Driver (you)</span>
+            <span class="dwf-toggle__state">{{ driverConfirmedFinished ? 'Counting done' : 'Tap to confirm' }}</span>
+          </div>
+        </button>
+        <button class="dwf-toggle" [class.dwf-toggle--on]="customerConfirmedFinished"
+          (click)="toggleCustomerFinished()">
+          <span class="material-icons">{{ customerConfirmedFinished ? 'check_circle' : 'radio_button_unchecked' }}</span>
+          <div class="dwf-toggle__labels">
+            <span class="dwf-toggle__who">Customer rep</span>
+            <span class="dwf-toggle__state">{{ customerConfirmedFinished ? 'Counting done' : 'Tap to confirm' }}</span>
+          </div>
+        </button>
+      </div>
+      <button class="dwf-action dwf-action--primary" [disabled]="!canProceedFromFinished || loading"
+        (click)="confirmFinishedCounting()">
+        <span class="material-icons" aria-hidden="true">send</span>
+        Both done — proceed to OTP
+      </button>
+    </div>
+
+    <!-- ════════════════════ STEP 4: SEND OTP -->
+    <div class="dwf-step" *ngIf="currentPhase === 'SEND_OTP'">
+      <div class="dwf-step__icon dwf-step__icon--otp">
+        <span class="material-icons" aria-hidden="true">lock</span>
+      </div>
+      <h2 class="dwf-step__title">Send OTP</h2>
+      <p class="dwf-step__desc">
+        Choose how the customer will receive their one-time delivery verification code.
+      </p>
+
+      <!-- Single channel selection (radio-style chips) -->
+      <div class="dwf-channel-chips">
+        <button class="dwf-channel" *ngFor="let ch of ALL_CHANNELS"
+          [class.dwf-channel--selected]="selectedChannel === ch.value"
+          (click)="selectChannel(ch.value)">
+          <span class="material-icons" aria-hidden="true">{{ ch.icon }}</span>
+          {{ ch.label }}
+          <span class="dwf-channel__check" *ngIf="selectedChannel === ch.value">
+            <span class="material-icons">check</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="dwf-field">
+        <label class="dwf-field__label">
+          <span class="material-icons" aria-hidden="true">person</span>
+          Recipient contact
+        </label>
+        <input class="dwf-field__input" type="text" [(ngModel)]="otpRecipient"
+          placeholder="Phone number or email" autocomplete="off" />
+      </div>
+
+      <button class="dwf-action dwf-action--primary" (click)="sendOtp()" [disabled]="loading || !otpRecipient.trim()">
+        <span class="dwf-spinner" *ngIf="loading"></span>
+        <span class="material-icons" *ngIf="!loading" aria-hidden="true">send</span>
+        {{ loading ? 'Sending...' : 'Send OTP code' }}
+      </button>
+    </div>
+
+    <!-- ════════════════════ STEP 5: OTP VERIFICATION + DELIVERY NOTES -->
+    <div class="dwf-step" *ngIf="currentPhase === 'OTP_VERIFICATION'">
+
+      <!-- Waiting animation while OTP is being delivered -->
+      <div class="dwf-otp-waiting-state" *ngIf="otpWaiting">
+        <div class="dwf-step__icon dwf-step__icon--verify dwf-step__icon--waiting">
+          <span class="material-icons" aria-hidden="true">hourglass_top</span>
+        </div>
+        <h2 class="dwf-step__title">Sending code...</h2>
+        <div class="dwf-otp-waiting">
+          <div class="dwf-otp-waiting__ring"></div>
+          <div class="dwf-otp-waiting__dots">
+            <span></span><span></span><span></span>
+          </div>
+          <p>Delivering OTP to customer via {{ selectedChannel }}...</p>
+        </div>
+      </div>
+
+      <!-- OTP entry form once sent -->
+      <ng-container *ngIf="!otpWaiting">
+        <div class="dwf-step__icon dwf-step__icon--verify">
+          <span class="material-icons" aria-hidden="true">phonelink_lock</span>
+        </div>
+        <h2 class="dwf-step__title">Enter OTP</h2>
+        <p class="dwf-step__desc">
+          Ask the customer to share the 6-digit code they received via {{ selectedChannel }}, then enter it below.
+        </p>
+
+        <div class="dwf-otp-input-wrap">
+          <input class="dwf-otp-input" type="tel" inputmode="numeric" maxlength="6"
+            [(ngModel)]="otpCode" placeholder="· · · · · ·" autocomplete="one-time-code" />
+        </div>
+
+        <!-- Delivery notes collected here — no separate step -->
+        <div class="dwf-field dwf-field--notes">
+          <label class="dwf-field__label">
+            <span class="material-icons" aria-hidden="true">edit_note</span>
+            Delivery notes <span class="dwf-field__optional">(optional)</span>
+          </label>
+          <textarea class="dwf-field__input dwf-field__input--textarea" [(ngModel)]="deliveryNotes"
+            placeholder="e.g. 2 cartons were damaged on arrival, customer noted on POD..."
+            rows="3"></textarea>
+        </div>
+
+        <button class="dwf-action dwf-action--primary" [disabled]="otpCode.length < 6 || loading"
+          (click)="verifyOtp()">
+          <span class="dwf-spinner" *ngIf="loading"></span>
+          <span class="material-icons" *ngIf="!loading" aria-hidden="true">verified</span>
+          {{ loading ? 'Verifying...' : 'Verify delivery' }}
+        </button>
+
+        <button class="dwf-action dwf-action--text" (click)="resendOtp()" [disabled]="loading">
+          <span class="material-icons" aria-hidden="true">refresh</span>
+          Resend OTP
+        </button>
+      </ng-container>
+    </div>
+
+    <!-- ════════════════════ STEP 6: START RETURN JOURNEY -->
+    <div class="dwf-step" *ngIf="currentPhase === 'START_RETURN'">
+      <div class="dwf-step__icon dwf-step__icon--return">
+        <span class="material-icons" aria-hidden="true">u_turn_left</span>
+      </div>
+      <h2 class="dwf-step__title">Return journey</h2>
+      <p class="dwf-step__desc">
+        Delivery confirmed! Are you returning any goods to the origin warehouse?
+      </p>
+
+      <div class="dwf-return-hint">
+        <span class="material-icons" aria-hidden="true">info_outline</span>
+        Your return trip will appear on live tracking once started.
+      </div>
+
+      <button class="dwf-action dwf-action--primary" (click)="startReturn()" [disabled]="loading">
+        <span class="dwf-spinner" *ngIf="loading"></span>
+        <span class="material-icons" *ngIf="!loading" aria-hidden="true">inventory_2</span>
+        {{ loading ? 'Processing...' : 'Yes, I have returns' }}
+      </button>
+      <button class="dwf-action dwf-action--outline" (click)="skipReturn()" [disabled]="loading">
+        <span class="dwf-spinner" *ngIf="loading"></span>
+        <span class="material-icons" *ngIf="!loading" aria-hidden="true">home</span>
+        {{ loading ? 'Completing...' : 'No returns, head home' }}
+      </button>
+    </div>
+
+    <!-- ════════════════════ STEP 7: RETURNS -->
+    <div class="dwf-step" *ngIf="currentPhase === 'RETURNS'">
+      <div class="dwf-step__icon dwf-step__icon--returns">
+        <span class="material-icons" aria-hidden="true">assignment_return</span>
+      </div>
+      <h2 class="dwf-step__title">Record returns</h2>
+      <p class="dwf-step__desc">Add each product line being returned to the origin warehouse.</p>
+
+      <!-- Existing return lines -->
+      <div class="dwf-return-list" *ngIf="returnLines.length > 0">
+        <div class="dwf-return-item" *ngFor="let line of returnLines; let i = index">
+          <div class="dwf-return-item__info">
+            <strong>{{ line.productName }}</strong>
+            <span>{{ line.quantity }} × — {{ line.reason }}</span>
+          </div>
+          <button class="dwf-return-item__del" (click)="removeReturnLine(i)" type="button">
+            <span class="material-icons">delete_outline</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Add return form -->
+      <div class="dwf-add-return" [formGroup]="returnForm">
+        <div class="dwf-field">
+          <label class="dwf-field__label">Product name</label>
+          <input class="dwf-field__input" formControlName="productName" placeholder="e.g. Sugar 50kg bags" />
+        </div>
+        <div class="dwf-field-row">
+          <div class="dwf-field">
+            <label class="dwf-field__label">Quantity</label>
+            <input class="dwf-field__input" type="number" formControlName="quantity" min="0.01" step="1" />
+          </div>
+        </div>
+        <div class="dwf-field">
+          <label class="dwf-field__label">Reason</label>
+          <input class="dwf-field__input" formControlName="reason" placeholder="e.g. Damaged, Over-supplied..." />
+        </div>
+        <button class="dwf-action dwf-action--add" (click)="addReturnLine()" type="button">
+          <span class="material-icons" aria-hidden="true">add_circle_outline</span>
+          Add item
+        </button>
+      </div>
+
+      <button class="dwf-action dwf-action--primary" [disabled]="returnLines.length === 0 || loading"
+        (click)="submitReturns()">
+        <span class="dwf-spinner" *ngIf="loading"></span>
+        <span class="material-icons" *ngIf="!loading" aria-hidden="true">check</span>
+        {{ loading ? 'Saving...' : 'Submit returns (' + returnLines.length + ')' }}
+      </button>
+    </div>
+
+    <!-- ════════════════════ STEP 8: CONFIRM RETURN COMPLETE -->
+    <div class="dwf-step" *ngIf="currentPhase === 'CONFIRM_RETURN'">
+      <div class="dwf-step__icon dwf-step__icon--confirm">
+        <span class="material-icons" aria-hidden="true">flag</span>
+      </div>
+      <h2 class="dwf-step__title">Confirm return complete</h2>
+      <p class="dwf-step__desc">
+        Confirm that you have completed the return journey and all goods have been returned to the warehouse.
+      </p>
+      <button class="dwf-action dwf-action--primary" (click)="confirmReturnComplete()" [disabled]="loading">
+        <span class="dwf-spinner" *ngIf="loading"></span>
+        <span class="material-icons" *ngIf="!loading" aria-hidden="true">check_circle</span>
+        {{ loading ? 'Completing...' : 'Complete return' }}
+      </button>
+    </div>
+
+    <!-- ════════════════════ COMPLETE STATE -->
+    <div class="dwf-complete" *ngIf="isComplete">
+      <div class="dwf-complete__ring">
+        <span class="material-icons" aria-hidden="true">check_circle</span>
+      </div>
+      <h2 class="dwf-complete__title">Delivery complete!</h2>
+      <p class="dwf-complete__sub">
+        The full delivery workflow has been successfully completed. Well done!
+      </p>
+    </div>
+
+  </div>
+</div>

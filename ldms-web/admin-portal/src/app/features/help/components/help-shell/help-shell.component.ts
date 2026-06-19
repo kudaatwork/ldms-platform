@@ -31,7 +31,19 @@ export class HelpShellComponent {
       label: 'Bot service',
       route: '/help/bot-service',
       icon: 'smart_toy',
-      description: 'Monitor WhatsApp, web, and SMS bot conversations',
+      description: 'Monitor web assistant conversations',
+    },
+    {
+      label: 'Bot analytics',
+      route: '/help/bot-analytics',
+      icon: 'insights',
+      description: 'Session volume, ratings, and topic trends',
+    },
+    {
+      label: 'Bot knowledge',
+      route: '/help/bot-knowledge',
+      icon: 'menu_book',
+      description: 'Manage FAQ entries for bot RAG retrieval',
     },
   ];
 }

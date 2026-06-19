@@ -183,26 +183,6 @@
       <button type="submit" class="lx-btn lx-btn-ghost" [disabled]="submitting || form.invalid">
         {{ submitting ? (isEdit ? 'Saving…' : 'Adding…') : (isEdit ? 'Save changes' : 'Add record') }}
       </button>
-      <ng-container *ngIf="isPendingReview">
-        <button
-          type="button"
-          class="lx-btn lx-btn-ghost fcd-review-btn--reject"
-          [disabled]="submitting"
-          (click)="rejectReview()"
-        >
-          <mat-icon>cancel</mat-icon>
-          Reject
-        </button>
-        <button
-          type="button"
-          class="lx-btn lx-btn-primary"
-          [disabled]="submitting"
-          (click)="approveReview()"
-        >
-          <mat-icon>check_circle</mat-icon>
-          Approve
-        </button>
-      </ng-container>
     </div>
   </form>
 </div>

@@ -445,7 +445,39 @@ public enum I18Code {
 
     // Purchase Requisition amendment messages
     MESSAGE_PURCHASE_REQUISITION_AMENDMENT_CREATED_SUCCESSFULLY("message.purchase.requisition.amendment.created.successfully"),
-    MESSAGE_PURCHASE_REQUISITION_REQUIRES_AMENDMENT("message.purchase.requisition.requires.amendment");
+    MESSAGE_PURCHASE_REQUISITION_REQUIRES_AMENDMENT("message.purchase.requisition.requires.amendment"),
+
+    // Logistics Route Stop messages
+    MESSAGE_ROUTE_STOP_INVALID_REQUEST("message.route.stop.invalid.request"),
+    MESSAGE_ROUTE_STOP_CONTEXT_TYPE_REQUIRED("message.route.stop.context.type.required"),
+    MESSAGE_ROUTE_STOP_CONTEXT_ID_REQUIRED("message.route.stop.context.id.required"),
+    MESSAGE_ROUTE_STOP_ORGANIZATION_ID_REQUIRED("message.route.stop.organization.id.required"),
+    MESSAGE_ROUTE_STOP_NOT_FOUND("message.route.stop.not.found"),
+    MESSAGE_ROUTE_STOP_REPLACED_SUCCESSFULLY("message.route.stop.replaced.successfully"),
+    MESSAGE_ROUTE_STOP_RETRIEVED_SUCCESSFULLY("message.route.stop.retrieved.successfully"),
+    MESSAGE_ROUTE_STOP_DELETED_SUCCESSFULLY("message.route.stop.deleted.successfully"),
+
+    // Inventory Integration Credential messages
+    MESSAGE_INTEGRATION_CREDENTIAL_INVALID_REQUEST("message.integration.credential.invalid.request"),
+    MESSAGE_INTEGRATION_CREDENTIAL_ORG_ID_REQUIRED("message.integration.credential.org.id.required"),
+    MESSAGE_INTEGRATION_CREDENTIAL_LABEL_REQUIRED("message.integration.credential.label.required"),
+    MESSAGE_INTEGRATION_CREDENTIAL_UPDATE_INVALID("message.integration.credential.update.invalid"),
+    MESSAGE_INTEGRATION_CREDENTIAL_NOT_FOUND("message.integration.credential.not.found"),
+    MESSAGE_INTEGRATION_CREDENTIAL_SUSPENDED("message.integration.credential.suspended"),
+    MESSAGE_INTEGRATION_CREDENTIAL_CREATED_SUCCESSFULLY("message.integration.credential.created.successfully"),
+    MESSAGE_INTEGRATION_CREDENTIAL_UPDATED_SUCCESSFULLY("message.integration.credential.updated.successfully"),
+    MESSAGE_INTEGRATION_CREDENTIAL_DELETED_SUCCESSFULLY("message.integration.credential.deleted.successfully"),
+    MESSAGE_INTEGRATION_CREDENTIAL_RETRIEVED_SUCCESSFULLY("message.integration.credential.retrieved.successfully"),
+
+    // Cross-Dock Dispatch messages
+    MESSAGE_DISPATCH_INGEST_INVALID_REQUEST("message.dispatch.ingest.invalid.request"),
+    MESSAGE_DISPATCH_INGEST_API_KEY_REQUIRED("message.dispatch.ingest.api.key.required"),
+    MESSAGE_DISPATCH_INGEST_EXTERNAL_ID_REQUIRED("message.dispatch.ingest.external.id.required"),
+    MESSAGE_DISPATCH_INGEST_DUPLICATE("message.dispatch.ingest.duplicate"),
+    MESSAGE_DISPATCH_INGEST_CREATED_SUCCESSFULLY("message.dispatch.ingest.created.successfully"),
+    MESSAGE_DISPATCH_GRV_CALLBACK_RECEIVED("message.dispatch.grv.callback.received"),
+    MESSAGE_CROSS_DOCK_DISPATCH_NOT_FOUND("message.cross.dock.dispatch.not.found"),
+    MESSAGE_CROSS_DOCK_DISPATCH_RETRIEVED_SUCCESSFULLY("message.cross.dock.dispatch.retrieved.successfully");
 
     private final String code;
 }

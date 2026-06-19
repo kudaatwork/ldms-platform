@@ -75,4 +75,22 @@ public class TripServiceProcessorImpl implements TripServiceProcessor {
         log.info("Processing public track for trip id {}", id);
         return tripService.track(id, locale);
     }
+
+    @Override
+    public TripResponse listMyTrips(Locale locale, String username) {
+        log.info("Processing list my trips for user {}", username);
+        return tripService.listMyTrips(locale, username);
+    }
+
+    @Override
+    public TripResponse findMyTripById(Long tripId, Locale locale, String username) {
+        log.info("Processing find my trip {} for user {}", tripId, username);
+        return tripService.findMyTripById(tripId, locale, username);
+    }
+
+    @Override
+    public TripResponse getMyTripMetrics(Locale locale, String username) {
+        log.info("Processing my trip metrics for user {}", username);
+        return tripService.getMyTripMetrics(locale, username);
+    }
 }

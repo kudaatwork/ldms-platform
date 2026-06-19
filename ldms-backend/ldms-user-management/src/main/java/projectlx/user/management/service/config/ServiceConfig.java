@@ -8,6 +8,7 @@ import projectlx.user.management.business.logic.api.UserPreferencesService;
 import projectlx.user.management.business.logic.api.UserRoleService;
 import projectlx.user.management.business.logic.api.UserSecurityService;
 import projectlx.user.management.business.logic.api.UserService;
+import projectlx.user.management.business.logic.support.DriverPlatformProvisioner;
 import projectlx.user.management.business.logic.support.OrganizationContactCredentialsIssuer;
 import projectlx.user.management.business.logic.support.OrganizationContactPersonProvisioner;
 import projectlx.user.management.business.logic.api.UserTypeService;
@@ -46,9 +47,11 @@ public class ServiceConfig {
     @Bean
     public UserServiceProcessor userServiceProcessor(UserService userService,
             OrganizationContactPersonProvisioner organizationContactPersonProvisioner,
-            OrganizationContactCredentialsIssuer organizationContactCredentialsIssuer) {
+            OrganizationContactCredentialsIssuer organizationContactCredentialsIssuer,
+            DriverPlatformProvisioner driverPlatformProvisioner) {
         return new UserServiceProcessorImpl(
-                userService, organizationContactPersonProvisioner, organizationContactCredentialsIssuer);
+                userService, organizationContactPersonProvisioner, organizationContactCredentialsIssuer,
+                driverPlatformProvisioner);
     }
 
     @Bean

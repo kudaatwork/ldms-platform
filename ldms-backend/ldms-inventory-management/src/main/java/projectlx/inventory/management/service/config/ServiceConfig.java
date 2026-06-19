@@ -121,4 +121,28 @@ public class ServiceConfig {
     public WarehouseLocationServiceProcessor warehouseLocationServiceProcessor(WarehouseLocationService warehouseLocationService) {
         return new WarehouseLocationServiceProcessorImpl(warehouseLocationService);
     }
+
+    @Bean
+    public projectlx.inventory.management.service.processor.api.LogisticsRouteStopServiceProcessor
+    logisticsRouteStopServiceProcessor(
+            projectlx.inventory.management.business.logic.api.LogisticsRouteStopService logisticsRouteStopService) {
+        return new projectlx.inventory.management.service.processor.impl.LogisticsRouteStopServiceProcessorImpl(
+                logisticsRouteStopService);
+    }
+
+    @Bean
+    public projectlx.inventory.management.service.processor.api.InventoryIntegrationCredentialServiceProcessor
+    inventoryIntegrationCredentialServiceProcessor(
+            projectlx.inventory.management.business.logic.api.InventoryIntegrationCredentialService inventoryIntegrationCredentialService) {
+        return new projectlx.inventory.management.service.processor.impl.InventoryIntegrationCredentialServiceProcessorImpl(
+                inventoryIntegrationCredentialService);
+    }
+
+    @Bean
+    public projectlx.inventory.management.service.processor.api.CrossDockDispatchServiceProcessor
+    crossDockDispatchServiceProcessor(
+            projectlx.inventory.management.business.logic.api.CrossDockDispatchService crossDockDispatchService) {
+        return new projectlx.inventory.management.service.processor.impl.CrossDockDispatchServiceProcessorImpl(
+                crossDockDispatchService);
+    }
 }

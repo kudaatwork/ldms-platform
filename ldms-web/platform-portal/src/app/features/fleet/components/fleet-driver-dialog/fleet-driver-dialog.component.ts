@@ -148,6 +148,8 @@ export class FleetDriverDialogComponent implements OnInit, OnDestroy {
       userId: [driver?.userId ?? null],
       firstName: [driver?.firstName ?? '', [Validators.required, Validators.maxLength(80)]],
       lastName: [driver?.lastName ?? '', [Validators.required, Validators.maxLength(80)]],
+      email: ['', [Validators.email, Validators.maxLength(150)]],
+      provisionPlatformAccess: [false],
       phoneNumber: [driver?.phoneNumber && driver.phoneNumber !== '—' ? driver.phoneNumber : ''],
       nationalIdNumber: [driver?.nationalIdNumber ?? ''],
       nationalIdExpiryDate: [driver?.nationalIdExpiryDate ?? ''],
@@ -301,6 +303,26 @@ export class FleetDriverDialogComponent implements OnInit, OnDestroy {
     }
   }
 
+  get showProvisionAccess(): boolean {
+    return this.driverSource === 'manual' && !this.isEdit;
+  }
+
+  get provisionPlatformAccess(): boolean {
+    return !!this.form.get('provisionPlatformAccess')?.value;
+  }
+
+  onProvisionAccessToggle(): void {
+    const emailCtrl = this.form.get('email');
+    if (!emailCtrl) return;
+    if (this.provisionPlatformAccess) {
+      emailCtrl.setValidators([Validators.required, Validators.email, Validators.maxLength(150)]);
+    } else {
+      emailCtrl.setValidators([Validators.email, Validators.maxLength(150)]);
+      emailCtrl.setValue('');
+    }
+    emailCtrl.updateValueAndValidity();
+  }
+
   save(): void {
     this.saveError = '';
     this.addressError = '';
@@ -338,10 +360,13 @@ export class FleetDriverDialogComponent implements OnInit, OnDestroy {
     this.resolveAddressFromSuburb(suburbId)
       .pipe(
         switchMap((resolvedAddress) => {
+          const provisionAccess = this.showProvisionAccess && !!v.provisionPlatformAccess;
           const basePayload: CreateFleetDriverPayload = {
             firstName: String(v.firstName).trim(),
             lastName: String(v.lastName).trim(),
             employmentType: (v.employmentType as DriverEmploymentType) ?? 'EMPLOYED',
+            email: provisionAccess ? String(v.email ?? '').trim() || undefined : undefined,
+            provisionPlatformAccess: provisionAccess || undefined,
             phoneNumber: String(v.phoneNumber ?? '').trim() || undefined,
             nationalIdNumber: String(v.nationalIdNumber ?? '').trim() || undefined,
             nationalIdExpiryDate: String(v.nationalIdExpiryDate ?? '').trim().slice(0, 10) || undefined,

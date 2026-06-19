@@ -759,4 +759,26 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         log.info("Outgoing response: validateTransporterAssignment success={}", response.isSuccess());
         return response;
     }
+
+    @Override
+    public OrganizationResponse updateOperationalSettings(
+            projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest request,
+            Locale locale, String username) {
+        log.info("Incoming request: updateOperationalSettings user={}", username);
+        OrganizationResponse response = organizationService.updateOperationalSettings(request, locale, username);
+        log.info("Outgoing response: updateOperationalSettings success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse updateOperationalSettingsForOrganization(
+            Long organizationId,
+            projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest request,
+            Locale locale, String username) {
+        log.info("Incoming request: updateOperationalSettingsForOrganization orgId={} user={}", organizationId, username);
+        OrganizationResponse response = organizationService
+                .updateOperationalSettingsForOrganization(organizationId, request, locale, username);
+        log.info("Outgoing response: updateOperationalSettingsForOrganization success={}", response.isSuccess());
+        return response;
+    }
 }

@@ -51,4 +51,28 @@ public class FleetDriverServiceProcessorImpl implements FleetDriverServiceProces
         log.info("Processing system find-by-id for fleet driver {}", id);
         return fleetDriverService.findByIdForSystem(id, locale);
     }
+
+    @Override
+    public FleetDriverResponse findByUserIdForSystem(Long userId, Locale locale) {
+        log.info("Processing system find-by-user-id for fleet driver userId={}", userId);
+        return fleetDriverService.findByUserIdForSystem(userId, locale);
+    }
+
+    @Override
+    public FleetDriverResponse findMyProfile(Locale locale, String username) {
+        log.info("Processing findMyProfile for user {}", username);
+        return fleetDriverService.findMyProfile(locale, username);
+    }
+
+    @Override
+    public FleetDriverResponse searchMarketplace(String term, String licenseClass, Locale locale, String username) {
+        log.info("Processing marketplace search term='{}' licenseClass='{}' by {}", term, licenseClass, username);
+        return fleetDriverService.searchMarketplace(term, licenseClass, locale, username);
+    }
+
+    @Override
+    public FleetDriverResponse hireFromMarketplace(Long driverId, Locale locale, String username) {
+        log.info("Processing hire driverId={} by {}", driverId, username);
+        return fleetDriverService.hireFromMarketplace(driverId, locale, username);
+    }
 }

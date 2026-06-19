@@ -1,0 +1,38 @@
+.inv-int-subnav {
+  display: flex;
+  gap: 4px;
+  padding: 8px 0;
+  margin-bottom: 12px;
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 40px;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--lx-muted, #64748b);
+    text-decoration: none;
+    transition: all 0.15s;
+    border: 1.5px solid transparent;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover {
+      background: var(--lx-surface-alt, #f1f5f9);
+      color: var(--lx-ink, #0f172a);
+    }
+
+    &.is-active {
+      background: color-mix(in srgb, #0d9488 10%, white);
+      color: #0d9488;
+      border-color: color-mix(in srgb, #0d9488 30%, transparent);
+      font-weight: 600;
+    }
+  }
+}

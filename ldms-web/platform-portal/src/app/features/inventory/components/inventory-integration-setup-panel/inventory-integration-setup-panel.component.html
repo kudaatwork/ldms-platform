@@ -1,0 +1,155 @@
+<app-inventory-integration-subnav></app-inventory-integration-subnav>
+
+<ng-container *ngIf="!crossDockMode; else crossDockSetup">
+  <header class="inv-integ__head">
+    <div>
+      <h2>Inventory management integration</h2>
+      <p>
+        Connect your ERP or WMS when you chose <strong>Sync via API</strong>. Issue API keys here so your external system can push
+        products, categories, warehouse locations, stock levels, and transfers into LDMS. LDMS runs the full inventory module on synced data.
+      </p>
+    </div>
+    <div class="inv-integ__head-actions">
+      <a routerLink="/products-inventory/integration-api" [queryParams]="docQueryParams" class="lx-btn lx-btn-ghost lx-btn-sm">
+        <mat-icon>menu_book</mat-icon>
+        View integration documentation
+      </a>
+      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="toggleCreateForm()" [disabled]="loading">
+        <mat-icon>{{ showCreateForm ? 'close' : 'add' }}</mat-icon>
+        {{ showCreateForm ? 'Cancel' : 'Create API key' }}
+      </button>
+    </div>
+  </header>
+
+  <article class="lx-card inv-integ__intro">
+    <h3>What you can sync</h3>
+    <ul class="inv-integ__intro-list">
+      <li><mat-icon>category</mat-icon> Product categories and product master (SKU as idempotency key)</li>
+      <li><mat-icon>warehouse</mat-icon> Warehouse and depot locations used in transfers</li>
+      <li><mat-icon>inventory</mat-icon> On-hand, reserved, and unit cost per warehouse</li>
+      <li><mat-icon>sync_alt</mat-icon> Warehouse-to-warehouse transfers with en-route stops</li>
+    </ul>
+    <p class="inv-integ__intro-foot">
+      Full component map, sync phases, and workflows are on the
+      <a routerLink="/products-inventory/integration-api" [queryParams]="docQueryParams" fragment="section-components">Components</a>
+      tab of the integration documentation.
+    </p>
+  </article>
+</ng-container>
+
+<ng-template #crossDockSetup>
+  <header class="inv-integ__head">
+    <div>
+      <h2>Cross-dock integration setup</h2>
+      <p>
+        Issue API keys for your WMS to push dispatch ingest events into LDMS. Register optional GRV callback URLs when goods are received at the hub.
+      </p>
+    </div>
+    <div class="inv-integ__head-actions">
+      <a routerLink="/products-inventory/integration-api" [queryParams]="docQueryParams" class="lx-btn lx-btn-ghost lx-btn-sm">
+        <mat-icon>menu_book</mat-icon>
+        Cross-dock API documentation
+      </a>
+      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="toggleCreateForm()" [disabled]="loading">
+        <mat-icon>{{ showCreateForm ? 'close' : 'add' }}</mat-icon>
+        {{ showCreateForm ? 'Cancel' : 'Create API key' }}
+      </button>
+    </div>
+  </header>
+</ng-template>
+
+<article class="lx-card inv-integ__create" *ngIf="showCreateForm">
+  <h3>{{ crossDockMode ? 'New cross-dock integration credential' : 'New inventory integration credential' }}</h3>
+  <form [formGroup]="form" (ngSubmit)="createCredential()" class="inv-integ__form">
+    <div class="inv-integ__field">
+      <label for="credentialLabel">Label</label>
+      <input id="credentialLabel" type="text" formControlName="credentialLabel" placeholder="e.g. SAP ECC production" />
+    </div>
+    <div class="inv-integ__field" *ngIf="crossDockMode">
+      <label for="webhookUrl">Dispatch webhook URL <span class="inv-integ__optional">(optional)</span></label>
+      <input id="webhookUrl" type="url" formControlName="webhookUrl" placeholder="https://your-wms.example/hooks/dispatch" />
+    </div>
+    <div class="inv-integ__field" *ngIf="!crossDockMode">
+      <label for="webhookUrl">Stock sync webhook URL <span class="inv-integ__optional">(optional)</span></label>
+      <input id="webhookUrl" type="url" formControlName="webhookUrl" placeholder="https://your-erp.example/hooks/stock-updated" />
+      <span class="inv-integ__hint">LDMS POSTs here when stock changes originate inside the platform (GRV, transfer completion).</span>
+    </div>
+    <div class="inv-integ__field">
+      <label for="callbackGrvUrl">GRV callback URL <span class="inv-integ__optional">(optional)</span></label>
+      <input id="callbackGrvUrl" type="url" formControlName="callbackGrvUrl" placeholder="https://your-erp.example/hooks/grv" />
+      <span class="inv-integ__hint" *ngIf="!crossDockMode">Notify your ERP when goods are received and a GRV is posted in LDMS.</span>
+    </div>
+    <button type="submit" class="lx-btn lx-btn-primary lx-btn-sm" [disabled]="saving || form.invalid">
+      <mat-icon>key</mat-icon>
+      Generate API key
+    </button>
+  </form>
+</article>
+
+<div class="inv-integ__loading" *ngIf="loading">
+  <lx-table-loading [busy]="true" message="Loading credentials…"></lx-table-loading>
+</div>
+
+<p class="inv-integ__error lx-card" *ngIf="error" role="alert">
+  <mat-icon>error_outline</mat-icon>
+  {{ error }}
+</p>
+
+<div class="inv-integ__empty lx-card" *ngIf="!loading && !error && !credentials.length && !showCreateForm">
+  <mat-icon>vpn_key</mat-icon>
+  <h3>{{ crossDockMode ? 'No cross-dock integration keys yet' : 'No inventory integration keys yet' }}</h3>
+  <p *ngIf="!crossDockMode">Create an API key so your ERP or WMS can push master data and stock levels into LDMS inventory management.</p>
+  <p *ngIf="crossDockMode">Create an API key so your WMS can push dispatch ingest events into LDMS cross-dock workflows.</p>
+  <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="toggleCreateForm()">
+    <mat-icon>add</mat-icon>
+    Create your first key
+  </button>
+</div>
+
+<div class="inv-integ__grid" *ngIf="!loading && credentials.length">
+  <article class="inv-integ__card lx-card" *ngFor="let cred of credentials">
+    <div class="inv-integ__card-top">
+      <span class="inv-integ__card-icon"><mat-icon>key</mat-icon></span>
+      <div class="inv-integ__card-info">
+        <strong>{{ cred.credentialLabel }}</strong>
+        <span class="inv-integ__key">{{ cred.apiKey | slice:0:12 }}…{{ cred.apiKey | slice:-4 }}</span>
+      </div>
+      <span class="inv-integ__pill" [ngClass]="statusClass(cred.status)">{{ cred.status }}</span>
+    </div>
+
+    <dl class="inv-integ__meta">
+      <div *ngIf="cred.webhookUrl">
+        <dt>{{ crossDockMode ? 'Dispatch webhook' : 'Stock sync webhook' }}</dt>
+        <dd>{{ cred.webhookUrl }}</dd>
+      </div>
+      <div *ngIf="cred.callbackGrvUrl">
+        <dt>GRV callback</dt>
+        <dd>{{ cred.callbackGrvUrl }}</dd>
+      </div>
+      <div *ngIf="cred.lastUsedAt">
+        <dt>Last used</dt>
+        <dd>{{ cred.lastUsedAt | date: 'medium' }}</dd>
+      </div>
+    </dl>
+
+    <div class="inv-integ__card-actions">
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyApiKey(cred)">
+        <mat-icon>{{ copiedKeyId === cred.id ? 'check' : 'content_copy' }}</mat-icon>
+        {{ copiedKeyId === cred.id ? 'Copied' : 'Copy key' }}
+      </button>
+      <button
+        type="button"
+        class="lx-btn lx-btn-ghost lx-btn-sm"
+        *ngIf="cred.status === 'ACTIVE'"
+        (click)="suspendCredential(cred)"
+      >
+        <mat-icon>pause_circle</mat-icon>
+        Suspend
+      </button>
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm inv-integ__danger" (click)="deleteCredential(cred)">
+        <mat-icon>delete_outline</mat-icon>
+        Remove
+      </button>
+    </div>
+  </article>
+</div>

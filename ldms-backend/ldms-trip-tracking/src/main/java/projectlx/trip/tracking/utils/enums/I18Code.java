@@ -45,7 +45,29 @@ public enum I18Code {
     // OTP messages
     MESSAGE_OTP_INVALID_OR_EXPIRED("trip.otp.invalid.or.expired"),
     MESSAGE_OTP_ALREADY_VERIFIED("trip.otp.already.verified"),
-    MESSAGE_OTP_NOT_FOUND("trip.otp.not.found");
+    MESSAGE_OTP_NOT_FOUND("trip.otp.not.found"),
+
+    // Delivery workflow messages
+    MESSAGE_DELIVERY_WORKFLOW_NOT_FOUND("trip.delivery.workflow.not.found"),
+    MESSAGE_DELIVERY_WORKFLOW_FIND_SUCCESS("trip.delivery.workflow.find.success"),
+    MESSAGE_DELIVERY_COUNTING_STARTED("trip.delivery.counting.started"),
+    MESSAGE_DELIVERY_COUNTING_FINISHED("trip.delivery.counting.finished"),
+    MESSAGE_DELIVERY_OTP_SENT_SUCCESS("trip.delivery.otp.sent.success"),
+    MESSAGE_DELIVERY_RETURN_STARTED("trip.delivery.return.started"),
+    MESSAGE_DELIVERY_RETURNS_RECORDED("trip.delivery.returns.recorded"),
+    MESSAGE_DELIVERY_RETURN_CONFIRMED("trip.delivery.return.confirmed"),
+    MESSAGE_DELIVERY_START_COUNTING_INVALID("trip.delivery.start.counting.invalid"),
+    MESSAGE_DELIVERY_FINISH_COUNTING_INVALID("trip.delivery.finish.counting.invalid"),
+    MESSAGE_DELIVERY_SEND_OTP_INVALID("trip.delivery.send.otp.invalid"),
+    MESSAGE_DELIVERY_RECORD_RETURNS_INVALID("trip.delivery.record.returns.invalid"),
+
+    // Status transition errors — delivery workflow
+    MESSAGE_TRIP_NOT_COUNTING_STOCK("trip.not.counting.stock"),
+    MESSAGE_TRIP_NOT_COUNT_COMPLETE("trip.not.count.complete"),
+    MESSAGE_TRIP_NOT_DELIVERED("trip.not.delivered"),
+    MESSAGE_TRIP_NOT_RETURN_IN_TRANSIT("trip.not.return.in.transit"),
+    MESSAGE_DELIVERY_ALREADY_COUNTING("trip.delivery.already.counting"),
+    MESSAGE_DRIVER_PROFILE_NOT_FOUND("trip.driver.profile.not.found");
 
     private final String code;
 }

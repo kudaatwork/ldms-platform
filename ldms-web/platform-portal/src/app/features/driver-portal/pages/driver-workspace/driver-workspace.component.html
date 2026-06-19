@@ -1,0 +1,166 @@
+<div class="dw-shell">
+
+  <!-- ═══════════════════════════════════════════════════ HERO HEADER -->
+  <div class="dw-hero">
+    <div class="dw-hero__gradient"></div>
+    <div class="dw-hero__content">
+      <div class="dw-hero__top">
+        <div class="dw-hero__avatar" aria-hidden="true">
+          {{ currentUserName.charAt(0).toUpperCase() }}
+        </div>
+        <div class="dw-hero__identity">
+          <div class="dw-hero__name">{{ currentUserName }}</div>
+          <div class="dw-hero__company">
+            <span class="material-icons" aria-hidden="true">business</span>
+            {{ companyName }}
+          </div>
+        </div>
+        <button class="dw-hero__refresh" (click)="refresh()" [class.dw-hero__refresh--spinning]="refreshing"
+          aria-label="Refresh trips">
+          <span class="material-icons" aria-hidden="true">refresh</span>
+        </button>
+      </div>
+
+      <div class="dw-hero__vehicle" *ngIf="driverProfile">
+        <span class="material-icons" aria-hidden="true">local_shipping</span>
+        {{ vehicleLabel }}
+      </div>
+
+      <!-- Metrics row -->
+      <div class="dw-hero__metrics">
+        <div class="dw-metric">
+          <div class="dw-metric__value">{{ metrics.activeTrips }}</div>
+          <div class="dw-metric__label">Active trips</div>
+        </div>
+        <div class="dw-metric__divider"></div>
+        <div class="dw-metric">
+          <div class="dw-metric__value">{{ metrics.completedToday }}</div>
+          <div class="dw-metric__label">Done today</div>
+        </div>
+        <div class="dw-metric__divider"></div>
+        <div class="dw-metric">
+          <div class="dw-metric__value">{{ metrics.pendingDeliveries }}</div>
+          <div class="dw-metric__label">Deliveries</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ════════════════════════════════════════════════ / HERO HEADER -->
+
+  <!-- ═══════════════════════════════════════════════ PROFILE ERROR -->
+  <div class="dw-notice dw-notice--warn" *ngIf="profileError">
+    <span class="material-icons" aria-hidden="true">warning_amber</span>
+    Driver profile unavailable: {{ profileError }}
+  </div>
+
+  <!-- ═══════════════════════════════════════════ ACTIVE TRIPS SECTION -->
+  <div class="dw-section">
+    <div class="dw-section__header">
+      <h2 class="dw-section__title">Active trips</h2>
+      <span class="dw-section__sub" *ngIf="lastRefreshed">
+        Updated {{ lastRefreshed | date:'HH:mm:ss' }}
+      </span>
+    </div>
+
+    <!-- Loading skeletons -->
+    <ng-container *ngIf="loadingTrips">
+      <div class="dw-card dw-card--skeleton" *ngFor="let _ of [1,2,3]">
+        <div class="dw-skeleton dw-skeleton--title"></div>
+        <div class="dw-skeleton dw-skeleton--line"></div>
+        <div class="dw-skeleton dw-skeleton--line dw-skeleton--short"></div>
+      </div>
+    </ng-container>
+
+    <!-- Trips error -->
+    <div class="dw-notice dw-notice--danger" *ngIf="tripsError && !loadingTrips">
+      <span class="material-icons" aria-hidden="true">error_outline</span>
+      {{ tripsError }}
+      <button class="dw-notice__btn" (click)="refresh()">Retry</button>
+    </div>
+
+    <!-- Empty state -->
+    <div class="dw-empty" *ngIf="!loadingTrips && !tripsError && activeTrips.length === 0">
+      <span class="material-icons dw-empty__icon" aria-hidden="true">local_shipping</span>
+      <p class="dw-empty__title">No active trips</p>
+      <p class="dw-empty__sub">You have no ongoing trips right now. Check back soon.</p>
+    </div>
+
+    <!-- Trip cards -->
+    <div class="dw-card" *ngFor="let trip of activeTrips" (click)="openTripDetail(trip)"
+      role="button" [attr.aria-label]="'Open trip ' + trip.tripNumber" tabindex="0"
+      (keydown.enter)="openTripDetail(trip)">
+
+      <!-- Card header row -->
+      <div class="dw-card__header">
+        <div class="dw-card__trip-num">{{ trip.tripNumber }}</div>
+        <div class="dw-status dw-status--{{ trip.statusTone }}">
+          <span class="material-icons" aria-hidden="true">{{ statusIcon(trip.statusTone) }}</span>
+          {{ trip.statusLabel }}
+        </div>
+      </div>
+
+      <!-- Route -->
+      <div class="dw-card__route">
+        <span class="material-icons" aria-hidden="true">route</span>
+        {{ trip.route }}
+      </div>
+
+      <!-- Cargo -->
+      <div class="dw-card__meta">
+        <span class="dw-tag"><span class="material-icons" aria-hidden="true">inventory_2</span>{{ trip.cargoLabel }}</span>
+        <span class="dw-tag"><span class="material-icons" aria-hidden="true">directions_car</span>{{ trip.vehicleRegistration }}</span>
+      </div>
+
+      <!-- Delivery workflow phase banner -->
+      <div class="dw-card__phase" *ngIf="trip.deliveryWorkflowPhase">
+        <span class="material-icons" aria-hidden="true">pending_actions</span>
+        Delivery in progress · {{ trip.deliveryWorkflowPhase | titlecase }}
+      </div>
+
+      <!-- Action buttons -->
+      <div class="dw-card__actions" (click)="$event.stopPropagation()">
+        <button class="dw-btn dw-btn--ghost" *ngIf="trip.canLiveTrack" (click)="openLiveTracking(trip)">
+          <span class="material-icons" aria-hidden="true">location_on</span>
+          Track
+        </button>
+        <button class="dw-btn dw-btn--arrival" *ngIf="trip.canTriggerArrival" (click)="openTripDetail(trip)">
+          <span class="material-icons" aria-hidden="true">place</span>
+          Arrived
+        </button>
+        <button class="dw-btn dw-btn--primary" *ngIf="trip.canStartDeliveryWorkflow || trip.deliveryWorkflowPhase"
+          (click)="openDeliveryWorkflow(trip)">
+          <span class="material-icons" aria-hidden="true">assignment_turned_in</span>
+          {{ trip.deliveryWorkflowPhase ? 'Continue delivery' : 'Start delivery' }}
+        </button>
+        <button class="dw-btn dw-btn--outline" *ngIf="!trip.canStartDeliveryWorkflow && !trip.canTriggerArrival && !trip.canLiveTrack"
+          (click)="openTripDetail(trip)">
+          <span class="material-icons" aria-hidden="true">info_outline</span>
+          Details
+        </button>
+      </div>
+    </div>
+  </div>
+  <!-- ══════════════════════════════════════════ / ACTIVE TRIPS SECTION -->
+
+  <!-- ═════════════════════════════════════ COMPLETED TODAY SECTION -->
+  <div class="dw-section dw-section--muted" *ngIf="completedTrips.length > 0">
+    <div class="dw-section__header">
+      <h2 class="dw-section__title">Completed today</h2>
+    </div>
+    <div class="dw-card dw-card--done" *ngFor="let trip of completedTrips" (click)="openTripDetail(trip)"
+      role="button" tabindex="0" (keydown.enter)="openTripDetail(trip)">
+      <div class="dw-card__header">
+        <div class="dw-card__trip-num">{{ trip.tripNumber }}</div>
+        <div class="dw-status dw-status--success">
+          <span class="material-icons" aria-hidden="true">check_circle</span>
+          Delivered
+        </div>
+      </div>
+      <div class="dw-card__route">
+        <span class="material-icons" aria-hidden="true">route</span>
+        {{ trip.route }}
+      </div>
+    </div>
+  </div>
+
+</div>

@@ -73,6 +73,12 @@ export class RegisterOrganizationDialogComponent implements OnInit, OnDestroy {
   industriesLoading = false;
   industryOptions: IndustrySelectOption[] = [];
 
+  standaloneMode = false;
+  inventoryManagementEnabled = true;
+  crossDockingEnabled = false;
+  inventoryDataSource: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK' = 'INTERNAL';
+  counterpartyEngagementMode: 'RECORD_ONLY' | 'PLATFORM_ORG' = 'PLATFORM_ORG';
+
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -113,6 +119,76 @@ export class RegisterOrganizationDialogComponent implements OnInit, OnDestroy {
   get showDuplexOption(): boolean {
     const c = this.form.get('organizationClassification')?.value as OrganizationClassification | undefined;
     return c === 'SUPPLIER' || c === 'CUSTOMER';
+  }
+
+  get showOperationalMode(): boolean {
+    const c = this.form.get('organizationClassification')?.value as OrganizationClassification | undefined;
+    return c === 'SUPPLIER' || c === 'CUSTOMER';
+  }
+
+  get tradingModel(): 'PLATFORM_PARTNERS' | 'STANDALONE' {
+    return this.standaloneMode ? 'STANDALONE' : 'PLATFORM_PARTNERS';
+  }
+
+  get inventoryModel(): 'FULL_INVENTORY' | 'CROSS_DOCKING' {
+    return this.crossDockingEnabled && !this.inventoryManagementEnabled ? 'CROSS_DOCKING' : 'FULL_INVENTORY';
+  }
+
+  get platformTab(): 'RECORD_ONLY' | 'PLATFORM_ORG' {
+    return this.counterpartyEngagementMode === 'RECORD_ONLY' ? 'RECORD_ONLY' : 'PLATFORM_ORG';
+  }
+
+  get orgClassification(): OrganizationClassification {
+    return (this.form.get('organizationClassification')?.value as OrganizationClassification) ?? 'SUPPLIER';
+  }
+
+  get counterpartyLabel(): string {
+    return this.orgClassification === 'SUPPLIER' ? 'customers' : 'suppliers';
+  }
+
+  setTradingModel(model: 'PLATFORM_PARTNERS' | 'STANDALONE'): void {
+    if (model === 'STANDALONE') {
+      this.standaloneMode = true;
+      this.counterpartyEngagementMode = 'RECORD_ONLY';
+      return;
+    }
+    this.standaloneMode = false;
+  }
+
+  setPlatformTab(tab: 'RECORD_ONLY' | 'PLATFORM_ORG'): void {
+    if (this.tradingModel !== 'PLATFORM_PARTNERS') return;
+    this.standaloneMode = false;
+    this.counterpartyEngagementMode = tab;
+  }
+
+  get inventoryMgmtTab(): 'INTERNAL' | 'EXTERNAL_API' {
+    return this.inventoryDataSource === 'EXTERNAL_API' ? 'EXTERNAL_API' : 'INTERNAL';
+  }
+
+  setInventoryModel(model: 'FULL_INVENTORY' | 'CROSS_DOCKING'): void {
+    if (model === 'FULL_INVENTORY') {
+      this.inventoryManagementEnabled = true;
+      this.crossDockingEnabled = false;
+      this.inventoryDataSource = this.inventoryMgmtTab === 'EXTERNAL_API' ? 'EXTERNAL_API' : 'INTERNAL';
+      return;
+    }
+    this.inventoryManagementEnabled = false;
+    this.crossDockingEnabled = true;
+    if (this.inventoryDataSource === 'INTERNAL') {
+      this.inventoryDataSource = 'EXTERNAL_API';
+    }
+  }
+
+  setInventoryMgmtTab(tab: 'INTERNAL' | 'EXTERNAL_API'): void {
+    if (this.inventoryModel !== 'FULL_INVENTORY') return;
+    this.inventoryManagementEnabled = true;
+    this.crossDockingEnabled = false;
+    this.inventoryDataSource = tab;
+  }
+
+  setCrossDockFlow(source: 'EXTERNAL_API' | 'MANUAL_ACK'): void {
+    if (this.inventoryModel !== 'CROSS_DOCKING') return;
+    this.inventoryDataSource = source;
   }
 
   get maximumDateOfBirth(): string {
@@ -233,6 +309,13 @@ export class RegisterOrganizationDialogComponent implements OnInit, OnDestroy {
       createdViaSignup: false,
       duplexMode: this.showDuplexOption && Boolean(v.duplexMode) ? true : undefined,
     };
+    if (this.showOperationalMode) {
+      payload.standaloneMode = this.standaloneMode;
+      payload.inventoryManagementEnabled = this.inventoryManagementEnabled;
+      payload.crossDockingEnabled = this.crossDockingEnabled;
+      payload.inventoryDataSource = this.inventoryDataSource;
+      payload.counterpartyEngagementMode = this.counterpartyEngagementMode;
+    }
 
     this.submitting = true;
     this.saveError = '';

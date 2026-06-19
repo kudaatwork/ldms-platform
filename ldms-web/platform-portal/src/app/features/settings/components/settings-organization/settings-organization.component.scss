@@ -1,0 +1,156 @@
+:host {
+  display: block;
+}
+
+.org-settings__header {
+  margin-bottom: 24px;
+}
+
+.org-settings__title {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--lx-ink, #0f172a);
+}
+
+.org-settings__lead {
+  margin: 0;
+  max-width: 720px;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--lx-muted, #64748b);
+}
+
+.org-settings__loading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 28px 0;
+  color: var(--lx-muted, #64748b);
+  font-size: 0.875rem;
+}
+
+.org-settings__notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 0.84rem;
+  line-height: 1.5;
+}
+
+.org-settings__notice--info {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.org-settings__notice mat-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.org-settings__form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.org-settings__card h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  font-size: 0.98rem;
+  font-weight: 600;
+}
+
+.org-settings__card h3 mat-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  color: var(--lx-teal, #0d9488);
+}
+
+.org-settings__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+}
+
+.org-settings__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.org-settings__field--wide {
+  grid-column: 1 / -1;
+}
+
+.org-settings__field span {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--lx-muted, #64748b);
+}
+
+.org-settings__field input,
+.org-settings__field textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--lx-border, #e2e8f0);
+  border-radius: 10px;
+  font: inherit;
+  background: #fff;
+}
+
+.org-settings__hint {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
+  color: var(--lx-muted, #64748b);
+}
+
+.org-settings__field-error {
+  margin: 8px 0 0;
+  color: #b91c1c;
+  font-size: 0.82rem;
+}
+
+.org-settings__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin: 0 0 14px;
+}
+
+.org-settings__summary dt {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--lx-muted, #64748b);
+}
+
+.org-settings__summary dd {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.org-settings__actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+@media (max-width: 760px) {
+  .org-settings__grid,
+  .org-settings__summary {
+    grid-template-columns: 1fr;
+  }
+}

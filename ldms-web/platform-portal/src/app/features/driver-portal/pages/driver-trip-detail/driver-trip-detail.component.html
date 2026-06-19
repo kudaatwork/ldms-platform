@@ -1,0 +1,112 @@
+<div class="dtd-shell">
+
+  <!-- Back nav -->
+  <div class="dtd-nav">
+    <button class="dtd-back" (click)="goBack()">
+      <span class="material-icons" aria-hidden="true">arrow_back</span>
+      My trips
+    </button>
+  </div>
+
+  <!-- Loading skeleton -->
+  <div class="dtd-skeleton-block" *ngIf="loading">
+    <div class="dw-skeleton dw-skeleton--title"></div>
+    <div class="dw-skeleton dw-skeleton--line"></div>
+    <div class="dw-skeleton dw-skeleton--line dw-skeleton--short"></div>
+  </div>
+
+  <!-- Error -->
+  <div class="dtd-notice dtd-notice--danger" *ngIf="error && !loading">
+    <span class="material-icons" aria-hidden="true">error_outline</span>
+    {{ error }}
+    <span *ngIf="showWorkflow"> You can still continue the delivery workflow below.</span>
+  </div>
+
+  <ng-container *ngIf="trip && !loading">
+
+    <!-- Trip header card -->
+    <div class="dtd-header-card">
+      <div class="dtd-header-card__row">
+        <div class="dtd-header-card__num">{{ trip.tripNumber }}</div>
+        <div class="dtd-status dtd-status--{{ trip.statusTone }}">
+          <span class="material-icons" aria-hidden="true">{{ statusIcon(trip.statusTone) }}</span>
+          {{ trip.statusLabel }}
+        </div>
+      </div>
+
+      <div class="dtd-header-card__route">
+        <span class="material-icons" aria-hidden="true">route</span>
+        {{ trip.route }}
+      </div>
+
+      <div class="dtd-details">
+        <div class="dtd-detail">
+          <span class="material-icons" aria-hidden="true">inventory_2</span>
+          <span class="dtd-detail__label">Cargo</span>
+          <span class="dtd-detail__val">{{ trip.cargoLabel }}</span>
+        </div>
+        <div class="dtd-detail">
+          <span class="material-icons" aria-hidden="true">directions_car</span>
+          <span class="dtd-detail__label">Vehicle</span>
+          <span class="dtd-detail__val">{{ trip.vehicleRegistration }}</span>
+        </div>
+        <div class="dtd-detail">
+          <span class="material-icons" aria-hidden="true">schedule</span>
+          <span class="dtd-detail__label">Started</span>
+          <span class="dtd-detail__val">{{ trip.startedAtLabel }}</span>
+        </div>
+        <div class="dtd-detail" *ngIf="trip.estimatedArrivalLabel">
+          <span class="material-icons" aria-hidden="true">flag</span>
+          <span class="dtd-detail__label">ETA</span>
+          <span class="dtd-detail__val">{{ trip.estimatedArrivalLabel }}</span>
+        </div>
+      </div>
+
+      <!-- Phase badge -->
+      <div class="dtd-phase-badge" *ngIf="trip.deliveryWorkflowPhase">
+        <span class="material-icons" aria-hidden="true">pending_actions</span>
+        Delivery phase: {{ trip.deliveryWorkflowPhase | titlecase }}
+      </div>
+
+      <!-- Arrival banner -->
+      <div class="dtd-arrival-banner" *ngIf="trip.canTriggerArrival">
+        <span class="dtd-arrival-banner__pulse" aria-hidden="true"></span>
+        <span class="material-icons" aria-hidden="true">place</span>
+        <span>You appear to be at or near the destination</span>
+        <button class="dtd-arrival-banner__btn" (click)="openDeliveryWorkflow()">
+          Start delivery
+          <span class="material-icons" aria-hidden="true">arrow_forward</span>
+        </button>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="dtd-quick-actions">
+        <button class="dtd-btn dtd-btn--ghost" *ngIf="trip.canLiveTrack" (click)="openLiveTrack()">
+          <span class="material-icons" aria-hidden="true">location_on</span>
+          Live map
+        </button>
+        <button class="dtd-btn dtd-btn--primary" (click)="openDeliveryWorkflow()"
+          *ngIf="trip.canTriggerArrival || trip.canStartDeliveryWorkflow || trip.deliveryWorkflowPhase">
+          <span class="material-icons" aria-hidden="true">assignment_turned_in</span>
+          {{ trip.deliveryWorkflowPhase ? 'Continue delivery' : 'Start delivery' }}
+        </button>
+      </div>
+    </div>
+
+  </ng-container>
+
+  <!-- Delivery workflow — shown even when trip header fails to load -->
+  <div class="dtd-workflow" *ngIf="showWorkflow && tripIdFromRoute && !loading">
+    <div class="dtd-workflow__heading">
+      <span class="material-icons" aria-hidden="true">assignment_turned_in</span>
+      Delivery workflow
+    </div>
+    <app-delivery-workflow
+      [tripId]="tripIdFromRoute"
+      [initialPhase]="workflowInitialPhase"
+      [arrivalSuggested]="arrivalSuggested"
+      (phaseChange)="onWorkflowPhaseChange($event)"
+      (workflowComplete)="onWorkflowComplete()">
+    </app-delivery-workflow>
+  </div>
+</div>

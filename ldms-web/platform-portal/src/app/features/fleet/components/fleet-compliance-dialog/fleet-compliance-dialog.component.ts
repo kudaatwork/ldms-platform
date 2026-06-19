@@ -22,7 +22,7 @@ import type {
   FleetRegistrationDocumentPayload,
   FleetVehicleRow,
 } from '../../models/fleet.model';
-import { FleetPortalService, isCompliancePendingReview } from '../../services/fleet-portal.service';
+import { FleetPortalService } from '../../services/fleet-portal.service';
 
 export type FleetComplianceDialogData = {
   record?: FleetComplianceRow;
@@ -161,10 +161,6 @@ export class FleetComplianceDialogComponent implements OnInit, OnDestroy {
     return !!this.attachedFileUploadId && (!!this.hasDocumentPreview || !!this.documentFileName);
   }
 
-  get isPendingReview(): boolean {
-    return this.isEdit && isCompliancePendingReview(this.existingRecord?.status ?? this.form.get('status')?.value);
-  }
-
   get subjectOptions(): { id: number; label: string }[] {
     if (this.subjectType === 'driver') {
       return this.drivers.map((d) => ({ id: d.id, label: d.fullName }));
@@ -183,55 +179,6 @@ export class FleetComplianceDialogComponent implements OnInit, OnDestroy {
     if (!this.submitting) {
       this.dialogRef.close();
     }
-  }
-
-  approveReview(): void {
-    if (!this.isEdit || this.recordId == null || this.submitting) {
-      return;
-    }
-    const v = this.form.getRawValue();
-    this.submitting = true;
-    this.saveError = '';
-    this.fleet
-      .updateCompliance(this.recordId, {
-        expiresAt: v.expiresAt ? `${v.expiresAt}T23:59:59` : undefined,
-        notes: String(v.notes ?? '').trim() || undefined,
-      })
-      .pipe(
-        finalize(() => (this.submitting = false)),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (row) => this.dialogRef.close(row),
-        error: (err: Error) => {
-          this.saveError = err.message ?? 'Could not approve compliance record.';
-        },
-      });
-  }
-
-  rejectReview(): void {
-    if (!this.isEdit || this.recordId == null || this.submitting) {
-      return;
-    }
-    const v = this.form.getRawValue();
-    this.submitting = true;
-    this.saveError = '';
-    this.fleet
-      .updateCompliance(this.recordId, {
-        status: 'REVOKED',
-        expiresAt: v.expiresAt ? `${v.expiresAt}T23:59:59` : undefined,
-        notes: String(v.notes ?? '').trim() || undefined,
-      })
-      .pipe(
-        finalize(() => (this.submitting = false)),
-        takeUntil(this.destroy$),
-      )
-      .subscribe({
-        next: (row) => this.dialogRef.close(row),
-        error: (err: Error) => {
-          this.saveError = err.message ?? 'Could not reject compliance record.';
-        },
-      });
   }
 
   onAddDocumentSelected(event: Event): void {

@@ -1131,7 +1131,8 @@ html.theme-dark .brand-lx {
 
 /* Navy auth / signup panels: brighter cyan “LX” on dark backgrounds */
 .ll-name .brand-lx,
-.su-left-name .brand-lx {
+.su-left-name .brand-lx,
+.dsg-left__name .brand-lx {
   color: #a5f3fc;
   text-shadow: 0 0 20px rgba(34, 211, 238, 0.28);
 }

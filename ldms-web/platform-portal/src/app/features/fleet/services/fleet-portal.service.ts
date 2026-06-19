@@ -17,9 +17,12 @@ import {
   CompleteFleetRegistrationPayload,
   CreateFleetCompliancePayload,
   CreateFleetDriverPayload,
+  CreateFleetTrackingIntegrationCredentialPayload,
   CreateFleetVehiclePayload,
   DriverEmploymentType,
   DriverRosterSource,
+  DriverSignupRequestRow,
+  DriverSignupRequestStatus,
   EditFleetCompliancePayload,
   EditFleetDriverPayload,
   EditFleetVehiclePayload,
@@ -30,12 +33,15 @@ import {
   FleetContractScope,
   FleetDriverRow,
   FleetTrackingDeviceRow,
+  FleetTrackingIntegrationCredentialRow,
   FleetVehicleOwnershipType,
   FleetVehicleRow,
   FleetVehicleStatus,
   FleetVehicleType,
   FleetRegistrationDocumentPayload,
   InstallFleetTrackingDevicePayload,
+  MarketplaceDriverAvailability,
+  MarketplaceDriverRow,
   RegisterTransporterPayload,
   TrackingDeviceType,
   TrackingInstallStatus,
@@ -559,6 +565,124 @@ export class FleetPortalService {
     );
   }
 
+  // ── Tracking integration credentials (integrator ingest keys) ─────────────
+
+  private get trackingIntegrationCredentialBase(): string {
+    return `${this.fleetBase}/tracking-integration-credentials`;
+  }
+
+  listTrackingIntegrationCredentials(
+    organizationId: number,
+  ): Observable<FleetTrackingIntegrationCredentialRow[]> {
+    return this.http
+      .get<unknown>(`${this.trackingIntegrationCredentialBase}/find-by-organization/${organizationId}`)
+      .pipe(
+        map((resp) => {
+          this.assertSuccess(resp);
+          return this.extractTrackingIntegrationCredentialRows(resp).map((dto) =>
+            this.mapTrackingIntegrationCredentialRow(dto),
+          );
+        }),
+        catchError((err) => {
+          if (this.isNotFound(err)) {
+            return this.listTrackingIntegrationCredentialsFromDevices();
+          }
+          return throwError(() => this.toError(err));
+        }),
+      );
+  }
+
+  createTrackingIntegrationCredential(
+    payload: CreateFleetTrackingIntegrationCredentialPayload,
+  ): Observable<FleetTrackingIntegrationCredentialRow> {
+    return this.http.post<unknown>(`${this.trackingIntegrationCredentialBase}/create`, payload).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapTrackingIntegrationCredentialRow(this.extractSingleTrackingIntegrationCredential(resp));
+      }),
+      catchError((err) => {
+        if (this.isNotFound(err)) {
+          return this.installTrackingDevice({
+            deviceLabel: payload.credentialLabel,
+            deviceType: 'DEDICATED_GPS',
+            integrationProvider: payload.integrationProvider,
+            fleetAssetId: payload.fleetAssetId,
+            externalDeviceId: payload.externalDeviceId,
+            tracksGps: true,
+            tracksFuel: false,
+            notes: payload.notes,
+          }).pipe(map((device) => this.mapTrackingDeviceToCredentialRow(device, payload.organizationId)));
+        }
+        return throwError(() => this.toError(err));
+      }),
+    );
+  }
+
+  suspendTrackingIntegrationCredential(id: number): Observable<FleetTrackingIntegrationCredentialRow> {
+    return this.http.post<unknown>(`${this.trackingIntegrationCredentialBase}/${id}/suspend`, {}).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapTrackingIntegrationCredentialRow(this.extractSingleTrackingIntegrationCredential(resp));
+      }),
+      catchError((err) => {
+        if (this.isNotFound(err)) {
+          return this.suspendTrackingDevice(id).pipe(map((device) => this.mapTrackingDeviceToCredentialRow(device)));
+        }
+        return throwError(() => this.toError(err));
+      }),
+    );
+  }
+
+  deleteTrackingIntegrationCredential(id: number): Observable<void> {
+    return this.http.delete<unknown>(`${this.trackingIntegrationCredentialBase}/delete/${id}`).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+      }),
+      catchError((err) => {
+        if (this.isNotFound(err)) {
+          return this.deleteTrackingDevice(id).pipe(map(() => void 0));
+        }
+        return throwError(() => this.toError(err));
+      }),
+    );
+  }
+
+  private listTrackingIntegrationCredentialsFromDevices(): Observable<FleetTrackingIntegrationCredentialRow[]> {
+    return this.listTrackingDevices().pipe(
+      map((devices) =>
+        devices
+          .filter((device) => device.integrationProvider !== 'LDMS_MOBILE')
+          .map((device) => this.mapTrackingDeviceToCredentialRow(device)),
+      ),
+    );
+  }
+
+  private mapTrackingDeviceToCredentialRow(
+    device: FleetTrackingDeviceRow,
+    organizationId = 0,
+  ): FleetTrackingIntegrationCredentialRow {
+    return {
+      id: device.id,
+      organizationId,
+      credentialLabel: device.deviceLabel,
+      ingestKey: device.ingestKey,
+      integrationProvider: device.integrationProvider,
+      integrationProviderLabel: device.integrationProviderLabel,
+      status: device.installStatus,
+      statusLabel: device.installStatusLabel,
+      fleetAssetId: device.fleetAssetId,
+      vehicleRegistration: device.vehicleRegistration,
+      vehicleMakeModel: device.vehicleMakeModel,
+      externalDeviceId: device.externalDeviceId,
+      mqttTopic: device.mqttTopic,
+      lastTelemetryAt: device.lastTelemetryAt,
+    };
+  }
+
+  private isNotFound(err: unknown): boolean {
+    return err instanceof HttpErrorResponse && err.status === 404;
+  }
+
   // ── Private helpers ────────────────────────────────────────────────────────
 
   private toTrackingDeviceApiPayload(
@@ -656,6 +780,62 @@ export class FleetPortalService {
     }
     const one = this.toObj(envelope['fleetTrackingDeviceDto']);
     return one ? [one] : [];
+  }
+
+  private extractSingleTrackingIntegrationCredential(response: unknown): Record<string, unknown> {
+    const envelope = this.unwrapEnvelope(response);
+    const one = this.toObj(envelope['fleetTrackingIntegrationCredentialDto']);
+    if (one) return one;
+    const list = envelope['fleetTrackingIntegrationCredentialDtoList'];
+    if (Array.isArray(list) && list.length) {
+      const first = this.toObj(list[0]);
+      if (first) return first;
+    }
+    return envelope;
+  }
+
+  private extractTrackingIntegrationCredentialRows(response: unknown): Record<string, unknown>[] {
+    const envelope = this.unwrapEnvelope(response);
+    const list = envelope['fleetTrackingIntegrationCredentialDtoList'];
+    if (Array.isArray(list)) {
+      return list.filter((r): r is Record<string, unknown> => !!this.toObj(r));
+    }
+    const one = this.toObj(envelope['fleetTrackingIntegrationCredentialDto']);
+    return one ? [one] : [];
+  }
+
+  private mapTrackingIntegrationCredentialRow(
+    dto: Record<string, unknown>,
+  ): FleetTrackingIntegrationCredentialRow {
+    const optionalStr = (key: string): string | undefined => {
+      const raw = String(dto[key] ?? '').trim();
+      return raw || undefined;
+    };
+    const optionalLongDirect = (key: string): number | undefined => {
+      const raw = dto[key];
+      if (raw == null || String(raw).trim() === '') return undefined;
+      const n = Number(raw);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    };
+    const provider = normalizeTrackingProvider(dto['integrationProvider']);
+    const status = normalizeInstallStatus(dto['status']);
+    return {
+      id: Number(dto['id'] ?? 0),
+      organizationId: Number(dto['organizationId'] ?? 0),
+      credentialLabel: String(dto['credentialLabel'] ?? '').trim() || 'Unnamed integrator',
+      ingestKey: optionalStr('ingestKey'),
+      integrationProvider: provider,
+      integrationProviderLabel: trackingProviderLabel(provider),
+      status,
+      statusLabel: trackingInstallStatusLabel(status),
+      fleetAssetId: optionalLongDirect('fleetAssetId'),
+      vehicleRegistration: optionalStr('vehicleRegistration'),
+      vehicleMakeModel: optionalStr('vehicleMakeModel'),
+      externalDeviceId: optionalStr('externalDeviceId'),
+      mqttTopic: optionalStr('mqttTopic'),
+      lastTelemetryAt: optionalStr('lastTelemetryAt'),
+      createdAt: optionalStr('createdAt'),
+    };
   }
 
   private toFleetVehicleApiPayload(
@@ -1004,6 +1184,71 @@ export class FleetPortalService {
     return one ? [one] : [];
   }
 
+  // ── Driver marketplace ─────────────────────────────────────────────────────
+
+  /** GET /fleet/marketplace/search?query=… — search freelance drivers on the platform. */
+  searchMarketplaceDrivers(query: string): Observable<MarketplaceDriverRow[]> {
+    const url = query.trim()
+      ? `${this.fleetBase}/marketplace/search?query=${encodeURIComponent(query.trim())}`
+      : `${this.fleetBase}/marketplace/search`;
+    return this.http.get<unknown>(url).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.extractMarketplaceDriverRows(resp).map((dto) => this.mapMarketplaceDriverRow(dto));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** POST /fleet/marketplace/{driverId}/hire — hire a freelance driver. */
+  hireMarketplaceDriver(driverId: number): Observable<FleetDriverRow> {
+    return this.http.post<unknown>(`${this.fleetBase}/marketplace/${driverId}/hire`, {}).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapDriverRow(this.extractSingleDriver(resp));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  // ── Driver signup requests ─────────────────────────────────────────────────
+
+  /** GET /fleet/drivers/signup-requests/pending — list pending driver signup requests for the signed-in org. */
+  listDriverSignupRequests(status?: DriverSignupRequestStatus): Observable<DriverSignupRequestRow[]> {
+    const url = status
+      ? `${this.fleetBase}/drivers/signup-requests/pending?status=${status}`
+      : `${this.fleetBase}/drivers/signup-requests/pending`;
+    return this.http.get<unknown>(url).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.extractSignupRequestRows(resp).map((dto) => this.mapSignupRequestRow(dto));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** POST /fleet/drivers/signup-requests/{id}/approve */
+  approveDriverSignupRequest(requestId: number): Observable<DriverSignupRequestRow> {
+    return this.http.post<unknown>(`${this.fleetBase}/drivers/signup-requests/${requestId}/approve`, {}).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapSignupRequestRow(this.extractSingleSignupRequest(resp));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** POST /fleet/drivers/signup-requests/{id}/reject */
+  rejectDriverSignupRequest(requestId: number): Observable<DriverSignupRequestRow> {
+    return this.http.post<unknown>(`${this.fleetBase}/drivers/signup-requests/${requestId}/reject`, {}).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapSignupRequestRow(this.extractSingleSignupRequest(resp));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
   private toDriverApiPayload(payload: CreateFleetDriverPayload | EditFleetDriverPayload): Record<string, unknown> {
     const body: Record<string, unknown> = {
       firstName: payload.firstName,
@@ -1030,6 +1275,13 @@ export class FleetPortalService {
     }
     if (payload.employmentType) {
       body['employmentType'] = payload.employmentType;
+    }
+    const email = String(payload.email ?? '').trim();
+    if (email) {
+      body['email'] = email;
+    }
+    if (payload.provisionPlatformAccess) {
+      body['provisionPlatformAccess'] = true;
     }
     return body;
   }
@@ -1168,6 +1420,94 @@ export class FleetPortalService {
       statusLabel: complianceStatusLabel(status),
       notes: String(dto['notes'] ?? '').trim(),
     };
+  }
+
+  private extractMarketplaceDriverRows(response: unknown): Record<string, unknown>[] {
+    const envelope = this.unwrapEnvelope(response);
+    const list = envelope['marketplaceDriverDtoList'] ?? envelope['driverDtoList'];
+    if (Array.isArray(list)) {
+      return list.filter((r): r is Record<string, unknown> => !!this.toObj(r));
+    }
+    const one = this.toObj(envelope['marketplaceDriverDto'] ?? envelope['driverDto']);
+    return one ? [one] : [];
+  }
+
+  private mapMarketplaceDriverRow(dto: Record<string, unknown>): MarketplaceDriverRow {
+    const firstName = String(dto['firstName'] ?? '').trim();
+    const lastName = String(dto['lastName'] ?? '').trim();
+    const fullName = `${firstName} ${lastName}`.trim() || 'Unknown driver';
+    const availability = normalizeMarketplaceAvailability(dto['availability']);
+    return {
+      id: Number(dto['id'] ?? 0),
+      firstName,
+      lastName,
+      fullName,
+      phoneNumber: String(dto['phoneNumber'] ?? '').trim() || '—',
+      licenseNumber: String(dto['licenseNumber'] ?? '').trim() || '—',
+      licenseClass: String(dto['licenseClass'] ?? '').trim() || '—',
+      availability,
+      availabilityLabel: marketplaceAvailabilityLabel(availability),
+      initials: this.initialsFromName(fullName),
+      accentHue: 210 + (hash(fullName) % 48),
+    };
+  }
+
+  private extractSingleSignupRequest(response: unknown): Record<string, unknown> {
+    const envelope = this.unwrapEnvelope(response);
+    const one = this.toObj(envelope['fleetDriverSignupRequestDto']);
+    if (one) return one;
+    const list = envelope['fleetDriverSignupRequestDtoList'];
+    if (Array.isArray(list) && list.length) {
+      const first = this.toObj(list[0]);
+      if (first) return first;
+    }
+    return envelope;
+  }
+
+  private extractSignupRequestRows(response: unknown): Record<string, unknown>[] {
+    const envelope = this.unwrapEnvelope(response);
+    const list = envelope['fleetDriverSignupRequestDtoList'];
+    if (Array.isArray(list)) {
+      return list.filter((r): r is Record<string, unknown> => !!this.toObj(r));
+    }
+    const one = this.toObj(envelope['fleetDriverSignupRequestDto']);
+    return one ? [one] : [];
+  }
+
+  private mapSignupRequestRow(dto: Record<string, unknown>): DriverSignupRequestRow {
+    const firstName = String(dto['firstName'] ?? '').trim();
+    const lastName = String(dto['lastName'] ?? '').trim();
+    const fullName = `${firstName} ${lastName}`.trim() || 'Unknown driver';
+    const status = normalizeSignupRequestStatus(dto['status']);
+    const createdAt = String(dto['createdAt'] ?? '').trim().slice(0, 10);
+    const signupType = String(dto['signupType'] ?? '').trim().toUpperCase();
+    return {
+      id: Number(dto['id'] ?? 0),
+      firstName,
+      lastName,
+      fullName,
+      email: String(dto['email'] ?? '').trim(),
+      phoneNumber: String(dto['phoneNumber'] ?? '').trim() || '—',
+      nationalIdNumber: String(dto['nationalIdNumber'] ?? '').trim() || '—',
+      licenseNumber: String(dto['licenseNumber'] ?? '').trim() || '—',
+      licenseClass: String(dto['licenseClass'] ?? '').trim() || '—',
+      freelance: signupType === 'FREELANCE' || Boolean(dto['freelance'] ?? false),
+      status,
+      statusLabel: signupRequestStatusLabel(status),
+      createdAt,
+      createdAtLabel: createdAt || 'Unknown date',
+      initials: this.initialsFromName(fullName),
+      accentHue: 32 + (hash(fullName) % 55),
+      nationalIdFrontUploadId: this.optionalUploadId(dto['nationalIdFrontUploadId']),
+      nationalIdBackUploadId: this.optionalUploadId(dto['nationalIdBackUploadId']),
+      licenseFrontUploadId: this.optionalUploadId(dto['licenseFrontUploadId']),
+      licenseBackUploadId: this.optionalUploadId(dto['licenseBackUploadId']),
+    };
+  }
+
+  private optionalUploadId(value: unknown): number | undefined {
+    const id = Number(value ?? 0);
+    return Number.isFinite(id) && id > 0 ? id : undefined;
   }
 
   private extractSingleCompliance(response: unknown): Record<string, unknown> {
@@ -1412,6 +1752,40 @@ function trackingInstallStatusLabel(status: TrackingInstallStatus): string {
     ACTIVE: 'Active',
     SUSPENDED: 'Suspended',
     PENDING: 'Pending',
+  };
+  return map[status] ?? status;
+}
+
+function normalizeMarketplaceAvailability(raw: unknown): MarketplaceDriverAvailability {
+  const value = String(raw ?? 'AVAILABLE').trim().toUpperCase();
+  const allowed: MarketplaceDriverAvailability[] = ['AVAILABLE', 'BUSY', 'INACTIVE'];
+  return allowed.includes(value as MarketplaceDriverAvailability)
+    ? (value as MarketplaceDriverAvailability)
+    : 'AVAILABLE';
+}
+
+function marketplaceAvailabilityLabel(availability: MarketplaceDriverAvailability): string {
+  const map: Record<MarketplaceDriverAvailability, string> = {
+    AVAILABLE: 'Available',
+    BUSY: 'On assignment',
+    INACTIVE: 'Inactive',
+  };
+  return map[availability] ?? availability;
+}
+
+function normalizeSignupRequestStatus(raw: unknown): DriverSignupRequestStatus {
+  const value = String(raw ?? 'PENDING').trim().toUpperCase();
+  const allowed: DriverSignupRequestStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
+  return allowed.includes(value as DriverSignupRequestStatus)
+    ? (value as DriverSignupRequestStatus)
+    : 'PENDING';
+}
+
+function signupRequestStatusLabel(status: DriverSignupRequestStatus): string {
+  const map: Record<DriverSignupRequestStatus, string> = {
+    PENDING: 'Pending review',
+    APPROVED: 'Approved',
+    REJECTED: 'Rejected',
   };
   return map[status] ?? status;
 }

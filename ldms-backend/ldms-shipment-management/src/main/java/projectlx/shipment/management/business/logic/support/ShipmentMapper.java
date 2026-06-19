@@ -18,6 +18,7 @@ public final class ShipmentMapper {
         dto.setSourceType(shipment.getSourceType() != null ? shipment.getSourceType().name() : null);
         dto.setInventoryTransferId(shipment.getInventoryTransferId());
         dto.setSalesOrderId(shipment.getSalesOrderId());
+        dto.setCrossDockDispatchId(shipment.getCrossDockDispatchId());
         dto.setPurchaseOrderId(shipment.getPurchaseOrderId());
         dto.setCustomerOrganizationId(shipment.getCustomerOrganizationId());
         dto.setFromWarehouseLocationId(shipment.getFromWarehouseLocationId());

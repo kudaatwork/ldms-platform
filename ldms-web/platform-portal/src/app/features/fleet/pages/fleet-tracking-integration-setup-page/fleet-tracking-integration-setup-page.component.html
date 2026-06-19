@@ -1,0 +1,177 @@
+<div class="lx-page flt-integ-setup">
+  <app-fleet-tracking-subnav></app-fleet-tracking-subnav>
+
+  <header class="flt-integ__head">
+    <div>
+      <h2>Tracking integration setup</h2>
+      <p>
+        Issue <strong>ingest keys</strong> for telematics platforms, custom middleware, and hardware forwarders.
+        Each key is tied to a vehicle so live trip maps update when that asset is <em>in transit</em>.
+        Use the key in the <code>ingestKey</code> field of the telemetry ingest API.
+      </p>
+    </div>
+    <div class="flt-integ__head-actions">
+      <a routerLink="/fleet/tracking-api" class="lx-btn lx-btn-ghost lx-btn-sm">
+        <mat-icon>menu_book</mat-icon>
+        View integration documentation
+      </a>
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openAdvancedInstall()" [disabled]="loading">
+        <mat-icon>sensors</mat-icon>
+        Advanced device wizard
+      </button>
+      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="toggleCreateForm()" [disabled]="loading">
+        <mat-icon>{{ showCreateForm ? 'close' : 'add' }}</mat-icon>
+        {{ showCreateForm ? 'Cancel' : 'Create ingest key' }}
+      </button>
+    </div>
+  </header>
+
+  <article class="lx-card flt-integ__intro">
+    <h3>How integrator keys work</h3>
+    <ul class="flt-integ__intro-list">
+      <li><mat-icon>link</mat-icon> Link each key to an <strong>own-fleet vehicle</strong> — required for GPS ingest to attach to active trips.</li>
+      <li><mat-icon>vpn_key</mat-icon> The <strong>ingest key</strong> is shown once at creation; store it in your integrator config or secret manager.</li>
+      <li><mat-icon>http</mat-icon> POST telemetry to <code>/ldms-trip-tracking/v1/system/telemetry/ingest</code> with the key in the JSON body.</li>
+      <li><mat-icon>hub</mat-icon> MQTT devices receive a broker topic after install — see the <a routerLink="/fleet/tracking-api" fragment="section-connect">Connect trackers</a> section.</li>
+    </ul>
+    <p class="flt-integ__intro-foot">
+      Mobile driver apps and fuel sensors can be registered via
+      <a routerLink="/fleet/tracking">Device installation</a> or the advanced wizard above.
+    </p>
+  </article>
+
+  <article class="lx-card flt-integ__issued" *ngIf="issuedKey" role="alert">
+    <div class="flt-integ__issued-head">
+      <mat-icon>key</mat-icon>
+      <div>
+        <strong>New ingest key — {{ issuedKey.label }}</strong>
+        <p>Copy this key now. It identifies your integrator on the platform.</p>
+      </div>
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="dismissIssuedKey()" aria-label="Dismiss">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <code class="flt-integ__issued-key">{{ issuedKey.ingestKey }}</code>
+    <div class="flt-integ__issued-actions">
+      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="copyIssuedKey()">
+        <mat-icon>content_copy</mat-icon>
+        Copy ingest key
+      </button>
+    </div>
+    <p class="flt-integ__hint" *ngIf="issuedKey.mqttTopic">MQTT topic: <code>{{ issuedKey.mqttTopic }}</code></p>
+  </article>
+
+  <article class="lx-card flt-integ__create" *ngIf="showCreateForm">
+    <h3>New integrator ingest key</h3>
+    <form [formGroup]="form" (ngSubmit)="createIntegratorKey()" class="flt-integ__form">
+      <div class="flt-integ__field">
+        <label for="credentialLabel">Integrator label</label>
+        <input id="credentialLabel" type="text" formControlName="credentialLabel" placeholder="e.g. Acme Telematics production" />
+      </div>
+      <div class="flt-integ__field">
+        <label for="integrationProvider">Integration type</label>
+        <select id="integrationProvider" formControlName="integrationProvider">
+          <option *ngFor="let p of integratorProviders" [value]="p.value">{{ p.label }}</option>
+        </select>
+        <span class="flt-integ__hint">{{ selectedProviderHint() }}</span>
+      </div>
+      <div class="flt-integ__field">
+        <label for="fleetAssetId">Linked vehicle <span class="flt-integ__required">*</span></label>
+        <select id="fleetAssetId" formControlName="fleetAssetId">
+          <option [ngValue]="null" disabled>Select vehicle</option>
+          <option *ngFor="let v of vehicles" [ngValue]="v.id">{{ v.registration }} — {{ v.makeModel }}</option>
+        </select>
+        <span class="flt-integ__hint" *ngIf="!vehicles.length">
+          Register a vehicle under <a routerLink="/fleet/convoy">Own fleet</a> first.
+        </span>
+      </div>
+      <div class="flt-integ__field">
+        <label for="externalDeviceId">External device ID <span class="flt-integ__optional">(optional)</span></label>
+        <input id="externalDeviceId" type="text" formControlName="externalDeviceId" placeholder="IMEI or platform device id" />
+      </div>
+      <div class="flt-integ__field">
+        <label for="notes">Notes <span class="flt-integ__optional">(optional)</span></label>
+        <input id="notes" type="text" formControlName="notes" placeholder="Environment, contact, or rollout notes" />
+      </div>
+      <button type="submit" class="lx-btn lx-btn-primary lx-btn-sm" [disabled]="saving || form.invalid || !vehicles.length">
+        <mat-icon>key</mat-icon>
+        Generate ingest key
+      </button>
+    </form>
+  </article>
+
+  <div class="flt-integ__loading" *ngIf="loading">
+    <lx-table-loading [busy]="true" message="Loading integrator keys…"></lx-table-loading>
+  </div>
+
+  <p class="flt-integ__error lx-card" *ngIf="error" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    {{ error }}
+  </p>
+
+  <div class="flt-integ__empty lx-card" *ngIf="!loading && !error && !credentials.length && !showCreateForm">
+    <mat-icon>vpn_key</mat-icon>
+    <h3>No integrator keys yet</h3>
+    <p>Create an ingest key so your telematics platform or custom middleware can push GPS into LDMS trip tracking.</p>
+    <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="toggleCreateForm()">
+      <mat-icon>add</mat-icon>
+      Create your first key
+    </button>
+  </div>
+
+  <div class="flt-integ__grid" *ngIf="!loading && credentials.length">
+    <article class="flt-integ__card lx-card" *ngFor="let credential of credentials">
+      <div class="flt-integ__card-top">
+        <span class="flt-integ__card-icon"><mat-icon>key</mat-icon></span>
+        <div class="flt-integ__card-info">
+          <strong>{{ credential.credentialLabel }}</strong>
+          <span class="flt-integ__key">{{ maskKey(credential.ingestKey) }}</span>
+        </div>
+        <span class="flt-integ__pill" [ngClass]="statusClass(credential.status)">{{ credential.statusLabel }}</span>
+      </div>
+
+      <dl class="flt-integ__meta">
+        <div>
+          <dt>Provider</dt>
+          <dd>{{ credential.integrationProviderLabel }}</dd>
+        </div>
+        <div *ngIf="credential.vehicleRegistration">
+          <dt>Vehicle</dt>
+          <dd>{{ credential.vehicleRegistration }} <span *ngIf="credential.vehicleMakeModel">({{ credential.vehicleMakeModel }})</span></dd>
+        </div>
+        <div *ngIf="credential.externalDeviceId">
+          <dt>External device ID</dt>
+          <dd>{{ credential.externalDeviceId }}</dd>
+        </div>
+        <div *ngIf="credential.mqttTopic">
+          <dt>MQTT topic</dt>
+          <dd>{{ credential.mqttTopic }}</dd>
+        </div>
+        <div *ngIf="credential.lastTelemetryAt">
+          <dt>Last telemetry</dt>
+          <dd>{{ credential.lastTelemetryAt | date: 'medium' }}</dd>
+        </div>
+      </dl>
+
+      <div class="flt-integ__card-actions">
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="copyIngestKey(credential)" [disabled]="!credential.ingestKey">
+          <mat-icon>{{ copiedCredentialId === credential.id ? 'check' : 'content_copy' }}</mat-icon>
+          {{ copiedCredentialId === credential.id ? 'Copied' : 'Copy key' }}
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm"
+          *ngIf="credential.status === 'ACTIVE'"
+          (click)="suspendCredential(credential)"
+        >
+          <mat-icon>pause_circle</mat-icon>
+          Suspend
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm flt-integ__danger" (click)="deleteCredential(credential)">
+          <mat-icon>delete_outline</mat-icon>
+          Remove
+        </button>
+      </div>
+    </article>
+  </div>
+</div>

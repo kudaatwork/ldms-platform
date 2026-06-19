@@ -99,6 +99,13 @@
       </span>
       <span class="inv-tabs__badge" *ngIf="salesOrders.length">{{ salesOrders.length }}</span>
     </button>
+    <button type="button" class="inv-tabs__btn" *ngIf="showIntegrationSetupTab" [class.is-on]="activeTab === 'integration-setup'" (click)="setTab('integration-setup')">
+      <mat-icon>key</mat-icon>
+      <span class="inv-tabs__copy">
+        <span>Integration setup</span>
+        <small>ERP / WMS API keys</small>
+      </span>
+    </button>
   </nav>
 
   <!-- Global error -->
@@ -1749,6 +1756,7 @@
                   <mat-icon>{{ transferSort.icon('toWarehouse') }}</mat-icon>
                 </button>
               </th>
+              <th class="inv-transfers-col inv-transfers-col--route">Route</th>
               <th class="inv-transfers-col inv-transfers-col--status">
                 <button type="button" class="lx-sort-header" [class.lx-sort-header--active]="transferSort.isActive('statusLabel')" (click)="toggleTableSort(transferSort, 'statusLabel', transfersPage)">
                   Status
@@ -1786,6 +1794,13 @@
               <td class="inv-qty inv-transfers-cell inv-transfers-cell--qty">{{ t.quantity }}</td>
               <td class="inv-transfers-cell inv-transfers-cell--warehouse">{{ t.fromWarehouse || '—' }}</td>
               <td class="inv-transfers-cell inv-transfers-cell--warehouse">{{ t.toWarehouse || '—' }}</td>
+              <td class="inv-transfers-cell inv-transfers-cell--route">
+                <span class="inv-transfer-route" [class.inv-transfer-route--direct]="transferRouteLabel(t) === 'Direct'">
+                  <mat-icon *ngIf="transferRouteLabel(t) !== 'Direct'">alt_route</mat-icon>
+                  <mat-icon *ngIf="t.crossBorder">public</mat-icon>
+                  {{ transferRouteLabel(t) }}
+                </span>
+              </td>
               <td class="inv-transfers-cell inv-transfers-cell--status">
                 <span class="lx-status" [ngClass]="'lx-status-' + transferStatusClass(t.status)">{{ t.statusLabel }}</span>
               </td>
@@ -2489,6 +2504,10 @@
           (page)="purchaseOrdersPage.onPage($event)"
         ></mat-paginator>
       </div>
+    </section>
+
+    <section class="inv-section" *ngIf="activeTab === 'integration-setup'">
+      <app-inventory-integration-setup-panel></app-inventory-integration-setup-panel>
     </section>
   </div>
 

@@ -42,6 +42,8 @@ import projectlx.inventory.management.business.auditable.api.InventoryTransferSe
 import projectlx.inventory.management.business.logic.api.IdempotencyService;
 import projectlx.inventory.management.business.logic.api.InventoryItemService;
 import projectlx.inventory.management.business.logic.api.InventoryTransferService;
+import projectlx.inventory.management.business.logic.api.LogisticsRouteStopService;
+import projectlx.inventory.management.model.RouteStopContextType;
 import projectlx.inventory.management.business.logic.support.ProcurementApproverSupport;
 import projectlx.inventory.management.business.logic.support.StockTransferSupport;
 import projectlx.inventory.management.business.logic.support.TransitWarehouseSupport;
@@ -56,6 +58,7 @@ import projectlx.inventory.management.model.InventoryItem;
 import projectlx.inventory.management.model.InventoryTransfer;
 import projectlx.inventory.management.model.Product;
 import projectlx.inventory.management.model.ReferenceDocumentType;
+import projectlx.inventory.management.model.RouteStopType;
 import projectlx.inventory.management.model.StockTransactionHistory;
 import projectlx.inventory.management.model.TransferStatus;
 import projectlx.inventory.management.model.WarehouseLocation;
@@ -72,10 +75,12 @@ import projectlx.inventory.management.utils.enums.I18Code;
 import projectlx.inventory.management.utils.requests.CreateInventoryTransferRequest;
 import projectlx.inventory.management.utils.requests.CreateOrUpdateStockRequest;
 import projectlx.inventory.management.utils.requests.EditInventoryTransferRequest;
+import projectlx.inventory.management.utils.requests.RouteStopRequest;
 import projectlx.inventory.management.utils.requests.InventoryTransferMultipleFiltersRequest;
 import projectlx.inventory.management.utils.requests.NotificationRequest;
 import projectlx.inventory.management.utils.responses.InventoryItemResponse;
 import projectlx.inventory.management.utils.responses.InventoryTransferResponse;
+import projectlx.inventory.management.utils.responses.LogisticsRouteStopResponse;
 import projectlx.co.zw.shared_library.utils.dtos.UserDto;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
@@ -106,6 +111,7 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
     private final StockTransferSupport stockTransferSupport;
     private final GoodsReceivedVoucherServiceAuditable goodsReceivedVoucherServiceAuditable;
     private final GoodsReceivedVoucherRepository goodsReceivedVoucherRepository;
+    private final LogisticsRouteStopService logisticsRouteStopService;
 
     private static final String[] HEADERS = {"ID", "TRANSFER_NUMBER", "PRODUCT_ID", "FROM_LOCATION_ID", "TO_LOCATION_ID", "QUANTITY", "STATUS", "REFERENCE"};
     private static final String[] CSV_HEADERS = {
@@ -201,6 +207,11 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         transfer.setCreatedByUserId(request.getCreatedByUserId());
 
         InventoryTransfer savedTransfer = auditable.create(transfer, locale, username);
+        savedTransfer.setProduct(productOpt.get());
+        savedTransfer.setFromLocation(fromLocationOpt.get());
+        savedTransfer.setToLocation(toLocationOpt.get());
+
+        persistTransferRouteStops(savedTransfer, request.getRouteStops(), locale, username);
 
         sendInventoryTransferCreatedInternal(savedTransfer);
 
@@ -748,6 +759,11 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         toEdit.setUpdatedByUserId(request.getUpdatedByUserId());
         InventoryTransfer saved = auditable.update(toEdit, locale, username);
 
+        // Update route stops when from/to are known (including clearing en-route depots).
+        if (request.getRouteStops() != null && request.getFromLocationId() != null && request.getToLocationId() != null) {
+            persistTransferRouteStops(saved, request.getRouteStops(), locale, username);
+        }
+
         InventoryTransferDto dto = mapToDto(saved);
         message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_TRANSFER_UPDATED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -1013,7 +1029,102 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
             }
         }
 
+        // ============================================================
+        // ROUTE STOPS — load logistics stops for this transfer context
+        // ============================================================
+        try {
+            LogisticsRouteStopResponse stopsResponse = logisticsRouteStopService.findByContext(
+                    RouteStopContextType.INVENTORY_TRANSFER, transfer.getId(), Locale.ENGLISH, "system");
+            if (stopsResponse != null && stopsResponse.getLogisticsRouteStopDtoList() != null) {
+                dto.setRouteStops(stopsResponse.getLogisticsRouteStopDtoList());
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to load route stops for transfer id={}: {}", transfer.getId(), ex.getMessage());
+        }
+
         return dto;
+    }
+
+    private void persistTransferRouteStops(
+            InventoryTransfer transfer,
+            List<RouteStopRequest> routeStops,
+            Locale locale,
+            String username) {
+
+        if (routeStops == null || routeStops.isEmpty()) {
+            return;
+        }
+
+        Long organizationId = resolveTransferOrganizationId(transfer);
+        if (organizationId == null || organizationId <= 0) {
+            log.warn("Skipping route stops for transfer [id={}]: organization id could not be resolved",
+                    transfer.getId());
+            return;
+        }
+
+        try {
+            LogisticsRouteStopResponse response = logisticsRouteStopService.replaceRouteStops(
+                    RouteStopContextType.INVENTORY_TRANSFER,
+                    transfer.getId(),
+                    routeStops,
+                    organizationId,
+                    locale,
+                    username);
+            if (response != null && response.isSuccess()) {
+                log.info("Route stops saved for transfer [id={}]", transfer.getId());
+            } else {
+                String detail = response != null ? response.getMessage() : "no response";
+                log.warn("Failed to save route stops for transfer [id={}]: {}", transfer.getId(), detail);
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to save route stops for transfer [id={}]: {}", transfer.getId(), ex.getMessage());
+        }
+    }
+
+    /**
+     * Resolves the owning organization for logistics route stops.
+     * Product supplier id is preferred; warehouse supplier ids are used as fallback.
+     */
+    private Long resolveTransferOrganizationId(InventoryTransfer transfer) {
+        if (transfer == null) {
+            return null;
+        }
+
+        Product product = transfer.getProduct();
+        if (product != null && product.getSupplierId() != null && product.getSupplierId() > 0) {
+            return product.getSupplierId();
+        }
+
+        WarehouseLocation fromLocation = transfer.getFromLocation();
+        if (fromLocation != null && fromLocation.getSupplierId() != null && fromLocation.getSupplierId() > 0) {
+            return fromLocation.getSupplierId();
+        }
+
+        WarehouseLocation toLocation = transfer.getToLocation();
+        if (toLocation != null && toLocation.getSupplierId() != null && toLocation.getSupplierId() > 0) {
+            return toLocation.getSupplierId();
+        }
+
+        return null;
+    }
+
+    private void appendRouteStopSummary(Map<String, Object> payload, Long transferId) {
+        try {
+            LogisticsRouteStopResponse stopsResponse = logisticsRouteStopService.findByContext(
+                    RouteStopContextType.INVENTORY_TRANSFER, transferId, Locale.ENGLISH, "system");
+            if (stopsResponse == null || stopsResponse.getLogisticsRouteStopDtoList() == null) {
+                return;
+            }
+            List<Long> enRouteDepotLocationIds = stopsResponse.getLogisticsRouteStopDtoList().stream()
+                    .filter(stop -> stop.getStopType() == RouteStopType.EN_ROUTE_DEPOT)
+                    .map(stop -> stop.getWarehouseLocationId())
+                    .filter(id -> id != null && id > 0)
+                    .collect(Collectors.toList());
+            payload.put("enRouteDepotCount", enRouteDepotLocationIds.size());
+            payload.put("enRouteDepotLocationIds", enRouteDepotLocationIds);
+        } catch (Exception ex) {
+            log.warn("Failed to attach route stop summary for transfer id={}: {}", transferId, ex.getMessage());
+        }
     }
 
     private Map<Long, String> resolveRequesterNames(List<InventoryTransfer> transfers) {
@@ -1294,6 +1405,7 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
 
             payload.put("quantity", transfer.getQuantity());
             payload.put("crossBorder", transfer.isCrossBorder());
+            appendRouteStopSummary(payload, transfer.getId());
             payload.put("timestamp", LocalDateTime.now().toString());
 
             rabbitTemplate.convertAndSend(

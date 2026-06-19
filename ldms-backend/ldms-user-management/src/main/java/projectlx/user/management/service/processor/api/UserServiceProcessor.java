@@ -7,6 +7,7 @@ import projectlx.user.management.utils.requests.EditUserRequest;
 import projectlx.user.management.utils.requests.ForgotPasswordRequest;
 import projectlx.user.management.utils.requests.CompleteCredentialsSetupRequest;
 import projectlx.user.management.utils.requests.IssueOrganizationContactCredentialsRequest;
+import projectlx.user.management.utils.requests.ProvisionDriverPlatformUserRequest;
 import projectlx.user.management.utils.requests.ProvisionOrganizationContactPersonRequest;
 import projectlx.user.management.utils.requests.UsersMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UsernameAvailabilityResponse;
@@ -92,4 +93,11 @@ public interface UserServiceProcessor {
     UserResponse generateLoginOtp(String usernameOrPhone, Locale locale);
 
     UserResponse verifyLoginOtp(String usernameOrPhone, String otp, Locale locale);
+
+    /**
+     * Provisions a fleet driver with temporary platform credentials.
+     * Called by ldms-fleet-management after a driver is created or a signup request is approved.
+     */
+    UserResponse provisionDriverPlatformAccess(ProvisionDriverPlatformUserRequest request, Locale locale,
+            String actor);
 }

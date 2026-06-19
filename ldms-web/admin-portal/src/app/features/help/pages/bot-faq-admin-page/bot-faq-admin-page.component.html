@@ -1,0 +1,113 @@
+<section class="lx-page lx-page--audit bot-faq-page">
+  <lx-workspace-hero
+    variant="violet"
+    eyebrow="Messaging · Bot knowledge"
+    eyebrowIcon="menu_book"
+    title="FAQ knowledge base"
+    lead="Add and publish FAQs the assistant retrieves for RAG-style answers. Changes apply immediately to new messages."
+    hubIcon="menu_book"
+    [orbitIcons]="['psychology', 'smart_toy', 'auto_stories']"
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-primary lx-btn-sm" (click)="openCreate()">
+      <mat-icon aria-hidden="true">add</mat-icon>
+      Add FAQ
+    </button>
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reloadKnowledge()" [disabled]="reloadingKnowledge">
+      <mat-icon aria-hidden="true">sync</mat-icon>
+      Reload corpus
+    </button>
+    <lx-workspace-hero-stat [value]="knowledge?.faqCount ?? faqs.length" label="Published FAQs" icon="quiz" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="knowledge?.documentCount ?? 0" label="Doc sources" icon="description" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="knowledge?.characterCount ?? 0" label="Corpus chars" icon="data_object" theme="amber"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <div class="bot-alert" *ngIf="error" role="alert">
+    <mat-icon aria-hidden="true">error_outline</mat-icon>
+    {{ error }}
+    <button type="button" class="bot-alert__action" (click)="load()">Retry</button>
+  </div>
+
+  <div class="lx-card bot-faq-form" *ngIf="showForm">
+    <h3>{{ editingId ? 'Edit FAQ' : 'New FAQ' }}</h3>
+    <form [formGroup]="form" (ngSubmit)="save()">
+      <label class="bot-faq-field">
+        <span>Question</span>
+        <input type="text" formControlName="question" maxlength="500" />
+      </label>
+      <label class="bot-faq-field">
+        <span>Answer</span>
+        <textarea formControlName="answer" rows="5"></textarea>
+      </label>
+      <div class="bot-faq-form__row">
+        <label class="bot-faq-field">
+          <span>Category</span>
+          <select formControlName="category">
+            <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+          </select>
+        </label>
+        <label class="bot-faq-field">
+          <span>Keywords (comma-separated)</span>
+          <input type="text" formControlName="keywords" placeholder="shipment, track, GRV" />
+        </label>
+      </div>
+      <label class="bot-faq-check">
+        <input type="checkbox" formControlName="published" />
+        Published — include in bot RAG retrieval
+      </label>
+      <div class="bot-faq-form__actions">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="cancelForm()">Cancel</button>
+        <button type="submit" class="lx-btn lx-btn-primary" [disabled]="saving">
+          {{ saving ? 'Saving…' : (editingId ? 'Update FAQ' : 'Create FAQ') }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <div class="lx-card bot-faq-list-card">
+    <div class="bot-faq-list__hd">
+      <h3>FAQ entries</h3>
+      <label class="bot-faq-search">
+        <mat-icon aria-hidden="true">search</mat-icon>
+        <input type="search" [(ngModel)]="search" placeholder="Search FAQs…" [ngModelOptions]="{ standalone: true }" />
+      </label>
+    </div>
+
+    <div class="bot-faq-skeleton" *ngIf="loading">
+      <div class="bot-skeleton" *ngFor="let i of [1,2,3]"></div>
+    </div>
+
+    <div class="bot-faq-table-wrap" *ngIf="!loading">
+      <table class="bot-faq-table">
+        <thead>
+          <tr>
+            <th>Question</th>
+            <th>Category</th>
+            <th>Uses</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of filteredFaqs">
+            <td>
+              <strong>{{ row.question }}</strong>
+              <p>{{ row.answer }}</p>
+            </td>
+            <td><span class="bot-faq-pill">{{ row.category }}</span></td>
+            <td>{{ row.useCount }}</td>
+            <td>
+              <span class="bot-faq-status" [class.bot-faq-status--off]="!row.published">
+                {{ row.published ? 'Published' : 'Draft' }}
+              </span>
+            </td>
+            <td class="bot-faq-actions">
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEdit(row)">Edit</button>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm bot-faq-delete" (click)="delete(row)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="bot-faq-empty" *ngIf="!filteredFaqs.length">No FAQ entries yet. Add one to teach the assistant.</p>
+    </div>
+  </div>
+</section>

@@ -1,3 +1,60 @@
+// ── Portal type tab switcher ─────────────────────────────────────────────
+
+.lc-portal-tabs {
+  display: flex;
+  background: var(--gray-100, #f1f5f9);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 20px;
+}
+
+.lc-portal-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  border-radius: 9px;
+  border: none;
+  background: transparent;
+  color: var(--gray-500, #6b7280);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .2s, color .2s, box-shadow .2s;
+
+  .material-icons { font-size: 17px; }
+
+  &--active {
+    background: var(--surface, #fff);
+    color: var(--primary, #3b82f6);
+    box-shadow: 0 1px 4px rgba(0,0,0,.1);
+  }
+
+  &:hover:not(&--active) {
+    color: var(--gray-700, #334155);
+  }
+}
+
+.lc-sub--driver {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+  color: var(--accent, #fb923c);
+  .material-icons { font-size: 15px; }
+}
+
+.lc-submit--driver {
+  background: linear-gradient(135deg, var(--accent, #fb923c), #ea580c) !important;
+  box-shadow: 0 4px 14px rgba(234, 88, 12, .3) !important;
+}
+
+// ─────────────────────────────────────────────────────────────────────────
+
 .lc-auth-links {
   display: flex;
   justify-content: flex-end;

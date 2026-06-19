@@ -74,7 +74,7 @@ public class FleetTrackingDeviceServiceImpl implements FleetTrackingDeviceServic
                         new String[]{}, locale));
         response.setFleetTrackingDeviceDtoList(
                 devices.stream()
-                        .map(d -> FleetMapper.toTrackingDeviceDto(d, assetMap.get(d.getFleetAssetId())))
+                        .map(d -> FleetMapper.toTrackingDeviceDto(d, assetMap.get(d.getFleetAssetId()), true))
                         .toList());
         return response;
     }
@@ -218,7 +218,7 @@ public class FleetTrackingDeviceServiceImpl implements FleetTrackingDeviceServic
         FleetTrackingDeviceResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_TRACKING_DEVICE_UPDATE_SUCCESS.getCode(),
                         new String[]{}, locale));
-        response.setFleetTrackingDeviceDto(FleetMapper.toTrackingDeviceDto(saved, asset));
+        response.setFleetTrackingDeviceDto(FleetMapper.toTrackingDeviceDto(saved, asset, true));
         return response;
     }
 
@@ -248,7 +248,7 @@ public class FleetTrackingDeviceServiceImpl implements FleetTrackingDeviceServic
         FleetTrackingDeviceResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_TRACKING_DEVICE_SUSPEND_SUCCESS.getCode(),
                         new String[]{}, locale));
-        response.setFleetTrackingDeviceDto(FleetMapper.toTrackingDeviceDto(device, null));
+        response.setFleetTrackingDeviceDto(FleetMapper.toTrackingDeviceDto(device, null, true));
         return response;
     }
 
@@ -296,7 +296,7 @@ public class FleetTrackingDeviceServiceImpl implements FleetTrackingDeviceServic
         FleetTrackingDeviceResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_TRACKING_DEVICE_LIST_SUCCESS.getCode(),
                         new String[]{}, locale));
-        response.setFleetTrackingDeviceDto(FleetMapper.toTrackingDeviceDto(deviceOpt.get(), null));
+        response.setFleetTrackingDeviceDto(FleetMapper.toTrackingDeviceDto(deviceOpt.get(), null, true));
         return response;
     }
 

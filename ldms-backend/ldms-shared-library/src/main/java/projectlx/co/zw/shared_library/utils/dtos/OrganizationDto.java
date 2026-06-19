@@ -8,6 +8,7 @@ import projectlx.co.zw.shared_library.model.OrganizationClassification;
 import projectlx.co.zw.shared_library.model.OrganizationType;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.enums.Gender;
+import projectlx.co.zw.shared_library.utils.enums.InventoryDataSource;
 import projectlx.co.zw.shared_library.utils.enums.VerificationMethod;
 import projectlx.co.zw.shared_library.utils.enums.VerificationSource;
 import java.time.LocalDate;
@@ -68,6 +69,26 @@ public class OrganizationDto {
 
     /** When true, organisation both buys and sells; relationships define trading role per partner. */
     private Boolean duplexMode;
+
+    // === Operational mode ===
+
+    /** When true, org runs solo logistics; counterparty is a CRM/trading-partner record only. */
+    private Boolean standaloneMode;
+
+    /** When true, full stock management is enabled via the LDMS Inventory module. */
+    private Boolean inventoryManagementEnabled;
+
+    /** When true, org operates cross-dock logistics (mutually exclusive with full inventory). */
+    private Boolean crossDockingEnabled;
+
+    /** How inventory data is sourced for this organisation. */
+    private InventoryDataSource inventoryDataSource;
+
+    /**
+     * When standalone mode is off: RECORD_ONLY (CRM, no counterparty login) or PLATFORM_ORG
+     * (register or link platform organisations).
+     */
+    private projectlx.co.zw.shared_library.utils.enums.CounterpartyEngagementMode counterpartyEngagementMode;
 
     private Long industryId;
     private String industryName;

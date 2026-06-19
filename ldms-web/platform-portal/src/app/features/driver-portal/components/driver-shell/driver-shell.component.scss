@@ -1,0 +1,112 @@
+// ── Driver shell layout — full-height, mobile-first ────────────────────────
+
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.drv-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh; // dynamic viewport height — avoids mobile browser chrome overlap
+  background: var(--bg, #f8fafc);
+
+  &__content {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    // Reserve space for bottom nav
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+
+  &__bottom-nav {
+    position: sticky;
+    bottom: 0;
+    z-index: 100;
+    display: flex;
+    align-items: stretch;
+    background: var(--surface, #ffffff);
+    border-top: 1px solid var(--gray-200, #e2e8f0);
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.08);
+    // Safe area for phones with a home indicator
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+}
+
+// ── Bottom nav items ────────────────────────────────────────────────────────
+
+.drv-bottom-nav__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 10px 4px 8px;
+  text-decoration: none;
+  color: var(--gray-400, #94a3b8);
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.18s, background 0.18s;
+  border-radius: 0;
+  -webkit-tap-highlight-color: transparent;
+
+  &--active {
+    color: var(--primary, #3b82f6);
+
+    .drv-bottom-nav__icon {
+      font-variation-settings: 'FILL' 1;
+    }
+  }
+
+  &--logout {
+    color: var(--danger, #ef4444);
+
+    &:hover {
+      background: rgba(239, 68, 68, 0.06);
+    }
+  }
+
+  &:hover:not(.drv-bottom-nav__item--logout):not(.drv-bottom-nav__item--active) {
+    color: var(--gray-600, #475569);
+    background: var(--gray-50, #f8fafc);
+  }
+}
+
+.drv-bottom-nav__icon {
+  font-size: 24px;
+  line-height: 1;
+  transition: transform 0.15s;
+
+  .drv-bottom-nav__item--active & {
+    transform: translateY(-1px);
+  }
+}
+
+.drv-bottom-nav__label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+// ── Dark mode ────────────────────────────────────────────────────────────────
+
+:host-context(.theme-dark) {
+  .drv-shell__bottom-nav {
+    background: #0f172a;
+    border-top-color: #1e293b;
+    box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .drv-bottom-nav__item {
+    color: #475569;
+
+    &--active {
+      color: var(--primary, #60a5fa);
+    }
+  }
+}

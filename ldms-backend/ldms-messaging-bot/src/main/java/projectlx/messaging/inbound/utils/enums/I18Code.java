@@ -15,7 +15,17 @@ public enum I18Code {
     MESSAGE_BOT_START_SESSION_INVALID("message.bot.start.session.invalid.request"),
     MESSAGE_BOT_ACCESS_DENIED("message.bot.access.denied"),
     MESSAGE_BOT_SESSION_RATED("message.bot.session.rated"),
-    MESSAGE_BOT_RATE_SESSION_INVALID("message.bot.rate.session.invalid.request");
+    MESSAGE_BOT_RATE_SESSION_INVALID("message.bot.rate.session.invalid.request"),
+    MESSAGE_BOT_FAQ_LIST_SUCCESS("message.bot.faq.list.success"),
+    MESSAGE_BOT_FAQ_RETRIEVED("message.bot.faq.retrieved"),
+    MESSAGE_BOT_FAQ_CREATED("message.bot.faq.created"),
+    MESSAGE_BOT_FAQ_UPDATED("message.bot.faq.updated"),
+    MESSAGE_BOT_FAQ_DELETED("message.bot.faq.deleted"),
+    MESSAGE_BOT_FAQ_NOT_FOUND("message.bot.faq.not.found"),
+    MESSAGE_BOT_FAQ_INVALID_REQUEST("message.bot.faq.invalid.request"),
+    MESSAGE_BOT_FAQ_QUESTION_REQUIRED("message.bot.faq.question.required"),
+    MESSAGE_BOT_FAQ_ANSWER_REQUIRED("message.bot.faq.answer.required"),
+    MESSAGE_BOT_ANALYTICS_RETRIEVED("message.bot.analytics.retrieved");
 
     private final String code;
 }

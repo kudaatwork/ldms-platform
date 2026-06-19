@@ -66,7 +66,22 @@ public enum I18Code {
     TRANSPORTER_DELETED("org.transporter.deleted"),
     EXPORT_FAILED("org.export.failed"),
     IMPORT_SUCCESS("org.import.success"),
-    IMPORT_FAILED("org.import.failed");
+    IMPORT_FAILED("org.import.failed"),
+
+    // Operational mode
+    ORG_OP_CANNOT_DOWNGRADE_TO_CROSS_DOCK("org.op.cannotDowngradeToCrossDock"),
+    ORG_OP_CANNOT_CHANGE_DATA_SOURCE_TO_EXTERNAL("org.op.cannotChangeDataSourceToExternal"),
+    ORG_OP_SETTINGS_UPDATED("org.op.settingsUpdated"),
+    ORG_OP_VALIDATION_FAILED("org.op.validationFailed"),
+
+    // Trading partner
+    TRADING_PARTNER_NOT_FOUND("org.tradingPartner.notFound"),
+    TRADING_PARTNER_CREATED("org.tradingPartner.created"),
+    TRADING_PARTNER_UPDATED("org.tradingPartner.updated"),
+    TRADING_PARTNER_DELETED("org.tradingPartner.deleted"),
+    TRADING_PARTNER_RETRIEVED("org.tradingPartner.retrieved"),
+    TRADING_PARTNER_VALIDATION_FAILED("org.tradingPartner.validationFailed"),
+    TRADING_PARTNER_FORBIDDEN("org.tradingPartner.forbidden");
 
     private final String code;
 

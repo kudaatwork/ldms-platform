@@ -1,0 +1,235 @@
+<div class="dsg-shell">
+
+  <!-- Theme toggle -->
+  <button type="button" class="dsg-theme-btn" (click)="theme.toggle()"
+    [title]="theme.dark() ? 'Light mode' : 'Dark mode'">
+    <span class="material-icons" aria-hidden="true">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+  </button>
+
+  <!-- ════════════════════════════════════════ HERO LEFT PANEL -->
+  <div class="dsg-left">
+    <div class="dsg-left__logo">
+      <img class="dsg-left__logo-img dsg-left__logo-img--light" src="images/lx-logo.png" alt="LX logo" />
+      <img class="dsg-left__logo-img dsg-left__logo-img--dark" src="images/lx-logo-transparent.png" alt="LX logo" />
+      <span class="dsg-left__name">Project <span class="brand-lx">LX</span></span>
+    </div>
+    <h1 class="dsg-left__headline">
+      Join the<br />Driver Network
+    </h1>
+    <p class="dsg-left__sub">
+      Complete the form and upload your national ID and driving licence (front and back). A transporter will review your documents before approving your access.
+    </p>
+    <ul class="dsg-left__perks">
+      <li>
+        <span class="material-icons dsg-perk-icon" aria-hidden="true">local_shipping</span>
+        <span><strong>Digital trip management</strong> — receive assignments and manage deliveries on your phone.</span>
+      </li>
+      <li>
+        <span class="material-icons dsg-perk-icon" aria-hidden="true">location_on</span>
+        <span><strong>Live tracking</strong> — stay connected with dispatch and customers in real time.</span>
+      </li>
+      <li>
+        <span class="material-icons dsg-perk-icon" aria-hidden="true">verified</span>
+        <span><strong>Paperless delivery</strong> — confirm deliveries with OTP, no paperwork needed.</span>
+      </li>
+    </ul>
+  </div>
+
+  <!-- ════════════════════════════════════════ FORM PANEL -->
+  <div class="dsg-right">
+    <div class="dsg-form-stack">
+
+    <!-- Account type tabs -->
+    <div class="dsg-account-tabs">
+      <a class="dsg-account-tab" routerLink="/signup">
+        <span class="material-icons" aria-hidden="true">business</span>
+        Register organisation
+      </a>
+      <a class="dsg-account-tab dsg-account-tab--active" routerLink="/driver/signup" aria-current="page">
+        <span class="material-icons" aria-hidden="true">local_shipping</span>
+        Join as driver
+      </a>
+    </div>
+
+    <div class="dsg-card">
+
+      <!-- ── SUCCESS STATE ── -->
+      <div class="dsg-success" *ngIf="step === 'success'">
+        <div class="dsg-success__ring">
+          <span class="material-icons" aria-hidden="true">check_circle</span>
+        </div>
+        <h2 class="dsg-success__title">Request submitted!</h2>
+        <p class="dsg-success__sub">
+          Your driver access request has been submitted with your identity documents. A transporter will review and approve your application — temporary login credentials will be emailed to you once approved. Sign in and set your permanent username and password on first access.
+        </p>
+        <button class="dsg-submit" (click)="goToLogin()">
+          <span class="material-icons" aria-hidden="true">login</span>
+          Back to sign in
+        </button>
+      </div>
+
+      <!-- ── FORM ── -->
+      <ng-container *ngIf="step === 'form'">
+        <div class="dsg-header">
+          <h2 class="dsg-title">Driver registration</h2>
+          <p class="dsg-sub">Platform Portal · Driver access request</p>
+        </div>
+
+        <!-- Mode toggle -->
+        <div class="dsg-mode-toggle" role="group" aria-label="Driver mode">
+          <button type="button" class="dsg-mode-btn"
+            [class.dsg-mode-btn--active]="driverMode === 'company'"
+            (click)="selectMode('company')">
+            <span class="material-icons" aria-hidden="true">business</span>
+            Join a transport company
+          </button>
+          <button type="button" class="dsg-mode-btn"
+            [class.dsg-mode-btn--active]="driverMode === 'freelance'"
+            (click)="selectMode('freelance')">
+            <span class="material-icons" aria-hidden="true">hail</span>
+            Freelance driver
+          </button>
+        </div>
+        <p class="dsg-mode-desc" *ngIf="isFreelance">
+          <span class="material-icons" aria-hidden="true">info</span>
+          As a freelance driver you will be visible to any transporter on the platform marketplace. Once a transporter hires you, temporary login credentials will be emailed to you.
+        </p>
+        <p class="dsg-mode-desc" *ngIf="!isFreelance">
+          <span class="material-icons" aria-hidden="true">info</span>
+          Enter your company's access code to join their driver roster. Once approved, temporary credentials will be emailed to you.
+        </p>
+
+        <div class="dsg-error" *ngIf="error">
+          <span class="material-icons" aria-hidden="true">error_outline</span>
+          {{ error }}
+        </div>
+
+        <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+          <div class="dsg-section-label">Personal details</div>
+
+          <div class="dsg-field-row">
+            <div class="dsg-field">
+              <label class="dsg-label">First name</label>
+              <div class="dsg-input-wrap">
+                <span class="material-icons" aria-hidden="true">person</span>
+                <input type="text" formControlName="firstName" placeholder="First name" autocomplete="given-name" />
+              </div>
+              <p class="dsg-hint" *ngIf="f['firstName'].touched && f['firstName'].errors?.['required']">Required</p>
+            </div>
+            <div class="dsg-field">
+              <label class="dsg-label">Last name</label>
+              <div class="dsg-input-wrap">
+                <span class="material-icons" aria-hidden="true">person</span>
+                <input type="text" formControlName="lastName" placeholder="Last name" autocomplete="family-name" />
+              </div>
+              <p class="dsg-hint" *ngIf="f['lastName'].touched && f['lastName'].errors?.['required']">Required</p>
+            </div>
+          </div>
+
+          <div class="dsg-field">
+            <label class="dsg-label">Email address</label>
+            <div class="dsg-input-wrap">
+              <span class="material-icons" aria-hidden="true">email</span>
+              <input type="email" formControlName="email" placeholder="you@email.com" autocomplete="email" />
+            </div>
+            <p class="dsg-hint" *ngIf="f['email'].touched && f['email'].errors?.['required']">Required</p>
+            <p class="dsg-hint" *ngIf="f['email'].touched && f['email'].errors?.['email']">Enter a valid email</p>
+          </div>
+
+          <div class="dsg-field">
+            <label class="dsg-label">Phone number</label>
+            <div class="dsg-input-wrap">
+              <span class="material-icons" aria-hidden="true">phone</span>
+              <input type="tel" formControlName="phoneNumber" placeholder="+263 7X XXX XXXX" autocomplete="tel" />
+            </div>
+            <p class="dsg-hint" *ngIf="f['phoneNumber'].touched && f['phoneNumber'].errors?.['required']">Required</p>
+            <p class="dsg-hint" *ngIf="f['phoneNumber'].touched && f['phoneNumber'].errors?.['pattern']">Enter a valid phone number</p>
+          </div>
+
+          <div class="dsg-field">
+            <label class="dsg-label">National ID number</label>
+            <div class="dsg-input-wrap">
+              <span class="material-icons" aria-hidden="true">badge</span>
+              <input type="text" formControlName="nationalIdNumber" placeholder="e.g. 63-1234567A12" autocomplete="off" />
+            </div>
+            <p class="dsg-hint" *ngIf="f['nationalIdNumber'].touched && f['nationalIdNumber'].errors?.['required']">Required</p>
+          </div>
+
+          <div class="dsg-section-label">Identity documents</div>
+          <p class="dsg-mode-desc dsg-mode-desc--docs">
+            <span class="material-icons" aria-hidden="true">upload_file</span>
+            Upload clear photos or scans of your national ID and driving licence — front and back. PDF or image files accepted.
+          </p>
+
+          <div class="dsg-doc-grid">
+            <div class="dsg-doc-slot" *ngFor="let slot of docSlots">
+              <label class="dsg-label">{{ slot.label }}</label>
+              <div class="dsg-doc-upload">
+                <label class="dsg-doc-btn">
+                  <span class="material-icons" aria-hidden="true">upload</span>
+                  {{ slot.uploadId ? 'Replace' : 'Choose file' }}
+                  <input type="file" accept="image/*,.pdf" (change)="onDocSelected(slot, $event)" [disabled]="slot.uploading" />
+                </label>
+                <span class="dsg-doc-name" *ngIf="slot.fileName">{{ slot.fileName }}</span>
+                <button type="button" class="dsg-doc-clear" *ngIf="slot.fileName" (click)="clearDoc(slot)">Clear</button>
+              </div>
+              <p class="dsg-hint dsg-hint--ok" *ngIf="slot.uploadId && !slot.uploading">
+                <span class="material-icons" aria-hidden="true">check_circle</span> Uploaded
+              </p>
+              <p class="dsg-hint" *ngIf="slot.uploading">Uploading…</p>
+              <p class="dsg-hint dsg-hint--error" *ngIf="slot.error">{{ slot.error }}</p>
+            </div>
+          </div>
+
+          <div class="dsg-section-label">Licence{{ isFreelance ? '' : ' &amp; company' }}</div>
+
+          <div class="dsg-field-row">
+            <div class="dsg-field">
+              <label class="dsg-label">Licence number</label>
+              <div class="dsg-input-wrap">
+                <span class="material-icons" aria-hidden="true">credit_card</span>
+                <input type="text" formControlName="licenseNumber" placeholder="DL-XXXXXXX" autocomplete="off" />
+              </div>
+              <p class="dsg-hint" *ngIf="f['licenseNumber'].touched && f['licenseNumber'].errors?.['required']">Required</p>
+            </div>
+            <div class="dsg-field">
+              <label class="dsg-label">Licence class</label>
+              <div class="dsg-input-wrap dsg-input-wrap--select">
+                <span class="material-icons" aria-hidden="true">badge</span>
+                <select formControlName="licenseClass">
+                  <option value="" disabled>Select class</option>
+                  <option *ngFor="let cls of licenseClasses" [value]="cls">{{ cls }}</option>
+                </select>
+              </div>
+              <p class="dsg-hint" *ngIf="f['licenseClass'].touched && f['licenseClass'].errors?.['required']">Required</p>
+            </div>
+          </div>
+
+          <div class="dsg-field" *ngIf="!isFreelance">
+            <label class="dsg-label">Company code</label>
+            <div class="dsg-input-wrap">
+              <span class="material-icons" aria-hidden="true">domain</span>
+              <input type="text" formControlName="companyCode" placeholder="Provided by your transport company"
+                autocomplete="off" style="text-transform:uppercase" />
+            </div>
+            <p class="dsg-hint" *ngIf="f['companyCode'].touched && f['companyCode'].errors?.['required']">Required</p>
+            <p class="dsg-hint dsg-hint--info">Ask your fleet manager or dispatcher for the company access code.</p>
+          </div>
+
+          <button type="submit" class="dsg-submit" [disabled]="submitting">
+            <span class="dsg-spinner" *ngIf="submitting"></span>
+            <span class="material-icons" *ngIf="!submitting" aria-hidden="true">send</span>
+            {{ submitting ? 'Submitting...' : 'Submit access request' }}
+          </button>
+        </form>
+
+        <p class="dsg-footer">
+          Already have credentials?
+          <a routerLink="/auth/login">Sign in</a>
+        </p>
+      </ng-container>
+
+    </div>
+    </div>
+  </div>
+</div>

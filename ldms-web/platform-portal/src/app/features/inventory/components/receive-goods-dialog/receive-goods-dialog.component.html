@@ -69,6 +69,14 @@
       </div>
     </div>
 
+    <p class="receive-goods-route-hint lx-card" *ngIf="!loadingLines && lines.length">
+      <mat-icon>alt_route</mat-icon>
+      <span>
+        After receiving, move stock to another warehouse via <strong>Inventory → Transfers</strong>.
+        Use the <strong>+</strong> button to add en-route depot stops; tick <strong>cross-border</strong> when customs clearance is required.
+      </span>
+    </p>
+
     <p class="lx-list-error" *ngIf="submitError">
       <mat-icon>warning_amber</mat-icon>
       {{ submitError }}

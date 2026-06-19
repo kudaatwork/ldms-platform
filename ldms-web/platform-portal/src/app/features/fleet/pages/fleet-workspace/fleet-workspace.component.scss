@@ -2201,6 +2201,142 @@
   font-weight: 600;
 }
 
+.flt-compliance__queue {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, #f59e0b 22%, var(--gray-200));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #f59e0b 6%, var(--surface)) 0%,
+    var(--surface) 100%
+  );
+}
+
+.flt-compliance__queue-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gray-800);
+  }
+
+  p {
+    margin: 4px 0 0;
+    font-size: 13px;
+    color: var(--gray-600);
+    max-width: 52ch;
+  }
+}
+
+.flt-compliance__queue-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #f59e0b 16%, var(--surface));
+  color: #b45309;
+}
+
+.flt-compliance__queue-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.flt-compliance__bundle {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    'icon copy'
+    'meta btn';
+  gap: 8px 12px;
+  padding: 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.flt-compliance__bundle-icon {
+  grid-area: icon;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: color-mix(in srgb, #0f766e 10%, var(--surface));
+  color: #0f766e;
+
+  mat-icon {
+    width: 22px;
+    height: 22px;
+    font-size: 22px;
+  }
+}
+
+.flt-compliance__bundle-copy {
+  grid-area: copy;
+  min-width: 0;
+
+  strong {
+    display: block;
+    font-size: 14px;
+    color: var(--gray-800);
+  }
+
+  > span {
+    font-size: 11px;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+}
+
+.flt-compliance__bundle-docs {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+
+  li {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--gray-100);
+    color: var(--gray-600);
+  }
+}
+
+.flt-compliance__bundle-meta {
+  grid-area: meta;
+  align-self: center;
+  padding-left: 54px;
+}
+
+.flt-compliance__bundle-btn {
+  grid-area: btn;
+  justify-self: end;
+  align-self: end;
+}
+
+.flt-pill--warn {
+  background: color-mix(in srgb, #f59e0b 16%, var(--surface));
+  color: #b45309;
+  font-size: 0.75rem;
+}
+
 .flt-compliance__review-btn--approve {
   color: #0f766e;
 }

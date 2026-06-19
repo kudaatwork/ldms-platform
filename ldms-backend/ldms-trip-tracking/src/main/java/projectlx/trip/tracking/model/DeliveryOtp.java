@@ -46,8 +46,14 @@ public class DeliveryOtp implements DomainMarkerInterface {
     @Column(name = "verified_at")
     private LocalDateTime verifiedAt;
 
-    @Column(name = "sent_to_user_id", nullable = false)
+    @Column(name = "sent_to_user_id")
     private Long sentToUserId;
+
+    @Column(name = "otp_channel", length = 50)
+    private String otpChannel;
+
+    @Column(name = "recipient_contact", length = 320)
+    private String recipientContact;
 
     @Column(name = "sent_at", nullable = false)
     private LocalDateTime sentAt;

@@ -176,6 +176,8 @@ export interface CreateFleetDriverPayload {
   employmentType?: DriverEmploymentType;
   firstName: string;
   lastName: string;
+  /** Required when provisionPlatformAccess is true to receive temporary credentials. */
+  email?: string;
   phoneNumber?: string;
   licenseNumber?: string;
   licenseClass?: string;
@@ -192,9 +194,59 @@ export interface CreateFleetDriverPayload {
   addressProvince?: string;
   addressPostalCode?: string;
   addressCountry?: string;
+  /**
+   * When true the backend creates a platform user account and emails temporary credentials.
+   * The transporter does NOT set a password — the driver receives it by email.
+   */
+  provisionPlatformAccess?: boolean;
 }
 
 export interface EditFleetDriverPayload extends CreateFleetDriverPayload {}
+
+// ── Driver marketplace (freelance driver search) ──────────────────────────────
+
+export type MarketplaceDriverAvailability = 'AVAILABLE' | 'BUSY' | 'INACTIVE';
+
+export interface MarketplaceDriverRow {
+  id: number;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phoneNumber: string;
+  licenseNumber: string;
+  licenseClass: string;
+  availability: MarketplaceDriverAvailability;
+  availabilityLabel: string;
+  initials: string;
+  accentHue: number;
+}
+
+// ── Driver signup requests (for transporter review) ───────────────────────────
+
+export type DriverSignupRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface DriverSignupRequestRow {
+  id: number;
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  nationalIdNumber: string;
+  licenseNumber: string;
+  licenseClass: string;
+  freelance: boolean;
+  status: DriverSignupRequestStatus;
+  statusLabel: string;
+  createdAt: string;
+  createdAtLabel: string;
+  initials: string;
+  accentHue: number;
+  nationalIdFrontUploadId?: number;
+  nationalIdBackUploadId?: number;
+  licenseFrontUploadId?: number;
+  licenseBackUploadId?: number;
+}
 
 export type FleetComplianceSubjectType = 'asset' | 'driver';
 export type FleetComplianceType =
@@ -346,6 +398,35 @@ export interface EditFleetTrackingDevicePayload {
   externalDeviceId?: string;
   tracksGps?: boolean;
   tracksFuel?: boolean;
+  notes?: string;
+}
+
+/** Row returned by tracking-integration-credential API (integrator ingest keys). */
+export interface FleetTrackingIntegrationCredentialRow {
+  id: number;
+  organizationId: number;
+  credentialLabel: string;
+  ingestKey?: string;
+  integrationProvider: TrackingIntegrationProvider;
+  integrationProviderLabel: string;
+  status: TrackingInstallStatus;
+  statusLabel: string;
+  fleetAssetId?: number;
+  vehicleRegistration?: string;
+  vehicleMakeModel?: string;
+  externalDeviceId?: string;
+  mqttTopic?: string;
+  lastTelemetryAt?: string;
+  createdAt?: string;
+}
+
+/** POST /tracking-integration-credential/create */
+export interface CreateFleetTrackingIntegrationCredentialPayload {
+  organizationId: number;
+  credentialLabel: string;
+  integrationProvider: TrackingIntegrationProvider;
+  fleetAssetId: number;
+  externalDeviceId?: string;
   notes?: string;
 }
 
