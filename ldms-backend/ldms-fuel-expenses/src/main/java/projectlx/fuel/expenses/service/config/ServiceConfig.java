@@ -8,6 +8,9 @@ import projectlx.fuel.expenses.business.logic.api.OperationalFundRequestService;
 import projectlx.fuel.expenses.service.processor.api.FuelSessionServiceProcessor;
 import projectlx.fuel.expenses.service.processor.api.FuelTelemetryLogServiceProcessor;
 import projectlx.fuel.expenses.service.processor.api.OperationalFundRequestServiceProcessor;
+import projectlx.fuel.expenses.business.logic.api.RoadsideProviderService;
+import projectlx.fuel.expenses.service.processor.api.RoadsideProviderServiceProcessor;
+import projectlx.fuel.expenses.service.processor.impl.RoadsideProviderServiceProcessorImpl;
 import projectlx.fuel.expenses.service.processor.impl.FuelSessionServiceProcessorImpl;
 import projectlx.fuel.expenses.service.processor.impl.FuelTelemetryLogServiceProcessorImpl;
 import projectlx.fuel.expenses.service.processor.impl.OperationalFundRequestServiceProcessorImpl;
@@ -30,5 +33,11 @@ public class ServiceConfig {
     public FuelTelemetryLogServiceProcessor fuelTelemetryLogServiceProcessor(
             FuelTelemetryLogService fuelTelemetryLogService) {
         return new FuelTelemetryLogServiceProcessorImpl(fuelTelemetryLogService);
+    }
+
+    @Bean
+    public RoadsideProviderServiceProcessor roadsideProviderServiceProcessor(
+            RoadsideProviderService roadsideProviderService) {
+        return new RoadsideProviderServiceProcessorImpl(roadsideProviderService);
     }
 }

@@ -8,9 +8,12 @@ import org.springframework.data.repository.query.Param;
 import projectlx.billing.payments.model.PlatformWallet;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface PlatformWalletRepository extends JpaRepository<PlatformWallet, Long> {
+
+    List<PlatformWallet> findByEntityStatusNot(EntityStatus entityStatus);
 
     Optional<PlatformWallet> findByOrganizationIdAndEntityStatusNot(Long organizationId, EntityStatus entityStatus);
 

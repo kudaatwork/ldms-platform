@@ -18,7 +18,7 @@
         type="button"
         class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
         [matMenuTriggerFor]="usageExportMenu"
-        [disabled]="!report?.records?.length || exporting"
+        [disabled]="!filteredRecords.length || exporting"
       >
         {{ exporting ? 'Exporting…' : 'Export' }}
       </button>
@@ -94,6 +94,16 @@
     </p>
 
     <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+          [matMenuTriggerFor]="usageExportMenu"
+          [disabled]="!filteredRecords.length || exporting"
+        >
+          {{ exporting ? 'Exporting…' : 'Export line items' }}
+        </button>
+      </div>
       <div class="lx-data-toolbar__search usage-report-toolbar__search">
         <div class="lx-input-shell lx-search-field">
           <mat-icon class="lx-input-shell__icon">search</mat-icon>
@@ -319,14 +329,24 @@
   </ng-container>
 
   <div class="lx-card usage-report-table-card" *ngIf="report">
-    <div class="lx-table-header">
+    <div class="lx-table-header usage-report-table__head">
       <div>
         <p class="lx-table-meta">Usage charge line items</p>
         <p class="usage-report-table__summary" *ngIf="report.records?.length">
           {{ filteredRecords.length }} of {{ report.records?.length ?? 0 }} records
         </p>
       </div>
-      <span class="lx-fetch-hint" *ngIf="loading">Refreshing…</span>
+      <div class="usage-report-table__actions">
+        <span class="lx-fetch-hint" *ngIf="loading">Refreshing…</span>
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+          [matMenuTriggerFor]="usageExportMenu"
+          [disabled]="!filteredRecords.length || exporting"
+        >
+          {{ exporting ? 'Exporting…' : 'Export' }}
+        </button>
+      </div>
     </div>
 
     <lx-table-loading [busy]="loading" message="Refreshing report…"></lx-table-loading>

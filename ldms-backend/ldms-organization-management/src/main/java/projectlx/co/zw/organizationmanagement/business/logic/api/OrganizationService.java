@@ -77,6 +77,8 @@ public interface OrganizationService {
 
     OrganizationResponse deleteAgentForUser(Long agentId, Locale locale, String username);
 
+    ImportSummary importAgentsFromCsvForUser(InputStream inputStream, Locale locale, String username) throws IOException;
+
     OrganizationResponse listCustomers(Locale locale, String username);
 
     OrganizationResponse listTransporters(Locale locale, String username);

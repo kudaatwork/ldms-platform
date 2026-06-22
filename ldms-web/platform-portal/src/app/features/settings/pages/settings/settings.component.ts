@@ -10,6 +10,7 @@ import {
   canManageKycApproverSettings,
   canManageOperationalSettings,
   canManageProcurementSettings,
+  canManageBillingApproverSettings,
 } from '../../utils/org-settings-permissions.util';
 
 export type SettingsSection =
@@ -18,6 +19,7 @@ export type SettingsSection =
   | 'kyc-approvers'
   | 'currency'
   | 'procurement-approvers'
+  | 'billing-approvers'
   | 'billing'
   | 'operational-mode';
 
@@ -36,6 +38,7 @@ const ALL_SECTION_IDS: SettingsSection[] = [
   'kyc-approvers',
   'currency',
   'procurement-approvers',
+  'billing-approvers',
   'billing',
   'operational-mode',
 ];
@@ -164,6 +167,15 @@ export class SettingsComponent implements OnInit, OnDestroy {
         icon: 'approval',
         hint: 'Approval stages for requisitions',
         visible: canManageProcurementSettings(roles) && classification === 'SUPPLIER',
+      },
+      {
+        id: 'billing-approvers',
+        label: 'Billing approvers',
+        icon: 'payments',
+        hint: 'Verify customer proof-of-payment',
+        visible:
+          classification === 'SUPPLIER'
+          && (canManageBillingApproverSettings(roles) || this.authState.currentUser?.billingApprover === true),
       },
       {
         id: 'billing',

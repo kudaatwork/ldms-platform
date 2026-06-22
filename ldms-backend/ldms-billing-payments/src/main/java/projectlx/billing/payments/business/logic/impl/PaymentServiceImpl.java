@@ -8,9 +8,13 @@ import org.springframework.transaction.annotation.Transactional;
 import projectlx.billing.payments.business.auditable.api.InvoiceServiceAuditable;
 import projectlx.billing.payments.business.auditable.api.PaymentServiceAuditable;
 import projectlx.billing.payments.business.logic.api.PaymentService;
+import projectlx.billing.payments.business.logic.support.BillingApproverSupport;
 import projectlx.billing.payments.business.logic.support.BillingMapper;
+import projectlx.billing.payments.business.logic.support.BillingVerificationStageResolver;
 import projectlx.billing.payments.business.logic.support.CallerOrganizationResolver;
 import projectlx.billing.payments.business.logic.support.CurrencyConversionSupport;
+import projectlx.billing.payments.business.logic.support.PaymentVerificationSupport;
+import projectlx.billing.payments.clients.UserManagementServiceClient;
 import projectlx.billing.payments.business.validator.api.PaymentServiceValidator;
 import projectlx.billing.payments.model.Invoice;
 import projectlx.billing.payments.model.Payment;
@@ -18,6 +22,7 @@ import projectlx.billing.payments.repository.InvoiceRepository;
 import projectlx.billing.payments.repository.PaymentRepository;
 import projectlx.billing.payments.utils.config.RabbitMQProducerConfig;
 import projectlx.billing.payments.utils.dtos.ConversionResultDto;
+import projectlx.billing.payments.utils.dtos.PaymentDto;
 import projectlx.billing.payments.utils.enums.GatewayProvider;
 import projectlx.billing.payments.utils.enums.I18Code;
 import projectlx.billing.payments.utils.enums.InvoiceSourceType;
@@ -30,6 +35,7 @@ import projectlx.billing.payments.utils.responses.PaymentResponse;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import projectlx.co.zw.shared_library.utils.responses.UserResponse;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -55,6 +61,10 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentServiceAuditable paymentServiceAuditable;
     private final InvoiceServiceAuditable invoiceServiceAuditable;
     private final PaymentServiceValidator paymentServiceValidator;
+    private final BillingApproverSupport billingApproverSupport;
+    private final BillingVerificationStageResolver billingVerificationStageResolver;
+    private final PaymentVerificationSupport paymentVerificationSupport;
+    private final UserManagementServiceClient userManagementServiceClient;
 
     @Override
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -147,6 +157,11 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setProofDocumentId(request.getProofDocumentId());
         payment.setProofSource(resolveProofSource(request.getProofDocumentId(), request.getProofSource()));
         payment.setGatewayProvider(request.getGatewayProvider());
+        if (requiresVerification) {
+            Long supplierOrganizationId = invoice.getSupplierId() != null ? invoice.getSupplierId() : organizationId;
+            payment.setRequiredVerificationStages(billingVerificationStageResolver.resolveRequiredStages(supplierOrganizationId));
+            payment.setCurrentVerificationStage(0);
+        }
         payment.setEntityStatus(EntityStatus.ACTIVE);
         payment.setCreatedAt(now);
         payment.setCreatedBy(username);
@@ -254,8 +269,59 @@ public class PaymentServiceImpl implements PaymentService {
                     List.of("Payment is not in PENDING status; current status: " + payment.getStatus()));
         }
 
+        Long supplierOrganizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
+        if (supplierOrganizationId == null) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(), new String[]{}, locale),
+                    List.of());
+        }
+        Optional<String> approverError = billingApproverSupport.validateBillingApprover(username, supplierOrganizationId);
+        if (approverError.isPresent()) {
+            return error(403,
+                    messageService.getMessage(I18Code.MESSAGE_USER_NOT_BILLING_APPROVER.getCode(), new String[]{}, locale),
+                    List.of(approverError.get()));
+        }
+
+        Optional<Invoice> invoiceOpt = invoiceRepository.findByIdAndEntityStatusNot(payment.getInvoiceId(), EntityStatus.DELETED);
+        if (invoiceOpt.isEmpty() || !supplierOrganizationId.equals(invoiceOpt.get().getSupplierId())) {
+            return error(404,
+                    messageService.getMessage(I18Code.MESSAGE_PAYMENT_NOT_FOUND.getCode(), new String[]{}, locale),
+                    List.of());
+        }
+
+        UserResponse sessionProfile = userManagementServiceClient.findSessionProfileByUsername(username.trim());
+        Long reviewerUserId = sessionProfile != null && sessionProfile.getUserDto() != null
+                ? sessionProfile.getUserDto().getId()
+                : null;
+        if (paymentVerificationSupport.hasUserAlreadyVerified(payment.getId(), username)) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_PAYMENT_VERIFY_INVALID.getCode(), new String[]{}, locale),
+                    List.of("You have already verified this payment."));
+        }
+
+        int requiredStages = payment.getRequiredVerificationStages() != null
+                ? payment.getRequiredVerificationStages()
+                : billingVerificationStageResolver.resolveRequiredStages(supplierOrganizationId);
+        int currentStage = payment.getCurrentVerificationStage() != null ? payment.getCurrentVerificationStage() : 0;
+
+        PaymentVerificationSupport.StageVerificationResult stageResult =
+                paymentVerificationSupport.recordVerificationStage(
+                        payment.getId(), currentStage, requiredStages, reviewerUserId, username);
+
+        payment.setCurrentVerificationStage(stageResult.completedStage());
+        payment.setModifiedAt(LocalDateTime.now());
+        payment.setModifiedBy(username);
+        paymentServiceAuditable.update(payment, locale, username);
+
+        if (!stageResult.allStagesComplete()) {
+            PaymentResponse partial = success(200,
+                    messageService.getMessage(I18Code.MESSAGE_PAYMENT_VERIFY_STAGE_SUCCESS.getCode(), new String[]{}, locale));
+            partial.setPaymentDto(enrichPaymentDto(payment, locale));
+            return partial;
+        }
+
         // ============================================================
-        // STEP 4: Mark VERIFIED then COMPLETED, stamp audits
+        // STEP 4: All stages complete — mark VERIFIED then COMPLETED
         // ============================================================
         LocalDateTime now = LocalDateTime.now();
         payment.setStatus(PaymentRecordStatus.VERIFIED);
@@ -268,18 +334,13 @@ public class PaymentServiceImpl implements PaymentService {
         // ============================================================
         // STEP 5: Update invoice payment status
         // ============================================================
-        Optional<Invoice> invoiceOpt = invoiceRepository.findByIdAndEntityStatusNot(payment.getInvoiceId(), EntityStatus.DELETED);
-        if (invoiceOpt.isPresent()) {
-            updateInvoicePaymentStatus(invoiceOpt.get(), locale);
-        } else {
-            log.warn("Invoice {} not found while verifying payment {}", payment.getInvoiceId(), paymentId);
-        }
+        updateInvoicePaymentStatus(invoiceOpt.get(), locale);
 
         // ============================================================
         // STEP 6: Publish payment.verified event with purchaseOrderId from invoice
         // ============================================================
         try {
-            Long purchaseOrderId = invoiceOpt.map(Invoice::getPurchaseOrderId).orElse(null);
+            Long purchaseOrderId = invoiceOpt.get().getPurchaseOrderId();
             Map<String, Object> event = buildPaymentVerifiedEvent(payment, purchaseOrderId);
             rabbitTemplate.convertAndSend(
                     RabbitMQProducerConfig.BILLING_EXCHANGE,
@@ -292,7 +353,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         PaymentResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_PAYMENT_VERIFY_SUCCESS.getCode(), new String[]{}, locale));
-        response.setPaymentDto(BillingMapper.toDto(payment));
+        response.setPaymentDto(enrichPaymentDto(payment, locale));
         return response;
     }
 
@@ -308,6 +369,43 @@ public class PaymentServiceImpl implements PaymentService {
         event.put("verifiedBy", payment.getVerifiedBy());
         event.put("verifiedAt", payment.getVerifiedAt() != null ? payment.getVerifiedAt().toString() : null);
         return event;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PaymentResponse listPendingProcurementPayments(Locale locale, String username) {
+        Long supplierOrganizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
+        if (supplierOrganizationId == null) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(), new String[]{}, locale),
+                    List.of());
+        }
+        if (!billingApproverSupport.isBillingApproverForOrganization(username, supplierOrganizationId)) {
+            return error(403,
+                    messageService.getMessage(I18Code.MESSAGE_USER_NOT_BILLING_APPROVER.getCode(), new String[]{}, locale),
+                    List.of());
+        }
+
+        List<PaymentDto> rows = paymentRepository
+                .findPendingProcurementForSupplier(supplierOrganizationId, PaymentRecordStatus.PENDING)
+                .stream()
+                .map(payment -> enrichPaymentDto(payment, locale))
+                .toList();
+
+        PaymentResponse response = success(200, "Pending procurement payments retrieved");
+        response.setPaymentDtoList(rows);
+        return response;
+    }
+
+    private PaymentDto enrichPaymentDto(Payment payment, Locale locale) {
+        PaymentDto dto = BillingMapper.toDto(payment);
+        invoiceRepository.findByIdAndEntityStatusNot(payment.getInvoiceId(), EntityStatus.DELETED)
+                .ifPresent(invoice -> {
+                    dto.setInvoiceNumber(invoice.getInvoiceNumber());
+                    dto.setPurchaseOrderId(invoice.getPurchaseOrderId());
+                    dto.setPurchaseOrderNumber(invoice.getPurchaseOrderNumber());
+                });
+        return dto;
     }
 
     @Override

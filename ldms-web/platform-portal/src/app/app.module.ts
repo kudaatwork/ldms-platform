@@ -9,7 +9,7 @@ import { CoreModule } from './core/core.module';
 import { SharedModule } from './shared/shared.module';
 import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.component';
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
-import { LandingComponent } from './features/landing/pages/landing/landing.component';
+import { LandingModule } from './features/landing/landing.module';
 import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
 import { OfflinePageComponent } from './shared/components/offline-page/offline-page.component';
 import { LxRouteProgressComponent } from './shared/components/lx-route-progress/lx-route-progress.component';
@@ -34,7 +34,6 @@ export function initPlatformSession(auth: AuthService): () => void {
     AppComponent,
     ShellLayoutComponent,
     PlaceholderPageComponent,
-    LandingComponent,
     ContactDemoComponent,
   ],
   imports: [
@@ -43,6 +42,7 @@ export function initPlatformSession(auth: AuthService): () => void {
     HttpClientModule,
     CoreModule,
     SharedModule,
+    LandingModule,
     AppRoutingModule,
     OfflinePageComponent,
     LxRouteProgressComponent,

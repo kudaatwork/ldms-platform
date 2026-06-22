@@ -37,7 +37,9 @@ public enum I18Code {
     MESSAGE_ORG_CURRENCY_CONTEXT_SUCCESS("billing.org.currency.context.success"),
     MESSAGE_PAYMENT_NOT_FOUND("billing.payment.not.found"),
     MESSAGE_PAYMENT_VERIFY_SUCCESS("billing.payment.verify.success"),
+    MESSAGE_PAYMENT_VERIFY_STAGE_SUCCESS("billing.payment.verify.stage.success"),
     MESSAGE_PAYMENT_VERIFY_INVALID("billing.payment.verify.invalid"),
+    MESSAGE_USER_NOT_BILLING_APPROVER("billing.user.not.billing.approver"),
     MESSAGE_PAYMENT_GATEWAY_UNSUPPORTED("billing.payment.gateway.unsupported"),
     MESSAGE_INVOICE_PO_CREATE_SUCCESS("billing.invoice.po.create.success"),
 
@@ -49,6 +51,9 @@ public enum I18Code {
     MESSAGE_SUBSCRIPTION_PACKAGE_SAVE_SUCCESS("billing.subscription.package.save.success"),
     MESSAGE_SUBSCRIPTION_PACKAGE_INVALID("billing.subscription.package.invalid"),
     MESSAGE_SUBSCRIPTION_PACKAGE_NOT_FOUND("billing.subscription.package.not.found"),
+    MESSAGE_SUBSCRIPTION_PACKAGE_DELETE_SUCCESS("billing.subscription.package.delete.success"),
+    MESSAGE_SUBSCRIPTION_PACKAGE_IN_USE("billing.subscription.package.in.use"),
+    MESSAGE_PRICING_CATALOG_SUCCESS("billing.pricing.catalog.success"),
     MESSAGE_WALLET_DEPOSIT_CREATE_SUCCESS("billing.wallet.deposit.create.success"),
     MESSAGE_WALLET_DEPOSIT_LIST_SUCCESS("billing.wallet.deposit.list.success"),
     MESSAGE_WALLET_DEPOSIT_INVALID("billing.wallet.deposit.invalid"),
@@ -61,9 +66,14 @@ public enum I18Code {
     MESSAGE_ACTION_CHARGE_SAVE_SUCCESS("billing.action.charge.save.success"),
     MESSAGE_ACTION_CHARGE_INVALID("billing.action.charge.invalid"),
     MESSAGE_ACTION_CHARGE_NOT_FOUND("billing.action.charge.not.found"),
+    MESSAGE_ACTION_CHARGE_DELETE_SUCCESS("billing.action.charge.delete.success"),
     MESSAGE_USAGE_CHARGE_INVALID("billing.usage.charge.invalid"),
     MESSAGE_USAGE_CHARGE_RECORDED("billing.usage.charge.recorded"),
-    MESSAGE_USAGE_REPORT_SUCCESS("billing.usage.report.success");
+    MESSAGE_USAGE_REPORT_SUCCESS("billing.usage.report.success"),
+    MESSAGE_WALLET_CREDIT_SUCCESS("billing.wallet.credit.success"),
+    MESSAGE_WALLET_RECEIPT_SUCCESS("billing.wallet.receipt.success"),
+    MESSAGE_WALLET_TX_NOT_FOUND("billing.wallet.tx.not.found"),
+    MESSAGE_WALLET_DEPOSIT_REJECT_SUCCESS("billing.wallet.deposit.reject.success");
 
     private final String code;
 }

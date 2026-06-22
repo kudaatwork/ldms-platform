@@ -66,6 +66,8 @@ public interface UserService {
 
     UserResponse setShipmentFleetAllocator(Long id, boolean enabled, Locale locale, String username);
 
+    UserResponse setBillingApprover(Long id, boolean enabled, Locale locale, String username);
+
     // ============================================================
     //  Phone verification & 2FA step-up
     // ============================================================

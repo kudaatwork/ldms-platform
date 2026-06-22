@@ -43,16 +43,24 @@ ldms:
     force-local-feign-clients: true
   api-gateway:
     base-url: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+  billing:
+    bootstrap:
+      ecogas-enabled: ${ECOGAS_WALLET_BOOTSTRAP:false}
+      ecogas-organization-id: ${ECOGAS_ORG_ID:}
+      ecogas-organization-name: Ecogas
+      ecogas-credit-cents: 100000
 
 CLIENTS_API_GATEWAY_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
 CLIENTS_USER_MANAGEMENT_SERVICE_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
 CLIENTS_INVENTORY_MANAGEMENT_SERVICE_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+CLIENTS_ORGANIZATION_MANAGEMENT_SERVICE_URL: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
 
 clients:
   base-url:
     apiGateway: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
     userManagementService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
     inventoryManagementService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
+    organizationManagementService: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
 
 eureka:
   client:

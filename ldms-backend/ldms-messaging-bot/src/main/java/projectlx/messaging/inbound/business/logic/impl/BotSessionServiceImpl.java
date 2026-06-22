@@ -2,6 +2,8 @@ package projectlx.messaging.inbound.business.logic.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
+import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
+import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.messaging.inbound.business.auditable.api.BotSessionServiceAuditable;
@@ -10,6 +12,7 @@ import projectlx.messaging.inbound.business.logic.support.BotCallerProfileSuppor
 import projectlx.messaging.inbound.business.logic.support.BotSessionMapper;
 import projectlx.messaging.inbound.business.logic.support.GeminiLlmClient;
 import projectlx.messaging.inbound.business.logic.support.BotFaqRagSupport;
+import projectlx.messaging.inbound.business.logic.support.BotKnowledgeDocumentRagSupport;
 import projectlx.messaging.inbound.business.logic.support.LdmsKnowledgeContextSupport;
 import projectlx.messaging.inbound.business.validator.api.BotSessionServiceValidator;
 import projectlx.messaging.inbound.model.BotMessage;
@@ -42,7 +45,9 @@ public class BotSessionServiceImpl implements BotSessionService {
     private final BotSessionMapper botSessionMapper;
     private final LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport;
     private final BotFaqRagSupport botFaqRagSupport;
+    private final BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport;
     private final GeminiLlmClient geminiLlmClient;
+    private final PlatformWalletUsageSupport platformWalletUsageSupport;
     private final MessageService messageService;
 
     public BotSessionServiceImpl(BotSessionRepository botSessionRepository,
@@ -53,7 +58,9 @@ public class BotSessionServiceImpl implements BotSessionService {
                                  BotSessionMapper botSessionMapper,
                                  LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport,
                                  BotFaqRagSupport botFaqRagSupport,
+                                 BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport,
                                  GeminiLlmClient geminiLlmClient,
+                                 PlatformWalletUsageSupport platformWalletUsageSupport,
                                  MessageService messageService) {
         this.botSessionRepository = botSessionRepository;
         this.botMessageRepository = botMessageRepository;
@@ -63,7 +70,9 @@ public class BotSessionServiceImpl implements BotSessionService {
         this.botSessionMapper = botSessionMapper;
         this.ldmsKnowledgeContextSupport = ldmsKnowledgeContextSupport;
         this.botFaqRagSupport = botFaqRagSupport;
+        this.botKnowledgeDocumentRagSupport = botKnowledgeDocumentRagSupport;
         this.geminiLlmClient = geminiLlmClient;
+        this.platformWalletUsageSupport = platformWalletUsageSupport;
         this.messageService = messageService;
     }
 
@@ -131,6 +140,14 @@ public class BotSessionServiceImpl implements BotSessionService {
                     new String[]{}, locale));
         }
 
+        if (session.getOrganizationId() != null && session.getOrganizationId() > 0L) {
+            platformWalletUsageSupport.chargeRequired(
+                    session.getOrganizationId(),
+                    PlatformWalletActionCodes.HELP_BOT_MESSAGE,
+                    "BOT_SESSION",
+                    session.getId());
+        }
+
         LocalDateTime now = LocalDateTime.now();
         String userBody = request.getBody().trim();
 
@@ -152,7 +169,8 @@ public class BotSessionServiceImpl implements BotSessionService {
                 session.getId(), EntityStatus.ACTIVE);
         String botReply = geminiLlmClient.generateReply(
                 ldmsKnowledgeContextSupport.systemPrompt(
-                        session.getUserDisplayName(), session.getOrganizationName(), userBody, botFaqRagSupport),
+                        session.getUserDisplayName(), session.getOrganizationName(), userBody,
+                        botFaqRagSupport, botKnowledgeDocumentRagSupport),
                 history);
 
         BotMessage botMessage = new BotMessage();

@@ -1,7 +1,11 @@
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, catchError, throwError } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, catchError, map, throwError } from 'rxjs';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
+import {
+  isApiFailureEnvelope,
+  readApiFailureMessage,
+} from '../../../core/utils/api-paged-response.util';
 import {
   FinishCountingRequest,
   RecordReturnsRequest,
@@ -24,82 +28,102 @@ export class DeliveryWorkflowService {
 
   constructor(private readonly http: HttpClient) {}
 
-  // ── Workflow state ────────────────────────────────────────────────────────
-
   getWorkflowState(tripId: number): Observable<TripDeliveryWorkflowResponse> {
-    return this.http
-      .get<TripDeliveryWorkflowResponse>(`${this.deliveryBase}/${tripId}`)
-      .pipe(catchError(this.handleError));
+    return this.http.get<unknown>(`${this.deliveryBase}/${tripId}`).pipe(
+      map((raw) => {
+        if (isApiFailureEnvelope(raw)) {
+          throw new Error(readApiFailureMessage(raw, 'Failed to load delivery workflow'));
+        }
+        return raw as TripDeliveryWorkflowResponse;
+      }),
+      catchError((err) =>
+        throwError(() => this.toApiError(err, 'Failed to load delivery workflow')),
+      ),
+    );
   }
-
-  // ── Step 1: Arrival ───────────────────────────────────────────────────────
 
   triggerArrival(payload: TriggerArrivalRequest): Observable<void> {
-    return this.http
-      .post<void>(`${this.tripBase}/trigger-arrival`, payload)
-      .pipe(catchError(this.handleError));
+    return this.http.post<unknown>(`${this.tripBase}/trigger-arrival`, payload).pipe(
+      this.unwrapAction('Could not confirm arrival'),
+    );
   }
-
-  // ── Step 2: Stock counting ────────────────────────────────────────────────
 
   startCounting(tripId: number, payload: StartCountingRequest): Observable<void> {
     return this.http
-      .post<void>(`${this.deliveryBase}/${tripId}/start-counting`, payload)
-      .pipe(catchError(this.handleError));
+      .post<unknown>(`${this.deliveryBase}/${tripId}/start-counting`, payload)
+      .pipe(this.unwrapAction('Could not start stock counting'));
   }
-
-  // ── Step 3: Finished counting ─────────────────────────────────────────────
 
   finishCounting(tripId: number, payload: FinishCountingRequest): Observable<void> {
     return this.http
-      .post<void>(`${this.deliveryBase}/${tripId}/finish-counting`, payload)
-      .pipe(catchError(this.handleError));
+      .post<unknown>(`${this.deliveryBase}/${tripId}/finish-counting`, payload)
+      .pipe(this.unwrapAction('Could not finish stock counting'));
   }
-
-  // ── Step 4: Send OTP ──────────────────────────────────────────────────────
 
   sendOtp(payload: SendOtpRequest): Observable<void> {
     return this.http
-      .post<void>(`${this.deliveryBase}/send-otp`, payload)
-      .pipe(catchError(this.handleError));
+      .post<unknown>(`${this.deliveryBase}/send-otp`, payload)
+      .pipe(this.unwrapAction('Could not send delivery OTP'));
   }
-
-  // ── Step 5: OTP verification ──────────────────────────────────────────────
 
   verifyOtp(payload: VerifyOtpRequest): Observable<void> {
     return this.http
-      .post<void>(`${this.deliveryBase}/verify-otp`, payload)
-      .pipe(catchError(this.handleError));
+      .post<unknown>(`${this.deliveryBase}/verify-otp`, payload)
+      .pipe(this.unwrapAction('Could not verify delivery OTP'));
   }
-
-  // ── Step 6: Start return journey ──────────────────────────────────────────
 
   startReturn(tripId: number): Observable<void> {
     return this.http
-      .post<void>(`${this.deliveryBase}/${tripId}/start-return`, {})
-      .pipe(catchError(this.handleError));
+      .post<unknown>(`${this.deliveryBase}/${tripId}/start-return`, {})
+      .pipe(this.unwrapAction('Could not start return journey'));
   }
-
-  // ── Step 7: Record returns ────────────────────────────────────────────────
 
   recordReturns(tripId: number, payload: RecordReturnsRequest): Observable<void> {
     return this.http
-      .post<void>(`${this.deliveryBase}/${tripId}/record-returns`, payload)
-      .pipe(catchError(this.handleError));
+      .post<unknown>(`${this.deliveryBase}/${tripId}/record-returns`, payload)
+      .pipe(this.unwrapAction('Could not record return items'));
   }
-
-  // ── Step 8: Confirm return complete ──────────────────────────────────────
 
   confirmReturn(tripId: number): Observable<void> {
     return this.http
-      .post<void>(`${this.deliveryBase}/${tripId}/confirm-return`, {})
-      .pipe(catchError(this.handleError));
+      .post<unknown>(`${this.deliveryBase}/${tripId}/confirm-return`, {})
+      .pipe(this.unwrapAction('Could not confirm return'));
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  private unwrapAction(fallback: string) {
+    return (source: Observable<unknown>) =>
+      source.pipe(
+        map((raw) => {
+          if (isApiFailureEnvelope(raw)) {
+            throw new Error(readApiFailureMessage(raw, fallback));
+          }
+          return void 0;
+        }),
+        catchError((err) => throwError(() => this.toApiError(err, fallback))),
+      );
+  }
 
-  private handleError = (err: any): Observable<never> =>
-    throwError(
-      () => new Error(err?.error?.message ?? err?.message ?? 'Delivery workflow error'),
-    );
+  private toApiError(err: unknown, fallback: string): Error {
+    if (err instanceof Error && !(err instanceof HttpErrorResponse)) {
+      return err;
+    }
+    if (err instanceof HttpErrorResponse) {
+      const body = err.error;
+      if (typeof body === 'string' && body.trim()) {
+        return new Error(body.trim());
+      }
+      const fromEnvelope = readApiFailureMessage(body, '');
+      if (fromEnvelope) {
+        return new Error(fromEnvelope);
+      }
+      const gatewayError =
+        typeof body === 'object' &&
+        body &&
+        typeof (body as Record<string, unknown>)['error'] === 'string'
+          ? String((body as Record<string, unknown>)['error'])
+          : '';
+      return new Error(gatewayError || err.message || fallback);
+    }
+    return new Error(fallback);
+  }
 }

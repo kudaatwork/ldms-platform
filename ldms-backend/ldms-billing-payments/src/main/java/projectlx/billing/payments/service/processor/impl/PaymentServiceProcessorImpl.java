@@ -34,6 +34,11 @@ public class PaymentServiceProcessorImpl implements PaymentServiceProcessor {
     }
 
     @Override
+    public PaymentResponse listPendingProcurementPayments(Locale locale, String username) {
+        return paymentService.listPendingProcurementPayments(locale, username);
+    }
+
+    @Override
     public PaymentResponse verifyPayment(Long paymentId, String username, Locale locale) {
         return paymentService.verifyPayment(paymentId, username, locale);
     }

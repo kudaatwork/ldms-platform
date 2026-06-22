@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
+import { ActivatedRoute } from '@angular/router';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subject, catchError, finalize, of, startWith, switchMap } from 'rxjs';
 import {
@@ -16,6 +17,7 @@ import {
   DemoRequisitionStatus,
   HelpSupportAdminService,
 } from '../../services/help-support-admin.service';
+import { UserListRow, UsersAdminService } from '../../../users/services/users-admin.service';
 
 type StatusFilter = 'ALL' | DemoRequisitionStatus;
 
@@ -34,6 +36,9 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
   detailError = '';
   requisitions: AdminDemoRequisition[] = [];
   selected: AdminDemoRequisition | null = null;
+  linkedUser: UserListRow | null = null;
+  linkedUserLoading = false;
+  linkedUserResolved = false;
   adminNotesDraft = '';
   scheduledAtDraft = '';
 
@@ -51,17 +56,22 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
   ];
 
   private readonly destroyRef = inject(DestroyRef);
+  private readonly route = inject(ActivatedRoute);
   private readonly reload$ = new Subject<void>();
+  private pendingSelectId: number | null = null;
 
   constructor(
     private readonly title: Title,
     private readonly helpApi: HelpSupportAdminService,
+    private readonly usersAdmin: UsersAdminService,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.title.setTitle('Demo requisitions | LX Admin');
+    const idParam = Number(this.route.snapshot.queryParamMap.get('id') ?? 0);
+    this.pendingSelectId = Number.isFinite(idParam) && idParam > 0 ? idParam : null;
     this.reload$
       .pipe(
         startWith(undefined),
@@ -129,6 +139,8 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
     }
     this.detailLoading = true;
     this.detailError = '';
+    this.linkedUser = null;
+    this.linkedUserResolved = false;
     this.mobileShowDetail.set(true);
     this.cdr.markForCheck();
     this.helpApi
@@ -146,13 +158,35 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
           this.adminNotesDraft = detail.adminNotes ?? '';
           this.scheduledAtDraft = this.toDatetimeLocal(detail.scheduledAt);
           this.patchListRow(detail);
+          this.resolveLinkedUser(detail.email);
         },
         error: (err: Error) => {
           this.detailError = err.message;
           this.selected = row;
           this.adminNotesDraft = row.adminNotes ?? '';
           this.scheduledAtDraft = this.toDatetimeLocal(row.scheduledAt);
+          this.resolveLinkedUser(row.email);
         },
+      });
+  }
+
+  private resolveLinkedUser(email: string): void {
+    this.linkedUserLoading = true;
+    this.linkedUserResolved = false;
+    this.linkedUser = null;
+    this.cdr.markForCheck();
+    this.usersAdmin
+      .findRegisteredUserByEmail(email)
+      .pipe(
+        finalize(() => {
+          this.linkedUserLoading = false;
+          this.linkedUserResolved = true;
+          this.cdr.markForCheck();
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((user) => {
+        this.linkedUser = user;
       });
   }
 
@@ -279,6 +313,12 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
       if (refreshed) {
         this.selected = { ...this.selected, ...refreshed };
       }
+    } else if (this.pendingSelectId) {
+      const match = rows.find((r) => r.id === this.pendingSelectId);
+      if (match) {
+        this.selectRequisition(match);
+      }
+      this.pendingSelectId = null;
     }
     this.cdr.markForCheck();
   }

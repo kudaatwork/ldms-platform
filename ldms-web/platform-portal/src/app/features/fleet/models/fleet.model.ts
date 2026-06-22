@@ -203,6 +203,17 @@ export interface CreateFleetDriverPayload {
 
 export interface EditFleetDriverPayload extends CreateFleetDriverPayload {}
 
+/** POST /fleet/drivers/{id}/provision-platform-access — enable login for legacy drivers. */
+export interface ProvisionDriverPlatformAccessPayload {
+  email: string;
+  reissueCredentials?: boolean;
+}
+
+export interface ProvisionDriverPlatformAccessResult {
+  driver: FleetDriverRow;
+  message: string;
+}
+
 // ── Driver marketplace (freelance driver search) ──────────────────────────────
 
 export type MarketplaceDriverAvailability = 'AVAILABLE' | 'BUSY' | 'INACTIVE';

@@ -493,6 +493,52 @@ public class OrganizationDirectoryAdminService {
     }
 
     @Transactional
+    public ImportSummary importAgentsFromCsvForOrganization(
+            InputStream inputStream, Long organizationId, Locale locale, String username) throws IOException {
+        List<AgentCsvDto> rows = parseCsv(inputStream, AgentCsvDto.class);
+        int imported = 0;
+        int failed = 0;
+        List<String> errors = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            AgentCsvDto row = rows.get(i);
+            try {
+                if (StringUtils.hasText(row.getOrganizationId())) {
+                    long csvOrgId = Long.parseLong(row.getOrganizationId().trim());
+                    if (csvOrgId != organizationId) {
+                        failed++;
+                        errors.add("Row " + (i + 2) + ": ORGANIZATION ID must match your organisation.");
+                        continue;
+                    }
+                }
+                CreateAgentRequest req = new CreateAgentRequest();
+                req.setOrganizationId(organizationId);
+                req.setAgentKind(row.getAgentKind().trim().toUpperCase());
+                req.setFirstName(row.getFirstName());
+                req.setLastName(row.getLastName());
+                req.setEmail(row.getEmail());
+                req.setPhoneNumber(row.getPhoneNumber());
+                req.setAgentType(row.getAgentType());
+                req.setRole(row.getRole());
+                if (StringUtils.hasText(row.getBranchId())) {
+                    req.setBranchId(Long.parseLong(row.getBranchId().trim()));
+                }
+                req.setActive(parseBoolean(row.getActive()));
+                OrganizationResponse resp = createAgent(req, locale, username, false);
+                if (resp.isSuccess()) {
+                    imported++;
+                } else {
+                    failed++;
+                    errors.add("Row " + (i + 2) + ": " + String.join(" ", resp.getErrorMessages()));
+                }
+            } catch (RuntimeException ex) {
+                failed++;
+                errors.add("Row " + (i + 2) + ": " + ex.getMessage());
+            }
+        }
+        return buildImportSummary(rows.size(), imported, failed, errors, locale, "agents");
+    }
+
+    @Transactional
     public ImportSummary importIndustriesFromCsv(InputStream inputStream, Locale locale, String username) throws IOException {
         List<IndustryCsvDto> rows = parseCsv(inputStream, IndustryCsvDto.class);
         int imported = 0;

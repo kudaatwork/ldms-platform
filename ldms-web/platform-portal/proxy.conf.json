@@ -1,5 +1,12 @@
 [
   {
+    "context": ["/ldms-billing-payments"],
+    "target": "http://localhost:8014",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "debug"
+  },
+  {
     "context": ["/ldms-"],
     "target": "http://localhost:8091",
     "secure": false,

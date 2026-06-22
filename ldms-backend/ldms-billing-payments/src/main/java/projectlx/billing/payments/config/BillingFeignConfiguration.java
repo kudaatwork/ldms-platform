@@ -6,7 +6,9 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import projectlx.billing.payments.business.logic.support.WalletBillingEventPublisher;
 import projectlx.billing.payments.clients.InventoryManagementServiceClient;
+import projectlx.billing.payments.clients.OrganizationManagementServiceClient;
 import projectlx.billing.payments.clients.UserManagementServiceClient;
 
 @Slf4j
@@ -37,6 +39,20 @@ public class BillingFeignConfiguration {
                 .forType(InventoryManagementServiceClient.class, "inventory-management-service")
                 .inheritParentContext(true)
                 .contextId("billing-inventory-management-service")
+                .url(url)
+                .build();
+    }
+
+    @Bean
+    public OrganizationManagementServiceClient organizationManagementServiceClient(ApplicationContext applicationContext) {
+        Environment env = applicationContext.getEnvironment();
+        String url = LdmsFeignUrls.resolveOrganizationManagementServiceBaseUrl(env);
+        log.info("Organization management Feign client base URL: {} (ldms.dev.force-local-feign-clients={})",
+                url, env.getProperty("ldms.dev.force-local-feign-clients", "false"));
+        return new FeignClientBuilder(applicationContext)
+                .forType(OrganizationManagementServiceClient.class, "organization-management-service")
+                .inheritParentContext(true)
+                .contextId("billing-organization-management-service")
                 .url(url)
                 .build();
     }

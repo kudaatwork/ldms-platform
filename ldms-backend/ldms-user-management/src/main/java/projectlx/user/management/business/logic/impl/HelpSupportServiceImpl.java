@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
+import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
+import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.user.management.business.logic.api.HelpSupportService;
@@ -74,6 +76,7 @@ public class HelpSupportServiceImpl implements HelpSupportService {
     private final PlatformHealthService platformHealthService;
     private final SupportTicketAssignmentService supportTicketAssignmentService;
     private final SupportTicketOperationsSupport ticketOperations;
+    private final PlatformWalletUsageSupport platformWalletUsageSupport;
     private final ModelMapper modelMapper;
 
     @Override
@@ -141,6 +144,12 @@ public class HelpSupportServiceImpl implements HelpSupportService {
         SupportTicket saved = supportTicketRepository.save(ticket);
         saved.setTicketNumber(formatTicketNumber(saved.getId()));
         saved = supportTicketRepository.save(saved);
+
+        chargeHelpUsage(
+                user.getOrganizationId(),
+                PlatformWalletActionCodes.HELP_SUPPORT_TICKET_OPEN,
+                "SUPPORT_TICKET",
+                saved.getId());
 
         try {
             Optional<User> handler = supportTicketAssignmentService.pickHandler();
@@ -349,6 +358,11 @@ public class HelpSupportServiceImpl implements HelpSupportService {
         if (ticket.getStatus() == SupportTicketStatus.CLOSED) {
             return failure(409, messageService.getMessage(I18Code.MESSAGE_SUPPORT_TICKET_CLOSED.getCode(), new String[]{}, locale));
         }
+        chargeHelpUsage(
+                ticket.getOrganizationId(),
+                PlatformWalletActionCodes.HELP_LIVE_CHAT_MESSAGE,
+                "SUPPORT_TICKET",
+                ticket.getId());
         SupportTicketMessageVisibility visibility = handlerActor
                 ? (request.getVisibility() != null ? request.getVisibility() : SupportTicketMessageVisibility.PUBLIC)
                 : SupportTicketMessageVisibility.PUBLIC;
@@ -501,6 +515,13 @@ public class HelpSupportServiceImpl implements HelpSupportService {
                 null, null, null, null);
         response.setDemoRequisitionDto(dto);
         return response;
+    }
+
+    private void chargeHelpUsage(Long organizationId, String actionCode, String referenceType, Long referenceId) {
+        if (organizationId == null || organizationId <= 0L) {
+            return;
+        }
+        platformWalletUsageSupport.chargeRequired(organizationId, actionCode, referenceType, referenceId);
     }
 
     private DemoRequisitionDto toDemoRequisitionDto(DemoRequisition entity) {

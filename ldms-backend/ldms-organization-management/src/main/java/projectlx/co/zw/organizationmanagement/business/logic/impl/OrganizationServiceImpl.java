@@ -736,6 +736,14 @@ public class OrganizationServiceImpl implements OrganizationService {
     }
 
     @Override
+    public ImportSummary importAgentsFromCsvForUser(InputStream inputStream, Locale locale, String username)
+            throws IOException {
+        Organization org = loadForUser(username);
+        return organizationDirectoryAdminService.importAgentsFromCsvForOrganization(
+                inputStream, org.getId(), locale, username);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public OrganizationResponse listCustomers(Locale locale, String username) {
         Organization org = loadForUser(username);

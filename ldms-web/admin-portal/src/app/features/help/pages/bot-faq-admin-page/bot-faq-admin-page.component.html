@@ -3,22 +3,18 @@
     variant="violet"
     eyebrow="Messaging · Bot knowledge"
     eyebrowIcon="menu_book"
-    title="FAQ knowledge base"
-    lead="Add and publish FAQs the assistant retrieves for RAG-style answers. Changes apply immediately to new messages."
+    title="Bot knowledge base"
+    lead="Teach the assistant with text Q&A, pasted guides, or PDF uploads. New knowledge is indexed immediately and used when users ask questions."
     hubIcon="menu_book"
     [orbitIcons]="['psychology', 'smart_toy', 'auto_stories']"
   >
-    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-primary lx-btn-sm" (click)="openCreate()">
-      <mat-icon aria-hidden="true">add</mat-icon>
-      Add FAQ
-    </button>
     <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reloadKnowledge()" [disabled]="reloadingKnowledge">
       <mat-icon aria-hidden="true">sync</mat-icon>
       Reload corpus
     </button>
-    <lx-workspace-hero-stat [value]="knowledge?.faqCount ?? faqs.length" label="Published FAQs" icon="quiz" theme="violet"></lx-workspace-hero-stat>
-    <lx-workspace-hero-stat [value]="knowledge?.documentCount ?? 0" label="Doc sources" icon="description" theme="mint"></lx-workspace-hero-stat>
-    <lx-workspace-hero-stat [value]="knowledge?.characterCount ?? 0" label="Corpus chars" icon="data_object" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="knowledge?.faqCount ?? faqs.length" label="Text Q&A" icon="quiz" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="knowledge?.pdfDocumentCount ?? documents.length" label="Documents" icon="description" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="(knowledge?.pdfCharacterCount ?? 0) + (knowledge?.characterCount ?? 0)" label="Indexed chars" icon="data_object" theme="amber"></lx-workspace-hero-stat>
   </lx-workspace-hero>
 
   <div class="bot-alert" *ngIf="error" role="alert">
@@ -27,16 +23,38 @@
     <button type="button" class="bot-alert__action" (click)="load()">Retry</button>
   </div>
 
-  <div class="lx-card bot-faq-form" *ngIf="showForm">
-    <h3>{{ editingId ? 'Edit FAQ' : 'New FAQ' }}</h3>
-    <form [formGroup]="form" (ngSubmit)="save()">
+  <div class="lx-card bot-add-knowledge" *ngIf="!loading">
+    <div class="bot-add-knowledge__hd">
+      <div>
+        <h3>Add knowledge</h3>
+        <p>Choose how you want to teach the bot — text entries or PDF files are indexed for retrieval on every new message.</p>
+      </div>
+    </div>
+
+    <nav class="bot-add-tabs" aria-label="Knowledge input type">
+      <button
+        type="button"
+        *ngFor="let mode of addModes"
+        class="bot-add-tab"
+        [class.bot-add-tab--on]="addMode === mode.id"
+        (click)="setAddMode(mode.id)"
+      >
+        <mat-icon aria-hidden="true">{{ mode.icon }}</mat-icon>
+        {{ mode.label }}
+      </button>
+    </nav>
+
+    <p class="bot-add-knowledge__hint">{{ activeAddModeHint }}</p>
+
+    <!-- Text Q&A -->
+    <form class="bot-add-panel" *ngIf="addMode === 'qa'" [formGroup]="form" (ngSubmit)="saveQa()">
       <label class="bot-faq-field">
         <span>Question</span>
-        <input type="text" formControlName="question" maxlength="500" />
+        <input type="text" formControlName="question" maxlength="500" placeholder="e.g. How do I onboard a transporter?" />
       </label>
       <label class="bot-faq-field">
         <span>Answer</span>
-        <textarea formControlName="answer" rows="5"></textarea>
+        <textarea formControlName="answer" rows="5" placeholder="Write the answer the bot should give when this topic comes up…"></textarea>
       </label>
       <div class="bot-faq-form__row">
         <label class="bot-faq-field">
@@ -47,30 +65,88 @@
         </label>
         <label class="bot-faq-field">
           <span>Keywords (comma-separated)</span>
-          <input type="text" formControlName="keywords" placeholder="shipment, track, GRV" />
+          <input type="text" formControlName="keywords" placeholder="onboard, transporter, registration" />
         </label>
       </div>
       <label class="bot-faq-check">
         <input type="checkbox" formControlName="published" />
-        Published — include in bot RAG retrieval
+        Published — include in bot retrieval
       </label>
-      <div class="bot-faq-form__actions">
-        <button type="button" class="lx-btn lx-btn-ghost" (click)="cancelForm()">Cancel</button>
+      <div class="bot-add-panel__actions">
         <button type="submit" class="lx-btn lx-btn-primary" [disabled]="saving">
-          {{ saving ? 'Saving…' : (editingId ? 'Update FAQ' : 'Create FAQ') }}
+          {{ saving ? 'Saving…' : (editingFaqId ? 'Update Q&A' : 'Save Q&A') }}
         </button>
       </div>
     </form>
+
+    <!-- Paste text -->
+    <div class="bot-add-panel" *ngIf="addMode === 'text'">
+      <label class="bot-faq-field">
+        <span>Title</span>
+        <input type="text" [(ngModel)]="textArticleTitle" [ngModelOptions]="{ standalone: true }" maxlength="200" placeholder="e.g. Platform billing overview" />
+      </label>
+      <label class="bot-faq-field">
+        <span>Content</span>
+        <textarea
+          [(ngModel)]="textArticleBody"
+          [ngModelOptions]="{ standalone: true }"
+          rows="10"
+          placeholder="Paste guide text, SOPs, or documentation here. The bot will retrieve relevant sections when users ask related questions."
+        ></textarea>
+      </label>
+      <div class="bot-add-panel__actions">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="saveTextArticle()" [disabled]="savingText || !textArticleTitle.trim() || textArticleBody.trim().length < 20">
+          {{ savingText ? 'Indexing…' : 'Save & index text' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Upload PDF -->
+    <div class="bot-add-panel" *ngIf="addMode === 'pdf'">
+      <div class="bot-pdf-upload__row">
+        <label class="bot-faq-field">
+          <span>Document title</span>
+          <input type="text" [(ngModel)]="documentTitle" [ngModelOptions]="{ standalone: true }" placeholder="e.g. LDMS billing guide" maxlength="200" />
+        </label>
+        <label class="bot-faq-field bot-faq-field--file">
+          <span>PDF file</span>
+          <input type="file" accept=".pdf,application/pdf" (change)="onDocumentFileSelected($event)" />
+        </label>
+      </div>
+      <p class="bot-pdf-drop-hint" *ngIf="selectedDocumentFile">
+        Selected: {{ selectedDocumentFile.name }} · {{ formatFileSize(selectedDocumentFile.size) }}
+      </p>
+      <div class="bot-add-panel__actions">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="uploadDocument()" [disabled]="uploadingDocument || !documentTitle.trim() || !selectedDocumentFile">
+          {{ uploadingDocument ? 'Extracting & indexing…' : 'Upload & index PDF' }}
+        </button>
+      </div>
+    </div>
   </div>
 
   <div class="lx-card bot-faq-list-card">
     <div class="bot-faq-list__hd">
-      <h3>FAQ entries</h3>
+      <div>
+        <h3>Knowledge sources</h3>
+        <p class="bot-faq-list__sub">Everything the bot can infer from — Q&A entries and indexed documents.</p>
+      </div>
       <label class="bot-faq-search">
         <mat-icon aria-hidden="true">search</mat-icon>
-        <input type="search" [(ngModel)]="search" placeholder="Search FAQs…" [ngModelOptions]="{ standalone: true }" />
+        <input type="search" [(ngModel)]="search" placeholder="Search knowledge…" [ngModelOptions]="{ standalone: true }" />
       </label>
     </div>
+
+    <nav class="bot-list-filters" aria-label="Filter knowledge sources">
+      <button
+        type="button"
+        *ngFor="let f of listFilters"
+        class="bot-list-filter"
+        [class.bot-list-filter--on]="listFilter === f.id"
+        (click)="setListFilter(f.id)"
+      >
+        {{ f.label }}
+      </button>
+    </nav>
 
     <div class="bot-faq-skeleton" *ngIf="loading">
       <div class="bot-skeleton" *ngFor="let i of [1,2,3]"></div>
@@ -80,34 +156,42 @@
       <table class="bot-faq-table">
         <thead>
           <tr>
-            <th>Question</th>
-            <th>Category</th>
+            <th>Source</th>
+            <th>Type</th>
             <th>Uses</th>
             <th>Status</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of filteredFaqs">
+          <tr *ngFor="let row of knowledgeSources">
             <td>
-              <strong>{{ row.question }}</strong>
-              <p>{{ row.answer }}</p>
+              <strong>{{ row.title }}</strong>
+              <p>{{ row.preview }}</p>
+              <span class="bot-source-meta">{{ row.meta }}</span>
             </td>
-            <td><span class="bot-faq-pill">{{ row.category }}</span></td>
+            <td>
+              <span class="bot-faq-pill bot-faq-pill--kind">
+                <mat-icon aria-hidden="true">{{ kindIcon(row.kind) }}</mat-icon>
+                {{ row.kindLabel }}
+              </span>
+            </td>
             <td>{{ row.useCount }}</td>
             <td>
               <span class="bot-faq-status" [class.bot-faq-status--off]="!row.published">
-                {{ row.published ? 'Published' : 'Draft' }}
+                {{ row.published ? 'Indexed' : 'Draft' }}
               </span>
             </td>
             <td class="bot-faq-actions">
-              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openEdit(row)">Edit</button>
-              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm bot-faq-delete" (click)="delete(row)">Delete</button>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" *ngIf="row.kind === 'qa'" (click)="editSource(row)">Edit</button>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm bot-faq-delete" (click)="deleteSource(row)">Remove</button>
             </td>
           </tr>
         </tbody>
       </table>
-      <p class="bot-faq-empty" *ngIf="!filteredFaqs.length">No FAQ entries yet. Add one to teach the assistant.</p>
+      <p class="bot-faq-empty" *ngIf="!knowledgeSources.length">
+        No knowledge yet. Add a text Q&A, paste a guide, or upload a PDF above.
+      </p>
     </div>
   </div>
 </section>

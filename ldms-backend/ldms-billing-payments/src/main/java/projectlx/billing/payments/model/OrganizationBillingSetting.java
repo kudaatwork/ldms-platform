@@ -49,6 +49,9 @@ public class OrganizationBillingSetting {
     @Column(name = "low_balance_threshold_cents", nullable = false)
     private Long lowBalanceThresholdCents = 500L;
 
+    @Column(name = "required_payment_verification_stages", nullable = false)
+    private Integer requiredPaymentVerificationStages = 1;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)
     private EntityStatus entityStatus = EntityStatus.ACTIVE;

@@ -10,5 +10,7 @@ public enum PlatformActionCategory {
     IOT,
     ORDERS,
     LOGISTICS,
-    PROCUREMENT
+    FLEET,
+    PROCUREMENT,
+    SUPPORT
 }

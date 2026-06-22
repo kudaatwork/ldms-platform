@@ -33,6 +33,12 @@ export function readInBodyStatusCode(response: unknown): number | null {
   return null;
 }
 
+/** Extract a flat DTO list from LDMS envelopes (`subscriptionPackageDtoList`, nested `data`, etc.). */
+export function extractDtoList<T>(response: unknown, listKey: string): T[] {
+  const { rows } = extractPagedResult(response, listKey);
+  return rows as T[];
+}
+
 export function readApiFailureMessage(response: unknown, fallback: string): string {
   const root = toObj(parsePossiblyStringifiedJson(response));
   if (!root) {

@@ -7,8 +7,25 @@ import {
   BotFaqAdminService,
   BotFaqCategory,
   BotFaqRow,
+  BotKnowledgeDocumentRow,
   BotKnowledgeStatus,
 } from '../../services/bot-faq-admin.service';
+
+type AddKnowledgeMode = 'qa' | 'text' | 'pdf';
+type KnowledgeListFilter = 'all' | 'qa' | 'docs';
+
+export interface KnowledgeSourceRow {
+  id: string;
+  kind: 'qa' | 'pdf' | 'text';
+  kindLabel: string;
+  title: string;
+  preview: string;
+  meta: string;
+  useCount: number;
+  published: boolean;
+  faqId?: number;
+  documentId?: number;
+}
 
 @Component({
   selector: 'app-bot-faq-admin-page',
@@ -20,13 +37,33 @@ import {
 export class BotFaqAdminPageComponent implements OnInit, OnDestroy {
   loading = true;
   saving = false;
+  savingText = false;
   reloadingKnowledge = false;
+  uploadingDocument = false;
   error = '';
   faqs: BotFaqRow[] = [];
+  documents: BotKnowledgeDocumentRow[] = [];
   knowledge: BotKnowledgeStatus | null = null;
-  showForm = false;
-  editingId: number | null = null;
+  addMode: AddKnowledgeMode = 'qa';
+  listFilter: KnowledgeListFilter = 'all';
   search = '';
+  documentTitle = '';
+  selectedDocumentFile: File | null = null;
+  textArticleTitle = '';
+  textArticleBody = '';
+  editingFaqId: number | null = null;
+
+  readonly addModes: Array<{ id: AddKnowledgeMode; label: string; icon: string; hint: string }> = [
+    { id: 'qa', label: 'Text Q&A', icon: 'quiz', hint: 'Question and answer pairs the bot retrieves by keyword.' },
+    { id: 'text', label: 'Paste text', icon: 'article', hint: 'Free-form guides, SOPs, or notes pasted directly.' },
+    { id: 'pdf', label: 'Upload PDF', icon: 'picture_as_pdf', hint: 'PDF files — text is extracted and indexed automatically.' },
+  ];
+
+  readonly listFilters: Array<{ id: KnowledgeListFilter; label: string }> = [
+    { id: 'all', label: 'All sources' },
+    { id: 'qa', label: 'Text Q&A' },
+    { id: 'docs', label: 'Documents' },
+  ];
 
   readonly categories: BotFaqCategory[] = [
     'GENERAL',
@@ -73,21 +110,30 @@ export class BotFaqAdminPageComponent implements OnInit, OnDestroy {
     this.error = '';
     this.faqService
       .listFaqs()
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => {
-          this.loading = false;
-          this.cdr.markForCheck();
-        }),
-      )
+      .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (rows) => {
           this.faqs = rows;
           this.loadKnowledgeStatus();
+          this.loadDocuments();
+          this.loading = false;
           this.cdr.markForCheck();
         },
         error: (e: Error) => {
           this.error = e.message;
+          this.loading = false;
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private loadDocuments(): void {
+    this.faqService
+      .listDocuments()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows) => {
+          this.documents = rows;
           this.cdr.markForCheck();
         },
       });
@@ -105,52 +151,66 @@ export class BotFaqAdminPageComponent implements OnInit, OnDestroy {
       });
   }
 
-  get filteredFaqs(): BotFaqRow[] {
-    const q = this.search.trim().toLowerCase();
-    if (!q) {
-      return this.faqs;
+  setAddMode(mode: AddKnowledgeMode): void {
+    this.addMode = mode;
+    if (mode !== 'qa') {
+      this.editingFaqId = null;
     }
-    return this.faqs.filter(
-      (f) =>
-        f.question.toLowerCase().includes(q) ||
-        f.answer.toLowerCase().includes(q) ||
-        (f.keywords ?? '').toLowerCase().includes(q),
-    );
-  }
-
-  openCreate(): void {
-    this.editingId = null;
-    this.showForm = true;
-    this.form.reset({
-      question: '',
-      answer: '',
-      category: 'GENERAL',
-      keywords: '',
-      published: true,
-    });
     this.cdr.markForCheck();
   }
 
-  openEdit(row: BotFaqRow): void {
-    this.editingId = row.id;
-    this.showForm = true;
-    this.form.reset({
-      question: row.question,
-      answer: row.answer,
-      category: row.category,
-      keywords: row.keywords ?? '',
-      published: row.published,
-    });
+  get activeAddModeHint(): string {
+    return this.addModes.find((m) => m.id === this.addMode)?.hint ?? '';
+  }
+
+  setListFilter(filter: KnowledgeListFilter): void {
+    this.listFilter = filter;
     this.cdr.markForCheck();
   }
 
-  cancelForm(): void {
-    this.showForm = false;
-    this.editingId = null;
-    this.cdr.markForCheck();
+  get knowledgeSources(): KnowledgeSourceRow[] {
+    const q = this.search.trim().toLowerCase();
+    const faqRows: KnowledgeSourceRow[] = this.faqs.map((f) => ({
+      id: `faq-${f.id}`,
+      kind: 'qa',
+      kindLabel: 'Text Q&A',
+      title: f.question,
+      preview: f.answer,
+      meta: f.category,
+      useCount: f.useCount,
+      published: f.published,
+      faqId: f.id,
+    }));
+    const docRows: KnowledgeSourceRow[] = this.documents.map((d) => ({
+      id: `doc-${d.id}`,
+      kind: this.isPdfDocument(d) ? 'pdf' : 'text',
+      kindLabel: this.isPdfDocument(d) ? 'PDF' : 'Pasted text',
+      title: d.title,
+      preview: `${d.extractedTextLength.toLocaleString()} characters indexed`,
+      meta: this.isPdfDocument(d) ? d.originalFilename : 'Direct text entry',
+      useCount: d.useCount,
+      published: d.published,
+      documentId: d.id,
+    }));
+
+    let rows = [...faqRows, ...docRows].sort((a, b) => a.title.localeCompare(b.title));
+    if (this.listFilter === 'qa') {
+      rows = rows.filter((r) => r.kind === 'qa');
+    } else if (this.listFilter === 'docs') {
+      rows = rows.filter((r) => r.kind !== 'qa');
+    }
+    if (q) {
+      rows = rows.filter(
+        (r) =>
+          r.title.toLowerCase().includes(q) ||
+          r.preview.toLowerCase().includes(q) ||
+          r.meta.toLowerCase().includes(q),
+      );
+    }
+    return rows;
   }
 
-  save(): void {
+  saveQa(): void {
     if (this.form.invalid) {
       this.form.markAllAsTouched();
       return;
@@ -171,9 +231,9 @@ export class BotFaqAdminPageComponent implements OnInit, OnDestroy {
       published: val.published,
     };
     const req$ =
-      this.editingId == null
+      this.editingFaqId == null
         ? this.faqService.createFaq(payload)
-        : this.faqService.updateFaq(this.editingId, payload);
+        : this.faqService.updateFaq(this.editingFaqId, payload);
 
     req$
       .pipe(
@@ -185,26 +245,51 @@ export class BotFaqAdminPageComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: () => {
-          this.snackBar.open(this.editingId ? 'FAQ updated' : 'FAQ created', undefined, { duration: 2500 });
-          this.showForm = false;
-          this.editingId = null;
+          this.snackBar.open(
+            this.editingFaqId ? 'Q&A updated' : 'Q&A saved — the assistant will use it on new messages.',
+            undefined,
+            { duration: 3000 },
+          );
+          this.editingFaqId = null;
+          this.form.reset({
+            question: '',
+            answer: '',
+            category: 'GENERAL',
+            keywords: '',
+            published: true,
+          });
           this.load();
         },
         error: (e: Error) => this.snackBar.open(e.message, undefined, { duration: 4000 }),
       });
   }
 
-  delete(row: BotFaqRow): void {
-    if (!confirm(`Delete FAQ "${row.question}"?`)) {
+  saveTextArticle(): void {
+    const title = this.textArticleTitle.trim();
+    const body = this.textArticleBody.trim();
+    if (!title || body.length < 20) {
+      this.snackBar.open('Enter a title and at least 20 characters of text.', undefined, { duration: 3000 });
       return;
     }
+    this.savingText = true;
     this.faqService
-      .deleteFaq(row.id)
-      .pipe(takeUntil(this.destroy$))
+      .createTextDocument(title, body)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.savingText = false;
+          this.cdr.markForCheck();
+        }),
+      )
       .subscribe({
         next: () => {
-          this.snackBar.open('FAQ deleted', undefined, { duration: 2500 });
-          this.load();
+          this.textArticleTitle = '';
+          this.textArticleBody = '';
+          this.snackBar.open('Text knowledge indexed — the assistant will use it on new messages.', undefined, {
+            duration: 3500,
+          });
+          this.loadDocuments();
+          this.loadKnowledgeStatus();
         },
         error: (e: Error) => this.snackBar.open(e.message, undefined, { duration: 4000 }),
       });
@@ -229,5 +314,127 @@ export class BotFaqAdminPageComponent implements OnInit, OnDestroy {
         },
         error: (e: Error) => this.snackBar.open(e.message, undefined, { duration: 4000 }),
       });
+  }
+
+  onDocumentFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.selectedDocumentFile = input.files?.[0] ?? null;
+    if (this.selectedDocumentFile && !this.documentTitle.trim()) {
+      this.documentTitle = this.selectedDocumentFile.name.replace(/\.pdf$/i, '');
+    }
+    this.cdr.markForCheck();
+  }
+
+  uploadDocument(): void {
+    const title = this.documentTitle.trim();
+    const file = this.selectedDocumentFile;
+    if (!title || !file) {
+      this.snackBar.open('Enter a title and choose a PDF file.', undefined, { duration: 3000 });
+      return;
+    }
+    this.uploadingDocument = true;
+    this.faqService
+      .uploadDocument(title, file)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.uploadingDocument = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.documentTitle = '';
+          this.selectedDocumentFile = null;
+          this.snackBar.open('PDF indexed — the assistant will use it on new messages.', undefined, {
+            duration: 3500,
+          });
+          this.loadDocuments();
+          this.loadKnowledgeStatus();
+        },
+        error: (e: Error) => this.snackBar.open(e.message, undefined, { duration: 4000 }),
+      });
+  }
+
+  editSource(row: KnowledgeSourceRow): void {
+    if (row.kind !== 'qa' || row.faqId == null) {
+      return;
+    }
+    const faq = this.faqs.find((f) => f.id === row.faqId);
+    if (!faq) {
+      return;
+    }
+    this.addMode = 'qa';
+    this.editingFaqId = faq.id;
+    this.form.reset({
+      question: faq.question,
+      answer: faq.answer,
+      category: faq.category,
+      keywords: faq.keywords ?? '',
+      published: faq.published,
+    });
+    this.cdr.markForCheck();
+  }
+
+  deleteSource(row: KnowledgeSourceRow): void {
+    if (row.kind === 'qa' && row.faqId != null) {
+      if (!confirm(`Delete Q&A "${row.title}"?`)) {
+        return;
+      }
+      this.faqService
+        .deleteFaq(row.faqId)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            this.snackBar.open('Q&A deleted', undefined, { duration: 2500 });
+            this.load();
+          },
+          error: (e: Error) => this.snackBar.open(e.message, undefined, { duration: 4000 }),
+        });
+      return;
+    }
+    if (row.documentId != null) {
+      if (!confirm(`Remove "${row.title}" from bot knowledge?`)) {
+        return;
+      }
+      this.faqService
+        .deleteDocument(row.documentId)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            this.snackBar.open('Document removed', undefined, { duration: 2500 });
+            this.loadDocuments();
+            this.loadKnowledgeStatus();
+          },
+          error: (e: Error) => this.snackBar.open(e.message, undefined, { duration: 4000 }),
+        });
+    }
+  }
+
+  isPdfDocument(doc: BotKnowledgeDocumentRow): boolean {
+    const ct = (doc.contentType ?? '').toLowerCase();
+    const name = (doc.originalFilename ?? '').toLowerCase();
+    return ct.includes('pdf') || name.endsWith('.pdf');
+  }
+
+  formatFileSize(bytes: number): string {
+    if (bytes < 1024) {
+      return `${bytes} B`;
+    }
+    if (bytes < 1024 * 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  kindIcon(kind: KnowledgeSourceRow['kind']): string {
+    switch (kind) {
+      case 'pdf':
+        return 'picture_as_pdf';
+      case 'text':
+        return 'article';
+      default:
+        return 'quiz';
+    }
   }
 }

@@ -81,18 +81,26 @@
             <span class="sb-label">{{ item.label }}</span>
           </a>
           <ng-container *ngIf="!collapsed">
-            <a
+            <button
+              type="button"
               class="sb-item sb-item--parent"
-              href="#"
               [class.active]="isSectionActive(item.route)"
-              (click)="onNavParentClick(item, $event)"
+              [attr.aria-expanded]="isGroupExpanded(groupExpandKey(item))"
+              (click)="toggleGroup(groupExpandKey(item), $event)"
             >
               <div class="sb-icon">
                 <span class="material-icons sb-mi" aria-hidden="true">{{ item.icon }}</span>
               </div>
               <span class="sb-label">{{ item.label }}</span>
-            </a>
-            <div class="sb-children" [attr.data-nav-group]="groupExpandKey(item)">
+              <span class="material-icons sb-mi sb-chevron" aria-hidden="true">{{
+                isGroupExpanded(groupExpandKey(item)) ? 'expand_less' : 'expand_more'
+              }}</span>
+            </button>
+            <div
+              class="sb-children"
+              *ngIf="isGroupExpanded(groupExpandKey(item))"
+              [attr.data-nav-group]="groupExpandKey(item)"
+            >
               <button
                 type="button"
                 *ngFor="let child of item.children; trackBy: trackByChildRoute"
@@ -261,6 +269,7 @@
             class="tb-wallet"
             (click)="goWalletSettings()"
             [class.tb-wallet--low]="walletLowBalance"
+            [class.tb-wallet--frozen]="walletFrozen"
             [attr.title]="walletBillingMode === 'PREPAID_WALLET' ? 'Prepaid wallet balance — open billing settings' : 'Subscription plan — open billing settings'"
           >
             <span class="material-icons tb-mi" aria-hidden="true">{{
@@ -301,6 +310,15 @@
         </div>
       </div>
     </header>
+
+    <section class="tb-wallet-frozen" *ngIf="walletFrozen" role="alert">
+      <mat-icon aria-hidden="true">lock</mat-icon>
+      <div class="tb-wallet-frozen__copy">
+        <strong>Platform wallet empty</strong>
+        <span>Top up your prepaid balance to unlock inventory, fleet, trips, and other billable actions.</span>
+      </div>
+      <button type="button" class="lx-btn lx-btn-sm lx-btn-primary" (click)="goWalletSettings()">Top up wallet</button>
+    </section>
 
     <section class="tb-session-warning" *ngIf="sessionWarningVisible" role="alert" aria-live="assertive">
       <mat-icon aria-hidden="true">schedule</mat-icon>

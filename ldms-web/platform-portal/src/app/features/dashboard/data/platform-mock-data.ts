@@ -30,6 +30,8 @@ export interface DashboardChart {
   values?: number[];
   segments?: DashboardDonutSegment[];
   highlight?: string;
+  /** Center label on donut charts (defaults to "total"). */
+  donutUnit?: string;
 }
 
 export type SupplierShipmentStatus = 'PREPARED' | 'IN_TRANSIT' | 'COMPLETED' | 'FAILED';

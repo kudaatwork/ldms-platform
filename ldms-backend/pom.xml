@@ -29,6 +29,7 @@
         <jjwt.version>0.12.5</jjwt.version>
         <resilience4j.version>2.2.0</resilience4j.version>
         <totp.version>1.7.1</totp.version>
+        <pdfbox.version>3.0.3</pdfbox.version>
 
         <maven-compiler-plugin.version>3.13.0</maven-compiler-plugin.version>
 
@@ -128,6 +129,11 @@
                 <groupId>dev.samstevens.totp</groupId>
                 <artifactId>totp</artifactId>
                 <version>${totp.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>${pdfbox.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

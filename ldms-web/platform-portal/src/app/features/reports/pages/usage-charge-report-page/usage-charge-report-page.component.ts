@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Title } from '@angular/platform-browser';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subject, finalize, takeUntil } from 'rxjs';
 import {
   PlatformWalletService,
@@ -10,6 +11,8 @@ import {
 } from '../../../../core/services/platform-wallet.service';
 import {
   exportClientTableAsCsv,
+  exportFormatLabel,
+  type LxExportColumn,
   type LxExportFormat,
 } from '../../../../shared/utils/lx-export.util';
 
@@ -44,6 +47,7 @@ export class UsageChargeReportPageComponent implements OnInit, OnDestroy {
   constructor(
     private readonly wallet: PlatformWalletService,
     private readonly title: Title,
+    private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
   ) {
     this.title.setTitle('Usage charges | LX Platform');
@@ -275,26 +279,33 @@ export class UsageChargeReportPageComponent implements OnInit, OnDestroy {
       return;
     }
     this.exporting = true;
-    exportClientTableAsCsv(
+    const columns: LxExportColumn<UsageChargeRecordRow>[] = [
+      { header: 'TIME', value: (r) => this.formatRowTime(r.createdAt) },
+      { header: 'ACTION', value: (r) => r.actionDisplayName || r.actionCode },
+      { header: 'ACTION_CODE', value: (r) => r.actionCode },
+      { header: 'CHARGE', value: (r) => this.formatMoney(r.chargeCents ?? 0) },
+      { header: 'CHARGE_CENTS', value: (r) => r.chargeCents ?? 0 },
+      { header: 'DEDUCTED', value: (r) => (r.deducted ? 'Deducted' : 'Tracked') },
+      { header: 'TRIP_ID', value: (r) => (r.tripId != null ? String(r.tripId) : '') },
+      { header: 'SEASON_ID', value: (r) => (r.seasonId != null ? String(r.seasonId) : '') },
+      { header: 'CREATED_AT', value: (r) => r.createdAt ?? '' },
+    ];
+    const saved = exportClientTableAsCsv(
       format,
       rows,
-      [
-        { header: 'createdAt', value: (r) => r.createdAt ?? '' },
-        { header: 'actionCode', value: (r) => r.actionCode },
-        { header: 'actionDisplayName', value: (r) => r.actionDisplayName ?? '' },
-        { header: 'chargeCents', value: (r) => r.chargeCents ?? 0 },
-        { header: 'deducted', value: (r) => r.deducted },
-        { header: 'tripId', value: (r) => r.tripId ?? '' },
-        { header: 'seasonId', value: (r) => r.seasonId ?? '' },
-      ],
+      columns,
       'platform-usage-charges-report',
-      () => {
-        this.error = 'Export failed. Try another format.';
-        this.cdr.markForCheck();
-      },
-      { title: 'Platform usage charges' },
+      (message) => this.snackBar.open(message, 'Close', { duration: 5000 }),
+      { title: 'Platform usage charge line items' },
     );
     this.exporting = false;
+    if (saved) {
+      this.snackBar.open(
+        `Exported ${rows.length} line item${rows.length === 1 ? '' : 's'} as ${exportFormatLabel(format)}.`,
+        'Close',
+        { duration: 3500 },
+      );
+    }
     this.cdr.markForCheck();
   }
 

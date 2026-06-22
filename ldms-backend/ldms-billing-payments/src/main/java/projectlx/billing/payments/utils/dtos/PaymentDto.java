@@ -38,4 +38,9 @@ public class PaymentDto {
     private GatewayProvider gatewayProvider;
     private LocalDateTime verifiedAt;
     private String verifiedBy;
+    private Integer currentVerificationStage;
+    private Integer requiredVerificationStages;
+    private String invoiceNumber;
+    private Long purchaseOrderId;
+    private String purchaseOrderNumber;
 }

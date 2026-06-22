@@ -99,6 +99,12 @@ public class Payment {
     @Column(name = "verified_by", length = 100)
     private String verifiedBy;
 
+    @Column(name = "current_verification_stage", nullable = false)
+    private Integer currentVerificationStage = 0;
+
+    @Column(name = "required_verification_stages")
+    private Integer requiredVerificationStages;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)
     private EntityStatus entityStatus = EntityStatus.ACTIVE;

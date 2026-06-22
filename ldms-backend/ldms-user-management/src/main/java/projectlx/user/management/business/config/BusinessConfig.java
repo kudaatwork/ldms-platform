@@ -81,7 +81,8 @@ import projectlx.user.management.business.validator.impl.UserRoleServiceValidato
 import projectlx.user.management.business.validator.impl.UserSecurityServiceValidatorImpl;
 import projectlx.user.management.business.validator.impl.UserServiceValidatorImpl;
 import projectlx.user.management.business.validator.impl.UserTypeServiceValidatorImpl;
-import projectlx.user.management.clients.FileUploadServiceClient;
+import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
+import projectlx.user.management.clients.BillingPaymentsServiceClient;
 import projectlx.user.management.clients.LocationsServiceClient;
 import projectlx.user.management.repository.UserAccountRepository;
 import projectlx.user.management.repository.UserAddressRepository;
@@ -142,6 +143,11 @@ public class BusinessConfig {
     }
 
     @Bean
+    public PlatformWalletUsageSupport platformWalletUsageSupport(BillingPaymentsServiceClient billingPaymentsServiceClient) {
+        return new PlatformWalletUsageSupport(billingPaymentsServiceClient::recordUsageCharge, "ldms-user-management");
+    }
+
+    @Bean
     public HelpSupportService helpSupportService(HelpSupportServiceValidator helpSupportServiceValidator,
                                                  MessageService messageService,
                                                  HelpArticleRepository helpArticleRepository,
@@ -151,10 +157,11 @@ public class BusinessConfig {
                                                  PlatformHealthService platformHealthService,
                                                  SupportTicketAssignmentService supportTicketAssignmentService,
                                                  SupportTicketOperationsSupport supportTicketOperationsSupport,
+                                                 PlatformWalletUsageSupport platformWalletUsageSupport,
                                                  ModelMapper modelMapper) {
         return new HelpSupportServiceImpl(helpSupportServiceValidator, messageService, helpArticleRepository,
                 demoRequisitionRepository, supportTicketRepository, userRepository, platformHealthService,
-                supportTicketAssignmentService, supportTicketOperationsSupport, modelMapper);
+                supportTicketAssignmentService, supportTicketOperationsSupport, platformWalletUsageSupport, modelMapper);
     }
 
     @Bean

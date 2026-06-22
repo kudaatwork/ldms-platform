@@ -17,6 +17,10 @@ public final class LdmsFeignUrls {
         return resolveServiceUrl(env, "CLIENTS_INVENTORY_MANAGEMENT_SERVICE_URL", "clients.base-url.inventoryManagementService");
     }
 
+    public static String resolveOrganizationManagementServiceBaseUrl(Environment env) {
+        return resolveServiceUrl(env, "CLIENTS_ORGANIZATION_MANAGEMENT_SERVICE_URL", "clients.base-url.organizationManagementService");
+    }
+
     private static String resolveServiceUrl(Environment env, String explicitKey, String configuredKey) {
         String explicit = env.getProperty(explicitKey);
         if (explicit != null && !explicit.isBlank()) {

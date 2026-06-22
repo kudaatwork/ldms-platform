@@ -27,7 +27,8 @@ public class GatewayJwtProperties {
             "/ldms-authentication/**",
             // Platform portal public signup (JSON body on frontend surface)
             "/**/v1/frontend/organization/register",
-            "/**/v1/frontend/organization/onboarding-status/**"
+            "/**/v1/frontend/organization/onboarding-status/**",
+            "/**/v1/frontend/platform-wallet/public/pricing-catalog"
     ));
 
     private String rolesClaim = "roles";

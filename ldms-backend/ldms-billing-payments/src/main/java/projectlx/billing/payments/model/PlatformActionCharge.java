@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import projectlx.billing.payments.utils.enums.PlatformActionCategory;
+import projectlx.billing.payments.utils.enums.PlatformBillingTier;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.time.LocalDateTime;
@@ -42,6 +43,10 @@ public class PlatformActionCharge {
     @Enumerated(EnumType.STRING)
     @Column(name = "category", nullable = false, length = 50)
     private PlatformActionCategory category = PlatformActionCategory.GENERAL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "billing_tier", length = 20)
+    private PlatformBillingTier billingTier;
 
     @Column(name = "active", nullable = false)
     private Boolean active = Boolean.TRUE;

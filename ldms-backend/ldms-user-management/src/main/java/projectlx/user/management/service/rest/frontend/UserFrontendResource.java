@@ -93,6 +93,8 @@ public class UserFrontendResource {
                                final String procurementApprover,
                                @RequestParam(value = "shipmentFleetAllocator", required = false)
                                final String shipmentFleetAllocator,
+                               @RequestParam(value = "billingApprover", required = false)
+                               final String billingApprover,
                                @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                    @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                            defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
@@ -107,6 +109,9 @@ public class UserFrontendResource {
         }
         if (shipmentFleetAllocator != null) {
             editUserRequest.setShipmentFleetAllocator(shipmentFleetAllocator);
+        }
+        if (billingApprover != null) {
+            editUserRequest.setBillingApprover(billingApprover);
         }
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userServiceProcessor.update(editUserRequest, username, locale);
@@ -153,7 +158,7 @@ public class UserFrontendResource {
     }
 
     @Auditable(action = "SET_PROCUREMENT_APPROVER")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoles).UPDATE_USER.toString())")
+    @PreAuthorize("@organizationWorkspaceAccessSupport.canDesignateOrganizationUserFlags(authentication.name)")
     @PutMapping("/{id}/procurement-approver")
     @Operation(summary = "Set procurement approver eligibility",
             description = "Toggles whether an organisation user may approve procurement workflow stages.")
@@ -167,7 +172,7 @@ public class UserFrontendResource {
     }
 
     @Auditable(action = "SET_SHIPMENT_FLEET_ALLOCATOR")
-    @PreAuthorize("hasRole(T(projectlx.user.management.utils.security.UserRoles).UPDATE_USER.toString())")
+    @PreAuthorize("@organizationWorkspaceAccessSupport.canDesignateOrganizationUserFlags(authentication.name)")
     @PutMapping("/{id}/shipment-fleet-allocator")
     @Operation(summary = "Set shipment fleet allocator eligibility",
             description = "Toggles whether an organisation user may allocate fleet to shipments.")
@@ -178,6 +183,20 @@ public class UserFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return userServiceProcessor.setShipmentFleetAllocator(id, enabled, locale, username);
+    }
+
+    @Auditable(action = "SET_BILLING_APPROVER")
+    @PreAuthorize("@organizationWorkspaceAccessSupport.canDesignateOrganizationUserFlags(authentication.name)")
+    @PutMapping("/{id}/billing-approver")
+    @Operation(summary = "Set billing approver eligibility",
+            description = "Toggles whether an organisation user may verify customer procurement payments.")
+    public UserResponse setBillingApprover(
+            @PathVariable("id") final Long id,
+            @RequestParam("enabled") final boolean enabled,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userServiceProcessor.setBillingApprover(id, enabled, locale, username);
     }
 
     @Auditable(action = "FIND_USER_BY_ID")

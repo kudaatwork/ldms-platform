@@ -20,6 +20,8 @@ import projectlx.inventory.management.utils.dtos.ReceiptValidationError;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.inventory.management.utils.requests.CreateOrUpdateStockRequest;
 import projectlx.inventory.management.utils.requests.ReceiveGoodsRequest;
+import projectlx.inventory.management.business.logic.support.PlatformWalletUsageSupport;
+import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.math.BigDecimal;
@@ -43,6 +45,7 @@ public class GoodsReceiptProcessorImpl implements GoodsReceiptProcessor {
     private final RabbitTemplate rabbitTemplate;
     private final SalesOrderRepository salesOrderRepository;
     private final SalesOrderStatusManager salesOrderStatusManager;
+    private final PlatformWalletUsageSupport platformWalletUsageSupport;
 
     private static final String GRV_EXCHANGE = "inventory.exchange";
     private static final String GRV_CREATED_ROUTING_KEY = "grv.created";
@@ -255,6 +258,12 @@ public class GoodsReceiptProcessorImpl implements GoodsReceiptProcessor {
             savedGrv.setReceivedDate(LocalDateTime.now());
             goodsReceivedVoucherServiceAuditable.update(savedGrv, locale, username);
             log.info("Marked GRV {} as COMPLETED", savedGrv.getGrvNumber());
+
+            platformWalletUsageSupport.chargeRequired(
+                    purchaseOrder.getOrganizationId(),
+                    PlatformWalletActionCodes.INVENTORY_GRV_CREATE,
+                    "GRV",
+                    savedGrv.getId());
 
             // ============================================================
             // STEP 10: UPDATE LINKED SALES ORDER (Back-to-Back Flow)

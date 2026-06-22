@@ -60,6 +60,20 @@ public interface TripRepository extends JpaRepository<Trip, Long>, JpaSpecificat
                              @Param("entityStatus") EntityStatus entityStatus,
                              Pageable pageable);
 
+    @Query("SELECT t FROM Trip t WHERE t.organizationId = :orgId " +
+           "AND t.entityStatus <> :entityStatus " +
+           "AND t.status IN :statuses " +
+           "AND (:search IS NULL OR :search = '' OR LOWER(t.tripNumber) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "  OR LOWER(t.productName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "  OR LOWER(t.fromWarehouseName) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "  OR LOWER(t.toWarehouseName) LIKE LOWER(CONCAT('%', :search, '%'))) " +
+           "ORDER BY t.id DESC")
+    Page<Trip> findActiveByFilters(@Param("orgId") Long organizationId,
+                                 @Param("statuses") List<TripStatus> statuses,
+                                 @Param("search") String searchTerm,
+                                 @Param("entityStatus") EntityStatus entityStatus,
+                                 Pageable pageable);
+
     @Query(value = """
             SELECT t.organization_id AS organizationId,
                    COUNT(*) AS activeTrips

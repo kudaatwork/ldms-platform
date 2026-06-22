@@ -14,7 +14,7 @@
       <span class="dsg-left__name">Project <span class="brand-lx">LX</span></span>
     </div>
     <h1 class="dsg-left__headline">
-      Join the<br />Driver Network
+      Join the<br /><span class="dsg-left__headline-accent">Driver Network</span>
     </h1>
     <p class="dsg-left__sub">
       Complete the form and upload your national ID and driving licence (front and back). A transporter will review your documents before approving your access.
@@ -37,6 +37,18 @@
 
   <!-- ════════════════════════════════════════ FORM PANEL -->
   <div class="dsg-right">
+    <div class="dsg-mobile-hero" aria-hidden="true">
+      <img class="dsg-mobile-hero__logo dsg-mobile-hero__logo--light" src="images/lx-logo.png" alt="" />
+      <img class="dsg-mobile-hero__logo dsg-mobile-hero__logo--dark" src="images/lx-logo-transparent.png" alt="" />
+      <div class="dsg-mobile-hero__copy">
+        <span class="dsg-mobile-hero__badge">
+          <span class="material-icons" aria-hidden="true">local_shipping</span>
+          Driver Portal
+        </span>
+        <strong>Join the Driver Network</strong>
+      </div>
+    </div>
+
     <div class="dsg-form-stack">
 
     <!-- Account type tabs -->
@@ -60,7 +72,7 @@
         </div>
         <h2 class="dsg-success__title">Request submitted!</h2>
         <p class="dsg-success__sub">
-          Your driver access request has been submitted with your identity documents. A transporter will review and approve your application — temporary login credentials will be emailed to you once approved. Sign in and set your permanent username and password on first access.
+          Your driver access request has been submitted with your identity documents. Transport companies can find you on the marketplace, review your profile, and request you — temporary login credentials will be emailed once a transporter approves. Sign in and set your permanent username and password on first access.
         </p>
         <button class="dsg-submit" (click)="goToLogin()">
           <span class="material-icons" aria-hidden="true">login</span>
@@ -72,7 +84,10 @@
       <ng-container *ngIf="step === 'form'">
         <div class="dsg-header">
           <h2 class="dsg-title">Driver registration</h2>
-          <p class="dsg-sub">Platform Portal · Driver access request</p>
+          <p class="dsg-sub dsg-sub--driver">
+            <span class="material-icons" aria-hidden="true">local_shipping</span>
+            Driver Portal · Mobile logistics workspace
+          </p>
         </div>
 
         <!-- Mode toggle -->
@@ -92,7 +107,7 @@
         </div>
         <p class="dsg-mode-desc" *ngIf="isFreelance">
           <span class="material-icons" aria-hidden="true">info</span>
-          As a freelance driver you will be visible to any transporter on the platform marketplace. Once a transporter hires you, temporary login credentials will be emailed to you.
+          As a freelance driver you will appear on the platform marketplace where transport companies can search for you, review your profile and documents, and request you to join their roster. Once a transporter approves your request, temporary login credentials will be emailed to you.
         </p>
         <p class="dsg-mode-desc" *ngIf="!isFreelance">
           <span class="material-icons" aria-hidden="true">info</span>
@@ -225,7 +240,7 @@
 
         <p class="dsg-footer">
           Already have credentials?
-          <a routerLink="/auth/login">Sign in</a>
+          <a routerLink="/auth/login" [queryParams]="{ portal: 'driver' }">Sign in</a>
         </p>
       </ng-container>
 

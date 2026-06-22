@@ -1069,3 +1069,49 @@ html.theme-dark .inv-transfers-rejection {
     color: var(--gray-900);
   }
 }
+
+.inv-payment-queue {
+  margin-bottom: 18px;
+  padding: 20px 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(59, 130, 246, 0.18);
+  background: linear-gradient(145deg, rgba(239, 246, 255, 0.9), rgba(255, 255, 255, 0.95));
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+  }
+
+  &__eyebrow {
+    margin: 0 0 4px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #2563eb;
+  }
+
+  h3 {
+    margin: 0 0 6px;
+    font-size: 1.05rem;
+    font-weight: 800;
+  }
+
+  &__lead {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: #64748b;
+    max-width: 70ch;
+  }
+}
+
+.inv-empty-hint {
+  margin: 0;
+  padding: 12px 0 4px;
+  font-size: 13px;
+  color: #64748b;
+}

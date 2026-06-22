@@ -385,6 +385,15 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
     }
 
     @Override
+    public UserResponse setBillingApprover(Long id, boolean enabled, Locale locale, String username) {
+        logger.info("Incoming request to set billing approver for user {}: {}", id, enabled);
+        UserResponse userResponse = userService.setBillingApprover(id, enabled, locale, username);
+        logger.info("Outgoing response after setting billing approver. Status Code: {}. Message: {}",
+                userResponse.getStatusCode(), userResponse.getMessage());
+        return userResponse;
+    }
+
+    @Override
     public UserResponse findFleetManagersByOrganization(Long organizationId, Locale locale) {
         logger.info("Incoming request to find fleet managers for organizationId={}", organizationId);
         UserResponse userResponse = userService.findFleetManagersByOrganization(organizationId, locale);

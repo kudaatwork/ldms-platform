@@ -5,7 +5,15 @@ import {
 } from '../constants/fuel-alert.constants';
 import { VerificationService, VerificationUserFlags } from './verification.service';
 
-export type ShellNotificationAction = 'verify-phone' | 'verify-email' | 'fuel-alert';
+import type { PlatformWalletSummary, UsageChargeReport } from './platform-wallet.service';
+
+export type ShellNotificationAction =
+  | 'verify-phone'
+  | 'verify-email'
+  | 'fuel-alert'
+  | 'wallet-low'
+  | 'wallet-frozen'
+  | 'usage-report';
 
 export interface ShellNotification {
   id: string;
@@ -34,6 +42,7 @@ export class ShellNotificationService {
   private readonly notificationsSubject = new BehaviorSubject<ShellNotification[]>([]);
   readonly notifications$ = this.notificationsSubject.asObservable();
   private lastVerificationItems: ShellNotification[] = [];
+  private lastWalletItems: ShellNotification[] = [];
 
   constructor(private readonly verification: VerificationService) {}
 
@@ -112,13 +121,74 @@ export class ShellNotificationService {
     return `fuel-alert-${tripId}`;
   }
 
+  /** Push wallet low-balance / frozen / recent usage alerts onto the bell. */
+  syncWalletAlerts(summary: PlatformWalletSummary | null, report: UsageChargeReport | null): void {
+    const dismissed = this.readDismissed();
+    const items: ShellNotification[] = [];
+
+    if (summary?.walletFrozen) {
+      const id = 'wallet-frozen';
+      if (!dismissed.has(id)) {
+        items.push({
+          id,
+          title: 'Wallet empty — platform paused',
+          body: 'Top up your prepaid wallet in Settings → Billing to restore shipments, fleet, and orders.',
+          time: 'Billing',
+          action: 'wallet-frozen',
+          urgent: true,
+          tone: 'critical',
+        });
+      }
+    } else if (summary?.lowBalance) {
+      const id = 'wallet-low';
+      if (!dismissed.has(id)) {
+        const balance = this.formatUsd(summary.balanceCents ?? 0);
+        items.push({
+          id,
+          title: 'Prepaid wallet running low',
+          body: `Balance is ${balance}. Top up soon to avoid interrupted corridor operations.`,
+          time: 'Billing',
+          action: 'wallet-low',
+          urgent: true,
+          tone: 'warn',
+        });
+      }
+    }
+
+    const recentCount = report?.records?.length ?? 0;
+    const deductedToday = report?.deductedChargeCents ?? 0;
+    if (recentCount > 0) {
+      const id = 'usage-report-today';
+      if (!dismissed.has(id)) {
+        items.push({
+          id,
+          title: 'Platform usage today',
+          body: `${recentCount} charge${recentCount === 1 ? '' : 's'} recorded (${this.formatUsd(deductedToday)} deducted). Open your usage report for details.`,
+          time: 'Analytics',
+          action: 'usage-report',
+        });
+      }
+    }
+
+    this.lastWalletItems = items;
+    this.publishMerged();
+  }
+
+  private formatUsd(cents: number): string {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format((cents ?? 0) / 100);
+  }
+
   private publishMerged(): void {
     this.notificationsSubject.next(this.mergeAll());
   }
 
   private mergeAll(): ShellNotification[] {
     const operational = this.readOperationalFiltered();
-    return this.sortNotifications([...operational, ...this.lastVerificationItems]);
+    return this.sortNotifications([
+      ...operational,
+      ...this.lastWalletItems,
+      ...this.lastVerificationItems,
+    ]);
   }
 
   private sortNotifications(items: ShellNotification[]): ShellNotification[] {

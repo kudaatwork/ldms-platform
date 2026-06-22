@@ -15,6 +15,8 @@ public class PlatformWalletSummaryDto {
     private String billingMode;
     private Long lowBalanceThresholdCents;
     private Boolean lowBalance;
+    private Boolean walletFrozen;
+    private Boolean platformAccessAllowed;
     private Long subscriptionPackageId;
     private String subscriptionPackageName;
 }

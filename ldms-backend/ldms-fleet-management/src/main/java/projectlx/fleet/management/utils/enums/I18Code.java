@@ -48,6 +48,12 @@ public enum I18Code {
     MESSAGE_DRIVER_IDENTITY_DOCUMENT_REQUIRED("fleet.driver.identity.document.required"),
     MESSAGE_DRIVER_LICENSE_DOCUMENT_REQUIRED("fleet.driver.license.document.required"),
     MESSAGE_DRIVER_ADDRESS_REQUIRED("fleet.driver.address.required"),
+    MESSAGE_DRIVER_PROVISION_SUCCESS("fleet.driver.provision.success"),
+    MESSAGE_DRIVER_PROVISION_REISSUE_SUCCESS("fleet.driver.provision.reissue.success"),
+    MESSAGE_DRIVER_PROVISION_INVALID("fleet.driver.provision.invalid"),
+    MESSAGE_DRIVER_PROVISION_EMAIL_REQUIRED("fleet.driver.provision.email.required"),
+    MESSAGE_DRIVER_PLATFORM_ALREADY_LINKED("fleet.driver.platform.already.linked"),
+    MESSAGE_DRIVER_PLATFORM_NOT_LINKED("fleet.driver.platform.not.linked"),
 
     // Tracking device
     MESSAGE_TRACKING_DEVICE_NOT_FOUND("fleet.tracking.device.not.found"),

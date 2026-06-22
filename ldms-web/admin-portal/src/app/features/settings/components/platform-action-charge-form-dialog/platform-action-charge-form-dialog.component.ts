@@ -21,8 +21,12 @@ const CATEGORIES = [
   'IOT',
   'ORDERS',
   'LOGISTICS',
+  'FLEET',
   'PROCUREMENT',
+  'SUPPORT',
 ];
+
+const BILLING_TIERS = ['LIGHT', 'STANDARD', 'HEAVY', 'TRACKING', 'MESSAGING'];
 
 @Component({
   selector: 'app-platform-action-charge-form-dialog',
@@ -32,8 +36,10 @@ const CATEGORIES = [
 })
 export class PlatformActionChargeFormDialogComponent {
   readonly categories = CATEGORIES;
+  readonly billingTiers = BILLING_TIERS;
   readonly isView: boolean;
   readonly isEdit: boolean;
+  private readonly chargeId?: number;
 
   form: FormGroup;
 
@@ -48,10 +54,12 @@ export class PlatformActionChargeFormDialogComponent {
       description: ['', Validators.maxLength(500)],
       chargeCents: [0, [Validators.required, Validators.min(0)]],
       category: ['GENERAL', Validators.required],
+      billingTier: [''],
       active: [true],
     });
     this.isView = data.mode === 'view';
     this.isEdit = data.mode === 'edit';
+    this.chargeId = data.row?.id;
     if (data.row) {
       this.form.patchValue({
         actionCode: data.row.actionCode,
@@ -59,6 +67,7 @@ export class PlatformActionChargeFormDialogComponent {
         description: data.row.description ?? '',
         chargeCents: data.row.chargeCents ?? 0,
         category: data.row.category ?? 'GENERAL',
+        billingTier: data.row.billingTier ?? '',
         active: data.row.active !== false,
       });
     } else if (data.defaultCategory) {
@@ -104,12 +113,13 @@ export class PlatformActionChargeFormDialogComponent {
     }
     const raw = this.form.getRawValue();
     this.dialogRef.close({
-      id: undefined,
+      id: this.isEdit ? this.chargeId : undefined,
       actionCode: String(raw.actionCode ?? '').trim().toUpperCase(),
       displayName: String(raw.displayName ?? '').trim(),
       description: String(raw.description ?? '').trim() || undefined,
       chargeCents: Number(raw.chargeCents ?? 0),
       category: String(raw.category ?? 'GENERAL').trim().toUpperCase(),
+      billingTier: String(raw.billingTier ?? '').trim().toUpperCase() || undefined,
       active: raw.active === true,
     });
   }

@@ -143,8 +143,45 @@
               <p class="dr-detail__sub">{{ selected.email }} · {{ selected.phone }}</p>
             </div>
           </div>
-          <span [class]="statusClass(selected.status)">{{ statusLabel(selected.status) }}</span>
+          <div class="dr-detail__hero-actions">
+            <a
+              *ngIf="linkedUser"
+              class="dr-detail__profile-link"
+              [routerLink]="['/users', linkedUser.id, 'profile']"
+            >
+              <span class="material-icons" aria-hidden="true">person</span>
+              View profile
+            </a>
+            <span [class]="statusClass(selected.status)">{{ statusLabel(selected.status) }}</span>
+          </div>
         </header>
+
+        <article class="dr-profile-card" *ngIf="linkedUserLoading">
+          <span class="dr-spinner" aria-hidden="true"></span>
+          Checking for a registered LDMS user…
+        </article>
+
+        <article class="dr-profile-card dr-profile-card--linked" *ngIf="linkedUser as user">
+          <div class="dr-profile-card__head">
+            <span class="material-icons" aria-hidden="true">verified_user</span>
+            <div>
+              <h3>Registered LDMS user</h3>
+              <p>This contact already has a portal account — open their full profile for KYC, roles, and organisation context.</p>
+            </div>
+          </div>
+          <div class="dr-profile-card__meta">
+            <span><strong>{{ user.name }}</strong> · {{ user.username }}</span>
+            <span>{{ user.role }} · {{ user.statusLabel }}</span>
+          </div>
+          <a class="dr-detail__profile-link dr-detail__profile-link--solid" [routerLink]="['/users', user.id, 'profile']">
+            <span class="material-icons" aria-hidden="true">open_in_new</span>
+            Open user profile
+          </a>
+        </article>
+
+        <p class="dr-profile-card dr-profile-card--none" *ngIf="linkedUserResolved && !linkedUser && !linkedUserLoading">
+          No LDMS user account is linked to <strong>{{ selected.email }}</strong> yet — this is a marketing lead only.
+        </p>
 
         <p class="dr-detail__error" *ngIf="detailError" role="alert">{{ detailError }}</p>
 

@@ -2,11 +2,14 @@ package projectlx.billing.payments.service.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import projectlx.billing.payments.business.logic.api.BillingVerificationSettingsService;
 import projectlx.billing.payments.business.logic.api.CurrencyManagementService;
 import projectlx.billing.payments.business.logic.api.DriverExpenseReconciliationService;
 import projectlx.billing.payments.business.logic.api.InvoiceService;
 import projectlx.billing.payments.business.logic.api.PaymentService;
 import projectlx.billing.payments.business.logic.api.PlatformDashboardService;
+import projectlx.billing.payments.service.processor.api.BillingVerificationSettingsServiceProcessor;
+import projectlx.billing.payments.service.processor.api.CurrencyManagementServiceProcessor;
 import projectlx.billing.payments.service.processor.api.PlatformDashboardServiceProcessor;
 import projectlx.billing.payments.service.processor.impl.PlatformDashboardServiceProcessorImpl;
 import projectlx.billing.payments.service.processor.api.DriverExpenseServiceProcessor;
@@ -14,6 +17,7 @@ import projectlx.billing.payments.service.processor.api.InvoiceServiceProcessor;
 import projectlx.billing.payments.service.processor.api.PaymentServiceProcessor;
 import projectlx.billing.payments.business.logic.api.PlatformWalletBillingService;
 import projectlx.billing.payments.service.processor.api.PlatformWalletBillingServiceProcessor;
+import projectlx.billing.payments.service.processor.impl.BillingVerificationSettingsServiceProcessorImpl;
 import projectlx.billing.payments.service.processor.impl.CurrencyManagementServiceProcessorImpl;
 import projectlx.billing.payments.service.processor.impl.DriverExpenseServiceProcessorImpl;
 import projectlx.billing.payments.service.processor.impl.InvoiceServiceProcessorImpl;
@@ -52,5 +56,11 @@ public class ServiceConfig {
     @Bean
     public PlatformWalletBillingServiceProcessor platformWalletBillingServiceProcessor(PlatformWalletBillingService service) {
         return new PlatformWalletBillingServiceProcessorImpl(service);
+    }
+
+    @Bean
+    public BillingVerificationSettingsServiceProcessor billingVerificationSettingsServiceProcessor(
+            BillingVerificationSettingsService billingVerificationSettingsService) {
+        return new BillingVerificationSettingsServiceProcessorImpl(billingVerificationSettingsService);
     }
 }

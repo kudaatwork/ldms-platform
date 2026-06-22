@@ -24,6 +24,8 @@ export const ACTION_CHARGE_SAMPLE_CSV = [
   ACTION_CHARGE_CSV_HEADERS.join(','),
   'TRIP_TRACK,Trip tracking ping,GPS / status tracking update for a trip,3,TRIPS,true',
   'PROCUREMENT_PR_APPROVE,Purchase requisition approval,Each internal approval stage on a PR,5,ORDERS,true',
+  'HELP_BOT_MESSAGE,LDMS Assistant message,Each user message to the AI assistant,5,SUPPORT,true',
+  'HELP_LIVE_CHAT_MESSAGE,Live support message,Each message in a support ticket thread,25,SUPPORT,true',
 ].join('\n');
 
 export const SUBSCRIPTION_PACKAGE_SAMPLE_CSV = [

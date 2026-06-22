@@ -49,6 +49,12 @@ public class WalletDeposit {
     @Column(name = "proof_document_id")
     private Long proofDocumentId;
 
+    @Column(name = "gateway_provider", length = 50)
+    private String gatewayProvider;
+
+    @Column(name = "payment_method", length = 50)
+    private String paymentMethod;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)
     private EntityStatus entityStatus = EntityStatus.ACTIVE;

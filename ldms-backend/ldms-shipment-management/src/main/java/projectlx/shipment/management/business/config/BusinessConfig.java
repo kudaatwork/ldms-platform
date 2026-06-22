@@ -15,6 +15,8 @@ import projectlx.shipment.management.business.logic.api.ShipmentService;
 import projectlx.shipment.management.business.logic.impl.BorderClearanceCaseServiceImpl;
 import projectlx.shipment.management.business.logic.impl.PlatformDashboardServiceImpl;
 import projectlx.shipment.management.business.logic.impl.ShipmentServiceImpl;
+import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
+import projectlx.shipment.management.clients.BillingPaymentsServiceClient;
 import projectlx.shipment.management.business.logic.support.CallerOrganizationResolver;
 import projectlx.shipment.management.business.logic.support.LogisticsNotificationRecipientResolver;
 import projectlx.shipment.management.business.logic.support.PlatformDashboardSupport;
@@ -103,6 +105,11 @@ public class BusinessConfig {
     }
 
     @Bean
+    public PlatformWalletUsageSupport platformWalletUsageSupport(BillingPaymentsServiceClient billingPaymentsServiceClient) {
+        return new PlatformWalletUsageSupport(billingPaymentsServiceClient::recordUsageCharge, "ldms-shipment-management");
+    }
+
+    @Bean
     public ShipmentService shipmentService(ShipmentServiceValidator shipmentServiceValidator,
                                            ShipmentServiceAuditable shipmentServiceAuditable,
                                            ShipmentRepository shipmentRepository,
@@ -114,10 +121,12 @@ public class BusinessConfig {
                                            LogisticsNotificationRecipientResolver logisticsNotificationRecipientResolver,
                                            OrganizationManagementServiceClient organizationManagementServiceClient,
                                            FleetManagementServiceClient fleetManagementServiceClient,
-                                           BorderClearanceCaseService borderClearanceCaseService) {
+                                           BorderClearanceCaseService borderClearanceCaseService,
+                                           PlatformWalletUsageSupport platformWalletUsageSupport) {
         return new ShipmentServiceImpl(shipmentServiceValidator, shipmentServiceAuditable,
                 shipmentRepository, callerOrganizationResolver, shipmentFleetAllocatorSupport, rabbitTemplate, messageService,
                 logisticsLifecycleNotificationSupport, logisticsNotificationRecipientResolver,
-                organizationManagementServiceClient, fleetManagementServiceClient, borderClearanceCaseService);
+                organizationManagementServiceClient, fleetManagementServiceClient, borderClearanceCaseService,
+                platformWalletUsageSupport);
     }
 }

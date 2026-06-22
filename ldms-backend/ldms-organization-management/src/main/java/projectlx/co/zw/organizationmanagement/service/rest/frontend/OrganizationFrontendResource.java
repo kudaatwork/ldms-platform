@@ -289,6 +289,30 @@ public class OrganizationFrontendResource {
         return organizationServiceProcessor.deleteAgentForUser(agentId, locale, username);
     }
 
+    @Auditable(action = "ORG_IMPORT_AGENTS_CSV")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).MANAGE_BRANCHES.toString())")
+    @PostMapping("/agents/import-csv")
+    @Operation(summary = "Import agents from CSV for the signed-in organisation")
+    public ResponseEntity<ImportSummary> importAgentsFromCsv(
+            @RequestParam("file") MultipartFile file,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(
+                    new ImportSummary(400, false, "Empty file", 0, 0, 0, List.of("Empty file provided")));
+        }
+        try (InputStream is = file.getInputStream()) {
+            ImportSummary summary = organizationServiceProcessor.importAgentsFromCsvForUser(is, locale, username);
+            return ResponseEntity.ok(summary);
+        } catch (IOException e) {
+            logger.error("CSV import failed for agents user={}", username, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                    new ImportSummary(500, false, "Import failed: " + e.getMessage(), 0, 0, 0,
+                            List.of(e.getMessage())));
+        }
+    }
+
     @Auditable(action = "ORG_LIST_CUSTOMERS")
     @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).LIST_CUSTOMERS.toString())")
     @GetMapping("/customers")

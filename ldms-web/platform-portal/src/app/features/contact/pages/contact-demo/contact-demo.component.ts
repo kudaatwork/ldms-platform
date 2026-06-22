@@ -1,9 +1,8 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { AfterViewInit, ChangeDetectionStrategy, Component, ElementRef, inject, signal } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { ThemeService } from '../../../../core/services/theme.service';
 import { DemoRequisitionService } from '../../services/demo-requisition.service';
+import { LandingMotionService } from '../../../landing/services/landing-motion.service';
 
 @Component({
   selector: 'app-contact-demo',
@@ -12,11 +11,11 @@ import { DemoRequisitionService } from '../../services/demo-requisition.service'
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: false,
 })
-export class ContactDemoComponent {
+export class ContactDemoComponent implements AfterViewInit {
   private readonly fb = inject(FormBuilder);
-  private readonly router = inject(Router);
   private readonly demoRequisition = inject(DemoRequisitionService);
-  readonly theme = inject(ThemeService);
+  private readonly el = inject(ElementRef<HTMLElement>);
+  private readonly motion = inject(LandingMotionService);
 
   readonly submitting = signal(false);
   readonly submittedOk = signal(false);
@@ -31,8 +30,15 @@ export class ContactDemoComponent {
     demoRequest: ['', [Validators.required, Validators.minLength(20), Validators.maxLength(4000)]],
   });
 
-  toggleTheme(): void {
-    this.theme.toggle();
+  ngAfterViewInit(): void {
+    this.motion.initHeroReveal(
+      this.el.nativeElement,
+      '.ldms-contact__eyebrow, .ldms-contact__title, .ldms-contact__intro, .ldms-contact__perks, .ldms-contact__panel',
+    );
+  }
+
+  demoRequestLength(): number {
+    return (this.form.get('demoRequest')?.value ?? '').length;
   }
 
   fieldError(field: keyof typeof this.form.controls): string | null {
@@ -84,10 +90,6 @@ export class ContactDemoComponent {
     } finally {
       this.submitting.set(false);
     }
-  }
-
-  goHome(): void {
-    void this.router.navigate(['/welcome']);
   }
 
   prepareAnotherRequest(): void {

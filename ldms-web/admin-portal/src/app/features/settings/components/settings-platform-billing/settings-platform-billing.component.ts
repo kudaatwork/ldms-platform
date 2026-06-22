@@ -1,7 +1,8 @@
 import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Subject, finalize, forkJoin, takeUntil } from 'rxjs';
+import { Subject, catchError, finalize, forkJoin, of, takeUntil } from 'rxjs';
 import {
   PlatformWalletAdminService,
   type PlatformActionChargeRow,
@@ -26,6 +27,8 @@ import {
   type SubscriptionPackageFormDialogData,
 } from '../subscription-package-form-dialog/subscription-package-form-dialog.component';
 import { PLATFORM_BILLING_MODULES, moduleLabel } from '../../utils/platform-billing-modules.util';
+import { packageFeaturePoints } from '../../../../shared/utils/subscription-package-description.util';
+import { PendingDepositsStatsService } from '../../../../core/services/pending-deposits-stats.service';
 import {
   exportClientTableAsCsv,
   exportFormatLabel,
@@ -33,7 +36,7 @@ import {
   type LxExportFormat,
 } from '@shared/utils/lx-export.util';
 
-type BillingTab = 'charges' | 'packages' | 'deposits';
+type BillingTab = 'charges' | 'packages' | 'deposits' | 'history';
 
 @Component({
   selector: 'app-settings-platform-billing',
@@ -53,7 +56,13 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
   actionCharges: PlatformActionChargeRow[] = [];
   packages: SubscriptionPackageRow[] = [];
   pendingDeposits: WalletDepositRow[] = [];
+  approvedDeposits: WalletDepositRow[] = [];
+  depositsLoadError = '';
+  historyLoadError = '';
   confirmingDepositId: number | null = null;
+  rejectingDepositId: number | null = null;
+  deletingPackageId: number | null = null;
+  deletingChargeId: number | null = null;
 
   searchQuery = '';
   filterFieldsOpen = false;
@@ -61,10 +70,12 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
   chargeFilters = { actionCode: '', displayName: '', category: '', active: '' };
   packageFilters = { code: '', name: '', active: '', featured: '' };
   depositFilters = { organizationId: '', referenceNumber: '' };
+  historyFilters = { organizationId: '', referenceNumber: '', approvedBy: '' };
 
   readonly chargeColumns = ['action', 'category', 'charge', 'active', 'actions'];
   readonly packageColumns = ['code', 'name', 'price', 'featured', 'active', 'actions'];
   readonly depositColumns = ['org', 'amount', 'ref', 'createdAt', 'actions'];
+  readonly historyColumns = ['org', 'amount', 'ref', 'createdAt', 'approvedAt', 'approvedBy'];
 
   readonly chargeSampleDescription =
     'Columns: actionCode, displayName, description, chargeCents, category, active. Use uppercase action codes referenced by platform services.';
@@ -72,19 +83,34 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
     'Columns: code, name, description, monthlyPriceCents, currencyCode, sortOrder, featured, active.';
   readonly chargeImportDisclaimer = ACTION_CHARGE_IMPORT_DISCLAIMER;
   readonly packageImportDisclaimer = SUBSCRIPTION_PACKAGE_IMPORT_DISCLAIMER;
-  readonly billingModules = PLATFORM_BILLING_MODULES;
+  readonly billingModules = PLATFORM_BILLING_MODULES.filter((mod) => mod.category !== 'PROCUREMENT');
   readonly moduleLabel = moduleLabel;
+  readonly packageFeaturePoints = packageFeaturePoints;
+  readonly ordersChargeGroups = [
+    { key: 'inventory', label: 'Inventory & stock', prefix: 'INVENTORY_' },
+    { key: 'orders', label: 'Orders', prefix: 'ORDER_' },
+    { key: 'procurement', label: 'Procurement approvals', prefix: 'PROCUREMENT_' },
+  ] as const;
 
   private readonly destroy$ = new Subject<void>();
 
   constructor(
     private readonly walletAdmin: PlatformWalletAdminService,
+    private readonly pendingDepositsStats: PendingDepositsStatsService,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
     private readonly dialog: MatDialog,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
+      const tab = params.get('tab');
+      if (tab === 'charges' || tab === 'packages' || tab === 'deposits' || tab === 'history') {
+        this.activeTab = tab;
+        this.cdr.markForCheck();
+      }
+    });
     this.reload();
   }
 
@@ -159,6 +185,25 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
     });
   }
 
+  get filteredApprovedDeposits(): WalletDepositRow[] {
+    const q = this.searchQuery.trim().toLowerCase();
+    return this.approvedDeposits.filter((row) => {
+      if (q && !`${row.organizationId} ${row.referenceNumber ?? ''} ${row.amountCents} ${row.modifiedBy ?? ''}`.toLowerCase().includes(q)) {
+        return false;
+      }
+      if (this.historyFilters.organizationId && !String(row.organizationId ?? '').includes(this.historyFilters.organizationId.trim())) {
+        return false;
+      }
+      if (this.historyFilters.referenceNumber && !(row.referenceNumber ?? '').toLowerCase().includes(this.historyFilters.referenceNumber.trim().toLowerCase())) {
+        return false;
+      }
+      if (this.historyFilters.approvedBy && !(row.modifiedBy ?? '').toLowerCase().includes(this.historyFilters.approvedBy.trim().toLowerCase())) {
+        return false;
+      }
+      return true;
+    });
+  }
+
   get sampleCsvDescription(): string {
     if (this.activeTab === 'packages') return this.packageSampleDescription;
     if (this.activeTab === 'charges') return this.chargeSampleDescription;
@@ -176,7 +221,28 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
   }
 
   chargesForModule(category: string): PlatformActionChargeRow[] {
-    return this.filteredActionCharges.filter((row) => (row.category ?? 'GENERAL') === category);
+    return this.filteredActionCharges
+      .filter((row) => this.chargeBelongsToModule(row, category))
+      .sort((a, b) => (a.displayName ?? a.actionCode).localeCompare(b.displayName ?? b.actionCode));
+  }
+
+  ordersChargesInGroup(prefix: string): PlatformActionChargeRow[] {
+    return this.chargesForModule('ORDERS').filter((row) => row.actionCode.startsWith(prefix));
+  }
+
+  ordersChargesUncategorized(): PlatformActionChargeRow[] {
+    const knownPrefixes = this.ordersChargeGroups.map((group) => group.prefix);
+    return this.chargesForModule('ORDERS').filter(
+      (row) => !knownPrefixes.some((prefix) => row.actionCode.startsWith(prefix)),
+    );
+  }
+
+  private chargeBelongsToModule(row: PlatformActionChargeRow, category: string): boolean {
+    const rowCategory = row.category ?? 'GENERAL';
+    if (category === 'ORDERS') {
+      return rowCategory === 'ORDERS' || rowCategory === 'PROCUREMENT';
+    }
+    return rowCategory === category;
   }
 
   switchTab(tab: BillingTab): void {
@@ -189,10 +255,23 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
 
   reload(): void {
     this.loading = true;
+    this.depositsLoadError = '';
+    this.historyLoadError = '';
     forkJoin({
-      charges: this.walletAdmin.listActionCharges(),
-      packages: this.walletAdmin.listSubscriptionPackages(),
-      deposits: this.walletAdmin.listPendingDeposits(),
+      charges: this.walletAdmin.listActionCharges().pipe(catchError(() => of([] as PlatformActionChargeRow[]))),
+      packages: this.walletAdmin.listSubscriptionPackages().pipe(catchError(() => of([] as SubscriptionPackageRow[]))),
+      deposits: this.walletAdmin.listPendingDeposits().pipe(
+        catchError((err: unknown) => {
+          this.depositsLoadError = err instanceof Error ? err.message : 'Could not load pending deposits.';
+          return of([] as WalletDepositRow[]);
+        }),
+      ),
+      history: this.walletAdmin.listConfirmedDeposits().pipe(
+        catchError((err: unknown) => {
+          this.historyLoadError = err instanceof Error ? err.message : 'Could not load approved deposits.';
+          return of([] as WalletDepositRow[]);
+        }),
+      ),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -201,11 +280,23 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         }),
       )
-      .subscribe(({ charges, packages, deposits }) => {
+      .subscribe(({ charges, packages, deposits, history }) => {
         this.actionCharges = charges;
         this.packages = packages;
         this.pendingDeposits = deposits;
+        this.approvedDeposits = history;
+        this.pendingDepositsStats.setSnapshot(deposits);
+        if (this.depositsLoadError) {
+          this.snackBar.open(this.depositsLoadError, 'Close', { duration: 6500 });
+        }
+        if (this.historyLoadError) {
+          this.snackBar.open(this.historyLoadError, 'Close', { duration: 6500 });
+        }
       });
+  }
+
+  formatWhen(iso?: string): string {
+    return this.walletAdmin.formatWhen(iso);
   }
 
   openChargeDialog(mode: 'create' | 'edit' | 'view', row?: PlatformActionChargeRow, defaultCategory?: string): void {
@@ -219,12 +310,50 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
       if (!payload) return;
       this.walletAdmin.saveActionCharge(payload).subscribe({
         next: () => {
-          this.snackBar.open(`Saved ${payload.actionCode}`, 'Close', { duration: 2500 });
+          this.snackBar.open(
+            mode === 'edit' ? `Updated ${payload.actionCode}` : `Saved ${payload.actionCode}`,
+            'Close',
+            { duration: 2500 },
+          );
           this.reload();
         },
-        error: () => this.snackBar.open('Could not save action charge.', 'Close', { duration: 4000 }),
+        error: (err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Could not save action charge.';
+          this.snackBar.open(message, 'Close', { duration: 5000 });
+        },
       });
     });
+  }
+
+  deleteCharge(row: PlatformActionChargeRow): void {
+    if (!row.id || this.deletingChargeId != null) {
+      return;
+    }
+    const confirmed = window.confirm(
+      `Remove "${row.displayName}" (${row.actionCode})? This charge will no longer appear in billing or pricing.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    this.deletingChargeId = row.id;
+    this.walletAdmin
+      .deleteActionCharge(row.id)
+      .pipe(
+        finalize(() => {
+          this.deletingChargeId = null;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.snackBar.open(`Removed ${row.displayName}`, 'Close', { duration: 2500 });
+          this.reload();
+        },
+        error: (err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Could not delete action charge.';
+          this.snackBar.open(message, 'Close', { duration: 5000 });
+        },
+      });
   }
 
   openPackageDialog(mode: 'create' | 'edit' | 'view', row?: SubscriptionPackageRow): void {
@@ -246,6 +375,37 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
     });
   }
 
+  deletePackage(row: SubscriptionPackageRow): void {
+    if (!row.id || this.deletingPackageId != null) {
+      return;
+    }
+    const confirmed = window.confirm(
+      `Remove "${row.name}" (${row.code})? This cannot be undone if organisations are not using it.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+    this.deletingPackageId = row.id;
+    this.walletAdmin
+      .deleteSubscriptionPackage(row.id)
+      .pipe(
+        finalize(() => {
+          this.deletingPackageId = null;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.snackBar.open(`Removed ${row.name}`, 'Close', { duration: 2500 });
+          this.reload();
+        },
+        error: (err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Could not delete package.';
+          this.snackBar.open(message, 'Close', { duration: 5000 });
+        },
+      });
+  }
+
   confirmDeposit(deposit: WalletDepositRow): void {
     this.confirmingDepositId = deposit.id;
     this.walletAdmin
@@ -262,6 +422,25 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
           this.reload();
         },
         error: () => this.snackBar.open('Could not confirm deposit.', 'Close', { duration: 4000 }),
+      });
+  }
+
+  rejectDeposit(deposit: WalletDepositRow): void {
+    this.rejectingDepositId = deposit.id;
+    this.walletAdmin
+      .rejectDeposit(deposit.id)
+      .pipe(
+        finalize(() => {
+          this.rejectingDepositId = null;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.snackBar.open('Deposit rejected.', 'Close', { duration: 3500 });
+          this.reload();
+        },
+        error: () => this.snackBar.open('Could not reject deposit.', 'Close', { duration: 4000 }),
       });
   }
 
@@ -335,6 +514,23 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
           { header: 'sortOrder', value: (r) => (r as SubscriptionPackageRow).sortOrder ?? '' },
           { header: 'featured', value: (r) => (r as SubscriptionPackageRow).featured === true },
           { header: 'active', value: (r) => (r as SubscriptionPackageRow).active !== false },
+        ],
+      };
+    }
+    if (this.activeTab === 'history') {
+      return {
+        rows: this.filteredApprovedDeposits,
+        filenameBase: 'approved-wallet-deposits',
+        title: 'Approved wallet deposits',
+        columns: [
+          { header: 'organizationId', value: (r) => (r as WalletDepositRow).organizationId ?? '' },
+          { header: 'amountCents', value: (r) => (r as WalletDepositRow).amountCents },
+          { header: 'currencyCode', value: (r) => (r as WalletDepositRow).currencyCode ?? 'USD' },
+          { header: 'referenceNumber', value: (r) => (r as WalletDepositRow).referenceNumber ?? '' },
+          { header: 'submittedAt', value: (r) => (r as WalletDepositRow).createdAt ?? '' },
+          { header: 'approvedAt', value: (r) => (r as WalletDepositRow).modifiedAt ?? '' },
+          { header: 'approvedBy', value: (r) => (r as WalletDepositRow).modifiedBy ?? '' },
+          { header: 'status', value: (r) => (r as WalletDepositRow).status ?? '' },
         ],
       };
     }

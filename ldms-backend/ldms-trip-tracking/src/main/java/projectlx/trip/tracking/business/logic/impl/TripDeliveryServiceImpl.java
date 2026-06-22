@@ -11,6 +11,7 @@ import projectlx.trip.tracking.business.auditable.api.TripDeliveryWorkflowServic
 import projectlx.trip.tracking.business.auditable.api.TripEventServiceAuditable;
 import projectlx.trip.tracking.business.auditable.api.TripServiceAuditable;
 import projectlx.trip.tracking.business.logic.api.TripDeliveryService;
+import projectlx.trip.tracking.business.logic.support.TripDeliveryWorkflowBootstrapSupport;
 import projectlx.trip.tracking.business.logic.support.TripMapper;
 import projectlx.trip.tracking.business.validator.api.TripDeliveryServiceValidator;
 import projectlx.trip.tracking.clients.InventoryManagementServiceClient;
@@ -57,6 +58,7 @@ import java.util.Map;
 public class TripDeliveryServiceImpl implements TripDeliveryService {
 
     private final TripDeliveryServiceValidator validator;
+    private final TripDeliveryWorkflowBootstrapSupport workflowBootstrap;
     private final TripDeliveryWorkflowServiceAuditable workflowAuditable;
     private final TripServiceAuditable tripServiceAuditable;
     private final TripEventServiceAuditable tripEventServiceAuditable;
@@ -75,17 +77,32 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
     // ============================================================
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public TripDeliveryWorkflowResponse getWorkflow(Long tripId, Locale locale, String username) {
-        TripDeliveryWorkflow workflow = workflowRepository
-                .findByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED).orElse(null);
-        if (workflow == null) {
+        Trip trip = tripRepository.findByIdAndEntityStatusNot(tripId, EntityStatus.DELETED).orElse(null);
+        if (trip == null) {
             return errorResponse(404, messageService.getMessage(
-                    I18Code.MESSAGE_DELIVERY_WORKFLOW_NOT_FOUND.getCode(), new String[]{}, locale));
+                    I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
         }
+
+        TripDeliveryWorkflow workflow = workflowRepository
+                .findWithDetailsByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED)
+                .orElse(null);
+
+        if (workflow == null && workflowBootstrap.isDeliveryPhase(trip.getStatus())) {
+            LocalDateTime now = LocalDateTime.now();
+            workflowBootstrap.ensureWorkflow(trip, now, username, locale);
+            workflow = workflowRepository
+                    .findWithDetailsByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED)
+                    .orElse(null);
+        }
+
         TripDeliveryWorkflowResponse response = successResponse(200, messageService.getMessage(
                 I18Code.MESSAGE_DELIVERY_WORKFLOW_FIND_SUCCESS.getCode(), new String[]{}, locale));
-        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow));
+        response.setTripDto(TripMapper.toDto(trip));
+        if (workflow != null) {
+            response.setWorkflowDto(TripMapper.toWorkflowDto(workflow, trip.getId()));
+        }
         return response;
     }
 
@@ -134,7 +151,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
         // STEP 3: Load or create workflow
         // ============================================================
         LocalDateTime now = LocalDateTime.now();
-        TripDeliveryWorkflow workflow = getOrCreateWorkflow(trip, now, username, locale);
+        TripDeliveryWorkflow workflow = workflowBootstrap.ensureWorkflow(trip, now, username, locale);
 
         // ============================================================
         // STEP 4: Record actor counting start timestamp
@@ -188,7 +205,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
 
         TripDeliveryWorkflowResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_DELIVERY_COUNTING_STARTED.getCode(), new String[]{}, locale));
-        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow));
+        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow, trip.getId()));
         response.setTripDto(TripMapper.toDto(trip));
         return response;
     }
@@ -236,19 +253,19 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
         }
 
         // ============================================================
-        // STEP 3: Load workflow
+        // STEP 3: Load workflow (bootstrap if missing during delivery phase)
         // ============================================================
+        LocalDateTime now = LocalDateTime.now();
         TripDeliveryWorkflow workflow = workflowRepository
-                .findByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED).orElse(null);
+                .findWithDetailsByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED)
+                .orElse(null);
         if (workflow == null) {
-            return errorResponse(404, messageService.getMessage(
-                    I18Code.MESSAGE_DELIVERY_WORKFLOW_NOT_FOUND.getCode(), new String[]{}, locale));
+            workflow = workflowBootstrap.ensureWorkflow(trip, now, username, locale);
         }
 
         // ============================================================
         // STEP 4: Record actor finish timestamp
         // ============================================================
-        LocalDateTime now = LocalDateTime.now();
         String role = request.getActorRole().trim().toUpperCase();
         switch (role) {
             case "DRIVER" -> workflow.setDriverCountingFinishedAt(now);
@@ -292,7 +309,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
 
         TripDeliveryWorkflowResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_DELIVERY_COUNTING_FINISHED.getCode(), new String[]{}, locale));
-        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow));
+        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow, trip.getId()));
         response.setTripDto(TripMapper.toDto(trip));
         return response;
     }
@@ -346,7 +363,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
         TripDeliveryWorkflow workflow = workflowRepository
                 .findByTripIdAndEntityStatusNot(trip.getId(), EntityStatus.DELETED).orElse(null);
         if (workflow == null) {
-            workflow = getOrCreateWorkflow(trip, now, username, locale);
+            workflow = workflowBootstrap.ensureWorkflow(trip, now, username, locale);
         }
         String channel = request.getChannel().trim().toUpperCase();
         workflow.setOtpChannel(channel);
@@ -412,7 +429,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
 
         TripDeliveryWorkflowResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_DELIVERY_OTP_SENT_SUCCESS.getCode(), new String[]{}, locale));
-        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow));
+        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow, trip.getId()));
         response.setTripDto(TripMapper.toDto(trip));
         return response;
     }
@@ -612,7 +629,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
         LocalDateTime now = LocalDateTime.now();
         TripDeliveryWorkflow workflow = workflowRepository
                 .findByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED)
-                .orElseGet(() -> getOrCreateWorkflow(trip, now, username, locale));
+                .orElseGet(() -> workflowBootstrap.ensureWorkflow(trip, now, username, locale));
 
         workflow.setReturnInitiatedAt(now);
         workflow.setModifiedAt(now);
@@ -635,7 +652,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
 
         TripDeliveryWorkflowResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_DELIVERY_RETURN_STARTED.getCode(), new String[]{}, locale));
-        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow));
+        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow, trip.getId()));
         response.setTripDto(TripMapper.toDto(trip));
         return response;
     }
@@ -686,7 +703,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
         LocalDateTime now = LocalDateTime.now();
         TripDeliveryWorkflow workflow = workflowRepository
                 .findByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED)
-                .orElseGet(() -> getOrCreateWorkflow(trip, now, username, locale));
+                .orElseGet(() -> workflowBootstrap.ensureWorkflow(trip, now, username, locale));
 
         // ============================================================
         // STEP 4: Persist return lines
@@ -715,7 +732,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
 
         TripDeliveryWorkflowResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_DELIVERY_RETURNS_RECORDED.getCode(), new String[]{}, locale));
-        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow));
+        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow, trip.getId()));
         return response;
     }
 
@@ -754,7 +771,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
         LocalDateTime now = LocalDateTime.now();
         TripDeliveryWorkflow workflow = workflowRepository
                 .findByTripIdAndEntityStatusNot(tripId, EntityStatus.DELETED)
-                .orElseGet(() -> getOrCreateWorkflow(trip, now, username, locale));
+                .orElseGet(() -> workflowBootstrap.ensureWorkflow(trip, now, username, locale));
 
         workflow.setReturnCompletedAt(now);
         workflow.setModifiedAt(now);
@@ -777,7 +794,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
 
         TripDeliveryWorkflowResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_DELIVERY_RETURN_CONFIRMED.getCode(), new String[]{}, locale));
-        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow));
+        response.setWorkflowDto(TripMapper.toWorkflowDto(workflow, trip.getId()));
         response.setTripDto(TripMapper.toDto(trip));
         return response;
     }
@@ -785,20 +802,6 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
     // ============================================================
     // Private helpers
     // ============================================================
-
-    private TripDeliveryWorkflow getOrCreateWorkflow(Trip trip, LocalDateTime now, String username, Locale locale) {
-        return workflowRepository
-                .findByTripIdAndEntityStatusNot(trip.getId(), EntityStatus.DELETED)
-                .orElseGet(() -> {
-                    TripDeliveryWorkflow wf = new TripDeliveryWorkflow();
-                    wf.setTrip(trip);
-                    wf.setExpectedQuantity(trip.getQuantity() != null ? trip.getQuantity().stripTrailingZeros() : null);
-                    wf.setEntityStatus(EntityStatus.ACTIVE);
-                    wf.setCreatedAt(now);
-                    wf.setCreatedBy(username);
-                    return workflowAuditable.create(wf, locale, username);
-                });
-    }
 
     private TripEvent recordTripEvent(Trip trip, TripEventType type,
                                       BigDecimal lat, BigDecimal lng,

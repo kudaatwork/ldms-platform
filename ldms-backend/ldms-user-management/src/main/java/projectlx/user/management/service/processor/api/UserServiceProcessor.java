@@ -55,6 +55,8 @@ public interface UserServiceProcessor {
 
     UserResponse setShipmentFleetAllocator(Long id, boolean enabled, Locale locale, String username);
 
+    UserResponse setBillingApprover(Long id, boolean enabled, Locale locale, String username);
+
     /**
      * Returns fleet managers (users with ALLOCATE_SHIPMENT / VIEW_FLEET_DRIVERS /
      * ORGANIZATION_ADMINISTRATOR roles) in the given organisation workspace.
