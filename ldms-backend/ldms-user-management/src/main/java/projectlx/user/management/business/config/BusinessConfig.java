@@ -83,6 +83,7 @@ import projectlx.user.management.business.validator.impl.UserServiceValidatorImp
 import projectlx.user.management.business.validator.impl.UserTypeServiceValidatorImpl;
 import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
 import projectlx.user.management.clients.BillingPaymentsServiceClient;
+import projectlx.user.management.clients.FileUploadServiceClient;
 import projectlx.user.management.clients.LocationsServiceClient;
 import projectlx.user.management.repository.UserAccountRepository;
 import projectlx.user.management.repository.UserAddressRepository;

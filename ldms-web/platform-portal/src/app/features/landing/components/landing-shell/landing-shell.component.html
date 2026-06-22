@@ -1,0 +1,113 @@
+<div class="ldms-landing">
+  <div class="ldms-scroll-bar" aria-hidden="true"></div>
+
+  <div class="ldms-landing__bg" aria-hidden="true">
+    <div class="ldms-landing__aurora">
+      <div class="ldms-landing__aurora-beam ldms-landing__aurora-beam--1"></div>
+      <div class="ldms-landing__aurora-beam ldms-landing__aurora-beam--2"></div>
+      <div class="ldms-landing__aurora-beam ldms-landing__aurora-beam--3"></div>
+    </div>
+    <div class="ldms-orb-global ldms-orb-global--a"></div>
+    <div class="ldms-orb-global ldms-orb-global--b"></div>
+    <div class="ldms-orb-global ldms-orb-global--c"></div>
+  </div>
+  <div class="ldms-landing__grid-faint" aria-hidden="true"></div>
+
+  <header class="ldms-landing__nav">
+    <div class="ldms-landing__nav-shell">
+      <div class="ldms-landing__nav-inner">
+        <a class="ldms-landing__brand" routerLink="/welcome">
+          <span class="ldms-landing__logo" aria-hidden="true">
+            <img class="ldms-landing__logo-img ldms-landing__logo-img--light" src="images/lx-logo.png" alt="" />
+            <img class="ldms-landing__logo-img ldms-landing__logo-img--dark" src="images/lx-logo-transparent.png" alt="" />
+          </span>
+          <span class="ldms-landing__name">Project <span class="brand-lx">LX</span></span>
+        </a>
+
+        <nav class="ldms-landing__nav-pages" aria-label="Site pages">
+          <a class="ldms-landing__nav-link" routerLink="/welcome" [class.ldms-landing__nav-link--active]="isActive('welcome')">Home</a>
+          <a class="ldms-landing__nav-link" routerLink="/about" [class.ldms-landing__nav-link--active]="isActive('about')">About</a>
+          <a class="ldms-landing__nav-link" routerLink="/pricing" [class.ldms-landing__nav-link--active]="isActive('pricing')">Pricing</a>
+          <a class="ldms-landing__nav-link" routerLink="/demo" [class.ldms-landing__nav-link--active]="isActive('demo')">Demo</a>
+          <a class="ldms-landing__nav-link" routerLink="/contact" [class.ldms-landing__nav-link--active]="isActive('contact')">Contact</a>
+        </nav>
+
+        <nav *ngIf="showSectionNav" class="ldms-landing__nav-pages ldms-landing__nav-pages--sections" aria-label="Page sections">
+          <a class="ldms-landing__nav-link" href="#ldms-platform">Platform</a>
+          <a class="ldms-landing__nav-link" href="#ldms-features">Features</a>
+          <a class="ldms-landing__nav-link" href="#ldms-journey">How it works</a>
+        </nav>
+
+        <nav class="ldms-landing__nav-actions ldms-landing__nav-actions--desktop" aria-label="Primary">
+          <a class="ldms-landing__link" [href]="adminUrl + '/auth/login'" rel="noopener">Admin</a>
+          <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__btn-ghost">Sign in</a>
+          <button type="button" class="lx-btn lx-btn-primary ldms-landing__nav-cta" (click)="goSignup()">Get started</button>
+        </nav>
+
+        <button
+          type="button"
+          class="ldms-landing__menu-toggle"
+          (click)="toggleMobileNav()"
+          [attr.aria-expanded]="mobileNavOpen()"
+          aria-controls="ldms-landing-mobile-nav"
+          aria-label="Open menu"
+        >
+          <span class="material-icons" aria-hidden="true">{{ mobileNavOpen() ? 'close' : 'menu' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div
+      id="ldms-landing-mobile-nav"
+      class="ldms-landing__mobile-nav"
+      [class.ldms-landing__mobile-nav--open]="mobileNavOpen()"
+      [attr.aria-hidden]="!mobileNavOpen()"
+    >
+      <nav class="ldms-landing__mobile-nav-links" aria-label="Mobile">
+        <a class="ldms-landing__mobile-link" routerLink="/welcome" (click)="closeMobileNav()">Home</a>
+        <a class="ldms-landing__mobile-link" routerLink="/about" (click)="closeMobileNav()">About</a>
+        <a class="ldms-landing__mobile-link" routerLink="/pricing" (click)="closeMobileNav()">Pricing</a>
+        <a class="ldms-landing__mobile-link" routerLink="/demo" (click)="closeMobileNav()">Demo</a>
+        <a class="ldms-landing__mobile-link" routerLink="/contact" (click)="closeMobileNav()">Contact</a>
+        <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__mobile-btn" (click)="closeMobileNav()">Sign in</a>
+        <button type="button" class="lx-btn lx-btn-primary ldms-landing__mobile-btn" (click)="goSignup(); closeMobileNav()">Get started</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="ldms-landing__main">
+    <ng-content></ng-content>
+  </main>
+
+  <footer class="ldms-footer">
+    <div class="ldms-footer__inner">
+      <div class="ldms-footer__brand">
+        <span class="ldms-footer__logo brand-lx">LX</span>
+        <div>
+          <p class="ldms-footer__tagline">Logistics &amp; Distribution Management System</p>
+          <p class="ldms-footer__copy">© Project LX · projectlx.co.zw</p>
+        </div>
+      </div>
+      <div class="ldms-footer__cols">
+        <div class="ldms-footer__col">
+          <h3>Explore</h3>
+          <a routerLink="/about">About</a>
+          <a routerLink="/pricing">Pricing</a>
+          <a routerLink="/demo">Live demo</a>
+          <a routerLink="/contact">Contact</a>
+        </div>
+        <div class="ldms-footer__col">
+          <h3>Access</h3>
+          <a routerLink="/auth/login">Sign in</a>
+          <a routerLink="/signup">Create account</a>
+          <a [href]="adminUrl + '/auth/login'" rel="noopener">Admin console</a>
+        </div>
+        <div class="ldms-footer__col">
+          <h3>Mobile apps</h3>
+          <a [href]="appleAppStoreUrl" target="_blank" rel="noopener noreferrer">App Store</a>
+          <a [href]="googlePlayStoreUrl" target="_blank" rel="noopener noreferrer">Google Play</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+</div>

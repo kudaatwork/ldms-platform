@@ -1,0 +1,270 @@
+@use '../landing/landing.component';
+
+.ldms-page-hero {
+  position: relative;
+  padding: clamp(56px, 10vw, 112px) clamp(20px, 4vw, 40px) clamp(32px, 5vw, 48px);
+  overflow: hidden;
+}
+
+.ldms-page-hero__glow {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(59, 130, 246, 0.22), transparent 70%);
+  pointer-events: none;
+}
+
+.ldms-page-hero__inner {
+  position: relative;
+  text-align: center;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.ldms-page-hero__title {
+  margin: 0 0 16px;
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+}
+
+.ldms-page-hero__lead {
+  margin: 0 auto 24px;
+  max-width: 640px;
+  font-size: 17px;
+  line-height: 1.65;
+  color: #94a3b8;
+}
+
+.ldms-page-hero__cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.ldms-pricing__drill {
+  margin-top: 36px;
+}
+
+.ldms-pricing__drill-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.ldms-pricing__drill-lead {
+  margin: 0 0 20px;
+  text-align: center;
+  color: var(--gray-600);
+  font-size: 14px;
+}
+
+.ldms-pricing__module-drill {
+  border-radius: var(--ldms-radius-sm);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: border-color 0.25s, box-shadow 0.25s;
+
+  &--open {
+    border-color: rgba(59, 130, 246, 0.35);
+    box-shadow: 0 12px 32px rgba(59, 130, 246, 0.08);
+  }
+}
+
+.ldms-pricing__module-drill-head {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.ldms-pricing__module-drill-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  strong {
+    font-size: 16px;
+    font-weight: 800;
+  }
+
+  span {
+    font-size: 13px;
+    color: var(--gray-600);
+    line-height: 1.45;
+  }
+}
+
+.ldms-pricing__module-drill-meta {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--primary-dark, #1d4ed8);
+  white-space: nowrap;
+}
+
+.ldms-pricing__module-drill-chevron {
+  transition: transform 0.25s ease;
+}
+
+.ldms-pricing__module-drill--open .ldms-pricing__module-drill-chevron {
+  transform: rotate(180deg);
+}
+
+.ldms-pricing__charges--drill {
+  margin: 0;
+  padding: 0 18px 16px 68px;
+  animation: ldms-drill-in 0.35s ease;
+}
+
+@keyframes ldms-drill-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .ldms-pricing__module-drill-head {
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .ldms-pricing__module-drill-meta {
+    display: none;
+  }
+
+  .ldms-pricing__charges--drill {
+    padding-left: 18px;
+  }
+}
+
+.ldms-pricing__tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 14px;
+  margin-bottom: clamp(28px, 4vw, 40px);
+}
+
+.ldms-pricing__tier-card {
+  padding: 16px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(8px);
+}
+
+html.theme-dark .ldms-pricing__tier-card {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(71, 85, 105, 0.55);
+}
+
+.ldms-pricing__tier-icon {
+  font-size: 22px;
+  color: var(--lx-primary, #1d4ed8);
+}
+
+.ldms-pricing__tier-label {
+  margin: 8px 0 2px;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.ldms-pricing__tier-price {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--lx-primary, #1d4ed8);
+}
+
+.ldms-pricing__tier-summary,
+.ldms-pricing__tier-examples,
+.ldms-pricing__tier-count {
+  margin: 0 0 6px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: rgba(51, 65, 85, 0.9);
+}
+
+html.theme-dark .ldms-pricing__tier-summary,
+html.theme-dark .ldms-pricing__tier-examples,
+html.theme-dark .ldms-pricing__tier-count {
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.ldms-pricing__tier-examples {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.ldms-pricing__charge-tier {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+}
+
+.ldms-pricing__package-credits {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f766e;
+
+  .material-icons {
+    font-size: 18px;
+  }
+}
+
+// Subscription packages — breathing room between copy, cards, and footnote
+.ldms-pricing__packages {
+  padding-top: 4px;
+
+  .ldms-pricing__hint {
+    margin-bottom: clamp(36px, 5vw, 52px);
+    max-width: 36rem;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .ldms-pricing__package-grid {
+    margin-bottom: clamp(12px, 2vw, 20px);
+  }
+}
+
+.ldms-pricing__footnote {
+  margin-top: clamp(44px, 6vw, 64px);
+  margin-bottom: 0;
+  padding-top: clamp(20px, 3vw, 28px);
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  max-width: 36rem;
+  font-size: 15px;
+  line-height: 1.65;
+}
