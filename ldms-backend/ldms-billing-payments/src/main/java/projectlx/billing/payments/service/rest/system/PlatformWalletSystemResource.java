@@ -48,4 +48,13 @@ public class PlatformWalletSystemResource {
         PlatformWalletResponse response = platformWalletBillingServiceProcessor.recordUsageCharge(request, locale, "SYSTEM");
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
+
+    @Auditable(action = "SYSTEM_GET_PUBLIC_PRICING_CATALOG")
+    @GetMapping("/pricing-catalog")
+    @Operation(summary = "Public pricing catalog for the marketing landing page (active packages and per-action charges)")
+    public ResponseEntity<PlatformWalletResponse> getPublicPricingCatalog(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.getPublicPricingCatalog(locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
 }

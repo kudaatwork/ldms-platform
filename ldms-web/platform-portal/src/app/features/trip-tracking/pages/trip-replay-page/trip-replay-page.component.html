@@ -22,9 +22,11 @@
   </div>
 
   <div class="trp-stage" *ngIf="!loadError || loading">
-    <section class="trp-map-wrap lx-card">
-      <div #mapHost class="trp-map" role="img" aria-label="Trip replay map"></div>
-      <lx-table-loading [busy]="loading" message="Loading corridor replay…"></lx-table-loading>
+    <section class="trp-map-wrap lx-card lx-card--flat">
+      <div class="trp-map-body">
+        <div #mapHost class="trp-map" role="img" aria-label="Trip replay map"></div>
+        <lx-table-loading [busy]="loading" message="Loading corridor replay…"></lx-table-loading>
+      </div>
 
       <div class="trp-playback" *ngIf="frames.length">
         <div class="trp-playback__progress">
@@ -39,7 +41,7 @@
           />
         </div>
         <div class="trp-playback__controls">
-          <button type="button" class="trp-btn" (click)="rewind()" title="Rewind to start">
+          <button type="button" class="trp-btn" (click)="rewind()" title="Rewind to start" aria-label="Rewind to start">
             <mat-icon>skip_previous</mat-icon>
           </button>
           <button type="button" class="trp-btn trp-btn--primary" (click)="togglePlay()" [attr.aria-label]="playing ? 'Pause' : 'Play'">

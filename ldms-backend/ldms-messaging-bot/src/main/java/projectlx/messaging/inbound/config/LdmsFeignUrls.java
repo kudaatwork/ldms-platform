@@ -17,6 +17,10 @@ public final class LdmsFeignUrls {
                 "clients.base-url.organizationManagementService");
     }
 
+    public static String resolveBillingPaymentsServiceBaseUrl(Environment env) {
+        return resolveServiceUrl(env, "CLIENTS_BILLING_PAYMENTS_SERVICE_URL", "clients.base-url.billingPaymentsService");
+    }
+
     public static String resolveApiGatewayBaseUrl(Environment env) {
         String explicit = env.getProperty("CLIENTS_API_GATEWAY_URL");
         if (explicit != null && !explicit.isBlank()) {

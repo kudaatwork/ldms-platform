@@ -1,0 +1,161 @@
+<div class="lx-page rs">
+  <lx-workspace-hero
+    [eyebrow]="config.eyebrow"
+    eyebrowIcon="route"
+    [title]="config.title"
+    [lead]="config.lead"
+    [hubIcon]="config.hubIcon"
+    [orbitIcons]="['local_shipping', 'build', 'local_gas_station']"
+    note="Providers appear on the corridor map and on live trip tracking when trucks are nearby."
+  >
+    <button
+      type="button"
+      lxWorkspaceHeroActions
+      class="lx-btn lx-btn-ghost lx-btn-sm"
+      (click)="reload()"
+      [disabled]="loading"
+    >
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <a lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" routerLink="/shipments/trips">
+      <mat-icon>map</mat-icon>
+      Live trips
+    </a>
+
+    <lx-workspace-hero-stat [value]="metrics.providers" label="On map" icon="place" theme="teal"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.pending" label="Awaiting action" icon="pending_actions" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.approved" label="Approved" icon="verified" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="metrics.open24" label="Open 24h" icon="schedule" theme="violet"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <div class="rs-alert lx-card" *ngIf="loadError" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    <span>{{ loadError }}</span>
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reload()">Retry</button>
+  </div>
+
+  <div class="rs-layout">
+    <section class="rs-map-panel lx-card" aria-label="Roadside provider map">
+      <div class="rs-map-panel__head">
+        <div>
+          <p class="rs-map-panel__eyebrow">Corridor map</p>
+          <h2>Verified providers</h2>
+        </div>
+        <div class="rs-map-panel__tools">
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="recenterMap()" title="Fit all providers">
+            <mat-icon>my_location</mat-icon>
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="mapZoomIn()" title="Zoom in">
+            <mat-icon>add</mat-icon>
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="mapZoomOut()" title="Zoom out">
+            <mat-icon>remove</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="rs-map-panel__legend">
+        <span><i class="rs-legend rs-legend--fuel"></i> Fuel station</span>
+        <span><i class="rs-legend rs-legend--mechanic"></i> Mechanic</span>
+        <span><i class="rs-legend rs-legend--support"></i> Roadside support</span>
+      </div>
+
+      <div class="rs-map-panel__host-wrap">
+        <div #mapHost class="rs-map-panel__host" (click)="enableMapScroll()"></div>
+        <p class="rs-map-panel__hint" *ngIf="!mapScrollEnabled">Click map to enable scroll zoom</p>
+      </div>
+    </section>
+
+    <aside class="rs-side">
+      <section class="rs-providers lx-card" *ngIf="filteredProviders.length">
+        <header class="rs-providers__head">
+          <h3>Directory</h3>
+          <span>{{ filteredProviders.length }} locations</span>
+        </header>
+        <ul class="rs-providers__list">
+          <li
+            *ngFor="let p of filteredProviders"
+            [class.is-selected]="selectedProvider?.id === p.id"
+            (click)="selectProvider(p)"
+          >
+            <span class="rs-providers__glyph" [attr.data-type]="p.providerType">{{ providerGlyph(p.providerType) }}</span>
+            <div class="rs-providers__copy">
+              <strong>{{ p.name }}</strong>
+              <span>{{ p.addressLabel || p.providerTypeLabel }}</span>
+              <small *ngIf="p.servicesOffered">{{ p.servicesOffered }}</small>
+            </div>
+            <div class="rs-providers__meta">
+              <span class="rs-badge rs-badge--verified" *ngIf="p.verified">Verified</span>
+              <span class="rs-badge" *ngIf="p.open24Hours">24h</span>
+            </div>
+          </li>
+        </ul>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm rs-providers__clear" *ngIf="selectedProvider" (click)="clearSelection()">
+          Clear selection
+        </button>
+      </section>
+
+      <section class="rs-detail lx-card" *ngIf="selectedProvider as p">
+        <p class="rs-detail__eyebrow">Selected location</p>
+        <h3>{{ p.name }}</h3>
+        <p class="rs-detail__type">{{ p.providerTypeLabel }}</p>
+        <p class="rs-detail__desc" *ngIf="p.description">{{ p.description }}</p>
+        <dl class="rs-detail__facts">
+          <div *ngIf="p.addressLabel">
+            <dt>Address</dt>
+            <dd>{{ p.addressLabel }}</dd>
+          </div>
+          <div *ngIf="p.phone">
+            <dt>Phone</dt>
+            <dd>{{ p.phone }}</dd>
+          </div>
+          <div *ngIf="p.servicesOffered">
+            <dt>Services</dt>
+            <dd>{{ p.servicesOffered }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="rs-queue lx-card">
+        <header class="rs-queue__head">
+          <div>
+            <p class="rs-queue__eyebrow">
+              {{ section === 'fuel-log' || section === 'service-log' ? 'Activity' : 'Incoming trucks' }}
+            </p>
+            <h3>
+              {{ section === 'incidents' ? 'Repair requests' : section === 'visits' ? 'Visit queue' : 'Recent records' }}
+            </h3>
+          </div>
+        </header>
+
+        <div class="rs-queue__loading" *ngIf="loading" role="status">Loading activity…</div>
+
+        <ul class="rs-queue__list" *ngIf="!loading && requests.length">
+          <li *ngFor="let r of requests">
+            <div class="rs-queue__icon">
+              <mat-icon>{{ r.requestType === 'MECHANIC' ? 'build' : 'local_gas_station' }}</mat-icon>
+            </div>
+            <div class="rs-queue__copy">
+              <strong>{{ r.requestNumber }}</strong>
+              <span>Trip #{{ r.tripId }} · {{ r.requestTypeLabel }}</span>
+              <small *ngIf="r.driverNotes">{{ r.driverNotes }}</small>
+            </div>
+            <div class="rs-queue__meta">
+              <span class="lx-status" [ngClass]="'lx-status-' + statusClass(r.status)">{{ r.statusLabel }}</span>
+              <span class="rs-queue__time">{{ r.createdAtLabel }}</span>
+              <span class="rs-queue__qty" *ngIf="r.litersRequested != null">{{ r.litersRequested }} L</span>
+              <span class="rs-queue__qty" *ngIf="r.amountRequested != null">{{ r.currencyCode }} {{ r.amountRequested }}</span>
+            </div>
+          </li>
+        </ul>
+
+        <div class="rs-queue__empty" *ngIf="!loading && !requests.length">
+          <mat-icon>{{ config.hubIcon }}</mat-icon>
+          <p>{{ config.emptyHint }}</p>
+          <p class="rs-queue__tip">Trucks plan stops from the live trip map — providers show as ⛽ 🔧 markers along the route.</p>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>

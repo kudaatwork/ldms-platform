@@ -29,4 +29,9 @@ public class DriverTripSummaryDto {
     private boolean canStartDeliveryWorkflow;
     private boolean canLiveTrack;
     private String deliveryWorkflowPhase;
+    /** Assigned fleet driver display name (populated for dispatcher/admin views). */
+    private String driverName;
+    private Long fleetDriverId;
+    private Long driverUserId;
+    private String driverPhone;
 }

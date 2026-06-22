@@ -460,7 +460,14 @@
                       <strong>{{ item.author }}</strong>
                       <time>{{ item.at | date : 'shortTime' }}</time>
                     </header>
-                    <p class="hc-bubble__body">{{ item.body }}</p>
+                    <div
+                      class="hc-bubble__body hc-bubble__body--md"
+                      *ngIf="!item.isMine && item.role !== 'SYSTEM'; else plainBotBubbleBody"
+                      [innerHTML]="item.body | botMessageMarkdown"
+                    ></div>
+                    <ng-template #plainBotBubbleBody>
+                      <p class="hc-bubble__body">{{ item.body }}</p>
+                    </ng-template>
                   </div>
                   <div class="hc-bubble__avatar hc-bubble__avatar--mine" *ngIf="item.isMine" aria-hidden="true">
                     {{ avatarInitials(userDisplayName || 'You') }}
@@ -500,7 +507,7 @@
             </div>
             <p class="hc-compose__hint">
               <span class="material-icons" aria-hidden="true">auto_awesome</span>
-              Answers use the LDMS platform guide. For account-specific issues, open a support ticket.
+              Answers use uploaded PDF guides, FAQs, and the LDMS platform guide. For account-specific issues, open a support ticket.
             </p>
           </footer>
         </main>

@@ -1,10 +1,25 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, catchError, forkJoin, of, takeUntil } from 'rxjs';
 import { Router } from '@angular/router';
-import { OrganizationClassification } from '../../../../core/models/auth.model';
+import { OrganizationClassification, CurrentUser } from '../../../../core/models/auth.model';
 import { AuthStateService } from '../../../../core/services/auth-state.service';
+import {
+  PlatformWalletService,
+  type OrganizationBillingSetting,
+  type PlatformWalletSummary,
+} from '../../../../core/services/platform-wallet.service';
 import { formatWelcomeMessage } from '../../../../core/utils/welcome-message.util';
 import type { LxWorkspaceHeroStatTheme } from '../../../../shared/components/lx-workspace-hero-stat/lx-workspace-hero-stat.component';
+import type {
+  PurchaseOrderRow,
+  PurchaseRequisitionRow,
+  SalesOrderRow,
+  StockRow,
+  TransferRow,
+} from '../../../inventory/models/inventory.model';
+import { InventoryPortalService } from '../../../inventory/services/inventory-portal.service';
+import type { ShipmentRow, ShipmentStatus, TripLiveMapTrack, TripRow } from '../../../trip-tracking/models/trip-tracking.model';
+import { TripTrackingPortalService } from '../../../trip-tracking/services/trip-tracking-portal.service';
 import {
   DashboardChart,
   DashboardDonutSegment,
@@ -12,12 +27,25 @@ import {
   KpiCardTheme,
   PLATFORM_CHART_CONFIG,
   PLATFORM_KPI_CONFIG,
-  SUPPLIER_SHIPMENT_MOCKS,
-  SupplierShipmentCard,
-  SupplierShipmentStatus,
 } from '../../data/platform-mock-data';
 
-type ShipmentFilter = 'ALL' | SupplierShipmentStatus;
+type ShipmentBoardFilter = 'ALL' | 'PREPARED' | 'IN_TRANSIT' | 'COMPLETED' | 'FAILED';
+
+type SupplierInventorySnapshot = {
+  purchaseOrders: PurchaseOrderRow[];
+  requisitions: PurchaseRequisitionRow[];
+  transfers: TransferRow[];
+  stock: StockRow[];
+  salesOrders: SalesOrderRow[];
+};
+
+const EMPTY_INVENTORY_SNAPSHOT: SupplierInventorySnapshot = {
+  purchaseOrders: [],
+  requisitions: [],
+  transfers: [],
+  stock: [],
+  salesOrders: [],
+};
 
 @Component({
   selector: 'app-dashboard',
@@ -33,34 +61,59 @@ export class DashboardComponent implements OnInit, OnDestroy {
   classification: OrganizationClassification | '' = '';
   classificationLabel = '';
 
-  readonly supplierShipments = SUPPLIER_SHIPMENT_MOCKS;
+  shipments: ShipmentRow[] = [];
+  trips: TripRow[] = [];
+  supplierOperationsLoading = false;
+  supplierOperationsError = '';
 
-  shipmentFilter: ShipmentFilter = 'ALL';
+  shipmentFilter: ShipmentBoardFilter = 'ALL';
   shipmentSearch = '';
-  selectedShipmentId: string | null = SUPPLIER_SHIPMENT_MOCKS[0]?.id ?? null;
+  selectedShipmentId: number | null = null;
+
+  walletSummary: PlatformWalletSummary | null = null;
+  billingSetting: OrganizationBillingSetting | null = null;
+  billingLoading = true;
+  organizationName = '';
+  todayLabel = '';
+  private supplierDataLoaded = false;
+
+  readonly heroStatSkeletons: Array<{ label: string; icon: string; theme: LxWorkspaceHeroStatTheme }> = [
+    { label: 'Pending POs', icon: 'shopping_cart', theme: 'teal' },
+    { label: 'Active shipments', icon: 'local_shipping', theme: 'mint' },
+    { label: 'Low stock alerts', icon: 'inventory_2', theme: 'amber' },
+    { label: 'Open shipments', icon: 'pending_actions', theme: 'violet' },
+  ];
 
   constructor(
     private readonly authState: AuthStateService,
     private readonly cdr: ChangeDetectorRef,
     private readonly router: Router,
+    private readonly platformWallet: PlatformWalletService,
+    private readonly tripTracking: TripTrackingPortalService,
+    private readonly inventoryPortal: InventoryPortalService,
   ) {}
 
-  welcomeMessage = 'Welcome';
+  welcomeMessage = 'Welcome back';
 
   ngOnInit(): void {
+    this.todayLabel = this.formatTodayLabel();
+    this.loadBillingSnapshot();
+
     this.authState.currentUser$.pipe(takeUntil(this.destroy$)).subscribe((user) => {
-      this.welcomeMessage = formatWelcomeMessage({
-        firstName: user?.firstName,
-        displayName: user?.displayName,
-        email: user?.email,
-      });
+      this.welcomeMessage = this.resolveWelcomeMessage(user);
+      this.organizationName = user?.orgName?.trim() ?? '';
       this.classification = user?.orgClassification ?? '';
       this.classificationLabel = this.formatClassification(this.classification);
-      const orgClass = user?.orgClassification;
-      this.cards = orgClass ? (PLATFORM_KPI_CONFIG[orgClass] ?? []) : [];
-      this.charts = orgClass ? (PLATFORM_CHART_CONFIG[orgClass] ?? []) : [];
       if (this.isSupplier) {
-        this.selectedShipmentId = this.filteredShipments[0]?.id ?? null;
+        if (!this.supplierDataLoaded) {
+          this.supplierDataLoaded = true;
+          this.loadSupplierOperations();
+        }
+      } else {
+        this.supplierDataLoaded = false;
+        const orgClass = user?.orgClassification;
+        this.cards = orgClass ? (PLATFORM_KPI_CONFIG[orgClass] ?? []) : [];
+        this.charts = orgClass ? (PLATFORM_CHART_CONFIG[orgClass] ?? []) : [];
       }
       this.cdr.markForCheck();
     });
@@ -77,18 +130,70 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   get heroLead(): string {
     if (this.isSupplier) {
-      return 'Track outbound loads, drivers, and ETAs — demo data until live shipment APIs are connected.';
+      if (this.supplierOperationsLoading) {
+        return 'Loading live shipment operations for your organisation…';
+      }
+      if (this.supplierOperationsError) {
+        return this.supplierOperationsError;
+      }
+      return 'Track outbound loads, drivers, and live corridor progress from your shipment workspace.';
     }
     return 'Key metrics for your organisation at a glance — figures are demo data until backend wiring is complete.';
   }
 
-  get heroEyebrow(): string {
-    return this.classificationLabel ? `${this.classificationLabel} workspace` : 'Operations hub';
+  get heroNote(): string {
+    if (this.isSupplier && !this.supplierOperationsLoading && !this.supplierOperationsError) {
+      return 'Shipment board and KPIs reflect live data from your organisation.';
+    }
+    return 'Key metrics are demo data until backend wiring is complete.';
   }
 
-  get shipmentCounts(): Record<ShipmentFilter, number> {
-    const all = this.supplierShipments.length;
-    const by = (s: SupplierShipmentStatus) => this.supplierShipments.filter((x) => x.status === s).length;
+  get heroTitle(): string {
+    const name = this.greetingFirstName;
+    return name ? `Welcome back, ${name}` : this.welcomeMessage;
+  }
+
+  get heroEyebrow(): string {
+    const workspace = this.classificationLabel ? `${this.classificationLabel} workspace` : 'Operations hub';
+    return this.todayLabel ? `${workspace} · ${this.todayLabel}` : workspace;
+  }
+
+  get showHeroStatsLoading(): boolean {
+    return this.isSupplier && this.supplierOperationsLoading;
+  }
+
+  get analyticsBadgeLabel(): string {
+    return this.isSupplier && !this.supplierOperationsLoading ? 'Live operations' : 'Insights preview';
+  }
+
+  get analyticsSubtitle(): string {
+    if (this.isSupplier && !this.supplierOperationsLoading) {
+      return 'Inventory, procurement, transfers, and shipment trends from your organisation data.';
+    }
+    return 'Trends and breakdowns for your workspace — preview until live feeds connect.';
+  }
+
+  private get greetingFirstName(): string {
+    const user = this.authState.currentUser;
+    const first = String(user?.firstName ?? '').trim();
+    if (first && first !== 'User') {
+      return first;
+    }
+    const fromDisplay = String(user?.displayName ?? '')
+      .trim()
+      .split(/\s+/)[0];
+    if (fromDisplay && fromDisplay !== 'User') {
+      return fromDisplay;
+    }
+    const email = String(user?.email ?? '').trim();
+    const local = email.includes('@') ? email.split('@')[0] : '';
+    return local && local !== 'User' ? local : '';
+  }
+
+  get shipmentCounts(): Record<ShipmentBoardFilter, number> {
+    const all = this.shipments.length;
+    const by = (filter: ShipmentBoardFilter) =>
+      filter === 'ALL' ? all : this.shipments.filter((s) => this.boardFilterForShipment(s.status) === filter).length;
     return {
       ALL: all,
       PREPARED: by('PREPARED'),
@@ -98,30 +203,84 @@ export class DashboardComponent implements OnInit, OnDestroy {
     };
   }
 
-  get filteredShipments(): SupplierShipmentCard[] {
+  get filteredShipments(): ShipmentRow[] {
     const q = this.shipmentSearch.trim().toLowerCase();
-    return this.supplierShipments.filter((s) => {
-      if (this.shipmentFilter !== 'ALL' && s.status !== this.shipmentFilter) {
+    return this.shipments.filter((s) => {
+      if (this.shipmentFilter !== 'ALL' && this.boardFilterForShipment(s.status) !== this.shipmentFilter) {
         return false;
       }
       if (!q) {
         return true;
       }
       return (
-        s.shipmentNo.toLowerCase().includes(q) ||
-        s.category.toLowerCase().includes(q) ||
-        s.driver.toLowerCase().includes(q) ||
-        s.departureLabel.toLowerCase().includes(q) ||
-        s.arrivalLabel.toLowerCase().includes(q)
+        s.shipmentNumber.toLowerCase().includes(q) ||
+        s.productName.toLowerCase().includes(q) ||
+        s.driverName.toLowerCase().includes(q) ||
+        s.fromWarehouse.toLowerCase().includes(q) ||
+        s.toWarehouse.toLowerCase().includes(q)
       );
     });
   }
 
-  get selectedShipment(): SupplierShipmentCard | undefined {
-    return this.supplierShipments.find((s) => s.id === this.selectedShipmentId);
+  get selectedShipment(): ShipmentRow | undefined {
+    return this.shipments.find((s) => s.id === this.selectedShipmentId);
   }
 
-  setFilter(f: ShipmentFilter): void {
+  get selectedTripId(): number | null {
+    const shipment = this.selectedShipment;
+    if (!shipment) {
+      return null;
+    }
+    return this.resolveTripId(shipment);
+  }
+
+  get selectedRouteLabel(): string {
+    const shipment = this.selectedShipment;
+    if (!shipment) {
+      return '';
+    }
+    return `${shipment.fromWarehouse} → ${shipment.toWarehouse}`;
+  }
+
+  /** All organisation loads with live GPS — shown together on the dashboard map. */
+  get liveMapTracks(): TripLiveMapTrack[] {
+    const tracks: TripLiveMapTrack[] = [];
+    const seen = new Set<number>();
+
+    for (const shipment of this.shipments) {
+      if (!this.isLiveTrackableShipment(shipment)) {
+        continue;
+      }
+      const tripId = this.resolveTripId(shipment);
+      if (!tripId || seen.has(tripId)) {
+        continue;
+      }
+      seen.add(tripId);
+      tracks.push({
+        tripId,
+        shipmentNumber: shipment.shipmentNumber,
+        statusLabel: shipment.statusLabel,
+        routeLabel: `${shipment.fromWarehouse} → ${shipment.toWarehouse}`,
+      });
+    }
+
+    for (const trip of this.trips) {
+      if (!trip.canLiveTrack || seen.has(trip.id)) {
+        continue;
+      }
+      seen.add(trip.id);
+      tracks.push({
+        tripId: trip.id,
+        shipmentNumber: trip.shipmentNumber,
+        statusLabel: trip.statusLabel,
+        routeLabel: trip.route,
+      });
+    }
+
+    return tracks;
+  }
+
+  setFilter(f: ShipmentBoardFilter): void {
     this.shipmentFilter = f;
     const list = this.filteredShipments;
     if (!list.some((s) => s.id === this.selectedShipmentId)) {
@@ -138,7 +297,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  selectShipment(s: SupplierShipmentCard): void {
+  selectShipment(s: ShipmentRow): void {
     this.selectedShipmentId = s.id;
     this.cdr.markForCheck();
   }
@@ -147,38 +306,277 @@ export class DashboardComponent implements OnInit, OnDestroy {
     void this.router.navigate(['/shipments']);
   }
 
-  statusClass(status: SupplierShipmentStatus): string {
+  goBillingSettings(): void {
+    void this.router.navigate(['/settings'], { queryParams: { section: 'billing' } });
+  }
+
+  goUsageReport(): void {
+    void this.router.navigate(['/analytics/platform-usage']);
+  }
+
+  get isSubscriptionMode(): boolean {
+    return (this.walletSummary?.billingMode ?? this.billingSetting?.billingMode) === 'PREMIUM_SUBSCRIPTION';
+  }
+
+  get walletFrozen(): boolean {
+    return this.platformWallet.isWalletFrozen(this.walletSummary);
+  }
+
+  get walletBalanceLabel(): string {
+    return this.platformWallet.formatCents(
+      this.walletSummary?.balanceCents ?? 0,
+      this.walletSummary?.currencyCode ?? 'USD',
+    );
+  }
+
+  get subscriptionName(): string {
+    return (
+      this.walletSummary?.subscriptionPackageName
+      ?? this.billingSetting?.subscriptionPackageName
+      ?? 'Premium subscription'
+    );
+  }
+
+  get subscriptionRenewalLabel(): string {
+    const renewsAt = this.billingSetting?.subscriptionRenewsAt;
+    if (!renewsAt) {
+      return 'Renewal date not set';
+    }
+    try {
+      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(new Date(renewsAt));
+    } catch {
+      return renewsAt;
+    }
+  }
+
+  get billingStatusLabel(): string {
+    if (this.isSubscriptionMode) {
+      return 'Active subscription';
+    }
+    if (this.walletFrozen) {
+      return 'Wallet empty — features locked';
+    }
+    if (this.walletSummary?.lowBalance) {
+      return 'Low balance';
+    }
+    return 'Prepaid wallet active';
+  }
+
+  /** Visual fill for the prepaid balance gauge (0–100). */
+  get walletGaugePercent(): number {
+    const balance = this.walletSummary?.balanceCents ?? 0;
+    if (balance <= 0) {
+      return 0;
+    }
+    const threshold = this.walletSummary?.lowBalanceThresholdCents ?? 500;
+    const target = Math.max(threshold * 4, balance);
+    return Math.min(100, Math.round((balance / target) * 100));
+  }
+
+  get walletGaugeCaption(): string {
+    if (this.walletFrozen) {
+      return 'Balance depleted';
+    }
+    const threshold = this.walletSummary?.lowBalanceThresholdCents ?? 500;
+    const thresholdLabel = this.platformWallet.formatCents(threshold, this.walletSummary?.currencyCode ?? 'USD');
+    if (this.walletSummary?.lowBalance) {
+      return `Below ${thresholdLabel} warning threshold`;
+    }
+    return `Healthy · low-balance warning at ${thresholdLabel}`;
+  }
+
+  private loadBillingSnapshot(): void {
+    this.billingLoading = true;
+    forkJoin({
+      summary: this.platformWallet.refreshSummary(),
+      setting: this.platformWallet.getBillingSetting(),
+    })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: ({ summary, setting }) => {
+          this.walletSummary = summary;
+          this.billingSetting = setting;
+          this.billingLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.walletSummary = {
+            balanceCents: 0,
+            currencyCode: 'USD',
+            billingMode: 'PREPAID_WALLET',
+          };
+          this.billingSetting = { billingMode: 'PREPAID_WALLET' };
+          this.billingLoading = false;
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  statusClass(status: ShipmentStatus): string {
     switch (status) {
-      case 'PREPARED':
+      case 'PENDING':
+      case 'PENDING_FLEET':
+      case 'ALLOCATED':
         return 'dash-ship-badge--prepared';
       case 'IN_TRANSIT':
         return 'dash-ship-badge--transit';
-      case 'COMPLETED':
+      case 'DELIVERED':
         return 'dash-ship-badge--done';
-      case 'FAILED':
+      case 'CANCELLED':
         return 'dash-ship-badge--fail';
       default:
         return '';
     }
   }
 
-  statusLabel(status: SupplierShipmentStatus): string {
-    switch (status) {
-      case 'PREPARED':
-        return 'Prepared';
-      case 'IN_TRANSIT':
-        return 'In transit';
-      case 'COMPLETED':
-        return 'Completed';
-      case 'FAILED':
-        return 'Failed';
-      default:
-        return status;
-    }
+  shipmentArrivalLabel(shipment: ShipmentRow): string {
+    return shipment.status === 'DELIVERED' ? shipment.createdAtLabel : '—';
   }
 
-  trackShipment(_i: number, s: SupplierShipmentCard): string {
+  trackShipment(_i: number, s: ShipmentRow): number {
     return s.id;
+  }
+
+  private loadSupplierOperations(): void {
+    const orgId = Number(this.authState.currentUser?.organizationId ?? 0);
+    if (!orgId) {
+      this.supplierOperationsError = 'Organisation context is missing — sign in again to load shipments.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.supplierOperationsLoading = true;
+    this.supplierOperationsError = '';
+
+    forkJoin({
+      shipments: this.tripTracking.findShipments({ organizationId: orgId }).pipe(catchError(() => of([] as ShipmentRow[]))),
+      trips: this.tripTracking.findTrips({ organizationId: orgId }).pipe(catchError(() => of([] as TripRow[]))),
+    })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: ({ shipments, trips }) => {
+          this.shipments = shipments;
+          this.trips = trips;
+          this.applySupplierKpis(shipments, trips, [], []);
+          this.charts = this.buildSupplierCharts(shipments, EMPTY_INVENTORY_SNAPSHOT);
+          if (!this.filteredShipments.some((s) => s.id === this.selectedShipmentId)) {
+            this.selectedShipmentId = this.filteredShipments[0]?.id ?? null;
+          }
+          this.supplierOperationsLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.supplierOperationsLoading = false;
+          this.supplierOperationsError = 'Could not load shipment operations. Try again shortly.';
+          this.cdr.markForCheck();
+        },
+      });
+
+    forkJoin({
+      purchaseOrders: this.inventoryPortal.listPurchaseOrders().pipe(catchError(() => of([] as PurchaseOrderRow[]))),
+      stock: this.inventoryPortal.listStock().pipe(catchError(() => of([] as StockRow[]))),
+      requisitions: this.inventoryPortal.listRequisitions().pipe(catchError(() => of([] as PurchaseRequisitionRow[]))),
+      transfers: this.inventoryPortal.listTransfers().pipe(catchError(() => of([] as TransferRow[]))),
+      salesOrders: this.inventoryPortal.listSupplierSalesOrders().pipe(catchError(() => of([] as SalesOrderRow[]))),
+    })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (inventory) => {
+          this.applySupplierKpis(this.shipments, this.trips, inventory.purchaseOrders, inventory.stock);
+          this.charts = this.buildSupplierCharts(this.shipments, inventory);
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private applySupplierKpis(
+    shipments: ShipmentRow[],
+    trips: TripRow[],
+    purchaseOrders: Array<{ status?: string }>,
+    stock: Array<{ status?: string; isLowStock?: boolean }>,
+  ): void {
+    const metrics = this.tripTracking.buildMetrics(shipments, trips);
+    const pendingPos = purchaseOrders.filter(
+      (o) => ['SUBMITTED', 'APPROVED', 'PARTIALLY_RECEIVED'].includes(String(o.status ?? '').toUpperCase()),
+    ).length;
+    const lowStock = stock.filter((s) => s.status === 'LOW_STOCK' || s.isLowStock).length;
+    const openShipments = shipments.filter((s) => s.status !== 'DELIVERED' && s.status !== 'CANCELLED').length;
+
+    this.cards = [
+      {
+        label: 'Pending POs',
+        value: String(pendingPos),
+        icon: 'shopping_cart',
+        trend: pendingPos > 0 ? `${pendingPos} awaiting fulfilment` : 'All caught up',
+        up: pendingPos === 0,
+        spark: this.sparkFromCount(pendingPos, 8),
+        theme: 'ocean',
+      },
+      {
+        label: 'Active shipments',
+        value: String(metrics.activeTrips + shipments.filter((s) => s.status === 'IN_TRANSIT').length),
+        icon: 'local_shipping',
+        trend: `${metrics.activeTrips} live trips`,
+        up: metrics.activeTrips > 0,
+        spark: this.sparkFromCount(metrics.activeTrips, 8),
+        theme: 'forest',
+      },
+      {
+        label: 'Low stock alerts',
+        value: String(lowStock),
+        icon: 'inventory_2',
+        trend: lowStock > 0 ? 'Review inventory' : 'Stock healthy',
+        up: lowStock === 0,
+        spark: this.sparkFromCount(lowStock, 8, true),
+        theme: 'ember',
+      },
+      {
+        label: 'Open shipments',
+        value: String(openShipments),
+        icon: 'pending_actions',
+        trend: `${metrics.totalShipments} total`,
+        up: openShipments <= metrics.totalShipments / 2,
+        spark: this.sparkFromCount(openShipments, 8),
+        theme: 'violet',
+      },
+    ];
+  }
+
+  private sparkFromCount(value: number, bars: number, invert = false): number[] {
+    const base = Math.max(value, 1);
+    return Array.from({ length: bars }, (_, i) => {
+      const wave = 40 + ((i + 1) / bars) * 50;
+      const scaled = Math.min(96, Math.max(12, Math.round((value / base) * wave)));
+      return invert ? Math.max(12, 96 - scaled) : scaled;
+    });
+  }
+
+  private boardFilterForShipment(status: ShipmentStatus): ShipmentBoardFilter | null {
+    if (status === 'IN_TRANSIT') {
+      return 'IN_TRANSIT';
+    }
+    if (status === 'DELIVERED') {
+      return 'COMPLETED';
+    }
+    if (status === 'CANCELLED') {
+      return 'FAILED';
+    }
+    if (status === 'PENDING' || status === 'PENDING_FLEET' || status === 'ALLOCATED') {
+      return 'PREPARED';
+    }
+    return null;
+  }
+
+  private resolveTripId(shipment: ShipmentRow): number | null {
+    if (shipment.tripId && shipment.tripId > 0) {
+      return shipment.tripId;
+    }
+    const trip = this.trips.find((t) => t.shipmentId === shipment.id && t.canLiveTrack);
+    return trip?.id ?? null;
+  }
+
+  private isLiveTrackableShipment(shipment: ShipmentRow): boolean {
+    return shipment.status === 'IN_TRANSIT' || shipment.status === 'ALLOCATED';
   }
 
   trackKpi(_i: number, card: KpiCard): string {
@@ -204,60 +602,55 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   chartAreaPath(values: number[] | undefined): string {
-    if (!values?.length) {
+    const coords = this.chartCoords(values);
+    if (!coords.length) {
       return '';
     }
-    const w = 100;
-    const h = 100;
-    const padY = 12;
-    const padX = 4;
-    const max = Math.max(...values);
-    const min = Math.min(...values);
-    const span = max - min || max || 1;
-    const innerW = w - padX * 2;
-    const innerH = h - padY * 2;
-    const step = values.length > 1 ? innerW / (values.length - 1) : 0;
-    const baseline = h - padY;
-
-    const coords = values.map((v, i) => {
-      const x = padX + i * step;
-      const norm = (v - min) / span;
-      const y = h - padY - norm * innerH;
-      return { x, y };
-    });
-
-    let d = `M ${coords[0].x} ${baseline} L ${coords[0].x} ${coords[0].y}`;
-    for (let i = 1; i < coords.length; i++) {
-      d += ` L ${coords[i].x} ${coords[i].y}`;
-    }
+    const baseline = 100 - 12;
+    const line = this.chartSmoothLinePath(values);
     const last = coords[coords.length - 1];
-    d += ` L ${last.x} ${baseline} Z`;
-    return d;
+    return `${line} L ${last.x} ${baseline} L ${coords[0].x} ${baseline} Z`;
   }
 
   chartLinePath(values: number[] | undefined): string {
-    if (!values?.length) {
+    return this.chartSmoothLinePath(values);
+  }
+
+  chartSmoothLinePath(values: number[] | undefined): string {
+    const coords = this.chartCoords(values);
+    if (!coords.length) {
       return '';
     }
-    const w = 100;
-    const h = 100;
-    const padY = 12;
-    const padX = 4;
-    const max = Math.max(...values);
-    const min = Math.min(...values);
-    const span = max - min || max || 1;
-    const innerW = w - padX * 2;
-    const innerH = h - padY * 2;
-    const step = values.length > 1 ? innerW / (values.length - 1) : 0;
+    if (coords.length === 1) {
+      return `M ${coords[0].x} ${coords[0].y}`;
+    }
+    let path = `M ${coords[0].x} ${coords[0].y}`;
+    for (let i = 0; i < coords.length - 1; i++) {
+      const p0 = coords[Math.max(0, i - 1)];
+      const p1 = coords[i];
+      const p2 = coords[i + 1];
+      const p3 = coords[Math.min(coords.length - 1, i + 2)];
+      const cp1x = p1.x + (p2.x - p0.x) / 6;
+      const cp1y = p1.y + (p2.y - p0.y) / 6;
+      const cp2x = p2.x - (p3.x - p1.x) / 6;
+      const cp2y = p2.y - (p3.y - p1.y) / 6;
+      path += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+    }
+    return path;
+  }
 
-    return values
-      .map((v, i) => {
-        const x = padX + i * step;
-        const norm = (v - min) / span;
-        const y = h - padY - norm * innerH;
-        return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
-      })
-      .join(' ');
+  chartPointCoords(values: number[] | undefined): Array<{ x: number; y: number; value: number }> {
+    return this.chartCoords(values).map((point, index) => ({
+      ...point,
+      value: values?.[index] ?? 0,
+    }));
+  }
+
+  chartPeakValue(values: number[] | undefined): number | null {
+    if (!values?.length) {
+      return null;
+    }
+    return Math.max(...values);
   }
 
   chartBarHeight(value: number, values: number[] | undefined): number {
@@ -296,6 +689,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return `dash-fill-${chart.id}`;
   }
 
+  chartGlowId(chart: DashboardChart): string {
+    return `dash-glow-${chart.id}`;
+  }
+
   chartStroke(theme: KpiCardTheme): string {
     const map: Record<KpiCardTheme, string> = {
       ocean: '#0284c7',
@@ -332,5 +729,202 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .split('_')
       .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
       .join(' ');
+  }
+
+  private resolveWelcomeMessage(user: CurrentUser | null | undefined): string {
+    const fromAuth = String(user?.welcomeMessage ?? '').trim();
+    if (fromAuth) {
+      return fromAuth.replace(/^Welcome,?\s*/i, 'Welcome back, ');
+    }
+    return formatWelcomeMessage({
+      firstName: user?.firstName,
+      displayName: user?.displayName,
+      email: user?.email,
+    }).replace(/^Welcome\s*/i, 'Welcome back, ');
+  }
+
+  private formatTodayLabel(): string {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+      }).format(new Date());
+    } catch {
+      return '';
+    }
+  }
+
+  private chartCoords(values: number[] | undefined): Array<{ x: number; y: number }> {
+    if (!values?.length) {
+      return [];
+    }
+    const w = 100;
+    const h = 100;
+    const padY = 12;
+    const padX = 4;
+    const max = Math.max(...values);
+    const min = Math.min(...values);
+    const span = max - min || max || 1;
+    const innerW = w - padX * 2;
+    const innerH = h - padY * 2;
+    const step = values.length > 1 ? innerW / (values.length - 1) : 0;
+
+    return values.map((v, i) => {
+      const x = padX + i * step;
+      const norm = (v - min) / span;
+      const y = h - padY - norm * innerH;
+      return { x, y };
+    });
+  }
+
+  private buildSupplierCharts(shipments: ShipmentRow[], inventory: SupplierInventorySnapshot): DashboardChart[] {
+    const prepared = shipments.filter((s) => this.boardFilterForShipment(s.status) === 'PREPARED').length;
+    const inTransit = shipments.filter((s) => s.status === 'IN_TRANSIT').length;
+    const completed = shipments.filter((s) => s.status === 'DELIVERED').length;
+    const failed = shipments.filter((s) => s.status === 'CANCELLED').length;
+    const totalShipments = Math.max(shipments.length, 1);
+
+    const trend = Array.from({ length: 7 }, (_, i) => {
+      const weight = 0.55 + (i + 1) / 14;
+      return Math.max(0, Math.round(shipments.length * weight * (0.72 + i * 0.04)));
+    });
+
+    const { requisitions, transfers, stock, purchaseOrders, salesOrders } = inventory;
+
+    const reqDraft = this.countByStatus(requisitions, ['DRAFT']);
+    const reqReview = this.countByStatus(requisitions, ['SUBMITTED', 'APPROVED']);
+    const reqSupplier = this.countByStatus(requisitions, [
+      'PUBLISHED_TO_SUPPLIER',
+      'SUPPLIER_CONFIRMED',
+      'CUSTOMER_ACKNOWLEDGED',
+      'PARTIALLY_FULFILLED',
+    ]);
+    const reqClosed = this.countByStatus(requisitions, [
+      'FULFILLED',
+      'CLOSED',
+      'REJECTED',
+      'CANCELLED',
+      'EXPIRED',
+    ]);
+
+    const transferRequested = this.countByStatus(transfers, ['REQUESTED']);
+    const transferApproved = this.countByStatus(transfers, ['APPROVED']);
+    const transferInTransit = this.countByStatus(transfers, ['IN_TRANSIT']);
+    const transferCompleted = this.countByStatus(transfers, ['COMPLETED']);
+
+    const inStock = stock.filter((s) => s.status === 'IN_STOCK').length;
+    const lowStock = stock.filter((s) => s.status === 'LOW_STOCK' || s.isLowStock).length;
+    const outOfStock = stock.filter((s) => s.status === 'OUT_OF_STOCK').length;
+    const fullyReserved = stock.filter((s) => s.status === 'FULLY_RESERVED').length;
+
+    const poDraft = this.countByStatus(purchaseOrders, ['DRAFT']);
+    const poActive = this.countByStatus(purchaseOrders, [
+      'SUBMITTED',
+      'APPROVED',
+      'PENDING_CUSTOMER_APPROVAL',
+      'PENDING_SUPPLIER_APPROVAL',
+      'CUSTOMER_APPROVED',
+    ]);
+    const poReceived = this.countByStatus(purchaseOrders, ['PARTIALLY_RECEIVED', 'RECEIVED']);
+    const soPending = this.countByStatus(salesOrders, [
+      'AWAITING_RECEIPT',
+      'PENDING',
+      'CONFIRMED',
+      'PENDING_APPROVAL',
+      'APPROVED',
+    ]);
+    const soShipping = this.countByStatus(salesOrders, ['PARTIALLY_SHIPPED', 'SHIPPED']);
+    const soDone = this.countByStatus(salesOrders, ['DELIVERED', 'FULFILLED']);
+
+    const laneSegments: DashboardDonutSegment[] = [
+      { label: 'Prepared', value: prepared, color: '#f59e0b' },
+      { label: 'In transit', value: inTransit, color: '#10b981' },
+      { label: 'Delivered', value: completed, color: '#3b82f6' },
+      { label: 'Cancelled', value: failed, color: '#ef4444' },
+    ].filter((seg) => seg.value > 0);
+
+    if (!laneSegments.length) {
+      laneSegments.push({ label: 'No shipments yet', value: 100, color: '#94a3b8' });
+    }
+
+    const stockSegments: DashboardDonutSegment[] = [
+      { label: 'In stock', value: inStock, color: '#10b981' },
+      { label: 'Low stock', value: lowStock, color: '#f59e0b' },
+      { label: 'Out of stock', value: outOfStock, color: '#ef4444' },
+      { label: 'Fully reserved', value: fullyReserved, color: '#8b5cf6' },
+    ].filter((seg) => seg.value > 0);
+
+    if (!stockSegments.length) {
+      stockSegments.push({ label: 'No stock rows yet', value: 100, color: '#94a3b8' });
+    }
+
+    return [
+      {
+        id: 'req-pipeline',
+        title: 'Requisition pipeline',
+        subtitle: 'Purchase requisitions by workflow stage',
+        type: 'bar',
+        theme: 'sunset',
+        labels: ['Draft', 'In review', 'With supplier', 'Closed'],
+        values: [reqDraft, reqReview, reqSupplier, reqClosed],
+        highlight: `${requisitions.length} requisitions`,
+      },
+      {
+        id: 'transfer-flow',
+        title: 'Transfer movement',
+        subtitle: 'Inter-warehouse transfers by status',
+        type: 'bar',
+        theme: 'mint',
+        labels: ['Requested', 'Approved', 'In transit', 'Completed'],
+        values: [transferRequested, transferApproved, transferInTransit, transferCompleted],
+        highlight: `${transfers.length} transfers tracked`,
+      },
+      {
+        id: 'stock-health',
+        title: 'Stock health',
+        subtitle: 'SKU availability across warehouses',
+        type: 'donut',
+        theme: 'ember',
+        donutUnit: 'SKUs',
+        highlight: lowStock > 0 ? `${lowStock} low-stock alerts` : `${stock.length} SKUs monitored`,
+        segments: stockSegments,
+      },
+      {
+        id: 'order-pipeline',
+        title: 'Order pipeline',
+        subtitle: 'Purchase orders and sales orders in flight',
+        type: 'bar',
+        theme: 'forest',
+        labels: ['PO draft', 'PO active', 'PO received', 'SO pending', 'SO shipping', 'SO done'],
+        values: [poDraft, poActive, poReceived, soPending, soShipping, soDone],
+        highlight: `${purchaseOrders.length} POs · ${salesOrders.length} sales orders`,
+      },
+      {
+        id: 'ship-volume',
+        title: 'Shipment pulse',
+        subtitle: 'Loads in your workspace · 7-day trend',
+        type: 'area',
+        theme: 'ocean',
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        values: trend,
+        highlight: `${shipments.length} total loads`,
+      },
+      {
+        id: 'lane-mix',
+        title: 'Shipment mix',
+        subtitle: 'Share by operational status',
+        type: 'donut',
+        theme: 'violet',
+        donutUnit: 'loads',
+        highlight: inTransit > 0 ? `${inTransit} on corridor` : `${totalShipments} in workspace`,
+        segments: laneSegments,
+      },
+    ];
+  }
+
+  private countByStatus<T extends { status?: string }>(rows: T[], statuses: string[]): number {
+    const normalized = new Set(statuses.map((s) => s.toUpperCase()));
+    return rows.filter((row) => normalized.has(String(row.status ?? '').toUpperCase())).length;
   }
 }

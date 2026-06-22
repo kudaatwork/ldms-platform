@@ -4,11 +4,9 @@
   <div class="dtd-nav">
     <button class="dtd-back" (click)="goBack()">
       <span class="material-icons" aria-hidden="true">arrow_back</span>
-      My trips
+      {{ backLabel }}
     </button>
   </div>
-
-  <!-- Loading skeleton -->
   <div class="dtd-skeleton-block" *ngIf="loading">
     <div class="dw-skeleton dw-skeleton--title"></div>
     <div class="dw-skeleton dw-skeleton--line"></div>
@@ -40,6 +38,11 @@
       </div>
 
       <div class="dtd-details">
+        <div class="dtd-detail" *ngIf="trip.driverName">
+          <span class="material-icons" aria-hidden="true">badge</span>
+          <span class="dtd-detail__label">Driver</span>
+          <span class="dtd-detail__val">{{ trip.driverName }}</span>
+        </div>
         <div class="dtd-detail">
           <span class="material-icons" aria-hidden="true">inventory_2</span>
           <span class="dtd-detail__label">Cargo</span>
@@ -106,6 +109,7 @@
       [initialPhase]="workflowInitialPhase"
       [arrivalSuggested]="arrivalSuggested"
       (phaseChange)="onWorkflowPhaseChange($event)"
+      (stateLoaded)="onWorkflowStateLoaded($event)"
       (workflowComplete)="onWorkflowComplete()">
     </app-delivery-workflow>
   </div>

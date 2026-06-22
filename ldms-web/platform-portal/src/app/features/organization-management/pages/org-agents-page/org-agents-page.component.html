@@ -7,12 +7,144 @@
     lead="Representatives and field agents linked to your organisation — clearing, sales, or operational contacts."
     hubIcon="support_agent"
     [orbitIcons]="['badge', 'contact_phone']"
-  >
-    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-primary lx-btn-sm" (click)="openCreate()">
-      <mat-icon>person_add</mat-icon>
-      Add agent
-    </button>
-  </lx-workspace-hero>
+  ></lx-workspace-hero>
+
+  <div class="lx-card lx-card--subsection" *ngIf="!loading || agents.length">
+    <div class="lx-controls-head">
+      <div class="lx-controls-head__text">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">Search, filter, import, export, and manage agents.</p>
+      </div>
+      <button
+        type="button"
+        mat-icon-button
+        class="lx-controls-head__info-btn"
+        [class.is-on]="showSampleCsvInfo"
+        (click)="showSampleCsvInfo = !showSampleCsvInfo"
+        [attr.aria-pressed]="showSampleCsvInfo"
+        aria-label="Toggle sample CSV information"
+        [matTooltip]="showSampleCsvInfo ? 'Hide sample CSV info' : 'About the sample CSV'"
+      >
+        <mat-icon>info_outline</mat-icon>
+      </button>
+    </div>
+
+    <p class="lx-controls-hint" *ngIf="showSampleCsvInfo">
+      <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+      <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }}</span>
+    </p>
+    <p class="lx-controls-hint lx-import-disclaimer">
+      <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+      <span>{{ importCsvDisclaimer }}</span>
+    </p>
+
+    <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reload()" [disabled]="actionInProgress || loading">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="importCsv(csvInput)" [disabled]="actionInProgress">
+          Import
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadSampleCsv()" [disabled]="actionInProgress">
+          Sample CSV
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+          [matMenuTriggerFor]="exportMenu"
+          [disabled]="actionInProgress || exporting || !filteredAgents.length"
+        >
+          Export{{ exporting ? '…' : '' }}
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openCreate()" [disabled]="actionInProgress">
+          <mat-icon>person_add</mat-icon>
+          Add agent
+        </button>
+      </div>
+      <div class="lx-data-toolbar__search">
+        <div class="lx-input-shell lx-search-field">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input [(ngModel)]="searchQuery" placeholder="Search agents…" autocomplete="off" />
+        </div>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+          (click)="filterFieldsOpen = !filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen || hasActiveFilters()"
+        >
+          <mat-icon>tune</mat-icon>
+          Filters
+        </button>
+      </div>
+    </div>
+
+    <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')">
+        <mat-icon>picture_as_pdf</mat-icon>
+        <span>Export PDF</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')">
+        <mat-icon>table_view</mat-icon>
+        <span>Export CSV</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')">
+        <mat-icon>grid_on</mat-icon>
+        <span>Export XLSX</span>
+      </button>
+    </mat-menu>
+    <input #csvInput type="file" accept=".csv,text/csv" hidden (change)="onImportFileSelected($event)" />
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Name</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
+            <input [(ngModel)]="columnFilters.fullName" placeholder="Name contains…" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Kind</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+            <select [(ngModel)]="columnFilters.agentKind">
+              <option [ngValue]="''">Any kind</option>
+              <option [ngValue]="'INDIVIDUAL'">Individual</option>
+              <option [ngValue]="'ORGANIZATION'">Organisation</option>
+            </select>
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Role</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">work</mat-icon>
+            <input [(ngModel)]="columnFilters.role" placeholder="Role contains…" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Region</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">map</mat-icon>
+            <input [(ngModel)]="columnFilters.region" placeholder="Region contains…" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Status</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">toggle_on</mat-icon>
+            <select [(ngModel)]="columnFilters.active">
+              <option [ngValue]="''">Any</option>
+              <option [ngValue]="true">Active</option>
+              <option [ngValue]="false">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <lx-table-loading [busy]="loading" message="Loading agents…"></lx-table-loading>
 
@@ -22,7 +154,15 @@
   </div>
 
   <section class="lx-card om-panel" *ngIf="!loading && !error">
-    <table class="lx-data-table" *ngIf="agents.length">
+    <header class="om-panel__head" *ngIf="agents.length">
+      <h2>Registered agents</h2>
+      <p>
+        {{ filteredAgents.length }} record{{ filteredAgents.length === 1 ? '' : 's' }}
+        <span *ngIf="filteredAgents.length !== agents.length"> · filtered from {{ agents.length }}</span>
+      </p>
+    </header>
+
+    <table class="lx-data-table" *ngIf="filteredAgents.length">
       <thead>
         <tr>
           <th>Name</th>
@@ -35,7 +175,7 @@
         </tr>
       </thead>
       <tbody>
-        <tr *ngFor="let agent of agents">
+        <tr *ngFor="let agent of filteredAgents">
           <td>{{ agent.fullName }}</td>
           <td>{{ agent.agentKind === 'ORGANIZATION' ? 'Organisation' : 'Individual' }}</td>
           <td>
@@ -68,7 +208,10 @@
       </tbody>
     </table>
     <p class="om-panel__empty" *ngIf="!agents.length">
-      No agents yet — use <strong>Add agent</strong> to register your first representative.
+      No agents yet — use <strong>Add agent</strong> or import from CSV.
+    </p>
+    <p class="om-panel__empty" *ngIf="agents.length && !filteredAgents.length">
+      No matching rows — adjust search or filters.
     </p>
   </section>
 </div>

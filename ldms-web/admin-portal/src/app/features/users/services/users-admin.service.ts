@@ -168,6 +168,24 @@ export class UsersAdminService {
     );
   }
 
+  /** Resolve a portal user account by exact email match (demo leads, contact inbox). */
+  findRegisteredUserByEmail(email: string): Observable<UserListRow | null> {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      return of(null);
+    }
+    const normalized = trimmed.toLowerCase();
+    return this.queryUsers({
+      page: 0,
+      size: 10,
+      searchQuery: trimmed,
+      columnFilters: { email: trimmed },
+    }).pipe(
+      map(({ rows }) => rows.find((row) => row.email.trim().toLowerCase() === normalized) ?? null),
+      catchError(() => of(null)),
+    );
+  }
+
   queryUserRoles(q: UsersQuery): Observable<{ rows: Record<string, unknown>[]; totalElements: number }> {
     const body = this.buildUserRolesFilterBody(q);
     return this.http.post<unknown>(`${this.base}/user-role/find-by-multiple-filters`, body).pipe(

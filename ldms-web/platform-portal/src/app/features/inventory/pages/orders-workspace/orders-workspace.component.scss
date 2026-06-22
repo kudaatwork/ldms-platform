@@ -389,25 +389,100 @@
 
 .ord-payment-panel__foot {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 1rem;
   padding-top: 1rem;
   border-top: 1px solid var(--gray-100);
 }
 
-.ord-payment-disabled-gateways {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
+.ord-payment-gateways {
+  flex: 1;
+  min-width: min(100%, 520px);
+
+  &__title {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  &__hint {
+    margin: 12px 0 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--gray-500);
+  }
 }
 
-.ord-payment-coming-soon {
-  font-size: 0.75rem;
-  color: var(--gray-500);
-  font-style: italic;
+.ord-gateway-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: linear-gradient(145deg, rgba(248, 250, 252, 0.95), rgba(255, 255, 255, 0.88));
+
+  &__logo {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    font-size: 14px;
+    background: rgba(59, 130, 246, 0.12);
+    color: #1d4ed8;
+  }
+
+  &__copy {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    strong {
+      font-size: 14px;
+    }
+
+    span {
+      font-size: 12px;
+      color: var(--gray-500);
+    }
+  }
+
+  &__badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    background: rgba(245, 158, 11, 0.16);
+    color: #b45309;
+  }
+
+  &--paynow .ord-gateway-card__logo {
+    background: rgba(16, 185, 129, 0.14);
+    color: #047857;
+  }
+
+  &--card .ord-gateway-card__logo {
+    background: rgba(124, 58, 237, 0.12);
+    color: #6d28d9;
+  }
 }
 
 .ord-table__actions {
@@ -417,6 +492,15 @@
 @media (max-width: 640px) {
   .ord-payment-panel__body {
     grid-template-columns: 1fr;
+  }
+
+  .ord-payment-gateways__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ord-payment-panel__foot {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
 public class RabbitMQProducerConfig {
 
     public static final String BILLING_EXCHANGE = "billing.exchange";
-    public static final String PAYMENT_VERIFIED_ROUTING_KEY = "payment.verified";
+    public static final String PAYMENT_VERIFIED_ROUTING_KEY = "billing.payment.verified";
 
     @Bean
     public TopicExchange billingExchange() {

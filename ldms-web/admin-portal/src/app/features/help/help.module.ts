@@ -7,6 +7,7 @@ import { DemoRequisitionsAdminPageComponent } from './pages/demo-requisitions-ad
 import { BotServiceAdminPageComponent } from './pages/bot-service-admin-page/bot-service-admin-page.component';
 import { BotAnalyticsAdminPageComponent } from './pages/bot-analytics-admin-page/bot-analytics-admin-page.component';
 import { BotFaqAdminPageComponent } from './pages/bot-faq-admin-page/bot-faq-admin-page.component';
+import { BotMessageMarkdownPipe } from './pipes/bot-message-markdown.pipe';
 
 @NgModule({
   declarations: [
@@ -16,6 +17,7 @@ import { BotFaqAdminPageComponent } from './pages/bot-faq-admin-page/bot-faq-adm
     BotServiceAdminPageComponent,
     BotAnalyticsAdminPageComponent,
     BotFaqAdminPageComponent,
+    BotMessageMarkdownPipe,
   ],
   imports: [SharedModule, HelpRoutingModule],
 })

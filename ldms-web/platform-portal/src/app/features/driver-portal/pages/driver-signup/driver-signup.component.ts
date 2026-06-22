@@ -5,6 +5,7 @@ import {
   OnInit,
 } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { catchError, finalize, of } from 'rxjs';
@@ -100,6 +101,7 @@ export class DriverSignupComponent implements OnInit {
     private readonly fb: FormBuilder,
     private readonly http: HttpClient,
     private readonly router: Router,
+    private readonly title: Title,
     private readonly cdr: ChangeDetectorRef,
     readonly theme: ThemeService,
   ) {
@@ -115,7 +117,9 @@ export class DriverSignupComponent implements OnInit {
     });
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.title.setTitle('Join as driver | LX Platform');
+  }
 
   get isFreelance(): boolean {
     return this.driverMode === 'freelance';
@@ -259,7 +263,7 @@ export class DriverSignupComponent implements OnInit {
   }
 
   goToLogin(): void {
-    void this.router.navigate(['/auth/login']);
+    void this.router.navigate(['/auth/login'], { queryParams: { portal: 'driver' } });
   }
 
   get f() {

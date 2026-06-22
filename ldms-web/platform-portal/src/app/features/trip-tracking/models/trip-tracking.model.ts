@@ -14,6 +14,11 @@ export type TripStatus =
   | 'AT_BORDER_HOLD'
   | 'ROADSIDE_HOLD'
   | 'ARRIVED'
+  | 'COUNTING_STOCK'
+  | 'COUNT_COMPLETE'
+  | 'OTP_PENDING'
+  | 'RETURN_IN_TRANSIT'
+  | 'RETURNED'
   | 'DELIVERED'
   | 'CANCELLED';
 
@@ -65,6 +70,7 @@ export interface ShipmentRow {
   canAllocate: boolean;
   canStartTrip: boolean;
   crossBorder?: boolean;
+  tripId?: number;
 }
 
 /** View row displayed in the active trips table. */
@@ -133,6 +139,14 @@ export interface TripWorkspaceMetrics {
   deliveredToday: number;
 }
 
+/** One live corridor load rendered on the dashboard fleet map. */
+export interface TripLiveMapTrack {
+  tripId: number;
+  shipmentNumber: string;
+  statusLabel?: string;
+  routeLabel?: string;
+}
+
 // ── Request payloads ─────────────────────────────────────────────────────────
 
 /** POST /shipment/assign-transport-company */
@@ -192,6 +206,8 @@ export interface ShipmentFilterPayload {
 export interface TripFilterPayload {
   organizationId?: number;
   status?: TripStatus | '';
+  /** When true, returns all non-terminal active corridor trips for the organisation. */
+  activeOnly?: boolean;
   search?: string;
 }
 

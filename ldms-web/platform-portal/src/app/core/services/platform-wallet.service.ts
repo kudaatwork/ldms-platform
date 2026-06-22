@@ -1,9 +1,19 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, map, tap } from 'rxjs';
-import { ldmsServiceUrl } from '../utils/api-url.util';
+import { BehaviorSubject, Observable, catchError, map, of, tap, throwError } from 'rxjs';
+import { isApiFailureEnvelope, readApiFailureMessage, extractDtoList } from '../utils/api-paged-response.util';
+import { extractFileUploadDtoFromResponse } from '../utils/file-upload-dto-extract.util';
+import { downloadBlob } from '../../shared/utils/lx-export.util';
+import { ldmsApiUrl, ldmsServiceUrl } from '../utils/api-url.util';
 
 export type OrganizationBillingMode = 'PREPAID_WALLET' | 'PREMIUM_SUBSCRIPTION';
+
+export type WalletDepositPaymentMethod =
+  | 'BANK_TRANSFER'
+  | 'CASH'
+  | 'PAYNOW'
+  | 'PAYPAL'
+  | 'MASTERCARD';
 
 export interface PlatformWalletSummary {
   organizationId?: number;
@@ -13,6 +23,8 @@ export interface PlatformWalletSummary {
   billingMode: OrganizationBillingMode;
   lowBalanceThresholdCents?: number;
   lowBalance?: boolean;
+  walletFrozen?: boolean;
+  platformAccessAllowed?: boolean;
   subscriptionPackageId?: number | null;
   subscriptionPackageName?: string | null;
 }
@@ -36,6 +48,10 @@ export interface SubscriptionPackageRow {
   description?: string;
   monthlyPriceCents: number;
   currencyCode: string;
+  includedHeavyCredits?: number;
+  includedStandardCredits?: number;
+  includedLightCredits?: number;
+  includedTrackingDayCredits?: number;
   sortOrder?: number;
   featured?: boolean;
   active?: boolean;
@@ -48,6 +64,7 @@ export interface PlatformActionChargeRow {
   description?: string;
   chargeCents: number;
   category?: string;
+  billingTier?: string;
   active?: boolean;
 }
 
@@ -59,6 +76,9 @@ export interface WalletDepositRow {
   referenceNumber?: string;
   notes?: string;
   status: string;
+  proofDocumentId?: number;
+  gatewayProvider?: string;
+  paymentMethod?: string;
   createdAt?: string;
 }
 
@@ -89,6 +109,7 @@ export interface WalletTransactionRow {
   balanceAfterCents: number;
   actionCode?: string;
   description?: string;
+  receiptNumber?: string;
   createdAt?: string;
 }
 
@@ -122,7 +143,9 @@ interface PlatformWalletApiResponse {
   walletDepositDto?: WalletDepositRow;
   walletDepositDtoList?: WalletDepositRow[];
   usageChargeReportDto?: UsageChargeReport;
+  walletTransactionDto?: WalletTransactionRow;
   walletTransactionDtoList?: WalletTransactionRow[];
+  receiptHtml?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -173,15 +196,54 @@ export class PlatformWalletService {
     );
   }
 
+  uploadPaymentProof(organizationId: number, file: File): Observable<number> {
+    const form = new FormData();
+    form.append('files', file, file.name);
+    form.append(
+      'fileUploadRequest',
+      JSON.stringify({
+        ownerType: 'ORGANIZATION',
+        ownerId: organizationId,
+        filesMetadata: [{ fileType: 'OTHER' }],
+      }),
+    );
+    return this.http.post<unknown>(`${ldmsApiUrl('/ldms-file-upload-service/v1/frontend/file-upload')}/upload`, form).pipe(
+      map((res) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Could not upload proof of payment.'));
+        }
+        const dto = extractFileUploadDtoFromResponse(res);
+        const id = Number(dto?.['id'] ?? 0);
+        if (!id) {
+          throw new Error('File upload service did not return a file id.');
+        }
+        return id;
+      }),
+      catchError((err) => throwError(() => this.toDepositError(err, 'Could not upload proof of payment.'))),
+    );
+  }
+
   createDeposit(payload: {
     amountCents: number;
     currencyCode?: string;
     referenceNumber?: string;
     notes?: string;
     proofDocumentId?: number;
+    gatewayProvider?: string;
+    paymentMethod?: string;
   }): Observable<WalletDepositRow> {
     return this.http.post<PlatformWalletApiResponse>(`${this.frontendBase}/deposits`, payload).pipe(
-      map((res) => res.walletDepositDto ?? { id: 0, amountCents: payload.amountCents, currencyCode: 'USD', status: 'PENDING' }),
+      map((res) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Could not submit deposit.'));
+        }
+        const row = res.walletDepositDto;
+        if (!row?.id) {
+          throw new Error(readApiFailureMessage(res, 'Deposit was not created — check billing-payments is running.'));
+        }
+        return row;
+      }),
+      catchError((err) => throwError(() => this.toDepositError(err, 'Could not submit deposit.'))),
     );
   }
 
@@ -197,9 +259,67 @@ export class PlatformWalletService {
     );
   }
 
+  getTransactionReceipt(transactionId: number): Observable<{ receiptHtml: string; transaction: WalletTransactionRow }> {
+    return this.http.get<PlatformWalletApiResponse>(`${this.frontendBase}/transactions/${transactionId}/receipt`).pipe(
+      map((res) => ({
+        receiptHtml: res.receiptHtml ?? '',
+        transaction: res.walletTransactionDto ?? { id: transactionId, transactionType: 'DEPOSIT', amountCents: 0, balanceAfterCents: 0 },
+      })),
+    );
+  }
+
+  downloadReceipt(transactionId: number, receiptNumber?: string): void {
+    this.http
+      .get(`${this.frontendBase}/transactions/${transactionId}/receipt/pdf`, {
+        responseType: 'blob',
+      })
+      .pipe(
+        catchError((err) => throwError(() => this.toDepositError(err, 'Could not download receipt PDF.'))),
+      )
+      .subscribe({
+        next: (blob) => {
+          const filename = `${receiptNumber ?? `receipt-${transactionId}`}.pdf`;
+          downloadBlob(blob, filename);
+        },
+      });
+  }
+
+  isWalletFrozen(summary: PlatformWalletSummary | null | undefined): boolean {
+    if (!summary || summary.billingMode !== 'PREPAID_WALLET') {
+      return false;
+    }
+    return summary.walletFrozen === true || summary.platformAccessAllowed === false;
+  }
+
   listActiveActionCharges(): Observable<PlatformActionChargeRow[]> {
     return this.http.get<PlatformWalletApiResponse>(`${this.frontendBase}/action-charges`).pipe(
       map((res) => res.platformActionChargeDtoList ?? []),
+    );
+  }
+
+  /** Public marketing catalog — no auth required (system surface; gateway permits /v1/system/**). */
+  getPublicPricingCatalog(): Observable<{
+    packages: SubscriptionPackageRow[];
+    actionCharges: PlatformActionChargeRow[];
+  }> {
+    const url = ldmsServiceUrl('billing-payments', 'platform-wallet', 'pricing-catalog', 'system');
+    return this.http.get<PlatformWalletApiResponse>(url).pipe(
+      map((res) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Could not load pricing catalog.'));
+        }
+        const packages = extractDtoList<SubscriptionPackageRow>(res, 'subscriptionPackageDtoList').filter(
+          (row) => row.active !== false,
+        );
+        const actionCharges = extractDtoList<PlatformActionChargeRow>(res, 'platformActionChargeDtoList').filter(
+          (row) => row.active !== false,
+        );
+        return { packages, actionCharges };
+      }),
+      catchError((err: unknown) => {
+        console.warn('[PlatformWalletService] Public pricing catalog request failed', err);
+        return throwError(() => err);
+      }),
     );
   }
 
@@ -259,6 +379,25 @@ export class PlatformWalletService {
     );
   }
 
+  rejectDeposit(depositId: number): Observable<WalletDepositRow> {
+    return this.http.post<PlatformWalletApiResponse>(`${this.backofficeBase}/deposits/${depositId}/reject`, {}).pipe(
+      map((res) => res.walletDepositDto ?? { id: depositId, amountCents: 0, currencyCode: 'USD', status: 'REJECTED' }),
+    );
+  }
+
+  creditOrganization(payload: {
+    organizationId: number;
+    organizationName?: string;
+    amountCents: number;
+    currencyCode?: string;
+    notes?: string;
+    enablePrepaidBilling?: boolean;
+  }): Observable<PlatformWalletSummary> {
+    return this.http.post<PlatformWalletApiResponse>(`${this.backofficeBase}/organizations/credit`, payload).pipe(
+      map((res) => res.platformWalletSummaryDto ?? { balanceCents: payload.amountCents, currencyCode: 'USD', billingMode: 'PREPAID_WALLET' }),
+    );
+  }
+
   formatCents(cents: number, currencyCode = 'USD'): string {
     const amount = (cents ?? 0) / 100;
     try {
@@ -266,5 +405,27 @@ export class PlatformWalletService {
     } catch {
       return `${currencyCode} ${amount.toFixed(2)}`;
     }
+  }
+
+  private toDepositError(err: unknown, fallback: string): Error {
+    if (err instanceof Error && err.message && err.message !== fallback) {
+      return err;
+    }
+    if (err instanceof HttpErrorResponse) {
+      const body = err.error;
+      if (body && typeof body === 'object') {
+        const message = readApiFailureMessage(body, fallback);
+        if (message !== fallback) {
+          return new Error(message);
+        }
+      }
+      if (err.status === 503) {
+        return new Error('Billing service is unavailable. Start ldms-billing-payments and try again.');
+      }
+      if (err.status === 401 || err.status === 403) {
+        return new Error('Session expired or access denied. Sign in again and retry.');
+      }
+    }
+    return new Error(fallback);
   }
 }

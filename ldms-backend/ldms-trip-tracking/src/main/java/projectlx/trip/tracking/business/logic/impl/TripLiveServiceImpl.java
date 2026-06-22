@@ -7,6 +7,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.trip.tracking.business.logic.api.TripLiveService;
+import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
+import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
 import projectlx.trip.tracking.business.logic.support.CallerOrganizationResolver;
 import projectlx.trip.tracking.business.logic.support.TripIotDemoSimulator;
 import projectlx.trip.tracking.business.logic.support.TripLiveSseRegistry;
@@ -40,6 +42,7 @@ public class TripLiveServiceImpl implements TripLiveService {
     private final TripTelemetryPublisher telemetryPublisher;
     private final TripLiveSnapshotEnricher snapshotEnricher;
     private final MessageService messageService;
+    private final PlatformWalletUsageSupport platformWalletUsageSupport;
 
     @Override
     @Transactional
@@ -49,6 +52,12 @@ public class TripLiveServiceImpl implements TripLiveService {
             return error(404, messageService.getMessage(
                     I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
         }
+        platformWalletUsageSupport.chargeRequired(
+                trip.getOrganizationId(),
+                PlatformWalletActionCodes.LIVE_MAP_SESSION,
+                "TRIP",
+                trip.getId(),
+                trip.getId());
         TripLiveSnapshotDto snapshot = buildSnapshotFromPlan(tripId);
         if (snapshot == null) {
             return error(404, messageService.getMessage(

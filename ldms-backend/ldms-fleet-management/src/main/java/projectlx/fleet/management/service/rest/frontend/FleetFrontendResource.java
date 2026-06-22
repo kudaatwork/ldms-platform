@@ -38,6 +38,7 @@ import projectlx.fleet.management.utils.requests.CreateFleetDriverRequest;
 import projectlx.fleet.management.utils.requests.EditFleetAssetRequest;
 import projectlx.fleet.management.utils.requests.EditFleetComplianceRecordRequest;
 import projectlx.fleet.management.utils.requests.EditFleetDriverRequest;
+import projectlx.fleet.management.utils.requests.ProvisionFleetDriverPlatformAccessRequest;
 import projectlx.fleet.management.utils.requests.EditFleetTrackingDeviceRequest;
 import projectlx.fleet.management.utils.requests.InstallFleetTrackingDeviceRequest;
 import projectlx.fleet.management.utils.responses.FleetAssetResponse;
@@ -233,6 +234,27 @@ public class FleetFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         FleetDriverResponse response = fleetDriverServiceProcessor.update(id, request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "PROVISION_FLEET_DRIVER_PLATFORM_ACCESS")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/drivers/{id}/provision-platform-access")
+    @Operation(summary = "Enable driver platform login",
+            description = "Provisions platform login for a legacy fleet driver (no linked user) and emails temporary "
+                    + "credentials. When reissueCredentials=true, re-sends credentials for a driver that already "
+                    + "has a linked platform user.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Driver platform access provisioned"),
+            @ApiResponse(responseCode = "400", description = "Invalid request or driver already linked"),
+            @ApiResponse(responseCode = "404", description = "Driver not found")
+    })
+    public ResponseEntity<FleetDriverResponse> provisionDriverPlatformAccess(
+            @PathVariable final Long id,
+            @RequestBody final ProvisionFleetDriverPlatformAccessRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetDriverResponse response = fleetDriverServiceProcessor.provisionPlatformAccess(id, request, locale, username);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 

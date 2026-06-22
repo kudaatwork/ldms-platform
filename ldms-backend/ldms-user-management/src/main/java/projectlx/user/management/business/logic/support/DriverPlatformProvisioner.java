@@ -239,6 +239,7 @@ public class DriverPlatformProvisioner {
         user.setMustChangeCredentials(false);
         user.setOrganizationKycApprover(false);
         user.setProcurementApprover(false);
+        user.setBillingApprover(false);
         user.setShipmentFleetAllocator(false);
         user.setUserType(resolveFleetDriverUserType(locale, actor));
         return userServiceAuditable.create(user, locale, actor);

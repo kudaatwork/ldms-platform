@@ -25,6 +25,7 @@ import { AuthenticatedHistoryService } from '../../core/services/authenticated-h
 import { PhoneVerificationPromptService } from '../../core/services/phone-verification-prompt.service';
 import { ShellNotification, ShellNotificationService } from '../../core/services/shell-notification.service';
 import { FuelAlertMonitorService } from '../../core/services/fuel-alert-monitor.service';
+import { PlatformWalletAlertMonitorService } from '../../core/services/platform-wallet-alert-monitor.service';
 import { CurrencyContextService } from '../../core/services/currency-context.service';
 import { PlatformWalletService, type OrganizationBillingMode, type PlatformWalletSummary } from '../../core/services/platform-wallet.service';
 import { DuplexTradingModeService } from '../../core/services/duplex-trading-mode.service';
@@ -68,6 +69,8 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   currentUrl = '';
   /** Expanded state per sidebar group route (e.g. /users, /activity). */
   private expandedGroups: Record<string, boolean> = {};
+  /** Groups the user explicitly collapsed — URL sync must not re-expand these. */
+  private userCollapsedNavGroups = new Set<string>();
 
   pageTitle = 'Dashboard';
   breadcrumbs: Breadcrumb[] = [];
@@ -95,6 +98,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
     private readonly shellNotifications: ShellNotificationService,
     private readonly fuelAlertMonitor: FuelAlertMonitorService,
+    private readonly walletAlertMonitor: PlatformWalletAlertMonitorService,
     private readonly currencyContext: CurrencyContextService,
     private readonly platformWallet: PlatformWalletService,
     private readonly duplexTradingMode: DuplexTradingModeService,
@@ -152,6 +156,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
         });
         this.shellNotifications.refresh();
         this.fuelAlertMonitor.resumeWatching();
+        this.walletAlertMonitor.start();
       }
       this.refreshWorkspaceNav();
       this.syncChromeFromUrl();
@@ -317,12 +322,15 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     const expanding = !this.isGroupExpanded(key);
     this.expandedGroups = { ...this.expandedGroups, [key]: expanding };
     if (expanding) {
+      this.userCollapsedNavGroups.delete(key);
       requestAnimationFrame(() => {
         const children = document.querySelector<HTMLElement>(
           `.sb-children[data-nav-group="${CSS.escape(key)}"]`,
         );
         children?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
       });
+    } else {
+      this.userCollapsedNavGroups.add(key);
     }
     this.cdr.markForCheck();
   }
@@ -457,7 +465,22 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
       return;
     }
-    this.navigateToVerificationAction(notification.action);
+    if (
+      notification.action === 'wallet-low'
+      || notification.action === 'wallet-frozen'
+    ) {
+      void this.router.navigate(['/settings'], { queryParams: { section: 'billing' } });
+      this.cdr.markForCheck();
+      return;
+    }
+    if (notification.action === 'usage-report') {
+      void this.router.navigate(['/analytics/platform-usage']);
+      this.cdr.markForCheck();
+      return;
+    }
+    if (notification.action === 'verify-phone' || notification.action === 'verify-email') {
+      this.navigateToVerificationAction(notification.action);
+    }
     this.cdr.markForCheck();
   }
 
@@ -686,7 +709,9 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
       const groupKey = this.groupExpandKey(item);
       if (this.isRouteInNavGroup(url, item.route)) {
         activeGroupKeys.add(groupKey);
-        nextExpanded[groupKey] = true;
+        if (!this.userCollapsedNavGroups.has(groupKey)) {
+          nextExpanded[groupKey] = true;
+        }
       }
     }
 
@@ -846,7 +871,11 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   get walletLowBalance(): boolean {
     const summary = this.walletSummary;
-    return summary?.billingMode === 'PREPAID_WALLET' && summary.lowBalance === true;
+    return summary?.billingMode === 'PREPAID_WALLET' && summary.lowBalance === true && !this.walletFrozen;
+  }
+
+  get walletFrozen(): boolean {
+    return this.platformWallet.isWalletFrozen(this.walletSummary);
   }
 
   get walletBillingMode(): OrganizationBillingMode {

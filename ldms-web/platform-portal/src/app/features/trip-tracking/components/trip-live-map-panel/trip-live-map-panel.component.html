@@ -1,0 +1,123 @@
+<section
+  class="lt-map-panel lx-card"
+  [class.lt-map-panel--compact]="compact"
+  [class.lt-map-panel--fleet]="isFleetMode"
+>
+  <div class="lt-map-panel__overlay" *ngIf="activeSnapshot">
+    <div class="lt-stat-pill" *ngIf="isFleetMode">
+      <mat-icon>sensors</mat-icon>
+      <span>{{ fleetSummaryLabel }}</span>
+    </div>
+    <div class="lt-stat-pill" [class.lt-stat-pill--alert]="activeSnapshot.speedLimitExceeded">
+      <mat-icon>speed</mat-icon>
+      <span>{{ activeSnapshot.speedKmh || 0 | number:'1.0-0' }} km/h</span>
+    </div>
+    <div class="lt-stat-pill">
+      <mat-icon>route</mat-icon>
+      <span>{{ activeSnapshot.overallProgressPct || 0 | number:'1.0-0' }}% corridor</span>
+    </div>
+    <div class="lt-stat-pill" *ngIf="activeSnapshot.distanceTravelledKm">
+      <mat-icon>straighten</mat-icon>
+      <span>{{ activeSnapshot.distanceTravelledKm | number:'1.1-1' }} km travelled</span>
+    </div>
+  </div>
+
+  <div class="lt-map-float" (click)="$event.stopPropagation()" *ngIf="hasLiveTargets">
+    <button
+      type="button"
+      class="lt-map-recenter"
+      (click)="recenterOnTruck()"
+      [title]="isFleetMode ? 'Fit all organisation loads on map' : 'Recenter on truck and corridor ahead'"
+    >
+      <mat-icon>my_location</mat-icon>
+      {{ isFleetMode ? 'Fit all loads' : 'Recenter truck' }}
+    </button>
+
+    <div class="lt-map-float__row">
+      <div class="lt-map-zoom" role="group" aria-label="Map zoom">
+        <button type="button" class="lt-map-zoom__btn" (click)="mapZoomOut()" title="Zoom out" aria-label="Zoom out">
+          <mat-icon>remove</mat-icon>
+        </button>
+        <button type="button" class="lt-map-zoom__btn" (click)="mapZoomIn()" title="Zoom in" aria-label="Zoom in">
+          <mat-icon>add</mat-icon>
+        </button>
+      </div>
+
+      <div class="lt-map-style" role="group" aria-label="Map style">
+        <button type="button" class="lt-map-style__btn" [class.is-active]="mapStyle === 'standard'" (click)="setMapStyle('standard')">Standard</button>
+        <button type="button" class="lt-map-style__btn" [class.is-active]="mapStyle === 'satellite'" (click)="setMapStyle('satellite')">Satellite</button>
+        <button type="button" class="lt-map-style__btn" [class.is-active]="mapStyle === 'live'" (click)="setMapStyle('live')">Live</button>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="lt-map-follow"
+      [class.is-on]="followTruck"
+      (click)="toggleFollowTruck()"
+      title="Keep map following the highlighted truck automatically"
+    >
+      <mat-icon>{{ followTruck ? 'gps_fixed' : 'gps_not_fixed' }}</mat-icon>
+      {{ followTruck ? 'Following' : 'Follow truck' }}
+    </button>
+
+    <p class="lt-map-float__hint" *ngIf="!mapScrollEnabled">Click map to enable scroll zoom · drag to pan</p>
+  </div>
+
+  <div
+    #mapHost
+    class="lt-map-host"
+    role="img"
+    [attr.aria-label]="isFleetMode ? 'Organisation live fleet map' : hasLiveTargets ? 'Live truck position map' : 'Shipment route map placeholder'"
+    (click)="enableMapScroll()"
+  ></div>
+
+  <div class="lt-map-panel__empty" *ngIf="!hasLiveTargets && !loading">
+    <mat-icon>map</mat-icon>
+    <p>No in-transit loads with live GPS for your organisation yet.</p>
+  </div>
+
+  <div class="lt-map-panel__empty lt-map-panel__empty--warn" *ngIf="hasLiveTargets && liveLoadFailed && !loading && !activeSnapshot && !isFleetMode">
+    <mat-icon>location_off</mat-icon>
+    <p>Live position is not available yet. The map will refresh automatically.</p>
+  </div>
+
+  <div class="lt-map-panel__meta" *ngIf="!isFleetMode && shipmentNumber">
+    <div>
+      <span class="lt-map-panel__k">Shipment</span>
+      <span class="lt-map-panel__v">{{ shipmentNumber }}</span>
+    </div>
+    <div *ngIf="statusLabel">
+      <span class="lt-map-panel__k">Status</span>
+      <span class="lt-map-panel__v">{{ statusLabel }}</span>
+    </div>
+  </div>
+
+  <div class="lt-map-panel__fleet-bar" *ngIf="isFleetMode && tracks.length">
+    <button
+      type="button"
+      class="lt-map-track-chip"
+      *ngFor="let track of tracks; let i = index"
+      [class.lt-map-track-chip--on]="isHighlightedTrack(track.tripId)"
+      (click)="selectTrack(track.tripId)"
+    >
+      <span class="lt-map-track-chip__dot" [style.background]="trackColor(i)"></span>
+      <span class="lt-map-track-chip__no">{{ track.shipmentNumber }}</span>
+      <span class="lt-map-track-chip__status" *ngIf="track.statusLabel">{{ track.statusLabel }}</span>
+    </button>
+  </div>
+
+  <div class="lt-map-panel__foot" *ngIf="hasLiveTargets">
+    <p class="lt-map-panel__route" *ngIf="resolvedRouteLabel">
+      {{ isFleetMode ? 'Highlighted: ' : '' }}{{ resolvedRouteLabel }}
+    </p>
+    <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openFullLiveView()">
+      <mat-icon>sensors</mat-icon>
+      {{ isFleetMode ? 'Open active trips' : 'Open full live view' }}
+    </button>
+  </div>
+
+  <div class="lt-map-panel__loading" *ngIf="loading">
+    <lx-table-loading [busy]="true" message="Loading live positions…"></lx-table-loading>
+  </div>
+</section>

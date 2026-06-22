@@ -20,6 +20,8 @@ import projectlx.fleet.management.utils.enums.FleetOwnershipType;
 import projectlx.fleet.management.utils.enums.I18Code;
 import projectlx.fleet.management.utils.requests.CreateFleetDriverRequest;
 import projectlx.fleet.management.utils.requests.EditFleetDriverRequest;
+import projectlx.fleet.management.utils.requests.ProvisionFleetDriverPlatformAccessRequest;
+import projectlx.fleet.management.utils.requests.ProvisionFleetDriverPlatformAccessRequest;
 import projectlx.fleet.management.utils.responses.FleetDriverResponse;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
@@ -209,6 +211,92 @@ public class FleetDriverServiceImpl implements FleetDriverService {
         FleetDriverResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_DRIVER_UPDATE_SUCCESS.getCode(), new String[]{}, locale));
         response.setFleetDriverDto(FleetMapper.toDto(saved));
+        return response;
+    }
+
+    @Override
+    @Transactional(isolation = Isolation.READ_COMMITTED)
+    public FleetDriverResponse provisionPlatformAccess(Long id, ProvisionFleetDriverPlatformAccessRequest request,
+                                                       Locale locale, String username) {
+
+        // ============================================================
+        // STEP 1: Validate request
+        // ============================================================
+        ValidatorDto validation = fleetDriverServiceValidator.isProvisionPlatformAccessRequestValid(request, locale);
+        if (!validation.getSuccess()) {
+            return errorResponse(400,
+                    messageService.getMessage(I18Code.MESSAGE_DRIVER_PROVISION_INVALID.getCode(), new String[]{}, locale),
+                    validation.getErrorMessages());
+        }
+
+        Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
+        if (organizationId == null) {
+            return errorResponse(400, messageService.getMessage(I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(),
+                    new String[]{}, locale));
+        }
+
+        // ============================================================
+        // STEP 2: Load driver in caller organisation
+        // ============================================================
+        FleetDriver driver = fleetDriverRepository
+                .findByIdAndOrganizationIdAndEntityStatusNot(id, organizationId, EntityStatus.DELETED)
+                .orElse(null);
+        if (driver == null) {
+            return errorResponse(404, messageService.getMessage(I18Code.MESSAGE_DRIVER_NOT_FOUND.getCode(),
+                    new String[]{}, locale));
+        }
+
+        boolean reissue = Boolean.TRUE.equals(request.getReissueCredentials());
+        boolean linked = driver.getUserId() != null && driver.getUserId() > 0;
+        if (linked && !reissue) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_DRIVER_PLATFORM_ALREADY_LINKED.getCode(), new String[]{}, locale));
+        }
+        if (!linked && reissue) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_DRIVER_PLATFORM_NOT_LINKED.getCode(), new String[]{}, locale));
+        }
+
+        // ============================================================
+        // STEP 3: Provision user + email credentials
+        // ============================================================
+        String email = request.getEmail().trim().toLowerCase(java.util.Locale.ROOT);
+        UserResponse userResponse;
+        try {
+            userResponse = fleetDriverOnboardingSupport.provisionAndNotify(driver, email, locale, username);
+        } catch (Exception ex) {
+            log.warn("Driver platform provisioning failed for driverId={}: {}", driver.getId(), ex.getMessage());
+            return errorResponse(500, "Failed to provision driver platform access: " + ex.getMessage());
+        }
+
+        if (!userResponse.isSuccess()) {
+            int status = userResponse.getStatusCode() > 0 ? userResponse.getStatusCode() : 400;
+            return errorResponse(status,
+                    userResponse.getMessage() != null ? userResponse.getMessage() : "Provisioning failed.",
+                    userResponse.getErrorMessages() != null ? userResponse.getErrorMessages() : new ArrayList<>());
+        }
+
+        // ============================================================
+        // STEP 4: Link userId when first-time provisioning
+        // ============================================================
+        FleetDriver saved = driver;
+        if (!linked && userResponse.getUserDto() != null && userResponse.getUserDto().getId() != null) {
+            driver.setUserId(userResponse.getUserDto().getId());
+            driver.setModifiedAt(LocalDateTime.now());
+            driver.setModifiedBy(username);
+            saved = fleetDriverServiceAuditable.update(driver, locale, username);
+        }
+
+        String successMessage = messageService.getMessage(
+                reissue
+                        ? I18Code.MESSAGE_DRIVER_PROVISION_REISSUE_SUCCESS.getCode()
+                        : I18Code.MESSAGE_DRIVER_PROVISION_SUCCESS.getCode(),
+                new String[]{}, locale);
+
+        FleetDriverResponse response = successResponse(200, successMessage);
+        response.setFleetDriverDto(FleetMapper.toDto(saved));
+        response.setTemporaryUsername(userResponse.getTemporaryUsername());
+        response.setTemporaryPassword(userResponse.getTemporaryPassword());
         return response;
     }
 

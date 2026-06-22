@@ -33,6 +33,9 @@ public class CreateUserRequest {
     /** When true, user may allocate fleet (driver + vehicle) to shipments (requires organisation assignment). */
     private Boolean shipmentFleetAllocator;
 
+    /** When true, user may approve billing verification stages (requires organisation assignment). */
+    private Boolean billingApprover;
+
     private Long locationId;
 
     // ===========================

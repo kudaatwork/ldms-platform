@@ -7,6 +7,7 @@ import projectlx.billing.payments.model.SubscriptionPackage;
 import projectlx.billing.payments.model.UsageChargeRecord;
 import projectlx.billing.payments.model.WalletDeposit;
 import projectlx.billing.payments.model.WalletTransaction;
+import projectlx.billing.payments.utils.enums.OrganizationBillingMode;
 import projectlx.billing.payments.utils.dtos.OrganizationBillingSettingDto;
 import projectlx.billing.payments.utils.dtos.PlatformActionChargeDto;
 import projectlx.billing.payments.utils.dtos.PlatformWalletSummaryDto;
@@ -32,6 +33,7 @@ public final class PlatformWalletMapper {
         dto.setDescription(entity.getDescription());
         dto.setChargeCents(entity.getChargeCents());
         dto.setCategory(entity.getCategory() != null ? entity.getCategory().name() : null);
+        dto.setBillingTier(entity.getBillingTier() != null ? entity.getBillingTier().name() : null);
         dto.setActive(entity.getActive());
         return dto;
     }
@@ -44,6 +46,10 @@ public final class PlatformWalletMapper {
         dto.setDescription(entity.getDescription());
         dto.setMonthlyPriceCents(entity.getMonthlyPriceCents());
         dto.setCurrencyCode(entity.getCurrencyCode());
+        dto.setIncludedHeavyCredits(entity.getIncludedHeavyCredits());
+        dto.setIncludedStandardCredits(entity.getIncludedStandardCredits());
+        dto.setIncludedLightCredits(entity.getIncludedLightCredits());
+        dto.setIncludedTrackingDayCredits(entity.getIncludedTrackingDayCredits());
         dto.setSortOrder(entity.getSortOrder());
         dto.setFeatured(entity.getFeatured());
         dto.setActive(entity.getActive());
@@ -83,7 +89,12 @@ public final class PlatformWalletMapper {
             dto.setSubscriptionPackageId(setting.getSubscriptionPackageId());
             dto.setSubscriptionPackageName(packageName);
             long threshold = setting.getLowBalanceThresholdCents() != null ? setting.getLowBalanceThresholdCents() : 0L;
-            dto.setLowBalance(wallet.getBalanceCents() != null && wallet.getBalanceCents() <= threshold);
+            long balance = wallet.getBalanceCents() != null ? wallet.getBalanceCents() : 0L;
+            dto.setLowBalance(balance <= threshold);
+            boolean prepaid = setting.getBillingMode() == OrganizationBillingMode.PREPAID_WALLET;
+            boolean frozen = prepaid && balance <= 0;
+            dto.setWalletFrozen(frozen);
+            dto.setPlatformAccessAllowed(!frozen);
         }
         return dto;
     }
@@ -98,9 +109,15 @@ public final class PlatformWalletMapper {
         dto.setNotes(entity.getNotes());
         dto.setStatus(entity.getStatus() != null ? entity.getStatus().name() : null);
         dto.setProofDocumentId(entity.getProofDocumentId());
+        dto.setGatewayProvider(entity.getGatewayProvider());
+        dto.setPaymentMethod(entity.getPaymentMethod());
         if (entity.getCreatedAt() != null) {
             dto.setCreatedAt(entity.getCreatedAt().format(ISO));
         }
+        if (entity.getModifiedAt() != null) {
+            dto.setModifiedAt(entity.getModifiedAt().format(ISO));
+        }
+        dto.setModifiedBy(entity.getModifiedBy());
         return dto;
     }
 
@@ -112,6 +129,8 @@ public final class PlatformWalletMapper {
         dto.setBalanceAfterCents(entity.getBalanceAfterCents());
         dto.setActionCode(entity.getActionCode());
         dto.setDescription(entity.getDescription());
+        dto.setReceiptNumber(entity.getReceiptNumber());
+        dto.setReceiptDocumentId(entity.getReceiptDocumentId());
         dto.setTripId(entity.getTripId());
         dto.setSeasonId(entity.getSeasonId());
         if (entity.getCreatedAt() != null) {

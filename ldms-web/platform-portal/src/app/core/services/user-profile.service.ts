@@ -18,6 +18,7 @@ export interface UserProfileSummary {
   organizationId?: number;
   procurementApprover?: boolean;
   shipmentFleetAllocator?: boolean;
+  billingApprover?: boolean;
   organizationWorkspaceAdministrator?: boolean;
 }
 
@@ -65,6 +66,7 @@ export class UserProfileService {
     const mustChangeCredentials = user['mustChangeCredentials'] === true;
     const procurementApprover = user['procurementApprover'] === true;
     const shipmentFleetAllocator = user['shipmentFleetAllocator'] === true;
+    const billingApprover = user['billingApprover'] === true;
     const organizationWorkspaceAdministrator = user['organizationWorkspaceAdministrator'] === true;
     const roleLabel = resolveUserRoleLabel(user) || 'User';
     const orgRaw = Number(user['organizationId'] ?? 0);
@@ -83,6 +85,7 @@ export class UserProfileService {
       organizationId,
       procurementApprover,
       shipmentFleetAllocator,
+      billingApprover,
       organizationWorkspaceAdministrator,
     };
   }

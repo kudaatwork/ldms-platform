@@ -614,7 +614,7 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   driverKindLabel(driver: FleetDriverRow): string {
-    return driver.userId ? 'Platform user' : 'Manual profile';
+    return driver.userId ? 'Platform login' : 'No platform login';
   }
 
   driverEmploymentLabel(driver: FleetDriverRow): string {
@@ -1211,7 +1211,7 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe((hired: FleetDriverRow | undefined) => {
         if (hired) {
-          this.notifications.success(`${hired.fullName} was hired and added to your roster.`);
+          this.notifications.success(`${hired.fullName} was added to your driver roster.`);
           this.loadDrivers();
         }
       });
@@ -1225,7 +1225,7 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
     });
   }
 
-  openEditDriver(driver: FleetDriverRow, event?: Event): void {
+  openEditDriver(driver: FleetDriverRow, event?: Event, focusPlatformAccess = false): void {
     event?.stopPropagation();
     this.dialog
       .open(FleetDriverDialogComponent, {
@@ -1233,16 +1233,24 @@ export class FleetWorkspaceComponent implements OnInit, OnDestroy {
         maxWidth: '96vw',
         maxHeight: '92vh',
         disableClose: true,
-        data: { driver } satisfies FleetDriverDialogData,
+        data: { driver, focusPlatformAccess } satisfies FleetDriverDialogData,
       })
       .afterClosed()
       .pipe(takeUntil(this.destroy$))
       .subscribe((updated: FleetDriverRow | undefined) => {
         if (updated) {
-          this.notifications.success(`${updated.fullName} was updated.`);
+          if (!driver.userId && updated.userId) {
+            this.notifications.success(`Platform login enabled for ${updated.fullName}.`);
+          } else {
+            this.notifications.success(`${updated.fullName} was updated.`);
+          }
           this.loadDrivers();
         }
       });
+  }
+
+  openEnableDriverLogin(driver: FleetDriverRow, event?: Event): void {
+    this.openEditDriver(driver, event, true);
   }
 
   confirmDeleteDriver(driver: FleetDriverRow, event?: Event): void {

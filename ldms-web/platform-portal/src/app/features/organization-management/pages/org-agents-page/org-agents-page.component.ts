@@ -5,12 +5,18 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { Subject, finalize, takeUntil } from 'rxjs';
 import { DeleteConfirmDialogComponent } from '../../../../shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import {
+  exportClientTableAsCsv,
+  exportFormatLabel,
+  LxExportFormat,
+} from '../../../../shared/utils/lx-export.util';
+import {
   AgentFormDialogComponent,
   AgentFormDialogData,
   AgentFormDialogResult,
 } from '../../components/agent-form-dialog/agent-form-dialog.component';
 import { AgentRow } from '../../models/org-management.model';
 import { OrgManagementPortalService } from '../../services/org-management-portal.service';
+import { AGENT_EXPORT_COLUMNS, downloadAgentSampleCsv } from '../../utils/org-management-export.util';
 
 @Component({
   selector: 'app-org-agents-page',
@@ -20,8 +26,21 @@ import { OrgManagementPortalService } from '../../services/org-management-portal
 })
 export class OrgAgentsPageComponent implements OnInit, OnDestroy {
   loading = true;
+  actionInProgress = false;
+  exporting = false;
   error = '';
   agents: AgentRow[] = [];
+
+  searchQuery = '';
+  filterFieldsOpen = false;
+  showSampleCsvInfo = false;
+  columnFilters = {
+    fullName: '',
+    role: '',
+    region: '',
+    agentKind: '' as '' | AgentRow['agentKind'],
+    active: '' as boolean | '',
+  };
 
   private readonly destroy$ = new Subject<void>();
 
@@ -32,6 +51,55 @@ export class OrgAgentsPageComponent implements OnInit, OnDestroy {
     private readonly title: Title,
     private readonly cdr: ChangeDetectorRef,
   ) {}
+
+  get sampleCsvDescription(): string {
+    return 'Agent imports use AGENT KIND (INDIVIDUAL or ORGANIZATION), names, contact columns, optional ROLE, AGENT TYPE, and BRANCH ID. Rows are scoped to your organisation automatically.';
+  }
+
+  get importCsvDisclaimer(): string {
+    return 'CSV import only. Leave ORGANIZATION ID empty or omit it — agents are created under your signed-in organisation.';
+  }
+
+  get filteredAgents(): AgentRow[] {
+    const q = this.searchQuery.trim().toLowerCase();
+    return this.agents.filter((agent) => {
+      if (this.columnFilters.agentKind && agent.agentKind !== this.columnFilters.agentKind) {
+        return false;
+      }
+      if (this.columnFilters.active === true && !agent.active) {
+        return false;
+      }
+      if (this.columnFilters.active === false && agent.active) {
+        return false;
+      }
+      const nameNeedle = this.columnFilters.fullName.trim().toLowerCase();
+      if (nameNeedle && !agent.fullName.toLowerCase().includes(nameNeedle)) {
+        return false;
+      }
+      const roleNeedle = this.columnFilters.role.trim().toLowerCase();
+      if (roleNeedle && !(agent.role ?? '').toLowerCase().includes(roleNeedle)) {
+        return false;
+      }
+      const regionNeedle = this.columnFilters.region.trim().toLowerCase();
+      if (regionNeedle && !(agent.assignedRegion ?? '').toLowerCase().includes(regionNeedle)) {
+        return false;
+      }
+      if (!q) {
+        return true;
+      }
+      const hay = [
+        agent.fullName,
+        agent.email,
+        agent.phoneNumber,
+        agent.role,
+        agent.assignedRegion,
+        agent.agentKind,
+      ]
+        .join(' ')
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }
 
   ngOnInit(): void {
     this.title.setTitle('Agents | Organization management');
@@ -63,6 +131,72 @@ export class OrgAgentsPageComponent implements OnInit, OnDestroy {
           this.error = err.message ?? 'Could not load agents.';
         },
       });
+  }
+
+  hasActiveFilters(): boolean {
+    return (
+      !!this.searchQuery.trim() ||
+      !!this.columnFilters.fullName.trim() ||
+      !!this.columnFilters.role.trim() ||
+      !!this.columnFilters.region.trim() ||
+      this.columnFilters.agentKind !== '' ||
+      this.columnFilters.active !== ''
+    );
+  }
+
+  importCsv(input: HTMLInputElement): void {
+    input.click();
+  }
+
+  onImportFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) {
+      return;
+    }
+    this.actionInProgress = true;
+    this.orgMgmt
+      .importAgentsCsv(file)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (response) => {
+          this.snackBar.open(response.message ?? (response.ok ? 'Import completed.' : 'Import failed.'), 'Close', {
+            duration: response.ok ? 3500 : 6000,
+          });
+          input.value = '';
+          this.actionInProgress = false;
+          if (response.ok) {
+            this.reload();
+          }
+        },
+        error: (err: Error) => {
+          this.snackBar.open(err.message ?? 'Import failed.', 'Close', { duration: 5000 });
+          input.value = '';
+          this.actionInProgress = false;
+        },
+      });
+  }
+
+  downloadSampleCsv(): void {
+    downloadAgentSampleCsv();
+    this.snackBar.open('Sample CSV downloaded.', 'Close', { duration: 3000 });
+  }
+
+  exportAs(format: LxExportFormat): void {
+    this.exporting = true;
+    const rows = this.filteredAgents;
+    const saved = exportClientTableAsCsv(format, rows, AGENT_EXPORT_COLUMNS, 'agents', (message) =>
+      this.snackBar.open(message, 'Close', { duration: 5000 }),
+      { title: 'Organisation agents' },
+    );
+    this.exporting = false;
+    if (saved) {
+      this.snackBar.open(
+        `Exported ${rows.length} agent${rows.length === 1 ? '' : 's'} as ${exportFormatLabel(format)}.`,
+        'Close',
+        { duration: 3000 },
+      );
+    }
   }
 
   openCreate(): void {

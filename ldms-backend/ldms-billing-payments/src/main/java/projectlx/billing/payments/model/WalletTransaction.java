@@ -58,6 +58,12 @@ public class WalletTransaction {
     @Column(name = "description", length = 500)
     private String description;
 
+    @Column(name = "receipt_number", length = 40)
+    private String receiptNumber;
+
+    @Column(name = "receipt_document_id")
+    private Long receiptDocumentId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)
     private EntityStatus entityStatus = EntityStatus.ACTIVE;

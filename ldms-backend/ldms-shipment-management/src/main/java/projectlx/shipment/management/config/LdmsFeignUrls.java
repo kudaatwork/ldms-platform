@@ -110,4 +110,19 @@ public final class LdmsFeignUrls {
         }
         return url;
     }
+
+    public static String resolveBillingPaymentsServiceBaseUrl(Environment env) {
+        String explicit = env.getProperty("CLIENTS_BILLING_PAYMENTS_SERVICE_URL");
+        if (explicit != null && !explicit.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(explicit.trim()));
+        }
+        if (Boolean.parseBoolean(env.getProperty("ldms.dev.force-local-feign-clients", "false"))) {
+            return resolveApiGatewayBaseUrl(env);
+        }
+        String configured = env.getProperty("clients.base-url.billingPaymentsService");
+        if (configured != null && !configured.isBlank()) {
+            return extractHttpOrigin(trimTrailingSlash(configured));
+        }
+        return resolveApiGatewayBaseUrl(env);
+    }
 }

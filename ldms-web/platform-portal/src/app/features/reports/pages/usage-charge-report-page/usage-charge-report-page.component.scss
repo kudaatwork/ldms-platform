@@ -19,6 +19,10 @@
   justify-content: flex-end;
 }
 
+.lx-data-toolbar__actions {
+  flex-shrink: 0;
+}
+
 .usage-report-filter-dot {
   width: 6px;
   height: 6px;
@@ -599,9 +603,21 @@
   padding: 0;
   overflow: hidden;
 
-  .lx-table-header {
+  .lx-table-header,
+  .usage-report-table__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
     padding: 1rem 1.25rem 0.35rem;
   }
+}
+
+.usage-report-table__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-shrink: 0;
 }
 
 .usage-report-table__summary {

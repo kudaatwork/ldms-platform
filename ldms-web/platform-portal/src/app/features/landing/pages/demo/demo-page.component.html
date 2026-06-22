@@ -1,0 +1,56 @@
+<app-landing-shell activePage="demo">
+  <section class="ldms-page-hero ldms-reveal" aria-labelledby="demo-hero-title">
+    <div class="ldms-page-hero__glow" aria-hidden="true"></div>
+    <div class="ldms-section__inner ldms-page-hero__inner">
+      <p class="ldms-page-hero__eyebrow ldms-kicker">Live programme demo</p>
+      <h1 id="demo-hero-title" class="ldms-page-hero__title">See LDMS move freight on your corridor</h1>
+      <p class="ldms-page-hero__lead">
+        A guided session with LX operations — not a canned slide deck. We walk through the modules that matter for your
+        commodity, borders, and billing model.
+      </p>
+      <div class="ldms-page-hero__cta">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="goContact()">Request a demo</button>
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="goPricing()">View pricing first</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="ldms-demo-showcase ldms-reveal" aria-label="Demo flow">
+    <div class="ldms-demo-showcase__glow" aria-hidden="true"></div>
+    <div class="ldms-section__inner">
+      <div class="ldms-demo-showcase__player-wrap">
+        <div class="ldms-demo-showcase__orbit" aria-hidden="true">
+          <span class="ldms-demo-showcase__ring ldms-demo-showcase__ring--a"></span>
+          <span class="ldms-demo-showcase__ring ldms-demo-showcase__ring--b"></span>
+        </div>
+        <app-system-demo-player (sceneChange)="activeScene.set($event)" />
+      </div>
+
+      <ol class="ldms-demo-stages">
+        @for (stage of demoStages; track stage.title; let i = $index) {
+          <li
+            class="ldms-demo-stage"
+            [class.ldms-demo-stage--active]="activeScene() === i"
+            [style.--stage-accent]="stage.accent"
+            [style.--stage-i]="i"
+          >
+            <span class="ldms-demo-stage__icon material-icons" aria-hidden="true">{{ stage.icon }}</span>
+            <div class="ldms-demo-stage__copy">
+              <h2>{{ stage.title }}</h2>
+              <p>{{ stage.detail }}</p>
+            </div>
+            <span class="ldms-demo-stage__pulse" aria-hidden="true"></span>
+          </li>
+        }
+      </ol>
+    </div>
+  </section>
+
+  <section class="ldms-demo-cta ldms-reveal" aria-label="Book demo">
+    <div class="ldms-section__inner ldms-demo-cta__inner">
+      <h2>Ready for a corridor-specific session?</h2>
+      <p>Tell us your routes, volumes, and billing preference — we'll tailor the walkthrough and follow up within one business day.</p>
+      <button type="button" class="lx-btn lx-btn-primary" (click)="goContact()">Book your demo</button>
+    </div>
+  </section>
+</app-landing-shell>

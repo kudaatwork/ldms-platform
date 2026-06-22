@@ -30,6 +30,8 @@ import projectlx.shipment.management.utils.requests.UpdateShipmentStatusRequest;
 import projectlx.shipment.management.utils.requests.ValidateTransporterAssignmentFeignRequest;
 import projectlx.shipment.management.utils.responses.FleetDriverFeignResponse;
 import projectlx.shipment.management.utils.responses.ShipmentResponse;
+import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
+import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
 import projectlx.co.zw.shared_library.utils.dtos.OrganizationDto;
 import projectlx.co.zw.shared_library.utils.dtos.UserDto;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
@@ -67,6 +69,7 @@ public class ShipmentServiceImpl implements ShipmentService {
     private final OrganizationManagementServiceClient organizationManagementServiceClient;
     private final FleetManagementServiceClient fleetManagementServiceClient;
     private final BorderClearanceCaseService borderClearanceCaseService;
+    private final PlatformWalletUsageSupport platformWalletUsageSupport;
 
     // ============================================================
     // EVENT-DRIVEN CREATION
@@ -711,6 +714,20 @@ public class ShipmentServiceImpl implements ShipmentService {
         if (!isValidTransition(shipment.getStatus(), newStatus)) {
             return errorResponse(400, messageService.getMessage(
                     I18Code.MESSAGE_SHIPMENT_INVALID_STATUS_TRANSITION.getCode(), new String[]{}, locale));
+        }
+
+        ShipmentStatus previousStatus = shipment.getStatus();
+        platformWalletUsageSupport.chargeRequired(
+                shipment.getOrganizationId(),
+                PlatformWalletActionCodes.SHIPMENT_UPDATE,
+                "SHIPMENT",
+                shipment.getId());
+        if (newStatus == ShipmentStatus.IN_TRANSIT && previousStatus != ShipmentStatus.IN_TRANSIT) {
+            platformWalletUsageSupport.chargeRequired(
+                    shipment.getOrganizationId(),
+                    PlatformWalletActionCodes.SHIPMENT_DISPATCH,
+                    "SHIPMENT",
+                    shipment.getId());
         }
 
         // ============================================================

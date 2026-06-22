@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import projectlx.billing.payments.service.processor.api.PlatformDashboardServiceProcessor;
 import projectlx.billing.payments.utils.responses.PlatformBillingDashboardResponse;
+import projectlx.billing.payments.utils.responses.PlatformRevenueReportResponse;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
 
@@ -33,6 +34,16 @@ public class PlatformDashboardBackofficeResource {
     public ResponseEntity<PlatformBillingDashboardResponse> billingDashboard(
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         PlatformBillingDashboardResponse response = platformDashboardServiceProcessor.getBillingDashboard(locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "BACKOFFICE_PLATFORM_REVENUE_REPORT")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/revenue")
+    @Operation(summary = "Cross-tenant platform revenue, wallet usage, and organisation drill-down")
+    public ResponseEntity<PlatformRevenueReportResponse> revenueReport(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        PlatformRevenueReportResponse response = platformDashboardServiceProcessor.getRevenueReport(locale);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 }

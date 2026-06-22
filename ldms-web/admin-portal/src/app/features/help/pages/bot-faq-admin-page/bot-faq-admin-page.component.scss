@@ -98,10 +98,10 @@
 
 .bot-faq-list__hd {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 
   h3 {
     margin: 0;
@@ -109,6 +109,12 @@
     font-weight: 800;
     letter-spacing: -0.02em;
   }
+}
+
+.bot-faq-list__sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--text-muted, #64748b);
 }
 
 .bot-faq-search {
@@ -242,8 +248,169 @@
   100% { background-position: -200% 0; }
 }
 
+.bot-pdf-upload {
+  &__lead {
+    margin: -8px 0 16px;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text-muted, #64748b);
+  }
+
+  &__row {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto;
+    gap: 16px;
+    align-items: end;
+  }
+}
+
+.bot-pdf-table-wrap {
+  margin-top: 18px;
+  overflow-x: auto;
+}
+
+.bot-faq-field--file input[type='file'] {
+  padding: 9px 12px;
+}
+
+.bot-add-knowledge {
+  padding: 22px 24px;
+  border-radius: 18px;
+  border: 1px solid rgba(124, 58, 237, 0.15);
+  box-shadow: 0 14px 36px rgba(124, 58, 237, 0.06);
+
+  &__hd {
+    margin-bottom: 16px;
+
+    h3 {
+      margin: 0 0 6px;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+    }
+
+    p {
+      margin: 0;
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text-muted, #64748b);
+    }
+  }
+
+  &__hint {
+    margin: 0 0 16px;
+    font-size: 13px;
+    color: var(--text-muted, #64748b);
+    font-style: italic;
+  }
+}
+
+.bot-add-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.bot-add-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(124, 58, 237, 0.2);
+  background: rgba(248, 250, 252, 0.9);
+  color: #475569;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+
+  &--on {
+    background: linear-gradient(135deg, rgba(124, 58, 237, 0.14), rgba(99, 102, 241, 0.1));
+    border-color: rgba(124, 58, 237, 0.45);
+    color: #5b21b6;
+  }
+}
+
+.bot-add-panel {
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
+  padding-top: 18px;
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+}
+
+.bot-list-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.bot-list-filter {
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  background: #fff;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  cursor: pointer;
+
+  &--on {
+    background: rgba(124, 58, 237, 0.1);
+    border-color: rgba(124, 58, 237, 0.35);
+    color: #6d28d9;
+  }
+}
+
+.bot-source-meta {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.bot-faq-pill--kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  mat-icon {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.bot-pdf-drop-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #059669;
+  font-weight: 600;
+}
+
+.bot-pdf-upload__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
 @media (max-width: 768px) {
   .bot-faq-form__row {
+    grid-template-columns: 1fr;
+  }
+
+  .bot-pdf-upload__row {
     grid-template-columns: 1fr;
   }
 

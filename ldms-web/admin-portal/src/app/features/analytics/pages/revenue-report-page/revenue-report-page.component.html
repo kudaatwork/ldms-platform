@@ -4,7 +4,7 @@
     eyebrow="Billing intelligence"
     eyebrowIcon="payments"
     title="Platform revenue"
-    lead="Earnings from organisations using LDMS — subscriptions, action charges, wallet activity, and cost breakdowns."
+    lead="Earnings from organisations using LDMS — wallet top-ups, prepaid usage charges, subscription consumption, and per-organisation drill-down."
     hubIcon="account_balance_wallet"
     [orbitIcons]="['trending_up', 'receipt_long', 'savings']"
   >
@@ -22,7 +22,7 @@
     <lx-workspace-hero-stat
       *ngIf="report"
       [value]="formatMoney(report.subscriptionCents)"
-      label="Subscriptions"
+      label="Subscription usage"
       icon="card_membership"
       theme="violet"
     ></lx-workspace-hero-stat>
@@ -35,26 +35,28 @@
     ></lx-workspace-hero-stat>
   </lx-workspace-hero>
 
+  <p class="revenue-error lx-alert lx-alert--error" *ngIf="error">{{ error }}</p>
+
   <div class="revenue-kpis lx-grid lx-grid-3 mb-lg" *ngIf="report && !loading">
     <article class="revenue-kpi lx-card" style="--kpi-accent: #6366f1">
       <mat-icon>subscriptions</mat-icon>
       <div>
         <span class="revenue-kpi__val">{{ formatMoney(report.subscriptionCents) }}</span>
-        <span class="revenue-kpi__lbl">Recurring subscriptions</span>
+        <span class="revenue-kpi__lbl">Subscription plan usage (value)</span>
       </div>
     </article>
     <article class="revenue-kpi lx-card" style="--kpi-accent: #10b981">
       <mat-icon>local_shipping</mat-icon>
       <div>
         <span class="revenue-kpi__val">{{ formatMoney(report.actionChargesCents) }}</span>
-        <span class="revenue-kpi__lbl">Logistics action charges</span>
+        <span class="revenue-kpi__lbl">Prepaid wallet charges (deducted)</span>
       </div>
     </article>
     <article class="revenue-kpi lx-card" style="--kpi-accent: #f59e0b">
       <mat-icon>account_balance</mat-icon>
       <div>
         <span class="revenue-kpi__val">{{ formatMoney(report.walletDepositsCents) }}</span>
-        <span class="revenue-kpi__lbl">Wallet deposits (gross)</span>
+        <span class="revenue-kpi__lbl">Wallet deposits (confirmed)</span>
       </div>
     </article>
   </div>
@@ -64,8 +66,8 @@
       <header class="lx-chart-card__hd">
         <mat-icon class="lx-chart-card__icon" aria-hidden="true">bar_chart</mat-icon>
         <div class="lx-chart-card__copy">
-          <h3>Earned vs costs</h3>
-          <p>Monthly platform economics</p>
+          <h3>Earned vs subscription usage</h3>
+          <p>Monthly deposits and prepaid charges vs subscription consumption</p>
         </div>
       </header>
       <div class="lx-chart-card__body lx-chart-card__body--tall">
@@ -76,8 +78,8 @@
       <header class="lx-chart-card__hd">
         <mat-icon class="lx-chart-card__icon" aria-hidden="true">pie_chart</mat-icon>
         <div class="lx-chart-card__copy">
-          <h3>Cost breakdown</h3>
-          <p>Where platform spend goes</p>
+          <h3>Usage by category</h3>
+          <p>Platform actions billed across all organisations</p>
         </div>
       </header>
       <div class="lx-chart-card__body lx-chart-card__body--donut">
@@ -85,7 +87,7 @@
           <canvas baseChart [data]="costDonutData" [options]="costDonutOptions" type="doughnut"></canvas>
           <div class="lx-chart-card__donut-center" *ngIf="costTotalCents">
             <span class="lx-chart-card__donut-center-value">{{ formatMoney(costTotalCents) }}</span>
-            <span class="lx-chart-card__donut-center-label">Total costs</span>
+            <span class="lx-chart-card__donut-center-label">Total usage</span>
           </div>
         </div>
       </div>
@@ -95,7 +97,8 @@
   <div class="revenue-drill lx-grid lx-grid-2" *ngIf="report && !loading">
     <article class="lx-card revenue-orgs">
       <h3>By organisation</h3>
-      <p>Click to drill into charges</p>
+      <p>{{ report.byOrganization.length }} organisation(s) with billing activity — click to drill down</p>
+      <p class="revenue-charges__empty" *ngIf="!report.byOrganization.length">No wallet or usage activity recorded yet.</p>
       <button
         type="button"
         class="revenue-org-row"
@@ -104,11 +107,18 @@
         (click)="selectOrg(o.organizationId)"
         [style.--org-accent]="o.accent"
       >
-        <div class="revenue-org-row__name">{{ o.organizationName }}</div>
+        <div class="revenue-org-row__head">
+          <div class="revenue-org-row__name">{{ o.organizationName }}</div>
+          <span class="revenue-org-row__mode">{{ billingModeLabel(o.billingMode) }}</span>
+        </div>
         <div class="revenue-org-row__nums">
           <span class="revenue-org-row__earn">+{{ formatMoney(o.earnedCents) }}</span>
-          <span class="revenue-org-row__cost">−{{ formatMoney(o.costsCents) }}</span>
+          <span class="revenue-org-row__cost" *ngIf="o.costsCents">−{{ formatMoney(o.costsCents) }} usage</span>
           <span class="revenue-org-row__net">{{ formatMoney(o.netCents) }} net</span>
+        </div>
+        <div class="revenue-org-row__meta">
+          <span>Wallet {{ formatMoney(o.walletBalanceCents ?? 0) }}</span>
+          <span>{{ o.usageEventCount ?? 0 }} events</span>
         </div>
         <div class="revenue-org-row__bar">
           <div class="revenue-org-row__earn-bar" [style.width.%]="earnBarWidth(o.earnedCents)"></div>
@@ -118,15 +128,49 @@
 
     <article class="lx-card revenue-charges" *ngIf="selectedOrg as org">
       <h3>{{ org.organizationName }}</h3>
-      <p>Recent charge lines</p>
+      <p>{{ billingModeLabel(org.billingMode) }} · {{ org.usageEventCount ?? 0 }} usage events</p>
+
+      <div class="revenue-org-summary">
+        <div>
+          <span class="revenue-org-summary__label">Wallet balance</span>
+          <strong>{{ formatMoney(org.walletBalanceCents ?? 0) }}</strong>
+        </div>
+        <div>
+          <span class="revenue-org-summary__label">Deposits</span>
+          <strong>{{ formatMoney(org.depositCents ?? 0) }}</strong>
+        </div>
+        <div>
+          <span class="revenue-org-summary__label">Prepaid charges</span>
+          <strong>{{ formatMoney(org.actionChargeCents ?? 0) }}</strong>
+        </div>
+        <div>
+          <span class="revenue-org-summary__label">Total usage</span>
+          <strong>{{ formatMoney(org.totalUsageCents ?? 0) }}</strong>
+        </div>
+      </div>
+
+      <h4 class="revenue-section-title">Usage by action</h4>
+      <div class="revenue-usage-row" *ngFor="let row of org.usageBreakdown">
+        <div>
+          <div class="revenue-usage-row__label">{{ row.actionDisplayName || row.actionCode }}</div>
+          <div class="revenue-usage-row__meta">{{ row.eventCount }} events · {{ usageShare(row.totalChargeCents, org) }}%</div>
+        </div>
+        <span class="revenue-usage-row__amt">{{ formatMoney(row.totalChargeCents) }}</span>
+      </div>
+      <p class="revenue-charges__empty" *ngIf="!org.usageBreakdown?.length">No usage recorded for this organisation.</p>
+
+      <h4 class="revenue-section-title">Recent charge lines</h4>
       <div class="revenue-charge" *ngFor="let c of filteredCharges">
         <div>
-          <div class="revenue-charge__label">{{ c.label }}</div>
+          <div class="revenue-charge__label">
+            {{ c.label }}
+            <span class="revenue-charge__badge" *ngIf="c.deducted">Deducted</span>
+          </div>
           <div class="revenue-charge__meta">{{ c.category }} · {{ c.occurredAt | date : 'medium' }}</div>
         </div>
         <span class="revenue-charge__amt">{{ formatMoney(c.amountCents) }}</span>
       </div>
-      <p class="revenue-charges__empty" *ngIf="!filteredCharges.length">No charge lines for this organisation.</p>
+      <p class="revenue-charges__empty" *ngIf="!filteredCharges.length">No recent charge lines for this organisation.</p>
     </article>
   </div>
 </section>

@@ -370,6 +370,8 @@ button,
   &-inactive  { background:#F3F4F6; color:#6B7280; &::before{background:#9CA3AF;} }
   &-pending   { background:#FFFBEB; color:#D97706; &::before{background:#F59E0B;} }
   &-transit   { background:var(--info-light); color:#2563EB; &::before{background:var(--info);} }
+  &-warn      { background:#FFFBEB; color:#D97706; &::before{background:#F59E0B;} }
+  &-muted     { background:#F3F4F6; color:#6B7280; &::before{background:#9CA3AF;} }
 }
 
 /* ── Buttons ───────────────────────── */

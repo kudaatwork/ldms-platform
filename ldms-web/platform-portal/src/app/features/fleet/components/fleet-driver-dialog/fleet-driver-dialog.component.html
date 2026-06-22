@@ -10,6 +10,110 @@
   </div>
 
   <form [formGroup]="form" class="lx-step-content flt-driver-dialog" (ngSubmit)="save()">
+    <!-- Legacy driver: enable platform login -->
+    <div
+      id="flt-driver-legacy-login"
+      class="flt-driver-dialog__legacy lx-card--subsection"
+      *ngIf="showLegacyProvisionPanel"
+    >
+      <div class="flt-driver-dialog__legacy-head">
+        <mat-icon>lock_open</mat-icon>
+        <div>
+          <div class="flt-driver-dialog__legacy-title">Enable driver platform login</div>
+          <p class="flt-driver-dialog__legacy-lead">
+            This driver was added before platform login was available. Enter their email to create a
+            driver account and send temporary credentials — same flow as newly approved signups.
+          </p>
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Driver email <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">email</mat-icon>
+          <input
+            type="email"
+            [(ngModel)]="legacyPlatformEmail"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="driver@example.com"
+            autocomplete="email"
+            [disabled]="provisioningAccess"
+          />
+        </div>
+      </div>
+
+      <div class="flt-driver-dialog__legacy-actions">
+        <button
+          type="button"
+          class="lx-btn lx-btn-primary lx-btn-sm"
+          (click)="enableDriverLogin()"
+          [disabled]="provisioningAccess"
+        >
+          {{ provisioningAccess ? 'Enabling…' : 'Enable login & email credentials' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Linked driver: re-send credentials -->
+    <div class="flt-driver-dialog__legacy flt-driver-dialog__legacy--linked lx-card--subsection" *ngIf="showReissueCredentialsPanel">
+      <div class="flt-driver-dialog__legacy-head">
+        <mat-icon>vpn_key</mat-icon>
+        <div>
+          <div class="flt-driver-dialog__legacy-title">Platform login active</div>
+          <p class="flt-driver-dialog__legacy-lead">
+            User #{{ platformUserId }} is linked. If the driver lost their credentials, you can email new
+            temporary login details.
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="lx-btn lx-btn-ghost lx-btn-sm"
+        *ngIf="!showReissuePanel"
+        (click)="showReissuePanel = true"
+      >
+        Re-send login credentials
+      </button>
+      <ng-container *ngIf="showReissuePanel">
+        <div class="lx-field">
+          <label class="lx-field-label">Email for new credentials <span class="req">*</span></label>
+          <div class="lx-input-shell">
+            <mat-icon class="lx-input-shell__icon">email</mat-icon>
+            <input
+              type="email"
+              [(ngModel)]="reissuePlatformEmail"
+              [ngModelOptions]="{ standalone: true }"
+              placeholder="driver@example.com"
+              autocomplete="email"
+              [disabled]="provisioningAccess"
+            />
+          </div>
+        </div>
+        <div class="flt-driver-dialog__legacy-actions">
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="showReissuePanel = false" [disabled]="provisioningAccess">
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="lx-btn lx-btn-primary lx-btn-sm"
+            (click)="resendDriverCredentials()"
+            [disabled]="provisioningAccess"
+          >
+            {{ provisioningAccess ? 'Sending…' : 'Email new credentials' }}
+          </button>
+        </div>
+      </ng-container>
+    </div>
+
+    <p class="flt-driver-dialog__provision-success" *ngIf="provisionSuccess">
+      <mat-icon>check_circle</mat-icon>
+      {{ provisionSuccess }}
+    </p>
+    <p class="lx-list-error" *ngIf="provisionError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ provisionError }}
+    </p>
+
     <div class="flt-driver-dialog__source lx-card--subsection">
       <label class="lx-field-label">Driver profile source</label>
       <mat-radio-group class="flt-driver-dialog__source-list" formControlName="source">

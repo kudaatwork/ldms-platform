@@ -28,6 +28,12 @@
 
   .material-icons { font-size: 17px; }
 
+  &--driver {
+    &.lc-portal-tab--active {
+      color: var(--accent, #fb923c);
+    }
+  }
+
   &--active {
     background: var(--surface, #fff);
     color: var(--primary, #3b82f6);
@@ -51,6 +57,26 @@
 .lc-submit--driver {
   background: linear-gradient(135deg, var(--accent, #fb923c), #ea580c) !important;
   box-shadow: 0 4px 14px rgba(234, 88, 12, .3) !important;
+
+  &:hover:not(:disabled) {
+    filter: brightness(1.06);
+    box-shadow: 0 8px 22px rgba(234, 88, 12, .38) !important;
+  }
+}
+
+.login-card--driver {
+  .lc-field:focus-within {
+    border-color: var(--accent, #fb923c);
+    box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.18);
+  }
+
+  .lc-auth-links a {
+    color: var(--accent, #fb923c);
+  }
+
+  .lc-footer-links a {
+    color: var(--accent, #fb923c);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────

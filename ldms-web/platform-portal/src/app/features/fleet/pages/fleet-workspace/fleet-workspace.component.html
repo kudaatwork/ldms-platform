@@ -894,7 +894,9 @@
             <div class="flt-driver-card__meta">
               <span class="flt-pill flt-pill--type">Class {{ d.licenseClass }}</span>
               <span class="flt-pill" [ngClass]="driverEmploymentClass(d)">{{ driverEmploymentLabel(d) }}</span>
-              <span class="flt-pill" [class.flt-pill--ok]="!!d.userId">{{ d.userId ? 'Linked' : 'Manual' }}</span>
+              <span class="flt-pill" [class.flt-pill--ok]="!!d.userId" [class.flt-pill--warn]="!d.userId">
+                {{ d.userId ? 'Login enabled' : 'No login' }}
+              </span>
             </div>
             <div class="flt-driver-card__highlight">
               <span><mat-icon>credit_card</mat-icon>{{ driverLicenseLabel(d) }}</span>
@@ -904,6 +906,15 @@
               <span><mat-icon>location_on</mat-icon>{{ driverAddressLine(d) }}</span>
             </div>
             <div class="flt-driver-card__actions" (click)="$event.stopPropagation()">
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm flt-driver-card__login-btn"
+                *ngIf="!d.userId"
+                title="Enable driver platform login"
+                (click)="openEnableDriverLogin(d, $event)"
+              >
+                <mat-icon>lock_open</mat-icon>
+              </button>
               <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" title="Edit driver" (click)="openEditDriver(d, $event)">
                 <mat-icon>edit</mat-icon>
               </button>
@@ -1521,7 +1532,9 @@
             <span class="flt-pill" [ngClass]="driverKindClass(driver)">{{ driverKindLabel(driver) }}</span>
             <span class="flt-pill" [ngClass]="driverEmploymentClass(driver)">{{ driverEmploymentLabel(driver) }}</span>
             <span class="flt-pill flt-pill--type">Class {{ driver.licenseClass }}</span>
-            <span class="flt-pill" [class.flt-pill--ok]="!!driver.userId">{{ driver.userId ? 'User linked' : 'Manual entry' }}</span>
+            <span class="flt-pill" [class.flt-pill--ok]="!!driver.userId" [class.flt-pill--warn]="!driver.userId">
+              {{ driver.userId ? 'Login enabled' : 'No login' }}
+            </span>
           </div>
 
           <div class="flt-spotlight__fact-grid">

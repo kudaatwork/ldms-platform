@@ -4,10 +4,19 @@ import { MatDialog } from '@angular/material/dialog';
 import { Subject, debounceTime, finalize, takeUntil } from 'rxjs';
 import { AuthStateService } from '../../../../core/services/auth-state.service';
 import { NotificationService } from '../../../../core/services/notification.service';
+import {
+  exportClientTableAsCsv,
+  exportFormatLabel,
+  LxExportFormat,
+} from '../../../../shared/utils/lx-export.util';
 import { DeleteConfirmDialogComponent } from '../../../../shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { RegisterTransporterDialogComponent } from '../../../fleet/components/register-transporter-dialog/register-transporter-dialog.component';
-import { TransporterPartnerRow } from '../../../fleet/models/fleet.model';
+import { TransporterContractStatus, TransporterPartnerRow } from '../../../fleet/models/fleet.model';
 import { FleetPortalService } from '../../../fleet/services/fleet-portal.service';
+import {
+  TRANSPORTER_EXPORT_COLUMNS,
+  downloadFleetSampleCsv,
+} from '../../../fleet/utils/fleet-export.util';
 import { OrgManagementPortalService } from '../../services/org-management-portal.service';
 
 @Component({
@@ -18,9 +27,22 @@ import { OrgManagementPortalService } from '../../services/org-management-portal
 })
 export class OrgTransportersPageComponent implements OnInit, OnDestroy {
   loading = true;
+  exporting = false;
   error = '';
-  search = '';
+  searchQuery = '';
+  filterFieldsOpen = false;
+  showSampleCsvInfo = false;
+  contractFilter: '' | TransporterContractStatus = '';
+  verifiedFilter: '' | 'yes' | 'no' = '';
   transporters: TransporterPartnerRow[] = [];
+
+  readonly contractOptions: { id: '' | TransporterContractStatus; label: string }[] = [
+    { id: '', label: 'Any contract' },
+    { id: 'active', label: 'Active' },
+    { id: 'open_ended', label: 'Open-ended' },
+    { id: 'upcoming', label: 'Starts soon' },
+    { id: 'expired', label: 'Ended' },
+  ];
 
   private readonly reload$ = new Subject<void>();
   private readonly destroy$ = new Subject<void>();
@@ -51,18 +73,79 @@ export class OrgTransportersPageComponent implements OnInit, OnDestroy {
     return !c || c === 'SUPPLIER';
   }
 
+  get sampleCsvDescription(): string {
+    return 'Sample shows organisation, contract dates, and primary contact columns. Full registration (KYC, identity scans) uses Register transporter.';
+  }
+
+  get importCsvDisclaimer(): string {
+    return 'Bulk transporter registration requires identity documents — use Register transporter per organisation. Export and sample CSV support planning and reporting.';
+  }
+
+  get hasActiveFilters(): boolean {
+    return this.contractFilter !== '' || this.verifiedFilter !== '' || !!this.searchQuery.trim();
+  }
+
   get filteredTransporters(): TransporterPartnerRow[] {
-    const q = this.search.trim().toLowerCase();
-    if (!q) {
-      return this.transporters;
-    }
-    return this.transporters.filter((row) =>
-      `${row.name} ${row.email} ${row.phoneNumber}`.toLowerCase().includes(q),
-    );
+    const q = this.searchQuery.trim().toLowerCase();
+    return this.transporters.filter((row) => {
+      if (this.contractFilter && row.contractStatus !== this.contractFilter) {
+        return false;
+      }
+      if (this.verifiedFilter === 'yes' && !row.verified) {
+        return false;
+      }
+      if (this.verifiedFilter === 'no' && row.verified) {
+        return false;
+      }
+      if (!q) {
+        return true;
+      }
+      return `${row.name} ${row.email} ${row.phoneNumber} ${row.kycStatusLabel} ${row.contractStatusLabel}`
+        .toLowerCase()
+        .includes(q);
+    });
   }
 
   refresh(): void {
     this.reload$.next();
+  }
+
+  clearFilters(): void {
+    this.searchQuery = '';
+    this.contractFilter = '';
+    this.verifiedFilter = '';
+  }
+
+  importCsv(input: HTMLInputElement): void {
+    input.click();
+  }
+
+  onImportFileSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    input.value = '';
+    this.notifications.show(
+      'Transporter bulk import is not available yet — identity documents and KYC are required. Use Register transporter for each organisation.',
+    );
+  }
+
+  downloadSampleCsv(): void {
+    downloadFleetSampleCsv('transporters');
+    this.notifications.success('Transporter sample CSV downloaded.');
+  }
+
+  exportAs(format: LxExportFormat): void {
+    this.exporting = true;
+    const rows = this.filteredTransporters;
+    const saved = exportClientTableAsCsv(format, rows, TRANSPORTER_EXPORT_COLUMNS, 'transporters', (message) =>
+      this.notifications.show(message),
+      { title: 'Contracted transporters' },
+    );
+    this.exporting = false;
+    if (saved) {
+      this.notifications.success(
+        `Exported ${rows.length} transporter${rows.length === 1 ? '' : 's'} as ${exportFormatLabel(format)}.`,
+      );
+    }
   }
 
   openRegisterTransporter(partnerId?: number): void {

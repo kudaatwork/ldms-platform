@@ -1,4 +1,8 @@
 <div class="drv-shell">
+  <p class="drv-shell__desktop-hint">
+    Driver portal — optimized for phones and tablets. Works on desktop too.
+  </p>
+
   <!-- Page content -->
   <main class="drv-shell__content">
     <router-outlet></router-outlet>
@@ -16,7 +20,9 @@
     </a>
 
     <a class="drv-bottom-nav__item"
-       routerLink="/shipments/trips"
+       routerLink="/driver/live"
+       routerLinkActive="drv-bottom-nav__item--active"
+       [routerLinkActiveOptions]="{ exact: false }"
        aria-label="Live tracking">
       <span class="material-icons drv-bottom-nav__icon">location_on</span>
       <span class="drv-bottom-nav__label">Live</span>

@@ -34,19 +34,31 @@ import projectlx.billing.payments.business.auditable.impl.WalletTransactionServi
 import projectlx.billing.payments.business.logic.api.PlatformDashboardService;
 import projectlx.billing.payments.business.logic.impl.PlatformDashboardServiceImpl;
 import projectlx.billing.payments.business.logic.support.PlatformDashboardSupport;
+import projectlx.billing.payments.business.logic.support.PlatformRevenueSupport;
 import projectlx.billing.payments.repository.InvoiceRepository;
+import projectlx.billing.payments.business.logic.api.BillingVerificationSettingsService;
+import projectlx.billing.payments.business.logic.api.CurrencyManagementService;
 import projectlx.billing.payments.business.logic.api.DriverExpenseReconciliationService;
 import projectlx.billing.payments.business.logic.api.InvoiceService;
 import projectlx.billing.payments.business.logic.api.PaymentService;
 import projectlx.billing.payments.business.logic.api.PlatformWalletBillingService;
+import projectlx.billing.payments.business.logic.impl.BillingVerificationSettingsServiceImpl;
 import projectlx.billing.payments.business.logic.impl.CurrencyManagementServiceImpl;
 import projectlx.billing.payments.business.logic.impl.DriverExpenseReconciliationServiceImpl;
 import projectlx.billing.payments.business.logic.impl.InvoiceServiceImpl;
 import projectlx.billing.payments.business.logic.impl.PaymentServiceImpl;
 import projectlx.billing.payments.business.logic.impl.PlatformWalletBillingServiceImpl;
+import projectlx.billing.payments.business.logic.support.BillingApproverSupport;
+import projectlx.billing.payments.business.logic.support.BillingVerificationStageResolver;
 import projectlx.billing.payments.business.logic.support.CallerOrganizationResolver;
 import projectlx.billing.payments.business.logic.support.CurrencyConversionSupport;
+import projectlx.billing.payments.business.logic.support.OrganizationNameResolver;
+import projectlx.billing.payments.business.logic.support.PaymentVerificationSupport;
 import projectlx.billing.payments.business.logic.support.OrganizationCurrencySupport;
+import projectlx.billing.payments.business.logic.support.PlatformWalletUsageNotifier;
+import projectlx.billing.payments.business.logic.support.WalletBillingEventPublisher;
+import projectlx.billing.payments.business.logic.support.WalletDepositReceiptNotifier;
+import projectlx.billing.payments.clients.OrganizationManagementServiceClient;
 import projectlx.billing.payments.business.validator.api.CurrencyManagementServiceValidator;
 import projectlx.billing.payments.business.validator.api.DriverExpenseReconciliationServiceValidator;
 import projectlx.billing.payments.business.validator.api.InvoiceServiceValidator;
@@ -58,6 +70,7 @@ import projectlx.billing.payments.business.validator.impl.InvoiceServiceValidato
 import projectlx.billing.payments.business.validator.impl.PaymentServiceValidatorImpl;
 import projectlx.billing.payments.business.validator.impl.PlatformWalletBillingServiceValidatorImpl;
 import projectlx.billing.payments.clients.InventoryManagementServiceClient;
+import projectlx.billing.payments.clients.UserManagementServiceClient;
 import projectlx.billing.payments.repository.CountryCurrencySettingRepository;
 import projectlx.billing.payments.repository.CurrencyRepository;
 import projectlx.billing.payments.repository.DriverExpenseReconciliationRepository;
@@ -66,6 +79,7 @@ import projectlx.billing.payments.repository.InvoiceLineRepository;
 import projectlx.billing.payments.repository.InvoiceRepository;
 import projectlx.billing.payments.repository.OrganizationBillingSettingRepository;
 import projectlx.billing.payments.repository.OrganizationCurrencySettingRepository;
+import projectlx.billing.payments.repository.PaymentVerificationReviewRepository;
 import projectlx.billing.payments.repository.PaymentRepository;
 import projectlx.billing.payments.repository.PlatformActionChargeRepository;
 import projectlx.billing.payments.repository.PlatformWalletRepository;
@@ -218,6 +232,33 @@ public class BusinessConfig {
     }
 
     @Bean
+    public BillingVerificationStageResolver billingVerificationStageResolver(
+            OrganizationBillingSettingRepository organizationBillingSettingRepository) {
+        return new BillingVerificationStageResolver(organizationBillingSettingRepository);
+    }
+
+    @Bean
+    public PaymentVerificationSupport paymentVerificationSupport(
+            PaymentVerificationReviewRepository paymentVerificationReviewRepository) {
+        return new PaymentVerificationSupport(paymentVerificationReviewRepository);
+    }
+
+    @Bean
+    public BillingVerificationSettingsService billingVerificationSettingsService(
+            OrganizationBillingSettingRepository organizationBillingSettingRepository,
+            OrganizationBillingSettingServiceAuditable organizationBillingSettingServiceAuditable,
+            CallerOrganizationResolver callerOrganizationResolver,
+            BillingVerificationStageResolver billingVerificationStageResolver,
+            OrganizationNameResolver organizationNameResolver) {
+        return new BillingVerificationSettingsServiceImpl(
+                organizationBillingSettingRepository,
+                organizationBillingSettingServiceAuditable,
+                callerOrganizationResolver,
+                billingVerificationStageResolver,
+                organizationNameResolver);
+    }
+
+    @Bean
     public PaymentService paymentService(
             PaymentRepository paymentRepository,
             InvoiceRepository invoiceRepository,
@@ -227,7 +268,11 @@ public class BusinessConfig {
             RabbitTemplate rabbitTemplate,
             PaymentServiceAuditable paymentServiceAuditable,
             InvoiceServiceAuditable invoiceServiceAuditable,
-            PaymentServiceValidator paymentServiceValidator) {
+            PaymentServiceValidator paymentServiceValidator,
+            BillingApproverSupport billingApproverSupport,
+            BillingVerificationStageResolver billingVerificationStageResolver,
+            PaymentVerificationSupport paymentVerificationSupport,
+            UserManagementServiceClient userManagementServiceClient) {
         return new PaymentServiceImpl(
                 paymentRepository,
                 invoiceRepository,
@@ -237,7 +282,11 @@ public class BusinessConfig {
                 rabbitTemplate,
                 paymentServiceAuditable,
                 invoiceServiceAuditable,
-                paymentServiceValidator);
+                paymentServiceValidator,
+                billingApproverSupport,
+                billingVerificationStageResolver,
+                paymentVerificationSupport,
+                userManagementServiceClient);
     }
 
     @Bean
@@ -285,6 +334,18 @@ public class BusinessConfig {
     }
 
     @Bean
+    public WalletBillingEventPublisher walletBillingEventPublisher(RabbitTemplate rabbitTemplate) {
+        return new WalletBillingEventPublisher(rabbitTemplate);
+    }
+
+    @Bean
+    public PlatformWalletUsageNotifier platformWalletUsageNotifier(
+            RabbitTemplate rabbitTemplate,
+            OrganizationManagementServiceClient organizationManagementServiceClient) {
+        return new PlatformWalletUsageNotifier(rabbitTemplate, organizationManagementServiceClient);
+    }
+
+    @Bean
     public PlatformWalletBillingService platformWalletBillingService(
             PlatformWalletRepository platformWalletRepository,
             OrganizationBillingSettingRepository organizationBillingSettingRepository,
@@ -303,7 +364,11 @@ public class BusinessConfig {
             WalletDepositServiceAuditable walletDepositServiceAuditable,
             WalletTransactionServiceAuditable walletTransactionServiceAuditable,
             UsageChargeRecordServiceAuditable usageChargeRecordServiceAuditable,
-            PlatformWalletBillingServiceValidator platformWalletBillingServiceValidator) {
+            PlatformWalletBillingServiceValidator platformWalletBillingServiceValidator,
+            WalletBillingEventPublisher walletBillingEventPublisher,
+            WalletDepositReceiptNotifier walletDepositReceiptNotifier,
+            PlatformWalletUsageNotifier platformWalletUsageNotifier,
+            OrganizationNameResolver organizationNameResolver) {
         return new PlatformWalletBillingServiceImpl(
                 platformWalletRepository,
                 organizationBillingSettingRepository,
@@ -322,7 +387,11 @@ public class BusinessConfig {
                 walletDepositServiceAuditable,
                 walletTransactionServiceAuditable,
                 usageChargeRecordServiceAuditable,
-                platformWalletBillingServiceValidator);
+                platformWalletBillingServiceValidator,
+                walletBillingEventPublisher,
+                walletDepositReceiptNotifier,
+                platformWalletUsageNotifier,
+                organizationNameResolver);
     }
 
     @Bean
@@ -331,7 +400,26 @@ public class BusinessConfig {
     }
 
     @Bean
-    public PlatformDashboardService platformDashboardService(PlatformDashboardSupport platformDashboardSupport) {
-        return new PlatformDashboardServiceImpl(platformDashboardSupport);
+    public PlatformRevenueSupport platformRevenueSupport(
+            UsageChargeRecordRepository usageChargeRecordRepository,
+            WalletDepositRepository walletDepositRepository,
+            OrganizationBillingSettingRepository organizationBillingSettingRepository,
+            PlatformWalletRepository platformWalletRepository,
+            PlatformActionChargeRepository platformActionChargeRepository,
+            OrganizationNameResolver organizationNameResolver) {
+        return new PlatformRevenueSupport(
+                usageChargeRecordRepository,
+                walletDepositRepository,
+                organizationBillingSettingRepository,
+                platformWalletRepository,
+                platformActionChargeRepository,
+                organizationNameResolver);
+    }
+
+    @Bean
+    public PlatformDashboardService platformDashboardService(
+            PlatformDashboardSupport platformDashboardSupport,
+            PlatformRevenueSupport platformRevenueSupport) {
+        return new PlatformDashboardServiceImpl(platformDashboardSupport, platformRevenueSupport);
     }
 }

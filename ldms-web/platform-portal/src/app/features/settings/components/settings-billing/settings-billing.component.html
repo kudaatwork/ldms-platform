@@ -1,4 +1,15 @@
 <section class="settings-billing bl-shell" *ngIf="!loading; else loadingTpl">
+  <section class="settings-billing__frozen" *ngIf="showFrozenBanner || walletFrozen" role="alert">
+    <mat-icon aria-hidden="true">lock</mat-icon>
+    <div class="settings-billing__frozen-copy">
+      <strong>Wallet balance required</strong>
+      <span>
+        Platform features are paused until your prepaid wallet is topped up. Submit a deposit with proof of payment —
+        LX confirms and credits your balance, then usage deductions resume automatically.
+      </span>
+    </div>
+  </section>
+
   <header class="settings-billing__head bl-head">
     <div>
       <h2 class="settings-billing__title">Platform billing</h2>
@@ -9,12 +20,15 @@
     </div>
   </header>
 
-  <article class="settings-billing__panel settings-billing__balance">
+  <article class="settings-billing__panel settings-billing__balance" [class.settings-billing__balance--frozen]="walletFrozen">
     <div class="settings-billing__balance-copy">
       <p class="settings-billing__eyebrow">Current balance</p>
       <h3>{{ formatMoney(walletSummary?.balanceCents ?? 0) }}</h3>
-      <p class="settings-billing__hint" *ngIf="billingMode === 'PREPAID_WALLET'">
-        Shown in the top bar beside your name. Zero balance is normal until a deposit is confirmed.
+      <p class="settings-billing__hint" *ngIf="billingMode === 'PREPAID_WALLET' && !walletFrozen">
+        Shown in the top bar beside your name. Low balance triggers a warning before you run out.
+      </p>
+      <p class="settings-billing__hint settings-billing__hint--warn" *ngIf="billingMode === 'PREPAID_WALLET' && walletFrozen">
+        Balance is zero — inventory, fleet, trips, and other billable modules are locked until you top up.
       </p>
       <p class="settings-billing__hint" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION'">
         Subscription mode — usage is tracked but not deducted from a wallet balance.
@@ -52,7 +66,14 @@
             <input type="radio" name="subscriptionPackage" [value]="pkg.id" [(ngModel)]="subscriptionPackageId" />
             <span class="settings-billing__package-name">{{ pkg.name }}</span>
             <span class="settings-billing__package-price">{{ packagePrice(pkg) }}/mo</span>
-            <span class="settings-billing__package-desc">{{ pkg.description }}</span>
+            <ul class="settings-billing__package-features" *ngIf="packageFeatures(pkg.description).length">
+              @for (point of packageFeatures(pkg.description); track point) {
+                <li>{{ point }}</li>
+              }
+            </ul>
+            <span class="settings-billing__package-desc" *ngIf="!packageFeatures(pkg.description).length">
+              {{ pkg.description }}
+            </span>
           </label>
         }
       </div>
@@ -63,22 +84,51 @@
     <h3 class="settings-billing__section-title">2. Top up wallet</h3>
     <div class="settings-billing__panel">
       <p class="settings-billing__hint">
-        Record a deposit you have sent to LX. An administrator confirms the payment before it is credited to your balance
-        and reflected in the top bar.
+        Send payment via bank transfer or cash, then record it here with proof. LX operations confirms the deposit and
+        credits your wallet — you'll receive an email receipt with a PDF download link.
       </p>
-      <div class="settings-billing__deposit-form lx-form-grid">
+
+      <div class="settings-billing__pay-methods">
+        @for (method of paymentMethods; track method.id) {
+          <button
+            type="button"
+            class="settings-billing__pay-method"
+            [class.settings-billing__pay-method--active]="depositPaymentMethod === method.id"
+            [class.settings-billing__pay-method--soon]="method.comingSoon"
+            (click)="selectPaymentMethod(method.id)"
+          >
+            <mat-icon aria-hidden="true">{{ method.icon }}</mat-icon>
+            <span class="settings-billing__pay-method-label">{{ method.label }}</span>
+            <span class="settings-billing__pay-method-hint">{{ method.hint }}</span>
+            <span class="settings-billing__pay-method-badge" *ngIf="method.comingSoon">Coming soon</span>
+          </button>
+        }
+      </div>
+
+      <div class="settings-billing__deposit-form lx-form-grid" *ngIf="!selectedPaymentMethod.comingSoon">
         <div class="lx-field">
           <label class="lx-field-label">Amount (major units) <span class="req">*</span></label>
           <div class="lx-input-shell">
             <mat-icon class="lx-input-shell__icon">payments</mat-icon>
-            <input type="number" min="0" step="0.01" [(ngModel)]="depositAmount" placeholder="e.g. 100.00" />
+            <input type="number" min="0" step="0.01" [(ngModel)]="depositAmount" placeholder="e.g. 1000.00" />
           </div>
         </div>
         <div class="lx-field">
           <label class="lx-field-label">Payment reference</label>
           <div class="lx-input-shell">
             <mat-icon class="lx-input-shell__icon">receipt</mat-icon>
-            <input [(ngModel)]="depositReference" placeholder="Bank reference" />
+            <input [(ngModel)]="depositReference" placeholder="Bank reference or receipt no." />
+          </div>
+        </div>
+        <div class="lx-field span-2" *ngIf="depositPaymentMethod === 'BANK_TRANSFER'">
+          <label class="lx-field-label">Proof of payment</label>
+          <div class="settings-billing__proof">
+            <label class="lx-btn lx-btn-ghost lx-btn-sm settings-billing__proof-trigger">
+              <mat-icon>attach_file</mat-icon>
+              {{ depositProofFile ? depositProofFile.name : 'Attach bank slip or receipt…' }}
+              <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onDepositProofSelected($event)" hidden />
+            </label>
+            <span class="settings-billing__proof-hint">PDF or image — required unless you enter a reference above</span>
           </div>
         </div>
         <div class="lx-field span-2">
@@ -89,23 +139,20 @@
           </div>
         </div>
         <div class="settings-billing__deposit-actions span-2">
-          <button type="button" class="lx-btn lx-btn-primary" [disabled]="submittingDeposit" (click)="submitDeposit()">
-            Submit deposit
+          <button
+            type="button"
+            class="lx-btn lx-btn-primary"
+            [disabled]="submittingDeposit || !canSubmitDeposit"
+            (click)="submitDeposit()"
+          >
+            {{ submittingDeposit ? 'Submitting…' : 'Submit deposit' }}
           </button>
         </div>
       </div>
 
-      <div class="settings-billing__deposits" *ngIf="recentDeposits.length">
-        <h4>Recent deposits</h4>
-        <ul>
-          @for (d of recentDeposits; track d.id) {
-            <li>
-              <span>{{ formatMoney(d.amountCents) }}</span>
-              <span class="settings-billing__status">{{ d.status }}</span>
-              <span class="settings-billing__time">{{ d.createdAt }}</span>
-            </li>
-          }
-        </ul>
+      <div class="settings-billing__gateways-hint" *ngIf="selectedPaymentMethod.comingSoon">
+        <mat-icon aria-hidden="true">info</mat-icon>
+        <span>PayNow, PayPal, and Mastercard checkout will be enabled in a future release. Use bank transfer or cash today.</span>
       </div>
     </div>
   </section>
@@ -150,26 +197,186 @@
   </section>
 
   <section class="settings-billing__section" *ngIf="billingMode === 'PREPAID_WALLET'">
-    <h3 class="settings-billing__section-title">4. Wallet activity</h3>
-    <div class="settings-billing__panel">
-      <p class="settings-billing__hint">Recent deductions and top-ups applied to your prepaid balance.</p>
-      @if (!transactions.length) {
-        <p class="settings-billing__empty">No wallet transactions yet.</p>
-      } @else {
-        <ul class="settings-billing__activity">
-          @for (tx of transactions; track tx.id) {
-            <li>
-              <div>
-                <strong>{{ transactionLabel(tx) }}</strong>
-                <span class="settings-billing__time">{{ tx.createdAt }}</span>
+    <h3 class="settings-billing__section-title">4. Billing history</h3>
+    <div class="settings-billing__panel settings-billing__panel--history">
+      <div class="settings-billing__history-controls lx-card lx-card--subsection">
+        <div class="lx-controls-head">
+          <div class="lx-controls-head__text">
+            <h4 class="lx-controls-title">Table controls</h4>
+            <p class="lx-controls-subtitle">Search, filter, and export wallet top-ups and usage charges.</p>
+          </div>
+        </div>
+
+        <div class="lx-data-toolbar">
+          <div class="lx-data-toolbar__actions">
+            <button type="button" class="lx-btn lx-btn-ghost" (click)="refreshHistory()">Refresh</button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-success lx-export-trigger"
+              [matMenuTriggerFor]="historyExportMenu"
+              [disabled]="historyExporting || !allBillingHistory.length"
+            >
+              Export{{ historyExporting ? '…' : '' }}
+            </button>
+          </div>
+          <div class="lx-data-toolbar__search">
+            <div class="lx-input-shell lx-search-field">
+              <mat-icon class="lx-input-shell__icon">search</mat-icon>
+              <input
+                [(ngModel)]="historySearchQuery"
+                (ngModelChange)="resetHistoryPaging()"
+                placeholder="Search billing history…"
+              />
+            </div>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+              (click)="historyFilterFieldsOpen = !historyFilterFieldsOpen"
+              [class.lx-btn-filter--on]="historyFilterFieldsOpen"
+            >
+              <mat-icon>tune</mat-icon>
+              Filters
+            </button>
+          </div>
+        </div>
+
+        <mat-menu #historyExportMenu="matMenu" panelClass="lx-export-menu">
+          <button mat-menu-item class="lx-export-option--pdf" (click)="exportHistoryAs('pdf')" [disabled]="historyExporting">
+            <mat-icon>picture_as_pdf</mat-icon>
+            <span>Export PDF</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--csv" (click)="exportHistoryAs('csv')" [disabled]="historyExporting">
+            <mat-icon>table_view</mat-icon>
+            <span>Export CSV</span>
+          </button>
+          <button mat-menu-item class="lx-export-option--xlsx" (click)="exportHistoryAs('xlsx')" [disabled]="historyExporting">
+            <mat-icon>grid_on</mat-icon>
+            <span>Export XLSX</span>
+          </button>
+        </mat-menu>
+
+        <div class="lx-filter-panel" *ngIf="historyFilterFieldsOpen">
+          <span class="lx-filter-panel__label">Column filters</span>
+          <div class="lx-filter-fields">
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Type</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">category</mat-icon>
+                <select [(ngModel)]="historyFilters.type" (ngModelChange)="resetHistoryPaging()">
+                  <option value="">All types</option>
+                  @for (type of historyTypeOptions; track type) {
+                    <option [value]="type">{{ type }}</option>
+                  }
+                </select>
               </div>
-              <span [class.settings-billing__tx-debit]="isDebit(tx)" [class.settings-billing__tx-credit]="!isDebit(tx)">
-                {{ isDebit(tx) ? '−' : '+' }}{{ formatMoney(absCents(tx.amountCents)) }}
-              </span>
-              <span class="settings-billing__time">Bal {{ formatMoney(tx.balanceAfterCents) }}</span>
-            </li>
-          }
-        </ul>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Status</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">flag</mat-icon>
+                <select [(ngModel)]="historyFilters.status" (ngModelChange)="resetHistoryPaging()">
+                  <option value="">All statuses</option>
+                  <option value="PENDING">Pending</option>
+                  <option value="CONFIRMED">Confirmed</option>
+                  <option value="REJECTED">Rejected</option>
+                  <option value="Posted">Posted</option>
+                </select>
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">Description</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+                <input [(ngModel)]="historyFilters.description" (ngModelChange)="resetHistoryPaging()" placeholder="Reference or notes" />
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">From date</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">event</mat-icon>
+                <input type="date" [(ngModel)]="historyFilters.dateFrom" (ngModelChange)="resetHistoryPaging()" />
+              </div>
+            </div>
+            <div class="lx-filter-field-wrap">
+              <div class="lx-field-label">To date</div>
+              <div class="lx-input-shell lx-filter-field">
+                <mat-icon class="lx-input-shell__icon">event</mat-icon>
+                <input type="date" [(ngModel)]="historyFilters.dateTo" (ngModelChange)="resetHistoryPaging()" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      @if (!allBillingHistory.length) {
+        <p class="settings-billing__empty">No billing activity yet.</p>
+      } @else if (!filteredBillingHistory.length) {
+        <p class="settings-billing__empty">No rows match your search or filters.</p>
+      } @else {
+        <div class="lx-table-wrap settings-billing__history-table">
+          <table mat-table [dataSource]="historyDataSource" class="lx-mat-table">
+            <ng-container matColumnDef="when">
+              <th mat-header-cell *matHeaderCellDef>Date</th>
+              <td mat-cell *matCellDef="let row">{{ formatWhen(row.sortAt) }}</td>
+            </ng-container>
+            <ng-container matColumnDef="type">
+              <th mat-header-cell *matHeaderCellDef>Type</th>
+              <td mat-cell *matCellDef="let row">{{ row.typeLabel }}</td>
+            </ng-container>
+            <ng-container matColumnDef="description">
+              <th mat-header-cell *matHeaderCellDef>Description</th>
+              <td mat-cell *matCellDef="let row">
+                <span>{{ row.description }}</span>
+                <span class="settings-billing__receipt-no" *ngIf="row.receiptNumber">{{ row.receiptNumber }}</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="amount">
+              <th mat-header-cell *matHeaderCellDef>Amount</th>
+              <td mat-cell *matCellDef="let row">
+                <span [class.settings-billing__tx-debit]="row.isDebit" [class.settings-billing__tx-credit]="!row.isDebit">
+                  {{ row.isDebit ? '−' : '+' }}{{ formatMoney(absCents(row.amountCents), row.currencyCode) }}
+                </span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="status">
+              <th mat-header-cell *matHeaderCellDef>Status</th>
+              <td mat-cell *matCellDef="let row">
+                <span *ngIf="row.status" [ngClass]="statusClass(row.status)">{{ row.status }}</span>
+                <span *ngIf="!row.status" class="settings-billing__muted">Posted</span>
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="balance">
+              <th mat-header-cell *matHeaderCellDef>Balance after</th>
+              <td mat-cell *matCellDef="let row">
+                {{ row.balanceAfterCents != null ? formatMoney(row.balanceAfterCents, row.currencyCode) : '—' }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let row" class="settings-billing__history-actions">
+                <button
+                  type="button"
+                  class="lx-btn lx-btn-ghost lx-btn-sm settings-billing__receipt-btn"
+                  *ngIf="row.canDownloadReceipt"
+                  (click)="downloadReceipt(row)"
+                  title="Download receipt PDF"
+                >
+                  <mat-icon>download</mat-icon>
+                  Receipt
+                </button>
+              </td>
+            </ng-container>
+            <tr mat-header-row *matHeaderRowDef="billingHistoryColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: billingHistoryColumns"></tr>
+          </table>
+        </div>
+        <mat-paginator
+          #historyPaginator
+          class="settings-billing__history-paginator"
+          [pageSizeOptions]="historyPageSizeOptions"
+          [showFirstLastButtons]="true"
+          aria-label="Billing history pages"
+        ></mat-paginator>
       }
     </div>
   </section>

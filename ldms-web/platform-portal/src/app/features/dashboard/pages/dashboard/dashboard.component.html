@@ -1,58 +1,297 @@
 <section class="lx-page dashboard" [class.dashboard--supplier]="isSupplier">
-  <lx-workspace-hero
-    variant="brand"
-    [eyebrow]="heroEyebrow"
-    eyebrowIcon="insights"
-    [title]="welcomeMessage"
-    [lead]="heroLead"
-    hubIcon="dashboard"
-    [orbitIcons]="['trending_up', 'local_shipping', 'verified']"
-    note="Key metrics are demo data until backend wiring is complete."
-  >
-    <lx-workspace-hero-stat
-      *ngFor="let card of cards; trackBy: trackKpi"
-      [value]="card.value"
-      [label]="card.label"
-      [icon]="card.icon"
-      [theme]="heroStatTheme(card)"
-    ></lx-workspace-hero-stat>
-  </lx-workspace-hero>
-
-  <div class="dash-kpi-grid" *ngIf="cards.length">
-    <article
-      class="dash-kpi"
-      *ngFor="let card of cards; trackBy: trackKpi"
-      [ngClass]="'dash-kpi--' + card.theme"
+  <div class="dash-welcome-wrap">
+    <lx-workspace-hero
+      variant="brand"
+      [eyebrow]="heroEyebrow"
+      eyebrowIcon="insights"
+      [title]="heroTitle"
+      [lead]="heroLead"
+      hubIcon="dashboard"
+      [orbitIcons]="['trending_up', 'local_shipping', 'verified']"
+      [note]="heroNote"
     >
-      <div class="dash-kpi__glow" aria-hidden="true"></div>
-      <div class="dash-kpi__mesh" aria-hidden="true"></div>
-      <div class="dash-kpi__inner">
-        <div class="dash-kpi__head">
-          <div class="dash-kpi__icon-wrap">
-            <span class="material-icons" aria-hidden="true">{{ card.icon }}</span>
-          </div>
-          <span class="dash-kpi__trend" [class.dash-kpi__trend--up]="card.up" [class.dash-kpi__trend--down]="!card.up">
-            <span class="dash-kpi__trend-arrow" aria-hidden="true">{{ card.up ? '↑' : '↓' }}</span>
-            {{ card.trend }}
-          </span>
-        </div>
-        <div class="dash-kpi__value">{{ card.value }}</div>
-        <div class="dash-kpi__label">{{ card.label }}</div>
-        <div class="dash-kpi__spark" aria-hidden="true">
-          <span
-            *ngFor="let bar of card.spark; let i = index"
-            class="dash-kpi__spark-bar"
-            [style.height.%]="bar"
-            [class.dash-kpi__spark-bar--last]="i === card.spark.length - 1"
-          ></span>
-        </div>
+      <div lxWorkspaceHeroActions class="dash-welcome-actions">
+        <span class="dash-welcome-chip" *ngIf="organizationName">
+          <span class="material-icons" aria-hidden="true">corporate_fare</span>
+          {{ organizationName }}
+        </span>
+        <span
+          class="dash-welcome-chip dash-welcome-chip--live"
+          [class.dash-welcome-chip--sync]="supplierOperationsLoading"
+          *ngIf="isSupplier"
+        >
+          <span class="dash-welcome-chip__dot" aria-hidden="true"></span>
+          {{ supplierOperationsLoading ? 'Syncing live data…' : 'Live data' }}
+        </span>
       </div>
-    </article>
+
+      <ng-container *ngIf="!showHeroStatsLoading && cards.length; else heroStatsLoading">
+        <lx-workspace-hero-stat
+          *ngFor="let card of cards; trackBy: trackKpi"
+          [value]="card.value"
+          [label]="card.label"
+          [icon]="card.icon"
+          [theme]="heroStatTheme(card)"
+        ></lx-workspace-hero-stat>
+      </ng-container>
+
+      <ng-template #heroStatsLoading>
+        <lx-workspace-hero-stat
+          *ngFor="let sk of heroStatSkeletons"
+          value="—"
+          [label]="sk.label"
+          [icon]="sk.icon"
+          [theme]="sk.theme"
+        ></lx-workspace-hero-stat>
+      </ng-template>
+    </lx-workspace-hero>
   </div>
+
+  <article
+    class="dash-billing"
+    *ngIf="!billingLoading"
+    aria-labelledby="dash-billing-title"
+    [class.dash-billing--premium]="isSubscriptionMode"
+    [class.dash-billing--frozen]="walletFrozen && !isSubscriptionMode"
+    [class.dash-billing--low]="walletSummary?.lowBalance && !walletFrozen && !isSubscriptionMode"
+  >
+    <div class="dash-billing__glow" aria-hidden="true"></div>
+    <div class="dash-billing__mesh" aria-hidden="true"></div>
+    <div class="dash-billing__aurora" aria-hidden="true"></div>
+    <div class="dash-billing__shine" aria-hidden="true"></div>
+    <div class="dash-billing__watermark" aria-hidden="true">
+      <span class="material-icons">{{ isSubscriptionMode ? 'workspace_premium' : 'account_balance_wallet' }}</span>
+    </div>
+
+    <div class="dash-billing__inner">
+      <header class="dash-billing__head">
+        <div class="dash-billing__brand">
+          <div class="dash-billing__icon" aria-hidden="true">
+            <span class="material-icons">{{ isSubscriptionMode ? 'workspace_premium' : 'account_balance_wallet' }}</span>
+          </div>
+          <div>
+            <p class="dash-billing__eyebrow">Platform billing</p>
+            <h2 id="dash-billing-title" class="dash-billing__title">
+              {{ isSubscriptionMode ? subscriptionName : 'Prepaid wallet' }}
+            </h2>
+          </div>
+        </div>
+        <span
+          class="dash-billing__status"
+          [class.dash-billing__status--warn]="walletFrozen || walletSummary?.lowBalance"
+          [class.dash-billing__status--premium]="isSubscriptionMode"
+        >
+          <span class="dash-billing__status-dot" aria-hidden="true"></span>
+          {{ billingStatusLabel }}
+        </span>
+      </header>
+
+      <ng-container *ngIf="isSubscriptionMode; else prepaidBilling">
+        <div class="dash-billing__premium-grid">
+          <div class="dash-billing__glass-stat">
+            <span class="dash-billing__glass-label">Plan</span>
+            <span class="dash-billing__glass-value">{{ subscriptionName }}</span>
+          </div>
+          <div class="dash-billing__glass-stat">
+            <span class="dash-billing__glass-label">Renews</span>
+            <span class="dash-billing__glass-value">{{ subscriptionRenewalLabel }}</span>
+          </div>
+        </div>
+        <p class="dash-billing__hint">
+          Usage is tracked for transparency; platform access follows your subscription package.
+        </p>
+      </ng-container>
+
+      <ng-template #prepaidBilling>
+        <div class="dash-billing__hero-row">
+          <div class="dash-billing__balance-block">
+            <span class="dash-billing__balance-label">Available balance</span>
+            <p class="dash-billing__balance-value" [class.dash-billing__balance-value--warn]="walletFrozen">
+              {{ walletBalanceLabel }}
+            </p>
+            <div class="dash-billing__gauge" role="presentation">
+              <div class="dash-billing__gauge-track">
+                <div
+                  class="dash-billing__gauge-fill"
+                  [style.width.%]="walletGaugePercent"
+                  [class.dash-billing__gauge-fill--warn]="walletSummary?.lowBalance || walletFrozen"
+                ></div>
+              </div>
+              <span class="dash-billing__gauge-caption">
+                {{ walletGaugeCaption }}
+              </span>
+            </div>
+          </div>
+
+          <div class="dash-billing__chips">
+            <div class="dash-billing__chip">
+              <span class="material-icons" aria-hidden="true">bolt</span>
+              <div>
+                <span class="dash-billing__chip-label">Billing mode</span>
+                <span class="dash-billing__chip-value">Pay as you go</span>
+              </div>
+            </div>
+            <div class="dash-billing__chip">
+              <span class="material-icons" aria-hidden="true">receipt_long</span>
+              <div>
+                <span class="dash-billing__chip-label">Usage</span>
+                <span class="dash-billing__chip-value">Per-action deduct</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="dash-billing__hint" *ngIf="!walletFrozen">
+          Platform actions deduct from your wallet automatically. Top up before balance runs out to keep modules unlocked.
+        </p>
+        <p class="dash-billing__hint dash-billing__hint--warn" *ngIf="walletFrozen">
+          Your wallet is empty — inventory, fleet, trips, and other billable modules are paused until you top up.
+        </p>
+      </ng-template>
+
+      <footer class="dash-billing__actions">
+        <button type="button" class="dash-billing__btn-ghost" (click)="goUsageReport()" *ngIf="!isSubscriptionMode">
+          <span class="material-icons" aria-hidden="true">bar_chart</span>
+          Usage report
+        </button>
+        <button type="button" class="dash-billing__btn-primary" (click)="goBillingSettings()">
+          <span class="material-icons" aria-hidden="true">
+            {{ isSubscriptionMode ? 'settings' : 'add_circle' }}
+          </span>
+          {{ isSubscriptionMode ? 'Manage subscription' : 'Top up wallet' }}
+        </button>
+      </footer>
+    </div>
+  </article>
+
+  <section class="dash-analytics" *ngIf="charts.length" aria-labelledby="dash-analytics-title">
+    <header class="dash-analytics__head">
+      <div>
+        <h2 id="dash-analytics-title" class="dash-analytics__title">Analytics pulse</h2>
+        <p class="dash-analytics__sub">{{ analyticsSubtitle }}</p>
+      </div>
+      <span class="dash-analytics__badge" [class.dash-analytics__badge--live]="isSupplier && !supplierOperationsLoading">
+        <span class="material-icons" aria-hidden="true">{{ isSupplier ? 'monitoring' : 'auto_graph' }}</span>
+        {{ analyticsBadgeLabel }}
+      </span>
+    </header>
+
+    <div class="dash-charts-grid">
+      <article
+        class="lx-card dash-chart-card"
+        *ngFor="let chart of charts; trackBy: trackChart; let chartIndex = index"
+        [ngClass]="'dash-chart-card--' + chart.theme"
+        [style.animation-delay.ms]="chartIndex * 90"
+      >
+        <div class="dash-chart-card__ambient" aria-hidden="true"></div>
+        <div class="dash-chart-card__mesh" aria-hidden="true"></div>
+
+        <header class="dash-chart-card__head">
+          <div>
+            <h3 class="dash-chart-card__title">{{ chart.title }}</h3>
+            <p class="dash-chart-card__sub">{{ chart.subtitle }}</p>
+          </div>
+          <span class="dash-chart-card__pill" *ngIf="chart.highlight">{{ chart.highlight }}</span>
+        </header>
+
+        <div class="dash-chart-card__body" [ngSwitch]="chart.type">
+          <!-- Area chart -->
+          <div *ngSwitchCase="'area'" class="dash-chart-area">
+            <div class="dash-chart-area__grid" aria-hidden="true"></div>
+            <svg class="dash-chart-area__svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient [attr.id]="chartGradientId(chart)" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" [attr.stop-color]="chartFillStops(chart.theme).top" stop-opacity="0.72" />
+                  <stop offset="55%" [attr.stop-color]="chartFillStops(chart.theme).top" stop-opacity="0.22" />
+                  <stop offset="100%" [attr.stop-color]="chartFillStops(chart.theme).bottom" stop-opacity="0.04" />
+                </linearGradient>
+                <filter [attr.id]="chartGlowId(chart)" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="1.4" result="blur" />
+                  <feMerge>
+                    <feMergeNode in="blur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+              <path
+                class="dash-chart-area__fill"
+                [attr.d]="chartAreaPath(chart.values)"
+                [attr.fill]="'url(#' + chartGradientId(chart) + ')'"
+              />
+              <path
+                class="dash-chart-area__line"
+                [attr.d]="chartLinePath(chart.values)"
+                [attr.stroke]="chartStroke(chart.theme)"
+                [attr.filter]="'url(#' + chartGlowId(chart) + ')'"
+                fill="none"
+              />
+              <circle
+                *ngFor="let pt of chartPointCoords(chart.values); let i = index"
+                class="dash-chart-area__dot"
+                [attr.cx]="pt.x"
+                [attr.cy]="pt.y"
+                r="1.8"
+                [attr.fill]="chartStroke(chart.theme)"
+                [class.dash-chart-area__dot--peak]="pt.value === chartPeakValue(chart.values)"
+              />
+            </svg>
+            <div class="dash-chart-area__peak" *ngIf="chartPeakValue(chart.values) as peak">
+              <span class="dash-chart-area__peak-label">Peak</span>
+              <span class="dash-chart-area__peak-value">{{ peak }}</span>
+            </div>
+            <div class="dash-chart-area__labels" *ngIf="chart.labels?.length">
+              <span *ngFor="let lbl of chart.labels">{{ lbl }}</span>
+            </div>
+          </div>
+
+          <!-- Bar chart -->
+          <div *ngSwitchCase="'bar'" class="dash-chart-bars">
+            <div class="dash-chart-bars__plot">
+              <div class="dash-chart-bars__col" *ngFor="let v of chart.values; let i = index">
+                <span class="dash-chart-bars__val">{{ v }}</span>
+                <span
+                  class="dash-chart-bars__bar"
+                  [style.height.%]="chartBarHeight(v, chart.values)"
+                  [style.animation-delay.ms]="i * 80"
+                  [attr.aria-label]="(chart.labels?.[i] ?? '') + ': ' + v"
+                ></span>
+                <span class="dash-chart-bars__lbl">{{ chart.labels?.[i] }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Donut chart -->
+          <div *ngSwitchCase="'donut'" class="dash-chart-donut">
+            <div class="dash-chart-donut__ring" [style.background]="donutGradient(chart.segments)">
+              <div class="dash-chart-donut__glow" aria-hidden="true"></div>
+              <div class="dash-chart-donut__hole">
+                <span class="dash-chart-donut__total">{{ donutTotal(chart.segments) }}</span>
+                <span class="dash-chart-donut__unit">{{ chart.donutUnit ?? 'total' }}</span>
+              </div>
+            </div>
+            <ul class="dash-chart-donut__legend">
+              <li *ngFor="let seg of chart.segments">
+                <span class="dash-chart-donut__swatch" [style.background]="seg.color"></span>
+                <span class="dash-chart-donut__lbl">{{ seg.label }}</span>
+                <span class="dash-chart-donut__pct">{{ seg.value }}</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
 
   <!-- Supplier: operations board -->
   <ng-container *ngIf="isSupplier">
     <div class="dash-supplier-toolbar">
+      <header class="dash-section-head">
+        <div>
+          <h2 class="dash-section-head__title">Shipment operations</h2>
+          <p class="dash-section-head__sub">Filter, search, and open live corridor tracking for in-transit loads.</p>
+        </div>
+      </header>
+
       <div class="dash-tabs" role="tablist" aria-label="Shipment status">
         <button
           type="button"
@@ -121,7 +360,7 @@
       </div>
     </div>
 
-    <div class="dash-supplier-layout">
+    <div class="dash-supplier-layout" *ngIf="!supplierOperationsLoading; else supplierLoadingTpl">
       <div class="dash-ship-grid">
         <button type="button" class="lx-card dash-new-card" (click)="goNewShipment()">
           <span class="material-icons dash-new-plus" aria-hidden="true">add</span>
@@ -144,32 +383,32 @@
         >
           <header class="dash-ship-card__head">
             <span class="material-icons dash-ship-card__icon" aria-hidden="true">local_shipping</span>
-            <span class="dash-ship-card__no">{{ s.shipmentNo }}</span>
-            <span class="dash-ship-badge" [ngClass]="statusClass(s.status)">{{ statusLabel(s.status) }}</span>
+            <span class="dash-ship-card__no">{{ s.shipmentNumber }}</span>
+            <span class="dash-ship-badge" [ngClass]="statusClass(s.status)">{{ s.statusLabel }}</span>
           </header>
           <div class="dash-ship-card__mid">
             <div class="dash-ship-lane">
               <div class="dash-ship-lane__dates">
                 <div>
-                  <span class="dash-ship-k">Departure</span>
-                  <span class="dash-ship-v">{{ s.departureDate }}</span>
-                  <span class="dash-ship-place">{{ s.departureLabel }}</span>
+                  <span class="dash-ship-k">Created</span>
+                  <span class="dash-ship-v">{{ s.createdAtLabel }}</span>
+                  <span class="dash-ship-place">{{ s.fromWarehouse }}</span>
                 </div>
                 <div class="dash-ship-lane__rule" aria-hidden="true"></div>
                 <div>
-                  <span class="dash-ship-k">Arrival</span>
-                  <span class="dash-ship-v">{{ s.arrivalDate }}</span>
-                  <span class="dash-ship-place">{{ s.arrivalLabel }}</span>
+                  <span class="dash-ship-k">Destination</span>
+                  <span class="dash-ship-v">{{ shipmentArrivalLabel(s) }}</span>
+                  <span class="dash-ship-place">{{ s.toWarehouse }}</span>
                 </div>
               </div>
             </div>
             <div class="dash-ship-cat">
-              <span class="dash-ship-k">Category</span>
-              <span class="dash-ship-cat-name">{{ s.category }}</span>
+              <span class="dash-ship-k">Product</span>
+              <span class="dash-ship-cat-name">{{ s.productName }}</span>
             </div>
           </div>
           <footer class="dash-ship-card__foot">
-            <span class="dash-ship-driver"><span class="dash-ship-k">Driver</span> {{ s.driver }}</span>
+            <span class="dash-ship-driver"><span class="dash-ship-k">Driver</span> {{ s.driverName }}</span>
             <div class="dash-ship-actions">
               <button type="button" class="dash-icon-btn" disabled title="Voice (demo)">
                 <span class="material-icons" aria-hidden="true">call</span>
@@ -181,118 +420,31 @@
           </footer>
         </article>
       </div>
-
-      <aside class="lx-card dash-map-panel" *ngIf="selectedShipment as sel">
-        <div class="dash-map-visual" aria-hidden="true">
-          <div class="dash-map-grid"></div>
-          <div class="dash-map-route"></div>
-          <span class="material-icons dash-map-pin dash-map-pin--a">place</span>
-          <span class="material-icons dash-map-pin dash-map-pin--b">flag</span>
-        </div>
-        <div class="dash-map-overlay">
-          <span class="material-icons" aria-hidden="true">turn_slight_left</span>
-          <div>
-            <div class="dash-map-overlay__title">Live tracking (demo)</div>
-            <div class="dash-map-overlay__line">{{ sel.routeHint }}</div>
-            <div class="dash-map-overlay__sub">{{ sel.departureLabel }} → {{ sel.arrivalLabel }}</div>
-          </div>
-        </div>
-        <div class="dash-map-meta">
-          <div>
-            <span class="dash-ship-k">Shipment</span>
-            <span class="dash-map-meta__v">{{ sel.shipmentNo }}</span>
-          </div>
-          <div>
-            <span class="dash-ship-k">Status</span>
-            <span class="dash-map-meta__v">{{ statusLabel(sel.status) }}</span>
-          </div>
-        </div>
-      </aside>
     </div>
-  </ng-container>
 
-  <section class="dash-analytics" *ngIf="charts.length" aria-labelledby="dash-analytics-title">
-    <header class="dash-analytics__head">
-      <div>
-        <h2 id="dash-analytics-title" class="dash-analytics__title">Analytics pulse</h2>
-        <p class="dash-analytics__sub">Trends and breakdowns for your workspace — preview data until live feeds connect.</p>
+    <section class="dash-live-map-section" *ngIf="!supplierOperationsLoading" aria-labelledby="dash-live-map-title">
+      <header class="dash-section-head dash-live-map-section__head">
+        <div>
+          <h2 id="dash-live-map-title" class="dash-section-head__title">Live corridor tracking</h2>
+          <p class="dash-section-head__sub">
+            All active loads for your organisation on one map
+            <span *ngIf="liveMapTracks.length"> · {{ liveMapTracks.length }} tracked</span>.
+            Select a shipment card to highlight its route.
+          </p>
+        </div>
+      </header>
+
+      <app-trip-live-map-panel
+        [tracks]="liveMapTracks"
+        [highlightTripId]="selectedTripId"
+        [compact]="false"
+      ></app-trip-live-map-panel>
+    </section>
+
+    <ng-template #supplierLoadingTpl>
+      <div class="dash-supplier-loading lx-card">
+        <lx-table-loading [busy]="true" message="Loading shipments and live operations…"></lx-table-loading>
       </div>
-      <span class="dash-analytics__badge">
-        <span class="material-icons" aria-hidden="true">auto_graph</span>
-        Demo insights
-      </span>
-    </header>
-
-    <div class="dash-charts-grid">
-      <article
-        class="lx-card dash-chart-card"
-        *ngFor="let chart of charts; trackBy: trackChart"
-        [ngClass]="'dash-chart-card--' + chart.theme"
-      >
-        <header class="dash-chart-card__head">
-          <div>
-            <h3 class="dash-chart-card__title">{{ chart.title }}</h3>
-            <p class="dash-chart-card__sub">{{ chart.subtitle }}</p>
-          </div>
-          <span class="dash-chart-card__pill" *ngIf="chart.highlight">{{ chart.highlight }}</span>
-        </header>
-
-        <div class="dash-chart-card__body" [ngSwitch]="chart.type">
-          <!-- Area chart -->
-          <div *ngSwitchCase="'area'" class="dash-chart-area">
-            <svg class="dash-chart-area__svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <linearGradient [attr.id]="chartGradientId(chart)" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" [attr.stop-color]="chartFillStops(chart.theme).top" stop-opacity="0.55" />
-                  <stop offset="100%" [attr.stop-color]="chartFillStops(chart.theme).bottom" stop-opacity="0.08" />
-                </linearGradient>
-              </defs>
-              <path class="dash-chart-area__fill" [attr.d]="chartAreaPath(chart.values)" [attr.fill]="'url(#' + chartGradientId(chart) + ')'" />
-              <path
-                class="dash-chart-area__line"
-                [attr.d]="chartLinePath(chart.values)"
-                [attr.stroke]="chartStroke(chart.theme)"
-                fill="none"
-              />
-            </svg>
-            <div class="dash-chart-area__labels" *ngIf="chart.labels?.length">
-              <span *ngFor="let lbl of chart.labels">{{ lbl }}</span>
-            </div>
-          </div>
-
-          <!-- Bar chart -->
-          <div *ngSwitchCase="'bar'" class="dash-chart-bars">
-            <div class="dash-chart-bars__plot">
-              <div class="dash-chart-bars__col" *ngFor="let v of chart.values; let i = index">
-                <span class="dash-chart-bars__val">{{ v }}</span>
-                <span
-                  class="dash-chart-bars__bar"
-                  [style.height.%]="chartBarHeight(v, chart.values)"
-                  [attr.aria-label]="(chart.labels?.[i] ?? '') + ': ' + v"
-                ></span>
-                <span class="dash-chart-bars__lbl">{{ chart.labels?.[i] }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Donut chart -->
-          <div *ngSwitchCase="'donut'" class="dash-chart-donut">
-            <div class="dash-chart-donut__ring" [style.background]="donutGradient(chart.segments)">
-              <div class="dash-chart-donut__hole">
-                <span class="dash-chart-donut__total">{{ donutTotal(chart.segments) }}</span>
-                <span class="dash-chart-donut__unit">index</span>
-              </div>
-            </div>
-            <ul class="dash-chart-donut__legend">
-              <li *ngFor="let seg of chart.segments">
-                <span class="dash-chart-donut__swatch" [style.background]="seg.color"></span>
-                <span class="dash-chart-donut__lbl">{{ seg.label }}</span>
-                <span class="dash-chart-donut__pct">{{ seg.value }}%</span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </article>
-    </div>
-  </section>
+    </ng-template>
+  </ng-container>
 </section>

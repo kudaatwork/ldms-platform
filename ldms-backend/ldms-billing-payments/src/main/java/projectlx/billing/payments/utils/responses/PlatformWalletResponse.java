@@ -36,4 +36,5 @@ public class PlatformWalletResponse extends CommonResponse {
     private List<UsageChargeRecordDto> usageChargeRecordDtoList;
     private UsageChargeReportDto usageChargeReportDto;
     private RecordPlatformUsageChargeResultDto recordPlatformUsageChargeResultDto;
+    private String receiptHtml;
 }

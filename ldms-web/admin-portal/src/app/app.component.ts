@@ -14,6 +14,11 @@ import { CurrentUserService, ShellUserView } from './core/services/current-user.
 import { NavAccessService } from './core/services/nav-access.service';
 import { KycNotificationDismissService } from './core/services/kyc-notification-dismiss.service';
 import { KycQueueStatsService } from './core/services/kyc-queue-stats.service';
+import { PendingDepositsStatsService } from './core/services/pending-deposits-stats.service';
+import {
+  PlatformWalletAdminService,
+  type WalletDepositRow,
+} from './features/settings/services/platform-wallet-admin.service';
 import { StorageService } from './core/services/storage.service';
 import type { KycQueueSummary } from './features/organizations/services/organizations-admin.service';
 import { ThemeService } from './core/services/theme.service';
@@ -116,7 +121,11 @@ export class AppComponent implements OnInit, OnDestroy {
   breadcrumbs: Breadcrumb[] = [];
 
   /** Expanded state per sidebar group route (e.g. /locations, /activity). */
-  private readonly expandedGroups = signal<Record<string, boolean>>({});
+  readonly expandedGroups = signal<Record<string, boolean>>({});
+  /** Groups the user explicitly collapsed — sync must not re-expand these. */
+  private userCollapsedNavGroups = new Set<string>();
+  /** Ensures sidebar groups start collapsed once per authenticated shell session. */
+  private shellNavExpandedInitialized = false;
 
   /** Snapshot for templates (e.g. sidebar active states). */
   currentUrl = '';
@@ -124,6 +133,9 @@ export class AppComponent implements OnInit, OnDestroy {
   visibleNavItems: NavItem[] = [];
   showNavRoleHint = false;
   private kycStatsLoaded = false;
+  private pendingDepositsLoaded = false;
+  private kycSummary: KycQueueSummary | null = null;
+  private pendingDeposits: WalletDepositRow[] = [];
 
   /** Minimal menu when RBAC roles are not loaded yet or the user group has none assigned. */
   private readonly bootstrapNavItems: NavItem[] = [
@@ -249,6 +261,8 @@ export class AppComponent implements OnInit, OnDestroy {
     private readonly currentUser: CurrentUserService,
     readonly navAccess: NavAccessService,
     private readonly kycStats: KycQueueStatsService,
+    private readonly pendingDepositsStats: PendingDepositsStatsService,
+    private readonly walletAdmin: PlatformWalletAdminService,
     private readonly kycNotificationDismiss: KycNotificationDismissService,
     readonly theme: ThemeService,
     private readonly phoneVerificationPrompt: PhoneVerificationPromptService,
@@ -266,7 +280,13 @@ export class AppComponent implements OnInit, OnDestroy {
       this.cdr.markForCheck();
     });
     this.kycStats.summary$.pipe(takeUntil(this.destroy$)).subscribe((summary) => {
+      this.kycSummary = summary;
       this.applyKycQueueSummary(summary);
+      this.cdr.markForCheck();
+    });
+    this.pendingDepositsStats.deposits$.pipe(takeUntil(this.destroy$)).subscribe((deposits) => {
+      this.pendingDeposits = deposits;
+      this.rebuildTopNotifications();
       this.cdr.markForCheck();
     });
     this.rebuildVisibleNav();
@@ -290,6 +310,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.profileOpen = false;
           this.notificationsOpen = false;
           this.scheduleKycStatsRefresh();
+          this.schedulePendingDepositsRefresh();
           this.hydrateSessionProfile();
           this.cdr.markForCheck();
         }),
@@ -382,8 +403,12 @@ export class AppComponent implements OnInit, OnDestroy {
     const expanding = !this.isGroupExpanded(key);
     this.expandedGroups.update((groups) => ({ ...groups, [key]: expanding }));
     if (expanding) {
+      this.userCollapsedNavGroups.delete(key);
       this.scrollNavGroupIntoView(key);
+    } else {
+      this.userCollapsedNavGroups.add(key);
     }
+    this.cdr.detectChanges();
   }
 
   private scrollNavGroupIntoView(groupKey: string): void {
@@ -410,6 +435,9 @@ export class AppComponent implements OnInit, OnDestroy {
     this.showShell = wantsShell;
 
     if (!wantsShell) {
+      this.shellNavExpandedInitialized = false;
+      this.userCollapsedNavGroups.clear();
+      this.expandedGroups.set({});
       this.pageTitle = this.resolvePageTitle(url);
       this.showNavRoleHint = false;
       this.syncSessionWatchState();
@@ -417,6 +445,26 @@ export class AppComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const firstShellEntry = !this.shellNavExpandedInitialized;
+    if (firstShellEntry) {
+      this.shellNavExpandedInitialized = true;
+      this.userCollapsedNavGroups.clear();
+      this.expandedGroups.set({});
+    }
+
+    this.applyNavExpansionFromUrl(url, !firstShellEntry);
+
+    this.pageTitle = this.resolvePageTitle(url);
+    this.updateNavRoleHint();
+    this.syncSessionWatchState();
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Keeps only the active section open when navigating. On first shell entry after login,
+   * leaves every group collapsed regardless of the landing route.
+   */
+  private applyNavExpansionFromUrl(url: string, expandActiveSection: boolean): void {
     const nextExpanded = { ...this.expandedGroups() };
     const activeGroupKeys = new Set<string>();
 
@@ -427,13 +475,17 @@ export class AppComponent implements OnInit, OnDestroy {
       const groupKey = this.groupExpandKey(item);
       if (this.isRouteInNavGroup(url, item.route)) {
         activeGroupKeys.add(groupKey);
-        nextExpanded[groupKey] = true;
+        if (expandActiveSection && !this.userCollapsedNavGroups.has(groupKey)) {
+          nextExpanded[groupKey] = true;
+        }
       }
       for (const child of item.children) {
         if (this.isNavChild(child) && child.children?.length) {
           const subKey = this.subsectionExpandKey(item, child);
-          if (this.isAllOrganisationsSubsectionUrl(url)) {
-            nextExpanded[subKey] = true;
+          if (expandActiveSection && this.isAllOrganisationsSubsectionUrl(url)) {
+            if (!this.userCollapsedNavGroups.has(subKey)) {
+              nextExpanded[subKey] = true;
+            }
           } else if (activeGroupKeys.has(groupKey)) {
             nextExpanded[subKey] = false;
           }
@@ -441,7 +493,6 @@ export class AppComponent implements OnInit, OnDestroy {
       }
     }
 
-    // When viewing a section, close other top-level groups; on neutral pages (e.g. dashboard) keep manual toggles.
     if (activeGroupKeys.size > 0) {
       for (const item of this.visibleNavItems) {
         if (!item.children?.length) {
@@ -455,11 +506,6 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     this.expandedGroups.set(nextExpanded);
-
-    this.pageTitle = this.resolvePageTitle(url);
-    this.updateNavRoleHint();
-    this.syncSessionWatchState();
-    this.cdr.markForCheck();
   }
 
   private hydrateSessionProfile(): void {
@@ -728,27 +774,52 @@ export class AppComponent implements OnInit, OnDestroy {
       const count = summary?.totalInQueue ?? 0;
       kycNav.badge = count > 0 ? count : undefined;
     }
-    if (!summary?.recentApplications?.length) {
-      this.topNotifications = [];
-      return;
-    }
-    this.topNotifications = this.kycNotificationDismiss
-      .filterById(
-        summary.recentApplications.map((row) => ({
-          id: `kyc-${row.id}`,
-          title: 'KYC application in queue',
-          body: `${row.applicant} — ${row.statusLabel}`,
-          time: row.submitted?.trim() || 'Pending review',
-          route: ['/kyc/applications'],
-          queryParams: { applicationId: row.id },
-        })),
-      );
+    this.rebuildTopNotifications();
+  }
+
+  private rebuildTopNotifications(): void {
+    const kycNotifications: TopNotification[] = (this.kycSummary?.recentApplications ?? []).map((row) => ({
+      id: `kyc-${row.id}`,
+      title: 'KYC application in queue',
+      body: `${row.applicant} — ${row.statusLabel}`,
+      time: row.submitted?.trim() || 'Pending review',
+      route: ['/kyc/applications'],
+      queryParams: { applicationId: row.id },
+    }));
+
+    const depositNotifications: TopNotification[] = this.pendingDeposits.map((row) => ({
+      id: `deposit-${row.id}`,
+      title: 'Pending wallet deposit',
+      body: this.formatDepositNotificationBody(row),
+      time: this.walletAdmin.formatWhen(row.createdAt),
+      route: ['/settings'],
+      queryParams: {
+        section: 'platform-billing',
+        tab: 'deposits',
+        depositId: row.id,
+      },
+    }));
+
+    this.topNotifications = this.kycNotificationDismiss.filterById([
+      ...kycNotifications,
+      ...depositNotifications,
+    ]);
+  }
+
+  private formatDepositNotificationBody(row: WalletDepositRow): string {
+    const amount = this.walletAdmin.formatCents(row.amountCents, row.currencyCode);
+    const org = row.organizationId ? `Organisation #${row.organizationId}` : 'Organisation';
+    const ref = row.referenceNumber?.trim();
+    return ref ? `${amount} — ${org} · ${ref}` : `${amount} — ${org}`;
   }
 
   toggleNotifications(): void {
     this.notificationsOpen = !this.notificationsOpen;
     if (this.notificationsOpen) {
       this.profileOpen = false;
+      if (this.navAccess.canAccessRoute('/settings')) {
+        this.pendingDepositsStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
+      }
     }
     this.cdr.markForCheck();
   }
@@ -855,6 +926,19 @@ export class AppComponent implements OnInit, OnDestroy {
     }, 350);
   }
 
+  private schedulePendingDepositsRefresh(): void {
+    if (this.pendingDepositsLoaded || !this.showShell || !this.isAuthenticated()) {
+      return;
+    }
+    if (!this.navAccess.canAccessRoute('/settings')) {
+      return;
+    }
+    this.pendingDepositsLoaded = true;
+    setTimeout(() => {
+      this.pendingDepositsStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
+    }, 450);
+  }
+
   logout(fromTimeout = false): void {
     this.clearSessionTimers();
     this.sessionWarningVisible = false;
@@ -864,6 +948,10 @@ export class AppComponent implements OnInit, OnDestroy {
     this.currentUser.clear();
     this.sessionProfileHydrated = false;
     this.kycStatsLoaded = false;
+    this.pendingDepositsLoaded = false;
+    this.shellNavExpandedInitialized = false;
+    this.userCollapsedNavGroups.clear();
+    this.expandedGroups.set({});
     void this.router.navigate(['/auth/login'], {
       replaceUrl: true,
       queryParams: { reason: fromTimeout ? 'inactivity' : 'logout' },

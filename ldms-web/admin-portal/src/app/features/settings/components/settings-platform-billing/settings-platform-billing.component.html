@@ -22,6 +22,10 @@
       <mat-icon>account_balance_wallet</mat-icon>
       Pending deposits ({{ pendingDeposits.length }})
     </button>
+    <button type="button" [class.active]="activeTab === 'history'" (click)="switchTab('history')">
+      <mat-icon>history</mat-icon>
+      Approved deposits ({{ approvedDeposits.length }})
+    </button>
   </nav>
 
   <div class="pb-controls lx-card lx-card--subsection">
@@ -30,7 +34,7 @@
         <h3 class="lx-controls-title">Table controls</h3>
         <p class="lx-controls-subtitle">
           Search, filter, and manage
-          {{ activeTab === 'charges' ? 'module action charges' : activeTab === 'packages' ? 'subscription packages' : 'pending deposits' }}.
+          {{ activeTab === 'charges' ? 'module action charges' : activeTab === 'packages' ? 'subscription packages' : activeTab === 'history' ? 'approved wallet deposits' : 'pending deposits' }}.
         </p>
       </div>
       <button
@@ -214,6 +218,33 @@
         </div>
       </div>
     </div>
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen && activeTab === 'history'">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Organisation ID</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">business</mat-icon>
+            <input [(ngModel)]="historyFilters.organizationId" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Reference</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">receipt</mat-icon>
+            <input [(ngModel)]="historyFilters.referenceNumber" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Approved by</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">verified_user</mat-icon>
+            <input [(ngModel)]="historyFilters.approvedBy" />
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <section class="pb-modules" *ngIf="activeTab === 'charges'">
@@ -235,24 +266,104 @@
           </header>
 
           @if (chargesForModule(mod.category).length) {
-            <ul class="pb-module-card__list">
-              @for (row of chargesForModule(mod.category); track row.actionCode) {
-                <li>
-                  <button type="button" class="pb-module-card__action" (click)="openChargeDialog('edit', row)">
-                    <span class="pb-module-card__action-copy">
-                      <strong>{{ row.displayName }}</strong>
-                      <code>{{ row.actionCode }}</code>
-                    </span>
-                    <span class="pb-module-card__action-meta">
-                      <span class="pb-module-card__price">{{ formatMoney(row.chargeCents) }}</span>
-                      <span class="lx-status lx-status-sm" [class.lx-status-active]="row.active !== false" [class.lx-status-inactive]="row.active === false">
-                        {{ row.active !== false ? 'Active' : 'Off' }}
-                      </span>
-                    </span>
-                  </button>
-                </li>
+            <div class="pb-module-card__list-wrap">
+              @if (mod.category === 'ORDERS') {
+                @for (group of ordersChargeGroups; track group.key) {
+                  @if (ordersChargesInGroup(group.prefix).length) {
+                    <div class="pb-module-card__subgroup">
+                      <h4 class="pb-module-card__subgroup-title">{{ group.label }}</h4>
+                      <ul class="pb-module-card__list">
+                        @for (row of ordersChargesInGroup(group.prefix); track row.id ?? row.actionCode) {
+                          <li class="pb-module-card__row">
+                            <button type="button" class="pb-module-card__action" (click)="openChargeDialog('edit', row)">
+                              <span class="pb-module-card__action-copy">
+                                <strong>{{ row.displayName }}</strong>
+                                <code>{{ row.actionCode }}</code>
+                              </span>
+                              <span class="pb-module-card__action-meta">
+                                <span class="pb-module-card__price">{{ formatMoney(row.chargeCents) }}</span>
+                                <span class="lx-status lx-status-sm" [class.lx-status-active]="row.active !== false" [class.lx-status-inactive]="row.active === false">
+                                  {{ row.active !== false ? 'Active' : 'Off' }}
+                                </span>
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              class="pb-module-card__delete"
+                              [attr.aria-label]="'Delete ' + row.displayName"
+                              [disabled]="!row.id || deletingChargeId === row.id"
+                              (click)="deleteCharge(row)"
+                            >
+                              <mat-icon>delete_outline</mat-icon>
+                            </button>
+                          </li>
+                        }
+                      </ul>
+                    </div>
+                  }
+                }
+                @if (ordersChargesUncategorized().length) {
+                  <div class="pb-module-card__subgroup">
+                    <h4 class="pb-module-card__subgroup-title">Other</h4>
+                    <ul class="pb-module-card__list">
+                      @for (row of ordersChargesUncategorized(); track row.id ?? row.actionCode) {
+                        <li class="pb-module-card__row">
+                          <button type="button" class="pb-module-card__action" (click)="openChargeDialog('edit', row)">
+                            <span class="pb-module-card__action-copy">
+                              <strong>{{ row.displayName }}</strong>
+                              <code>{{ row.actionCode }}</code>
+                            </span>
+                            <span class="pb-module-card__action-meta">
+                              <span class="pb-module-card__price">{{ formatMoney(row.chargeCents) }}</span>
+                              <span class="lx-status lx-status-sm" [class.lx-status-active]="row.active !== false" [class.lx-status-inactive]="row.active === false">
+                                {{ row.active !== false ? 'Active' : 'Off' }}
+                              </span>
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            class="pb-module-card__delete"
+                            [attr.aria-label]="'Delete ' + row.displayName"
+                            [disabled]="!row.id || deletingChargeId === row.id"
+                            (click)="deleteCharge(row)"
+                          >
+                            <mat-icon>delete_outline</mat-icon>
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+              } @else {
+                <ul class="pb-module-card__list">
+                  @for (row of chargesForModule(mod.category); track row.id ?? row.actionCode) {
+                    <li class="pb-module-card__row">
+                      <button type="button" class="pb-module-card__action" (click)="openChargeDialog('edit', row)">
+                        <span class="pb-module-card__action-copy">
+                          <strong>{{ row.displayName }}</strong>
+                          <code>{{ row.actionCode }}</code>
+                        </span>
+                        <span class="pb-module-card__action-meta">
+                          <span class="pb-module-card__price">{{ formatMoney(row.chargeCents) }}</span>
+                          <span class="lx-status lx-status-sm" [class.lx-status-active]="row.active !== false" [class.lx-status-inactive]="row.active === false">
+                            {{ row.active !== false ? 'Active' : 'Off' }}
+                          </span>
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        class="pb-module-card__delete"
+                        [attr.aria-label]="'Delete ' + row.displayName"
+                        [disabled]="!row.id || deletingChargeId === row.id"
+                        (click)="deleteCharge(row)"
+                      >
+                        <mat-icon>delete_outline</mat-icon>
+                      </button>
+                    </li>
+                  }
+                </ul>
               }
-            </ul>
+            </div>
           } @else {
             <p class="pb-module-card__empty">No charges configured for this module.</p>
           }
@@ -312,6 +423,16 @@
         <button mat-menu-item type="button" class="lx-action-edit" (click)="openChargeDialog('edit', chargeRow)">
           <mat-icon>edit</mat-icon> Edit
         </button>
+        <button
+          mat-menu-item
+          type="button"
+          class="lx-action-delete"
+          [disabled]="!chargeRow.id || deletingChargeId === chargeRow.id"
+          (click)="deleteCharge(chargeRow)"
+        >
+          <mat-icon>delete_outline</mat-icon>
+          {{ deletingChargeId === chargeRow.id ? 'Removing…' : 'Delete' }}
+        </button>
       </ng-template>
     </mat-menu>
     <ng-template #emptyCharges>
@@ -323,69 +444,80 @@
     </ng-template>
   </div>
 
-  <div class="lx-card pb-table-card" *ngIf="activeTab === 'packages'">
-    <div class="lx-table-header">
-      <p class="lx-table-meta">Monthly subscription packages</p>
+  <section class="pb-packages" *ngIf="activeTab === 'packages'">
+    <div class="pb-packages__head">
+      <div>
+        <h3 class="pb-packages__title">Subscription packages</h3>
+        <p class="pb-packages__lead">
+          Packages shown on the platform landing page and organisation billing settings. Edit pricing, mark featured,
+          or remove unused tiers.
+        </p>
+      </div>
     </div>
+
     <ng-container *ngIf="filteredPackages.length; else emptyPackages">
-      <div class="lx-table-wrap">
-        <table mat-table [dataSource]="filteredPackages" class="lx-mat-table">
-          <ng-container matColumnDef="code">
-            <th mat-header-cell *matHeaderCellDef>Code</th>
-            <td mat-cell *matCellDef="let row"><code>{{ row.code }}</code></td>
-          </ng-container>
-          <ng-container matColumnDef="name">
-            <th mat-header-cell *matHeaderCellDef>Name</th>
-            <td mat-cell *matCellDef="let row">
-              <strong>{{ row.name }}</strong>
-              <div class="muted">{{ row.description }}</div>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="price">
-            <th mat-header-cell *matHeaderCellDef>Monthly</th>
-            <td mat-cell *matCellDef="let row">{{ formatMoney(row.monthlyPriceCents, row.currencyCode) }}</td>
-          </ng-container>
-          <ng-container matColumnDef="featured">
-            <th mat-header-cell *matHeaderCellDef>Featured</th>
-            <td mat-cell *matCellDef="let row">{{ yesNo(row.featured) }}</td>
-          </ng-container>
-          <ng-container matColumnDef="active">
-            <th mat-header-cell *matHeaderCellDef>Active</th>
-            <td mat-cell *matCellDef="let row">
-              <span class="lx-status" [class.lx-status-active]="row.active !== false">{{ yesNo(row.active) }}</span>
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>Actions</th>
-            <td mat-cell *matCellDef="let row" class="lx-actions-cell">
-              <button type="button" mat-icon-button [matMenuTriggerFor]="packageRowMenu" [matMenuTriggerData]="{ packageRow: row }">
-                <mat-icon>more_vert</mat-icon>
+      <div class="pb-packages__grid">
+        @for (row of filteredPackages; track row.id ?? row.code) {
+          <article
+            class="pb-package-card"
+            [class.pb-package-card--featured]="row.featured"
+            [class.pb-package-card--inactive]="row.active === false"
+          >
+            <div class="pb-package-card__top">
+              <span class="pb-package-card__badge" *ngIf="row.featured">Featured</span>
+              <span class="pb-package-card__badge pb-package-card__badge--muted" *ngIf="row.active === false">Inactive</span>
+              <code class="pb-package-card__code">{{ row.code }}</code>
+              <h4 class="pb-package-card__name">{{ row.name }}</h4>
+              <p class="pb-package-card__price">
+                {{ formatMoney(row.monthlyPriceCents, row.currencyCode) }}
+                <span>/month</span>
+              </p>
+              <ul class="pb-package-card__features" *ngIf="packageFeaturePoints(row.description).length; else packageDescFallback">
+                @for (point of packageFeaturePoints(row.description); track point) {
+                  <li>{{ point }}</li>
+                }
+              </ul>
+              <ng-template #packageDescFallback>
+                <p class="pb-package-card__desc">No description yet.</p>
+              </ng-template>
+            </div>
+            <div class="pb-package-card__meta">
+              <span>Sort {{ row.sortOrder ?? '—' }}</span>
+              <span>{{ row.currencyCode || 'USD' }}</span>
+            </div>
+            <div class="pb-package-card__actions">
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openPackageDialog('view', row)">
+                <mat-icon>visibility</mat-icon>
+                View
               </button>
-            </td>
-          </ng-container>
-          <tr mat-header-row *matHeaderRowDef="packageColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: packageColumns"></tr>
-        </table>
+              <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openPackageDialog('edit', row)">
+                <mat-icon>edit</mat-icon>
+                Edit price
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm pb-package-card__delete"
+                [disabled]="deletingPackageId === row.id"
+                (click)="deletePackage(row)"
+              >
+                <mat-icon>delete_outline</mat-icon>
+                {{ deletingPackageId === row.id ? 'Removing…' : 'Delete' }}
+              </button>
+            </div>
+          </article>
+        }
       </div>
     </ng-container>
-    <mat-menu #packageRowMenu="matMenu" panelClass="lx-row-actions-menu">
-      <ng-template matMenuContent let-packageRow="packageRow">
-        <button mat-menu-item type="button" class="lx-action-view" (click)="openPackageDialog('view', packageRow)">
-          <mat-icon>visibility</mat-icon> View
-        </button>
-        <button mat-menu-item type="button" class="lx-action-edit" (click)="openPackageDialog('edit', packageRow)">
-          <mat-icon>edit</mat-icon> Edit
-        </button>
-      </ng-template>
-    </mat-menu>
+
     <ng-template #emptyPackages>
-      <div class="lx-empty">
-        <mat-icon class="lx-empty-icon">inbox</mat-icon>
+      <div class="lx-empty pb-packages__empty">
+        <mat-icon class="lx-empty-icon">workspace_premium</mat-icon>
         <div class="lx-empty-title">No packages match</div>
-        <div class="lx-empty-sub">Add a package or import from CSV.</div>
+        <div class="lx-empty-sub">Add a package or import from CSV — they appear on the landing page when active.</div>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="openPackageDialog('create')">Add package</button>
       </div>
     </ng-template>
-  </div>
+  </section>
 
   <div class="lx-card pb-table-card" *ngIf="activeTab === 'deposits'">
     <div class="lx-table-header">
@@ -408,7 +540,7 @@
           </ng-container>
           <ng-container matColumnDef="createdAt">
             <th mat-header-cell *matHeaderCellDef>Submitted</th>
-            <td mat-cell *matCellDef="let row">{{ row.createdAt || '—' }}</td>
+            <td mat-cell *matCellDef="let row">{{ formatWhen(row.createdAt) }}</td>
           </ng-container>
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef>Actions</th>
@@ -416,10 +548,18 @@
               <button
                 type="button"
                 class="lx-btn lx-btn-sm lx-btn-primary"
-                [disabled]="confirmingDepositId === row.id"
+                [disabled]="confirmingDepositId === row.id || rejectingDepositId === row.id"
                 (click)="confirmDeposit(row)"
               >
                 Confirm
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-sm lx-btn-ghost"
+                [disabled]="confirmingDepositId === row.id || rejectingDepositId === row.id"
+                (click)="rejectDeposit(row)"
+              >
+                Reject
               </button>
             </td>
           </ng-container>
@@ -430,8 +570,56 @@
     </ng-container>
     <ng-template #emptyDeposits>
       <div class="lx-empty">
-        <mat-icon class="lx-empty-icon">inbox</mat-icon>
-        <div class="lx-empty-title">No pending deposits</div>
+        <mat-icon class="lx-empty-icon">{{ depositsLoadError ? 'error_outline' : 'inbox' }}</mat-icon>
+        <div class="lx-empty-title">{{ depositsLoadError ? 'Could not load pending deposits' : 'No pending deposits' }}</div>
+        <div class="lx-empty-sub" *ngIf="depositsLoadError">{{ depositsLoadError }}</div>
+        <div class="lx-empty-sub" *ngIf="!depositsLoadError">Organisation wallet top-ups appear here after suppliers submit proof of payment.</div>
+      </div>
+    </ng-template>
+  </div>
+
+  <div class="lx-card pb-table-card" *ngIf="activeTab === 'history'">
+    <div class="lx-table-header">
+      <p class="lx-table-meta">Confirmed wallet top-ups credited to organisation balances</p>
+    </div>
+    <ng-container *ngIf="filteredApprovedDeposits.length; else emptyHistory">
+      <div class="lx-table-wrap">
+        <table mat-table [dataSource]="filteredApprovedDeposits" class="lx-mat-table">
+          <ng-container matColumnDef="org">
+            <th mat-header-cell *matHeaderCellDef>Organisation</th>
+            <td mat-cell *matCellDef="let row">#{{ row.organizationId }}</td>
+          </ng-container>
+          <ng-container matColumnDef="amount">
+            <th mat-header-cell *matHeaderCellDef>Amount</th>
+            <td mat-cell *matCellDef="let row">{{ formatMoney(row.amountCents, row.currencyCode) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="ref">
+            <th mat-header-cell *matHeaderCellDef>Reference</th>
+            <td mat-cell *matCellDef="let row">{{ row.referenceNumber || '—' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="createdAt">
+            <th mat-header-cell *matHeaderCellDef>Submitted</th>
+            <td mat-cell *matCellDef="let row">{{ formatWhen(row.createdAt) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="approvedAt">
+            <th mat-header-cell *matHeaderCellDef>Approved</th>
+            <td mat-cell *matCellDef="let row">{{ formatWhen(row.modifiedAt) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="approvedBy">
+            <th mat-header-cell *matHeaderCellDef>Approved by</th>
+            <td mat-cell *matCellDef="let row">{{ row.modifiedBy || '—' }}</td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="historyColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: historyColumns"></tr>
+        </table>
+      </div>
+    </ng-container>
+    <ng-template #emptyHistory>
+      <div class="lx-empty">
+        <mat-icon class="lx-empty-icon">{{ historyLoadError ? 'error_outline' : 'history' }}</mat-icon>
+        <div class="lx-empty-title">{{ historyLoadError ? 'Could not load approved deposits' : 'No approved deposits yet' }}</div>
+        <div class="lx-empty-sub" *ngIf="historyLoadError">{{ historyLoadError }}</div>
+        <div class="lx-empty-sub" *ngIf="!historyLoadError">Confirmed wallet top-ups appear here after you approve pending deposits.</div>
       </div>
     </ng-template>
   </div>

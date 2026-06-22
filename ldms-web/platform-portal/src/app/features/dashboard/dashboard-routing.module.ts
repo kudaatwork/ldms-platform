@@ -3,7 +3,10 @@ import { RouterModule, Routes } from '@angular/router';
 import { ClassificationGuard } from '../../core/guards/classification.guard';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 
-const routes: Routes = [{ path: '', component: DashboardComponent, canActivate: [ClassificationGuard] }];
+const routes: Routes = [
+  { path: '', component: DashboardComponent, canActivate: [ClassificationGuard] },
+  { path: '**', redirectTo: '', pathMatch: 'full' },
+];
 
 @NgModule({
   imports: [RouterModule.forChild(routes)],

@@ -1,0 +1,19 @@
+<div class="dlh-shell">
+  <div class="dlh-card" *ngIf="loading">
+    <span class="material-icons dlh-card__icon dlh-card__icon--spin" aria-hidden="true">sync</span>
+    <p>Finding your active trip…</p>
+  </div>
+
+  <div class="dlh-card dlh-card--warn" *ngIf="error && !loading">
+    <span class="material-icons dlh-card__icon" aria-hidden="true">error_outline</span>
+    <p>{{ error }}</p>
+    <button type="button" class="dlh-btn" (click)="goToTrips()">Back to trips</button>
+  </div>
+
+  <div class="dlh-card" *ngIf="empty && !loading && !error">
+    <span class="material-icons dlh-card__icon" aria-hidden="true">location_off</span>
+    <h2>No live trip right now</h2>
+    <p>When you have a trip in transit, live map tracking appears here.</p>
+    <button type="button" class="dlh-btn" (click)="goToTrips()">View my trips</button>
+  </div>
+</div>

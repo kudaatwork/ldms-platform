@@ -19,6 +19,7 @@ import {
   DeliveryWorkflowPhase,
   OtpChannel,
   resolveWorkflowPhase,
+  TripDeliveryWorkflowResponse,
 } from '../../models/driver-portal.model';
 
 function tripStatusOtpPending(status?: string): boolean {
@@ -57,6 +58,8 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
   @Output() workflowComplete = new EventEmitter<void>();
   /** Emitted on any phase transition. */
   @Output() phaseChange = new EventEmitter<DeliveryWorkflowPhase>();
+  /** Emitted after workflow state is loaded from the API. */
+  @Output() stateLoaded = new EventEmitter<TripDeliveryWorkflowResponse>();
 
   currentPhase: DeliveryWorkflowPhase = 'ARRIVAL';
   loading = false;
@@ -162,10 +165,11 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
             this.returnLines = res.returnLines ?? [];
           }
 
+          this.stateLoaded.emit(res);
           this.cdr.markForCheck();
         },
-        error: () => {
-          // Non-blocking — driver continues from initialPhase
+        error: (e: Error) => {
+          this.error = e.message;
           this.cdr.markForCheck();
         },
       });
@@ -229,10 +233,17 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
   toggleDriverCounting(): void {
     this.driverConfirmedCounting = !this.driverConfirmedCounting;
     if (this.driverConfirmedCounting) {
+      this.error = '';
       this.workflowService
         .startCounting(this.tripId, { actorRole: 'DRIVER' })
         .pipe(takeUntil(this.destroy$))
-        .subscribe({ error: () => {} });
+        .subscribe({
+          error: (e: Error) => {
+            this.driverConfirmedCounting = false;
+            this.error = e.message;
+            this.cdr.markForCheck();
+          },
+        });
     }
     this.cdr.markForCheck();
   }
@@ -240,10 +251,17 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
   toggleCustomerCounting(): void {
     this.customerConfirmedCounting = !this.customerConfirmedCounting;
     if (this.customerConfirmedCounting) {
+      this.error = '';
       this.workflowService
         .startCounting(this.tripId, { actorRole: 'CUSTOMER' })
         .pipe(takeUntil(this.destroy$))
-        .subscribe({ error: () => {} });
+        .subscribe({
+          error: (e: Error) => {
+            this.customerConfirmedCounting = false;
+            this.error = e.message;
+            this.cdr.markForCheck();
+          },
+        });
     }
     this.cdr.markForCheck();
   }
@@ -268,10 +286,17 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
   toggleDriverFinished(): void {
     this.driverConfirmedFinished = !this.driverConfirmedFinished;
     if (this.driverConfirmedFinished) {
+      this.error = '';
       this.workflowService
         .finishCounting(this.tripId, { actorRole: 'DRIVER' })
         .pipe(takeUntil(this.destroy$))
-        .subscribe({ error: () => {} });
+        .subscribe({
+          error: (e: Error) => {
+            this.driverConfirmedFinished = false;
+            this.error = e.message;
+            this.cdr.markForCheck();
+          },
+        });
     }
     this.cdr.markForCheck();
   }
@@ -279,10 +304,17 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
   toggleCustomerFinished(): void {
     this.customerConfirmedFinished = !this.customerConfirmedFinished;
     if (this.customerConfirmedFinished) {
+      this.error = '';
       this.workflowService
         .finishCounting(this.tripId, { actorRole: 'CUSTOMER' })
         .pipe(takeUntil(this.destroy$))
-        .subscribe({ error: () => {} });
+        .subscribe({
+          error: (e: Error) => {
+            this.customerConfirmedFinished = false;
+            this.error = e.message;
+            this.cdr.markForCheck();
+          },
+        });
     }
     this.cdr.markForCheck();
   }

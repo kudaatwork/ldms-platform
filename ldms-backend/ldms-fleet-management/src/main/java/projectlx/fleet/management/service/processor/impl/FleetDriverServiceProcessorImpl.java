@@ -6,6 +6,7 @@ import projectlx.fleet.management.business.logic.api.FleetDriverService;
 import projectlx.fleet.management.service.processor.api.FleetDriverServiceProcessor;
 import projectlx.fleet.management.utils.requests.CreateFleetDriverRequest;
 import projectlx.fleet.management.utils.requests.EditFleetDriverRequest;
+import projectlx.fleet.management.utils.requests.ProvisionFleetDriverPlatformAccessRequest;
 import projectlx.fleet.management.utils.responses.FleetDriverResponse;
 
 import java.util.Locale;
@@ -38,6 +39,13 @@ public class FleetDriverServiceProcessorImpl implements FleetDriverServiceProces
     public FleetDriverResponse update(Long id, EditFleetDriverRequest request, Locale locale, String username) {
         log.info("Processing update fleet driver {} for user {}", id, username);
         return fleetDriverService.update(id, request, locale, username);
+    }
+
+    @Override
+    public FleetDriverResponse provisionPlatformAccess(Long id, ProvisionFleetDriverPlatformAccessRequest request,
+                                                       Locale locale, String username) {
+        log.info("Processing provision platform access for fleet driver {} by {}", id, username);
+        return fleetDriverService.provisionPlatformAccess(id, request, locale, username);
     }
 
     @Override

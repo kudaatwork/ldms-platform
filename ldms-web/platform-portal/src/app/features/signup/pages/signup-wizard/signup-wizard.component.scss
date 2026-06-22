@@ -39,6 +39,17 @@
     background: var(--gray-50, #f8fafc);
     color: var(--gray-700, #334155);
   }
+
+  &--driver:not(&--active) {
+    .material-icons {
+      color: #fb923c;
+    }
+
+    &:hover {
+      background: #fff7ed;
+      color: #c2410c;
+    }
+  }
 }
 
 .su-root {

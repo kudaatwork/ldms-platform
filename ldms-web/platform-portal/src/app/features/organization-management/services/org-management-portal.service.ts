@@ -157,6 +157,15 @@ export class OrgManagementPortalService {
     );
   }
 
+  importAgentsCsv(file: File): Observable<ImportActionResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<unknown>(`${this.orgBase}/agents/import-csv`, formData).pipe(
+      map((resp) => this.toImportActionResponse(resp)),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
   listTransporters(): Observable<TransporterPartnerRow[]> {
     return this.fleetPortal.listPartners();
   }

@@ -51,6 +51,19 @@ public class OrganizationWorkspaceAccessSupport {
         return hasAnyRole(ADMIN, ORGANIZATION_ADMINISTRATOR);
     }
 
+    /**
+     * Organisation admins may designate workflow flags (procurement/billing approver, fleet allocator)
+     * when they can update users or organisation settings.
+     */
+    public boolean canDesignateOrganizationUserFlags(String sessionUsername) {
+        if (isTrustedServiceActorInternal(sessionUsername)) {
+            return true;
+        }
+        return hasWorkspaceSuperRole()
+                || hasRole(UserRoles.UPDATE_USER.getRoleName())
+                || hasRole("UPDATE_MY_ORGAN");
+    }
+
     /** Organisation id for the signed-in platform-portal workspace user, if any. */
     public Optional<Long> sessionOrganizationId(String sessionUsername) {
         if (!StringUtils.hasText(sessionUsername)) {

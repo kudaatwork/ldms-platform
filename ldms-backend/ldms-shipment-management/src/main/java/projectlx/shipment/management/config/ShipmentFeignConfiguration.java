@@ -6,6 +6,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import projectlx.shipment.management.clients.BillingPaymentsServiceClient;
 import projectlx.shipment.management.clients.FleetManagementServiceClient;
 import projectlx.shipment.management.clients.OrganizationManagementServiceClient;
 import projectlx.shipment.management.clients.TripTrackingServiceClient;
@@ -67,6 +68,20 @@ public class ShipmentFeignConfiguration {
                 .forType(TripTrackingServiceClient.class, "trip-tracking-service")
                 .inheritParentContext(true)
                 .contextId("shipment-trip-tracking-service")
+                .url(url)
+                .build();
+    }
+
+    @Bean
+    public BillingPaymentsServiceClient billingPaymentsServiceClient(ApplicationContext applicationContext) {
+        Environment env = applicationContext.getEnvironment();
+        String url = LdmsFeignUrls.resolveBillingPaymentsServiceBaseUrl(env);
+        log.info("Billing payments Feign client base URL: {} (ldms.dev.force-local-feign-clients={})",
+                url, env.getProperty("ldms.dev.force-local-feign-clients", "false"));
+        return new FeignClientBuilder(applicationContext)
+                .forType(BillingPaymentsServiceClient.class, "billing-payments-service")
+                .inheritParentContext(true)
+                .contextId("shipment-billing-payments-service")
                 .url(url)
                 .build();
     }

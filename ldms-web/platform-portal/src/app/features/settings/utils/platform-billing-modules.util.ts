@@ -20,6 +20,12 @@ export const PLATFORM_BILLING_MODULES: PlatformBillingModuleMeta[] = [
     icon: 'notifications',
   },
   {
+    category: 'SUPPORT',
+    label: 'Help & support',
+    description: 'LDMS Assistant bot messages vs live agent ticket chat',
+    icon: 'support_agent',
+  },
+  {
     category: 'LOGISTICS',
     label: 'Shipments',
     description: 'Shipment status updates and logistics events',

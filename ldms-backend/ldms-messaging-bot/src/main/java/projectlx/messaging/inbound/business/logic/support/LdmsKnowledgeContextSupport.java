@@ -60,43 +60,55 @@ public class LdmsKnowledgeContextSupport {
         log.info("LDMS bot knowledge loaded: {} document(s), {} characters", sources.size(), knowledgeText.length());
     }
 
-    public BotKnowledgeStatusDto status(BotFaqRagSupport botFaqRagSupport) {
+    public BotKnowledgeStatusDto status(BotFaqRagSupport botFaqRagSupport,
+                                        BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport) {
         BotKnowledgeStatusDto dto = new BotKnowledgeStatusDto();
         dto.setLastLoadedAt(lastLoadedAt);
         dto.setDocumentCount(loadedSources.size());
         dto.setCharacterCount(knowledgeText.length());
         dto.setFaqCount(botFaqRagSupport != null ? botFaqRagSupport.publishedCount() : 0);
+        dto.setPdfDocumentCount(botKnowledgeDocumentRagSupport != null
+                ? botKnowledgeDocumentRagSupport.publishedDocumentCount() : 0);
+        dto.setPdfCharacterCount(botKnowledgeDocumentRagSupport != null
+                ? botKnowledgeDocumentRagSupport.totalCharacterCount() : 0);
         dto.setSources(loadedSources);
         return dto;
     }
 
     public String systemPrompt(String userDisplayName, String organizationName, String userQuery,
-                               BotFaqRagSupport botFaqRagSupport) {
+                               BotFaqRagSupport botFaqRagSupport,
+                               BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport) {
         String callerContext = buildCallerContext(userDisplayName, organizationName);
         String faqContext = botFaqRagSupport != null ? botFaqRagSupport.retrieveContextForQuery(userQuery) : "";
         String faqSection = faqContext.isBlank() ? "" : faqContext + "\n\n";
+        String docContext = botKnowledgeDocumentRagSupport != null
+                ? botKnowledgeDocumentRagSupport.retrieveContextForQuery(userQuery) : "";
+        String docSection = docContext.isBlank() ? "" : docContext + "\n\n";
         return """
                 You are the LDMS (Logistics and Distribution Management System) assistant for Project LX.
                 Answer questions about how LDMS works: onboarding, purchase orders, shipments, trips, billing,
                 fleet, help & support, and platform roles (suppliers, customers, transporters, drivers, admins).
 
                 Rules:
-                - Use ONLY the LDMS reference documents below, admin FAQ knowledge, and the conversation history. Do not invent features.
-                - If the answer is not in the documents, say you are not sure and suggest opening a Help & Support ticket.
+                - Use ONLY the uploaded PDF knowledge, admin FAQ knowledge, LDMS reference documents below, and the conversation history. Do not invent features.
+                - Prefer uploaded PDF knowledge sections first when they directly address the user's question.
+                - Then prefer admin FAQ answers when they directly address the user's question.
+                - If the answer is not in any of the provided knowledge sources, say you are not sure and suggest opening a Help & Support ticket.
                 - Be concise, practical, and friendly. Use bullet points for multi-step flows.
+                - Format responses with markdown: **bold** for emphasis, `-` bullet lists for steps, short paragraphs.
                 - Never reveal API keys, internal credentials, or JWT secrets.
                 - For live shipment/trip/invoice status, explain where to find it in the portal (e.g. Track shipments, Billing).
                 - When the user belongs to an organisation, tailor examples to their role where the documents allow it.
 
-                %s%sLDMS reference documents:
+                %s%s%sLDMS reference documents:
                 ---
                 %s
                 ---
-                """.formatted(callerContext, faqSection, knowledgeText);
+                """.formatted(callerContext, docSection, faqSection, knowledgeText);
     }
 
     public String systemPrompt(String userDisplayName, String organizationName) {
-        return systemPrompt(userDisplayName, organizationName, null, null);
+        return systemPrompt(userDisplayName, organizationName, null, null, null);
     }
 
     private String buildCallerContext(String userDisplayName, String organizationName) {

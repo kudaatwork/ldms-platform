@@ -55,5 +55,11 @@ describe('AppComponent', () => {
     const subitems = fixture.nativeElement.querySelectorAll('.sb-subitem');
     expect(subitems.length).toBe(4);
     expect(cmp.isGroupExpanded('/users')).toBe(true);
+
+    cmp.toggleGroup('/users');
+    fixture.detectChanges();
+
+    expect(cmp.isGroupExpanded('/users')).toBe(false);
+    expect(fixture.nativeElement.querySelectorAll('.sb-subitem').length).toBe(0);
   });
 });

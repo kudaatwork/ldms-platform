@@ -59,7 +59,7 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
   tripsLoading = false;
   tripsError = '';
   tripSearch = '';
-  tripStatusFilter: TripStatus | '' = 'IN_PROGRESS';
+  tripStatusFilter: TripStatus | '' = '';
   tripFilterFieldsOpen = false;
 
   shipmentExporting = false;
@@ -254,6 +254,7 @@ export class TripTrackingWorkspaceComponent implements OnInit, OnDestroy {
       .findTrips({
         organizationId: this.orgId || undefined,
         status: this.tripStatusFilter || undefined,
+        activeOnly: !this.tripStatusFilter,
         search: this.tripSearch.trim() || undefined,
       })
       .pipe(

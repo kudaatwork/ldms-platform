@@ -47,6 +47,60 @@ export interface PlatformBillingDashboardApi {
   pendingInvoicesCents: number;
 }
 
+export interface PlatformRevenueUsageBreakdownRow {
+  actionCode: string;
+  actionDisplayName?: string;
+  totalChargeCents: number;
+  eventCount: number;
+}
+
+export interface PlatformRevenueOrgRow {
+  organizationId: number;
+  organizationName: string;
+  billingMode?: string;
+  earnedCents: number;
+  costsCents: number;
+  netCents: number;
+  walletBalanceCents?: number;
+  depositCents?: number;
+  actionChargeCents?: number;
+  subscriptionUsageCents?: number;
+  totalUsageCents?: number;
+  usageEventCount?: number;
+  accent: string;
+  usageBreakdown?: PlatformRevenueUsageBreakdownRow[];
+}
+
+export interface PlatformRevenueChargeLine {
+  id: string;
+  label: string;
+  category: string;
+  amountCents: number;
+  organizationId?: number;
+  organizationName: string;
+  occurredAt: string;
+  deducted?: boolean;
+}
+
+export interface PlatformRevenueCategoryRow {
+  category: string;
+  amountCents: number;
+  color: string;
+}
+
+export interface PlatformRevenueReportApi {
+  totalEarnedCents: number;
+  subscriptionCents: number;
+  actionChargesCents: number;
+  walletDepositsCents: number;
+  monthLabels: string[];
+  earnedSeries: number[];
+  costSeries: number[];
+  byOrganization: PlatformRevenueOrgRow[];
+  costBreakdown: PlatformRevenueCategoryRow[];
+  recentCharges: PlatformRevenueChargeLine[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class PlatformDashboardAdminService {
   constructor(private readonly http: HttpClient) {}
@@ -74,6 +128,14 @@ export class PlatformDashboardAdminService {
       }>(ldmsServiceUrl('billing-payments', 'platform-dashboard', 'invoices', 'backoffice'))
       .pipe(map((body) => body.platformBillingDashboardDto ?? { pendingInvoicesCents: 0 }));
   }
+
+  fetchRevenueReport(): Observable<PlatformRevenueReportApi> {
+    return this.http
+      .get<{
+        platformRevenueReportDto?: PlatformRevenueReportApi;
+      }>(ldmsServiceUrl('billing-payments', 'platform-dashboard', 'revenue', 'backoffice'))
+      .pipe(map((body) => body.platformRevenueReportDto ?? emptyRevenueReport()));
+  }
 }
 
 function emptyShipmentDashboard(): PlatformShipmentDashboardApi {
@@ -94,5 +156,20 @@ function emptyTripDashboard(): PlatformTripDashboardApi {
     deliveredTrips: 0,
     onTimePct: 0,
     organizationStats: [],
+  };
+}
+
+function emptyRevenueReport(): PlatformRevenueReportApi {
+  return {
+    totalEarnedCents: 0,
+    subscriptionCents: 0,
+    actionChargesCents: 0,
+    walletDepositsCents: 0,
+    monthLabels: [],
+    earnedSeries: [],
+    costSeries: [],
+    byOrganization: [],
+    costBreakdown: [],
+    recentCharges: [],
   };
 }

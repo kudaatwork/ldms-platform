@@ -115,9 +115,13 @@ export class TripTrackingPortalService {
     if (filters.search?.trim()) {
       payload['searchTerm'] = filters.search.trim();
     }
-    const apiStatus = this.toApiTripStatus(filters.status);
-    if (apiStatus) {
-      payload['status'] = apiStatus;
+    if (filters.activeOnly) {
+      payload['activeOnly'] = true;
+    } else {
+      const apiStatus = this.toApiTripStatus(filters.status);
+      if (apiStatus) {
+        payload['status'] = apiStatus;
+      }
     }
     return this.http.post<unknown>(`${this.tripBase}/find-by-multiple-filters`, payload).pipe(
       map((resp) => {
@@ -244,6 +248,7 @@ export class TripTrackingPortalService {
       canAllocate: status === 'PENDING_FLEET',
       canStartTrip: status === 'ALLOCATED' && !!fleetDriverId && !!fleetAssetId,
       crossBorder: dto['crossBorder'] === true,
+      tripId: dto['tripId'] ? Number(dto['tripId']) : undefined,
     };
   }
 
@@ -299,9 +304,15 @@ export class TripTrackingPortalService {
       lastEventLabel: lastEvent ? this.eventTypeLabel(String(lastEvent['eventType'] ?? '')) : '—',
       lastEventAt: lastEvent ? this.formatDate(lastEvent['eventTime'] ?? lastEvent['recordedAt']) : '—',
       startedAtLabel: this.formatDate(dto['startedAt']),
-      canTriggerArrival: status === 'IN_PROGRESS',
-      canVerifyOtp: status === 'ARRIVED',
-      canLiveTrack: status === 'IN_PROGRESS' || status === 'ARRIVED',
+      canTriggerArrival:
+        status === 'IN_PROGRESS'
+        || status === 'IN_TRANSIT'
+        || status === 'AT_BORDER_HOLD'
+        || status === 'ROADSIDE_HOLD'
+        || status === 'RETURN_IN_TRANSIT',
+      canVerifyOtp:
+        status === 'ARRIVED' || status === 'OTP_PENDING' || status === 'COUNT_COMPLETE',
+      canLiveTrack: this.isActiveTrip(status),
     };
   }
 
@@ -335,9 +346,15 @@ export class TripTrackingPortalService {
           ? this.formatDate(dto['deliveredAt'])
           : undefined,
       timeline: events,
-      canTriggerArrival: status === 'IN_PROGRESS',
-      canVerifyOtp: status === 'ARRIVED',
-      canLiveTrack: status === 'IN_PROGRESS' || status === 'ARRIVED',
+      canTriggerArrival:
+        status === 'IN_PROGRESS'
+        || status === 'IN_TRANSIT'
+        || status === 'AT_BORDER_HOLD'
+        || status === 'ROADSIDE_HOLD'
+        || status === 'RETURN_IN_TRANSIT',
+      canVerifyOtp:
+        status === 'ARRIVED' || status === 'OTP_PENDING' || status === 'COUNT_COMPLETE',
+      canLiveTrack: this.isActiveTrip(status),
     };
   }
 
@@ -437,7 +454,18 @@ export class TripTrackingPortalService {
 
   /** Trip is still on the road or awaiting delivery confirmation. */
   isActiveTrip(status: TripStatus): boolean {
-    return status === 'IN_PROGRESS' || status === 'ARRIVED';
+    return (
+      status === 'PENDING'
+      || status === 'IN_PROGRESS'
+      || status === 'IN_TRANSIT'
+      || status === 'AT_BORDER_HOLD'
+      || status === 'ROADSIDE_HOLD'
+      || status === 'ARRIVED'
+      || status === 'COUNTING_STOCK'
+      || status === 'COUNT_COMPLETE'
+      || status === 'OTP_PENDING'
+      || status === 'RETURN_IN_TRANSIT'
+    );
   }
 
   private mapTripStatus(raw: string): TripStatus {
@@ -447,8 +475,18 @@ export class TripTrackingPortalService {
       case 'IN_TRANSIT':
         return 'IN_PROGRESS';
       case 'OTP_PENDING':
+      case 'COUNTING_STOCK':
+      case 'COUNT_COMPLETE':
       case 'ARRIVED':
         return 'ARRIVED';
+      case 'AT_BORDER_HOLD':
+        return 'AT_BORDER_HOLD';
+      case 'ROADSIDE_HOLD':
+        return 'ROADSIDE_HOLD';
+      case 'RETURN_IN_TRANSIT':
+        return 'RETURN_IN_TRANSIT';
+      case 'RETURNED':
+        return 'RETURNED';
       default:
         return (raw as TripStatus) || 'PENDING';
     }
@@ -491,6 +529,11 @@ export class TripTrackingPortalService {
       AT_BORDER_HOLD: 'At border — awaiting clearance',
       ROADSIDE_HOLD: 'Roadside stop',
       ARRIVED: 'Arrived',
+      COUNTING_STOCK: 'Counting stock',
+      COUNT_COMPLETE: 'Count complete',
+      OTP_PENDING: 'Awaiting delivery OTP',
+      RETURN_IN_TRANSIT: 'Return in transit',
+      RETURNED: 'Returned',
       DELIVERED: 'Delivered',
       CANCELLED: 'Cancelled',
     };

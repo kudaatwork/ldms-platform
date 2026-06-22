@@ -13,9 +13,11 @@ import projectlx.fuel.expenses.business.auditable.impl.OperationalFundRequestSer
 import projectlx.fuel.expenses.business.logic.api.FuelSessionService;
 import projectlx.fuel.expenses.business.logic.api.FuelTelemetryLogService;
 import projectlx.fuel.expenses.business.logic.api.OperationalFundRequestService;
+import projectlx.fuel.expenses.business.logic.api.RoadsideProviderService;
 import projectlx.fuel.expenses.business.logic.impl.FuelSessionServiceImpl;
 import projectlx.fuel.expenses.business.logic.impl.FuelTelemetryLogServiceImpl;
 import projectlx.fuel.expenses.business.logic.impl.OperationalFundRequestServiceImpl;
+import projectlx.fuel.expenses.business.logic.impl.RoadsideProviderServiceImpl;
 import projectlx.fuel.expenses.business.logic.support.CallerOrganizationResolver;
 import projectlx.fuel.expenses.business.logic.support.FuelExpensesMapper;
 import projectlx.fuel.expenses.business.logic.support.FundRequestNumberGenerator;
@@ -29,6 +31,7 @@ import projectlx.fuel.expenses.clients.TripTrackingServiceClient;
 import projectlx.fuel.expenses.repository.FuelSessionRepository;
 import projectlx.fuel.expenses.repository.FuelTelemetryLogRepository;
 import projectlx.fuel.expenses.repository.OperationalFundRequestRepository;
+import projectlx.fuel.expenses.repository.RoadsideProviderRepository;
 
 @Configuration
 public class BusinessConfig {
@@ -132,5 +135,12 @@ public class BusinessConfig {
                 rabbitTemplate,
                 messageService,
                 tripTrackingServiceClient);
+    }
+
+    @Bean
+    public RoadsideProviderService roadsideProviderService(
+            RoadsideProviderRepository roadsideProviderRepository,
+            FuelExpensesMapper fuelExpensesMapper) {
+        return new RoadsideProviderServiceImpl(roadsideProviderRepository, fuelExpensesMapper);
     }
 }

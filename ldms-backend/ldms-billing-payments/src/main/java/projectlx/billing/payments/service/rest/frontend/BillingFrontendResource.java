@@ -197,6 +197,17 @@ public class BillingFrontendResource {
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
+    @Auditable(action = "LIST_PENDING_PROCUREMENT_PAYMENTS")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/payments/pending-procurement")
+    @Operation(summary = "List pending procurement payments awaiting supplier verification")
+    public ResponseEntity<PaymentResponse> listPendingProcurementPayments(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        PaymentResponse response = paymentServiceProcessor.listPendingProcurementPayments(locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
     @Auditable(action = "VERIFY_PAYMENT")
     @PreAuthorize("isAuthenticated()")
     @PostMapping("/payments/{paymentId}/verify")

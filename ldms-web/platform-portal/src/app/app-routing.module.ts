@@ -4,9 +4,13 @@ import { AuthGuard } from './core/guards/auth.guard';
 import { ClassificationGuard } from './core/guards/classification.guard';
 import { RoleGuard } from './core/guards/role.guard';
 import { SupplierClassificationGuard } from './core/guards/supplier-classification.guard';
+import { WalletAccessGuard } from './core/guards/wallet-access.guard';
 import { ShellLayoutComponent } from './layout/shell-layout/shell-layout.component';
 import { PlaceholderPageComponent } from './features/portal/pages/placeholder-page/placeholder-page.component';
 import { LandingComponent } from './features/landing/pages/landing/landing.component';
+import { PricingPageComponent } from './features/landing/pages/pricing/pricing-page.component';
+import { AboutPageComponent } from './features/landing/pages/about/about-page.component';
+import { DemoPageComponent } from './features/landing/pages/demo/demo-page.component';
 import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
 
 const redirectBillingToSettings: CanActivateFn = () => {
@@ -16,6 +20,9 @@ const redirectBillingToSettings: CanActivateFn = () => {
 
 const routes: Routes = [
   { path: 'welcome', component: LandingComponent },
+  { path: 'pricing', component: PricingPageComponent },
+  { path: 'about', component: AboutPageComponent },
+  { path: 'demo', component: DemoPageComponent },
   { path: 'contact', component: ContactDemoComponent },
   {
     path: 'signup',
@@ -49,7 +56,7 @@ const routes: Routes = [
       },
       {
         path: 'products-inventory',
-        canActivate: [SupplierClassificationGuard],
+        canActivate: [SupplierClassificationGuard, WalletAccessGuard],
         loadChildren: () =>
           import('./features/inventory/inventory.module').then((m) => m.InventoryModule),
         data: { breadcrumb: 'Inventory management' },
@@ -61,12 +68,14 @@ const routes: Routes = [
       },
       {
         path: 'shipments',
+        canActivate: [WalletAccessGuard],
         loadChildren: () =>
           import('./features/trip-tracking/trip-tracking.module').then((m) => m.TripTrackingModule),
         data: { breadcrumb: 'Shipment management' },
       },
       {
         path: 'fleet',
+        canActivate: [WalletAccessGuard],
         loadChildren: () => import('./features/fleet/fleet.module').then((m) => m.FleetModule),
         data: { breadcrumb: 'Fleet & Transporters' },
       },
@@ -99,6 +108,7 @@ const routes: Routes = [
       { path: 'reports/trip-journeys', redirectTo: 'analytics/trips', pathMatch: 'full' },
       {
         path: 'my-orders',
+        canActivate: [WalletAccessGuard],
         loadChildren: () =>
           import('./features/inventory/orders.module').then((m) => m.OrdersModule),
         data: { breadcrumb: 'My Orders' },
@@ -121,10 +131,17 @@ const routes: Routes = [
         redirectTo: 'shipments/clearances',
         pathMatch: 'full',
       },
-      { path: 'truck-visits', component: PlaceholderPageComponent, data: { title: 'Truck Visits', breadcrumb: 'Truck Visits' } },
-      { path: 'fuel-log', component: PlaceholderPageComponent, data: { title: 'Fuel Log', breadcrumb: 'Fuel Log' } },
-      { path: 'incidents', component: PlaceholderPageComponent, data: { title: 'Incidents', breadcrumb: 'Incidents' } },
-      { path: 'service-log', component: PlaceholderPageComponent, data: { title: 'Service Log', breadcrumb: 'Service Log' } },
+      {
+        path: 'roadside',
+        canActivate: [WalletAccessGuard],
+        loadChildren: () =>
+          import('./features/roadside-support/roadside-support.module').then((m) => m.RoadsideSupportModule),
+        data: { breadcrumb: 'Roadside support' },
+      },
+      { path: 'truck-visits', redirectTo: 'roadside/truck-visits', pathMatch: 'full' },
+      { path: 'fuel-log', redirectTo: 'roadside/fuel-log', pathMatch: 'full' },
+      { path: 'incidents', redirectTo: 'roadside/incidents', pathMatch: 'full' },
+      { path: 'service-log', redirectTo: 'roadside/service-log', pathMatch: 'full' },
       {
         path: 'border-activity',
         component: PlaceholderPageComponent,

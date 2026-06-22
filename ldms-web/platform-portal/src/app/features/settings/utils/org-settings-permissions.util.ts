@@ -34,6 +34,10 @@ export function canManageProcurementSettings(roles: readonly string[]): boolean 
   return hasOrgRole(roles, 'UPDATE_MY_ORGAN');
 }
 
+export function canManageBillingApproverSettings(roles: readonly string[]): boolean {
+  return hasOrgRole(roles, 'UPDATE_MY_ORGAN');
+}
+
 export function canManageBillingSettings(classification?: OrganizationClassification): boolean {
   return (
     classification === 'SUPPLIER' ||

@@ -483,6 +483,42 @@
         </a>
       </div>
 
+      <div class="lt-roadside lx-card">
+        <div class="lt-roadside__head">
+          <div>
+            <p class="lt-roadside__eyebrow">Roadside support</p>
+            <h3>Fuel &amp; mechanics on route</h3>
+          </div>
+          <span class="lt-roadside__count" *ngIf="roadsideProviders.length">{{ roadsideProviders.length }} nearby</span>
+        </div>
+        <p class="lt-roadside__lead">
+          Verified fuel stations and workshops along your corridor. Plan a stop, then submit a driver fund request when you arrive.
+        </p>
+        <div class="lt-roadside__legend">
+          <span><i class="lt-legend-dot lt-legend-dot--fuel"></i> Fuel station</span>
+          <span><i class="lt-legend-dot lt-legend-dot--mechanic"></i> Mechanic</span>
+          <span><i class="lt-legend-dot lt-legend-dot--support"></i> Roadside support</span>
+        </div>
+        <div class="lt-roadside__loading" *ngIf="roadsideProvidersLoading">Loading nearby providers…</div>
+        <ul class="lt-roadside__list" *ngIf="!roadsideProvidersLoading && roadsideProviders.length">
+          <li *ngFor="let p of roadsideProviders">
+            <div class="lt-roadside__icon" [attr.data-type]="p.providerType">{{ providerGlyph(p.providerType) }}</div>
+            <div class="lt-roadside__copy">
+              <strong>{{ p.name }}</strong>
+              <span>{{ p.addressLabel || p.providerTypeLabel }}</span>
+              <small *ngIf="p.servicesOffered">{{ p.servicesOffered }}</small>
+            </div>
+            <div class="lt-roadside__meta">
+              <span *ngIf="p.distanceKm != null">{{ p.distanceKm }} km</span>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="planStopAtProvider(p)">Plan stop</button>
+            </div>
+          </li>
+        </ul>
+        <p class="lt-roadside__empty" *ngIf="!roadsideProvidersLoading && !roadsideProviders.length">
+          No verified providers in range yet — zoom the map or continue along the corridor.
+        </p>
+      </div>
+
       <div class="lt-requests lx-card">
         <div class="lt-requests__head">
           <div>

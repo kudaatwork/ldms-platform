@@ -13,6 +13,9 @@ import projectlx.trip.tracking.business.auditable.api.DeliveryOtpServiceAuditabl
 import projectlx.trip.tracking.business.auditable.api.TripEventServiceAuditable;
 import projectlx.trip.tracking.business.auditable.api.TripServiceAuditable;
 import projectlx.trip.tracking.business.logic.api.TripService;
+import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
+import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
+import projectlx.trip.tracking.business.logic.support.TripDeliveryWorkflowBootstrapSupport;
 import projectlx.trip.tracking.business.logic.support.CallerOrganizationResolver;
 import projectlx.trip.tracking.business.logic.support.TripDriverPortalSupport;
 import projectlx.trip.tracking.business.logic.support.LogisticsNotificationRecipientResolver;
@@ -80,6 +83,17 @@ import java.util.Set;
 @Slf4j
 public class TripServiceImpl implements TripService {
 
+  private static final List<TripStatus> ACTIVE_TRIP_STATUSES = List.of(
+            TripStatus.SCHEDULED,
+            TripStatus.IN_TRANSIT,
+            TripStatus.AT_BORDER_HOLD,
+            TripStatus.ROADSIDE_HOLD,
+            TripStatus.ARRIVED,
+            TripStatus.COUNTING_STOCK,
+            TripStatus.COUNT_COMPLETE,
+            TripStatus.OTP_PENDING,
+            TripStatus.RETURN_IN_TRANSIT);
+
     private final TripServiceValidator tripServiceValidator;
     private final TripServiceAuditable tripServiceAuditable;
     private final TripEventServiceAuditable tripEventServiceAuditable;
@@ -103,6 +117,14 @@ public class TripServiceImpl implements TripService {
     private final LogisticsLifecycleNotificationSupport logisticsLifecycleNotificationSupport;
     private final LogisticsNotificationRecipientResolver recipientResolver;
     private final TripDriverPortalSupport tripDriverPortalSupport;
+    private final TripDeliveryWorkflowBootstrapSupport workflowBootstrap;
+    private final PlatformWalletUsageSupport platformWalletUsageSupport;
+
+    private static final List<TripStatus> ARRIVAL_OR_DELIVERY_STATUSES = List.of(
+            TripStatus.ARRIVED,
+            TripStatus.COUNTING_STOCK,
+            TripStatus.COUNT_COMPLETE,
+            TripStatus.OTP_PENDING);
 
     private static final List<TripStatus> ACTIVE_STATUSES = List.of(
             TripStatus.SCHEDULED, TripStatus.IN_TRANSIT, TripStatus.AT_BORDER_HOLD,
@@ -209,6 +231,13 @@ public class TripServiceImpl implements TripService {
         Trip saved = tripServiceAuditable.create(trip, locale, username);
         log.info("Trip created: id={} number={} shipment={} org={}",
                 saved.getId(), saved.getTripNumber(), saved.getShipmentId(), organizationId);
+
+        platformWalletUsageSupport.chargeRequired(
+                organizationId,
+                PlatformWalletActionCodes.TRIP_CREATE,
+                "TRIP",
+                saved.getId(),
+                saved.getId());
 
         // ============================================================
         // STEP 6: Start inventory movement for linked source document
@@ -388,6 +417,13 @@ public class TripServiceImpl implements TripService {
             return errorResponse(404, messageService.getMessage(I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
         }
 
+        platformWalletUsageSupport.chargeRequired(
+                trip.getOrganizationId(),
+                PlatformWalletActionCodes.TRIP_TRACK,
+                "TRIP",
+                trip.getId(),
+                trip.getId());
+
         // ============================================================
         // STEP 3: Record CHECKPOINT event
         // ============================================================
@@ -452,13 +488,21 @@ public class TripServiceImpl implements TripService {
         }
 
         // ============================================================
-        // STEP 2: Load trip and assert IN_TRANSIT
+        // STEP 2: Load trip — IN_TRANSIT required unless already in delivery phase (idempotent)
         // ============================================================
         Trip trip = tripRepository.findByIdAndEntityStatusNot(request.getTripId(), EntityStatus.DELETED).orElse(null);
         if (trip == null) {
             return errorResponse(404, messageService.getMessage(I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
         }
         if (trip.getStatus() != TripStatus.IN_TRANSIT) {
+            if (ARRIVAL_OR_DELIVERY_STATUSES.contains(trip.getStatus())) {
+                LocalDateTime now = LocalDateTime.now();
+                workflowBootstrap.ensureWorkflow(trip, now, username, locale);
+                TripResponse idempotent = successResponse(200, messageService.getMessage(
+                        I18Code.MESSAGE_TRIP_ARRIVAL_TRIGGERED_SUCCESS.getCode(), new String[]{}, locale));
+                idempotent.setTripDto(TripMapper.toDto(trip));
+                return idempotent;
+            }
             return errorResponse(400, messageService.getMessage(
                     I18Code.MESSAGE_TRIP_NOT_IN_TRANSIT.getCode(), new String[]{}, locale));
         }
@@ -473,6 +517,8 @@ public class TripServiceImpl implements TripService {
         trip.setModifiedBy(username);
         tripServiceAuditable.update(trip, locale, username);
         log.info("Trip {} status set to ARRIVED at {}", trip.getId(), now);
+
+        workflowBootstrap.ensureWorkflow(trip, now, username, locale);
 
         // ============================================================
         // STEP 4: Record ARRIVED event
@@ -604,6 +650,13 @@ public class TripServiceImpl implements TripService {
         trip.setModifiedBy(username);
         tripServiceAuditable.update(trip, locale, username);
 
+        platformWalletUsageSupport.chargeRequired(
+                trip.getOrganizationId(),
+                PlatformWalletActionCodes.TRIP_COMPLETE,
+                "TRIP",
+                trip.getId(),
+                trip.getId());
+
         // ============================================================
         // STEP 7: Update shipment → DELIVERED
         // ============================================================
@@ -671,11 +724,21 @@ public class TripServiceImpl implements TripService {
         int page = Math.max(0, filters.getPage());
         int size = (filters.getSize() > 0 && filters.getSize() <= 100) ? filters.getSize() : 20;
 
-        Page<Trip> trips = tripRepository.findByFilters(
-                organizationId, statusFilter,
-                filters.getSearchTerm(),
-                EntityStatus.DELETED,
-                PageRequest.of(page, size));
+        Page<Trip> trips;
+        if (Boolean.TRUE.equals(filters.getActiveOnly())) {
+            trips = tripRepository.findActiveByFilters(
+                    organizationId,
+                    ACTIVE_TRIP_STATUSES,
+                    filters.getSearchTerm(),
+                    EntityStatus.DELETED,
+                    PageRequest.of(page, size));
+        } else {
+            trips = tripRepository.findByFilters(
+                    organizationId, statusFilter,
+                    filters.getSearchTerm(),
+                    EntityStatus.DELETED,
+                    PageRequest.of(page, size));
+        }
 
         List<TripDto> dtos = dedupeActiveTripsPerShipment(
                 trips.getContent().stream().map(TripMapper::toDto).toList());
@@ -712,7 +775,7 @@ public class TripServiceImpl implements TripService {
             return errorResponse(404, messageService.getMessage(
                     I18Code.MESSAGE_DRIVER_PROFILE_NOT_FOUND.getCode(), new String[]{}, locale));
         }
-        List<DriverTripSummaryDto> trips = tripDriverPortalSupport.listTripsForDriver(fleetDriverId);
+        List<DriverTripSummaryDto> trips = tripDriverPortalSupport.listTripsForDriver(fleetDriverId, locale);
         TripResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_TRIP_FIND_ALL_SUCCESS.getCode(), new String[]{}, locale));
         response.setDriverTripSummaryDtoList(trips);
@@ -724,17 +787,23 @@ public class TripServiceImpl implements TripService {
     public TripResponse findMyTripById(Long tripId, Locale locale, String username) {
         Long sessionUserId = tripDriverPortalSupport.resolveSessionUserId(username, locale);
         Long fleetDriverId = tripDriverPortalSupport.resolveFleetDriverId(username, locale);
-        if (fleetDriverId == null) {
-            return errorResponse(404, messageService.getMessage(
-                    I18Code.MESSAGE_DRIVER_PROFILE_NOT_FOUND.getCode(), new String[]{}, locale));
-        }
+        Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
+
         Trip trip = tripRepository.findByIdAndEntityStatusNotNoLock(tripId, EntityStatus.DELETED).orElse(null);
-        if (trip == null || !tripDriverPortalSupport.isTripAccessibleToDriver(trip, fleetDriverId, sessionUserId, locale)) {
+        if (trip == null) {
             return errorResponse(404, messageService.getMessage(I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
         }
+
+        boolean driverAccess = fleetDriverId != null
+                && tripDriverPortalSupport.isTripAccessibleToDriver(trip, fleetDriverId, sessionUserId, locale);
+        boolean organizationAccess = organizationId != null && organizationId.equals(trip.getOrganizationId());
+        if (!driverAccess && !organizationAccess) {
+            return errorResponse(404, messageService.getMessage(I18Code.MESSAGE_TRIP_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+
         TripResponse response = successResponse(200,
                 messageService.getMessage(I18Code.MESSAGE_TRIP_FIND_SUCCESS.getCode(), new String[]{}, locale));
-        response.setDriverTripSummaryDto(tripDriverPortalSupport.toSummary(trip));
+        response.setDriverTripSummaryDto(tripDriverPortalSupport.toSummary(trip, locale));
         return response;
     }
 

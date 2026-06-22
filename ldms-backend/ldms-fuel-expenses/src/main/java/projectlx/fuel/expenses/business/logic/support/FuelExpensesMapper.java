@@ -3,8 +3,10 @@ package projectlx.fuel.expenses.business.logic.support;
 import org.springframework.stereotype.Component;
 import projectlx.fuel.expenses.model.FuelTelemetryLog;
 import projectlx.fuel.expenses.model.OperationalFundRequest;
+import projectlx.fuel.expenses.model.RoadsideProvider;
 import projectlx.fuel.expenses.utils.dtos.FuelTelemetryLogDto;
 import projectlx.fuel.expenses.utils.dtos.OperationalFundRequestDto;
+import projectlx.fuel.expenses.utils.dtos.RoadsideProviderDto;
 
 @Component
 public class FuelExpensesMapper {
@@ -64,5 +66,36 @@ public class FuelExpensesMapper {
         dto.setCreatedAt(entity.getCreatedAt());
         dto.setCreatedBy(entity.getCreatedBy());
         return dto;
+    }
+
+    public RoadsideProviderDto toRoadsideProviderDto(RoadsideProvider entity) {
+        if (entity == null) {
+            return null;
+        }
+        RoadsideProviderDto dto = new RoadsideProviderDto();
+        dto.setId(entity.getId());
+        dto.setProviderType(entity.getProviderType());
+        dto.setProviderTypeLabel(formatProviderType(entity.getProviderType()));
+        dto.setName(entity.getName());
+        dto.setDescription(entity.getDescription());
+        dto.setPhone(entity.getPhone());
+        dto.setServicesOffered(entity.getServicesOffered());
+        dto.setLatitude(entity.getLatitude());
+        dto.setLongitude(entity.getLongitude());
+        dto.setAddressLabel(entity.getAddressLabel());
+        dto.setOpen24Hours(entity.isOpen24Hours());
+        dto.setVerified(entity.isVerified());
+        return dto;
+    }
+
+    private static String formatProviderType(projectlx.fuel.expenses.model.RoadsideProviderType type) {
+        if (type == null) {
+            return "Support";
+        }
+        return switch (type) {
+            case FUEL_STATION -> "Fuel station";
+            case MECHANIC -> "Mechanic";
+            case ROADSIDE_SUPPORT -> "Roadside support";
+        };
     }
 }

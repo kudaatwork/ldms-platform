@@ -41,8 +41,13 @@
         <label class="lx-field-label">Description</label>
         <div class="lx-input-shell lx-input-shell--textarea">
           <mat-icon class="lx-input-shell__icon">notes</mat-icon>
-          <textarea formControlName="description" rows="2" placeholder="Marketing description"></textarea>
+          <textarea
+            formControlName="description"
+            rows="5"
+            placeholder="One feature per line, e.g.&#10;Essential platform access&#10;Standard usage tracking&#10;Best for small teams"
+          ></textarea>
         </div>
+        <div class="lx-field-hint">Each line appears as a bullet point on the landing page and in billing settings.</div>
       </div>
 
       <div class="lx-field">
@@ -60,6 +65,39 @@
           <input formControlName="currencyCode" maxlength="3" placeholder="USD" />
         </div>
         <div class="lx-field-hint">3-letter ISO 4217 code.</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Included Heavy credits</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">local_shipping</mat-icon>
+          <input type="number" min="0" formControlName="includedHeavyCredits" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Included Standard credits</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">swap_horiz</mat-icon>
+          <input type="number" min="0" formControlName="includedStandardCredits" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Included Light credits</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">tune</mat-icon>
+          <input type="number" min="0" formControlName="includedLightCredits" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Included tracking-day credits</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">share_location</mat-icon>
+          <input type="number" min="0" formControlName="includedTrackingDayCredits" />
+        </div>
+        <div class="lx-field-hint">Monthly fused-tier allowances bundled with subscription.</div>
       </div>
 
       <div class="lx-field lx-field--toggle">

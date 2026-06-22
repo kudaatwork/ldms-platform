@@ -290,3 +290,73 @@
 :host ::ng-deep .flt-driver-dialog__user-radio .mdc-form-field {
   width: auto;
 }
+
+.flt-driver-dialog__legacy {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--amber-200, #fde68a);
+  background: var(--amber-50, #fffbeb);
+  border-radius: 12px;
+
+  &--linked {
+    border-color: var(--green-200, #bbf7d0);
+    background: var(--green-50, #f0fdf4);
+  }
+}
+
+.flt-driver-dialog__legacy-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: start;
+
+  > mat-icon {
+    color: var(--amber-700, #b45309);
+    margin-top: 2px;
+  }
+}
+
+.flt-driver-dialog__legacy--linked .flt-driver-dialog__legacy-head > mat-icon {
+  color: var(--green-700, #15803d);
+}
+
+.flt-driver-dialog__legacy-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--gray-900);
+}
+
+.flt-driver-dialog__legacy-lead {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--gray-600);
+}
+
+.flt-driver-dialog__legacy-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.flt-driver-dialog__provision-success {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  color: var(--green-800, #166534);
+  background: var(--green-50, #f0fdf4);
+  border: 1px solid var(--green-200, #bbf7d0);
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}

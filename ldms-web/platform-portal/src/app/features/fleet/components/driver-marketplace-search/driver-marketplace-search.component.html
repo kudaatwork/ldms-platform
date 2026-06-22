@@ -2,48 +2,158 @@
   <div class="lx-dialog-header">
     <div class="lx-header-text">
       <h2 class="lx-dialog-title">Find freelance drivers</h2>
-      <p class="lx-dialog-subtitle">Browse available drivers on the platform marketplace. Hire a driver to add them to your roster.</p>
+      <p class="lx-dialog-subtitle">
+        Search the marketplace, review applicant profiles and documents, then request a driver to join your roster.
+      </p>
     </div>
     <button mat-icon-button class="lx-close-button" type="button" aria-label="Close" (click)="close()">
       <mat-icon>close</mat-icon>
     </button>
   </div>
 
-  <!-- Search bar -->
   <div class="mkt-search-bar">
     <div class="lx-input-shell mkt-search-input">
       <mat-icon class="lx-input-shell__icon">search</mat-icon>
       <input
         [(ngModel)]="query"
         (ngModelChange)="onQueryChange()"
-        placeholder="Search by name, licence number, or phone…"
+        placeholder="Search by name, email, licence, phone, or ID…"
         autocomplete="off"
         aria-label="Search drivers"
       />
     </div>
   </div>
 
-  <!-- Error banner -->
-  <div class="mkt-error" *ngIf="error">
+  <div class="mkt-tabs" role="tablist">
+    <button
+      type="button"
+      class="mkt-tab"
+      [class.mkt-tab--active]="activeTab === 'applicants'"
+      (click)="selectTab('applicants')"
+    >
+      New applicants
+      <span class="mkt-tab__count" *ngIf="applicantCount > 0">{{ applicantCount }}</span>
+    </button>
+    <button
+      type="button"
+      class="mkt-tab"
+      [class.mkt-tab--active]="activeTab === 'pool'"
+      (click)="selectTab('pool')"
+    >
+      Available drivers
+      <span class="mkt-tab__count" *ngIf="poolCount > 0">{{ poolCount }}</span>
+    </button>
+  </div>
+
+  <div class="mkt-error" *ngIf="activeTab === 'applicants' && applicantsError">
     <mat-icon>error_outline</mat-icon>
-    {{ error }}
+    {{ applicantsError }}
   </div>
-  <div class="mkt-error mkt-error--hire" *ngIf="hireError">
+  <div class="mkt-error" *ngIf="activeTab === 'pool' && poolError">
+    <mat-icon>error_outline</mat-icon>
+    {{ poolError }}
+  </div>
+  <div class="mkt-error mkt-error--action" *ngIf="actionError">
     <mat-icon>warning</mat-icon>
-    {{ hireError }}
+    {{ actionError }}
   </div>
 
-  <!-- Loading -->
-  <div class="mkt-loading" *ngIf="loading && !drivers.length">
+  <div class="mkt-loading" *ngIf="activeTab === 'applicants' && applicantsLoading && !filteredApplicants.length">
     <mat-icon class="mkt-loading__icon spin">autorenew</mat-icon>
-    Searching marketplace…
+    Loading applicants…
   </div>
 
-  <!-- Driver cards -->
-  <div class="mkt-results" *ngIf="!loading || drivers.length">
-    <div class="mkt-empty" *ngIf="!drivers.length && !loading">
+  <!-- New applicants (pending freelance signups) -->
+  <div class="mkt-results" *ngIf="activeTab === 'applicants'">
+    <div class="mkt-empty" *ngIf="!applicantsLoading && !filteredApplicants.length">
       <mat-icon>person_search</mat-icon>
-      <span>No freelance drivers match your search.</span>
+      <span>No new freelance applicants match your search.</span>
+    </div>
+
+    <div class="mkt-card mkt-card--applicant" *ngFor="let applicant of filteredApplicants">
+      <div class="mkt-card__avatar" [style.--hue]="applicant.accentHue">
+        {{ applicant.initials }}
+      </div>
+      <div class="mkt-card__body">
+        <div class="mkt-card__header">
+          <div class="mkt-card__info">
+            <span class="mkt-card__name">{{ applicant.fullName }}</span>
+            <span class="mkt-card__detail">
+              <mat-icon>email</mat-icon>{{ applicant.email || '—' }}
+            </span>
+            <span class="mkt-card__detail">
+              <mat-icon>phone</mat-icon>{{ applicant.phoneNumber }}
+            </span>
+            <span class="mkt-card__detail">
+              <mat-icon>badge</mat-icon>{{ applicant.nationalIdNumber }}
+              &nbsp;·&nbsp;
+              <mat-icon>credit_card</mat-icon>{{ applicant.licenseNumber }}
+              <ng-container *ngIf="applicant.licenseClass !== '—'"> ({{ applicant.licenseClass }})</ng-container>
+            </span>
+            <span class="mkt-card__tag mkt-card__tag--pending">Awaiting review</span>
+          </div>
+          <button
+            mat-stroked-button
+            type="button"
+            class="mkt-card__review-btn"
+            (click)="toggleProfile(applicant)"
+          >
+            <mat-icon>{{ expandedApplicantId === applicant.id ? 'expand_less' : 'expand_more' }}</mat-icon>
+            {{ expandedApplicantId === applicant.id ? 'Hide profile' : 'Review profile' }}
+          </button>
+        </div>
+
+        <div class="mkt-profile" *ngIf="expandedApplicantId === applicant.id">
+          <p class="mkt-profile__hint">
+            Review identity documents before requesting this driver. Approving adds them to your roster and emails login credentials.
+          </p>
+          <div class="mkt-profile__docs" *ngIf="documentLinks(applicant).length">
+            <button
+              type="button"
+              class="mkt-doc-link"
+              *ngFor="let link of documentLinks(applicant)"
+              (click)="viewDocument(applicant, link)"
+            >
+              <mat-icon>visibility</mat-icon>{{ link.label }}
+            </button>
+          </div>
+          <div class="mkt-profile__actions">
+            <button
+              mat-raised-button
+              color="primary"
+              class="mkt-card__hire-btn"
+              [disabled]="actioningApplicantId !== null"
+              (click)="requestDriver(applicant)"
+            >
+              <mat-icon *ngIf="actioningApplicantId !== applicant.id">person_add</mat-icon>
+              <mat-icon *ngIf="actioningApplicantId === applicant.id" class="spin">autorenew</mat-icon>
+              {{ actioningApplicantId === applicant.id ? 'Requesting…' : 'Request driver' }}
+            </button>
+            <button
+              mat-stroked-button
+              color="warn"
+              [disabled]="actioningApplicantId !== null"
+              (click)="declineApplicant(applicant)"
+            >
+              <mat-icon>close</mat-icon>
+              Decline
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Approved pool drivers -->
+  <div class="mkt-results" *ngIf="activeTab === 'pool'">
+    <div class="mkt-loading" *ngIf="poolLoading && !drivers.length">
+      <mat-icon class="mkt-loading__icon spin">autorenew</mat-icon>
+      Searching drivers…
+    </div>
+
+    <div class="mkt-empty" *ngIf="!poolLoading && !drivers.length">
+      <mat-icon>groups</mat-icon>
+      <span>No approved freelance drivers match your search.</span>
     </div>
 
     <div class="mkt-card" *ngFor="let driver of drivers">

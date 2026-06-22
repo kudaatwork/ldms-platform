@@ -53,6 +53,8 @@ export interface CurrentUser {
   procurementApprover?: boolean;
   /** Organisation user flagged to allocate fleet to shipments. */
   shipmentFleetAllocator?: boolean;
+  /** Organisation user flagged to verify customer procurement payments. */
+  billingApprover?: boolean;
   /** Organisation workspace administrator (Administrator group). */
   organizationWorkspaceAdministrator?: boolean;
   /** Standalone mode: org operates without platform trading partners (uses CRM trading partners instead). */

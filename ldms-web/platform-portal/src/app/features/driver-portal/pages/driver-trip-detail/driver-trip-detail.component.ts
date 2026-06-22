@@ -8,7 +8,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { DriverPortalService } from '../../services/driver-portal.service';
-import { DriverTripRow, DeliveryWorkflowPhase } from '../../models/driver-portal.model';
+import { DriverTripRow, DeliveryWorkflowPhase, TripDeliveryWorkflowResponse } from '../../models/driver-portal.model';
 
 @Component({
   selector: 'app-driver-trip-detail',
@@ -25,6 +25,7 @@ export class DriverTripDetailComponent implements OnInit, OnDestroy {
   showWorkflow = false;
   workflowInitialPhase: DeliveryWorkflowPhase = 'ARRIVAL';
   arrivalSuggested = false;
+  returnTo: 'driver' | 'trips' = 'driver';
 
   private readonly destroy$ = new Subject<void>();
 
@@ -47,6 +48,8 @@ export class DriverTripDetailComponent implements OnInit, OnDestroy {
     this.tripIdFromRoute = id;
     const arrivalSuggested = this.route.snapshot.queryParamMap.get('arrivalSuggested') === '1';
     this.arrivalSuggested = arrivalSuggested;
+    const returnTo = this.route.snapshot.queryParamMap.get('returnTo');
+    this.returnTo = returnTo === 'trips' ? 'trips' : 'driver';
 
     this.loadTrip(id);
     if (workflow) {
@@ -57,6 +60,10 @@ export class DriverTripDetailComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  get backLabel(): string {
+    return this.returnTo === 'trips' ? 'Trips' : 'My trips';
   }
 
   private loadTrip(id: number, showLoading = true): void {
@@ -90,6 +97,39 @@ export class DriverTripDetailComponent implements OnInit, OnDestroy {
     }
   }
 
+  onWorkflowStateLoaded(res: TripDeliveryWorkflowResponse): void {
+    const tripDto = res.tripDto;
+    if (!tripDto?.id) {
+      return;
+    }
+    const status = String(tripDto.status ?? '').toUpperCase();
+    if (!this.trip) {
+      this.trip = {
+        id: tripDto.id,
+        tripNumber: tripDto.tripNumber ?? `Trip ${tripDto.id}`,
+        shipmentNumber: '',
+        route: '—',
+        cargoLabel: '—',
+        productName: '',
+        quantity: 0,
+        unitOfMeasure: '',
+        vehicleRegistration: '—',
+        status,
+        statusLabel: status.replace(/_/g, ' '),
+        statusTone: 'info',
+        startedAtLabel: '—',
+        canTriggerArrival: status === 'IN_TRANSIT',
+        canStartDeliveryWorkflow: status !== 'IN_TRANSIT' && status !== 'SCHEDULED',
+        canLiveTrack: status === 'IN_TRANSIT' || status === 'RETURN_IN_TRANSIT',
+        deliveryWorkflowPhase: resolveWorkflowPhaseFromStatus(status),
+      };
+      if (this.error) {
+        this.error = '';
+      }
+      this.cdr.markForCheck();
+    }
+  }
+
   openDeliveryWorkflow(): void {
     this.showWorkflow = true;
     this.cdr.markForCheck();
@@ -99,17 +139,21 @@ export class DriverTripDetailComponent implements OnInit, OnDestroy {
   }
 
   onWorkflowComplete(): void {
-    void this.router.navigate(['/driver'], { replaceUrl: true });
+    void this.router.navigate(['/driver/workspace'], { replaceUrl: true });
   }
 
   goBack(): void {
-    void this.router.navigate(['/driver']);
+    if (this.returnTo === 'trips') {
+      void this.router.navigate(['/shipments/trips']);
+      return;
+    }
+    void this.router.navigate(['/driver/workspace']);
   }
 
   openLiveTrack(): void {
     const tripId = this.trip?.id ?? this.tripIdFromRoute;
     if (tripId) {
-      void this.router.navigate(['/shipments', 'live', tripId]);
+      void this.router.navigate(['/driver', 'live', tripId]);
     }
   }
 
@@ -122,5 +166,25 @@ export class DriverTripDetailComponent implements OnInit, OnDestroy {
       muted: 'radio_button_unchecked',
     };
     return map[tone] ?? 'radio_button_unchecked';
+  }
+}
+
+function resolveWorkflowPhaseFromStatus(status: string): DeliveryWorkflowPhase {
+  switch (status) {
+    case 'ARRIVED':
+    case 'COUNTING_STOCK':
+      return 'STOCK_COUNTING';
+    case 'COUNT_COMPLETE':
+      return 'SEND_OTP';
+    case 'OTP_PENDING':
+      return 'OTP_VERIFICATION';
+    case 'DELIVERED':
+      return 'START_RETURN';
+    case 'RETURN_IN_TRANSIT':
+      return 'RETURNS';
+    case 'RETURNED':
+      return 'COMPLETE';
+    default:
+      return 'ARRIVAL';
   }
 }

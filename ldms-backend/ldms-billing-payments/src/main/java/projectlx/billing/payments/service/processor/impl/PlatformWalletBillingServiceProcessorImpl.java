@@ -4,11 +4,13 @@ import lombok.RequiredArgsConstructor;
 import projectlx.billing.payments.business.logic.api.PlatformWalletBillingService;
 import projectlx.billing.payments.service.processor.api.PlatformWalletBillingServiceProcessor;
 import projectlx.billing.payments.utils.requests.CreateWalletDepositRequest;
+import projectlx.billing.payments.utils.requests.CreditOrganizationWalletRequest;
 import projectlx.billing.payments.utils.requests.RecordPlatformUsageChargeRequest;
 import projectlx.billing.payments.utils.requests.SaveOrganizationBillingSettingRequest;
 import projectlx.billing.payments.utils.requests.SavePlatformActionChargeRequest;
 import projectlx.billing.payments.utils.requests.SaveSubscriptionPackageRequest;
 import projectlx.billing.payments.utils.requests.UsageChargeReportRequest;
+import projectlx.billing.payments.utils.dtos.WalletReceiptPdfDto;
 import projectlx.billing.payments.utils.responses.PlatformWalletResponse;
 
 import java.util.Locale;
@@ -70,6 +72,11 @@ public class PlatformWalletBillingServiceProcessorImpl implements PlatformWallet
     }
 
     @Override
+    public PlatformWalletResponse listConfirmedDeposits(Locale locale) {
+        return platformWalletBillingService.listConfirmedDeposits(locale);
+    }
+
+    @Override
     public PlatformWalletResponse listActionCharges(Locale locale) {
         return platformWalletBillingService.listActionCharges(locale);
     }
@@ -86,9 +93,24 @@ public class PlatformWalletBillingServiceProcessorImpl implements PlatformWallet
     }
 
     @Override
+    public PlatformWalletResponse deleteActionCharge(Long chargeId, Locale locale, String username) {
+        return platformWalletBillingService.deleteActionCharge(chargeId, locale, username);
+    }
+
+    @Override
     public PlatformWalletResponse saveSubscriptionPackage(
             SaveSubscriptionPackageRequest request, Locale locale, String username) {
         return platformWalletBillingService.saveSubscriptionPackage(request, locale, username);
+    }
+
+    @Override
+    public PlatformWalletResponse deleteSubscriptionPackage(Long packageId, Locale locale, String username) {
+        return platformWalletBillingService.deleteSubscriptionPackage(packageId, locale, username);
+    }
+
+    @Override
+    public PlatformWalletResponse getPublicPricingCatalog(Locale locale) {
+        return platformWalletBillingService.getPublicPricingCatalog(locale);
     }
 
     @Override
@@ -100,5 +122,26 @@ public class PlatformWalletBillingServiceProcessorImpl implements PlatformWallet
     @Override
     public PlatformWalletResponse getUsageReport(UsageChargeReportRequest request, Locale locale, String username) {
         return platformWalletBillingService.getUsageReport(request, locale, username);
+    }
+
+    @Override
+    public PlatformWalletResponse creditOrganizationWallet(
+            CreditOrganizationWalletRequest request, Locale locale, String username) {
+        return platformWalletBillingService.creditOrganizationWallet(request, locale, username);
+    }
+
+    @Override
+    public PlatformWalletResponse getTransactionReceipt(Long transactionId, Locale locale, String username) {
+        return platformWalletBillingService.getTransactionReceipt(transactionId, locale, username);
+    }
+
+    @Override
+    public WalletReceiptPdfDto getTransactionReceiptPdf(Long transactionId, Locale locale, String username) {
+        return platformWalletBillingService.getTransactionReceiptPdf(transactionId, locale, username);
+    }
+
+    @Override
+    public PlatformWalletResponse rejectWalletDeposit(Long depositId, Locale locale, String username) {
+        return platformWalletBillingService.rejectWalletDeposit(depositId, locale, username);
     }
 }

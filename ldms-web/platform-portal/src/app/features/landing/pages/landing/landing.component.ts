@@ -11,7 +11,7 @@ import {
 import { Router } from '@angular/router';
 import { gsap } from 'gsap';
 import { environment } from '../../../../../environments/environment';
-import { ThemeService } from '../../../../core/services/theme.service';
+import { LandingMotionService } from '../../services/landing-motion.service';
 
 /** Pexels CDN — logistics, distribution & supply chain (pexels.com licence). */
 const px = (id: number, w = 800, h = 1000) =>
@@ -64,7 +64,6 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   readonly appleAppStoreUrl = environment.mobileApps.appleAppStoreUrl;
   readonly googlePlayStoreUrl = environment.mobileApps.googlePlayStoreUrl;
 
-  readonly mobileNavOpen = signal(false);
   readonly activeFeatureTab = signal(0);
   readonly activeFeature = computed(() => this.featureTabs[this.activeFeatureTab()]);
 
@@ -75,6 +74,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   readonly journeyImage = px(PEX.highwayInterchange, 900, 1100);
   readonly ctaBandImage = px(PEX.yardForklifts, 1200, 800);
   readonly accessPortalCardImage = px(PEX.warehousePallets, 800, 520);
+  readonly accessDriverCardImage = px(PEX.truckHighwaySide, 800, 520);
   readonly accessAdminCardImage = px(PEX.distributionCenter, 800, 520);
 
   readonly heroStats = [
@@ -402,43 +402,27 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     },
   ] as const;
 
-  private navScrolled = false;
-  private navScrollRaf = 0;
-  private scrollBarEl: HTMLElement | null = null;
-
   private readonly onWindowScroll = (): void => {
-    if (this.navScrollRaf) {
-      return;
-    }
-    this.navScrollRaf = requestAnimationFrame(() => {
-      this.navScrollRaf = 0;
-      this.updateScrollChrome();
-    });
+    // Scroll chrome handled by landing shell.
   };
 
   constructor(
     private readonly router: Router,
-    readonly theme: ThemeService,
     private readonly el: ElementRef<HTMLElement>,
     private readonly ngZone: NgZone,
+    private readonly motion: LandingMotionService,
   ) {}
 
   ngAfterViewInit(): void {
     this.ngZone.runOutsideAngular(() => {
-      this.initScrollBar();
       this.initHeroReveal();
-      this.initSectionReveals();
       this.initCounters();
-      this.initNavScrollState();
       this.initFeatureTabMotion();
     });
   }
 
   ngOnDestroy(): void {
     window.removeEventListener('scroll', this.onWindowScroll);
-    if (this.navScrollRaf) {
-      cancelAnimationFrame(this.navScrollRaf);
-    }
   }
 
   selectFeatureTab(index: number): void {
@@ -486,49 +470,18 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   }
 
   private initScrollBar(): void {
-    this.scrollBarEl = this.el.nativeElement.querySelector('.ldms-scroll-bar');
+    // noop — shell owns scroll bar
   }
 
   private initHeroReveal(): void {
-    const heroEls = this.el.nativeElement.querySelectorAll(
+    this.motion.initHeroReveal(
+      this.el.nativeElement,
       '.ldms-hero__eyebrow, .ldms-hero__title, .ldms-hero__lead, .ldms-hero__cta, .ldms-hero__apps, .ldms-hero__visual',
     );
-    if (heroEls.length) {
-      gsap.fromTo(
-        heroEls,
-        { y: 36, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.85, stagger: 0.1, ease: 'power3.out', delay: 0.15 },
-      );
-    }
   }
 
   private initSectionReveals(): void {
-    const reveals = this.el.nativeElement.querySelectorAll('.ldms-reveal');
-    const revealIn = (target: Element) => target.classList.add('ldms-reveal--in');
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        requestAnimationFrame(() => {
-          entries.forEach((e) => {
-            if (e.isIntersecting) {
-              revealIn(e.target);
-              io.unobserve(e.target);
-            }
-          });
-        });
-      },
-      { threshold: 0.12, rootMargin: '0px 0px -8% 0px' },
-    );
-
-    reveals.forEach((element: Element) => {
-      const rect = element.getBoundingClientRect();
-      const vh = window.innerHeight || document.documentElement.clientHeight || 0;
-      if (rect.top < vh * 0.94 && rect.bottom > vh * 0.06) {
-        revealIn(element);
-      } else {
-        io.observe(element);
-      }
-    });
+    // noop — shell binds section reveals for projected content
   }
 
   private initCounters(): void {
@@ -562,8 +515,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   }
 
   private initNavScrollState(): void {
-    this.updateScrollChrome();
-    window.addEventListener('scroll', this.onWindowScroll, { passive: true });
+    // noop — shell owns nav scroll state
   }
 
   private initFeatureTabMotion(): void {
@@ -577,34 +529,16 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  private initPrepaidDemoMotion(): void {
+    // prepaid demo lives on /pricing
+  }
+
   private updateScrollChrome(): void {
-    const y = window.scrollY || document.documentElement.scrollTop || 0;
-    const shell = this.el.nativeElement.querySelector('.ldms-landing__nav-shell');
-    const nextNavScrolled = this.navScrolled ? y > 48 : y > 96;
-    if (shell && nextNavScrolled !== this.navScrolled) {
-      this.navScrolled = nextNavScrolled;
-      shell.classList.toggle('ldms-landing__nav-shell--scrolled', nextNavScrolled);
-    }
-    if (this.scrollBarEl) {
-      const max = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
-      this.scrollBarEl.style.transform = `scaleX(${Math.min(Math.max(y / max, 0), 1)})`;
-    }
+    // noop
   }
 
   scrollTo(id: string): void {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  toggleTheme(): void {
-    this.theme.toggle();
-  }
-
-  toggleMobileNav(): void {
-    this.mobileNavOpen.update((open) => !open);
-  }
-
-  closeMobileNav(): void {
-    this.mobileNavOpen.set(false);
   }
 
   goSignup(): void {
@@ -613,6 +547,10 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
 
   goDriverSignup(): void {
     void this.router.navigate(['/driver/signup']);
+  }
+
+  goDemo(): void {
+    void this.router.navigate(['/demo']);
   }
 
   goBookDemo(): void {

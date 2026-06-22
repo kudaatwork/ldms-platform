@@ -15,5 +15,7 @@ public class BotKnowledgeStatusDto {
     private int documentCount;
     private int characterCount;
     private int faqCount;
+    private int pdfDocumentCount;
+    private int pdfCharacterCount;
     private List<String> sources;
 }

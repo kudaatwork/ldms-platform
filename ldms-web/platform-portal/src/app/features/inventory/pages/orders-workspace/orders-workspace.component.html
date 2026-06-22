@@ -499,16 +499,41 @@
         </div>
 
         <div class="ord-payment-panel__foot">
-          <div class="ord-payment-disabled-gateways">
-            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" disabled title="PayPal integration coming soon">
-              <mat-icon>account_balance_wallet</mat-icon>
-              PayPal
-            </button>
-            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" disabled title="Mastercard integration coming soon">
-              <mat-icon>credit_card</mat-icon>
-              Mastercard
-            </button>
-            <span class="ord-payment-coming-soon">Payment gateway integrations coming soon</span>
+          <div class="ord-payment-gateways">
+            <p class="ord-payment-gateways__title">Online payment gateways</p>
+            <div class="ord-payment-gateways__grid">
+              <article class="ord-gateway-card ord-gateway-card--paynow">
+                <div class="ord-gateway-card__logo">PN</div>
+                <div class="ord-gateway-card__copy">
+                  <strong>PayNow</strong>
+                  <span>Zimbabwe mobile &amp; bank rails</span>
+                </div>
+                <span class="ord-gateway-card__badge">Coming soon</span>
+              </article>
+              <article class="ord-gateway-card ord-gateway-card--paypal">
+                <div class="ord-gateway-card__logo">
+                  <mat-icon>account_balance_wallet</mat-icon>
+                </div>
+                <div class="ord-gateway-card__copy">
+                  <strong>PayPal</strong>
+                  <span>International checkout</span>
+                </div>
+                <span class="ord-gateway-card__badge">Coming soon</span>
+              </article>
+              <article class="ord-gateway-card ord-gateway-card--card">
+                <div class="ord-gateway-card__logo">
+                  <mat-icon>credit_card</mat-icon>
+                </div>
+                <div class="ord-gateway-card__copy">
+                  <strong>Mastercard</strong>
+                  <span>Card payments via LX</span>
+                </div>
+                <span class="ord-gateway-card__badge">Coming soon</span>
+              </article>
+            </div>
+            <p class="ord-payment-gateways__hint">
+              For this release, upload proof of payment or record the transfer in LX. Dispatch unlocks after your supplier verifies the payment.
+            </p>
           </div>
           <ng-container *ngFor="let o of purchaseOrders">
             <button

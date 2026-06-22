@@ -15,6 +15,21 @@
       </button>
       <button type="button" class="lx-btn lx-btn-primary lx-btn-accent" routerLink="/analytics">Open analytics</button>
     </div>
+
+    <lx-workspace-hero-stat
+      *ngIf="!demoRequisitionsLoading"
+      [value]="newDemoRequestCount.toString()"
+      label="New demo requests"
+      icon="mail"
+      theme="violet"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      *ngIf="!demoRequisitionsLoading"
+      [value]="demoRequisitions.length.toString()"
+      label="Contact inbox"
+      icon="inbox"
+      theme="mint"
+    ></lx-workspace-hero-stat>
   </lx-workspace-hero>
   <mat-menu #dashboardExportMenu="matMenu" panelClass="lx-export-menu">
     <button mat-menu-item class="lx-export-option--pdf" (click)="exportSnapshot('pdf')">
@@ -249,6 +264,79 @@
       <div class="dashboard-kyc-skeleton-grid">
         <div class="skeleton" *ngFor="let i of [1,2,3,4,5,6]" style="height: 72px; border-radius: 12px"></div>
       </div>
+    </div>
+  </section>
+
+  <section class="dashboard-contact-panel lx-card mb-lg" aria-labelledby="dashboard-contact-title">
+    <div class="dashboard-contact-panel__glow" aria-hidden="true"></div>
+    <header class="dashboard-contact-panel__head">
+      <div>
+        <p class="dashboard-contact-panel__eyebrow">Inbound leads</p>
+        <h2 id="dashboard-contact-title" class="dashboard-contact-panel__title">People trying to reach you</h2>
+        <p class="dashboard-contact-panel__sub">
+          Demo and contact form submissions from the platform marketing site — respond before they go cold.
+        </p>
+      </div>
+      <div class="dashboard-contact-panel__actions">
+        <span class="dashboard-contact-panel__badge" *ngIf="newDemoRequestCount > 0">
+          <span class="dashboard-contact-panel__badge-dot" aria-hidden="true"></span>
+          {{ newDemoRequestCount }} awaiting first contact
+        </span>
+        <a class="lx-btn lx-btn-primary lx-btn-sm" routerLink="/help/requisitions">Open inbox</a>
+      </div>
+    </header>
+
+    <div class="dashboard-contact-panel__alert" *ngIf="demoRequisitionsError" role="alert">
+      <mat-icon>error_outline</mat-icon>
+      {{ demoRequisitionsError }}
+    </div>
+
+    <div class="dashboard-contact-panel__loading" *ngIf="demoRequisitionsLoading">
+      <span class="dashboard-contact-panel__spinner" aria-hidden="true"></span>
+      Loading contact requests…
+    </div>
+
+    <div class="dashboard-contact-panel__empty" *ngIf="!demoRequisitionsLoading && !demoRequisitionsError && !contactRequestPreview.length">
+      <mat-icon>inbox</mat-icon>
+      <p>No demo requests yet. When prospects submit the contact form, they will appear here.</p>
+    </div>
+
+    <div class="dashboard-contact-panel__list" *ngIf="!demoRequisitionsLoading && contactRequestPreview.length">
+      <a
+        class="dashboard-contact-row"
+        *ngFor="let row of contactRequestPreview; trackBy: trackByDemoRequestId"
+        [routerLink]="['/help/requisitions']"
+        [queryParams]="{ id: row.id }"
+        [class.dashboard-contact-row--new]="row.status === 'NEW'"
+      >
+        <span class="dashboard-contact-row__avatar" aria-hidden="true">{{ contactInitials(row.fullName) }}</span>
+        <span class="dashboard-contact-row__body">
+          <span class="dashboard-contact-row__top">
+            <span class="dashboard-contact-row__name">{{ row.fullName }}</span>
+            <span class="dashboard-contact-row__status" [class.dashboard-contact-row__status--new]="row.status === 'NEW'">
+              {{ contactStatusLabel(row.status) }}
+            </span>
+          </span>
+          <span class="dashboard-contact-row__email">{{ row.email }}</span>
+          <span class="dashboard-contact-row__preview">{{ row.demoRequest }}</span>
+          <span class="dashboard-contact-row__meta">
+            <span>{{ row.requisitionNumber }}</span>
+            <span>{{ contactRelativeWhen(row.createdAt) }}</span>
+          </span>
+        </span>
+        <div class="dashboard-contact-row__actions">
+          <button
+            type="button"
+            class="dashboard-contact-row__profile"
+            *ngIf="linkedUserForRequisition(row) as linked"
+            (click)="viewRegisteredProfile(row, $event)"
+            title="View registered user profile"
+          >
+            <mat-icon aria-hidden="true">person</mat-icon>
+          </button>
+          <mat-icon class="dashboard-contact-row__chev" aria-hidden="true">chevron_right</mat-icon>
+        </div>
+      </a>
     </div>
   </section>
 
