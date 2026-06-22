@@ -5,7 +5,9 @@ import { DriverShellComponent } from './components/driver-shell/driver-shell.com
 import { DriverWorkspaceComponent } from './pages/driver-workspace/driver-workspace.component';
 import { DriverTripDetailComponent } from './pages/driver-trip-detail/driver-trip-detail.component';
 import { DriverSignupComponent } from './pages/driver-signup/driver-signup.component';
+import { DriverLiveHubComponent } from './pages/driver-live-hub/driver-live-hub.component';
 import { DeliveryWorkflowComponent } from './components/delivery-workflow/delivery-workflow.component';
+import { TripTrackingComponentsModule } from '../trip-tracking/trip-tracking-components.module';
 
 @NgModule({
   declarations: [
@@ -13,11 +15,13 @@ import { DeliveryWorkflowComponent } from './components/delivery-workflow/delive
     DriverWorkspaceComponent,
     DriverTripDetailComponent,
     DriverSignupComponent,
+    DriverLiveHubComponent,
     DeliveryWorkflowComponent,
   ],
   imports: [
     SharedModule,
     DriverPortalRoutingModule,
+    TripTrackingComponentsModule,
   ],
 })
 export class DriverPortalModule {}

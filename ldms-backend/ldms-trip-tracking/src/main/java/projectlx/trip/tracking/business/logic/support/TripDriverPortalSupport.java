@@ -11,8 +11,10 @@ import projectlx.trip.tracking.model.Trip;
 import projectlx.trip.tracking.repository.TripRepository;
 import projectlx.trip.tracking.utils.dtos.DriverTripMetricsDto;
 import projectlx.trip.tracking.utils.dtos.DriverTripSummaryDto;
+import projectlx.trip.tracking.utils.dtos.FleetAssetSummaryDto;
 import projectlx.trip.tracking.utils.dtos.FleetDriverSummaryDto;
 import projectlx.trip.tracking.utils.enums.TripStatus;
+import projectlx.trip.tracking.utils.responses.FleetAssetFeignResponse;
 import projectlx.trip.tracking.utils.responses.FleetDriverFeignResponse;
 
 import java.time.LocalDate;
@@ -107,13 +109,14 @@ public class TripDriverPortalSupport {
         }
     }
 
-    public List<DriverTripSummaryDto> listTripsForDriver(Long fleetDriverId) {
+    public List<DriverTripSummaryDto> listTripsForDriver(Long fleetDriverId, Locale locale) {
         List<Trip> trips = tripRepository
                 .findByFleetDriverIdAndEntityStatusNotOrderByStartedAtDesc(fleetDriverId, EntityStatus.DELETED);
-        return trips.stream().map(this::toSummary).toList();
+        return trips.stream().map(trip -> toSummary(trip, locale)).toList();
     }
 
-    public DriverTripSummaryDto toSummary(Trip trip) {
+    public DriverTripSummaryDto toSummary(Trip trip, Locale locale) {
+        Locale resolvedLocale = locale != null ? locale : Locale.ENGLISH;
         DriverTripSummaryDto dto = new DriverTripSummaryDto();
         dto.setId(trip.getId());
         dto.setTripNumber(trip.getTripNumber());
@@ -134,7 +137,56 @@ public class TripDriverPortalSupport {
         dto.setCanStartDeliveryWorkflow(isDeliveryWorkflowStatus(trip.getStatus()));
         dto.setCanLiveTrack(isLiveTrackStatus(trip.getStatus()));
         dto.setDeliveryWorkflowPhase(deliveryPhase(trip.getStatus()));
+        applyAssignedFleetProfile(trip, dto, resolvedLocale);
         return dto;
+    }
+
+    private void applyAssignedFleetProfile(Trip trip, DriverTripSummaryDto dto, Locale locale) {
+        if (trip.getFleetDriverId() != null) {
+            dto.setFleetDriverId(trip.getFleetDriverId());
+            try {
+                FleetDriverFeignResponse response =
+                        fleetManagementServiceClient.findFleetDriverById(trip.getFleetDriverId(), locale);
+                FleetDriverSummaryDto driver = response != null ? response.getFleetDriverDto() : null;
+                if (driver != null) {
+                    dto.setDriverUserId(driver.getUserId());
+                    dto.setDriverPhone(driver.getPhoneNumber());
+                    String name = buildDriverName(driver.getFirstName(), driver.getLastName());
+                    if (name != null) {
+                        dto.setDriverName(name);
+                    }
+                }
+            } catch (Exception ex) {
+                log.debug("Fleet driver enrich skipped for trip {}: {}", trip.getId(), ex.getMessage());
+            }
+        }
+
+        if (trip.getFleetAssetId() == null) {
+            return;
+        }
+        try {
+            FleetAssetFeignResponse response =
+                    fleetManagementServiceClient.findFleetAssetById(trip.getFleetAssetId(), locale);
+            FleetAssetSummaryDto asset = response != null ? response.getFleetAssetDto() : null;
+            if (asset == null) {
+                return;
+            }
+            if (asset.getRegistration() != null && !asset.getRegistration().isBlank()) {
+                dto.setVehicleRegistration(asset.getRegistration().trim());
+            }
+            if (dto.getDriverName() == null && asset.getDriverName() != null && !asset.getDriverName().isBlank()) {
+                dto.setDriverName(asset.getDriverName().trim());
+            }
+        } catch (Exception ex) {
+            log.debug("Fleet asset enrich skipped for trip {}: {}", trip.getId(), ex.getMessage());
+        }
+    }
+
+    private static String buildDriverName(String first, String last) {
+        String f = first != null ? first.trim() : "";
+        String l = last != null ? last.trim() : "";
+        String combined = (f + " " + l).trim();
+        return combined.isEmpty() ? null : combined;
     }
 
     public DriverTripMetricsDto metricsForDriver(Long fleetDriverId) {

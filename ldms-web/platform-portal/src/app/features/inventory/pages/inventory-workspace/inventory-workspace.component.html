@@ -2273,6 +2273,65 @@
         </div>
       </header>
 
+      <div class="inv-payment-queue lx-card" *ngIf="isSupplier && isBillingApprover">
+        <div class="inv-payment-queue__head">
+          <div>
+            <p class="inv-payment-queue__eyebrow">Payment verification</p>
+            <h3>Approve proof of payment before dispatch</h3>
+            <p class="inv-payment-queue__lead">
+              Customers upload bank slips or record transfers in LX. Verify here to unlock sales orders, shipment allocation, and dispatch.
+            </p>
+          </div>
+          <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="loadPendingProcurementPayments()" [disabled]="pendingPaymentsLoading">
+            <mat-icon>refresh</mat-icon>
+            Refresh
+          </button>
+        </div>
+        <div class="inv-loading" *ngIf="pendingPaymentsLoading">
+          <lx-table-loading [busy]="true" message="Loading pending payments…"></lx-table-loading>
+        </div>
+        <p class="inv-alert" *ngIf="pendingPaymentsError" role="alert">{{ pendingPaymentsError }}</p>
+        <div class="inv-table-card lx-table-card" *ngIf="!pendingPaymentsLoading && pendingProcurementPayments.length">
+          <div class="lx-table-wrap">
+            <table class="lx-data-table">
+              <thead>
+                <tr>
+                  <th>PO</th>
+                  <th>Invoice</th>
+                  <th>Reference</th>
+                  <th>Amount</th>
+                  <th>Proof</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let p of pendingProcurementPayments">
+                  <td>{{ p.purchaseOrderNumber || p.purchaseOrderId || '—' }}</td>
+                  <td>{{ p.invoiceNumber || p.invoiceId || '—' }}</td>
+                  <td>{{ p.paymentReferenceNumber || p.paymentReference || '—' }}</td>
+                  <td>{{ p.amountTransaction | number:'1.2-2' }} {{ p.transactionCurrencyCode || '' }}</td>
+                  <td>{{ p.proofDocumentId ? 'Uploaded #' + p.proofDocumentId : 'Metadata only' }}</td>
+                  <td class="inv-table__actions">
+                    <button
+                      type="button"
+                      class="lx-btn lx-btn-primary lx-btn-sm"
+                      (click)="verifyProcurementPayment(p)"
+                      [disabled]="paymentVerifyBusyId === p.id"
+                    >
+                      <mat-icon>verified</mat-icon>
+                      {{ paymentVerifyBusyId === p.id ? 'Verifying…' : 'Verify payment' }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <p class="inv-empty-hint" *ngIf="!pendingPaymentsLoading && !pendingProcurementPayments.length && !pendingPaymentsError">
+          No payments awaiting verification. New customer submissions appear here after they upload proof on their purchase order.
+        </p>
+      </div>
+
       <div class="inv-loading" *ngIf="salesOrdersLoading" role="status">
         <lx-table-loading [busy]="true" message="Loading sales orders…"></lx-table-loading>
       </div>

@@ -1,0 +1,203 @@
+<div
+  class="ldms-sysdemo"
+  [class.ldms-sysdemo--playing]="isPlaying()"
+  [class.ldms-sysdemo--paused]="!isPlaying()"
+>
+  <div class="ldms-sysdemo__chrome">
+    <span class="ldms-sysdemo__dot ldms-sysdemo__dot--r"></span>
+    <span class="ldms-sysdemo__dot ldms-sysdemo__dot--y"></span>
+    <span class="ldms-sysdemo__dot ldms-sysdemo__dot--g"></span>
+    <span class="ldms-sysdemo__url">ldms.projectlx.co.zw · platform portal</span>
+    <span class="ldms-sysdemo__live" *ngIf="isPlaying()">
+      <span class="ldms-sysdemo__live-dot"></span>
+      Demo
+    </span>
+  </div>
+
+  <div class="ldms-sysdemo__viewport">
+    <!-- Scene 0: Dispatch -->
+    <div
+      class="ldms-sysdemo-scene ldms-sysdemo-scene--dispatch"
+      [class.ldms-sysdemo-scene--active]="activeScene() === 0"
+      [attr.aria-hidden]="activeScene() !== 0"
+    >
+      <div class="ldms-sysdemo-panel">
+        <header class="ldms-sysdemo-panel__head">
+          <span class="material-icons">inventory_2</span>
+          <div>
+            <p class="ldms-sysdemo-panel__eyebrow">Shipment management</p>
+            <h3 class="ldms-sysdemo-panel__title">Dispatch queue</h3>
+          </div>
+        </header>
+        <ul class="ldms-sysdemo-table">
+          <li class="ldms-sysdemo-table__row ldms-sysdemo-table__row--1">
+            <span>SO-2847</span>
+            <span>Copper cathodes · 24 t</span>
+            <span class="ldms-sysdemo-pill ldms-sysdemo-pill--amber">Docs pending</span>
+          </li>
+          <li class="ldms-sysdemo-table__row ldms-sysdemo-table__row--2">
+            <span>SO-2851</span>
+            <span>Fuel consignment · 18 t</span>
+            <span class="ldms-sysdemo-pill ldms-sysdemo-pill--green">Ready for pickup</span>
+          </li>
+          <li class="ldms-sysdemo-table__row ldms-sysdemo-table__row--3">
+            <span>SO-2854</span>
+            <span>General cargo · 12 t</span>
+            <span class="ldms-sysdemo-pill ldms-sysdemo-pill--blue">Assigned</span>
+          </li>
+        </ul>
+        <div class="ldms-sysdemo-toast ldms-sysdemo-toast--dispatch">
+          <span class="material-icons">bolt</span>
+          shipment.ready_for_pickup · event published
+        </div>
+      </div>
+    </div>
+
+    <!-- Scene 1: Live trip -->
+    <div
+      class="ldms-sysdemo-scene ldms-sysdemo-scene--trip"
+      [class.ldms-sysdemo-scene--active]="activeScene() === 1"
+      [attr.aria-hidden]="activeScene() !== 1"
+    >
+      <div class="ldms-sysdemo-trip">
+        <div class="ldms-sysdemo-trip__map">
+          <svg viewBox="0 0 420 220" class="ldms-sysdemo-trip__svg" aria-hidden="true">
+            <path class="ldms-sysdemo-trip__route-bg" d="M24,180 Q120,40 210,110 T396,72" />
+            <path class="ldms-sysdemo-trip__route" d="M24,180 Q120,40 210,110 T396,72" />
+            <circle class="ldms-sysdemo-trip__node ldms-sysdemo-trip__node--origin" cx="24" cy="180" r="6" />
+            <circle class="ldms-sysdemo-trip__node ldms-sysdemo-trip__node--dest" cx="396" cy="72" r="6" />
+            <circle class="ldms-sysdemo-trip__truck-dot" r="8" />
+          </svg>
+          <span class="ldms-sysdemo-trip__truck-icon material-icons" aria-hidden="true">local_shipping</span>
+          <div class="ldms-sysdemo-trip__stops">
+            <span><span class="material-icons">flag</span> Border · Chirundu</span>
+            <span><span class="material-icons">schedule</span> ETA 14:20</span>
+          </div>
+        </div>
+        <aside class="ldms-sysdemo-trip__card">
+          <p class="ldms-sysdemo-trip__label">Trip #447 · En route</p>
+          <p class="ldms-sysdemo-trip__driver">T12-LX · James M.</p>
+          <div class="ldms-sysdemo-trip__metrics">
+            <div><span>Speed</span><strong>78 km/h</strong></div>
+            <div><span>Last ping</span><strong>12s ago</strong></div>
+            <div><span>Stops</span><strong>2 / 4</strong></div>
+          </div>
+          <div class="ldms-sysdemo-event ldms-sysdemo-event--trip">
+            <span class="material-icons">place</span>
+            trip.stop_recorded · WhatsApp inbound
+          </div>
+        </aside>
+      </div>
+    </div>
+
+    <!-- Scene 2: Wallet -->
+    <div
+      class="ldms-sysdemo-scene ldms-sysdemo-scene--wallet"
+      [class.ldms-sysdemo-scene--active]="activeScene() === 2"
+      [attr.aria-hidden]="activeScene() !== 2"
+    >
+      <div class="ldms-sysdemo-wallet">
+        <div class="ldms-sysdemo-wallet__balance">
+          <p>Platform wallet</p>
+          <p class="ldms-sysdemo-wallet__amount"><span>$</span>487<span class="ldms-sysdemo-wallet__cents">.60</span></p>
+          <div class="ldms-sysdemo-wallet__bar"><span class="ldms-sysdemo-wallet__fill"></span></div>
+        </div>
+        <ul class="ldms-sysdemo-wallet__ledger">
+          <li class="ldms-sysdemo-wallet__entry ldms-sysdemo-wallet__entry--credit">
+            <span>Top-up · EFT</span>
+            <strong>+$500.00</strong>
+          </li>
+          <li class="ldms-sysdemo-wallet__entry ldms-sysdemo-wallet__entry--debit">
+            <span>trip.started</span>
+            <strong>−$2.40</strong>
+          </li>
+          <li class="ldms-sysdemo-wallet__entry ldms-sysdemo-wallet__entry--debit">
+            <span>shipment.dispatch</span>
+            <strong>−$1.80</strong>
+          </li>
+          <li class="ldms-sysdemo-wallet__entry ldms-sysdemo-wallet__entry--debit">
+            <span>grv.created</span>
+            <strong>−$1.20</strong>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Scene 3: Delivery -->
+    <div
+      class="ldms-sysdemo-scene ldms-sysdemo-scene--delivery"
+      [class.ldms-sysdemo-scene--active]="activeScene() === 3"
+      [attr.aria-hidden]="activeScene() !== 3"
+    >
+      <div class="ldms-sysdemo-delivery">
+        <div class="ldms-sysdemo-delivery__check">
+          <span class="material-icons">task_alt</span>
+        </div>
+        <h3 class="ldms-sysdemo-delivery__title">GRV signed · Trip delivered</h3>
+        <p class="ldms-sysdemo-delivery__meta">SO-2851 · Receiver confirmed 24 t · Chirundu corridor</p>
+        <div class="ldms-sysdemo-delivery__flow">
+          <span class="ldms-sysdemo-delivery__step ldms-sysdemo-delivery__step--done">
+            <span class="material-icons">inventory</span> GRV
+          </span>
+          <span class="ldms-sysdemo-delivery__connector"></span>
+          <span class="ldms-sysdemo-delivery__step ldms-sysdemo-delivery__step--active">
+            <span class="material-icons">receipt_long</span> Invoice
+          </span>
+          <span class="ldms-sysdemo-delivery__connector"></span>
+          <span class="ldms-sysdemo-delivery__step">
+            <span class="material-icons">payments</span> Settle
+          </span>
+        </div>
+        <div class="ldms-sysdemo-toast ldms-sysdemo-toast--delivery">
+          <span class="material-icons">notifications_active</span>
+          invoice.created · reminder scheduled
+        </div>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="ldms-sysdemo__play"
+      *ngIf="!isPlaying()"
+      (click)="togglePlay()"
+      aria-label="Play LDMS system demo"
+    >
+      <span class="ldms-sysdemo__play-ring" aria-hidden="true"></span>
+      <span class="ldms-sysdemo__play-ring ldms-sysdemo__play-ring--b" aria-hidden="true"></span>
+      <span class="material-icons">play_arrow</span>
+      <span class="ldms-sysdemo__play-label">Watch system demo</span>
+    </button>
+  </div>
+
+  <div class="ldms-sysdemo__controls">
+    <div class="ldms-sysdemo__timeline" role="tablist" aria-label="Demo scenes">
+      @for (scene of scenes; track scene.label; let i = $index) {
+        <button
+          type="button"
+          class="ldms-sysdemo__scene-btn"
+          [class.ldms-sysdemo__scene-btn--active]="activeScene() === i"
+          [attr.aria-selected]="activeScene() === i"
+          role="tab"
+          (click)="goToScene(i)"
+        >
+          <span class="material-icons">{{ scene.icon }}</span>
+          {{ scene.label }}
+        </button>
+      }
+    </div>
+
+    <div class="ldms-sysdemo__transport">
+      <button
+        type="button"
+        class="ldms-sysdemo__transport-btn"
+        (click)="togglePlay()"
+        [attr.aria-label]="isPlaying() ? 'Pause demo' : 'Play demo'"
+      >
+        <span class="material-icons">{{ isPlaying() ? 'pause' : 'play_arrow' }}</span>
+      </button>
+      <div class="ldms-sysdemo__progress" aria-hidden="true">
+        <span class="ldms-sysdemo__progress-fill"></span>
+      </div>
+    </div>
+  </div>
+</div>

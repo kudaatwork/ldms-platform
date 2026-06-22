@@ -1,18 +1,17 @@
 package projectlx.inventory.management.business.logic.support;
 
+import feign.FeignException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import projectlx.inventory.management.clients.BillingPaymentsServiceClient;
+import projectlx.inventory.management.clients.dto.BillingPlatformWalletResponse;
 import projectlx.inventory.management.clients.dto.RecordPlatformUsageChargeRequest;
+import projectlx.inventory.management.exceptions.InsufficientPlatformWalletBalanceException;
 
 import java.util.Locale;
 
-/**
- * Best-effort platform wallet usage charges for procurement workflow events.
- * Failures are logged and never roll back the calling business transaction.
- */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -26,7 +25,7 @@ public class PlatformWalletUsageSupport {
 
     private final BillingPaymentsServiceClient billingPaymentsServiceClient;
 
-    public void chargeBestEffort(
+    public void chargeRequired(
             Long organizationId,
             String actionCode,
             String referenceType,
@@ -41,7 +40,29 @@ public class PlatformWalletUsageSupport {
         request.setReferenceId(referenceId);
         request.setServiceName("ldms-inventory-management");
         try {
-            billingPaymentsServiceClient.recordUsageCharge(request, Locale.getDefault());
+            BillingPlatformWalletResponse response = billingPaymentsServiceClient.recordUsageCharge(request, Locale.getDefault());
+            if (response != null && response.getStatusCode() != null && response.getStatusCode() == 402) {
+                throw new InsufficientPlatformWalletBalanceException(
+                        StringUtils.hasText(response.getMessage())
+                                ? response.getMessage()
+                                : "Insufficient prepaid wallet balance. Top up your wallet to continue.");
+            }
+        } catch (FeignException ex) {
+            if (ex.status() == 402) {
+                throw new InsufficientPlatformWalletBalanceException(
+                        "Insufficient prepaid wallet balance. Top up your wallet to continue.");
+            }
+            log.warn(
+                    "Platform wallet usage charge failed for org {} action {} ref {}/{}: {}",
+                    organizationId,
+                    actionCode,
+                    referenceType,
+                    referenceId,
+                    ex.getMessage());
+            throw new InsufficientPlatformWalletBalanceException(
+                    "Could not verify platform wallet balance. Please try again or contact support.");
+        } catch (InsufficientPlatformWalletBalanceException ex) {
+            throw ex;
         } catch (Exception ex) {
             log.warn(
                     "Platform wallet usage charge skipped for org {} action {} ref {}/{}: {}",
@@ -50,6 +71,18 @@ public class PlatformWalletUsageSupport {
                     referenceType,
                     referenceId,
                     ex.getMessage());
+            throw new InsufficientPlatformWalletBalanceException(
+                    "Could not verify platform wallet balance. Please try again or contact support.");
         }
+    }
+
+    /** @deprecated use {@link #chargeRequired(Long, String, String, Long)} */
+    @Deprecated
+    public void chargeBestEffort(
+            Long organizationId,
+            String actionCode,
+            String referenceType,
+            Long referenceId) {
+        chargeRequired(organizationId, actionCode, referenceType, referenceId);
     }
 }

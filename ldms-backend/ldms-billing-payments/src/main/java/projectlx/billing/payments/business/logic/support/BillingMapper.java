@@ -137,6 +137,8 @@ public final class BillingMapper {
         dto.setGatewayProvider(entity.getGatewayProvider());
         dto.setVerifiedAt(entity.getVerifiedAt());
         dto.setVerifiedBy(entity.getVerifiedBy());
+        dto.setCurrentVerificationStage(entity.getCurrentVerificationStage());
+        dto.setRequiredVerificationStages(entity.getRequiredVerificationStages());
         return dto;
     }
 

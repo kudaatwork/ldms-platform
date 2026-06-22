@@ -195,7 +195,7 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
         }
 
         PurchaseRequisition saved = purchaseRequisitionRepository.save(pr);
-        platformWalletUsageSupport.chargeBestEffort(
+        platformWalletUsageSupport.chargeRequired(
                 pr.getOrganizationId(),
                 PlatformWalletUsageSupport.ACTION_PROCUREMENT_PR_APPROVE,
                 "PURCHASE_REQUISITION",
@@ -361,7 +361,7 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
         log.info("Supplier quote {} created for PR {} - PR set to SUPPLIER_CONFIRMED",
                 savedQuote.getQuoteNumber(), pr.getId());
 
-        platformWalletUsageSupport.chargeBestEffort(
+        platformWalletUsageSupport.chargeRequired(
                 savedQuote.getSupplierOrganizationId(),
                 PlatformWalletUsageSupport.ACTION_PROCUREMENT_QUOTE_SUBMIT,
                 "SUPPLIER_QUOTE",
@@ -491,7 +491,7 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
         }
 
         PurchaseOrder saved = purchaseOrderRepository.save(po);
-        platformWalletUsageSupport.chargeBestEffort(
+        platformWalletUsageSupport.chargeRequired(
                 po.getOrganizationId(),
                 PlatformWalletUsageSupport.ACTION_PROCUREMENT_PO_CUSTOMER_APPROVE,
                 "PURCHASE_ORDER",
@@ -598,7 +598,7 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
                 log.error("Failed to publish po.approved event for PO {}: {}", po.getId(), ex.getMessage(), ex);
             }
 
-            platformWalletUsageSupport.chargeBestEffort(
+            platformWalletUsageSupport.chargeRequired(
                     po.getSupplierId(),
                     PlatformWalletUsageSupport.ACTION_PROCUREMENT_PO_SUPPLIER_APPROVE,
                     "PURCHASE_ORDER",
@@ -609,7 +609,7 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
             log.info("PO {} supplier approval stage {}/{} complete - awaiting further approval",
                     po.getId(), result.completedStage(), requiredStages);
             PurchaseOrder saved = purchaseOrderRepository.save(po);
-            platformWalletUsageSupport.chargeBestEffort(
+            platformWalletUsageSupport.chargeRequired(
                     po.getSupplierId(),
                     PlatformWalletUsageSupport.ACTION_PROCUREMENT_PO_SUPPLIER_APPROVE,
                     "PURCHASE_ORDER",
@@ -708,7 +708,7 @@ public class ProcurementWorkflowServiceImpl implements ProcurementWorkflowServic
         if (result.allStagesComplete()) {
             publishSalesOrderApprovedEvent(saved, request.getApprovedByUserId());
         }
-        platformWalletUsageSupport.chargeBestEffort(
+        platformWalletUsageSupport.chargeRequired(
                 so.getSupplierOrganizationId(),
                 PlatformWalletUsageSupport.ACTION_PROCUREMENT_SO_APPROVE,
                 "SALES_ORDER",

@@ -16,5 +16,9 @@ public class WalletDepositDto {
     private String notes;
     private String status;
     private Long proofDocumentId;
+    private String gatewayProvider;
+    private String paymentMethod;
     private String createdAt;
+    private String modifiedAt;
+    private String modifiedBy;
 }

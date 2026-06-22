@@ -2,8 +2,11 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnIni
 import { Title } from '@angular/platform-browser';
 import { ChartData, ChartOptions } from 'chart.js';
 import { Subject, finalize, takeUntil } from 'rxjs';
-import { PlatformOpsAdminService } from '../../../../core/services/platform-ops-admin.service';
-import type { PlatformRevenueReport } from '../../../../core/services/platform-ops-mock.data';
+import {
+  PlatformDashboardAdminService,
+  type PlatformRevenueOrgRow,
+  type PlatformRevenueReportApi,
+} from '../../../../core/services/platform-dashboard-admin.service';
 import { PlatformWalletAdminService } from '../../../settings/services/platform-wallet-admin.service';
 import { ensureChartJsRegistered } from '@shared/charts/chartjs-register';
 import { LX_CHART_COLORS } from '@shared/charts/lx-chart-palettes';
@@ -20,7 +23,8 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
   private readonly destroy$ = new Subject<void>();
 
   loading = true;
-  report: PlatformRevenueReport | null = null;
+  error = '';
+  report: PlatformRevenueReportApi | null = null;
   selectedOrgId = signal<number | null>(null);
   costTotalCents = 0;
 
@@ -34,7 +38,7 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
   });
 
   constructor(
-    private readonly platformOps: PlatformOpsAdminService,
+    private readonly platformDashboard: PlatformDashboardAdminService,
     private readonly wallet: PlatformWalletAdminService,
     private readonly cdr: ChangeDetectorRef,
     private readonly title: Title,
@@ -43,7 +47,7 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.title.setTitle('Platform revenue | LX Admin');
     ensureChartJsRegistered();
-    this.platformOps
+    this.platformDashboard
       .fetchRevenueReport()
       .pipe(
         takeUntil(this.destroy$),
@@ -59,6 +63,10 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
           if (r.byOrganization.length) {
             this.selectedOrgId.set(r.byOrganization[0].organizationId);
           }
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.error = 'Could not load platform revenue. Check that billing-payments is running and you are signed in.';
           this.cdr.markForCheck();
         },
       });
@@ -78,7 +86,7 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  get selectedOrg() {
+  get selectedOrg(): PlatformRevenueOrgRow | null {
     const id = this.selectedOrgId();
     return this.report?.byOrganization.find((o) => o.organizationId === id) ?? null;
   }
@@ -88,7 +96,11 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
     if (!org || !this.report) {
       return [];
     }
-    return this.report.recentCharges.filter((c) => c.organizationName === org.organizationName);
+    return this.report.recentCharges.filter((c) => c.organizationId === org.organizationId);
+  }
+
+  billingModeLabel(mode?: string): string {
+    return mode === 'PREMIUM_SUBSCRIPTION' ? 'Monthly subscription' : 'Prepaid wallet';
   }
 
   trackByOrgId(_i: number, row: { organizationId: number }): number {
@@ -100,7 +112,15 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
     return max > 0 ? Math.round((cents / max) * 100) : 0;
   }
 
-  private buildCharts(report: PlatformRevenueReport): void {
+  usageShare(cents: number, org: PlatformRevenueOrgRow): number {
+    const total = org.totalUsageCents ?? 0;
+    if (total <= 0) {
+      return 0;
+    }
+    return Math.round((cents / total) * 100);
+  }
+
+  private buildCharts(report: PlatformRevenueReportApi): void {
     this.revenueChartData = {
       labels: report.monthLabels,
       datasets: [
@@ -114,7 +134,7 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
           maxBarThickness: 40,
         },
         {
-          label: 'Platform costs',
+          label: 'Subscription usage',
           data: report.costSeries,
           backgroundColor: LX_CHART_COLORS.revenue.costs,
           hoverBackgroundColor: LX_CHART_COLORS.revenue.costsHover,

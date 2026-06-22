@@ -393,6 +393,7 @@ export class AuthService {
         procurementApprover: profile.procurementApprover === true || user.procurementApprover === true,
         shipmentFleetAllocator:
           profile.shipmentFleetAllocator === true || user.shipmentFleetAllocator === true,
+        billingApprover: profile.billingApprover === true || user.billingApprover === true,
         organizationWorkspaceAdministrator:
           profile.organizationWorkspaceAdministrator === true
           || user.organizationWorkspaceAdministrator === true

@@ -70,9 +70,9 @@
                 <mat-icon>{{ item.icon }}</mat-icon>
               </div>
               <span class="sb-label">{{ item.label }}</span>
-              <mat-icon class="sb-chevron">{{ isGroupExpanded(groupExpandKey(item)) ? 'expand_less' : 'expand_more' }}</mat-icon>
+              <mat-icon class="sb-chevron">{{ expandedGroups()[groupExpandKey(item)] ? 'expand_less' : 'expand_more' }}</mat-icon>
             </button>
-            @if (isGroupExpanded(groupExpandKey(item))) {
+            @if (expandedGroups()[groupExpandKey(item)]) {
               <div class="sb-children" [attr.data-nav-group]="groupExpandKey(item)">
                 @for (c of item.children; track trackByGroupEntry($index, c)) {
                   @switch (navEntryKind(c)) {
@@ -96,18 +96,18 @@
                           <button
                             type="button"
                             class="sb-subgroup-toggle"
-                            [attr.aria-expanded]="isGroupExpanded(subsectionExpandKey(item, navChild(c)))"
+                            [attr.aria-expanded]="expandedGroups()[subsectionExpandKey(item, navChild(c))]"
                             [attr.aria-label]="'Toggle ' + navChild(c).label"
                             (click)="toggleGroup(subsectionExpandKey(item, navChild(c)), $event)"
                           >
                             <mat-icon>{{
-                              isGroupExpanded(subsectionExpandKey(item, navChild(c)))
+                              expandedGroups()[subsectionExpandKey(item, navChild(c))]
                                 ? 'expand_less'
                                 : 'expand_more'
                             }}</mat-icon>
                           </button>
                         </div>
-                        @if (isGroupExpanded(subsectionExpandKey(item, navChild(c)))) {
+                        @if (expandedGroups()[subsectionExpandKey(item, navChild(c))]) {
                           <div class="sb-subchildren">
                             @for (entry of navChild(c).children; track trackBySubEntry($index, entry)) {
                               @if (!isNavLink(entry)) {

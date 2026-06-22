@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import projectlx.inventory.management.clients.dto.BillingCurrencyContextResponse;
 import projectlx.inventory.management.clients.dto.BillingCurrencyConversionResponse;
 import projectlx.inventory.management.clients.dto.LockCurrencyConversionRequest;
+import projectlx.inventory.management.clients.dto.BillingPlatformWalletResponse;
 import projectlx.inventory.management.clients.dto.RecordPlatformUsageChargeRequest;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
 
@@ -26,7 +27,7 @@ public interface BillingPaymentsServiceClient {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
 
     @PostMapping("/ldms-billing-payments/v1/system/platform-wallet/usage/charge")
-    void recordUsageCharge(
+    BillingPlatformWalletResponse recordUsageCharge(
             @RequestBody RecordPlatformUsageChargeRequest request,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
 }

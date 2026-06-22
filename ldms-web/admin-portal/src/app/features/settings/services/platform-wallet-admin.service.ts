@@ -1,7 +1,12 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, throwError } from 'rxjs';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
+import {
+  extractDtoList,
+  isApiFailureEnvelope,
+  readApiFailureMessage,
+} from '../../../core/utils/api-paged-response.util';
 
 export interface PlatformActionChargeRow {
   id?: number;
@@ -10,6 +15,7 @@ export interface PlatformActionChargeRow {
   description?: string;
   chargeCents: number;
   category?: string;
+  billingTier?: string;
   active?: boolean;
 }
 
@@ -20,6 +26,10 @@ export interface SubscriptionPackageRow {
   description?: string;
   monthlyPriceCents: number;
   currencyCode: string;
+  includedHeavyCredits?: number;
+  includedStandardCredits?: number;
+  includedLightCredits?: number;
+  includedTrackingDayCredits?: number;
   sortOrder?: number;
   featured?: boolean;
   active?: boolean;
@@ -33,6 +43,8 @@ export interface WalletDepositRow {
   referenceNumber?: string;
   status: string;
   createdAt?: string;
+  modifiedAt?: string;
+  modifiedBy?: string;
 }
 
 interface PlatformWalletApiResponse {
@@ -52,36 +64,107 @@ export class PlatformWalletAdminService {
 
   listActionCharges(): Observable<PlatformActionChargeRow[]> {
     return this.http.get<PlatformWalletApiResponse>(`${this.backofficeBase}/action-charges`).pipe(
-      map((res) => res.platformActionChargeDtoList ?? []),
+      map((res) => this.parseList<PlatformActionChargeRow>(res, 'platformActionChargeDtoList', 'Failed to load action charges.')),
+      catchError((err) => throwError(() => this.toError(err, 'Failed to load action charges.'))),
     );
   }
 
   saveActionCharge(payload: PlatformActionChargeRow): Observable<PlatformActionChargeRow> {
     return this.http.put<PlatformWalletApiResponse>(`${this.backofficeBase}/action-charges`, payload).pipe(
-      map((res) => res.platformActionChargeDto ?? payload),
+      map((res) => {
+        this.assertSuccess(res, 'Could not save action charge.');
+        return res.platformActionChargeDto ?? payload;
+      }),
+      catchError((err) => throwError(() => this.toError(err, 'Could not save action charge.'))),
+    );
+  }
+
+  deleteActionCharge(chargeId: number): Observable<void> {
+    return this.http.delete<PlatformWalletApiResponse>(`${this.backofficeBase}/action-charges/${chargeId}`).pipe(
+      map((res) => {
+        this.assertSuccess(res, 'Could not delete action charge.');
+        return undefined;
+      }),
+      catchError((err) => throwError(() => this.toError(err, 'Could not delete action charge.'))),
     );
   }
 
   listSubscriptionPackages(): Observable<SubscriptionPackageRow[]> {
     return this.http.get<PlatformWalletApiResponse>(`${this.backofficeBase}/subscription-packages`).pipe(
-      map((res) => res.subscriptionPackageDtoList ?? []),
+      map((res) => this.parseList<SubscriptionPackageRow>(res, 'subscriptionPackageDtoList', 'Failed to load subscription packages.')),
+      catchError((err) => throwError(() => this.toError(err, 'Failed to load subscription packages.'))),
     );
   }
 
   saveSubscriptionPackage(payload: SubscriptionPackageRow): Observable<SubscriptionPackageRow> {
     return this.http.post<PlatformWalletApiResponse>(`${this.backofficeBase}/subscription-packages`, payload).pipe(
-      map((res) => res.subscriptionPackageDto ?? payload),
+      map((res) => {
+        this.assertSuccess(res, 'Could not save subscription package.');
+        return res.subscriptionPackageDto ?? payload;
+      }),
+      catchError((err) => throwError(() => this.toError(err, 'Could not save subscription package.'))),
+    );
+  }
+
+  deleteSubscriptionPackage(packageId: number): Observable<void> {
+    return this.http.delete<PlatformWalletApiResponse>(`${this.backofficeBase}/subscription-packages/${packageId}`).pipe(
+      map((res) => {
+        this.assertSuccess(res, 'Could not delete subscription package.');
+        return undefined;
+      }),
+      catchError((err) => throwError(() => this.toError(err, 'Could not delete subscription package.'))),
     );
   }
 
   listPendingDeposits(): Observable<WalletDepositRow[]> {
     return this.http.get<PlatformWalletApiResponse>(`${this.backofficeBase}/deposits/pending`).pipe(
-      map((res) => res.walletDepositDtoList ?? []),
+      map((res) => this.parseList<WalletDepositRow>(res, 'walletDepositDtoList', 'Failed to load pending deposits.')),
+      catchError((err) => throwError(() => this.toError(err, 'Failed to load pending deposits.'))),
+    );
+  }
+
+  listConfirmedDeposits(): Observable<WalletDepositRow[]> {
+    return this.http.get<PlatformWalletApiResponse>(`${this.backofficeBase}/deposits/confirmed`).pipe(
+      map((res) => this.parseList<WalletDepositRow>(res, 'walletDepositDtoList', 'Failed to load approved deposits.')),
+      catchError((err) => throwError(() => this.toError(err, 'Failed to load approved deposits.'))),
     );
   }
 
   confirmDeposit(depositId: number): Observable<void> {
-    return this.http.post<unknown>(`${this.backofficeBase}/deposits/${depositId}/confirm`, {}).pipe(map(() => undefined));
+    return this.http.post<PlatformWalletApiResponse>(`${this.backofficeBase}/deposits/${depositId}/confirm`, {}).pipe(
+      map((res) => {
+        this.assertSuccess(res, 'Could not confirm deposit.');
+        return undefined;
+      }),
+      catchError((err) => throwError(() => this.toError(err, 'Could not confirm deposit.'))),
+    );
+  }
+
+  rejectDeposit(depositId: number): Observable<void> {
+    return this.http.post<PlatformWalletApiResponse>(`${this.backofficeBase}/deposits/${depositId}/reject`, {}).pipe(
+      map((res) => {
+        this.assertSuccess(res, 'Could not reject deposit.');
+        return undefined;
+      }),
+      catchError((err) => throwError(() => this.toError(err, 'Could not reject deposit.'))),
+    );
+  }
+
+  creditOrganization(payload: {
+    organizationId: number;
+    organizationName?: string;
+    amountCents: number;
+    currencyCode?: string;
+    notes?: string;
+    enablePrepaidBilling?: boolean;
+  }): Observable<void> {
+    return this.http.post<PlatformWalletApiResponse>(`${this.backofficeBase}/organizations/credit`, payload).pipe(
+      map((res) => {
+        this.assertSuccess(res, 'Could not credit organisation wallet.');
+        return undefined;
+      }),
+      catchError((err) => throwError(() => this.toError(err, 'Could not credit organisation wallet.'))),
+    );
   }
 
   formatCents(cents: number, currencyCode = 'USD'): string {
@@ -91,5 +174,42 @@ export class PlatformWalletAdminService {
     } catch {
       return `${currencyCode} ${amount.toFixed(2)}`;
     }
+  }
+
+  formatWhen(iso?: string): string {
+    if (!iso) {
+      return '—';
+    }
+    try {
+      return new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(iso));
+    } catch {
+      return iso;
+    }
+  }
+
+  private parseList<T>(res: PlatformWalletApiResponse, listKey: keyof PlatformWalletApiResponse, fallback: string): T[] {
+    this.assertSuccess(res, fallback);
+    const direct = res[listKey];
+    if (Array.isArray(direct)) {
+      return direct as T[];
+    }
+    return extractDtoList<T>(res, String(listKey));
+  }
+
+  private assertSuccess(res: unknown, fallback: string): void {
+    if (isApiFailureEnvelope(res)) {
+      throw new Error(readApiFailureMessage(res, fallback));
+    }
+  }
+
+  private toError(err: unknown, fallback: string): Error {
+    if (err instanceof Error && err.message) {
+      return err;
+    }
+    const httpBody = (err as { error?: unknown })?.error;
+    if (httpBody) {
+      return new Error(readApiFailureMessage(httpBody, fallback));
+    }
+    return new Error(fallback);
   }
 }

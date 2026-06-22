@@ -11,5 +11,7 @@ public interface PlatformActionChargeRepository extends JpaRepository<PlatformAc
 
     List<PlatformActionCharge> findByEntityStatusNotOrderByCategoryAscDisplayNameAsc(EntityStatus entityStatus);
 
+    Optional<PlatformActionCharge> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
+
     Optional<PlatformActionCharge> findByActionCodeAndEntityStatusNot(String actionCode, EntityStatus entityStatus);
 }

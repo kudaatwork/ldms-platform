@@ -12,6 +12,10 @@ import { NotificationService } from '../../../../core/services/notification.serv
 import { UserProfileService } from '../../../../core/services/user-profile.service';
 import { LocationsService } from '../../../locations/services/locations.service';
 import { InventoryPortalService } from '../../services/inventory-portal.service';
+import {
+  BillingSettingsService,
+  type ProcurementPaymentRow,
+} from '../../../settings/services/billing-settings.service';
 import { formatInventoryAddressLabel } from '../../utils/inventory-address.util';
 import {
   entityStatusCssClass,
@@ -184,6 +188,11 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   salesOrdersLoading = false;
   salesOrdersError = '';
 
+  pendingProcurementPayments: ProcurementPaymentRow[] = [];
+  pendingPaymentsLoading = false;
+  pendingPaymentsError = '';
+  paymentVerifyBusyId: number | null = null;
+
   pendingRequisitions: PurchaseRequisitionRow[] = [];
   requisitionsLoading = false;
   supplierQuotations: SupplierQuoteRow[] = [];
@@ -315,6 +324,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
     private readonly orgContext: OrgContextService,
     private readonly userProfile: UserProfileService,
     private readonly locationsService: LocationsService,
+    private readonly billingSettings: BillingSettingsService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -370,6 +380,10 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       user?.duplexMode,
       this.duplexTradingMode.activeMode,
     );
+  }
+
+  get isBillingApprover(): boolean {
+    return this.authState.currentUser?.billingApprover === true;
   }
 
   get isCustomer(): boolean {
@@ -2771,6 +2785,9 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
     if (tab === 'sales-orders' && !this.salesOrders.length && !this.salesOrdersLoading) {
       this.loadSalesOrders();
     }
+    if (tab === 'sales-orders' && !this.pendingProcurementPayments.length && !this.pendingPaymentsLoading) {
+      this.loadPendingProcurementPayments();
+    }
   }
 
   private loadSupplierQuotations(showLoading = true): void {
@@ -2909,6 +2926,62 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
         },
         error: (err: Error) => {
           this.salesOrdersError = err.message ?? 'Could not load sales orders.';
+        },
+      });
+  }
+
+  loadPendingProcurementPayments(showLoading = true): void {
+    if (!this.isSupplier || !this.isBillingApprover) {
+      this.pendingProcurementPayments = [];
+      return;
+    }
+    if (showLoading) {
+      this.pendingPaymentsLoading = true;
+      this.pendingPaymentsError = '';
+    }
+    this.billingSettings
+      .listPendingProcurementPayments()
+      .pipe(
+        finalize(() => {
+          this.pendingPaymentsLoading = false;
+          this.cdr.detectChanges();
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (rows) => {
+          this.pendingProcurementPayments = rows;
+        },
+        error: (err: Error) => {
+          this.pendingPaymentsError = err.message ?? 'Could not load pending payments.';
+        },
+      });
+  }
+
+  verifyProcurementPayment(row: ProcurementPaymentRow): void {
+    if (!row.id || this.paymentVerifyBusyId != null) {
+      return;
+    }
+    this.paymentVerifyBusyId = row.id;
+    this.billingSettings
+      .verifyPayment(row.id)
+      .pipe(
+        finalize(() => {
+          this.paymentVerifyBusyId = null;
+          this.cdr.detectChanges();
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: () => {
+          this.notifications.success(
+            `Payment ${row.paymentReferenceNumber ?? row.paymentReference ?? row.id} verified. Sales order workflow can proceed.`,
+          );
+          this.loadPendingProcurementPayments(false);
+          this.loadSalesOrders(false);
+        },
+        error: (err: Error) => {
+          this.notifications.error(err.message ?? 'Could not verify payment.');
         },
       });
   }

@@ -163,6 +163,11 @@ export interface DriverTripRow {
   canStartDeliveryWorkflow: boolean;
   canLiveTrack: boolean;
   deliveryWorkflowPhase?: DeliveryWorkflowPhase;
+  /** Assigned driver (enriched from fleet when viewed by dispatcher/admin). */
+  driverName?: string;
+  driverPhone?: string;
+  fleetDriverId?: number;
+  driverUserId?: number;
 }
 
 /** Summary stats for the driver workspace hero. */

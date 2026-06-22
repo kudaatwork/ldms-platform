@@ -19,6 +19,7 @@ export interface SubscriptionPackageFormDialogData {
 export class SubscriptionPackageFormDialogComponent {
   readonly isView: boolean;
   readonly isEdit: boolean;
+  private readonly packageId?: number;
 
   form: FormGroup;
 
@@ -33,12 +34,17 @@ export class SubscriptionPackageFormDialogComponent {
       description: ['', Validators.maxLength(1000)],
       monthlyPriceCents: [0, [Validators.required, Validators.min(0)]],
       currencyCode: ['USD', [Validators.required, Validators.maxLength(3)]],
+      includedHeavyCredits: [0, Validators.min(0)],
+      includedStandardCredits: [0, Validators.min(0)],
+      includedLightCredits: [0, Validators.min(0)],
+      includedTrackingDayCredits: [0, Validators.min(0)],
       sortOrder: [0, Validators.min(0)],
       featured: [false],
       active: [true],
     });
     this.isView = data.mode === 'view';
     this.isEdit = data.mode === 'edit';
+    this.packageId = data.row?.id;
     if (data.row) {
       this.form.patchValue({
         code: data.row.code,
@@ -46,6 +52,10 @@ export class SubscriptionPackageFormDialogComponent {
         description: data.row.description ?? '',
         monthlyPriceCents: data.row.monthlyPriceCents ?? 0,
         currencyCode: data.row.currencyCode ?? 'USD',
+        includedHeavyCredits: data.row.includedHeavyCredits ?? 0,
+        includedStandardCredits: data.row.includedStandardCredits ?? 0,
+        includedLightCredits: data.row.includedLightCredits ?? 0,
+        includedTrackingDayCredits: data.row.includedTrackingDayCredits ?? 0,
         sortOrder: data.row.sortOrder ?? 0,
         featured: data.row.featured === true,
         active: data.row.active !== false,
@@ -91,11 +101,16 @@ export class SubscriptionPackageFormDialogComponent {
     }
     const raw = this.form.getRawValue();
     this.dialogRef.close({
+      id: this.isEdit ? this.packageId : undefined,
       code: String(raw.code ?? '').trim().toUpperCase(),
       name: String(raw.name ?? '').trim(),
       description: String(raw.description ?? '').trim() || undefined,
       monthlyPriceCents: Number(raw.monthlyPriceCents ?? 0),
       currencyCode: String(raw.currencyCode ?? 'USD').trim().toUpperCase(),
+      includedHeavyCredits: Number(raw.includedHeavyCredits ?? 0),
+      includedStandardCredits: Number(raw.includedStandardCredits ?? 0),
+      includedLightCredits: Number(raw.includedLightCredits ?? 0),
+      includedTrackingDayCredits: Number(raw.includedTrackingDayCredits ?? 0),
       sortOrder: Number(raw.sortOrder ?? 0),
       featured: raw.featured === true,
       active: raw.active === true,

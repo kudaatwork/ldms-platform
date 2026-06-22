@@ -33,6 +33,8 @@ import {
   FleetContractScope,
   FleetDriverRow,
   FleetTrackingDeviceRow,
+  ProvisionDriverPlatformAccessPayload,
+  ProvisionDriverPlatformAccessResult,
   FleetTrackingIntegrationCredentialRow,
   FleetVehicleOwnershipType,
   FleetVehicleRow,
@@ -430,6 +432,32 @@ export class FleetPortalService {
       map((resp) => {
         this.assertSuccess(resp);
         return this.mapDriverRow(this.extractSingleDriver(resp));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /**
+   * POST /fleet/drivers/{id}/provision-platform-access
+   * Enables platform login for a legacy driver or re-sends temporary credentials.
+   */
+  provisionDriverPlatformAccess(
+    id: number,
+    payload: ProvisionDriverPlatformAccessPayload,
+  ): Observable<ProvisionDriverPlatformAccessResult> {
+    const body: Record<string, unknown> = { email: payload.email.trim() };
+    if (payload.reissueCredentials) {
+      body['reissueCredentials'] = true;
+    }
+    return this.http.post<unknown>(`${this.fleetBase}/drivers/${id}/provision-platform-access`, body).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        const parsed = this.toObj(resp);
+        const message = typeof parsed?.['message'] === 'string' ? parsed['message'].trim() : '';
+        return {
+          driver: this.mapDriverRow(this.extractSingleDriver(resp)),
+          message: message || 'Driver platform login enabled.',
+        };
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
@@ -1186,11 +1214,11 @@ export class FleetPortalService {
 
   // ── Driver marketplace ─────────────────────────────────────────────────────
 
-  /** GET /fleet/marketplace/search?query=… — search freelance drivers on the platform. */
+  /** GET /fleet/drivers/marketplace/search?term=… — search approved freelance drivers on the platform. */
   searchMarketplaceDrivers(query: string): Observable<MarketplaceDriverRow[]> {
     const url = query.trim()
-      ? `${this.fleetBase}/marketplace/search?query=${encodeURIComponent(query.trim())}`
-      : `${this.fleetBase}/marketplace/search`;
+      ? `${this.fleetBase}/drivers/marketplace/search?term=${encodeURIComponent(query.trim())}`
+      : `${this.fleetBase}/drivers/marketplace/search`;
     return this.http.get<unknown>(url).pipe(
       map((resp) => {
         this.assertSuccess(resp);
@@ -1200,9 +1228,9 @@ export class FleetPortalService {
     );
   }
 
-  /** POST /fleet/marketplace/{driverId}/hire — hire a freelance driver. */
+  /** POST /fleet/drivers/marketplace/{driverId}/hire — hire an approved freelance driver. */
   hireMarketplaceDriver(driverId: number): Observable<FleetDriverRow> {
-    return this.http.post<unknown>(`${this.fleetBase}/marketplace/${driverId}/hire`, {}).pipe(
+    return this.http.post<unknown>(`${this.fleetBase}/drivers/marketplace/${driverId}/hire`, {}).pipe(
       map((resp) => {
         this.assertSuccess(resp);
         return this.mapDriverRow(this.extractSingleDriver(resp));
@@ -1212,6 +1240,19 @@ export class FleetPortalService {
   }
 
   // ── Driver signup requests ─────────────────────────────────────────────────
+
+  /** GET /fleet/drivers/signup-requests/freelance-marketplace — pending freelance applicants visible to all transporters. */
+  listFreelanceSignupMarketplace(): Observable<DriverSignupRequestRow[]> {
+    return this.http
+      .get<unknown>(`${this.fleetBase}/drivers/signup-requests/freelance-marketplace`)
+      .pipe(
+        map((resp) => {
+          this.assertSuccess(resp);
+          return this.extractSignupRequestRows(resp).map((dto) => this.mapSignupRequestRow(dto));
+        }),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
+  }
 
   /** GET /fleet/drivers/signup-requests/pending — list pending driver signup requests for the signed-in org. */
   listDriverSignupRequests(status?: DriverSignupRequestStatus): Observable<DriverSignupRequestRow[]> {
@@ -1424,7 +1465,10 @@ export class FleetPortalService {
 
   private extractMarketplaceDriverRows(response: unknown): Record<string, unknown>[] {
     const envelope = this.unwrapEnvelope(response);
-    const list = envelope['marketplaceDriverDtoList'] ?? envelope['driverDtoList'];
+    const list =
+      envelope['fleetDriverDtoList'] ??
+      envelope['marketplaceDriverDtoList'] ??
+      envelope['driverDtoList'];
     if (Array.isArray(list)) {
       return list.filter((r): r is Record<string, unknown> => !!this.toObj(r));
     }

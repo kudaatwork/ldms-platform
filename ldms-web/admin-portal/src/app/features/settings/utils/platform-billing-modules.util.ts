@@ -20,6 +20,12 @@ export const PLATFORM_BILLING_MODULES: PlatformBillingModuleMeta[] = [
     icon: 'notifications',
   },
   {
+    category: 'SUPPORT',
+    label: 'Help & support',
+    description: 'LDMS Assistant bot messages vs live agent ticket chat',
+    icon: 'support_agent',
+  },
+  {
     category: 'LOGISTICS',
     label: 'Shipments',
     description: 'Shipment status updates',
@@ -70,6 +76,9 @@ export const PLATFORM_BILLING_MODULES: PlatformBillingModuleMeta[] = [
 ];
 
 export function moduleLabel(category: string): string {
+  if (category === 'PROCUREMENT') {
+    return 'Orders & procurement';
+  }
   const match = PLATFORM_BILLING_MODULES.find((m) => m.category === category);
   if (match) {
     return match.label;

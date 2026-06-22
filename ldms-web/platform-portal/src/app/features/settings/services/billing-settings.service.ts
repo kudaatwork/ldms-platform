@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, throwError } from 'rxjs';
+import { isApiFailureEnvelope, readApiFailureMessage } from '../../../core/utils/api-paged-response.util';
 import { ldmsApiUrl, ldmsServiceUrl } from '../../../core/utils/api-url.util';
 import type { OrganizationCurrencyContext } from '../../../core/services/currency-context.service';
 
@@ -58,6 +59,7 @@ interface CurrencyApiResponse {
 @Injectable({ providedIn: 'root' })
 export class BillingSettingsService {
   private readonly frontendBase = ldmsServiceUrl('billing-payments', 'billing');
+  private readonly billingSettingsBase = ldmsServiceUrl('billing-payments', 'billing-settings');
   private readonly backofficeBase = ldmsServiceUrl('billing-payments', 'billing', undefined, 'backoffice');
 
   constructor(private readonly http: HttpClient) {}
@@ -176,9 +178,92 @@ export class BillingSettingsService {
   }
 
   /** POST /billing/payments/{id}/verify — verify/confirm a submitted payment. */
-  verifyPayment(paymentId: number): Observable<void> {
-    return this.http
-      .post<unknown>(`${this.frontendBase}/payments/${paymentId}/verify`, {})
-      .pipe(map(() => undefined));
+  verifyPayment(paymentId: number): Observable<string> {
+    return this.http.post<unknown>(`${this.frontendBase}/payments/${paymentId}/verify`, {}).pipe(
+      map((res) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Could not verify payment.'));
+        }
+        const body = res as Record<string, unknown>;
+        return typeof body['message'] === 'string' && body['message'].trim()
+          ? body['message'].trim()
+          : 'Payment verification recorded.';
+      }),
+    );
   }
+
+  fetchVerificationPolicy(): Observable<BillingVerificationPolicy> {
+    return this.http.get<unknown>(`${this.billingSettingsBase}/verification-policy`).pipe(
+      map((resp) => this.mapVerificationPolicy(resp)),
+      catchError((err) =>
+        throwError(() => (err instanceof Error ? err : new Error('Could not load billing verification policy.'))),
+      ),
+    );
+  }
+
+  updateVerificationPolicy(defaultRequiredVerificationStages: number): Observable<BillingVerificationPolicy> {
+    return this.http
+      .put<unknown>(`${this.billingSettingsBase}/verification-policy`, { defaultRequiredVerificationStages })
+      .pipe(map((resp) => this.mapVerificationPolicy(resp)));
+  }
+
+  private mapVerificationPolicy(resp: unknown): BillingVerificationPolicy {
+    const root = this.toObj(resp) ?? {};
+    const data = this.toObj(root['data']) ?? this.toObj(root['body']) ?? root;
+    const dto =
+      this.toObj(data['billingVerificationPolicyDto']) ??
+      this.toObj(data['verificationPolicyDto']) ??
+      data;
+    return {
+      defaultRequiredVerificationStages: Number(dto['defaultRequiredVerificationStages'] ?? 1),
+      minAllowedStages: Number(dto['minAllowedStages'] ?? 1),
+      maxAllowedStages: Number(dto['maxAllowedStages'] ?? 3),
+    };
+  }
+
+  private toObj(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  }
+
+  listPendingProcurementPayments(): Observable<ProcurementPaymentRow[]> {
+    return this.http.get<unknown>(`${this.frontendBase}/payments/pending-procurement`).pipe(
+      map((res) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Could not load pending payments.'));
+        }
+        const body = res as Record<string, unknown>;
+        const list = body['paymentDtoList'];
+        return Array.isArray(list) ? (list as ProcurementPaymentRow[]) : [];
+      }),
+      catchError((err) =>
+        throwError(() => (err instanceof Error ? err : new Error('Could not load pending payments.'))),
+      ),
+    );
+  }
+}
+
+export interface ProcurementPaymentRow {
+  id: number;
+  paymentReference?: string;
+  invoiceId?: number;
+  invoiceNumber?: string;
+  purchaseOrderId?: number;
+  purchaseOrderNumber?: string;
+  amountTransaction?: number;
+  transactionCurrencyCode?: string;
+  paymentReferenceNumber?: string;
+  proofDocumentId?: number;
+  status?: string;
+  createdAt?: string;
+  paymentDate?: string;
+  currentVerificationStage?: number;
+  requiredVerificationStages?: number;
+}
+
+export interface BillingVerificationPolicy {
+  defaultRequiredVerificationStages: number;
+  minAllowedStages: number;
+  maxAllowedStages: number;
 }

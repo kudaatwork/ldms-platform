@@ -1,5 +1,7 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { ActivatedRoute, ParamMap } from '@angular/router';
 import { Title } from '@angular/platform-browser';
+import { Subject, takeUntil } from 'rxjs';
 
 export type SettingsSection = 'group-roles' | 'kyc-approvers' | 'currency' | 'platform-billing';
 
@@ -10,8 +12,10 @@ export type SettingsSection = 'group-roles' | 'kyc-approvers' | 'currency' | 'pl
   changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: false,
 })
-export class SettingsComponent {
+export class SettingsComponent implements OnInit, OnDestroy {
   activeSection: SettingsSection = 'group-roles';
+
+  private readonly destroy$ = new Subject<void>();
 
   readonly sections: Array<{ id: SettingsSection; label: string; icon: string; hint: string }> = [
     {
@@ -36,15 +40,38 @@ export class SettingsComponent {
       id: 'platform-billing',
       label: 'Platform billing',
       icon: 'account_balance_wallet',
-      hint: 'Action charges, packages, and wallet deposits',
+      hint: 'Action charges, packages, wallet deposits, and approval history',
     },
   ];
 
   constructor(
     private readonly title: Title,
     private readonly cdr: ChangeDetectorRef,
+    private readonly route: ActivatedRoute,
   ) {
     this.title.setTitle('Settings | LX Admin');
+  }
+
+  ngOnInit(): void {
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params: ParamMap) => {
+      const section = params.get('section');
+      if (this.isSettingsSection(section)) {
+        this.activeSection = section;
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private isSettingsSection(value: string | null): value is SettingsSection {
+    return value === 'group-roles'
+      || value === 'kyc-approvers'
+      || value === 'currency'
+      || value === 'platform-billing';
   }
 
   selectSection(section: SettingsSection): void {

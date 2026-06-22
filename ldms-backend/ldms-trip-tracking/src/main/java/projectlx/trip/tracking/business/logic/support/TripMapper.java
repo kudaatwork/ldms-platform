@@ -75,15 +75,21 @@ public final class TripMapper {
     }
 
     public static TripDeliveryWorkflowDto toWorkflowDto(TripDeliveryWorkflow workflow) {
+        return toWorkflowDto(workflow, null);
+    }
+
+    public static TripDeliveryWorkflowDto toWorkflowDto(TripDeliveryWorkflow workflow, Long tripId) {
         if (workflow == null) {
             return null;
         }
         TripDeliveryWorkflowDto dto = new TripDeliveryWorkflowDto();
         dto.setId(workflow.getId());
-        if (workflow.getTrip() != null) {
-            dto.setTripId(workflow.getTrip().getId());
+        Long resolvedTripId = tripId;
+        if (resolvedTripId == null && workflow.getTrip() != null) {
+            resolvedTripId = workflow.getTrip().getId();
             dto.setTripNumber(workflow.getTrip().getTripNumber());
         }
+        dto.setTripId(resolvedTripId);
         dto.setDriverCountingStartedAt(workflow.getDriverCountingStartedAt());
         dto.setDriverCountingFinishedAt(workflow.getDriverCountingFinishedAt());
         dto.setCustomerCountingStartedAt(workflow.getCustomerCountingStartedAt());

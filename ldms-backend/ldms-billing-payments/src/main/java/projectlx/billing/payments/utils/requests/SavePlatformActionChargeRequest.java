@@ -14,5 +14,6 @@ public class SavePlatformActionChargeRequest {
     private String description;
     private Long chargeCents;
     private String category;
+    private String billingTier;
     private Boolean active;
 }

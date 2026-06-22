@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import projectlx.billing.payments.model.UsageChargeRecord;
+import projectlx.billing.payments.utils.enums.OrganizationBillingMode;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.time.LocalDateTime;
@@ -36,6 +37,22 @@ public interface UsageChargeRecordRepository extends JpaRepository<UsageChargeRe
             @Param("deleted") EntityStatus deleted);
 
     @Query("""
+            SELECT COUNT(u) > 0 FROM UsageChargeRecord u
+            WHERE u.organizationId = :organizationId
+              AND u.tripId = :tripId
+              AND u.actionCode IN ('TRIP_TRACK', 'GPS_PING', 'LIVE_MAP_SESSION')
+              AND u.entityStatus <> :deleted
+              AND u.createdAt >= :dayStart
+              AND u.createdAt < :dayEnd
+            """)
+    boolean existsTrackingChargeForTripOnDay(
+            @Param("organizationId") Long organizationId,
+            @Param("tripId") Long tripId,
+            @Param("dayStart") LocalDateTime dayStart,
+            @Param("dayEnd") LocalDateTime dayEnd,
+            @Param("deleted") EntityStatus deleted);
+
+    @Query("""
             SELECT u.actionCode, SUM(u.chargeCents)
             FROM UsageChargeRecord u
             WHERE u.organizationId = :organizationId
@@ -54,4 +71,68 @@ public interface UsageChargeRecordRepository extends JpaRepository<UsageChargeRe
             @Param("tripId") Long tripId,
             @Param("seasonId") Long seasonId,
             @Param("deleted") EntityStatus deleted);
+
+    @Query("""
+            SELECT u.organizationId,
+                   SUM(CASE WHEN u.deducted = true THEN u.chargeCents ELSE 0 END),
+                   SUM(CASE WHEN u.billingMode = :subscriptionMode THEN u.chargeCents ELSE 0 END),
+                   SUM(u.chargeCents),
+                   COUNT(u)
+            FROM UsageChargeRecord u
+            WHERE u.entityStatus <> :deleted
+            GROUP BY u.organizationId
+            """)
+    List<Object[]> aggregateUsageByOrganization(
+            @Param("subscriptionMode") OrganizationBillingMode subscriptionMode,
+            @Param("deleted") EntityStatus deleted);
+
+    @Query("""
+            SELECT YEAR(u.createdAt), MONTH(u.createdAt), SUM(u.chargeCents)
+            FROM UsageChargeRecord u
+            WHERE u.entityStatus <> :deleted
+              AND u.deducted = true
+              AND u.createdAt >= :from
+            GROUP BY YEAR(u.createdAt), MONTH(u.createdAt)
+            ORDER BY YEAR(u.createdAt), MONTH(u.createdAt)
+            """)
+    List<Object[]> sumDeductedChargesByMonth(
+            @Param("from") LocalDateTime from,
+            @Param("deleted") EntityStatus deleted);
+
+    @Query("""
+            SELECT YEAR(u.createdAt), MONTH(u.createdAt), SUM(u.chargeCents)
+            FROM UsageChargeRecord u
+            WHERE u.entityStatus <> :deleted
+              AND u.billingMode = :subscriptionMode
+              AND u.createdAt >= :from
+            GROUP BY YEAR(u.createdAt), MONTH(u.createdAt)
+            ORDER BY YEAR(u.createdAt), MONTH(u.createdAt)
+            """)
+    List<Object[]> sumSubscriptionUsageByMonth(
+            @Param("from") LocalDateTime from,
+            @Param("subscriptionMode") OrganizationBillingMode subscriptionMode,
+            @Param("deleted") EntityStatus deleted);
+
+    @Query("""
+            SELECT u.actionCode, MAX(u.actionDisplayName), SUM(u.chargeCents), COUNT(u)
+            FROM UsageChargeRecord u
+            WHERE u.organizationId = :organizationId
+              AND u.entityStatus <> :deleted
+            GROUP BY u.actionCode
+            ORDER BY SUM(u.chargeCents) DESC
+            """)
+    List<Object[]> sumByActionForOrganization(
+            @Param("organizationId") Long organizationId,
+            @Param("deleted") EntityStatus deleted);
+
+    @Query("""
+            SELECT u.actionCode, SUM(u.chargeCents)
+            FROM UsageChargeRecord u
+            WHERE u.entityStatus <> :deleted
+              AND u.chargeCents > 0
+            GROUP BY u.actionCode
+            """)
+    List<Object[]> sumChargesByActionCode(@Param("deleted") EntityStatus deleted);
+
+    List<UsageChargeRecord> findTop100ByEntityStatusNotOrderByCreatedAtDesc(EntityStatus entityStatus);
 }

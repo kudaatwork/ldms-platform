@@ -6,6 +6,10 @@
   margin-inline: auto;
 }
 
+.revenue-error {
+  margin: 0;
+}
+
 .revenue-kpi {
   display: flex;
   align-items: center;
@@ -85,10 +89,35 @@
     background: color-mix(in srgb, var(--org-accent) 6%, #fff);
   }
 
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
   &__name {
     font-weight: 800;
     font-size: 14px;
-    margin-bottom: 8px;
+  }
+
+  &__mode {
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #64748b;
+    white-space: nowrap;
+  }
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 10px;
   }
 
   &__nums {
@@ -158,4 +187,69 @@
 .revenue-charges__empty {
   color: #94a3b8;
   font-size: 13px;
+}
+
+.revenue-section-title {
+  margin: 18px 0 10px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #64748b;
+}
+
+.revenue-org-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 8px;
+
+  &__label {
+    display: block;
+    font-size: 11px;
+    color: #94a3b8;
+    margin-bottom: 2px;
+  }
+
+  strong {
+    font-size: 14px;
+    color: #0f172a;
+  }
+}
+
+.revenue-usage-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+
+  &__label {
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  &__meta {
+    font-size: 11px;
+    color: #94a3b8;
+    margin-top: 2px;
+  }
+
+  &__amt {
+    font-weight: 800;
+    color: #059669;
+    white-space: nowrap;
+  }
+}
+
+.revenue-charge__badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #059669;
+  background: rgba(16, 185, 129, 0.12);
 }

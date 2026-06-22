@@ -56,6 +56,12 @@ public class EditUserRequest {
      */
     private String shipmentFleetAllocator;
 
+    /**
+     * When set ({@code true} / {@code false}), toggles billing approver eligibility for organisation users.
+     * Bound as {@link String} for reliable multipart form binding. Omit to leave unchanged.
+     */
+    private String billingApprover;
+
     /** When provided, creates or updates the user's linked address (same as user create). */
     private UserAddressDetails userAddressDetails;
 }

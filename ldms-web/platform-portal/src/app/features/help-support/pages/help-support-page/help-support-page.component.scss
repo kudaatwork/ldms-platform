@@ -1147,6 +1147,37 @@
   &--draft {
     opacity: 0.78;
   }
+
+  &--md {
+    white-space: normal;
+
+    :where(p) {
+      margin: 0 0 0.55em;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    :where(ul, ol) {
+      margin: 0.35em 0 0.65em;
+      padding-left: 1.25rem;
+    }
+
+    :where(li) {
+      margin-bottom: 0.35em;
+    }
+
+    :where(strong) {
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .bot-md-heading {
+      margin-top: 0.65em;
+      margin-bottom: 0.35em;
+    }
+  }
 }
 
 .hc-typing-indicator {

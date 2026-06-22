@@ -13,4 +13,6 @@ public class CreateWalletDepositRequest {
     private String referenceNumber;
     private String notes;
     private Long proofDocumentId;
+    private String gatewayProvider;
+    private String paymentMethod;
 }

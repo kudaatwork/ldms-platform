@@ -9,29 +9,40 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.io.support.ResourcePatternResolver;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.messaging.inbound.business.auditable.api.BotFaqServiceAuditable;
+import projectlx.messaging.inbound.business.auditable.api.BotKnowledgeDocumentServiceAuditable;
 import projectlx.messaging.inbound.business.auditable.api.BotSessionServiceAuditable;
 import projectlx.messaging.inbound.business.auditable.impl.BotFaqServiceAuditableImpl;
+import projectlx.messaging.inbound.business.auditable.impl.BotKnowledgeDocumentServiceAuditableImpl;
 import projectlx.messaging.inbound.business.auditable.impl.BotSessionServiceAuditableImpl;
 import projectlx.messaging.inbound.business.logic.api.BotAnalyticsService;
 import projectlx.messaging.inbound.business.logic.api.BotFaqService;
+import projectlx.messaging.inbound.business.logic.api.BotKnowledgeDocumentService;
 import projectlx.messaging.inbound.business.logic.api.BotKnowledgeService;
 import projectlx.messaging.inbound.business.logic.api.BotSessionService;
 import projectlx.messaging.inbound.business.logic.impl.BotAnalyticsServiceImpl;
 import projectlx.messaging.inbound.business.logic.impl.BotFaqServiceImpl;
+import projectlx.messaging.inbound.business.logic.impl.BotKnowledgeDocumentServiceImpl;
 import projectlx.messaging.inbound.business.logic.impl.BotKnowledgeServiceImpl;
 import projectlx.messaging.inbound.business.logic.impl.BotSessionServiceImpl;
 import projectlx.messaging.inbound.business.logic.support.BotCallerProfileSupport;
 import projectlx.messaging.inbound.business.logic.support.BotFaqRagSupport;
+import projectlx.messaging.inbound.business.logic.support.BotKnowledgeDocumentRagSupport;
+import projectlx.messaging.inbound.business.logic.support.BotPdfTextExtractorSupport;
 import projectlx.messaging.inbound.business.logic.support.BotSessionMapper;
 import projectlx.messaging.inbound.business.logic.support.GeminiLlmClient;
 import projectlx.messaging.inbound.business.logic.support.LdmsKnowledgeContextSupport;
 import projectlx.messaging.inbound.business.validator.api.BotFaqServiceValidator;
+import projectlx.messaging.inbound.business.validator.api.BotKnowledgeDocumentServiceValidator;
 import projectlx.messaging.inbound.business.validator.api.BotSessionServiceValidator;
 import projectlx.messaging.inbound.business.validator.impl.BotFaqServiceValidatorImpl;
+import projectlx.messaging.inbound.business.validator.impl.BotKnowledgeDocumentServiceValidatorImpl;
 import projectlx.messaging.inbound.business.validator.impl.BotSessionServiceValidatorImpl;
+import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
+import projectlx.messaging.inbound.clients.BillingPaymentsServiceClient;
 import projectlx.messaging.inbound.clients.OrganizationManagementServiceClient;
 import projectlx.messaging.inbound.clients.UserManagementServiceClient;
 import projectlx.messaging.inbound.repository.BotFaqRepository;
+import projectlx.messaging.inbound.repository.BotKnowledgeDocumentRepository;
 import projectlx.messaging.inbound.repository.BotMessageRepository;
 import projectlx.messaging.inbound.repository.BotSessionRepository;
 import projectlx.messaging.inbound.utils.config.BotKnowledgeProperties;
@@ -54,9 +65,51 @@ public class BusinessConfig {
     }
 
     @Bean
+    public BotPdfTextExtractorSupport botPdfTextExtractorSupport() {
+        return new BotPdfTextExtractorSupport();
+    }
+
+    @Bean
+    public BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport(
+            BotKnowledgeDocumentRepository botKnowledgeDocumentRepository) {
+        return new BotKnowledgeDocumentRagSupport(botKnowledgeDocumentRepository);
+    }
+
+    @Bean
+    public BotKnowledgeDocumentServiceValidator botKnowledgeDocumentServiceValidator(
+            MessageService messageService) {
+        return new BotKnowledgeDocumentServiceValidatorImpl(messageService);
+    }
+
+    @Bean
+    public BotKnowledgeDocumentServiceAuditable botKnowledgeDocumentServiceAuditable(
+            BotKnowledgeDocumentRepository botKnowledgeDocumentRepository) {
+        return new BotKnowledgeDocumentServiceAuditableImpl(botKnowledgeDocumentRepository);
+    }
+
+    @Bean
+    public BotKnowledgeDocumentService botKnowledgeDocumentService(
+            BotKnowledgeDocumentServiceValidator botKnowledgeDocumentServiceValidator,
+            BotKnowledgeDocumentServiceAuditable botKnowledgeDocumentServiceAuditable,
+            BotKnowledgeDocumentRepository botKnowledgeDocumentRepository,
+            BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport,
+            BotPdfTextExtractorSupport botPdfTextExtractorSupport,
+            MessageService messageService) {
+        return new BotKnowledgeDocumentServiceImpl(
+                botKnowledgeDocumentServiceValidator,
+                botKnowledgeDocumentServiceAuditable,
+                botKnowledgeDocumentRepository,
+                botKnowledgeDocumentRagSupport,
+                botPdfTextExtractorSupport,
+                messageService);
+    }
+
+    @Bean
     public BotKnowledgeService botKnowledgeService(LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport,
-                                                   BotFaqRagSupport botFaqRagSupport) {
-        return new BotKnowledgeServiceImpl(ldmsKnowledgeContextSupport, botFaqRagSupport);
+                                                   BotFaqRagSupport botFaqRagSupport,
+                                                   BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport) {
+        return new BotKnowledgeServiceImpl(ldmsKnowledgeContextSupport, botFaqRagSupport,
+                botKnowledgeDocumentRagSupport);
     }
 
     @Bean
@@ -127,6 +180,11 @@ public class BusinessConfig {
     }
 
     @Bean
+    public PlatformWalletUsageSupport platformWalletUsageSupport(BillingPaymentsServiceClient billingPaymentsServiceClient) {
+        return new PlatformWalletUsageSupport(billingPaymentsServiceClient::recordUsageCharge, "ldms-messaging-bot");
+    }
+
+    @Bean
     public BotSessionService botSessionService(BotSessionRepository botSessionRepository,
                                                BotMessageRepository botMessageRepository,
                                                BotSessionServiceAuditable botSessionServiceAuditable,
@@ -135,7 +193,9 @@ public class BusinessConfig {
                                                BotSessionMapper botSessionMapper,
                                                LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport,
                                                BotFaqRagSupport botFaqRagSupport,
+                                               BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport,
                                                GeminiLlmClient geminiLlmClient,
+                                               PlatformWalletUsageSupport platformWalletUsageSupport,
                                                MessageService messageService) {
         return new BotSessionServiceImpl(
                 botSessionRepository,
@@ -146,7 +206,9 @@ public class BusinessConfig {
                 botSessionMapper,
                 ldmsKnowledgeContextSupport,
                 botFaqRagSupport,
+                botKnowledgeDocumentRagSupport,
                 geminiLlmClient,
+                platformWalletUsageSupport,
                 messageService);
     }
 }

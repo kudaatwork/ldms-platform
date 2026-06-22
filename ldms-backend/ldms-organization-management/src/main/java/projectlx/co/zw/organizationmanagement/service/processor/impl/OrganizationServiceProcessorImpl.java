@@ -177,6 +177,12 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     }
 
     @Override
+    public ImportSummary importAgentsFromCsvForUser(InputStream inputStream, Locale locale, String username)
+            throws IOException {
+        return organizationService.importAgentsFromCsvForUser(inputStream, locale, username);
+    }
+
+    @Override
     public OrganizationResponse listCustomers(Locale locale, String username) {
         log.info("Incoming request: listCustomers user={}", username);
         OrganizationResponse response = organizationService.listCustomers(locale, username);

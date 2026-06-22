@@ -14,6 +14,8 @@ public class WalletTransactionDto {
     private Long balanceAfterCents;
     private String actionCode;
     private String description;
+    private String receiptNumber;
+    private Long receiptDocumentId;
     private Long tripId;
     private Long seasonId;
     private String createdAt;

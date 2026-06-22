@@ -50,6 +50,8 @@ export interface UserListRow {
   procurementApprover: boolean;
   shipmentFleetAllocatorEligibleLabel: string;
   shipmentFleetAllocator: boolean;
+  billingApproverEligibleLabel: string;
+  billingApprover: boolean;
 }
 
 export interface UserProfileBundle {
@@ -1108,6 +1110,28 @@ export class UsersPortalService {
     return this.http.put(`${this.base}/user/${userId}/shipment-fleet-allocator`, null, { params });
   }
 
+  /** Sets billing approver eligibility for organisation workspace users. */
+  setBillingApprover(userId: number, enabled: boolean): Observable<unknown> {
+    const params = new HttpParams().set('enabled', String(enabled));
+    return this.http.put<unknown>(`${this.base}/user/${userId}/billing-approver`, null, { params }).pipe(
+      catchError((err) =>
+        throwError(() => {
+          if (err instanceof HttpErrorResponse) {
+            const body = err.error;
+            const fromEnvelope = this.formatUserMutationError(body, '');
+            if (fromEnvelope) {
+              return new Error(fromEnvelope);
+            }
+            if (err.status === 403) {
+              return new Error('You do not have permission to update billing approvers.');
+            }
+          }
+          return new Error('Could not update billing approver.');
+        }),
+      ),
+    );
+  }
+
   listProcurementApprovers(): Observable<UserListRow[]> {
     return this.http.get<unknown>(`${this.base}/user/procurement-approvers`).pipe(
       map((resp) => {
@@ -1545,6 +1569,8 @@ export class UsersPortalService {
         procurementApprover: false,
         shipmentFleetAllocatorEligibleLabel: '—',
         shipmentFleetAllocator: false,
+        billingApproverEligibleLabel: '—',
+        billingApprover: false,
       };
     }
     const firstName = String(row['firstName'] ?? '').trim();
@@ -1584,7 +1610,27 @@ export class UsersPortalService {
       procurementApprover: this.isTruthyProcurementApprover(row['procurementApprover']),
       shipmentFleetAllocatorEligibleLabel: this.formatShipmentFleetAllocatorEligibleLabel(row),
       shipmentFleetAllocator: this.isTruthyShipmentFleetAllocator(row['shipmentFleetAllocator']),
+      billingApproverEligibleLabel: this.formatBillingApproverEligibleLabel(row),
+      billingApprover: this.isTruthyBillingApprover(row['billingApprover']),
     };
+  }
+
+  private formatBillingApproverEligibleLabel(row: Record<string, unknown>): string {
+    const orgId = Number(row['organizationId'] ?? 0);
+    if (!Number.isFinite(orgId) || orgId <= 0) {
+      return '—';
+    }
+    return this.isTruthyBillingApprover(row['billingApprover']) ? 'Eligible' : 'Not eligible';
+  }
+
+  private isTruthyBillingApprover(raw: unknown): boolean {
+    if (raw === true) {
+      return true;
+    }
+    if (typeof raw === 'string') {
+      return raw.trim().toLowerCase() === 'true';
+    }
+    return false;
   }
 
   private formatShipmentFleetAllocatorEligibleLabel(row: Record<string, unknown>): string {

@@ -26,6 +26,7 @@ public class UserDto {
     private Boolean operationalIssueHandler;
     private Boolean procurementApprover;
     private Boolean shipmentFleetAllocator;
+    private Boolean billingApprover;
     /** True when the user's group carries {@code ORGANIZATION_ADMINISTRATOR}. */
     private Boolean organizationWorkspaceAdministrator;
 

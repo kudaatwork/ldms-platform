@@ -17,8 +17,24 @@ export class FuelExpensesPortalService {
   constructor(private readonly http: HttpClient) {}
 
   findFundRequestsByTrip(tripId: number): Observable<OperationalFundRequestRow[]> {
+    return this.findFundRequests({ tripId, page: 0, size: 50 });
+  }
+
+  findFundRequests(filter: {
+    tripId?: number;
+    requestType?: 'FUEL_TOP_UP' | 'MECHANIC' | 'FUNDS';
+    status?: string;
+    page?: number;
+    size?: number;
+  }): Observable<OperationalFundRequestRow[]> {
     return this.http
-      .post<unknown>(`${this.fundRequestBase}/find-by-multiple-filters`, { tripId, page: 0, size: 50 })
+      .post<unknown>(`${this.fundRequestBase}/find-by-multiple-filters`, {
+        page: filter.page ?? 0,
+        size: filter.size ?? 50,
+        tripId: filter.tripId,
+        requestType: filter.requestType,
+        status: filter.status,
+      })
       .pipe(
         map((resp) => this.extractList(resp, 'operationalFundRequestDtoList').map((d) => this.mapFundRequest(d))),
         catchError((err) => throwError(() => this.toError(err))),

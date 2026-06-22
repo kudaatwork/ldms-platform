@@ -361,6 +361,9 @@ public class AuthenticationServiceImpl implements AuthenticationService {
         if (Boolean.TRUE.equals(dto.getShipmentFleetAllocator())) {
             claims.put("shipmentFleetAllocator", true);
         }
+        if (Boolean.TRUE.equals(dto.getBillingApprover())) {
+            claims.put("billingApprover", true);
+        }
         if (Boolean.TRUE.equals(dto.getMustChangeCredentials())) {
             claims.put("mustChangeCredentials", true);
         }

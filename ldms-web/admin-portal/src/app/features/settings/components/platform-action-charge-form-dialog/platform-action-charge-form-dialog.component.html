@@ -57,6 +57,18 @@
         </div>
       </div>
 
+      <div class="lx-field">
+        <label class="lx-field-label">Billing tier</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">layers</mat-icon>
+          <select formControlName="billingTier" aria-label="Billing tier">
+            <option value="">— None —</option>
+            <option *ngFor="let t of billingTiers" [value]="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="lx-field-hint">Fused customer-facing tier (Light, Standard, Heavy, etc.).</div>
+      </div>
+
       <div class="lx-field lx-field--toggle span-2">
         <span class="lx-field-label">Active</span>
         <mat-slide-toggle formControlName="active">Charge is applied when active</mat-slide-toggle>

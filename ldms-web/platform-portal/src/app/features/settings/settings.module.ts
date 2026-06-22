@@ -6,6 +6,7 @@ import { SettingsGroupRolesComponent } from './components/settings-group-roles/s
 import { SettingsKycApproversComponent } from './components/settings-kyc-approvers/settings-kyc-approvers.component';
 import { SettingsCurrencyComponent } from './components/settings-currency/settings-currency.component';
 import { SettingsProcurementApproversComponent } from './components/settings-procurement-approvers/settings-procurement-approvers.component';
+import { SettingsBillingApproversComponent } from './components/settings-billing-approvers/settings-billing-approvers.component';
 import { SettingsBillingComponent } from './components/settings-billing/settings-billing.component';
 import { SettingsOperationalModeComponent } from './components/settings-operational-mode/settings-operational-mode.component';
 import { SettingsOrganizationComponent } from './components/settings-organization/settings-organization.component';
@@ -18,6 +19,7 @@ import { UserAddressCascadeFieldsComponent } from '../users/components/user-addr
     SettingsKycApproversComponent,
     SettingsCurrencyComponent,
     SettingsProcurementApproversComponent,
+    SettingsBillingApproversComponent,
     SettingsBillingComponent,
     SettingsOperationalModeComponent,
     SettingsOrganizationComponent,

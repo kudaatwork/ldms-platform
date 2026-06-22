@@ -1,0 +1,231 @@
+<app-landing-shell activePage="pricing">
+  <section class="ldms-page-hero ldms-reveal" aria-labelledby="pricing-hero-title">
+    <div class="ldms-page-hero__glow" aria-hidden="true"></div>
+    <div class="ldms-section__inner ldms-page-hero__inner">
+      <p class="ldms-page-hero__eyebrow ldms-kicker">Transparent pricing</p>
+      <h1 id="pricing-hero-title" class="ldms-page-hero__title">Pay as you grow on the corridor</h1>
+      <p class="ldms-page-hero__lead">
+        Prepaid wallet for per-action usage, or flat monthly packages — configured by LX administrators and synced with
+        your organisation billing settings.
+      </p>
+      <div class="ldms-page-hero__cta">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup()">Get started</button>
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="goBookDemo()">Book a demo</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="ldms-pricing ldms-reveal" id="ldms-pricing" aria-labelledby="ldms-pricing-title">
+    <div class="ldms-pricing__glow" aria-hidden="true"></div>
+    <div class="ldms-section__inner">
+      <div class="ldms-pricing__toggle" role="tablist" aria-label="Billing options">
+        <button
+          type="button"
+          role="tab"
+          class="ldms-pricing__toggle-btn"
+          [class.ldms-pricing__toggle-btn--active]="pricingMode() === 'prepaid'"
+          [attr.aria-selected]="pricingMode() === 'prepaid'"
+          (click)="setPricingMode('prepaid')"
+        >
+          <span class="material-icons" aria-hidden="true">account_balance_wallet</span>
+          Prepaid wallet
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="ldms-pricing__toggle-btn"
+          [class.ldms-pricing__toggle-btn--active]="pricingMode() === 'subscription'"
+          [attr.aria-selected]="pricingMode() === 'subscription'"
+          (click)="setPricingMode('subscription')"
+        >
+          <span class="material-icons" aria-hidden="true">workspace_premium</span>
+          Subscription packages
+          <span class="ldms-pricing__toggle-count" *ngIf="pricingPackages().length">{{ pricingPackages().length }}</span>
+        </button>
+      </div>
+
+      <div class="ldms-pricing__loading" *ngIf="pricingLoading()">
+        <span class="ldms-pricing__spinner" aria-hidden="true"></span>
+        <span>Loading current pricing…</span>
+      </div>
+
+      <div class="ldms-pricing__prepaid" *ngIf="!pricingLoading() && pricingMode() === 'prepaid'">
+        <p class="ldms-pricing__hint">
+          Top up your wallet once — platform actions deduct at fused tier rates. Expand a corridor module below for the
+          full event list ({{ totalChargeCount() }} actions mapped to five tiers).
+        </p>
+
+        <div class="ldms-pricing__tier-grid" *ngIf="billingTiers.length">
+          @for (tier of billingTiers; track tier.tier) {
+            <article class="ldms-pricing__tier-card">
+              <span class="material-icons ldms-pricing__tier-icon" aria-hidden="true">{{ tier.icon }}</span>
+              <p class="ldms-pricing__tier-label">{{ tier.label }}</p>
+              <p class="ldms-pricing__tier-price">{{ formatPrice(tier.cents) }}</p>
+              <p class="ldms-pricing__tier-summary">{{ tier.summary }}</p>
+              <p class="ldms-pricing__tier-examples">{{ tier.examples }}</p>
+              <p class="ldms-pricing__tier-count" *ngIf="tierCharges(tier.tier).length">
+                {{ tierCharges(tier.tier).length }} mapped events
+              </p>
+            </article>
+          }
+        </div>
+
+        <div class="ldms-prepaid-demo" aria-hidden="true">
+          <div class="ldms-prepaid-demo__glow"></div>
+          <div class="ldms-prepaid-demo__layout">
+            <div class="ldms-prepaid-demo__steps">
+              <div class="ldms-prepaid-demo__step ldms-prepaid-demo__step--1">
+                <span class="ldms-prepaid-demo__step-num">1</span>
+                <span class="material-icons">savings</span>
+                <span>Top up wallet</span>
+              </div>
+              <div class="ldms-prepaid-demo__step ldms-prepaid-demo__step--2">
+                <span class="ldms-prepaid-demo__step-num">2</span>
+                <span class="material-icons">bolt</span>
+                <span>Platform events fire</span>
+              </div>
+              <div class="ldms-prepaid-demo__step ldms-prepaid-demo__step--3">
+                <span class="ldms-prepaid-demo__step-num">3</span>
+                <span class="material-icons">sync</span>
+                <span>Balance auto-deducts</span>
+              </div>
+            </div>
+
+            <div class="ldms-prepaid-demo__stage">
+              <div class="ldms-prepaid-demo__wallet">
+                <div class="ldms-prepaid-demo__wallet-head">
+                  <span class="material-icons">account_balance_wallet</span>
+                  <span>Prepaid wallet</span>
+                </div>
+                <p class="ldms-prepaid-demo__wallet-balance">
+                  <span class="ldms-prepaid-demo__wallet-amount">$500.00</span>
+                </p>
+                <div class="ldms-prepaid-demo__wallet-bar">
+                  <span class="ldms-prepaid-demo__wallet-fill"></span>
+                </div>
+                <p class="ldms-prepaid-demo__wallet-caption">Live balance · pay as you go</p>
+              </div>
+
+              <svg class="ldms-prepaid-demo__arc" viewBox="0 0 320 120" aria-hidden="true">
+                <path class="ldms-prepaid-demo__arc-path" d="M20,100 Q160,10 300,100" />
+                <circle class="ldms-prepaid-demo__arc-dot ldms-prepaid-demo__arc-dot--a" cx="20" cy="100" r="5" />
+                <circle class="ldms-prepaid-demo__arc-dot ldms-prepaid-demo__arc-dot--b" cx="160" cy="55" r="5" />
+                <circle class="ldms-prepaid-demo__arc-dot ldms-prepaid-demo__arc-dot--c" cx="300" cy="100" r="5" />
+              </svg>
+
+              <ul class="ldms-prepaid-demo__events">
+                @for (event of prepaidDemoEvents; track event.label; let i = $index) {
+                  <li
+                    class="ldms-prepaid-demo__event"
+                    [class.ldms-prepaid-demo__event--credit]="event.credit"
+                    [style.--event-i]="i"
+                  >
+                    <span class="material-icons">{{ event.icon }}</span>
+                    <span class="ldms-prepaid-demo__event-copy">
+                      <strong>{{ event.label }}</strong>
+                      <em>{{ event.credit ? '+' : '−' }}{{ formatPrice(event.cents) }}</em>
+                    </span>
+                  </li>
+                }
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="ldms-pricing__drill" *ngIf="pricingChargesByModule().length; else pricingPrepaidEmpty">
+          <h2 id="ldms-pricing-title" class="ldms-pricing__drill-title">Per-action rate card</h2>
+          <p class="ldms-pricing__drill-lead">Tap a corridor module to expand its event charges.</p>
+          @for (group of pricingChargesByModule(); track group.mod.category) {
+            <article
+              class="ldms-pricing__module-drill"
+              [class.ldms-pricing__module-drill--open]="isModuleExpanded(group.mod.category)"
+            >
+              <button
+                type="button"
+                class="ldms-pricing__module-drill-head"
+                [attr.aria-expanded]="isModuleExpanded(group.mod.category)"
+                (click)="toggleModule(group.mod.category)"
+              >
+                <span class="ldms-pricing__module-icon">
+                  <span class="material-icons" aria-hidden="true">{{ group.mod.icon }}</span>
+                </span>
+                <span class="ldms-pricing__module-drill-copy">
+                  <strong>{{ group.mod.label }}</strong>
+                  <span>{{ group.mod.description }}</span>
+                </span>
+                <span class="ldms-pricing__module-drill-meta">{{ group.charges.length }} events</span>
+                <span class="material-icons ldms-pricing__module-drill-chevron" aria-hidden="true">expand_more</span>
+              </button>
+              <ul class="ldms-pricing__charges ldms-pricing__charges--drill" *ngIf="isModuleExpanded(group.mod.category)">
+                @for (charge of group.charges; track charge.actionCode) {
+                  <li>
+                    <span class="ldms-pricing__charge-name">
+                      {{ charge.displayName }}
+                      <em class="ldms-pricing__charge-tier" *ngIf="charge.billingTier">{{ charge.billingTier }}</em>
+                    </span>
+                    <span class="ldms-pricing__charge-price">{{ formatPrice(charge.chargeCents) }}</span>
+                  </li>
+                }
+              </ul>
+            </article>
+          }
+        </div>
+        <ng-template #pricingPrepaidEmpty>
+          <p class="ldms-pricing__empty">Per-action pricing will appear here once LX administrators publish rates.</p>
+        </ng-template>
+      </div>
+
+      <div class="ldms-pricing__packages" *ngIf="!pricingLoading() && pricingMode() === 'subscription'">
+        <p class="ldms-pricing__hint">
+          Flat monthly packages include fused-tier usage credits and dedicated platform infrastructure (~USD 450/org).
+          Select one when you configure billing in the organisation portal.
+        </p>
+        <div class="ldms-pricing__package-grid" *ngIf="pricingPackages().length; else pricingPackagesEmpty">
+          @for (pkg of pricingPackages(); track pkg.id ?? pkg.code) {
+            <article class="ldms-pricing__package" [class.ldms-pricing__package--featured]="pkg.featured">
+              <span class="ldms-pricing__package-badge" *ngIf="pkg.featured">Most popular</span>
+              <p class="ldms-pricing__package-code">{{ pkg.code }}</p>
+              <h3 class="ldms-pricing__package-name">{{ pkg.name }}</h3>
+              <p class="ldms-pricing__package-price">
+                {{ formatPrice(pkg.monthlyPriceCents, pkg.currencyCode) }}
+                <span>/mo</span>
+              </p>
+              <p class="ldms-pricing__package-credits" *ngIf="packageCreditSummary(pkg) as credits">
+                <span class="material-icons" aria-hidden="true">redeem</span>
+                Includes {{ credits }} credits monthly
+              </p>
+              <ul class="ldms-pricing__package-features">
+                @for (point of packageFeatures(pkg.description); track point) {
+                  <li>
+                    <span class="material-icons" aria-hidden="true">check_circle</span>
+                    <span>{{ point }}</span>
+                  </li>
+                }
+              </ul>
+              <button type="button" class="lx-btn lx-btn-primary ldms-pricing__package-cta" (click)="goSignup()">
+                Get started
+              </button>
+            </article>
+          }
+        </div>
+        <ng-template #pricingPackagesEmpty>
+          <p class="ldms-pricing__empty" *ngIf="pricingLoadFailed(); else packagesNotPublished">
+            Could not reach the billing service. Start <strong>ldms-billing-payments</strong> (port 8014), restart
+            <code>ng serve</code> if you changed the proxy, then refresh this page.
+          </p>
+          <ng-template #packagesNotPublished>
+            <p class="ldms-pricing__empty">
+              Subscription packages will appear here once LX administrators publish them.
+            </p>
+          </ng-template>
+        </ng-template>
+      </div>
+
+      <p class="ldms-pricing__footnote">
+        Need a corridor-specific quote?
+        <button type="button" class="ldms-pricing__footnote-link" (click)="goBookDemo()">Book a demo</button>
+        and we'll tailor billing to your programme.
+      </p>
+    </div>
+  </section>
+</app-landing-shell>

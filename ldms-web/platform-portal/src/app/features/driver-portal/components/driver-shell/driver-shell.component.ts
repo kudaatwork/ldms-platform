@@ -23,6 +23,10 @@ export class DriverShellComponent {
     return this.router.url.includes('/driver/trip/');
   }
 
+  get isLive(): boolean {
+    return this.router.url.includes('/driver/live');
+  }
+
   logout(): void {
     this.authService.logout();
     void this.router.navigate(['/auth/login'], { queryParams: { portal: 'driver' } });

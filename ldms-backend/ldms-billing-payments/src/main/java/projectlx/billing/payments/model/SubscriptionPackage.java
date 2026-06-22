@@ -38,6 +38,18 @@ public class SubscriptionPackage {
     @Column(name = "monthly_price_cents", nullable = false)
     private Long monthlyPriceCents = 0L;
 
+    @Column(name = "included_heavy_credits", nullable = false)
+    private Integer includedHeavyCredits = 0;
+
+    @Column(name = "included_standard_credits", nullable = false)
+    private Integer includedStandardCredits = 0;
+
+    @Column(name = "included_light_credits", nullable = false)
+    private Integer includedLightCredits = 0;
+
+    @Column(name = "included_tracking_day_credits", nullable = false)
+    private Integer includedTrackingDayCredits = 0;
+
     @Column(name = "currency_code", nullable = false, length = 3)
     private String currencyCode = "USD";
 

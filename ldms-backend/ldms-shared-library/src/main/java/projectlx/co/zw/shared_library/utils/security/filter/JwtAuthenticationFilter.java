@@ -138,6 +138,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || path.contains("/v1/system/")
                 || path.contains("/v1/auth/")
                 || path.endsWith("/v1/frontend/organization/register")
-                || path.contains("/organization/onboarding-status");
+                || path.contains("/organization/onboarding-status")
+                || path.contains("/platform-wallet/public/");
     }
 }

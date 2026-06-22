@@ -33,6 +33,8 @@ import { FleetPortalService } from '../../services/fleet-portal.service';
 
 export type FleetDriverDialogData = {
   driver?: FleetDriverRow;
+  /** When true, scroll focus to the legacy platform-login panel (edit mode). */
+  focusPlatformAccess?: boolean;
 };
 
 type DriverSource = 'org_user' | 'manual';
@@ -111,6 +113,16 @@ export class FleetDriverDialogComponent implements OnInit, OnDestroy {
   saveError = '';
   addressError = '';
 
+  /** Linked platform user id — updated after legacy provisioning. */
+  platformUserId: number | null = null;
+  legacyPlatformEmail = '';
+  reissuePlatformEmail = '';
+  showReissuePanel = false;
+  provisioningAccess = false;
+  provisionError = '';
+  provisionSuccess = '';
+  private provisionedDriver: FleetDriverRow | null = null;
+
   suburbIdStr = '';
   cityIdStr = '';
   seedSuburbId: number | null = null;
@@ -118,6 +130,7 @@ export class FleetDriverDialogComponent implements OnInit, OnDestroy {
 
   private readonly driverId?: number;
   private readonly existingDriver?: FleetDriverRow;
+  private readonly focusPlatformAccess: boolean;
   private readonly destroy$ = new Subject<void>();
 
   constructor(
@@ -130,9 +143,11 @@ export class FleetDriverDialogComponent implements OnInit, OnDestroy {
     @Optional() @Inject(MAT_DIALOG_DATA) data: FleetDriverDialogData | null,
   ) {
     this.dialogRef.disableClose = true;
+    this.focusPlatformAccess = data?.focusPlatformAccess === true;
     const driver = data?.driver;
     this.existingDriver = driver;
     this.isEdit = !!driver;
+    this.platformUserId = driver?.userId ?? null;
     this.title = driver ? 'Edit driver' : 'Add driver';
     this.subtitle = driver
       ? `Update driver profile, identity documents, and licence for ${driver.fullName}.`
@@ -203,6 +218,9 @@ export class FleetDriverDialogComponent implements OnInit, OnDestroy {
       this.onOrgUserSelected(existingUserId);
     } else if (this.isEdit && this.existingDriver?.userId) {
       this.loadAddressSeedFromUserProfile(this.existingDriver.userId);
+    }
+    if (this.focusPlatformAccess && this.showLegacyProvisionPanel) {
+      this.scrollToLegacyPanel();
     }
   }
 
@@ -298,13 +316,91 @@ export class FleetDriverDialogComponent implements OnInit, OnDestroy {
   }
 
   cancel(): void {
-    if (!this.submitting) {
-      this.dialogRef.close();
+    if (!this.submitting && !this.provisioningAccess) {
+      this.dialogRef.close(this.provisionedDriver ?? undefined);
     }
+  }
+
+  enableDriverLogin(): void {
+    if (!this.driverId) {
+      return;
+    }
+    const email = this.legacyPlatformEmail.trim();
+    if (!email) {
+      this.provisionError = 'Enter the driver email address where login credentials should be sent.';
+      return;
+    }
+    this.provisionError = '';
+    this.provisionSuccess = '';
+    this.provisioningAccess = true;
+    this.fleet
+      .provisionDriverPlatformAccess(this.driverId, { email })
+      .pipe(
+        finalize(() => (this.provisioningAccess = false)),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (result) => {
+          this.platformUserId = result.driver.userId ?? null;
+          this.provisionedDriver = result.driver;
+          this.provisionSuccess =
+            result.message ||
+            'Platform login enabled. Temporary credentials were emailed to the driver.';
+          if (result.driver.userId) {
+            this.form.patchValue({ userId: result.driver.userId });
+          }
+        },
+        error: (err: Error) => {
+          this.provisionError = err.message ?? 'Could not enable driver platform login.';
+        },
+      });
+  }
+
+  resendDriverCredentials(): void {
+    if (!this.driverId) {
+      return;
+    }
+    const email = this.reissuePlatformEmail.trim();
+    if (!email) {
+      this.provisionError = 'Enter the email address where new credentials should be sent.';
+      return;
+    }
+    this.provisionError = '';
+    this.provisionSuccess = '';
+    this.provisioningAccess = true;
+    this.fleet
+      .provisionDriverPlatformAccess(this.driverId, { email, reissueCredentials: true })
+      .pipe(
+        finalize(() => (this.provisioningAccess = false)),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (result) => {
+          this.provisionedDriver = result.driver;
+          this.provisionSuccess =
+            result.message || 'New temporary credentials were emailed to the driver.';
+          this.showReissuePanel = false;
+        },
+        error: (err: Error) => {
+          this.provisionError = err.message ?? 'Could not re-send driver credentials.';
+        },
+      });
   }
 
   get showProvisionAccess(): boolean {
     return this.driverSource === 'manual' && !this.isEdit;
+  }
+
+  get hasPlatformLogin(): boolean {
+    return this.platformUserId != null && this.platformUserId > 0;
+  }
+
+  get showLegacyProvisionPanel(): boolean {
+    return this.isEdit && !this.hasPlatformLogin;
+  }
+
+  get showReissueCredentialsPanel(): boolean {
+    return this.isEdit && this.hasPlatformLogin;
   }
 
   get provisionPlatformAccess(): boolean {
@@ -414,6 +510,12 @@ export class FleetDriverDialogComponent implements OnInit, OnDestroy {
           this.saveError = err.message ?? 'Could not save driver.';
         },
       });
+  }
+
+  private scrollToLegacyPanel(): void {
+    queueMicrotask(() => {
+      document.getElementById('flt-driver-legacy-login')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   private validateIdentityRules(): string | null {

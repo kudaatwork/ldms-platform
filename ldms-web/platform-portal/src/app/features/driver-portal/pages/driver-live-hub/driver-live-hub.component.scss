@@ -1,0 +1,58 @@
+:host {
+  display: block;
+  padding: 24px 16px;
+}
+
+.dlh-shell {
+  max-width: 420px;
+  margin: 0 auto;
+}
+
+.dlh-card {
+  background: var(--surface, #fff);
+  border-radius: 16px;
+  padding: 28px 20px;
+  text-align: center;
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+
+  h2 {
+    margin: 0 0 8px;
+    font-size: 1.1rem;
+  }
+
+  p {
+    margin: 0 0 16px;
+    color: var(--gray-600, #475569);
+    line-height: 1.5;
+  }
+
+  &__icon {
+    font-size: 40px;
+    color: var(--primary, #3b82f6);
+    margin-bottom: 12px;
+
+    &--spin {
+      animation: dlh-spin 1s linear infinite;
+    }
+  }
+
+  &--warn &__icon {
+    color: var(--danger, #ef4444);
+  }
+}
+
+.dlh-btn {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  background: var(--primary, #3b82f6);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@keyframes dlh-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -2,6 +2,7 @@ package projectlx.fleet.management.business.logic.api;
 
 import projectlx.fleet.management.utils.requests.CreateFleetDriverRequest;
 import projectlx.fleet.management.utils.requests.EditFleetDriverRequest;
+import projectlx.fleet.management.utils.requests.ProvisionFleetDriverPlatformAccessRequest;
 import projectlx.fleet.management.utils.responses.FleetDriverResponse;
 
 import java.util.Locale;
@@ -13,6 +14,14 @@ public interface FleetDriverService {
 
     FleetDriverResponse create(CreateFleetDriverRequest request, Locale locale, String username);
     FleetDriverResponse update(Long id, EditFleetDriverRequest request, Locale locale, String username);
+
+    /**
+     * Provisions platform login for a legacy driver (no {@code userId}) or re-issues temporary
+     * credentials for a driver that already has a linked platform user.
+     */
+    FleetDriverResponse provisionPlatformAccess(Long id, ProvisionFleetDriverPlatformAccessRequest request,
+                                                Locale locale, String username);
+
     FleetDriverResponse delete(Long id, Locale locale, String username);
 
     /**

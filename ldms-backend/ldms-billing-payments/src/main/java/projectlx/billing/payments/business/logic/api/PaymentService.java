@@ -14,5 +14,7 @@ public interface PaymentService {
 
     PaymentResponse listByInvoice(Long invoiceId, Locale locale, String username);
 
+    PaymentResponse listPendingProcurementPayments(Locale locale, String username);
+
     PaymentResponse verifyPayment(Long paymentId, String username, Locale locale);
 }

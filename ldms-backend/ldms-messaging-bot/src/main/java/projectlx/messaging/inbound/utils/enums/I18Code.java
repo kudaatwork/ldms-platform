@@ -25,7 +25,16 @@ public enum I18Code {
     MESSAGE_BOT_FAQ_INVALID_REQUEST("message.bot.faq.invalid.request"),
     MESSAGE_BOT_FAQ_QUESTION_REQUIRED("message.bot.faq.question.required"),
     MESSAGE_BOT_FAQ_ANSWER_REQUIRED("message.bot.faq.answer.required"),
-    MESSAGE_BOT_ANALYTICS_RETRIEVED("message.bot.analytics.retrieved");
+    MESSAGE_BOT_ANALYTICS_RETRIEVED("message.bot.analytics.retrieved"),
+    MESSAGE_BOT_DOCUMENT_LIST_SUCCESS("message.bot.document.list.success"),
+    MESSAGE_BOT_DOCUMENT_UPLOADED("message.bot.document.uploaded"),
+    MESSAGE_BOT_DOCUMENT_DELETED("message.bot.document.deleted"),
+    MESSAGE_BOT_DOCUMENT_NOT_FOUND("message.bot.document.not.found"),
+    MESSAGE_BOT_DOCUMENT_TITLE_REQUIRED("message.bot.document.title.required"),
+    MESSAGE_BOT_DOCUMENT_FILE_REQUIRED("message.bot.document.file.required"),
+    MESSAGE_BOT_DOCUMENT_TEXT_CREATED("message.bot.document.text.created"),
+    MESSAGE_BOT_DOCUMENT_BODY_REQUIRED("message.bot.document.body.required"),
+    MESSAGE_BOT_DOCUMENT_BODY_TOO_SHORT("message.bot.document.body.too.short");
 
     private final String code;
 }

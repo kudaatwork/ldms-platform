@@ -30,6 +30,7 @@ import {
 } from '../../utils/journey-timing.util';
 import type { FuelTelemetryLogRow, OperationalFundRequestRow } from '../../models/fuel-expenses.model';
 import { FuelExpensesPortalService } from '../../services/fuel-expenses-portal.service';
+import { RoadsideProviderService, type RoadsideProviderRow } from '../../services/roadside-provider.service';
 import { TripLiveService } from '../../services/trip-live.service';
 import { TripTrackingPortalService } from '../../services/trip-tracking-portal.service';
 
@@ -67,6 +68,8 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
   requestLiters = 80;
   requestAmount = 150;
   requestNotes = '';
+  roadsideProviders: RoadsideProviderRow[] = [];
+  roadsideProvidersLoading = false;
 
   private map?: L.Map;
   private baseTileLayer?: L.TileLayer;
@@ -75,6 +78,8 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
   private truckMarker?: L.Marker;
   private waypointMarkers: L.Marker[] = [];
   private stopMarkers: L.Marker[] = [];
+  private providerMarkers: L.Marker[] = [];
+  private providersLoadedForTrip = false;
   private readonly trailPoints: L.LatLngExpression[] = [];
   private readonly destroy$ = new Subject<void>();
   private displayLat = 0;
@@ -93,6 +98,7 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
     private readonly tripLive: TripLiveService,
     private readonly tripPortal: TripTrackingPortalService,
     private readonly fuelExpenses: FuelExpensesPortalService,
+    private readonly roadsideProvidersApi: RoadsideProviderService,
     private readonly notifications: NotificationService,
     private readonly authState: AuthStateService,
     private readonly driverPortal: DriverPortalService,
@@ -414,7 +420,10 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   openDeliveryWorkflow(): void {
-    void this.router.navigate(['/driver/trip', this.tripId], { queryParams: { workflow: '1' } });
+    const fromDispatcher = !this.router.url.startsWith('/driver');
+    void this.router.navigate(['/driver/trip', this.tripId], {
+      queryParams: fromDispatcher ? { workflow: '1', returnTo: 'trips' } : { workflow: '1' },
+    });
   }
 
   confirmArrivalFromLive(): void {
@@ -435,7 +444,7 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
             .subscribe({
               next: () => this.openDeliveryWorkflow(),
               error: () => {
-                this.notifications.info(
+                this.notifications.success(
                   'Arrival recorded. Continue delivery steps from this live map or your dispatcher workspace.',
                 );
                 this.cdr.markForCheck();
@@ -447,6 +456,10 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
   }
 
   goBack(): void {
+    if (this.router.url.startsWith('/driver')) {
+      void this.router.navigate(['/driver/workspace']);
+      return;
+    }
     void this.router.navigate(['/shipments/trips']);
   }
 
@@ -455,8 +468,11 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
     if (!this.tripId) {
       return;
     }
+    const fromDispatcher = !this.router.url.startsWith('/driver');
     void this.router.navigate(['/driver', 'trip', this.tripId], {
-      queryParams: { workflow: '1', arrivalSuggested: '1' },
+      queryParams: fromDispatcher
+        ? { workflow: '1', arrivalSuggested: '1', returnTo: 'trips' }
+        : { workflow: '1', arrivalSuggested: '1' },
     });
   }
 
@@ -676,11 +692,85 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
       this.displayLng = targetLng;
       this.renderRoute(snap);
       this.updateMarker(targetLat, targetLng, snap.headingDeg);
+      if (!this.providersLoadedForTrip) {
+        this.loadRoadsideProviders(targetLat, targetLng);
+      }
       return;
     }
 
     this.animateTo(targetLat, targetLng, snap.headingDeg);
     this.renderRoute(snap);
+    if (snap.latitude != null && snap.longitude != null && !this.providersLoadedForTrip) {
+      this.loadRoadsideProviders(snap.latitude, snap.longitude);
+    }
+  }
+
+  planStopAtProvider(provider: RoadsideProviderRow): void {
+    this.requestType = provider.providerType === 'MECHANIC' ? 'MECHANIC' : 'FUEL_TOP_UP';
+    this.showRequestForm = true;
+    this.requestNotes = `Planned stop: ${provider.name}${provider.addressLabel ? ` (${provider.addressLabel})` : ''}`;
+    this.notifications.success(
+      `Prepare a ${(provider.providerTypeLabel ?? 'fuel stop').toLowerCase()} request for ${provider.name}.`,
+    );
+    this.cdr.markForCheck();
+  }
+
+  providerGlyph(type: string): string {
+    switch (String(type).toUpperCase()) {
+      case 'MECHANIC':
+        return '🔧';
+      case 'ROADSIDE_SUPPORT':
+        return '🛟';
+      default:
+        return '⛽';
+    }
+  }
+
+  private loadRoadsideProviders(lat: number, lng: number): void {
+    this.roadsideProvidersLoading = true;
+    this.roadsideProvidersApi
+      .listNearby(lat, lng, 180)
+      .pipe(takeUntil(this.destroy$), catchError(() => of([])))
+      .subscribe((rows) => {
+        this.roadsideProviders = rows.slice(0, 12);
+        this.roadsideProvidersLoading = false;
+        this.providersLoadedForTrip = true;
+        this.renderProviderMarkers();
+        this.cdr.markForCheck();
+      });
+  }
+
+  private renderProviderMarkers(): void {
+    if (!this.map) {
+      return;
+    }
+    this.providerMarkers.forEach((m) => m.remove());
+    this.providerMarkers = this.roadsideProviders.map((p) =>
+      L.marker([p.latitude, p.longitude], {
+        icon: this.providerIconMarker(p.providerType),
+        zIndexOffset: 300,
+      })
+        .bindTooltip(
+          `<strong>${p.name}</strong><br>${p.providerTypeLabel}${p.distanceKm != null ? `<br>${p.distanceKm} km away` : ''}`,
+          { direction: 'top', sticky: true },
+        )
+        .addTo(this.map!),
+    );
+  }
+
+  private providerIconMarker(type: string): L.DivIcon {
+    const tone =
+      String(type).toUpperCase() === 'MECHANIC'
+        ? 'mechanic'
+        : String(type).toUpperCase() === 'ROADSIDE_SUPPORT'
+          ? 'support'
+          : 'fuel';
+    return L.divIcon({
+      className: `lt-map-provider lt-map-provider--${tone}`,
+      html: `<span class="lt-map-provider__glyph">${this.providerGlyph(type)}</span>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+    });
   }
 
   private applyFuelSnapshot(fuel: FuelLiveSnapshot): void {

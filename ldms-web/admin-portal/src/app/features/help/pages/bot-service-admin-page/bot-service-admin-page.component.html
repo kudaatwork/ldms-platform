@@ -3,19 +3,31 @@
     variant="violet"
     eyebrow="Messaging · Inbound bot"
     eyebrowIcon="smart_toy"
-    title="Bot service monitor"
-    lead="Watch users chatting with the LDMS assistant across WhatsApp, web, and SMS — see prompts, replies, and escalations in real time."
+    title="Bot command center"
+    lead="Monitor live assistant conversations, spot trending topics, and see what users ask most — refreshed every few seconds."
     hubIcon="smart_toy"
-    [orbitIcons]="['chat', 'forum', 'support_agent']"
+    [orbitIcons]="['chat', 'forum', 'insights']"
   >
+    <nav class="bot-page-views" lxWorkspaceHeroActions aria-label="Page view">
+      <button
+        type="button"
+        *ngFor="let v of pageViews"
+        class="bot-page-view"
+        [class.bot-page-view--on]="pageView() === v.id"
+        (click)="setPageView(v.id)"
+      >
+        <mat-icon aria-hidden="true">{{ v.icon }}</mat-icon>
+        {{ v.label }}
+      </button>
+    </nav>
     <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reload()" [disabled]="loading">
       <mat-icon aria-hidden="true">refresh</mat-icon>
       Refresh
     </button>
-    <lx-workspace-hero-stat [value]="sessions.length" label="Sessions today" icon="forum" theme="violet"></lx-workspace-hero-stat>
-    <lx-workspace-hero-stat [value]="activeCount" label="Active" icon="bolt" theme="mint"></lx-workspace-hero-stat>
-    <lx-workspace-hero-stat [value]="waitingCount" label="Awaiting user" icon="hourglass_empty" theme="amber"></lx-workspace-hero-stat>
-    <lx-workspace-hero-stat [value]="escalatedCount" label="Escalated" icon="support_agent" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="sessions.length" label="Sessions" icon="forum" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="activeCount" label="Live now" icon="bolt" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="topicInsights.length" label="Top topics" icon="topic" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="formatScore(analytics?.averageSatisfactionScore)" label="Avg rating" icon="star" theme="violet"></lx-workspace-hero-stat>
   </lx-workspace-hero>
 
   <div class="bot-alert" *ngIf="error" role="alert">
@@ -24,12 +36,23 @@
     <button type="button" class="bot-alert__action" (click)="reload()">Retry</button>
   </div>
 
-  <div class="bot-layout" [class.bot-layout--loading]="loading">
+  <!-- ── Live chat workspace ───────────────────────────── -->
+  <div class="bot-workspace" *ngIf="pageView() === 'live'" [class.bot-workspace--loading]="loading">
     <aside class="bot-inbox lx-card">
       <div class="bot-inbox__hd">
-        <span class="bot-inbox__title">Conversations</span>
+        <div>
+          <span class="bot-inbox__title">Conversations</span>
+          <span class="bot-inbox__count">{{ filteredSessions.length }} shown</span>
+        </div>
         <span class="bot-live-pill"><span class="bot-live-pill__dot"></span>Live</span>
       </div>
+
+      <div class="bot-topic-chip" *ngIf="topicFilter()">
+        <mat-icon aria-hidden="true">filter_alt</mat-icon>
+        {{ topicFilter() }}
+        <button type="button" (click)="clearTopicFilter()" aria-label="Clear topic filter">×</button>
+      </div>
+
       <label class="bot-search">
         <mat-icon aria-hidden="true">search</mat-icon>
         <input
@@ -40,6 +63,7 @@
           autocomplete="off"
         />
       </label>
+
       <nav class="bot-filters" aria-label="Filter by status">
         <button
           type="button"
@@ -51,6 +75,7 @@
           {{ f.label }}
         </button>
       </nav>
+
       <div class="bot-inbox__list" *ngIf="!loading; else inboxSkeleton">
         <button
           type="button"
@@ -59,16 +84,24 @@
           [class.bot-thread--active]="selected?.sessionId === s.sessionId"
           (click)="selectSession(s)"
         >
-          <div class="bot-thread__avatar">{{ s.userDisplayName.charAt(0) }}</div>
+          <div class="bot-thread__avatar-wrap">
+            <div class="bot-thread__avatar" [style.background]="'linear-gradient(135deg, ' + avatarPalette[avatarHue(s.userDisplayName)] + ', color-mix(in srgb, ' + avatarPalette[avatarHue(s.userDisplayName)] + ' 65%, #0f172a))'">
+              {{ avatarInitials(s.userDisplayName) }}
+            </div>
+            <span class="bot-thread__status-dot" [attr.data-status]="s.status"></span>
+          </div>
           <div class="bot-thread__copy">
             <div class="bot-thread__row">
               <span class="bot-thread__name">{{ s.userDisplayName }}</span>
-              <span class="bot-thread__time">{{ formatTime(s.lastMessageAt) }}</span>
+              <span class="bot-thread__time">{{ relativeTime(s.lastMessageAt) }}</span>
             </div>
-            <div class="bot-thread__org">{{ s.organizationName }}</div>
-            <div class="bot-thread__topic">{{ s.topic }}</div>
+            <div class="bot-thread__preview">{{ lastMessagePreview(s) }}</div>
+            <div class="bot-thread__meta">
+              <span class="bot-thread__topic">{{ s.topic }}</span>
+              <span class="bot-thread__badge">{{ s.messageCount }}</span>
+            </div>
           </div>
-          <span class="bot-thread__channel" [matTooltip]="s.channel">
+          <span class="bot-thread__channel" [matTooltip]="channelLabel(s.channel)">
             <mat-icon>{{ channelIcon(s.channel) }}</mat-icon>
           </span>
         </button>
@@ -79,47 +112,248 @@
       </ng-template>
     </aside>
 
-    <main class="bot-chat lx-card" *ngIf="selected as chat">
+    <main class="bot-chat lx-card" *ngIf="selected as chat; else pickChat">
       <header class="bot-chat__hd">
-        <div>
-          <h2 class="bot-chat__title">{{ chat.userDisplayName }}</h2>
-          <p class="bot-chat__meta">
-            {{ chat.organizationName }} · {{ chat.userPhone }} · {{ chat.channel }}
-          </p>
+        <div class="bot-chat__identity">
+          <div class="bot-chat__avatar" [style.background]="'linear-gradient(135deg, ' + avatarPalette[avatarHue(chat.userDisplayName)] + ', color-mix(in srgb, ' + avatarPalette[avatarHue(chat.userDisplayName)] + ' 65%, #0f172a))'">
+            {{ avatarInitials(chat.userDisplayName) }}
+          </div>
+          <div>
+            <h2 class="bot-chat__title">{{ chat.userDisplayName }}</h2>
+            <p class="bot-chat__meta">
+              <span>{{ chat.organizationName }}</span>
+              <span class="bot-chat__dot">·</span>
+              <span>{{ chat.userPhone }}</span>
+              <span class="bot-chat__pill">{{ channelLabel(chat.channel) }}</span>
+            </p>
+          </div>
         </div>
         <span class="bot-status" [ngClass]="statusClass(chat.status)">{{ chat.statusLabel }}</span>
       </header>
+
       <div class="bot-chat__topic">
-        <mat-icon aria-hidden="true">topic</mat-icon>
-        {{ chat.topic }}
+        <mat-icon aria-hidden="true">auto_awesome</mat-icon>
+        <span>{{ chat.topic }}</span>
       </div>
-      <div class="bot-chat__messages">
-        <article
-          *ngFor="let m of chat.messages; trackBy: trackByMessageId"
-          class="bot-bubble"
-          [class.bot-bubble--user]="m.role === 'user'"
-          [class.bot-bubble--bot]="m.role === 'bot'"
-          [class.bot-bubble--system]="m.role === 'system'"
-        >
-          <div class="bot-bubble__role" *ngIf="m.role !== 'user'">
-            {{ m.role === 'bot' ? 'LDMS Bot' : 'System' }}
-          </div>
-          <p class="bot-bubble__body">{{ m.body }}</p>
-          <time class="bot-bubble__time">{{ formatTime(m.sentAt) }}</time>
-        </article>
+
+      <div class="bot-chat__messages" #chatThread>
+        <ng-container *ngFor="let group of messageGroups(chat); trackBy: trackByDateKey">
+          <div class="bot-chat__date"><span>{{ group.label }}</span></div>
+          <article
+            *ngFor="let m of group.messages; trackBy: trackByMessageId"
+            class="bot-msg"
+            [class.bot-msg--user]="m.role === 'user'"
+            [class.bot-msg--bot]="m.role === 'bot'"
+            [class.bot-msg--system]="m.role === 'system'"
+          >
+            <div class="bot-msg__avatar" *ngIf="m.role === 'bot'" aria-hidden="true">
+              <mat-icon>smart_toy</mat-icon>
+            </div>
+            <div class="bot-msg__bubble">
+              <div class="bot-msg__role" *ngIf="m.role === 'bot'">LDMS Assistant</div>
+              <div class="bot-msg__role bot-msg__role--system" *ngIf="m.role === 'system'">System</div>
+              <div
+                class="bot-bubble__body bot-bubble__body--md"
+                *ngIf="m.role === 'bot'; else plainBotBubbleBody"
+                [innerHTML]="m.body | botMessageMarkdown"
+              ></div>
+              <ng-template #plainBotBubbleBody>
+                <p class="bot-bubble__body">{{ m.body }}</p>
+              </ng-template>
+              <time class="bot-msg__time">{{ formatTime(m.sentAt) }}</time>
+            </div>
+            <div class="bot-msg__avatar bot-msg__avatar--user" *ngIf="m.role === 'user'" aria-hidden="true">
+              {{ avatarInitials(chat.userDisplayName) }}
+            </div>
+          </article>
+        </ng-container>
       </div>
+
       <footer class="bot-chat__ft">
-        <mat-icon aria-hidden="true">info</mat-icon>
-        Read-only monitor — replies are sent by the bot or escalated to Help &amp; Support.
+        <mat-icon aria-hidden="true">visibility</mat-icon>
+        Read-only monitor — the bot replies automatically or escalates to Help &amp; Support.
         <span *ngIf="chat.satisfactionScore" class="bot-chat__score">
           <mat-icon>star</mat-icon>{{ chat.satisfactionScore }}/5
         </span>
       </footer>
     </main>
 
-    <div class="bot-chat bot-chat--empty lx-card" *ngIf="!selected && !loading">
-      <mat-icon>smart_toy</mat-icon>
-      <p>Select a conversation to inspect the message thread.</p>
+    <ng-template #pickChat>
+      <div class="bot-chat bot-chat--empty lx-card">
+        <div class="bot-chat__empty-art">
+          <mat-icon>smart_toy</mat-icon>
+          <span class="bot-chat__empty-ring"></span>
+        </div>
+        <h3>Select a conversation</h3>
+        <p>Pick a thread from the inbox to inspect messages in real time.</p>
+      </div>
+    </ng-template>
+
+    <!-- Insights sidebar -->
+    <aside class="bot-insights lx-card">
+      <header class="bot-insights__hd">
+        <mat-icon aria-hidden="true">insights</mat-icon>
+        <div>
+          <h3>Trending topics</h3>
+          <p>What users ask about most</p>
+        </div>
+      </header>
+
+      <div class="bot-insights__loading" *ngIf="analyticsLoading">
+        <div class="bot-skeleton bot-skeleton--sm" *ngFor="let i of [1,2,3,4]"></div>
+      </div>
+
+      <ul class="bot-topic-list" *ngIf="!analyticsLoading">
+        <li
+          *ngFor="let t of topicInsights; let i = index"
+          class="bot-topic-row"
+          [class.bot-topic-row--active]="topicFilter() === t.topic"
+        >
+          <button type="button" class="bot-topic-row__btn" (click)="filterByTopic(t.topic)">
+            <span class="bot-topic-row__rank" [attr.data-rank]="i + 1">{{ i + 1 }}</span>
+            <span class="bot-topic-row__copy">
+              <span class="bot-topic-row__label">{{ t.topic }}</span>
+              <span class="bot-topic-row__track">
+                <span class="bot-topic-row__fill" [style.width.%]="t.pct"></span>
+              </span>
+            </span>
+            <strong class="bot-topic-row__count">{{ t.count }}</strong>
+          </button>
+        </li>
+        <li class="bot-insights__empty" *ngIf="!topicInsights.length">No topics yet — start a few chats to see trends.</li>
+      </ul>
+
+      <div class="bot-insights__mini" *ngIf="analytics">
+        <div class="bot-mini-stat">
+          <mat-icon aria-hidden="true">chat</mat-icon>
+          <div>
+            <strong>{{ analytics.userMessages }}</strong>
+            <span>User prompts</span>
+          </div>
+        </div>
+        <div class="bot-mini-stat">
+          <mat-icon aria-hidden="true">smart_toy</mat-icon>
+          <div>
+            <strong>{{ analytics.botMessages }}</strong>
+            <span>Bot replies</span>
+          </div>
+        </div>
+        <div class="bot-mini-stat">
+          <mat-icon aria-hidden="true">support_agent</mat-icon>
+          <div>
+            <strong>{{ escalatedCount }}</strong>
+            <span>Escalated</span>
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="bot-insights__cta lx-btn lx-btn-ghost lx-btn-sm" (click)="setPageView('topics')">
+        <mat-icon aria-hidden="true">bar_chart</mat-icon>
+        Full topic analysis
+      </button>
+    </aside>
+  </div>
+
+  <!-- ── Topic insights view ───────────────────────────── -->
+  <div class="bot-topics-view" *ngIf="pageView() === 'topics'">
+    <div class="bot-topics-toolbar lx-card">
+      <div>
+        <h2>Topic &amp; usage analysis</h2>
+        <p>Understand what the assistant is asked about and how sessions trend over time.</p>
+      </div>
+      <nav class="bot-analytics-days" aria-label="Analytics window">
+        <button type="button" class="bot-analytics-days__btn" [class.bot-analytics-days__btn--on]="analyticsDays === 7" (click)="setAnalyticsDays(7)">7d</button>
+        <button type="button" class="bot-analytics-days__btn" [class.bot-analytics-days__btn--on]="analyticsDays === 30" (click)="setAnalyticsDays(30)">30d</button>
+        <button type="button" class="bot-analytics-days__btn" [class.bot-analytics-days__btn--on]="analyticsDays === 90" (click)="setAnalyticsDays(90)">90d</button>
+      </nav>
+    </div>
+
+    <div class="bot-topics-grid" *ngIf="analytics && !analyticsLoading">
+      <div class="lx-card bot-topics-card bot-topics-card--hero">
+        <header class="bot-topics-card__hd">
+          <mat-icon aria-hidden="true">topic</mat-icon>
+          <h3>Most asked topics</h3>
+        </header>
+        <ul class="bot-topics-ranked">
+          <li *ngFor="let t of topicInsights; let i = index">
+            <span class="bot-topics-ranked__rank">{{ i + 1 }}</span>
+            <div class="bot-topics-ranked__body">
+              <div class="bot-topics-ranked__row">
+                <strong>{{ t.topic }}</strong>
+                <span>{{ t.count }} sessions</span>
+              </div>
+              <div class="bot-topics-ranked__bar">
+                <div [style.width.%]="t.pct"></div>
+              </div>
+              <button type="button" class="bot-topics-ranked__link" (click)="filterByTopic(t.topic)">
+                View {{ sessionsForTopic(t.topic) }} live conversation(s) →
+              </button>
+            </div>
+          </li>
+          <li class="bot-insights__empty" *ngIf="!topicInsights.length">No topic data in this window.</li>
+        </ul>
+      </div>
+
+      <div class="lx-card bot-topics-card">
+        <header class="bot-topics-card__hd">
+          <mat-icon aria-hidden="true">bar_chart</mat-icon>
+          <h3>Sessions by day</h3>
+        </header>
+        <div class="bot-analytics-bars">
+          <div class="bot-analytics-bar" *ngFor="let row of analytics.sessionsByDay">
+            <span class="bot-analytics-bar__label">{{ row.date }}</span>
+            <div class="bot-analytics-bar__track">
+              <div class="bot-analytics-bar__fill" [style.width.%]="dailyBarWidth(row.count)"></div>
+            </div>
+            <span class="bot-analytics-bar__val">{{ row.count }}</span>
+          </div>
+          <p class="bot-insights__empty" *ngIf="!analytics.sessionsByDay.length">No sessions in this window.</p>
+        </div>
+      </div>
+
+      <div class="lx-card bot-topics-card">
+        <header class="bot-topics-card__hd">
+          <mat-icon aria-hidden="true">speed</mat-icon>
+          <h3>Engagement</h3>
+        </header>
+        <div class="bot-engage-grid">
+          <div class="bot-engage-stat">
+            <strong>{{ analytics.totalSessions }}</strong>
+            <span>Total sessions</span>
+          </div>
+          <div class="bot-engage-stat">
+            <strong>{{ analytics.sessionsToday }}</strong>
+            <span>Today</span>
+          </div>
+          <div class="bot-engage-stat">
+            <strong>{{ analytics.averageMessagesPerSession }}</strong>
+            <span>Avg msgs / session</span>
+          </div>
+          <div class="bot-engage-stat">
+            <strong>{{ analytics.ratedSessionCount }}</strong>
+            <span>Rated</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="lx-card bot-topics-card">
+        <header class="bot-topics-card__hd">
+          <mat-icon aria-hidden="true">devices</mat-icon>
+          <h3>Channels</h3>
+        </header>
+        <ul class="bot-channel-list">
+          <li *ngFor="let c of analytics.channelBreakdown">
+            <span>{{ c.channel }}</span>
+            <div class="bot-channel-list__bar"><div [style.width.%]="channelBarWidth(c.count)"></div></div>
+            <strong>{{ c.count }}</strong>
+          </li>
+          <li class="bot-insights__empty" *ngIf="!analytics.channelBreakdown.length">No channel data.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="bot-topics-skeleton lx-card" *ngIf="analyticsLoading">
+      <div class="bot-skeleton" *ngFor="let i of [1,2,3,4]"></div>
     </div>
   </div>
 </section>

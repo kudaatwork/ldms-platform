@@ -1,91 +1,4 @@
-<div class="ldms-landing">
-  <div class="ldms-scroll-bar" aria-hidden="true"></div>
-
-  <div class="ldms-landing__bg" aria-hidden="true">
-    <div class="ldms-landing__aurora">
-      <div class="ldms-landing__aurora-beam ldms-landing__aurora-beam--1"></div>
-      <div class="ldms-landing__aurora-beam ldms-landing__aurora-beam--2"></div>
-      <div class="ldms-landing__aurora-beam ldms-landing__aurora-beam--3"></div>
-    </div>
-    <div class="ldms-orb-global ldms-orb-global--a"></div>
-    <div class="ldms-orb-global ldms-orb-global--b"></div>
-    <div class="ldms-orb-global ldms-orb-global--c"></div>
-  </div>
-  <div class="ldms-landing__grid-faint" aria-hidden="true"></div>
-
-  <!-- Navigation -->
-  <header class="ldms-landing__nav">
-    <div class="ldms-landing__nav-shell">
-      <div class="ldms-landing__nav-inner">
-        <div class="ldms-landing__brand">
-          <span class="ldms-landing__logo" aria-hidden="true">
-            <img class="ldms-landing__logo-img ldms-landing__logo-img--light" src="images/lx-logo.png" alt="" />
-            <img class="ldms-landing__logo-img ldms-landing__logo-img--dark" src="images/lx-logo-transparent.png" alt="" />
-          </span>
-          <span class="ldms-landing__name">Project <span class="brand-lx">LX</span></span>
-        </div>
-
-        <nav class="ldms-landing__nav-jump" aria-label="Page sections">
-          <a class="ldms-landing__nav-jump-link" href="#ldms-platform">Platform</a>
-          <a class="ldms-landing__nav-jump-link" href="#ldms-mobile">Mobile apps</a>
-          <a class="ldms-landing__nav-jump-link" href="#ldms-features">Features</a>
-          <a class="ldms-landing__nav-jump-link" href="#ldms-industries">Industries</a>
-          <a class="ldms-landing__nav-jump-link" href="#ldms-journey">How it works</a>
-        </nav>
-
-        <nav class="ldms-landing__nav-actions ldms-landing__nav-actions--desktop" aria-label="Primary">
-          <button
-            type="button"
-            class="ldms-landing__theme-toggle"
-            (click)="toggleTheme()"
-            [attr.title]="theme.dark() ? 'Light mode' : 'Dark mode'"
-            [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'"
-          >
-            <span class="material-icons" aria-hidden="true">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
-          </button>
-          <a class="ldms-landing__link" [href]="adminUrl + '/auth/login'" rel="noopener">Admin</a>
-          <a class="ldms-landing__link" routerLink="/contact">Demo</a>
-          <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__btn-ghost">Sign in</a>
-          <button type="button" class="lx-btn lx-btn-primary ldms-landing__nav-cta" (click)="goSignup()">
-            Get started
-          </button>
-        </nav>
-
-        <button
-          type="button"
-          class="ldms-landing__menu-toggle"
-          (click)="toggleMobileNav()"
-          [attr.aria-expanded]="mobileNavOpen()"
-          aria-controls="ldms-landing-mobile-nav"
-          aria-label="Open menu"
-        >
-          <span class="material-icons" aria-hidden="true">{{ mobileNavOpen() ? 'close' : 'menu' }}</span>
-        </button>
-      </div>
-    </div>
-
-    <div
-      id="ldms-landing-mobile-nav"
-      class="ldms-landing__mobile-nav"
-      [class.ldms-landing__mobile-nav--open]="mobileNavOpen()"
-      [attr.aria-hidden]="!mobileNavOpen()"
-    >
-      <nav class="ldms-landing__mobile-nav-links" aria-label="Mobile">
-        <a class="ldms-landing__mobile-link" href="#ldms-platform" (click)="closeMobileNav()">Platform</a>
-        <a class="ldms-landing__mobile-link" href="#ldms-mobile" (click)="closeMobileNav()">Mobile apps</a>
-        <a class="ldms-landing__mobile-link" href="#ldms-features" (click)="closeMobileNav()">Features</a>
-        <a class="ldms-landing__mobile-link" href="#ldms-industries" (click)="closeMobileNav()">Industries</a>
-        <a class="ldms-landing__mobile-link" href="#ldms-journey" (click)="closeMobileNav()">How it works</a>
-        <a class="ldms-landing__mobile-link" routerLink="/contact" (click)="closeMobileNav()">Book a demo</a>
-        <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__mobile-btn" (click)="closeMobileNav()">
-          Sign in
-        </a>
-        <button type="button" class="lx-btn lx-btn-primary" (click)="goSignup(); closeMobileNav()">Get started</button>
-      </nav>
-    </div>
-  </header>
-
-  <main class="ldms-landing__main">
+<app-landing-shell activePage="welcome" [showSectionNav]="true">
     <!-- Hero -->
     <section class="ldms-hero" id="ldms-overview" aria-labelledby="ldms-hero-title">
       <div class="ldms-hero__bg" aria-hidden="true">
@@ -114,7 +27,7 @@
             <button type="button" class="lx-btn lx-btn-primary ldms-hero__cta-primary" (click)="goSignup()">
               Get started
             </button>
-            <button type="button" class="lx-btn lx-btn-secondary ldms-hero__cta-secondary" (click)="goBookDemo()">
+            <button type="button" class="lx-btn lx-btn-secondary ldms-hero__cta-secondary" (click)="goDemo()">
               Book a demo
             </button>
           </div>
@@ -545,6 +458,40 @@
       </div>
     </section>
 
+    <!-- Pricing teaser → dedicated page -->
+    <section class="ldms-pricing-teaser ldms-reveal" id="ldms-pricing" aria-labelledby="ldms-pricing-teaser-title">
+      <div class="ldms-section__inner">
+        <div class="ldms-section__head ldms-section__head--center">
+          <p class="ldms-kicker">Transparent pricing</p>
+          <h2 id="ldms-pricing-teaser-title" class="ldms-section__title">Pay as you grow on the corridor</h2>
+          <p class="ldms-section__lead">
+            Prepaid wallet with live per-action deductions, or flat monthly packages — explore the full rate card on our
+            dedicated pricing page.
+          </p>
+        </div>
+        <div class="ldms-pricing-teaser__grid ldms-reveal ldms-reveal--stagger">
+          <a class="ldms-pricing-teaser__card" routerLink="/pricing" [queryParams]="{ tab: 'wallet' }">
+            <span class="material-icons" aria-hidden="true">account_balance_wallet</span>
+            <h3>Prepaid wallet</h3>
+            <p>Top up once; corridor events auto-deduct. Includes the animated wallet demo you saw here.</p>
+            <span class="ldms-pricing-teaser__link">View pay-as-you-go rates →</span>
+          </a>
+          <a class="ldms-pricing-teaser__card ldms-pricing-teaser__card--accent" routerLink="/pricing" [queryParams]="{ tab: 'subscription' }">
+            <span class="material-icons" aria-hidden="true">workspace_premium</span>
+            <h3>Subscription packages</h3>
+            <p>Flat monthly tiers with usage tracked for transparency — STARTER, GROWTH, and ENTERPRISE.</p>
+            <span class="ldms-pricing-teaser__link">Compare packages →</span>
+          </a>
+        </div>
+        <p class="ldms-pricing-teaser__footnote">
+          Want a tailored quote?
+          <a routerLink="/demo">See what our demo covers</a>
+          or
+          <a routerLink="/contact">book a session</a>.
+        </p>
+      </div>
+    </section>
+
     <!-- FAQ -->
     <section class="ldms-section ldms-reveal" id="ldms-faq" aria-labelledby="ldms-faq-title">
       <div class="ldms-section__inner ldms-faq">
@@ -584,14 +531,19 @@
             </div>
           </article>
           <article class="ldms-access__card ldms-access__card--driver">
-            <div class="ldms-access__driver-icon" aria-hidden="true">
-              <span class="material-icons">local_shipping</span>
-            </div>
+            <img
+              [src]="accessDriverCardImage"
+              alt=""
+              class="ldms-access__hero ldms-access__hero--driver"
+              loading="lazy"
+            />
             <div class="ldms-access__body">
               <h3>Driver portal</h3>
               <p>For truck drivers — manage trips, confirm deliveries, and track your journey in real time.</p>
               <div class="ldms-access__actions">
-                <button type="button" class="lx-btn lx-btn-primary" (click)="goDriverSignup()">Join as driver</button>
+                <button type="button" class="lx-btn lx-btn-primary ldms-access__btn-driver" (click)="goDriverSignup()">
+                  Join as driver
+                </button>
                 <a routerLink="/driver/workspace" class="lx-btn lx-btn-ghost">Driver sign in</a>
               </div>
             </div>
@@ -627,7 +579,7 @@
             <span class="material-icons" aria-hidden="true">local_shipping</span>
             Join as driver
           </button>
-          <button type="button" class="lx-btn lx-btn-secondary ldms-cta-band__ghost" (click)="goBookDemo()">
+          <button type="button" class="lx-btn lx-btn-secondary ldms-cta-band__ghost" (click)="goDemo()">
             Book a demo
           </button>
           <div class="ldms-cta-band__stores">
@@ -653,55 +605,4 @@
         </div>
       </div>
     </section>
-  </main>
-
-  <footer class="ldms-footer">
-    <div class="ldms-footer__inner">
-      <div class="ldms-footer__brand">
-        <span class="ldms-footer__logo brand-lx">LX</span>
-        <div>
-          <p class="ldms-footer__tagline">Logistics &amp; Distribution Management System</p>
-          <p class="ldms-footer__copy">© Project LX · projectlx.co.zw</p>
-        </div>
-      </div>
-      <div class="ldms-footer__cols">
-        <div class="ldms-footer__col">
-          <h3>Product</h3>
-          <a href="#ldms-features">Features</a>
-          <a href="#ldms-mobile">Mobile apps</a>
-          <a href="#ldms-journey">How it works</a>
-          <a routerLink="/contact">Book a demo</a>
-        </div>
-        <div class="ldms-footer__col">
-          <h3>Access</h3>
-          <a routerLink="/auth/login">Sign in</a>
-          <a routerLink="/signup">Create account</a>
-          <a [href]="adminUrl + '/auth/login'" rel="noopener">Admin console</a>
-        </div>
-        <div class="ldms-footer__col ldms-footer__col--apps">
-          <h3>Mobile apps</h3>
-          <div class="ldms-footer__store-badges">
-            <a
-              class="ldms-store-badge ldms-store-badge--footer"
-              [href]="appleAppStoreUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Download on the App Store"
-            >
-              <img src="images/badges/app-store-badge.svg" alt="" width="132" height="44" loading="lazy" />
-            </a>
-            <a
-              class="ldms-store-badge ldms-store-badge--footer"
-              [href]="googlePlayStoreUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Get it on Google Play"
-            >
-              <img src="images/badges/google-play-badge.svg" alt="" width="148" height="44" loading="lazy" />
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </footer>
-</div>
+</app-landing-shell>

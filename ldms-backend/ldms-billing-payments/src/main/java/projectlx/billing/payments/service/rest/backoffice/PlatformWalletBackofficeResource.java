@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import projectlx.billing.payments.service.processor.api.PlatformWalletBillingServiceProcessor;
+import projectlx.billing.payments.utils.requests.CreditOrganizationWalletRequest;
 import projectlx.billing.payments.utils.requests.SavePlatformActionChargeRequest;
 import projectlx.billing.payments.utils.requests.SaveSubscriptionPackageRequest;
 import projectlx.billing.payments.utils.responses.PlatformWalletResponse;
@@ -54,6 +56,18 @@ public class PlatformWalletBackofficeResource {
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
+    @Auditable(action = "BACKOFFICE_DELETE_ACTION_CHARGE")
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping("/action-charges/{chargeId}")
+    @Operation(summary = "Soft-delete a platform action charge")
+    public ResponseEntity<PlatformWalletResponse> deleteActionCharge(
+            @PathVariable Long chargeId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.deleteActionCharge(chargeId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
     @Auditable(action = "BACKOFFICE_LIST_SUBSCRIPTION_PACKAGES")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/subscription-packages")
@@ -74,12 +88,34 @@ public class PlatformWalletBackofficeResource {
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
+    @Auditable(action = "BACKOFFICE_DELETE_SUBSCRIPTION_PACKAGE")
+    @PreAuthorize("isAuthenticated()")
+    @DeleteMapping("/subscription-packages/{packageId}")
+    @Operation(summary = "Soft-delete a subscription package (blocked when assigned to an organisation)")
+    public ResponseEntity<PlatformWalletResponse> deleteSubscriptionPackage(
+            @PathVariable Long packageId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.deleteSubscriptionPackage(packageId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
     @Auditable(action = "BACKOFFICE_LIST_PENDING_WALLET_DEPOSITS")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/deposits/pending")
     public ResponseEntity<PlatformWalletResponse> listPendingDeposits(
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         PlatformWalletResponse response = platformWalletBillingServiceProcessor.listPendingDeposits(locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "BACKOFFICE_LIST_CONFIRMED_WALLET_DEPOSITS")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/deposits/confirmed")
+    @Operation(summary = "List confirmed wallet deposits (approved transaction history)")
+    public ResponseEntity<PlatformWalletResponse> listConfirmedDeposits(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.listConfirmedDeposits(locale);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
@@ -91,6 +127,29 @@ public class PlatformWalletBackofficeResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         PlatformWalletResponse response = platformWalletBillingServiceProcessor.confirmWalletDeposit(depositId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "BACKOFFICE_REJECT_WALLET_DEPOSIT")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/deposits/{depositId}/reject")
+    public ResponseEntity<PlatformWalletResponse> rejectWalletDeposit(
+            @PathVariable Long depositId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.rejectWalletDeposit(depositId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "BACKOFFICE_CREDIT_ORGANIZATION_WALLET")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/organizations/credit")
+    @Operation(summary = "Credit an organisation prepaid wallet (admin POP confirmation)")
+    public ResponseEntity<PlatformWalletResponse> creditOrganizationWallet(
+            @RequestBody CreditOrganizationWalletRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.creditOrganizationWallet(request, locale, username);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 }

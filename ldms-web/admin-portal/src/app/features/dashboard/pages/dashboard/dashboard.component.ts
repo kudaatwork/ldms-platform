@@ -11,12 +11,17 @@ import { CurrentUserService } from '@core/services/current-user.service';
 import { StorageService } from '@core/services/storage.service';
 import { KycQueueStatsService } from '@core/services/kyc-queue-stats.service';
 import type { KycQueueSummary } from '../../../organizations/services/organizations-admin.service';
-import { UsersAdminService } from '../../../users/services/users-admin.service';
+import { UserListRow, UsersAdminService } from '../../../users/services/users-admin.service';
 import { KycDocumentsAdminService } from '../../../kyc/services/kyc-documents-admin.service';
 import { formatWelcomeMessage } from '@core/utils/welcome-message.util';
 import { PlatformOpsAdminService } from '@core/services/platform-ops-admin.service';
 import type { PlatformCompanyOps, PlatformOpsSummary, PlatformShipmentOps } from '@core/services/platform-ops-mock.data';
 import { PlatformWalletAdminService } from '../../../settings/services/platform-wallet-admin.service';
+import {
+  AdminDemoRequisition,
+  HelpSupportAdminService,
+} from '../../../help/services/help-support-admin.service';
+import { Router } from '@angular/router';
 import {
   LxExportFormat,
   exportClientTableAsCsv,
@@ -98,6 +103,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
   topActiveCompanies: PlatformCompanyOps[] = [];
   kycSnapshot: KycQueueSummary | null = null;
   kycStatTiles: DashboardStatTile[] = [];
+  demoRequisitionsLoading = true;
+  demoRequisitionsError = '';
+  demoRequisitions: AdminDemoRequisition[] = [];
+  linkedUsersByRequisitionId = new Map<number, UserListRow>();
   welcomeMessage = 'Welcome';
   greetingFirstName = '';
   activePeriod = '1M';
@@ -160,6 +169,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   liveOnTimePct = 0;
 
   quickActions: QuickAction[] = [
+    { icon: 'event_available', label: 'Demo requests', count: '—', route: '/help/requisitions' },
     { icon: 'verified_user', label: 'Review KYC', count: '—', route: '/kyc/applications' },
     { icon: 'corporate_fare', label: 'Organizations', count: '—', route: '/organizations' },
     { icon: 'folder_open', label: 'Documents', count: '—', route: '/kyc/documents' },
@@ -221,7 +231,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly storage: StorageService,
     private readonly platformOps: PlatformOpsAdminService,
     private readonly walletAdmin: PlatformWalletAdminService,
+    private readonly helpSupportAdmin: HelpSupportAdminService,
+    private readonly router: Router,
   ) {}
+
+  get newDemoRequestCount(): number {
+    return this.demoRequisitions.filter((row) => row.status === 'NEW').length;
+  }
+
+  get contactRequestPreview(): AdminDemoRequisition[] {
+    return [...this.demoRequisitions]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 6);
+  }
 
   get filteredShipments(): ShipmentRow[] {
     const q = this.searchTerm.trim().toLowerCase();
@@ -315,6 +337,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.kycLoading = false;
     }
     this.loadQuickActionCounts();
+    this.loadDemoRequisitions();
     this.platformOps
       .refresh()
       .pipe(takeUntil(this.destroy$))
@@ -459,6 +482,120 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.setQuickActionCount('/kyc/documents', total);
         this.cdr.markForCheck();
       });
+  }
+
+  private loadDemoRequisitions(): void {
+    this.demoRequisitionsLoading = true;
+    this.demoRequisitionsError = '';
+    this.helpSupportAdmin
+      .fetchAllDemoRequisitions()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows) => {
+          this.demoRequisitions = rows;
+          this.demoRequisitionsLoading = false;
+          this.setQuickActionCount('/help/requisitions', this.newDemoRequestCount || rows.length);
+          this.resolveLinkedUsersForPreview(rows);
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.demoRequisitionsLoading = false;
+          this.demoRequisitionsError = err.message ?? 'Could not load demo contact requests.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  contactInitials(name: string): string {
+    const parts = String(name ?? '')
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+    if (!parts.length) {
+      return '?';
+    }
+    if (parts.length === 1) {
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  contactRelativeWhen(iso?: string | null): string {
+    if (!iso) {
+      return '';
+    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) {
+      return '';
+    }
+    const diffMs = Date.now() - d.getTime();
+    const mins = Math.floor(diffMs / 60_000);
+    if (mins < 1) {
+      return 'Just now';
+    }
+    if (mins < 60) {
+      return `${mins}m ago`;
+    }
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) {
+      return `${hours}h ago`;
+    }
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
+  contactStatusLabel(status: AdminDemoRequisition['status']): string {
+    const map: Record<AdminDemoRequisition['status'], string> = {
+      NEW: 'New',
+      CONTACTED: 'Contacted',
+      SCHEDULED: 'Scheduled',
+      COMPLETED: 'Completed',
+      CANCELLED: 'Cancelled',
+    };
+    return map[status] ?? status;
+  }
+
+  trackByDemoRequestId(_index: number, row: AdminDemoRequisition): number {
+    return row.id;
+  }
+
+  linkedUserForRequisition(row: AdminDemoRequisition): UserListRow | undefined {
+    return this.linkedUsersByRequisitionId.get(row.id);
+  }
+
+  viewRegisteredProfile(row: AdminDemoRequisition, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+    const linked = this.linkedUsersByRequisitionId.get(row.id);
+    if (linked) {
+      void this.router.navigate(['/users', linked.id, 'profile']);
+      return;
+    }
+    this.usersAdmin.findRegisteredUserByEmail(row.email).pipe(takeUntil(this.destroy$)).subscribe((user) => {
+      if (user) {
+        this.linkedUsersByRequisitionId.set(row.id, user);
+        void this.router.navigate(['/users', user.id, 'profile']);
+      } else {
+        this.snackBar.open('No LDMS user account found for this email yet.', 'Close', { duration: 4000 });
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
+  private resolveLinkedUsersForPreview(rows: AdminDemoRequisition[]): void {
+    this.linkedUsersByRequisitionId.clear();
+    const preview = rows.slice(0, 6);
+    for (const row of preview) {
+      this.usersAdmin
+        .findRegisteredUserByEmail(row.email)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe((user) => {
+          if (user) {
+            this.linkedUsersByRequisitionId.set(row.id, user);
+            this.cdr.markForCheck();
+          }
+        });
+    }
   }
 
   private setQuickActionCount(route: string, count: number | null | undefined): void {

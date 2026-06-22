@@ -30,7 +30,22 @@ export interface BotKnowledgeStatus {
   documentCount: number;
   characterCount: number;
   faqCount: number;
+  pdfDocumentCount?: number;
+  pdfCharacterCount?: number;
   sources?: string[];
+}
+
+export interface BotKnowledgeDocumentRow {
+  id: number;
+  title: string;
+  originalFilename: string;
+  contentType: string;
+  fileSizeBytes: number;
+  published: boolean;
+  useCount: number;
+  extractedTextLength: number;
+  createdAt?: string;
+  modifiedAt?: string;
 }
 
 export interface CreateBotFaqPayload {
@@ -66,10 +81,20 @@ interface BotKnowledgeApiResponse {
   knowledgeStatus?: BotKnowledgeStatus;
 }
 
+interface BotKnowledgeDocumentApiResponse {
+  success?: boolean;
+  isSuccess?: boolean;
+  statusCode?: number;
+  message?: string;
+  botKnowledgeDocumentDto?: BotKnowledgeDocumentRow;
+  botKnowledgeDocumentDtoList?: BotKnowledgeDocumentRow[];
+}
+
 @Injectable({ providedIn: 'root' })
 export class BotFaqAdminService {
   private readonly faqBase = ldmsServiceUrl('messaging-inbound', 'bot-faq', undefined, 'backoffice');
   private readonly knowledgeBase = ldmsServiceUrl('messaging-inbound', 'bot-knowledge', undefined, 'backoffice');
+  private readonly documentBase = ldmsServiceUrl('messaging-inbound', 'bot-knowledge-document', undefined, 'backoffice');
 
   constructor(private readonly http: HttpClient) {}
 
@@ -132,6 +157,55 @@ export class BotFaqAdminService {
       }),
       catchError((err) => throwError(() => mapBotAdminApiError(err, 'Could not reload knowledge.'))),
     );
+  }
+
+  listDocuments(): Observable<BotKnowledgeDocumentRow[]> {
+    return this.http.get<BotKnowledgeDocumentApiResponse>(`${this.documentBase}/list`).pipe(
+      map((resp) => {
+        if (!apiEnvelopeOk(resp)) {
+          throw new Error(resp.message ?? 'Could not load knowledge documents.');
+        }
+        return resp.botKnowledgeDocumentDtoList ?? [];
+      }),
+      catchError((err) => throwError(() => mapBotAdminApiError(err, 'Could not load knowledge documents.'))),
+    );
+  }
+
+  uploadDocument(title: string, file: File): Observable<BotKnowledgeDocumentRow> {
+    const form = new FormData();
+    form.append('title', title.trim());
+    form.append('file', file, file.name);
+    return this.http.post<BotKnowledgeDocumentApiResponse>(`${this.documentBase}/upload`, form).pipe(
+      map((resp) => this.requireDocument(resp, 'Could not upload document.')),
+      catchError((err) => throwError(() => mapBotAdminApiError(err, 'Could not upload document.'))),
+    );
+  }
+
+  createTextDocument(title: string, body: string): Observable<BotKnowledgeDocumentRow> {
+    return this.http
+      .post<BotKnowledgeDocumentApiResponse>(`${this.documentBase}/create-text`, { title, body })
+      .pipe(
+        map((resp) => this.requireDocument(resp, 'Could not save text knowledge.')),
+        catchError((err) => throwError(() => mapBotAdminApiError(err, 'Could not save text knowledge.'))),
+      );
+  }
+
+  deleteDocument(id: number): Observable<void> {
+    return this.http.delete<BotKnowledgeDocumentApiResponse>(`${this.documentBase}/delete/${id}`).pipe(
+      map((resp) => {
+        if (!apiEnvelopeOk(resp)) {
+          throw new Error(resp.message ?? 'Could not delete document.');
+        }
+      }),
+      catchError((err) => throwError(() => mapBotAdminApiError(err, 'Could not delete document.'))),
+    );
+  }
+
+  private requireDocument(resp: BotKnowledgeDocumentApiResponse, fallback: string): BotKnowledgeDocumentRow {
+    if (!apiEnvelopeOk(resp) || !resp.botKnowledgeDocumentDto) {
+      throw new Error(resp.message ?? fallback);
+    }
+    return resp.botKnowledgeDocumentDto;
   }
 
   private requireFaq(resp: BotFaqApiResponse, fallback: string): BotFaqRow {

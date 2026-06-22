@@ -12,8 +12,13 @@ import projectlx.billing.payments.business.auditable.api.WalletDepositServiceAud
 import projectlx.billing.payments.business.auditable.api.WalletTransactionServiceAuditable;
 import projectlx.billing.payments.business.logic.api.PlatformWalletBillingService;
 import projectlx.billing.payments.business.logic.support.CallerOrganizationResolver;
+import projectlx.billing.payments.business.logic.support.OrganizationNameResolver;
 import projectlx.billing.payments.business.logic.support.OrganizationCurrencySupport;
 import projectlx.billing.payments.business.logic.support.PlatformWalletMapper;
+import projectlx.billing.payments.business.logic.support.PlatformWalletUsageNotifier;
+import projectlx.billing.payments.business.logic.support.WalletBillingEventPublisher;
+import projectlx.billing.payments.business.logic.support.WalletDepositReceiptNotifier;
+import projectlx.billing.payments.business.logic.support.WalletReceiptSupport;
 import projectlx.billing.payments.business.validator.api.PlatformWalletBillingServiceValidator;
 import projectlx.billing.payments.model.OrganizationBillingSetting;
 import projectlx.billing.payments.model.PlatformActionCharge;
@@ -30,14 +35,17 @@ import projectlx.billing.payments.repository.UsageChargeRecordRepository;
 import projectlx.billing.payments.repository.WalletDepositRepository;
 import projectlx.billing.payments.repository.WalletTransactionRepository;
 import projectlx.billing.payments.utils.dtos.RecordPlatformUsageChargeResultDto;
+import projectlx.billing.payments.utils.dtos.WalletReceiptPdfDto;
 import projectlx.billing.payments.utils.dtos.UsageChargeBreakdownDto;
 import projectlx.billing.payments.utils.dtos.UsageChargeReportDto;
 import projectlx.billing.payments.utils.enums.I18Code;
 import projectlx.billing.payments.utils.enums.OrganizationBillingMode;
 import projectlx.billing.payments.utils.enums.PlatformActionCategory;
+import projectlx.billing.payments.utils.enums.PlatformBillingTier;
 import projectlx.billing.payments.utils.enums.WalletDepositStatus;
 import projectlx.billing.payments.utils.enums.WalletTransactionType;
 import projectlx.billing.payments.utils.requests.CreateWalletDepositRequest;
+import projectlx.billing.payments.utils.requests.CreditOrganizationWalletRequest;
 import projectlx.billing.payments.utils.requests.RecordPlatformUsageChargeRequest;
 import projectlx.billing.payments.utils.requests.SaveOrganizationBillingSettingRequest;
 import projectlx.billing.payments.utils.requests.SavePlatformActionChargeRequest;
@@ -84,6 +92,10 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
     private final WalletTransactionServiceAuditable walletTransactionServiceAuditable;
     private final UsageChargeRecordServiceAuditable usageChargeRecordServiceAuditable;
     private final PlatformWalletBillingServiceValidator platformWalletBillingServiceValidator;
+    private final WalletBillingEventPublisher walletBillingEventPublisher;
+    private final WalletDepositReceiptNotifier walletDepositReceiptNotifier;
+    private final PlatformWalletUsageNotifier platformWalletUsageNotifier;
+    private final OrganizationNameResolver organizationNameResolver;
 
     @Override
     @Transactional(readOnly = true)
@@ -102,7 +114,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
             return error(400, messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"organizationId"}, locale),
                     List.of("organizationId"));
         }
-        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, "Organization", "SYSTEM");
+        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, "SYSTEM");
         PlatformWallet wallet = ensureWallet(organizationId, setting.getOrganizationName(), resolveCurrency(organizationId), "SYSTEM");
         String packageName = resolvePackageName(setting.getSubscriptionPackageId());
 
@@ -119,7 +131,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         if (organizationId == null) {
             return orgError(locale);
         }
-        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, "Organization", username);
+        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, username);
         String packageName = resolvePackageName(setting.getSubscriptionPackageId());
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_BILLING_SETTING_SUCCESS.getCode(), new String[]{}, locale));
@@ -145,7 +157,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
             return orgError(locale);
         }
 
-        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, "Organization", username);
+        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, username);
         OrganizationBillingMode mode = parseBillingMode(request.getBillingMode());
         if (mode == null) {
             return error(400,
@@ -225,7 +237,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
             return orgError(locale);
         }
 
-        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, "Organization", username);
+        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, username);
         if (setting.getBillingMode() != OrganizationBillingMode.PREPAID_WALLET) {
             return error(400,
                     messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_PREMIUM_ONLY.getCode(), new String[]{}, locale),
@@ -241,6 +253,8 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         deposit.setReferenceNumber(trimToNull(request.getReferenceNumber()));
         deposit.setNotes(trimToNull(request.getNotes()));
         deposit.setProofDocumentId(request.getProofDocumentId());
+        deposit.setGatewayProvider(trimToNull(request.getGatewayProvider()));
+        deposit.setPaymentMethod(trimToNull(request.getPaymentMethod()));
         deposit.setStatus(WalletDepositStatus.PENDING);
         deposit.setEntityStatus(EntityStatus.ACTIVE);
         deposit.setCreatedAt(LocalDateTime.now());
@@ -302,7 +316,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                     List.of("status"));
         }
 
-        OrganizationBillingSetting setting = ensureBillingSetting(deposit.getOrganizationId(), "Organization", username);
+        OrganizationBillingSetting setting = ensureBillingSetting(deposit.getOrganizationId(), username);
         PlatformWallet wallet = ensureWallet(
                 deposit.getOrganizationId(),
                 setting.getOrganizationName(),
@@ -330,16 +344,207 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         tx.setEntityStatus(EntityStatus.ACTIVE);
         tx.setCreatedAt(LocalDateTime.now());
         tx.setCreatedBy(username);
-        walletTransactionServiceAuditable.create(tx, locale, username);
+        WalletTransaction savedTx = walletTransactionServiceAuditable.create(tx, locale, username);
+        savedTx.setReceiptNumber(WalletReceiptSupport.generateReceiptNumber(savedTx.getId()));
+        savedTx.setModifiedAt(LocalDateTime.now());
+        savedTx.setModifiedBy(username);
+        walletTransactionServiceAuditable.update(savedTx, locale, username);
 
         deposit.setStatus(WalletDepositStatus.CONFIRMED);
         deposit.setModifiedAt(LocalDateTime.now());
         deposit.setModifiedBy(username);
         WalletDeposit saved = walletDepositServiceAuditable.update(deposit, locale, username);
 
+        walletBillingEventPublisher.publishWalletDepositConfirmed(
+                deposit.getOrganizationId(),
+                locked.getOrganizationName(),
+                deposit.getId(),
+                savedTx.getId(),
+                savedTx.getReceiptNumber(),
+                deposit.getAmountCents(),
+                deposit.getCurrencyCode());
+        walletDepositReceiptNotifier.sendWalletCreditReceipt(
+                deposit.getOrganizationId(), savedTx, locked, setting);
+
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_CONFIRM_SUCCESS.getCode(), new String[]{}, locale));
         response.setWalletDepositDto(PlatformWalletMapper.toDto(saved));
+        response.setWalletTransactionDto(PlatformWalletMapper.toDto(savedTx));
+        return response;
+    }
+
+    @Override
+    public PlatformWalletResponse rejectWalletDeposit(Long depositId, Locale locale, String username) {
+        if (depositId == null || depositId < 1) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"depositId"}, locale),
+                    List.of("depositId"));
+        }
+        WalletDeposit deposit = walletDepositRepository.findById(depositId).orElse(null);
+        if (deposit == null || deposit.getEntityStatus() == EntityStatus.DELETED) {
+            return error(404,
+                    messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_NOT_FOUND.getCode(), new String[]{}, locale),
+                    List.of("depositId"));
+        }
+        if (deposit.getStatus() != WalletDepositStatus.PENDING) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_INVALID.getCode(), new String[]{}, locale),
+                    List.of("status"));
+        }
+        deposit.setStatus(WalletDepositStatus.REJECTED);
+        deposit.setModifiedAt(LocalDateTime.now());
+        deposit.setModifiedBy(username);
+        WalletDeposit saved = walletDepositServiceAuditable.update(deposit, locale, username);
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_REJECT_SUCCESS.getCode(), new String[]{}, locale));
+        response.setWalletDepositDto(PlatformWalletMapper.toDto(saved));
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PlatformWalletResponse getTransactionReceipt(Long transactionId, Locale locale, String username) {
+        WalletReceiptContext context = resolveWalletReceiptContext(transactionId, locale, username);
+        if (context.errorResponse() != null) {
+            return context.errorResponse();
+        }
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_WALLET_RECEIPT_SUCCESS.getCode(), new String[]{}, locale));
+        response.setWalletTransactionDto(PlatformWalletMapper.toDto(context.transaction()));
+        response.setReceiptHtml(WalletReceiptSupport.buildReceiptHtml(
+                context.transaction(), context.wallet(), context.setting()));
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WalletReceiptPdfDto getTransactionReceiptPdf(Long transactionId, Locale locale, String username) {
+        WalletReceiptContext context = resolveWalletReceiptContext(transactionId, locale, username);
+        if (context.errorResponse() != null) {
+            return null;
+        }
+        try {
+            byte[] pdfBytes = WalletReceiptSupport.buildReceiptPdf(
+                    context.transaction(), context.wallet(), context.setting());
+            String receiptNumber = context.transaction().getReceiptNumber() != null
+                    ? context.transaction().getReceiptNumber()
+                    : WalletReceiptSupport.generateReceiptNumber(context.transaction().getId());
+            return new WalletReceiptPdfDto(pdfBytes, receiptNumber);
+        } catch (com.lowagie.text.DocumentException ex) {
+            throw new IllegalStateException("Could not render wallet receipt PDF", ex);
+        }
+    }
+
+    private WalletReceiptContext resolveWalletReceiptContext(Long transactionId, Locale locale, String username) {
+        if (transactionId == null || transactionId < 1) {
+            return WalletReceiptContext.error(error(400,
+                    messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"transactionId"}, locale),
+                    List.of("transactionId")));
+        }
+        Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
+        if (organizationId == null) {
+            return WalletReceiptContext.error(orgError(locale));
+        }
+        WalletTransaction tx = walletTransactionRepository.findById(transactionId).orElse(null);
+        if (tx == null || tx.getEntityStatus() == EntityStatus.DELETED || !organizationId.equals(tx.getOrganizationId())) {
+            return WalletReceiptContext.error(error(404,
+                    messageService.getMessage(I18Code.MESSAGE_WALLET_TX_NOT_FOUND.getCode(), new String[]{}, locale),
+                    List.of("transactionId")));
+        }
+        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, username);
+        PlatformWallet wallet = platformWalletRepository
+                .findByOrganizationIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
+                .orElse(null);
+        return WalletReceiptContext.ok(tx, wallet, setting);
+    }
+
+    private record WalletReceiptContext(
+            WalletTransaction transaction,
+            PlatformWallet wallet,
+            OrganizationBillingSetting setting,
+            PlatformWalletResponse errorResponse) {
+
+        static WalletReceiptContext ok(
+                WalletTransaction transaction,
+                PlatformWallet wallet,
+                OrganizationBillingSetting setting) {
+            return new WalletReceiptContext(transaction, wallet, setting, null);
+        }
+
+        static WalletReceiptContext error(PlatformWalletResponse errorResponse) {
+            return new WalletReceiptContext(null, null, null, errorResponse);
+        }
+    }
+
+    @Override
+    public PlatformWalletResponse creditOrganizationWallet(
+            CreditOrganizationWalletRequest request, Locale locale, String username) {
+        if (request == null || request.getOrganizationId() == null || request.getOrganizationId() < 1) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"organizationId"}, locale),
+                    List.of("organizationId"));
+        }
+        if (request.getAmountCents() == null || request.getAmountCents() < 1) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"amountCents"}, locale),
+                    List.of("amountCents"));
+        }
+
+        Long organizationId = request.getOrganizationId();
+        String orgName = organizationNameResolver.resolve(organizationId, request.getOrganizationName());
+        OrganizationBillingSetting setting = ensureBillingSetting(organizationId, orgName, username);
+        if (Boolean.TRUE.equals(request.getEnablePrepaidBilling())) {
+            setting.setBillingMode(OrganizationBillingMode.PREPAID_WALLET);
+            setting.setModifiedAt(LocalDateTime.now());
+            setting.setModifiedBy(username);
+            if (StringUtils.hasText(orgName)) {
+                setting.setOrganizationName(orgName);
+            }
+            setting = organizationBillingSettingServiceAuditable.update(setting, locale, username);
+        }
+
+        String currency = StringUtils.hasText(request.getCurrencyCode())
+                ? request.getCurrencyCode().trim().toUpperCase()
+                : resolveCurrency(organizationId);
+        PlatformWallet wallet = ensureWallet(organizationId, setting.getOrganizationName(), currency, username);
+        PlatformWallet locked = platformWalletRepository
+                .findByOrganizationIdForUpdate(organizationId, EntityStatus.DELETED)
+                .orElse(wallet);
+
+        long newBalance = locked.getBalanceCents() + request.getAmountCents();
+        locked.setBalanceCents(newBalance);
+        if (StringUtils.hasText(request.getOrganizationName())) {
+            locked.setOrganizationName(orgName);
+        }
+        locked.setModifiedAt(LocalDateTime.now());
+        locked.setModifiedBy(username);
+        platformWalletServiceAuditable.update(locked, locale, username);
+
+        String description = StringUtils.hasText(request.getNotes())
+                ? request.getNotes().trim()
+                : "Admin wallet credit";
+        WalletTransaction tx = new WalletTransaction();
+        tx.setOrganizationId(organizationId);
+        tx.setTransactionType(WalletTransactionType.ADJUSTMENT);
+        tx.setAmountCents(request.getAmountCents());
+        tx.setBalanceAfterCents(newBalance);
+        tx.setReferenceType("ADMIN_CREDIT");
+        tx.setDescription(description);
+        tx.setEntityStatus(EntityStatus.ACTIVE);
+        tx.setCreatedAt(LocalDateTime.now());
+        tx.setCreatedBy(username);
+        WalletTransaction savedTx = walletTransactionServiceAuditable.create(tx, locale, username);
+        savedTx.setReceiptNumber(WalletReceiptSupport.generateReceiptNumber(savedTx.getId()));
+        savedTx.setModifiedAt(LocalDateTime.now());
+        savedTx.setModifiedBy(username);
+        walletTransactionServiceAuditable.update(savedTx, locale, username);
+
+        walletDepositReceiptNotifier.sendWalletCreditReceipt(organizationId, savedTx, locked, setting);
+
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_WALLET_CREDIT_SUCCESS.getCode(), new String[]{}, locale));
+        response.setPlatformWalletSummaryDto(PlatformWalletMapper.toSummaryDto(locked, setting, resolvePackageName(setting.getSubscriptionPackageId())));
+        response.setWalletTransactionDto(PlatformWalletMapper.toDto(savedTx));
         return response;
     }
 
@@ -348,6 +553,17 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
     public PlatformWalletResponse listPendingDeposits(Locale locale) {
         List<WalletDeposit> deposits = walletDepositRepository
                 .findByStatusAndEntityStatusNotOrderByCreatedAtDesc(WalletDepositStatus.PENDING, EntityStatus.DELETED);
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_LIST_SUCCESS.getCode(), new String[]{}, locale));
+        response.setWalletDepositDtoList(deposits.stream().map(PlatformWalletMapper::toDto).toList());
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PlatformWalletResponse listConfirmedDeposits(Locale locale) {
+        List<WalletDeposit> deposits = walletDepositRepository
+                .findByStatusAndEntityStatusNotOrderByModifiedAtDesc(WalletDepositStatus.CONFIRMED, EntityStatus.DELETED);
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_LIST_SUCCESS.getCode(), new String[]{}, locale));
         response.setWalletDepositDtoList(deposits.stream().map(PlatformWalletMapper::toDto).toList());
@@ -395,8 +611,9 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         }
 
         String actionCode = request.getActionCode().trim().toUpperCase();
-        PlatformActionCharge charge = platformActionChargeRepository
-                .findByActionCodeAndEntityStatusNot(actionCode, EntityStatus.DELETED)
+        PlatformActionCharge charge = Optional.ofNullable(request.getId())
+                .flatMap(id -> platformActionChargeRepository.findByIdAndEntityStatusNot(id, EntityStatus.DELETED))
+                .or(() -> platformActionChargeRepository.findByActionCodeAndEntityStatusNot(actionCode, EntityStatus.DELETED))
                 .orElseGet(PlatformActionCharge::new);
 
         boolean isNew = charge.getId() == null;
@@ -409,6 +626,13 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                 charge.setCategory(PlatformActionCategory.valueOf(request.getCategory().trim().toUpperCase()));
             } catch (IllegalArgumentException ignored) {
                 charge.setCategory(PlatformActionCategory.GENERAL);
+            }
+        }
+        if (StringUtils.hasText(request.getBillingTier())) {
+            try {
+                charge.setBillingTier(PlatformBillingTier.valueOf(request.getBillingTier().trim().toUpperCase()));
+            } catch (IllegalArgumentException ignored) {
+                charge.setBillingTier(null);
             }
         }
         if (request.getActive() != null) {
@@ -429,6 +653,35 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_ACTION_CHARGE_SAVE_SUCCESS.getCode(), new String[]{}, locale));
         response.setPlatformActionChargeDto(PlatformWalletMapper.toDto(saved));
+        return response;
+    }
+
+    @Override
+    public PlatformWalletResponse deleteActionCharge(Long chargeId, Locale locale, String username) {
+        if (chargeId == null || chargeId <= 0) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_ACTION_CHARGE_INVALID.getCode(), new String[]{}, locale),
+                    List.of("id"));
+        }
+
+        PlatformActionCharge charge = platformActionChargeRepository
+                .findByIdAndEntityStatusNot(chargeId, EntityStatus.DELETED)
+                .orElse(null);
+        if (charge == null) {
+            return error(404,
+                    messageService.getMessage(I18Code.MESSAGE_ACTION_CHARGE_NOT_FOUND.getCode(), new String[]{}, locale),
+                    List.of("id"));
+        }
+
+        charge.setActive(false);
+        charge.setEntityStatus(EntityStatus.DELETED);
+        charge.setModifiedAt(LocalDateTime.now());
+        charge.setModifiedBy(username);
+        platformActionChargeServiceAuditable.delete(charge, locale);
+
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_ACTION_CHARGE_DELETE_SUCCESS.getCode(), new String[]{}, locale));
+        response.setPlatformActionChargeDto(PlatformWalletMapper.toDto(charge));
         return response;
     }
 
@@ -461,6 +714,18 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         pkg.setCurrencyCode(StringUtils.hasText(request.getCurrencyCode())
                 ? request.getCurrencyCode().trim().toUpperCase()
                 : "USD");
+        if (request.getIncludedHeavyCredits() != null) {
+            pkg.setIncludedHeavyCredits(Math.max(0, request.getIncludedHeavyCredits()));
+        }
+        if (request.getIncludedStandardCredits() != null) {
+            pkg.setIncludedStandardCredits(Math.max(0, request.getIncludedStandardCredits()));
+        }
+        if (request.getIncludedLightCredits() != null) {
+            pkg.setIncludedLightCredits(Math.max(0, request.getIncludedLightCredits()));
+        }
+        if (request.getIncludedTrackingDayCredits() != null) {
+            pkg.setIncludedTrackingDayCredits(Math.max(0, request.getIncludedTrackingDayCredits()));
+        }
         if (request.getSortOrder() != null) {
             pkg.setSortOrder(request.getSortOrder());
         }
@@ -485,6 +750,64 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_SUBSCRIPTION_PACKAGE_SAVE_SUCCESS.getCode(), new String[]{}, locale));
         response.setSubscriptionPackageDto(PlatformWalletMapper.toDto(saved));
+        return response;
+    }
+
+    @Override
+    public PlatformWalletResponse deleteSubscriptionPackage(Long packageId, Locale locale, String username) {
+        if (packageId == null || packageId <= 0) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_SUBSCRIPTION_PACKAGE_INVALID.getCode(), new String[]{}, locale),
+                    List.of("id"));
+        }
+
+        SubscriptionPackage pkg = subscriptionPackageRepository
+                .findByIdAndEntityStatusNot(packageId, EntityStatus.DELETED)
+                .orElse(null);
+        if (pkg == null) {
+            return error(404,
+                    messageService.getMessage(I18Code.MESSAGE_SUBSCRIPTION_PACKAGE_NOT_FOUND.getCode(), new String[]{}, locale),
+                    List.of("id"));
+        }
+
+        long assignedCount = organizationBillingSettingRepository
+                .countBySubscriptionPackageIdAndEntityStatusNot(packageId, EntityStatus.DELETED);
+        if (assignedCount > 0) {
+            return error(409,
+                    messageService.getMessage(I18Code.MESSAGE_SUBSCRIPTION_PACKAGE_IN_USE.getCode(), new String[]{}, locale),
+                    List.of("subscriptionPackageId"));
+        }
+
+        pkg.setActive(false);
+        pkg.setEntityStatus(EntityStatus.DELETED);
+        pkg.setModifiedAt(LocalDateTime.now());
+        pkg.setModifiedBy(username);
+        subscriptionPackageServiceAuditable.delete(pkg, locale);
+
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_SUBSCRIPTION_PACKAGE_DELETE_SUCCESS.getCode(), new String[]{}, locale));
+        response.setSubscriptionPackageDto(PlatformWalletMapper.toDto(pkg));
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PlatformWalletResponse getPublicPricingCatalog(Locale locale) {
+        List<SubscriptionPackage> packages = subscriptionPackageRepository
+                .findByEntityStatusNotOrderBySortOrderAsc(EntityStatus.DELETED)
+                .stream()
+                .filter(pkg -> Boolean.TRUE.equals(pkg.getActive()))
+                .toList();
+        List<PlatformActionCharge> charges = platformActionChargeRepository
+                .findByEntityStatusNotOrderByCategoryAscDisplayNameAsc(EntityStatus.DELETED)
+                .stream()
+                .filter(charge -> Boolean.TRUE.equals(charge.getActive()))
+                .toList();
+
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_SUBSCRIPTION_PACKAGE_LIST_SUCCESS.getCode(), new String[]{}, locale));
+        response.setSubscriptionPackageDtoList(packages.stream().map(PlatformWalletMapper::toDto).toList());
+        response.setPlatformActionChargeDtoList(charges.stream().map(PlatformWalletMapper::toDto).toList());
         return response;
     }
 
@@ -514,8 +837,28 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         }
 
         Long chargeCents = catalog.getChargeCents() != null ? catalog.getChargeCents() : 0L;
-        OrganizationBillingSetting setting = ensureBillingSetting(request.getOrganizationId(), "Organization", actor);
+        OrganizationBillingSetting setting = ensureBillingSetting(request.getOrganizationId(), actor);
         boolean prepaid = setting.getBillingMode() == OrganizationBillingMode.PREPAID_WALLET;
+
+        if (isTrackingAction(actionCode)
+                && request.getTripId() != null
+                && request.getTripId() > 0L
+                && hasTrackingChargeToday(request.getOrganizationId(), request.getTripId())) {
+            RecordPlatformUsageChargeResultDto skipped = new RecordPlatformUsageChargeResultDto();
+            skipped.setChargeCents(0L);
+            skipped.setBillingMode(setting.getBillingMode().name());
+            skipped.setAllowed(true);
+            skipped.setDeducted(false);
+            PlatformWallet wallet = platformWalletRepository
+                    .findByOrganizationIdAndEntityStatusNot(request.getOrganizationId(), EntityStatus.DELETED)
+                    .orElse(null);
+            skipped.setBalanceAfterCents(wallet != null ? wallet.getBalanceCents() : 0L);
+            skipped.setMessage("Tracking already billed for this trip today.");
+            PlatformWalletResponse skipResponse = success(200,
+                    messageService.getMessage(I18Code.MESSAGE_USAGE_CHARGE_RECORDED.getCode(), new String[]{}, locale));
+            skipResponse.setRecordPlatformUsageChargeResultDto(skipped);
+            return skipResponse;
+        }
 
         UsageChargeRecord record = new UsageChargeRecord();
         record.setOrganizationId(request.getOrganizationId());
@@ -599,6 +942,13 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
 
         usageChargeRecordServiceAuditable.create(record, locale, actor);
         result.setMessage(messageService.getMessage(I18Code.MESSAGE_USAGE_CHARGE_RECORDED.getCode(), new String[]{}, locale));
+
+        PlatformWallet walletAfter = platformWalletRepository
+                .findByOrganizationIdAndEntityStatusNot(request.getOrganizationId(), EntityStatus.DELETED)
+                .orElse(null);
+        if (chargeCents > 0) {
+            platformWalletUsageNotifier.notifyUsageCharge(record, walletAfter, setting);
+        }
 
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_USAGE_CHARGE_RECORDED.getCode(), new String[]{}, locale));
@@ -688,13 +1038,19 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         return response;
     }
 
-    private OrganizationBillingSetting ensureBillingSetting(Long organizationId, String orgName, String actor) {
+    private OrganizationBillingSetting ensureBillingSetting(Long organizationId, String actor) {
+        return ensureBillingSetting(organizationId, null, actor);
+    }
+
+    private OrganizationBillingSetting ensureBillingSetting(Long organizationId, String preferredName, String actor) {
+        String resolvedName = organizationNameResolver.resolve(organizationId, preferredName);
         return organizationBillingSettingRepository
                 .findByOrganizationIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
+                .map(existing -> refreshOrganizationNameIfNeeded(existing, organizationId, resolvedName, actor))
                 .orElseGet(() -> {
                     OrganizationBillingSetting setting = new OrganizationBillingSetting();
                     setting.setOrganizationId(organizationId);
-                    setting.setOrganizationName(orgName);
+                    setting.setOrganizationName(resolvedName);
                     setting.setBillingMode(OrganizationBillingMode.PREPAID_WALLET);
                     setting.setLowBalanceThresholdCents(500L);
                     setting.setEntityStatus(EntityStatus.ACTIVE);
@@ -702,6 +1058,23 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                     setting.setCreatedBy(actor);
                     return organizationBillingSettingServiceAuditable.create(setting, null, actor);
                 });
+    }
+
+    private OrganizationBillingSetting refreshOrganizationNameIfNeeded(
+            OrganizationBillingSetting existing,
+            Long organizationId,
+            String resolvedName,
+            String actor) {
+        if (resolvedName.equals(existing.getOrganizationName())) {
+            return existing;
+        }
+        if (organizationNameResolver.isPlaceholder(existing.getOrganizationName()) && !organizationNameResolver.isPlaceholder(resolvedName)) {
+            existing.setOrganizationName(resolvedName);
+            existing.setModifiedAt(LocalDateTime.now());
+            existing.setModifiedBy(actor);
+            return organizationBillingSettingServiceAuditable.update(existing, null, actor);
+        }
+        return existing;
     }
 
     private PlatformWallet ensureWallet(Long organizationId, String orgName, String currencyCode, String actor) {
@@ -760,6 +1133,26 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
 
     private String trimToNull(String value) {
         return StringUtils.hasText(value) ? value.trim() : null;
+    }
+
+    private boolean isTrackingAction(String actionCode) {
+        if (!StringUtils.hasText(actionCode)) {
+            return false;
+        }
+        String normalized = actionCode.trim().toUpperCase();
+        return "TRIP_TRACK".equals(normalized)
+                || "GPS_PING".equals(normalized)
+                || "LIVE_MAP_SESSION".equals(normalized);
+    }
+
+    private boolean hasTrackingChargeToday(Long organizationId, Long tripId) {
+        LocalDate today = LocalDate.now();
+        return usageChargeRecordRepository.existsTrackingChargeForTripOnDay(
+                organizationId,
+                tripId,
+                today.atStartOfDay(),
+                today.plusDays(1).atStartOfDay(),
+                EntityStatus.DELETED);
     }
 
     private PlatformWalletResponse orgError(Locale locale) {

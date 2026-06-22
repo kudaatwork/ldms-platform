@@ -26,8 +26,9 @@ import projectlx.trip.tracking.business.logic.impl.TripDeliveryServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripLiveServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripServiceImpl;
 import projectlx.trip.tracking.business.logic.impl.TripTelemetryIngestServiceImpl;
-import projectlx.trip.tracking.business.logic.support.TripDriverPortalSupport;
+import projectlx.trip.tracking.business.logic.support.TripDeliveryWorkflowBootstrapSupport;
 import projectlx.trip.tracking.business.logic.support.CallerOrganizationResolver;
+import projectlx.trip.tracking.business.logic.support.TripDriverPortalSupport;
 import projectlx.trip.tracking.business.logic.support.TripJourneyTimingSupport;
 import projectlx.trip.tracking.business.logic.support.TripIotDemoSimulator;
 import projectlx.trip.tracking.business.logic.support.TripLiveSnapshotEnricher;
@@ -41,6 +42,9 @@ import projectlx.trip.tracking.business.validator.api.TripDeliveryServiceValidat
 import projectlx.trip.tracking.business.validator.api.TripServiceValidator;
 import projectlx.trip.tracking.business.validator.impl.TripDeliveryServiceValidatorImpl;
 import projectlx.trip.tracking.business.validator.impl.TripServiceValidatorImpl;
+import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
+import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
+import projectlx.trip.tracking.clients.BillingPaymentsServiceClient;
 import projectlx.trip.tracking.clients.FleetManagementServiceClient;
 import projectlx.trip.tracking.clients.FuelExpensesServiceClient;
 import projectlx.trip.tracking.clients.InventoryManagementServiceClient;
@@ -167,6 +171,11 @@ public class BusinessConfig {
     }
 
     @Bean
+    public PlatformWalletUsageSupport platformWalletUsageSupport(BillingPaymentsServiceClient billingPaymentsServiceClient) {
+        return new PlatformWalletUsageSupport(billingPaymentsServiceClient::recordUsageCharge, "ldms-trip-tracking");
+    }
+
+    @Bean
     public TripService tripService(TripServiceValidator tripServiceValidator,
                                    TripServiceAuditable tripServiceAuditable,
                                    TripEventServiceAuditable tripEventServiceAuditable,
@@ -189,14 +198,16 @@ public class BusinessConfig {
                                    ShipmentTripStartLock shipmentTripStartLock,
                                    LogisticsLifecycleNotificationSupport logisticsLifecycleNotificationSupport,
                                    LogisticsNotificationRecipientResolver logisticsNotificationRecipientResolver,
-                                   TripDriverPortalSupport tripDriverPortalSupport) {
+                                   TripDriverPortalSupport tripDriverPortalSupport,
+                                   TripDeliveryWorkflowBootstrapSupport tripDeliveryWorkflowBootstrapSupport,
+                                   PlatformWalletUsageSupport platformWalletUsageSupport) {
         return new TripServiceImpl(tripServiceValidator, tripServiceAuditable, tripEventServiceAuditable,
                 deliveryOtpServiceAuditable, tripRepository, tripEventRepository, deliveryOtpRepository,
                 callerOrganizationResolver, tripNumberGenerator, shipmentManagementServiceClient,
                 inventoryManagementServiceClient, rabbitTemplate, messageService, bCryptPasswordEncoder,
                 routePlannerSupport, demoSimulator, telemetryPublisher, tripRoutePlanRepository, iotProperties,
                 shipmentTripStartLock, logisticsLifecycleNotificationSupport, logisticsNotificationRecipientResolver,
-                tripDriverPortalSupport);
+                tripDriverPortalSupport, tripDeliveryWorkflowBootstrapSupport, platformWalletUsageSupport);
     }
 
     @Bean
@@ -223,9 +234,11 @@ public class BusinessConfig {
                                            TripLiveSseRegistry sseRegistry,
                                            TripTelemetryPublisher telemetryPublisher,
                                            TripLiveSnapshotEnricher snapshotEnricher,
-                                           MessageService messageService) {
+                                           MessageService messageService,
+                                           PlatformWalletUsageSupport platformWalletUsageSupport) {
         return new TripLiveServiceImpl(tripRepository, tripRoutePlanRepository, callerOrganizationResolver,
-                routePlannerSupport, demoSimulator, sseRegistry, telemetryPublisher, snapshotEnricher, messageService);
+                routePlannerSupport, demoSimulator, sseRegistry, telemetryPublisher, snapshotEnricher, messageService,
+                platformWalletUsageSupport);
     }
 
     // ============================================================
@@ -245,8 +258,17 @@ public class BusinessConfig {
     }
 
     @Bean
+    public TripDeliveryWorkflowBootstrapSupport tripDeliveryWorkflowBootstrapSupport(
+            TripDeliveryWorkflowRepository tripDeliveryWorkflowRepository,
+            TripDeliveryWorkflowServiceAuditable tripDeliveryWorkflowServiceAuditable) {
+        return new TripDeliveryWorkflowBootstrapSupport(
+                tripDeliveryWorkflowRepository, tripDeliveryWorkflowServiceAuditable);
+    }
+
+    @Bean
     public TripDeliveryService tripDeliveryService(
             TripDeliveryServiceValidator tripDeliveryServiceValidator,
+            TripDeliveryWorkflowBootstrapSupport tripDeliveryWorkflowBootstrapSupport,
             TripDeliveryWorkflowServiceAuditable tripDeliveryWorkflowServiceAuditable,
             TripServiceAuditable tripServiceAuditable,
             TripEventServiceAuditable tripEventServiceAuditable,
@@ -261,6 +283,7 @@ public class BusinessConfig {
             BCryptPasswordEncoder bCryptPasswordEncoder) {
         return new TripDeliveryServiceImpl(
                 tripDeliveryServiceValidator,
+                tripDeliveryWorkflowBootstrapSupport,
                 tripDeliveryWorkflowServiceAuditable,
                 tripServiceAuditable,
                 tripEventServiceAuditable,

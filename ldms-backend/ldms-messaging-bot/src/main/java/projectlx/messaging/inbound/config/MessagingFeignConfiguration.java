@@ -6,6 +6,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
+import projectlx.messaging.inbound.clients.BillingPaymentsServiceClient;
 import projectlx.messaging.inbound.clients.OrganizationManagementServiceClient;
 import projectlx.messaging.inbound.clients.UserManagementServiceClient;
 
@@ -35,6 +36,19 @@ public class MessagingFeignConfiguration {
                 .forType(OrganizationManagementServiceClient.class, "organization-management-service")
                 .inheritParentContext(true)
                 .contextId("messaging-organization-management-service")
+                .url(url)
+                .build();
+    }
+
+    @Bean
+    public BillingPaymentsServiceClient billingPaymentsServiceClient(ApplicationContext applicationContext) {
+        Environment env = applicationContext.getEnvironment();
+        String url = LdmsFeignUrls.resolveBillingPaymentsServiceBaseUrl(env);
+        log.info("Billing payments Feign client base URL: {}", url);
+        return new FeignClientBuilder(applicationContext)
+                .forType(BillingPaymentsServiceClient.class, "billing-payments-service")
+                .inheritParentContext(true)
+                .contextId("messaging-billing-payments-service")
                 .url(url)
                 .build();
     }

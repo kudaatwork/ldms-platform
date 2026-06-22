@@ -14,4 +14,14 @@ public interface TripDeliveryWorkflowRepository extends JpaRepository<TripDelive
     Optional<TripDeliveryWorkflow> findByTripIdAndEntityStatusNot(
             @Param("tripId") Long tripId,
             @Param("excluded") EntityStatus excluded);
+
+    @Query("""
+            SELECT DISTINCT w FROM TripDeliveryWorkflow w
+            JOIN FETCH w.trip t
+            LEFT JOIN FETCH w.returnLines rl
+            WHERE t.id = :tripId AND w.entityStatus <> :excluded
+            """)
+    Optional<TripDeliveryWorkflow> findWithDetailsByTripIdAndEntityStatusNot(
+            @Param("tripId") Long tripId,
+            @Param("excluded") EntityStatus excluded);
 }

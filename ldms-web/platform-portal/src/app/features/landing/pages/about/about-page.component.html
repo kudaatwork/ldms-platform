@@ -1,0 +1,55 @@
+<app-landing-shell activePage="about">
+  <section class="ldms-page-hero ldms-reveal" aria-labelledby="about-hero-title">
+    <div class="ldms-page-hero__glow" aria-hidden="true"></div>
+    <div class="ldms-section__inner ldms-page-hero__inner">
+      <p class="ldms-page-hero__eyebrow ldms-kicker">About Project LX</p>
+      <h1 id="about-hero-title" class="ldms-page-hero__title">Road logistics software for real corridors</h1>
+      <p class="ldms-page-hero__lead">
+        Project LX LDMS connects suppliers, customers, drivers, transporters, and platform administrators on one
+        event-driven platform — from onboarding through dispatch, tracking, and billing.
+      </p>
+    </div>
+  </section>
+
+  <section class="ldms-about-pillars ldms-reveal ldms-reveal--stagger" aria-label="Platform pillars">
+    <div class="ldms-section__inner">
+      @for (pillar of pillars; track pillar.title) {
+        <article class="ldms-about-pillar">
+          <span class="ldms-about-pillar__icon material-icons" aria-hidden="true">{{ pillar.icon }}</span>
+          <h2>{{ pillar.title }}</h2>
+          <p>{{ pillar.copy }}</p>
+        </article>
+      }
+    </div>
+  </section>
+
+  <section class="ldms-about-timeline ldms-reveal" aria-labelledby="about-timeline-title">
+    <div class="ldms-section__inner">
+      <div class="ldms-section__head ldms-section__head--center">
+        <p class="ldms-kicker">How programmes scale</p>
+        <h2 id="about-timeline-title" class="ldms-section__title">From first org to steady-state operations</h2>
+      </div>
+      <ol class="ldms-about-timeline__track">
+        @for (step of timeline; track step.phase) {
+          <li class="ldms-about-timeline__step">
+            <span class="ldms-about-timeline__phase">{{ step.phase }}</span>
+            <div class="ldms-about-timeline__card">
+              <h3>{{ step.title }}</h3>
+              <p>{{ step.detail }}</p>
+            </div>
+          </li>
+        }
+      </ol>
+    </div>
+  </section>
+
+  <section class="ldms-about-cta ldms-reveal" aria-label="Next steps">
+    <div class="ldms-section__inner ldms-about-cta__inner">
+      <h2>See pricing or book a walkthrough</h2>
+      <div class="ldms-about-cta__actions">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="goPricing()">View pricing</button>
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="goDemo()">Explore the demo</button>
+      </div>
+    </div>
+  </section>
+</app-landing-shell>

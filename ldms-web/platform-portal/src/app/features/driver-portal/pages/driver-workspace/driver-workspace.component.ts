@@ -126,7 +126,7 @@ export class DriverWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   openLiveTracking(trip: DriverTripRow): void {
-    void this.router.navigate(['/shipments', 'live', trip.id]);
+    void this.router.navigate(['/driver', 'live', trip.id]);
   }
 
   openDeliveryWorkflow(trip: DriverTripRow): void {

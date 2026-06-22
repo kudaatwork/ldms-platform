@@ -38,16 +38,18 @@ export class DriverPortalService {
   getMyTrips(): Observable<DriverTripRow[]> {
     return this.http.get<unknown>(`${this.tripBase}/my-trips`).pipe(
       map((res: unknown) => {
-        const raw = res as any;
-        // Backend may return TripResponse.driverTripSummaryList or a flat array
-        const list: unknown[] = Array.isArray(raw?.driverTripSummaryDtoList)
-          ? raw.driverTripSummaryDtoList
-          : Array.isArray(raw?.driverTripSummaryList)
-            ? raw.driverTripSummaryList
-            : Array.isArray(raw?.data)
-              ? raw.data
-              : Array.isArray(raw)
-                ? raw
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Failed to load trips'));
+        }
+        const raw = res as Record<string, unknown>;
+        const list: unknown[] = Array.isArray(raw['driverTripSummaryDtoList'])
+          ? raw['driverTripSummaryDtoList']
+          : Array.isArray(raw['driverTripSummaryList'])
+            ? raw['driverTripSummaryList']
+            : Array.isArray(raw['data'])
+              ? raw['data']
+              : Array.isArray(res)
+                ? res
                 : [];
         return list.map((item) => this.mapTripRow(item as Record<string, unknown>));
       }),
@@ -137,6 +139,10 @@ export class DriverPortalService {
         raw['canStartDeliveryWorkflow'] === true || status === 'ARRIVED',
       canLiveTrack: raw['canLiveTrack'] === true,
       deliveryWorkflowPhase: raw['deliveryWorkflowPhase'] as DeliveryWorkflowPhase | undefined,
+      driverName: String(raw['driverName'] ?? '').trim() || undefined,
+      driverPhone: String(raw['driverPhone'] ?? '').trim() || undefined,
+      fleetDriverId: Number(raw['fleetDriverId'] ?? 0) > 0 ? Number(raw['fleetDriverId']) : undefined,
+      driverUserId: Number(raw['driverUserId'] ?? 0) > 0 ? Number(raw['driverUserId']) : undefined,
     };
   }
 
