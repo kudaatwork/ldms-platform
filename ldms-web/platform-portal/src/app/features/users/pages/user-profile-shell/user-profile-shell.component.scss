@@ -488,7 +488,7 @@
 }
 
 :host-context(html.theme-dark) .up-chip--auth-off {
-  color: #e2e8f0;
+  color: var(--gray-200);
   background: linear-gradient(
     135deg,
     color-mix(in srgb, var(--gray-500) 22%, #0f172a) 0%,

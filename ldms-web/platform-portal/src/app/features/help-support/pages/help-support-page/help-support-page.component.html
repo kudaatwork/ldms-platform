@@ -47,6 +47,22 @@
     <button type="button" class="help-alert__action" (click)="reload()">Retry</button>
   </div>
 
+  <div class="help-alert help-alert--warn" *ngIf="actionError() && !loadError()" role="alert">
+    <span class="material-icons" aria-hidden="true">warning_amber</span>
+    <span class="help-alert__body">
+      {{ actionError() }}
+      <a
+        *ngIf="isWalletActionError(actionError())"
+        class="help-alert__link"
+        routerLink="/settings"
+        [queryParams]="{ section: 'billing' }"
+      >
+        Open billing settings
+      </a>
+    </span>
+    <button type="button" class="help-alert__action" (click)="clearActionError()">Dismiss</button>
+  </div>
+
   <div class="help-loading" *ngIf="loading()">
     <span class="help-loading__spinner" aria-hidden="true"></span>
     Loading help centre…

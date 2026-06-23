@@ -46,8 +46,8 @@
   padding: 22px 24px;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--brand-500, #3b82f6) 6%, var(--surface, #fff)) 0%,
-    var(--surface, #fff) 55%
+    color-mix(in srgb, var(--brand-500, #3b82f6) 6%, var(--surface, var(--surface))) 0%,
+    var(--surface, var(--surface)) 55%
   );
   border: 1px solid color-mix(in srgb, var(--brand-500, #3b82f6) 18%, var(--gray-200, #e5e7eb));
 }
@@ -97,13 +97,13 @@
 .lx-audit-kpi {
   padding: 14px 16px;
   border-radius: 12px;
-  background: var(--surface, #fff);
+  background: var(--surface, var(--surface));
   border: 1px solid var(--gray-200, #e5e7eb);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 
   &--active {
     border-color: color-mix(in srgb, var(--brand-500, #3b82f6) 40%, var(--gray-200));
-    background: color-mix(in srgb, var(--brand-500, #3b82f6) 5%, var(--surface, #fff));
+    background: color-mix(in srgb, var(--brand-500, #3b82f6) 5%, var(--surface, var(--surface)));
   }
 }
 

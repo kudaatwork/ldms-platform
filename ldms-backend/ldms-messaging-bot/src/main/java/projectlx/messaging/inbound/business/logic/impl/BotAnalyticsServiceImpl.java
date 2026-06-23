@@ -8,8 +8,12 @@ import projectlx.messaging.inbound.business.logic.api.BotAnalyticsService;
 import projectlx.messaging.inbound.repository.BotFaqRepository;
 import projectlx.messaging.inbound.repository.BotMessageRepository;
 import projectlx.messaging.inbound.repository.BotSessionRepository;
+import projectlx.messaging.inbound.repository.projection.BotMessageDailyCountProjection;
+import projectlx.messaging.inbound.repository.projection.BotSessionDailyCountProjection;
+import projectlx.messaging.inbound.repository.projection.BotTopicCountProjection;
 import projectlx.messaging.inbound.utils.dtos.BotAnalyticsChannelCountDto;
 import projectlx.messaging.inbound.utils.dtos.BotAnalyticsDailyCountDto;
+import projectlx.messaging.inbound.utils.dtos.BotAnalyticsMessageDailyCountDto;
 import projectlx.messaging.inbound.utils.dtos.BotAnalyticsSummaryDto;
 import projectlx.messaging.inbound.utils.dtos.BotAnalyticsTopicCountDto;
 import projectlx.messaging.inbound.utils.enums.BotMessageRole;
@@ -27,8 +31,6 @@ import java.util.Locale;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class BotAnalyticsServiceImpl implements BotAnalyticsService {
-
-    private static final int MAX_TOPICS = 10;
 
     private final BotSessionRepository botSessionRepository;
     private final BotMessageRepository botMessageRepository;
@@ -53,13 +55,14 @@ public class BotAnalyticsServiceImpl implements BotAnalyticsService {
         long userMessages = botMessageRepository.countByRoleAndEntityStatusNot(BotMessageRole.USER, excluded);
         long botMessages = botMessageRepository.countByRoleAndEntityStatusNot(BotMessageRole.BOT, excluded);
 
+        Double avgScore = botSessionRepository.averageSatisfactionScore(excluded);
+        long ratedCount = botSessionRepository.countByEntityStatusNotAndSatisfactionScoreIsNotNull(excluded);
+
         BigDecimal averageMessagesPerSession = totalSessions == 0
                 ? BigDecimal.ZERO
                 : BigDecimal.valueOf(totalMessages)
                 .divide(BigDecimal.valueOf(totalSessions), 2, RoundingMode.HALF_UP);
 
-        Double avgScore = botSessionRepository.averageSatisfactionScore(excluded);
-        long ratedCount = botSessionRepository.countByEntityStatusNotAndSatisfactionScoreIsNotNull(excluded);
         BigDecimal averageSatisfaction = avgScore == null
                 ? null
                 : BigDecimal.valueOf(avgScore).setScale(2, RoundingMode.HALF_UP);
@@ -75,8 +78,9 @@ public class BotAnalyticsServiceImpl implements BotAnalyticsService {
         summary.setAverageSatisfactionScore(averageSatisfaction);
         summary.setRatedSessionCount(ratedCount);
         summary.setPublishedFaqCount(botFaqRepository.countByPublishedTrueAndEntityStatusNot(excluded));
-        summary.setSessionsByDay(mapDailyCounts(since, excluded));
-        summary.setTopTopics(mapTopTopics(excluded));
+        summary.setSessionsByDay(mapSessionDailyCounts(since));
+        summary.setMessagesByDay(mapMessageDailyCounts(since));
+        summary.setTopTopics(mapTopTopics());
         summary.setChannelBreakdown(mapChannelBreakdown(excluded));
 
         BotAnalyticsResponse response = new BotAnalyticsResponse();
@@ -88,31 +92,42 @@ public class BotAnalyticsServiceImpl implements BotAnalyticsService {
         return response;
     }
 
-    private List<BotAnalyticsDailyCountDto> mapDailyCounts(LocalDateTime since, EntityStatus excluded) {
+    private List<BotAnalyticsDailyCountDto> mapSessionDailyCounts(LocalDateTime since) {
         List<BotAnalyticsDailyCountDto> rows = new ArrayList<>();
-        for (Object[] row : botSessionRepository.countSessionsGroupedByDay(excluded, since)) {
+        for (BotSessionDailyCountProjection row : botSessionRepository.countSessionsGroupedByDay(since)) {
             BotAnalyticsDailyCountDto dto = new BotAnalyticsDailyCountDto();
-            dto.setDate(String.valueOf(row[0]));
-            dto.setCount(((Number) row[1]).longValue());
+            dto.setDate(row.getDay() != null ? row.getDay().toString() : "");
+            dto.setCount(nullToLong(row.getCount()));
             rows.add(dto);
         }
         return rows;
     }
 
-    private List<BotAnalyticsTopicCountDto> mapTopTopics(EntityStatus excluded) {
-        List<BotAnalyticsTopicCountDto> rows = new ArrayList<>();
-        int count = 0;
-        for (Object[] row : botSessionRepository.findTopTopics(excluded)) {
-            if (count >= MAX_TOPICS) {
-                break;
-            }
-            BotAnalyticsTopicCountDto dto = new BotAnalyticsTopicCountDto();
-            dto.setTopic(String.valueOf(row[0]));
-            dto.setCount(((Number) row[1]).longValue());
+    private List<BotAnalyticsMessageDailyCountDto> mapMessageDailyCounts(LocalDateTime since) {
+        List<BotAnalyticsMessageDailyCountDto> rows = new ArrayList<>();
+        for (BotMessageDailyCountProjection row : botMessageRepository.countMessagesGroupedByDay(since)) {
+            BotAnalyticsMessageDailyCountDto dto = new BotAnalyticsMessageDailyCountDto();
+            dto.setDate(row.getDay() != null ? row.getDay().toString() : "");
+            dto.setUserMessages(nullToLong(row.getUserMessages()));
+            dto.setBotMessages(nullToLong(row.getBotMessages()));
             rows.add(dto);
-            count++;
         }
         return rows;
+    }
+
+    private List<BotAnalyticsTopicCountDto> mapTopTopics() {
+        List<BotAnalyticsTopicCountDto> rows = new ArrayList<>();
+        for (BotTopicCountProjection row : botSessionRepository.findTopTopics()) {
+            BotAnalyticsTopicCountDto dto = new BotAnalyticsTopicCountDto();
+            dto.setTopic(row.getTopic());
+            dto.setCount(nullToLong(row.getTopicCount()));
+            rows.add(dto);
+        }
+        return rows;
+    }
+
+    private static long nullToLong(Long value) {
+        return value == null ? 0L : value;
     }
 
     private List<BotAnalyticsChannelCountDto> mapChannelBreakdown(EntityStatus excluded) {

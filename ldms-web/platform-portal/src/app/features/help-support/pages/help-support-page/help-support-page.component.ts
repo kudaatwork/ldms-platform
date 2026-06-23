@@ -62,6 +62,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
   readonly activeTab = signal<HelpTab>('overview');
   readonly loading = signal(true);
   readonly loadError = signal('');
+  readonly actionError = signal('');
   readonly submitting = signal(false);
   readonly submitOk = signal(false);
   readonly createdTicket = signal<SupportTicket | null>(null);
@@ -137,6 +138,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
   }
 
   setTab(tab: HelpTab): void {
+    this.actionError.set('');
     this.activeTab.set(tab);
     if (tab !== 'tickets') {
       this.stopPolling();
@@ -241,6 +243,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
   reload(): void {
     this.loading.set(true);
     this.loadError.set('');
+    this.actionError.set('');
     let firstError = '';
     const captureError = (err: Error) => {
       if (!firstError) {
@@ -343,7 +346,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
           this.cdr.markForCheck();
         },
         error: (err: Error) => {
-          this.loadError.set(err.message);
+          this.setActionError(err.message);
           this.submitting.set(false);
           this.cdr.markForCheck();
         },
@@ -399,7 +402,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
         this.cdr.markForCheck();
       },
       error: (err: Error) => {
-        this.loadError.set(err.message);
+        this.setActionError(err.message);
         this.chatLoading.set(false);
         this.cdr.markForCheck();
       },
@@ -449,7 +452,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
           this.cdr.markForCheck();
         },
         error: (err: Error) => {
-          this.loadError.set(err.message);
+          this.setActionError(err.message);
           this.sendingReply.set(false);
           this.cdr.markForCheck();
         },
@@ -692,7 +695,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
           this.cdr.markForCheck();
         },
         error: (err: Error) => {
-          this.loadError.set(err.message);
+          this.setActionError(err.message);
           this.botChatLoading.set(false);
           this.cdr.markForCheck();
         },
@@ -717,7 +720,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
           this.cdr.markForCheck();
         },
         error: (err: Error) => {
-          this.loadError.set(err.message);
+          this.setActionError(err.message);
           this.botStarting.set(false);
           this.cdr.markForCheck();
         },
@@ -737,7 +740,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
           this.cdr.markForCheck();
         },
         error: (err: Error) => {
-          this.loadError.set(err.message);
+          this.setActionError(err.message);
           this.botChatLoading.set(false);
           this.cdr.markForCheck();
         },
@@ -771,11 +774,12 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
           this.selectedBotSession.set(updated);
           this.botReplyDraft = '';
           this.botSending.set(false);
+          this.actionError.set('');
           this.scrollPending = true;
           this.cdr.markForCheck();
         },
         error: (err: Error) => {
-          this.loadError.set(err.message);
+          this.setActionError(err.message);
           this.botSending.set(false);
           this.cdr.markForCheck();
         },
@@ -836,5 +840,25 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
 
   trackBotSession(_: number, item: BotChatSession): string {
     return item.sessionId;
+  }
+
+  isWalletActionError(message: string): boolean {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes('wallet') ||
+      normalized.includes('prepaid') ||
+      normalized.includes('billing') ||
+      normalized.includes('top up')
+    );
+  }
+
+  clearActionError(): void {
+    this.actionError.set('');
+    this.cdr.markForCheck();
+  }
+
+  private setActionError(message: string): void {
+    this.actionError.set(message);
+    this.cdr.markForCheck();
   }
 }

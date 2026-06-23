@@ -9,6 +9,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import projectlx.co.zw.shared_library.utils.config.UtilsConfig;
 import projectlx.co.zw.shared_library.utils.security.config.LdmsMethodSecurityConfiguration;
 import projectlx.co.zw.shared_library.utils.security.config.SharedJwtSecurityConfig;
+import projectlx.co.zw.notifications.config.BillingPaymentsServiceFeignConfiguration;
 
 @SpringBootApplication(
 		exclude = { UserDetailsServiceAutoConfiguration.class },
@@ -18,7 +19,7 @@ import projectlx.co.zw.shared_library.utils.security.config.SharedJwtSecurityCon
 		})
 @EnableMethodSecurity
 @EnableScheduling
-@Import({ SharedJwtSecurityConfig.class, LdmsMethodSecurityConfiguration.class, UtilsConfig.class })
+@Import({ SharedJwtSecurityConfig.class, LdmsMethodSecurityConfiguration.class, UtilsConfig.class, BillingPaymentsServiceFeignConfiguration.class })
 public class Notifications {
 
 	public static void main(String[] args) {

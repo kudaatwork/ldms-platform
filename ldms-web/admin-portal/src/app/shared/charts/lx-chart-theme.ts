@@ -83,15 +83,36 @@ export function lxDoughnutPercentLabel(ctx: TooltipItem<'doughnut'>): string {
   return ` ${ctx.parsed} (${pct}%)`;
 }
 
+/** Format stored cent values for chart axes, tooltips, and legends. */
+export function lxFormatMoneyFromCents(cents: number): string {
+  const dollars = (cents ?? 0) / 100;
+  if (!Number.isFinite(dollars)) {
+    return '$0.00';
+  }
+  if (Math.abs(dollars) >= 1000) {
+    return '$' + dollars.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  }
+  return '$' + dollars.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function lxMoneyAxisTick(value: string | number): string {
-  const n = Number(value);
-  if (!Number.isFinite(n)) {
+  const cents = Number(value);
+  if (!Number.isFinite(cents)) {
     return String(value);
   }
-  if (n >= 100_000) {
-    return '$' + (n / 100).toLocaleString(undefined, { maximumFractionDigits: 0 });
-  }
-  return '$' + (n / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return lxFormatMoneyFromCents(cents);
+}
+
+export function lxMoneyBarTooltipLabel(ctx: TooltipItem<'bar'>): string {
+  const cents = ctx.parsed.y ?? 0;
+  return ` ${ctx.dataset.label}: ${lxFormatMoneyFromCents(cents)}`;
+}
+
+export function lxMoneyDoughnutTooltipLabel(ctx: TooltipItem<'doughnut'>): string {
+  const cents = ctx.parsed as number;
+  const total = (ctx.dataset.data as number[]).reduce((a, b) => a + b, 0);
+  const pct = total > 0 ? Math.round((cents / total) * 100) : 0;
+  return ` ${ctx.label}: ${lxFormatMoneyFromCents(cents)} (${pct}%)`;
 }
 
 export function lxBarChartOptions(
@@ -128,6 +149,12 @@ export function lxGroupedBarChartOptions(
           color: LX_CHART_COLORS.legend,
         },
       },
+      tooltip: {
+        ...lxBasePlugins().tooltip,
+        callbacks: {
+          label: lxMoneyBarTooltipLabel,
+        },
+      },
     },
     scales: {
       ...lxCartesianScales(),
@@ -141,6 +168,102 @@ export function lxGroupedBarChartOptions(
     },
     ...overrides,
   });
+}
+
+/** Deposits (left axis) vs charges (right axis) — keeps small charge bars visible beside large deposits. */
+export function lxRevenueDualAxisBarChartOptions(
+  overrides?: Partial<ChartOptions<'bar'>>,
+): ChartOptions<'bar'> {
+  const cartesian = lxCartesianScales();
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: LX_CHART_ANIMATION,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top',
+        align: 'end',
+        labels: {
+          usePointStyle: true,
+          pointStyle: 'circle',
+          padding: 16,
+          font: { family: LX_CHART_FONT, size: 11, weight: 'bold' },
+          color: LX_CHART_COLORS.legend,
+        },
+      },
+      tooltip: {
+        ...lxBasePlugins().tooltip,
+        callbacks: {
+          label: lxMoneyBarTooltipLabel,
+        },
+      },
+      ...overrides?.plugins,
+    },
+    scales: {
+      x: cartesian.x,
+      yDeposits: {
+        type: 'linear',
+        position: 'left',
+        beginAtZero: true,
+        grid: { color: LX_CHART_COLORS.grid, drawTicks: false },
+        border: { display: false, dash: [4, 4] },
+        ticks: {
+          font: { size: 11, family: LX_CHART_FONT },
+          color: LX_CHART_COLORS.revenue.depositsHover,
+          padding: 10,
+          maxTicksLimit: 5,
+          callback: (v) => lxMoneyAxisTick(v),
+        },
+        title: {
+          display: true,
+          text: 'Deposits',
+          font: { family: LX_CHART_FONT, size: 11, weight: 'bold' },
+          color: LX_CHART_COLORS.revenue.depositsHover,
+        },
+      },
+      yCharges: {
+        type: 'linear',
+        position: 'right',
+        beginAtZero: true,
+        grid: { drawOnChartArea: false },
+        border: { display: false },
+        ticks: {
+          font: { size: 11, family: LX_CHART_FONT },
+          color: LX_CHART_COLORS.revenue.earnedHover,
+          padding: 10,
+          maxTicksLimit: 5,
+          callback: (v) => lxMoneyAxisTick(v),
+        },
+        title: {
+          display: true,
+          text: 'Charges',
+          font: { family: LX_CHART_FONT, size: 11, weight: 'bold' },
+          color: LX_CHART_COLORS.revenue.earnedHover,
+        },
+      },
+    },
+    ...overrides,
+  };
+}
+
+export function lxMoneyDoughnutChartOptions(
+  options: LxDoughnutChartOptions = {},
+): ChartOptions<'doughnut'> {
+  const base = lxDoughnutChartOptions(options);
+  return {
+    ...base,
+    plugins: {
+      ...base.plugins,
+      tooltip: {
+        ...lxBasePlugins().tooltip,
+        callbacks: {
+          label: lxMoneyDoughnutTooltipLabel,
+        },
+      },
+    },
+  };
 }
 
 export function lxLineChartOptions(

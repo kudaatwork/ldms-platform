@@ -133,7 +133,7 @@
               <small>Device reports latitude, longitude, speed, and heading.</small>
             </span>
           </label>
-          <label class="flt-tracking-dialog__cap">
+          <label class="flt-tracking-dialog__cap" *ngIf="fuelConsumptionEnabled">
             <input type="checkbox" formControlName="tracksFuel" />
             <mat-icon>local_gas_station</mat-icon>
             <span>
@@ -141,6 +141,9 @@
               <small>Device reports fuel level sensor readings over MQTT.</small>
             </span>
           </label>
+          <p class="flt-tracking-dialog__fuel-hint" *ngIf="!fuelConsumptionEnabled">
+            Fuel telemetry is off for this organisation. Enable fuel consumption under Settings → Operational mode.
+          </p>
         </div>
       </div>
 

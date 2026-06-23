@@ -24,7 +24,7 @@
     color: var(--gray-400, #94a3b8);
     font-size: 13px;
     font-weight: 600;
-    border: 2px solid var(--gray-200, #e2e8f0);
+    border: 2px solid var(--gray-200);
     transition: background 0.2s, color 0.2s, border-color 0.2s;
 
     mat-icon {
@@ -44,7 +44,7 @@
   &__connector {
     flex: 1;
     height: 2px;
-    background: var(--gray-200, #e2e8f0);
+    background: var(--gray-200);
     margin: 0 12px;
     min-width: 32px;
   }
@@ -109,7 +109,7 @@
 }
 
 .lx-doc-slot {
-  border: 1px solid var(--gray-200, #e2e8f0);
+  border: 1px solid var(--gray-200);
   border-radius: 10px;
   padding: 14px 16px;
   background: var(--gray-50, #f8fafc);
@@ -214,7 +214,7 @@
   padding: 6px 14px;
   border-radius: 6px;
   border: 1.5px dashed var(--gray-300, #cbd5e1);
-  background: #fff;
+  background: var(--surface);
   color: var(--gray-500, #64748b);
   font-size: 13px;
   cursor: pointer;
@@ -368,7 +368,7 @@
     text-align: center;
     font-size: 0.88rem;
     color: var(--gray-500, #64748b);
-    border: 1px dashed var(--gray-200, #e2e8f0);
+    border: 1px dashed var(--gray-200);
     border-radius: 0.75rem;
   }
 
@@ -380,7 +380,7 @@
     padding: 10px 12px;
     border: 1px solid var(--gray-100, #f1f5f9);
     border-radius: 10px;
-    background: white;
+    background: var(--surface);
     cursor: pointer;
     text-align: left;
     transition: border-color 140ms ease, background 140ms ease;
@@ -470,7 +470,7 @@
     padding: 0.55rem 0.75rem;
     border-radius: 0.65rem;
     background: var(--gray-50, #f8fafc);
-    border: 1px solid var(--gray-200, #e2e8f0);
+    border: 1px solid var(--gray-200);
     font-size: 0.86rem;
     color: var(--gray-600, #475569);
 
@@ -489,7 +489,7 @@
   flex-direction: column;
   gap: 12px;
   padding: 14px 16px;
-  border: 1px solid var(--gray-200, #e2e8f0);
+  border: 1px solid var(--gray-200);
   border-radius: 12px;
   background: var(--gray-50, #f8fafc);
 
@@ -553,9 +553,9 @@
     gap: 10px;
     align-items: start;
     padding: 10px 12px;
-    border: 1px solid var(--gray-200, #e2e8f0);
+    border: 1px solid var(--gray-200);
     border-radius: 10px;
-    background: white;
+    background: var(--surface);
     cursor: pointer;
   }
 
@@ -599,9 +599,9 @@
   }
 
   &__details {
-    border: 1px solid var(--gray-200, #e2e8f0);
+    border: 1px solid var(--gray-200);
     border-radius: 10px;
-    background: white;
+    background: var(--surface);
     padding: 12px 14px;
   }
 

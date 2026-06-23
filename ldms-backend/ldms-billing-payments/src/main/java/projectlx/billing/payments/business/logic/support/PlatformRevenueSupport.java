@@ -43,16 +43,18 @@ public class PlatformRevenueSupport {
     private static final Map<PlatformActionCategory, String> CATEGORY_COLORS = Map.ofEntries(
             Map.entry(PlatformActionCategory.GENERAL, "#6366f1"),
             Map.entry(PlatformActionCategory.NOTIFICATIONS, "#0ea5e9"),
+            Map.entry(PlatformActionCategory.BOT_SERVICE, "#8b5cf6"),
+            Map.entry(PlatformActionCategory.SUPPORT, "#f43f5e"),
             Map.entry(PlatformActionCategory.TRIPS, "#10b981"),
             Map.entry(PlatformActionCategory.DOCUMENTS, "#818cf8"),
             Map.entry(PlatformActionCategory.BILLING, "#f59e0b"),
+            Map.entry(PlatformActionCategory.ANALYTICS, "#eab308"),
             Map.entry(PlatformActionCategory.PLATFORM, "#ec4899"),
             Map.entry(PlatformActionCategory.IOT, "#14b8a6"),
             Map.entry(PlatformActionCategory.ORDERS, "#f97316"),
             Map.entry(PlatformActionCategory.LOGISTICS, "#22c55e"),
             Map.entry(PlatformActionCategory.FLEET, "#06b6d4"),
-            Map.entry(PlatformActionCategory.PROCUREMENT, "#a855f7"),
-            Map.entry(PlatformActionCategory.SUPPORT, "#f43f5e"));
+            Map.entry(PlatformActionCategory.PROCUREMENT, "#a855f7"));
 
     private final UsageChargeRecordRepository usageChargeRecordRepository;
     private final WalletDepositRepository walletDepositRepository;
@@ -131,7 +133,7 @@ public class PlatformRevenueSupport {
                     ? setting.getBillingMode().name()
                     : OrganizationBillingMode.PREPAID_WALLET.name();
 
-            long earnedCents = depositCents + usage.actionChargeCents();
+            long earnedCents = usage.actionChargeCents();
             long costsCents = usage.subscriptionUsageCents();
 
             PlatformRevenueOrgRowDto orgRow = new PlatformRevenueOrgRowDto();
@@ -160,10 +162,12 @@ public class PlatformRevenueSupport {
                 .thenComparing(PlatformRevenueOrgRowDto::getTotalUsageCents, Comparator.reverseOrder()));
 
         LocalDateTime seriesFrom = LocalDate.now().minusMonths(MONTH_WINDOW - 1L).withDayOfMonth(1).atStartOfDay();
-        Map<YearMonthKey, Long> earnedByMonth = new HashMap<>();
-        mergeMonthlyTotals(earnedByMonth, usageChargeRecordRepository.sumDeductedChargesByMonth(seriesFrom, deleted));
-        mergeMonthlyTotals(earnedByMonth, walletDepositRepository.sumConfirmedDepositsByMonth(
+        Map<YearMonthKey, Long> depositsByMonth = new HashMap<>();
+        mergeMonthlyTotals(depositsByMonth, walletDepositRepository.sumConfirmedDepositsByMonth(
                 seriesFrom, WalletDepositStatus.CONFIRMED, deleted));
+
+        Map<YearMonthKey, Long> usageByMonth = new HashMap<>();
+        mergeMonthlyTotals(usageByMonth, usageChargeRecordRepository.sumDeductedChargesByMonth(seriesFrom, deleted));
 
         Map<YearMonthKey, Long> subscriptionByMonth = new HashMap<>();
         mergeMonthlyTotals(subscriptionByMonth, usageChargeRecordRepository.sumSubscriptionUsageByMonth(
@@ -171,6 +175,8 @@ public class PlatformRevenueSupport {
 
         List<String> monthLabels = new ArrayList<>();
         List<Long> earnedSeries = new ArrayList<>();
+        List<Long> walletDepositsSeries = new ArrayList<>();
+        List<Long> usageSeries = new ArrayList<>();
         List<Long> costSeries = new ArrayList<>();
         LocalDate cursor = seriesFrom.toLocalDate();
         LocalDate endMonth = LocalDate.now().withDayOfMonth(1);
@@ -178,18 +184,28 @@ public class PlatformRevenueSupport {
             YearMonthKey key = YearMonthKey.of(cursor.getYear(), cursor.getMonthValue());
             monthLabels.add(cursor.getMonth().name().substring(0, 1)
                     + cursor.getMonth().name().substring(1).toLowerCase(Locale.ROOT).substring(0, 2));
-            earnedSeries.add(earnedByMonth.getOrDefault(key, 0L));
+            long deposits = depositsByMonth.getOrDefault(key, 0L);
+            long usage = usageByMonth.getOrDefault(key, 0L);
+            walletDepositsSeries.add(deposits);
+            usageSeries.add(usage);
+            earnedSeries.add(usage);
             costSeries.add(subscriptionByMonth.getOrDefault(key, 0L));
             cursor = cursor.plusMonths(1);
         }
 
+        long confirmedDepositCount = walletDepositRepository.countByStatusAndEntityStatusNot(
+                WalletDepositStatus.CONFIRMED, deleted);
+
         PlatformRevenueReportDto report = new PlatformRevenueReportDto();
-        report.setTotalEarnedCents(totalDeposits + totalActionCharges);
+        report.setTotalEarnedCents(totalActionCharges);
         report.setSubscriptionCents(totalSubscriptionUsage);
         report.setActionChargesCents(totalActionCharges);
         report.setWalletDepositsCents(totalDeposits);
+        report.setWalletDepositCount(confirmedDepositCount);
         report.setMonthLabels(monthLabels);
         report.setEarnedSeries(earnedSeries);
+        report.setWalletDepositsSeries(walletDepositsSeries);
+        report.setUsageSeries(usageSeries);
         report.setCostSeries(costSeries);
         report.setByOrganization(orgRows);
         report.setCostBreakdown(buildCategoryBreakdown(deleted, categoryByAction));
@@ -278,16 +294,18 @@ public class PlatformRevenueSupport {
     private String formatCategoryLabel(PlatformActionCategory category) {
         return switch (category) {
             case NOTIFICATIONS -> "SMS & notifications";
+            case BOT_SERVICE -> "Bot service";
+            case SUPPORT -> "Help & support";
             case TRIPS -> "Trip telemetry";
             case DOCUMENTS -> "Document storage";
             case BILLING -> "Payment processing";
+            case ANALYTICS -> "Analytics & reporting";
             case PLATFORM -> "Platform services";
             case IOT -> "IoT & devices";
             case ORDERS -> "Orders & POs";
             case LOGISTICS -> "Logistics actions";
             case FLEET -> "Fleet operations";
             case PROCUREMENT -> "Procurement";
-            case SUPPORT -> "Help & support";
             default -> "General platform";
         };
     }

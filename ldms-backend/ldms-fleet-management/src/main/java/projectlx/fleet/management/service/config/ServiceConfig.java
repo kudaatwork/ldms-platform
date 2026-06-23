@@ -8,7 +8,10 @@ import projectlx.fleet.management.business.logic.api.FleetDriverService;
 import projectlx.fleet.management.business.logic.api.FleetDriverSignupRequestService;
 import projectlx.fleet.management.business.logic.api.FleetTrackingDeviceService;
 import projectlx.fleet.management.business.logic.api.FleetTrackingIntegrationCredentialService;
+import projectlx.fleet.management.business.logic.api.FleetDashboardService;
 import projectlx.fleet.management.service.processor.api.FleetAssetServiceProcessor;
+import projectlx.fleet.management.service.processor.api.FleetDashboardServiceProcessor;
+import projectlx.fleet.management.service.processor.impl.FleetDashboardServiceProcessorImpl;
 import projectlx.fleet.management.service.processor.api.FleetComplianceServiceProcessor;
 import projectlx.fleet.management.service.processor.api.FleetDriverServiceProcessor;
 import projectlx.fleet.management.service.processor.api.FleetDriverSignupRequestServiceProcessor;
@@ -23,6 +26,11 @@ import projectlx.fleet.management.service.processor.impl.FleetTrackingIntegratio
 
 @Configuration
 public class ServiceConfig {
+
+    @Bean
+    public FleetDashboardServiceProcessor fleetDashboardServiceProcessor(FleetDashboardService fleetDashboardService) {
+        return new FleetDashboardServiceProcessorImpl(fleetDashboardService);
+    }
 
     @Bean
     public FleetAssetServiceProcessor fleetAssetServiceProcessor(FleetAssetService fleetAssetService) {

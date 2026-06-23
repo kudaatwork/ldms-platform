@@ -51,7 +51,7 @@
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--gray-200, #e2e8f0);
+  background: var(--gray-200);
   transition: background .3s, transform .3s;
 
   &--done   { background: var(--primary, #3b82f6); opacity: .5; }
@@ -115,7 +115,7 @@
     &--otp      { background: #fef3c7; .material-icons { color: #d97706; } }
     &--verify   { background: #ede9fe; .material-icons { color: #7c3aed; } }
     &--notes    { background: #f0f9ff; .material-icons { color: #0284c7; } }
-    &--return   { background: #fff7ed; .material-icons { color: #ea580c; } }
+    &--return   { background: var(--warning-light); .material-icons { color: #ea580c; } }
     &--returns  { background: #fdf2f8; .material-icons { color: #a21caf; } }
     &--confirm  { background: #f0fdf4; .material-icons { color: #16a34a; } }
 
@@ -194,7 +194,7 @@
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ NOTES inline field
 .dwf-field--notes {
-  border-top: 1px dashed var(--gray-200, #e2e8f0);
+  border-top: 1px dashed var(--gray-200);
   padding-top: 16px;
   margin-top: 8px;
 }
@@ -296,7 +296,7 @@
   gap: 14px;
   padding: 16px 18px;
   border-radius: 16px;
-  border: 2px solid var(--gray-200, #e2e8f0);
+  border: 2px solid var(--gray-200);
   background: var(--surface, #fff);
   cursor: pointer;
   transition: border-color .2s, background .2s, transform .1s;
@@ -348,7 +348,7 @@
   gap: 6px;
   padding: 10px 16px;
   border-radius: 20px;
-  border: 2px solid var(--gray-200, #e2e8f0);
+  border: 2px solid var(--gray-200);
   background: var(--surface, #fff);
   font-size: 14px;
   font-weight: 600;
@@ -441,7 +441,7 @@
   &__input {
     width: 100%;
     padding: 12px 14px;
-    border: 1.5px solid var(--gray-200, #e2e8f0);
+    border: 1.5px solid var(--gray-200);
     border-radius: 12px;
     font-size: 15px;
     font-family: inherit;

@@ -15,6 +15,8 @@ import type {
   TrackingIntegrationProvider,
 } from '../../models/fleet.model';
 import { FleetPortalService } from '../../services/fleet-portal.service';
+import { AuthStateService } from '../../../../core/services/auth-state.service';
+import { isFuelConsumptionFeatureEnabled } from '../../../../shared/utils/fuel-consumption.util';
 import { environment } from '../../../../../environments/environment';
 
 export type FleetInstallTrackingDeviceDialogData = {
@@ -155,9 +157,14 @@ export class FleetInstallTrackingDeviceDialogComponent implements OnInit, OnDest
   constructor(
     private readonly fb: FormBuilder,
     private readonly fleet: FleetPortalService,
+    private readonly authState: AuthStateService,
     @Optional() private readonly dialogRef: MatDialogRef<FleetInstallTrackingDeviceDialogComponent>,
     @Optional() @Inject(MAT_DIALOG_DATA) public readonly data: FleetInstallTrackingDeviceDialogData,
   ) {}
+
+  get fuelConsumptionEnabled(): boolean {
+    return isFuelConsumptionFeatureEnabled(this.authState.currentUser?.fuelConsumptionEnabled);
+  }
 
   get isEdit(): boolean {
     return !!this.data?.device;

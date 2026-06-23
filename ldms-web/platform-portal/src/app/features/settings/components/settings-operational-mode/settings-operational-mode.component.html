@@ -132,6 +132,37 @@
       ></app-operational-mode-picker>
     </div>
 
+    <div class="opm-controls lx-card--subsection">
+      <h3 class="opm-controls__heading">
+        <mat-icon>local_gas_station</mat-icon>
+        Fuel consumption
+      </h3>
+      <p class="opm-controls__lead">
+        Optional live fuel telemetry, consumption tracking on trips, and related wallet charges.
+        Turn this on only if your fleet uses fuel sensors or you want corridor fuel monitoring.
+      </p>
+      <div class="opm-fuel-toggle">
+        <mat-slide-toggle
+          [ngModel]="fuelConsumptionEnabled"
+          (ngModelChange)="onFuelConsumptionToggle($event)"
+          [disabled]="saving || !fuelConsumptionPackageAvailable"
+          color="primary"
+        >
+          Enable fuel consumption for this organisation
+        </mat-slide-toggle>
+        <p class="opm-controls__hint" *ngIf="!fuelConsumptionPackageAvailable">
+          Not available on Supplier Pro. Upgrade to Fleet Manager Premium in Platform billing,
+          or switch to prepaid wallet billing to opt in.
+        </p>
+        <p class="opm-controls__hint" *ngIf="fuelConsumptionPackageAvailable && fuelConsumptionEnabled">
+          Turning this off asks for confirmation and saves immediately. Fuel telemetry and related charges are hidden while off.
+        </p>
+        <p class="opm-controls__hint" *ngIf="fuelConsumptionPackageAvailable && !fuelConsumptionEnabled">
+          When off, fuel telemetry is hidden on hardware setup, live trip tracking, and fuel-related billing lines.
+        </p>
+      </div>
+    </div>
+
     <!-- ── Error & Actions ─────────────────────────── -->
     <p class="lx-list-error" *ngIf="error">
       <mat-icon>warning_amber</mat-icon>

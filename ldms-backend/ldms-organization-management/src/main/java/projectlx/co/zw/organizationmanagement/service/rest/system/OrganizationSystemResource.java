@@ -86,6 +86,16 @@ public class OrganizationSystemResource {
         return organizationServiceProcessor.verifyOrganizationEmail(email, token, locale);
     }
 
+    @Auditable(action = "ORG_SYSTEM_DISABLE_FUEL_CONSUMPTION")
+    @PutMapping("/{id}/fuel-consumption/disable")
+    @Operation(summary = "Disable fuel consumption for an organisation (internal — e.g. Starter package downgrade)")
+    public OrganizationResponse disableFuelConsumption(
+            @PathVariable Long id,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        return organizationServiceProcessor.disableFuelConsumptionForOrganization(id, locale, SYSTEM);
+    }
+
     @Auditable(action = "ORG_SYSTEM_NOTIFY_FLEET_REGISTERED")
     @PostMapping("/fleet-registered/notify")
     @Operation(summary = "Dispatch fleet registration emails to registering organisation and transport company")

@@ -27,6 +27,10 @@ export interface PlatformWalletSummary {
   platformAccessAllowed?: boolean;
   subscriptionPackageId?: number | null;
   subscriptionPackageName?: string | null;
+  smsIncludedMonthly?: number;
+  smsUsedThisPeriod?: number;
+  smsRemainingThisPeriod?: number;
+  smsQuotaExhausted?: boolean;
 }
 
 export interface OrganizationBillingSetting {
@@ -55,6 +59,7 @@ export interface SubscriptionPackageRow {
   sortOrder?: number;
   featured?: boolean;
   active?: boolean;
+  fuelConsumptionAvailable?: boolean;
 }
 
 export interface PlatformActionChargeRow {
@@ -293,7 +298,13 @@ export class PlatformWalletService {
 
   listActiveActionCharges(): Observable<PlatformActionChargeRow[]> {
     return this.http.get<PlatformWalletApiResponse>(`${this.frontendBase}/action-charges`).pipe(
-      map((res) => res.platformActionChargeDtoList ?? []),
+      map((res) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Could not load action charges.'));
+        }
+        return extractDtoList<PlatformActionChargeRow>(res, 'platformActionChargeDtoList');
+      }),
+      catchError((err: unknown) => throwError(() => (err instanceof Error ? err : new Error('Could not load action charges.')))),
     );
   }
 
@@ -351,13 +362,30 @@ export class PlatformWalletService {
 
   listActionCharges(adminMode = true): Observable<PlatformActionChargeRow[]> {
     return this.http.get<PlatformWalletApiResponse>(`${this.base(adminMode)}/action-charges`).pipe(
-      map((res) => res.platformActionChargeDtoList ?? []),
+      map((res) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Could not load action charges.'));
+        }
+        return extractDtoList<PlatformActionChargeRow>(res, 'platformActionChargeDtoList');
+      }),
+      catchError((err: unknown) => throwError(() => (err instanceof Error ? err : new Error('Could not load action charges.')))),
     );
   }
 
   saveActionCharge(payload: PlatformActionChargeRow, adminMode = true): Observable<PlatformActionChargeRow> {
-    return this.http.put<PlatformWalletApiResponse>(`${this.base(adminMode)}/action-charges`, payload).pipe(
-      map((res) => res.platformActionChargeDto ?? payload),
+    const body = {
+      ...payload,
+      id: payload.id ?? undefined,
+      chargeCents: Number(payload.chargeCents ?? 0),
+    };
+    return this.http.put<PlatformWalletApiResponse>(`${this.base(adminMode)}/action-charges`, body).pipe(
+      map((res) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Could not save action charge.'));
+        }
+        return res.platformActionChargeDto ?? { ...payload, ...body };
+      }),
+      catchError((err: unknown) => throwError(() => (err instanceof Error ? err : new Error('Could not save action charge.')))),
     );
   }
 

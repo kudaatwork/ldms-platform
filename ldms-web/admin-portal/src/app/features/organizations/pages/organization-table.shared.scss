@@ -48,7 +48,7 @@
 .lx-controls-head__info-btn {
   flex: 0 0 auto;
   margin-top: -2px;
-  color: var(--gray-500, #64748b);
+  color: var(--gray-500, var(--gray-500));
   transition: color var(--ease-fast, 120ms ease), background var(--ease-fast, 120ms ease);
 
   &:hover,

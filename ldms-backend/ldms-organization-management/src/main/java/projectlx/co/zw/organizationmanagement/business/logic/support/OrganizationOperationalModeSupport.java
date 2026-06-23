@@ -136,6 +136,18 @@ public final class OrganizationOperationalModeSupport {
         }
     }
 
+    /** Applies the optional fuel consumption feature flag when present in the request. */
+    public static void applyFuelConsumption(Organization org, Boolean fuelConsumptionEnabled) {
+        if (fuelConsumptionEnabled != null) {
+            org.setFuelConsumptionEnabled(fuelConsumptionEnabled);
+        }
+    }
+
+    /** Forces fuel consumption off (e.g. when subscription downgrades to Starter). */
+    public static void disableFuelConsumption(Organization org) {
+        org.setFuelConsumptionEnabled(false);
+    }
+
     /** @deprecated use {@link #applySettings(Organization, Boolean, Boolean, Boolean, InventoryDataSource, CounterpartyEngagementMode)} */
     public static void applySettings(
             Organization org,

@@ -26,7 +26,7 @@
         <label class="lx-field-label">First name <span class="req" *ngIf="!isView">*</span></label>
         <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('firstName', 'required')">
           <mat-icon class="lx-input-shell__icon">person</mat-icon>
-          <input formControlName="firstName" maxlength="100" />
+          <input formControlName="firstName" placeholder="e.g. Tinashe" maxlength="100" />
         </div>
       </div>
 
@@ -34,7 +34,7 @@
         <label class="lx-field-label">Last name <span class="req" *ngIf="!isView">*</span></label>
         <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('lastName', 'required')">
           <mat-icon class="lx-input-shell__icon">person</mat-icon>
-          <input formControlName="lastName" maxlength="100" />
+          <input formControlName="lastName" placeholder="e.g. Moyo" maxlength="100" />
         </div>
       </div>
 
@@ -42,7 +42,7 @@
         <label class="lx-field-label">Email</label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">email</mat-icon>
-          <input formControlName="email" type="email" maxlength="255" />
+          <input formControlName="email" type="email" placeholder="agent@example.co.zw" maxlength="255" />
         </div>
       </div>
 
@@ -50,7 +50,7 @@
         <label class="lx-field-label">Phone</label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">phone</mat-icon>
-          <input formControlName="phoneNumber" maxlength="50" />
+          <input formControlName="phoneNumber" placeholder="+263771234567" maxlength="50" />
         </div>
       </div>
 
@@ -58,7 +58,7 @@
         <label class="lx-field-label">Role</label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">work</mat-icon>
-          <input formControlName="role" maxlength="100" />
+          <input formControlName="role" placeholder="e.g. Clearing agent" maxlength="100" />
         </div>
       </div>
 
@@ -66,7 +66,7 @@
         <label class="lx-field-label">Region</label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">map</mat-icon>
-          <input formControlName="assignedRegion" maxlength="200" />
+          <input formControlName="assignedRegion" placeholder="e.g. Mashonaland East" maxlength="200" />
         </div>
       </div>
 

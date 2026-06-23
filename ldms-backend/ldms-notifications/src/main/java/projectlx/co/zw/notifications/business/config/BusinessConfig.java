@@ -43,7 +43,8 @@ import projectlx.co.zw.notifications.business.validation.impl.SmsNotificationPro
 import projectlx.co.zw.notifications.business.validation.impl.TemplateProcessorServiceValidatorImpl;
 import projectlx.co.zw.notifications.business.validation.impl.WhatsAppNotificationProviderServiceValidatorImpl;
 import projectlx.co.zw.notifications.utils.config.OutboundMessagingReadiness;
-import projectlx.co.zw.notifications.repository.NotificationLogRepository;
+import projectlx.co.zw.notifications.business.logic.support.NotificationBillingSupport;
+import projectlx.co.zw.notifications.clients.BillingPaymentsServiceClient;
 import projectlx.co.zw.notifications.repository.NotificationTemplateRepository;
 import projectlx.co.zw.notifications.repository.UserNotificationPreferenceRepository;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
@@ -66,6 +67,11 @@ public class BusinessConfig {
     public NotificationTemplateServiceAuditable notificationTemplateServiceAuditable(
             NotificationTemplateRepository notificationTemplateRepository) {
         return new NotificationTemplateServiceAuditableImpl(notificationTemplateRepository);
+    }
+
+    @Bean
+    public NotificationBillingSupport notificationBillingSupport(BillingPaymentsServiceClient billingPaymentsServiceClient) {
+        return new NotificationBillingSupport(billingPaymentsServiceClient);
     }
 
     @Bean
@@ -193,13 +199,15 @@ public class BusinessConfig {
             NotificationLogRecorder notificationLogRecorder,
             OutboundMessagingReadiness outboundMessagingReadiness,
             OutboundTwilioInitializer outboundTwilioInitializer,
-            LdmsConfigRepoSecretsResolver secretsResolver) {
+            LdmsConfigRepoSecretsResolver secretsResolver,
+            NotificationBillingSupport notificationBillingSupport) {
         return new SmsNotificationProviderServiceImpl(
                 templateProcessorService,
                 notificationLogRecorder,
                 outboundMessagingReadiness,
                 outboundTwilioInitializer,
-                secretsResolver);
+                secretsResolver,
+                notificationBillingSupport);
     }
 
     @Bean
@@ -208,13 +216,15 @@ public class BusinessConfig {
             NotificationLogRecorder notificationLogRecorder,
             OutboundMessagingReadiness outboundMessagingReadiness,
             OutboundTwilioInitializer outboundTwilioInitializer,
-            LdmsConfigRepoSecretsResolver secretsResolver) {
+            LdmsConfigRepoSecretsResolver secretsResolver,
+            NotificationBillingSupport notificationBillingSupport) {
         return new WhatsAppNotificationProviderServiceImpl(
                 templateProcessorService,
                 notificationLogRecorder,
                 outboundMessagingReadiness,
                 outboundTwilioInitializer,
-                secretsResolver);
+                secretsResolver,
+                notificationBillingSupport);
     }
 
     @Bean

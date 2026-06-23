@@ -1,6 +1,7 @@
 package projectlx.billing.payments.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -12,7 +13,9 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import projectlx.billing.payments.utils.enums.PlatformActionCategory;
+import projectlx.billing.payments.utils.enums.PlatformActionCategoryConverter;
 import projectlx.billing.payments.utils.enums.PlatformBillingTier;
+import projectlx.billing.payments.utils.enums.PlatformBillingTierConverter;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.time.LocalDateTime;
@@ -40,11 +43,11 @@ public class PlatformActionCharge {
     @Column(name = "charge_cents", nullable = false)
     private Long chargeCents = 0L;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = PlatformActionCategoryConverter.class)
     @Column(name = "category", nullable = false, length = 50)
     private PlatformActionCategory category = PlatformActionCategory.GENERAL;
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = PlatformBillingTierConverter.class)
     @Column(name = "billing_tier", length = 20)
     private PlatformBillingTier billingTier;
 

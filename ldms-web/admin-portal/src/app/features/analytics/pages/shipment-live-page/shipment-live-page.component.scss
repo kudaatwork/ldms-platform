@@ -10,7 +10,7 @@
   flex-wrap: wrap;
   gap: 4px;
   font-size: 13px;
-  color: #64748b;
+  color: var(--gray-500);
 
   a {
     color: #4f46e5;
@@ -26,7 +26,7 @@
 
   span {
     font-weight: 800;
-    color: #0f172a;
+    color: var(--gray-900);
   }
 }
 
@@ -37,8 +37,8 @@
   gap: 20px;
   padding: clamp(22px, 3vw, 32px);
   border-radius: 20px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 45%, #0ea5e9 100%);
-  color: #f8fafc;
+  background: linear-gradient(135deg, var(--gray-900) 0%, #1e3a8a 45%, #0ea5e9 100%);
+  color: var(--surface-2);
   box-shadow: 0 24px 56px rgba(14, 165, 233, 0.25);
 
   h1 {
@@ -167,7 +167,7 @@
     padding: 8px 12px;
     border-radius: 12px;
     background: rgba(15, 23, 42, 0.85);
-    color: #e2e8f0;
+    color: var(--gray-200);
     font-size: 12px;
     font-weight: 600;
     font-family: ui-monospace, monospace;
@@ -197,7 +197,7 @@
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #94a3b8;
+    color: var(--gray-400);
   }
 
   p {
@@ -211,7 +211,7 @@
   margin-top: 8px !important;
   font-size: 12px !important;
   font-weight: 500 !important;
-  color: #64748b !important;
+  color: var(--gray-500) !important;
 }
 
 .ship-live-status {
@@ -256,11 +256,11 @@
   font-size: 13px;
 
   span {
-    color: #64748b;
+    color: var(--gray-500);
   }
 
   strong {
-    color: #0f172a;
+    color: var(--gray-900);
     font-weight: 800;
     text-align: right;
   }
@@ -283,7 +283,7 @@
   }
 
   span:last-child {
-    background: #94a3b8;
+    background: var(--gray-400);
   }
 }
 
@@ -303,12 +303,12 @@
     display: block;
     font-size: 1.25rem;
     font-weight: 900;
-    color: #0f172a;
+    color: var(--gray-900);
   }
 
   span {
     font-size: 12px;
-    color: #64748b;
+    color: var(--gray-500);
   }
 }
 
@@ -325,13 +325,13 @@
     font-size: 40px;
     width: 40px;
     height: 40px;
-    color: #94a3b8;
+    color: var(--gray-400);
   }
 
   p {
     margin: 0;
     max-width: 40ch;
-    color: #64748b;
+    color: var(--gray-500);
   }
 }
 

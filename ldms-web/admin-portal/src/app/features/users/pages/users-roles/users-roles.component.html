@@ -10,6 +10,8 @@
     [orbitIcons]="['admin_panel_settings', 'lock', 'badge']"
   ></lx-workspace-hero>
 
+  <app-users-hub-nav *ngIf="!groupId"></app-users-hub-nav>
+
   <div class="group-context-banner" *ngIf="groupId" role="region" [attr.aria-label]="'Roles for user group ' + (contextGroupName || groupId)">
     <div class="group-context-banner__accent" aria-hidden="true"></div>
     <div class="group-context-banner__inner">

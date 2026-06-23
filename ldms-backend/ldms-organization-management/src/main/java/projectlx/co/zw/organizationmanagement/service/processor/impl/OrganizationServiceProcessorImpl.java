@@ -787,4 +787,14 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         log.info("Outgoing response: updateOperationalSettingsForOrganization success={}", response.isSuccess());
         return response;
     }
+
+    @Override
+    public OrganizationResponse disableFuelConsumptionForOrganization(
+            Long organizationId, Locale locale, String username) {
+        log.info("Incoming request: disableFuelConsumptionForOrganization orgId={} user={}", organizationId, username);
+        OrganizationResponse response =
+                organizationService.disableFuelConsumptionForOrganization(organizationId, locale, username);
+        log.info("Outgoing response: disableFuelConsumptionForOrganization success={}", response.isSuccess());
+        return response;
+    }
 }

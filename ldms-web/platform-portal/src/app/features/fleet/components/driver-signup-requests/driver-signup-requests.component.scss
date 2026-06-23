@@ -63,7 +63,7 @@
   mat-icon { font-size: 18px; width: 18px; height: 18px; }
 
   &--action {
-    background: #fff7ed;
+    background: var(--warning-light);
     border-color: #fed7aa;
     color: #c2410c;
   }
@@ -86,7 +86,7 @@
   align-items: flex-start;
   gap: 14px;
   padding: 14px 16px;
-  border: 1.5px solid var(--gray-200, #e2e8f0);
+  border: 1.5px solid var(--gray-200);
   border-radius: 12px;
   background: var(--surface, #fff);
   transition: border-color 0.15s;
@@ -177,7 +177,7 @@
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  border: 1px solid var(--gray-200, #e2e8f0);
+  border: 1px solid var(--gray-200);
   border-radius: 999px;
   background: var(--surface, #fff);
   padding: 2px 8px;
@@ -211,7 +211,7 @@
 
   mat-icon { font-size: 12px; width: 12px; height: 12px; }
 
-  &--type { background: #eff6ff; color: #1d4ed8; }
+  &--type { background: var(--primary-light); color: #1d4ed8; }
   &--freelance { background: #f5f3ff; color: #7c3aed; }
   &--date { background: var(--gray-100, #f1f5f9); color: var(--text-muted, #64748b); }
 
@@ -234,7 +234,7 @@
 // ─ Dialog actions ─
 .dsr-actions {
   padding: 12px 24px;
-  border-top: 1px solid var(--gray-200, #e2e8f0);
+  border-top: 1px solid var(--gray-200);
   justify-content: flex-end;
 }
 

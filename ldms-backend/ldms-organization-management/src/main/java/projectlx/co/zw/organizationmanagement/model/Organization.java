@@ -74,6 +74,10 @@ public class Organization {
     @Column(name = "cross_docking_enabled", nullable = false)
     private boolean crossDockingEnabled = false;
 
+    /** When true, org may use fuel telemetry, consumption tracking, and related platform actions. */
+    @Column(name = "fuel_consumption_enabled", nullable = false)
+    private boolean fuelConsumptionEnabled = false;
+
     /** How inventory data is sourced. Defaults to INTERNAL. */
     @Enumerated(EnumType.STRING)
     @Column(name = "inventory_data_source", nullable = false, length = 50)

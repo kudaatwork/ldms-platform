@@ -86,7 +86,7 @@
   border-radius: 14px;
   padding: 12px 16px;
   background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
-  color: #f8fafc;
+  color: var(--surface-2);
   font-size: 13px;
   font-weight: 800;
   cursor: pointer;
@@ -115,7 +115,7 @@
     height: 40px;
     border: none;
     background: transparent;
-    color: #f8fafc;
+    color: var(--surface-2);
     cursor: pointer;
 
     &:hover {
@@ -155,7 +155,7 @@
 
     &.is-active {
       background: #38bdf8;
-      color: #0f172a;
+      color: var(--gray-900);
     }
   }
 }
@@ -221,7 +221,7 @@
   .lx-map-truck__trailer {
     width: 18px;
     height: 12px;
-    background: #f8fafc;
+    background: var(--surface-2);
     transform: translate(4px, 0);
   }
 
@@ -242,7 +242,7 @@
   }
 
   &--secondary .lx-map-truck__cab {
-    background: #94a3b8;
+    background: var(--gray-400);
   }
 }
 
@@ -268,9 +268,9 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    border: 2px solid #f8fafc;
+    border: 2px solid var(--surface-2);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-    background: #64748b;
+    background: var(--gray-500);
   }
 
   &--origin .lx-map-waypoint__dot {

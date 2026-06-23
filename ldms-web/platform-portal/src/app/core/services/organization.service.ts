@@ -46,6 +46,8 @@ export interface OrganizationSummary {
   annualRevenueEstimate?: number;
   regionsServed?: string;
   businessHours?: string;
+  registrationNumber?: string;
+  taxNumber?: string;
   addressLine1?: string;
   addressLine2?: string;
   addressPostalCode?: string;
@@ -65,6 +67,7 @@ export interface OrganizationSummary {
   crossDockingEnabled?: boolean;
   inventoryDataSource?: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
   counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
+  fuelConsumptionEnabled?: boolean;
   branches?: BranchAllocationOption[];
 }
 
@@ -125,6 +128,7 @@ export interface OperationalSettingsPayload {
   crossDockingEnabled: boolean;
   inventoryDataSource: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
   counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
+  fuelConsumptionEnabled?: boolean;
 }
 
 export interface UpdateMyOrganizationPayload {
@@ -138,6 +142,8 @@ export interface UpdateMyOrganizationPayload {
   numberOfEmployees?: number;
   annualRevenueEstimate?: number;
   regionsServed?: string;
+  registrationNumber?: string;
+  taxNumber?: string;
   addressLine1?: string;
   addressLine2?: string;
   postalCode?: string;
@@ -469,6 +475,8 @@ export class OrganizationService {
         dto['annualRevenueEstimate'] != null ? Number(dto['annualRevenueEstimate']) : undefined,
       regionsServed: String(dto['regionsServed'] ?? '').trim() || undefined,
       businessHours: String(dto['businessHours'] ?? '').trim() || undefined,
+      registrationNumber: String(dto['registrationNumber'] ?? '').trim() || undefined,
+      taxNumber: String(dto['taxNumber'] ?? '').trim() || undefined,
       addressLine1: String(dto['addressLine1'] ?? '').trim() || undefined,
       addressLine2: String(dto['addressLine2'] ?? '').trim() || undefined,
       addressPostalCode: String(dto['addressPostalCode'] ?? '').trim() || undefined,
@@ -487,6 +495,7 @@ export class OrganizationService {
       crossDockingEnabled: Boolean(dto['crossDockingEnabled']),
       inventoryDataSource: this.readInventoryDataSource(dto),
       counterpartyEngagementMode: this.readCounterpartyEngagementMode(dto),
+      fuelConsumptionEnabled: Boolean(dto['fuelConsumptionEnabled']),
     };
   }
 

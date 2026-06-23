@@ -264,13 +264,18 @@ html.theme-dark .lx-controls-hint {
   color: var(--gray-600);
 }
 
+html.theme-dark .lx-filter-panel {
+  background: color-mix(in srgb, var(--surface-2) 70%, var(--surface));
+  border-color: color-mix(in srgb, var(--gray-300) 80%, transparent);
+}
+
 html.theme-dark .lx-quick-nav__item,
 html.theme-dark .links-strip__item {
-  background: #1e293b;
-  border-color: rgba(148, 163, 184, 0.28);
+  background: var(--raised);
+  border-color: color-mix(in srgb, var(--gray-400) 28%, transparent);
   color: var(--gray-600);
 
   &:hover {
-    background: rgba(59, 130, 246, 0.14);
+    background: color-mix(in srgb, var(--primary) 14%, var(--raised));
   }
 }

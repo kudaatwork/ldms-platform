@@ -31,8 +31,25 @@
         Balance is zero — inventory, fleet, trips, and other billable modules are locked until you top up.
       </p>
       <p class="settings-billing__hint" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION'">
-        Subscription mode — usage is tracked but not deducted from a wallet balance.
+        Subscription mode — milestone usage is included up to package credits. SMS beyond your monthly quota deducts from your wallet.
       </p>
+      <p class="settings-billing__hint settings-billing__hint--warn" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION' && walletSummary?.smsQuotaExhausted">
+        Monthly SMS quota exhausted — top up your wallet below to resume outbound SMS notifications.
+      </p>
+      <div class="settings-billing__sms-meter" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION' && (walletSummary?.smsIncludedMonthly ?? 0) > 0">
+        <div class="settings-billing__sms-meter-head">
+          <span>SMS this period</span>
+          <strong>{{ walletSummary?.smsUsedThisPeriod ?? 0 }} / {{ walletSummary?.smsIncludedMonthly }}</strong>
+        </div>
+        <div class="settings-billing__sms-meter-bar" aria-hidden="true">
+          <span
+            class="settings-billing__sms-meter-fill"
+            [style.width.%]="smsUsagePct"
+            [class.settings-billing__sms-meter-fill--warn]="walletSummary?.smsQuotaExhausted"
+          ></span>
+        </div>
+        <p class="settings-billing__hint">{{ walletSummary?.smsRemainingThisPeriod ?? 0 }} SMS remaining before wallet overage applies.</p>
+      </div>
     </div>
     <div class="settings-billing__balance-actions">
       <button type="button" class="lx-btn lx-btn-secondary" (click)="openUsageReport()">View usage report</button>

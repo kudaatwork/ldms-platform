@@ -26,7 +26,7 @@
 .lx-controls-head__info-btn {
   flex: 0 0 auto;
   margin-top: -2px;
-  color: var(--gray-500, #64748b);
+  color: var(--gray-500, var(--gray-500));
   transition: color var(--ease-fast, 120ms ease), background var(--ease-fast, 120ms ease);
 
   &:hover,
@@ -42,8 +42,8 @@
   gap: 8px;
   margin: 4px 0 14px;
   padding: 8px 10px;
-  background: color-mix(in srgb, var(--primary-light, #dbeafe) 42%, var(--surface, #fff));
-  border: 1px solid color-mix(in srgb, var(--primary, #1976d2) 20%, var(--surface, #fff));
+  background: color-mix(in srgb, var(--primary-light, #dbeafe) 42%, var(--surface, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--primary, #1976d2) 20%, var(--surface, var(--surface)));
   border-radius: 4px;
   font-size: 12.5px;
   line-height: 1.45;
@@ -128,7 +128,7 @@
   left: 50%;
   transform: translate(-50%, -50%);
   width: min(640px, 94vw);
-  background: var(--surface, #ffffff);
+  background: var(--surface, var(--surface));
   color: var(--gray-800);
   border-radius: 20px;
   overflow: hidden;
@@ -143,11 +143,11 @@
   justify-content: space-between;
   align-items: center;
   padding: 26px 24px 16px;
-  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .lx-close-button {
-  color: var(--gray-500, #64748b);
+  color: var(--gray-500, var(--gray-500));
 
   &:hover {
     color: var(--gray-800, #1e293b);
@@ -159,14 +159,14 @@
   margin: 0 0 6px;
   font-size: 20px;
   font-weight: 600;
-  color: var(--gray-900, #0f172a);
+  color: var(--gray-900, var(--gray-900));
 }
 
 .lx-modal__subtitle {
   margin: 0;
   font-size: 13px;
   line-height: 1.45;
-  color: var(--gray-500, #64748b);
+  color: var(--gray-500, var(--gray-500));
 }
 
 .lx-modal__body {
@@ -183,7 +183,7 @@
 .lx-field-label {
   font-size: 12px;
   font-weight: 700;
-  color: var(--gray-700, #334155);
+  color: var(--gray-700, var(--gray-700));
   letter-spacing: 0.01em;
 }
 
@@ -193,7 +193,7 @@
 
 .lx-field-hint {
   font-size: 11.5px;
-  color: var(--gray-500, #64748b);
+  color: var(--gray-500, var(--gray-500));
 }
 
 .lx-modal__field .lx-input-shell__icon {
@@ -206,7 +206,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  border-top: 1px solid var(--gray-200, #e2e8f0);
+  border-top: 1px solid var(--gray-200);
 }
 
 .lx-modal__error {

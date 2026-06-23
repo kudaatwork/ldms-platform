@@ -77,7 +77,7 @@
 }
 
 .flt-integ__issued {
-  border: 1px solid color-mix(in srgb, var(--primary-500, #14b8a6) 35%, var(--lx-border, #e2e8f0));
+  border: 1px solid color-mix(in srgb, var(--primary-500, #14b8a6) 35%, var(--gray-200));
   background: color-mix(in srgb, var(--primary-50, #f0fdfa) 55%, var(--lx-surface, #fff));
 }
 
@@ -137,7 +137,7 @@
 
   input,
   select {
-    border: 1px solid var(--lx-border, #e2e8f0);
+    border: 1px solid var(--gray-200);
     border-radius: 0.65rem;
     padding: 0.65rem 0.85rem;
     font: inherit;

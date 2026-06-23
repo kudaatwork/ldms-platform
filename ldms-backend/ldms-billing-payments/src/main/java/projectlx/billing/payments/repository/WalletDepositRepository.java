@@ -49,4 +49,14 @@ public interface WalletDepositRepository extends JpaRepository<WalletDeposit, Lo
             @Param("from") LocalDateTime from,
             @Param("status") WalletDepositStatus status,
             @Param("deleted") EntityStatus deleted);
+
+    @Query("""
+            SELECT COUNT(d)
+            FROM WalletDeposit d
+            WHERE d.entityStatus <> :deleted
+              AND d.status = :status
+            """)
+    long countByStatusAndEntityStatusNot(
+            @Param("status") WalletDepositStatus status,
+            @Param("deleted") EntityStatus deleted);
 }

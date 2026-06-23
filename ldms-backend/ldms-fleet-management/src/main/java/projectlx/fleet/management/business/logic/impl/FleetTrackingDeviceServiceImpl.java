@@ -7,11 +7,13 @@ import org.springframework.transaction.annotation.Transactional;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import projectlx.co.zw.shared_library.utils.responses.OrganizationResponse;
 import projectlx.co.zw.shared_library.utils.responses.CommonResponse;
 import projectlx.fleet.management.business.auditable.api.FleetTrackingDeviceServiceAuditable;
 import projectlx.fleet.management.business.logic.api.FleetTrackingDeviceService;
 import projectlx.fleet.management.business.logic.support.CallerOrganizationResolver;
 import projectlx.fleet.management.business.logic.support.FleetMapper;
+import projectlx.fleet.management.clients.OrganizationManagementServiceClient;
 import projectlx.fleet.management.business.validator.api.FleetTrackingDeviceServiceValidator;
 import projectlx.fleet.management.model.FleetAsset;
 import projectlx.fleet.management.model.FleetTrackingDevice;
@@ -45,6 +47,7 @@ public class FleetTrackingDeviceServiceImpl implements FleetTrackingDeviceServic
     private final FleetTrackingDeviceRepository trackingDeviceRepository;
     private final FleetAssetRepository fleetAssetRepository;
     private final CallerOrganizationResolver callerOrganizationResolver;
+    private final OrganizationManagementServiceClient organizationManagementServiceClient;
     private final MessageService messageService;
 
     // ================================================================
@@ -111,6 +114,11 @@ public class FleetTrackingDeviceServiceImpl implements FleetTrackingDeviceServic
                         I18Code.MESSAGE_ASSET_NOT_FOUND.getCode(), new String[]{}, locale));
             }
             asset = assetOpt.get();
+        }
+
+        if (Boolean.TRUE.equals(request.getTracksFuel()) && !isFuelConsumptionEnabledForOrganization(organizationId, locale)) {
+            return errorResponse(422, messageService.getMessage(
+                    I18Code.MESSAGE_FUEL_CONSUMPTION_DISABLED.getCode(), new String[]{}, locale));
         }
 
         // STEP 3 — Build and persist the device
@@ -200,7 +208,14 @@ public class FleetTrackingDeviceServiceImpl implements FleetTrackingDeviceServic
         device.setDeviceSerial(request.getDeviceSerial());
         device.setExternalDeviceId(request.getExternalDeviceId());
         if (request.getTracksGps() != null) device.setTracksGps(request.getTracksGps());
-        if (request.getTracksFuel() != null) device.setTracksFuel(request.getTracksFuel());
+        if (request.getTracksFuel() != null) {
+            if (Boolean.TRUE.equals(request.getTracksFuel())
+                    && !isFuelConsumptionEnabledForOrganization(organizationId, locale)) {
+                return errorResponse(422, messageService.getMessage(
+                        I18Code.MESSAGE_FUEL_CONSUMPTION_DISABLED.getCode(), new String[]{}, locale));
+            }
+            device.setTracksFuel(request.getTracksFuel());
+        }
         if (request.getIntegrationProvider() != null && !request.getIntegrationProvider().isBlank()) {
             device.setIntegrationProvider(TrackingIntegrationProvider.valueOf(request.getIntegrationProvider()));
         }
@@ -329,6 +344,18 @@ public class FleetTrackingDeviceServiceImpl implements FleetTrackingDeviceServic
     // ================================================================
     // HELPERS
     // ================================================================
+
+    private boolean isFuelConsumptionEnabledForOrganization(Long organizationId, Locale locale) {
+        try {
+            OrganizationResponse response = organizationManagementServiceClient.findById(organizationId, locale);
+            if (response == null || response.getOrganizationDto() == null) {
+                return false;
+            }
+            return Boolean.TRUE.equals(response.getOrganizationDto().getFuelConsumptionEnabled());
+        } catch (Exception ex) {
+            return false;
+        }
+    }
 
     private FleetTrackingDeviceResponse successResponse(int statusCode, String message) {
         FleetTrackingDeviceResponse response = new FleetTrackingDeviceResponse();

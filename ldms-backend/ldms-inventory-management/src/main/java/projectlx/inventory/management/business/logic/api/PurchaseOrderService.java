@@ -27,4 +27,7 @@ public interface PurchaseOrderService {
     byte[] exportToExcel(List<PurchaseOrderDto> items) throws IOException;
     byte[] exportToPdf(List<PurchaseOrderDto> items) throws DocumentException;
     ImportSummary importPurchaseOrderFromCsv(InputStream csvInputStream) throws IOException;
+
+    /** Cross-tenant PO lookup for LX Admin — same fields as {@link PurchaseOrderSpecification#any}. */
+    PurchaseOrderResponse searchForPlatformDashboard(String term, int limit, Locale locale);
 }

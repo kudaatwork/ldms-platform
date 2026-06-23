@@ -5,6 +5,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.messaging.inbound.model.BotSession;
+import projectlx.messaging.inbound.repository.projection.BotSessionDailyCountProjection;
+import projectlx.messaging.inbound.repository.projection.BotTopicCountProjection;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -37,27 +39,27 @@ public interface BotSessionRepository extends JpaRepository<BotSession, Long> {
 
     long countByEntityStatusNotAndSatisfactionScoreIsNotNull(EntityStatus entityStatus);
 
-    @Query("""
-            SELECT FUNCTION('DATE', s.createdAt), COUNT(s)
-            FROM BotSession s
-            WHERE s.entityStatus <> :excluded
-              AND s.createdAt >= :since
-            GROUP BY FUNCTION('DATE', s.createdAt)
-            ORDER BY FUNCTION('DATE', s.createdAt)
-            """)
-    List<Object[]> countSessionsGroupedByDay(@Param("excluded") EntityStatus excluded,
-                                             @Param("since") LocalDateTime since);
+    @Query(value = """
+            SELECT DATE(s.created_at) AS day, COUNT(*) AS count
+            FROM bot_session s
+            WHERE s.entity_status <> 'DELETED'
+              AND s.created_at >= :since
+            GROUP BY DATE(s.created_at)
+            ORDER BY day
+            """, nativeQuery = true)
+    List<BotSessionDailyCountProjection> countSessionsGroupedByDay(@Param("since") LocalDateTime since);
 
-    @Query("""
-            SELECT s.topic, COUNT(s)
-            FROM BotSession s
-            WHERE s.entityStatus <> :excluded
+    @Query(value = """
+            SELECT s.topic AS topic, COUNT(*) AS topicCount
+            FROM bot_session s
+            WHERE s.entity_status <> 'DELETED'
               AND s.topic IS NOT NULL
               AND TRIM(s.topic) <> ''
             GROUP BY s.topic
-            ORDER BY COUNT(s) DESC
-            """)
-    List<Object[]> findTopTopics(@Param("excluded") EntityStatus excluded);
+            ORDER BY topicCount DESC
+            LIMIT 10
+            """, nativeQuery = true)
+    List<BotTopicCountProjection> findTopTopics();
 
     @Query("""
             SELECT s.channel, COUNT(s)

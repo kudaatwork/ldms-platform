@@ -46,8 +46,8 @@
 
 .opm-scenario-card {
   position: relative;
-  background: var(--lx-surface, #fff);
-  border: 2px solid var(--lx-border, #e2e8f0);
+  background: var(--surface);
+  border: 2px solid var(--gray-200);
   border-radius: var(--opm-radius);
   padding: 20px;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -64,18 +64,18 @@
   justify-content: center;
   width: 44px;
   height: 44px;
-  background: color-mix(in srgb, var(--opm-teal) 12%, white);
+  background: color-mix(in srgb, var(--opm-teal) 12%, var(--surface));
   color: var(--opm-teal);
   border-radius: 50%;
   margin-bottom: 14px;
 
   &--amber {
-    background: color-mix(in srgb, var(--opm-amber) 12%, white);
+    background: color-mix(in srgb, var(--opm-amber) 12%, var(--surface));
     color: var(--opm-amber);
   }
 
   &--violet {
-    background: color-mix(in srgb, var(--opm-violet) 12%, white);
+    background: color-mix(in srgb, var(--opm-violet) 12%, var(--surface));
     color: var(--opm-violet);
   }
 
@@ -136,18 +136,18 @@
   letter-spacing: 0.04em;
   padding: 2px 8px;
   border-radius: 20px;
-  background: color-mix(in srgb, var(--opm-teal) 10%, white);
+  background: color-mix(in srgb, var(--opm-teal) 10%, var(--surface));
   color: var(--opm-teal);
 
   &--default { /* teal default */ }
 
   &--amber {
-    background: color-mix(in srgb, var(--opm-amber) 10%, white);
+    background: color-mix(in srgb, var(--opm-amber) 10%, var(--surface));
     color: var(--opm-amber);
   }
 
   &--violet {
-    background: color-mix(in srgb, var(--opm-violet) 10%, white);
+    background: color-mix(in srgb, var(--opm-violet) 10%, var(--surface));
     color: var(--opm-violet);
   }
 }
@@ -172,8 +172,8 @@
 
 /* ── Controls panel ──────────────────────────────── */
 .opm-controls {
-  background: var(--lx-surface-alt, #f8fafc);
-  border: 1px solid var(--lx-border, #e2e8f0);
+  background: var(--surface-2);
+  border: 1px solid var(--gray-200);
   border-radius: var(--opm-radius);
   padding: 20px;
   margin-bottom: 24px;
@@ -202,7 +202,7 @@
   justify-content: space-between;
   gap: 24px;
   padding: 16px 0;
-  border-bottom: 1px solid var(--lx-border, #e2e8f0);
+  border-bottom: 1px solid var(--gray-200);
 
   &:last-child {
     border-bottom: none;
@@ -249,7 +249,7 @@
   position: relative;
   width: 42px;
   height: 24px;
-  background: var(--lx-border, #cbd5e1);
+  background: var(--gray-100);
   border-radius: 12px;
   transition: background 0.2s;
 
@@ -260,7 +260,7 @@
     left: 3px;
     width: 18px;
     height: 18px;
-    background: #fff;
+    background: var(--white);
     border-radius: 50%;
     transition: transform 0.2s, box-shadow 0.2s;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
@@ -312,9 +312,9 @@
   align-items: center;
   gap: 6px;
   padding: 8px 14px;
-  border: 2px solid var(--lx-border, #e2e8f0);
+  border: 2px solid var(--gray-200);
   border-radius: 40px;
-  background: #fff;
+  background: var(--surface);
   color: var(--lx-muted, #64748b);
   font-size: 0.82rem;
   font-weight: 500;
@@ -350,13 +350,13 @@
   display: flex;
   align-items: flex-start;
   gap: 6px;
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
+  background: var(--warning-light);
+  border: 1px solid var(--warning);
   border-radius: 8px;
   padding: 8px 12px;
   margin-top: 8px;
   font-size: 0.78rem;
-  color: #92400e;
+  color: var(--warning);
   line-height: 1.4;
 
   mat-icon {
@@ -369,11 +369,11 @@
   }
 
   &--lock {
-    background: #fef3c7;
-    border-color: #fbbf24;
+    background: var(--warning-light);
+  border-color: var(--warning);
 
     mat-icon {
-      color: #b45309;
+      color: var(--warning);
     }
   }
 }

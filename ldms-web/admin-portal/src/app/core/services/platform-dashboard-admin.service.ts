@@ -47,6 +47,14 @@ export interface PlatformBillingDashboardApi {
   pendingInvoicesCents: number;
 }
 
+export interface PlatformFleetDashboardApi {
+  totalFleetAssets: number;
+  ownedFleetAssets: number;
+  contractedFleetAssets: number;
+  totalDrivers: number;
+  organizationsWithFleet: number;
+}
+
 export interface PlatformRevenueUsageBreakdownRow {
   actionCode: string;
   actionDisplayName?: string;
@@ -93,8 +101,11 @@ export interface PlatformRevenueReportApi {
   subscriptionCents: number;
   actionChargesCents: number;
   walletDepositsCents: number;
+  walletDepositCount: number;
   monthLabels: string[];
   earnedSeries: number[];
+  walletDepositsSeries?: number[];
+  usageSeries?: number[];
   costSeries: number[];
   byOrganization: PlatformRevenueOrgRow[];
   costBreakdown: PlatformRevenueCategoryRow[];
@@ -129,6 +140,14 @@ export class PlatformDashboardAdminService {
       .pipe(map((body) => body.platformBillingDashboardDto ?? { pendingInvoicesCents: 0 }));
   }
 
+  fetchFleetDashboard(): Observable<PlatformFleetDashboardApi> {
+    return this.http
+      .get<{
+        platformFleetDashboardDto?: PlatformFleetDashboardApi;
+      }>(ldmsServiceUrl('fleet-management', 'platform-dashboard', 'fleet', 'backoffice'))
+      .pipe(map((body) => body.platformFleetDashboardDto ?? emptyFleetDashboard()));
+  }
+
   fetchRevenueReport(): Observable<PlatformRevenueReportApi> {
     return this.http
       .get<{
@@ -136,6 +155,42 @@ export class PlatformDashboardAdminService {
       }>(ldmsServiceUrl('billing-payments', 'platform-dashboard', 'revenue', 'backoffice'))
       .pipe(map((body) => body.platformRevenueReportDto ?? emptyRevenueReport()));
   }
+
+  searchShipments(term: string, purchaseOrderIds: number[] = [], limit = 25): Observable<PlatformShipmentDashboardApi> {
+    const params: Record<string, string> = {
+      term: term.trim(),
+      limit: String(limit),
+    };
+    if (purchaseOrderIds.length) {
+      params['purchaseOrderIds'] = purchaseOrderIds.join(',');
+    }
+    return this.http
+      .get<{
+        platformShipmentDashboardDto?: PlatformShipmentDashboardApi;
+      }>(ldmsServiceUrl('shipment-management', 'platform-dashboard', 'shipments/search', 'backoffice'), {
+        params,
+      })
+      .pipe(map((body) => body.platformShipmentDashboardDto ?? emptyShipmentDashboard()));
+  }
+
+  searchPurchaseOrders(term: string, limit = 25): Observable<PlatformPurchaseOrderSearchRow[]> {
+    return this.http
+      .get<{
+        purchaseOrderDtoList?: PlatformPurchaseOrderSearchRow[];
+      }>(ldmsServiceUrl('inventory-management', 'platform-dashboard', 'purchase-orders/search', 'backoffice'), {
+        params: { term: term.trim(), limit: String(limit) },
+      })
+      .pipe(map((body) => body.purchaseOrderDtoList ?? []));
+  }
+}
+
+export interface PlatformPurchaseOrderSearchRow {
+  id: number;
+  purchaseOrderNumber?: string;
+  organizationId?: number;
+  status?: string;
+  supplierContact?: string;
+  buyerContact?: string;
 }
 
 function emptyShipmentDashboard(): PlatformShipmentDashboardApi {
@@ -159,14 +214,27 @@ function emptyTripDashboard(): PlatformTripDashboardApi {
   };
 }
 
+function emptyFleetDashboard(): PlatformFleetDashboardApi {
+  return {
+    totalFleetAssets: 0,
+    ownedFleetAssets: 0,
+    contractedFleetAssets: 0,
+    totalDrivers: 0,
+    organizationsWithFleet: 0,
+  };
+}
+
 function emptyRevenueReport(): PlatformRevenueReportApi {
   return {
     totalEarnedCents: 0,
     subscriptionCents: 0,
     actionChargesCents: 0,
     walletDepositsCents: 0,
+    walletDepositCount: 0,
     monthLabels: [],
     earnedSeries: [],
+    walletDepositsSeries: [],
+    usageSeries: [],
     costSeries: [],
     byOrganization: [],
     costBreakdown: [],

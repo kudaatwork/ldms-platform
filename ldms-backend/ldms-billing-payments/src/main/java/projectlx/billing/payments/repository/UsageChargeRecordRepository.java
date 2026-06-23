@@ -135,4 +135,18 @@ public interface UsageChargeRecordRepository extends JpaRepository<UsageChargeRe
     List<Object[]> sumChargesByActionCode(@Param("deleted") EntityStatus deleted);
 
     List<UsageChargeRecord> findTop100ByEntityStatusNotOrderByCreatedAtDesc(EntityStatus entityStatus);
+
+    @Query("""
+            SELECT COUNT(u) FROM UsageChargeRecord u
+            WHERE u.organizationId = :organizationId
+              AND u.actionCode IN ('NOTIFICATION_SMS', 'WHATSAPP_COMMAND')
+              AND u.entityStatus <> :deleted
+              AND u.createdAt >= :periodStart
+              AND u.createdAt < :periodEnd
+            """)
+    long countMessagingUsageInPeriod(
+            @Param("organizationId") Long organizationId,
+            @Param("periodStart") LocalDateTime periodStart,
+            @Param("periodEnd") LocalDateTime periodEnd,
+            @Param("deleted") EntityStatus deleted);
 }

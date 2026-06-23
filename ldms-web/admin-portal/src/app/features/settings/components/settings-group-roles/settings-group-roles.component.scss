@@ -48,22 +48,23 @@
 
 .gr-group-card {
   width: 100%;
-  border: 1px solid var(--gray-200);
+  border: var(--card-border);
   border-radius: 14px;
   padding: 0.85rem 0.95rem;
-  background: var(--surface-elevated);
+  background: var(--raised);
   text-align: left;
   cursor: pointer;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 
   &:hover {
-    border-color: color-mix(in srgb, var(--primary-500, #2563eb) 35%, var(--gray-200));
+    border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+    background: var(--raised-hover);
   }
 
   &--active {
-    border-color: color-mix(in srgb, var(--primary-500, #2563eb) 55%, var(--raised));
-    background: color-mix(in srgb, var(--primary-500, #2563eb) 6%, var(--raised));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary-500, #2563eb) 18%, var(--raised));
+    border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+    background: color-mix(in srgb, var(--primary) 10%, var(--raised));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
   }
 }
 
@@ -85,7 +86,7 @@
   font-weight: 700;
   padding: 0.15rem 0.45rem;
   border-radius: 999px;
-  background: var(--gray-100);
+  background: color-mix(in srgb, var(--gray-400) 16%, var(--raised));
   color: var(--gray-700);
 }
 
@@ -111,10 +112,10 @@
 }
 
 .gr-roles {
-  border: 1px solid var(--gray-200);
+  border: var(--card-border);
   border-radius: 16px;
   padding: 1rem 1.1rem;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--gray-50) 80%, var(--raised)), var(--raised));
+  background: linear-gradient(180deg, var(--raised) 0%, var(--surface-2) 100%);
 }
 
 .gr-roles-head {
@@ -197,7 +198,7 @@
   align-items: flex-start;
   gap: 0.2rem;
   padding: 0.75rem 2.2rem 0.75rem 0.8rem;
-  border: 1px solid var(--gray-200);
+  border: var(--card-border);
   border-radius: 12px;
   background: var(--raised);
   text-align: left;
@@ -205,13 +206,14 @@
   transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
 
   &:hover:not(:disabled) {
-    border-color: color-mix(in srgb, var(--primary-500, #2563eb) 35%, var(--gray-200));
+    border-color: color-mix(in srgb, var(--primary) 35%, transparent);
     transform: translateY(-1px);
+    background: var(--raised-hover);
   }
 
   &--on {
-    border-color: color-mix(in srgb, var(--primary-500, #2563eb) 50%, var(--raised));
-    background: color-mix(in srgb, var(--primary-500, #2563eb) 8%, var(--raised));
+    border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+    background: color-mix(in srgb, var(--primary) 10%, var(--raised));
   }
 
   &--busy {

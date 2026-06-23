@@ -9,12 +9,12 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--gray-500, #64748b);
+  color: var(--gray-500, var(--gray-500));
   padding-top: 6px;
 }
 
 .lx-input-shell--readonly {
-  background: var(--gray-50, #f8fafc);
+  background: var(--gray-50, var(--surface-2));
 }
 
 html.theme-dark .lx-input-shell--readonly {

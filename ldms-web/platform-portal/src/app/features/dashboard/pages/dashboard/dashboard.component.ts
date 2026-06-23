@@ -18,6 +18,10 @@ import type {
   TransferRow,
 } from '../../../inventory/models/inventory.model';
 import { InventoryPortalService } from '../../../inventory/services/inventory-portal.service';
+import {
+  FleetPortalService,
+  type OrganizationFleetDashboardCounts,
+} from '../../../fleet/services/fleet-portal.service';
 import type { ShipmentRow, ShipmentStatus, TripLiveMapTrack, TripRow } from '../../../trip-tracking/models/trip-tracking.model';
 import { TripTrackingPortalService } from '../../../trip-tracking/services/trip-tracking-portal.service';
 import {
@@ -37,14 +41,6 @@ type SupplierInventorySnapshot = {
   transfers: TransferRow[];
   stock: StockRow[];
   salesOrders: SalesOrderRow[];
-};
-
-const EMPTY_INVENTORY_SNAPSHOT: SupplierInventorySnapshot = {
-  purchaseOrders: [],
-  requisitions: [],
-  transfers: [],
-  stock: [],
-  salesOrders: [],
 };
 
 @Component({
@@ -76,12 +72,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
   organizationName = '';
   todayLabel = '';
   private supplierDataLoaded = false;
+  private organizationDataLoaded = false;
+  private transporterDataLoaded = false;
+  organizationDashboardLoading = false;
+  organizationDashboardError = '';
+  transporterOperationsLoading = false;
+  transporterOperationsError = '';
+  fleetDashboard: OrganizationFleetDashboardCounts | null = null;
 
-  readonly heroStatSkeletons: Array<{ label: string; icon: string; theme: LxWorkspaceHeroStatTheme }> = [
+  private readonly supplierHeroStatSkeletons: Array<{ label: string; icon: string; theme: LxWorkspaceHeroStatTheme }> = [
     { label: 'Pending POs', icon: 'shopping_cart', theme: 'teal' },
     { label: 'Active shipments', icon: 'local_shipping', theme: 'mint' },
     { label: 'Low stock alerts', icon: 'inventory_2', theme: 'amber' },
     { label: 'Open shipments', icon: 'pending_actions', theme: 'violet' },
+  ];
+
+  private readonly transporterHeroStatSkeletons: Array<{ label: string; icon: string; theme: LxWorkspaceHeroStatTheme }> = [
+    { label: 'Trucks available', icon: 'airport_shuttle', theme: 'teal' },
+    { label: 'Active trips', icon: 'route', theme: 'mint' },
+    { label: 'Drivers on duty', icon: 'groups', theme: 'amber' },
+    { label: 'Docs expiring', icon: 'warning_amber', theme: 'violet' },
   ];
 
   constructor(
@@ -91,6 +101,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly platformWallet: PlatformWalletService,
     private readonly tripTracking: TripTrackingPortalService,
     private readonly inventoryPortal: InventoryPortalService,
+    private readonly fleetPortal: FleetPortalService,
   ) {}
 
   welcomeMessage = 'Welcome back';
@@ -109,8 +120,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
           this.supplierDataLoaded = true;
           this.loadSupplierOperations();
         }
+      } else if (this.isCustomer) {
+        this.supplierDataLoaded = false;
+        this.transporterDataLoaded = false;
+        if (!this.organizationDataLoaded) {
+          this.organizationDataLoaded = true;
+          this.loadCustomerDashboard();
+        }
+      } else if (this.isTransportCompany) {
+        this.supplierDataLoaded = false;
+        this.organizationDataLoaded = false;
+        if (!this.transporterDataLoaded) {
+          this.transporterDataLoaded = true;
+          this.loadTransporterDashboard();
+        }
       } else {
         this.supplierDataLoaded = false;
+        this.organizationDataLoaded = false;
+        this.transporterDataLoaded = false;
         const orgClass = user?.orgClassification;
         this.cards = orgClass ? (PLATFORM_KPI_CONFIG[orgClass] ?? []) : [];
         this.charts = orgClass ? (PLATFORM_CHART_CONFIG[orgClass] ?? []) : [];
@@ -128,6 +155,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
     return this.classification === 'SUPPLIER';
   }
 
+  get isCustomer(): boolean {
+    return this.classification === 'CUSTOMER';
+  }
+
+  get isTransportCompany(): boolean {
+    return this.classification === 'TRANSPORT_COMPANY';
+  }
+
+  get showsLiveOrganizationDashboard(): boolean {
+    return this.isSupplier || this.isCustomer || this.isTransportCompany;
+  }
+
+  get heroStatSkeletons(): Array<{ label: string; icon: string; theme: LxWorkspaceHeroStatTheme }> {
+    if (this.isTransportCompany) {
+      return this.transporterHeroStatSkeletons;
+    }
+    return this.supplierHeroStatSkeletons;
+  }
+
   get heroLead(): string {
     if (this.isSupplier) {
       if (this.supplierOperationsLoading) {
@@ -136,7 +182,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
       if (this.supplierOperationsError) {
         return this.supplierOperationsError;
       }
-      return 'Track outbound loads, drivers, and live corridor progress from your shipment workspace.';
+      return 'Track outbound loads, owned fleet, contracted drivers, and live corridor progress from your workspace.';
+    }
+    if (this.isCustomer) {
+      if (this.organizationDashboardLoading) {
+        return 'Loading inbound operations and fleet capacity for your organisation…';
+      }
+      if (this.organizationDashboardError) {
+        return this.organizationDashboardError;
+      }
+      return 'Monitor deliveries, owned fleet, and contracted driver capacity for your organisation.';
+    }
+    if (this.isTransportCompany) {
+      if (this.transporterOperationsLoading) {
+        return 'Loading fleet capacity, active trips, and compliance for your organisation…';
+      }
+      if (this.transporterOperationsError) {
+        return this.transporterOperationsError;
+      }
+      return 'Track trucks, drivers, active trips, and expiring compliance from your fleet workspace.';
     }
     return 'Key metrics for your organisation at a glance — figures are demo data until backend wiring is complete.';
   }
@@ -144,6 +208,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   get heroNote(): string {
     if (this.isSupplier && !this.supplierOperationsLoading && !this.supplierOperationsError) {
       return 'Shipment board and KPIs reflect live data from your organisation.';
+    }
+    if (this.isCustomer && !this.organizationDashboardLoading && !this.organizationDashboardError) {
+      return 'Fleet and delivery KPIs reflect live data scoped to your organisation.';
+    }
+    if (this.isTransportCompany && !this.transporterOperationsLoading && !this.transporterOperationsError) {
+      return 'Fleet and trip KPIs reflect live data from your organisation.';
     }
     return 'Key metrics are demo data until backend wiring is complete.';
   }
@@ -159,16 +229,31 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   get showHeroStatsLoading(): boolean {
-    return this.isSupplier && this.supplierOperationsLoading;
+    if (this.isSupplier) {
+      return this.supplierOperationsLoading;
+    }
+    if (this.isCustomer) {
+      return this.organizationDashboardLoading;
+    }
+    if (this.isTransportCompany) {
+      return this.transporterOperationsLoading;
+    }
+    return false;
   }
 
   get analyticsBadgeLabel(): string {
-    return this.isSupplier && !this.supplierOperationsLoading ? 'Live operations' : 'Insights preview';
+    return this.showsLiveOrganizationDashboard && !this.showHeroStatsLoading ? 'Live operations' : 'Insights preview';
   }
 
   get analyticsSubtitle(): string {
     if (this.isSupplier && !this.supplierOperationsLoading) {
       return 'Inventory, procurement, transfers, and shipment trends from your organisation data.';
+    }
+    if (this.isCustomer && !this.organizationDashboardLoading) {
+      return 'Inbound delivery trends and fleet capacity from your organisation data.';
+    }
+    if (this.isTransportCompany && !this.transporterOperationsLoading) {
+      return 'Trip volume and fleet utilisation from your organisation data.';
     }
     return 'Trends and breakdowns for your workspace — preview until live feeds connect.';
   }
@@ -451,14 +536,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
     forkJoin({
       shipments: this.tripTracking.findShipments({ organizationId: orgId }).pipe(catchError(() => of([] as ShipmentRow[]))),
       trips: this.tripTracking.findTrips({ organizationId: orgId }).pipe(catchError(() => of([] as TripRow[]))),
+      purchaseOrders: this.inventoryPortal.listPurchaseOrders().pipe(catchError(() => of([] as PurchaseOrderRow[]))),
+      stock: this.inventoryPortal.listStock().pipe(catchError(() => of([] as StockRow[]))),
+      requisitions: this.inventoryPortal
+        .listSupplierVisibleRequisitions(orgId)
+        .pipe(catchError(() => of([] as PurchaseRequisitionRow[]))),
+      transfers: this.inventoryPortal.listTransfers().pipe(catchError(() => of([] as TransferRow[]))),
+      salesOrders: this.inventoryPortal.listSupplierSalesOrders().pipe(catchError(() => of([] as SalesOrderRow[]))),
+      fleetSummary: this.fleetPortal.getOrganizationDashboardSummary().pipe(
+        catchError(() =>
+          of({
+            ownedFleetCount: 0,
+            contractedFleetCount: 0,
+            organizationDriverCount: 0,
+            contractedDriverCount: 0,
+          } satisfies OrganizationFleetDashboardCounts),
+        ),
+      ),
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: ({ shipments, trips }) => {
+        next: ({ shipments, trips, purchaseOrders, stock, requisitions, transfers, salesOrders, fleetSummary }) => {
           this.shipments = shipments;
           this.trips = trips;
-          this.applySupplierKpis(shipments, trips, [], []);
-          this.charts = this.buildSupplierCharts(shipments, EMPTY_INVENTORY_SNAPSHOT);
+          this.fleetDashboard = fleetSummary;
+          const inventory: SupplierInventorySnapshot = {
+            purchaseOrders,
+            requisitions,
+            transfers,
+            stock,
+            salesOrders,
+          };
+          this.applySupplierKpis(shipments, trips, purchaseOrders, stock, fleetSummary);
+          this.charts = this.buildSupplierCharts(shipments, inventory);
           if (!this.filteredShipments.some((s) => s.id === this.selectedShipmentId)) {
             this.selectedShipmentId = this.filteredShipments[0]?.id ?? null;
           }
@@ -467,23 +577,94 @@ export class DashboardComponent implements OnInit, OnDestroy {
         },
         error: () => {
           this.supplierOperationsLoading = false;
-          this.supplierOperationsError = 'Could not load shipment operations. Try again shortly.';
+          this.supplierOperationsError = 'Could not load supplier operations. Try again shortly.';
           this.cdr.markForCheck();
         },
       });
+  }
+
+  private loadCustomerDashboard(): void {
+    const orgId = Number(this.authState.currentUser?.organizationId ?? 0);
+    if (!orgId) {
+      this.organizationDashboardError = 'Organisation context is missing — sign in again to load your dashboard.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.organizationDashboardLoading = true;
+    this.organizationDashboardError = '';
 
     forkJoin({
-      purchaseOrders: this.inventoryPortal.listPurchaseOrders().pipe(catchError(() => of([] as PurchaseOrderRow[]))),
-      stock: this.inventoryPortal.listStock().pipe(catchError(() => of([] as StockRow[]))),
-      requisitions: this.inventoryPortal.listRequisitions().pipe(catchError(() => of([] as PurchaseRequisitionRow[]))),
-      transfers: this.inventoryPortal.listTransfers().pipe(catchError(() => of([] as TransferRow[]))),
-      salesOrders: this.inventoryPortal.listSupplierSalesOrders().pipe(catchError(() => of([] as SalesOrderRow[]))),
+      shipments: this.tripTracking.findShipments({ organizationId: orgId }).pipe(catchError(() => of([] as ShipmentRow[]))),
+      trips: this.tripTracking.findTrips({ organizationId: orgId }).pipe(catchError(() => of([] as TripRow[]))),
+      fleetSummary: this.fleetPortal.getOrganizationDashboardSummary().pipe(
+        catchError(() =>
+          of({
+            ownedFleetCount: 0,
+            contractedFleetCount: 0,
+            organizationDriverCount: 0,
+            contractedDriverCount: 0,
+          } satisfies OrganizationFleetDashboardCounts),
+        ),
+      ),
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (inventory) => {
-          this.applySupplierKpis(this.shipments, this.trips, inventory.purchaseOrders, inventory.stock);
-          this.charts = this.buildSupplierCharts(this.shipments, inventory);
+        next: ({ shipments, trips, fleetSummary }) => {
+          this.shipments = shipments;
+          this.trips = trips;
+          this.fleetDashboard = fleetSummary;
+          this.applyCustomerKpis(shipments, trips, fleetSummary);
+          this.charts = this.buildCustomerCharts(shipments);
+          this.organizationDashboardLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.organizationDashboardLoading = false;
+          this.organizationDashboardError = 'Could not load your organisation dashboard. Try again shortly.';
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private loadTransporterDashboard(): void {
+    const orgId = Number(this.authState.currentUser?.organizationId ?? 0);
+    if (!orgId) {
+      this.transporterOperationsError = 'Organisation context is missing — sign in again to load your fleet dashboard.';
+      this.cdr.markForCheck();
+      return;
+    }
+
+    this.transporterOperationsLoading = true;
+    this.transporterOperationsError = '';
+
+    forkJoin({
+      trips: this.tripTracking.findTrips({ organizationId: orgId }).pipe(catchError(() => of([] as TripRow[]))),
+      fleetSummary: this.fleetPortal.getOrganizationDashboardSummary().pipe(
+        catchError(() =>
+          of({
+            ownedFleetCount: 0,
+            contractedFleetCount: 0,
+            organizationDriverCount: 0,
+            contractedDriverCount: 0,
+          } satisfies OrganizationFleetDashboardCounts),
+        ),
+      ),
+      expiringCompliance: this.fleetPortal.listExpiringCompliance(14).pipe(catchError(() => of([]))),
+    })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: ({ trips, fleetSummary, expiringCompliance }) => {
+          this.trips = trips;
+          this.fleetDashboard = fleetSummary;
+          this.applyTransporterKpis(trips, fleetSummary, expiringCompliance.length);
+          this.charts = this.buildTransporterCharts(trips, fleetSummary);
+          this.transporterOperationsLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.transporterOperationsLoading = false;
+          this.transporterOperationsError = 'Could not load your fleet dashboard. Try again shortly.';
           this.cdr.markForCheck();
         },
       });
@@ -494,6 +675,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     trips: TripRow[],
     purchaseOrders: Array<{ status?: string }>,
     stock: Array<{ status?: string; isLowStock?: boolean }>,
+    fleetSummary: OrganizationFleetDashboardCounts,
   ): void {
     const metrics = this.tripTracking.buildMetrics(shipments, trips);
     const pendingPos = purchaseOrders.filter(
@@ -521,6 +703,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         spark: this.sparkFromCount(metrics.activeTrips, 8),
         theme: 'forest',
       },
+      ...this.buildFleetKpiCards(fleetSummary),
       {
         label: 'Low stock alerts',
         value: String(lowStock),
@@ -540,6 +723,227 @@ export class DashboardComponent implements OnInit, OnDestroy {
         theme: 'violet',
       },
     ];
+  }
+
+  private applyCustomerKpis(
+    shipments: ShipmentRow[],
+    trips: TripRow[],
+    fleetSummary: OrganizationFleetDashboardCounts,
+  ): void {
+    const metrics = this.tripTracking.buildMetrics(shipments, trips);
+    const inTransit = shipments.filter((s) => s.status === 'IN_TRANSIT').length;
+    const pendingDeliveries = shipments.filter((s) => s.status !== 'DELIVERED' && s.status !== 'CANCELLED').length;
+
+    this.cards = [
+      ...this.buildFleetKpiCards(fleetSummary),
+      {
+        label: 'Orders in transit',
+        value: String(inTransit),
+        icon: 'local_shipping',
+        trend: `${metrics.activeTrips} live trips`,
+        up: inTransit > 0,
+        spark: this.sparkFromCount(inTransit, 8),
+        theme: 'ocean',
+      },
+      {
+        label: 'Pending deliveries',
+        value: String(pendingDeliveries),
+        icon: 'pending_actions',
+        trend: pendingDeliveries > 0 ? 'Awaiting completion' : 'All delivered',
+        up: pendingDeliveries === 0,
+        spark: this.sparkFromCount(pendingDeliveries, 8, true),
+        theme: 'sunset',
+      },
+      {
+        label: 'Contracted fleet',
+        value: String(fleetSummary.contractedFleetCount),
+        icon: 'handshake',
+        trend:
+          fleetSummary.contractedFleetCount > 0
+            ? 'Transporter-linked vehicles'
+            : 'No contracted vehicles',
+        up: fleetSummary.contractedFleetCount > 0,
+        spark: this.sparkFromCount(fleetSummary.contractedFleetCount, 8),
+        theme: 'violet',
+      },
+    ];
+  }
+
+  private applyTransporterKpis(
+    trips: TripRow[],
+    fleetSummary: OrganizationFleetDashboardCounts,
+    expiringDocs: number,
+  ): void {
+    const metrics = this.tripTracking.buildMetrics([], trips);
+    const trucksAvailable = fleetSummary.ownedFleetCount + fleetSummary.contractedFleetCount;
+    const driversOnDuty = fleetSummary.organizationDriverCount + fleetSummary.contractedDriverCount;
+    const activeTrips = metrics.activeTrips;
+    const utilisationPct =
+      trucksAvailable > 0 ? Math.min(100, Math.round((activeTrips / trucksAvailable) * 100)) : 0;
+
+    this.cards = [
+      {
+        label: 'Trucks available',
+        value: String(trucksAvailable),
+        icon: 'airport_shuttle',
+        trend: trucksAvailable > 0 ? `${utilisationPct}% on corridor` : 'No vehicles registered',
+        up: trucksAvailable > 0,
+        spark: this.sparkFromCount(trucksAvailable, 8),
+        theme: 'ocean',
+      },
+      {
+        label: 'Active trips',
+        value: String(activeTrips),
+        icon: 'route',
+        trend: activeTrips > 0 ? 'Live corridor loads' : 'No active trips',
+        up: activeTrips > 0,
+        spark: this.sparkFromCount(activeTrips, 8),
+        theme: 'forest',
+      },
+      {
+        label: 'Drivers on duty',
+        value: String(driversOnDuty),
+        icon: 'groups',
+        trend:
+          fleetSummary.organizationDriverCount > 0
+            ? `${fleetSummary.organizationDriverCount} on your roster`
+            : 'Partner pool & hires',
+        up: driversOnDuty > 0,
+        spark: this.sparkFromCount(driversOnDuty, 8),
+        theme: 'mint',
+      },
+      {
+        label: 'Docs expiring',
+        value: String(expiringDocs),
+        icon: 'warning_amber',
+        trend: expiringDocs > 0 ? 'Within 14 days' : 'All clear',
+        up: expiringDocs === 0,
+        spark: this.sparkFromCount(expiringDocs, 8, true),
+        theme: 'ember',
+      },
+    ];
+  }
+
+  private buildFleetKpiCards(fleetSummary: OrganizationFleetDashboardCounts): KpiCard[] {
+    return [
+      {
+        label: 'Owned fleet',
+        value: String(fleetSummary.ownedFleetCount),
+        icon: 'garage',
+        trend: fleetSummary.ownedFleetCount > 0 ? 'Organisation-owned vehicles' : 'No owned vehicles yet',
+        up: fleetSummary.ownedFleetCount > 0,
+        spark: this.sparkFromCount(fleetSummary.ownedFleetCount, 8),
+        theme: 'slate',
+      },
+      {
+        label: 'Contracted drivers',
+        value: String(fleetSummary.contractedDriverCount),
+        icon: 'groups',
+        trend:
+          fleetSummary.organizationDriverCount > 0
+            ? `${fleetSummary.organizationDriverCount} on your roster`
+            : 'Partner pool & hires',
+        up: fleetSummary.contractedDriverCount > 0,
+        spark: this.sparkFromCount(fleetSummary.contractedDriverCount, 8),
+        theme: 'mint',
+      },
+    ];
+  }
+
+  private buildCustomerCharts(shipments: ShipmentRow[]): DashboardChart[] {
+    const weekLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const delivered = shipments.filter((s) => s.status === 'DELIVERED').length;
+    const inTransit = shipments.filter((s) => s.status === 'IN_TRANSIT').length;
+    const open = shipments.filter((s) => s.status !== 'DELIVERED' && s.status !== 'CANCELLED').length;
+    return [
+      {
+        id: 'customer-delivery-pulse',
+        title: 'Delivery pulse',
+        subtitle: 'Inbound shipments for your organisation',
+        type: 'area',
+        theme: 'mint',
+        labels: weekLabels,
+        values: this.weeklyShipmentVolume(shipments),
+        highlight: shipments.length ? `${shipments.length} tracked loads` : 'No shipments yet',
+      },
+      {
+        id: 'customer-order-stages',
+        title: 'Order stages',
+        subtitle: 'Current shipment status mix',
+        type: 'bar',
+        theme: 'ocean',
+        labels: ['Open', 'In transit', 'Delivered'],
+        values: [open, inTransit, delivered],
+      },
+    ];
+  }
+
+  private buildTransporterCharts(trips: TripRow[], fleetSummary: OrganizationFleetDashboardCounts): DashboardChart[] {
+    const weekLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const active = trips.filter((t) =>
+      ['IN_PROGRESS', 'IN_TRANSIT', 'AT_BORDER_HOLD', 'ROADSIDE_HOLD', 'ARRIVED', 'RETURN_IN_TRANSIT'].includes(t.status),
+    ).length;
+    const queued = trips.filter((t) => t.status === 'PENDING').length;
+    const completed = trips.filter((t) => ['DELIVERED', 'RETURNED', 'COUNT_COMPLETE'].includes(t.status)).length;
+    const fleetTotal = fleetSummary.ownedFleetCount + fleetSummary.contractedFleetCount;
+    const utilisationPct = fleetTotal > 0 ? Math.round((active / fleetTotal) * 100) : 0;
+
+    return [
+      {
+        id: 'transporter-trip-pulse',
+        title: 'Trip pulse',
+        subtitle: 'Active trips for your organisation',
+        type: 'area',
+        theme: 'forest',
+        labels: weekLabels,
+        values: this.weeklyTripVolume(trips),
+        highlight: trips.length ? `${active} on corridor now` : 'No trips yet',
+      },
+      {
+        id: 'transporter-trip-stages',
+        title: 'Active trips',
+        subtitle: 'By operational stage',
+        type: 'bar',
+        theme: 'ocean',
+        labels: ['Queued', 'On road', 'Completed'],
+        values: [queued, active, completed],
+        highlight: fleetTotal > 0 ? `${utilisationPct}% fleet utilisation` : undefined,
+      },
+    ];
+  }
+
+  private weeklyTripVolume(trips: TripRow[]): number[] {
+    const buckets = [0, 0, 0, 0, 0, 0, 0];
+    if (!trips.length) {
+      return buckets;
+    }
+    const now = new Date();
+    for (const trip of trips) {
+      const raw = trip.startedAtLabel || trip.lastEventAt;
+      if (!raw) {
+        continue;
+      }
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) {
+        continue;
+      }
+      const daysAgo = Math.floor((now.getTime() - parsed.getTime()) / 86_400_000);
+      if (daysAgo >= 0 && daysAgo < 7) {
+        buckets[6 - daysAgo] += 1;
+      }
+    }
+    return buckets;
+  }
+
+  private weeklyShipmentVolume(shipments: ShipmentRow[]): number[] {
+    if (!shipments.length) {
+      return [0, 0, 0, 0, 0, 0, 0];
+    }
+    const buckets = [0, 0, 0, 0, 0, 0, 0];
+    shipments.forEach((_, index) => {
+      buckets[index % 7]++;
+    });
+    return buckets;
   }
 
   private sparkFromCount(value: number, bars: number, invert = false): number[] {
@@ -659,6 +1063,57 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     const max = Math.max(...values, 1);
     return Math.max(8, Math.round((value / max) * 100));
+  }
+
+  pipelineStages(chart: DashboardChart): Array<{ label: string; value: number; pct: number; color: string }> {
+    const labels = chart.labels ?? [];
+    const values = chart.values ?? [];
+    const total = values.reduce((sum, value) => sum + value, 0);
+    const denominator = total > 0 ? total : 1;
+    const palette = chart.stageColors?.length ? chart.stageColors : this.pipelineDefaultColors(chart.theme);
+
+    return labels.map((label, index) => {
+      const value = values[index] ?? 0;
+      return {
+        label,
+        value,
+        pct: total > 0 ? Math.round((value / denominator) * 100) : 0,
+        color: palette[index % palette.length],
+      };
+    });
+  }
+
+  pipelineHasData(chart: DashboardChart): boolean {
+    return (chart.values ?? []).some((value) => value > 0);
+  }
+
+  pipelineFlowWidth(value: number, values: number[] | undefined): number {
+    if (!values?.length) {
+      return 0;
+    }
+    const max = Math.max(...values, 1);
+    if (value <= 0) {
+      return 6;
+    }
+    return Math.max(18, Math.round((value / max) * 100));
+  }
+
+  pipelineTrackWidth(pct: number): number {
+    return pct > 0 ? Math.max(pct, 6) : 0;
+  }
+
+  private pipelineDefaultColors(theme: KpiCardTheme): string[] {
+    const map: Record<KpiCardTheme, string[]> = {
+      ocean: ['#0ea5e9', '#38bdf8', '#0284c7', '#0369a1'],
+      forest: ['#86efac', '#22c55e', '#16a34a', '#15803d', '#3b82f6', '#10b981'],
+      sunset: ['#fdba74', '#fb923c', '#f59e0b', '#10b981'],
+      violet: ['#c4b5fd', '#a78bfa', '#8b5cf6', '#6d28d9'],
+      ember: ['#fca5a5', '#f87171', '#ef4444', '#b91c1c'],
+      mint: ['#a78bfa', '#6366f1', '#2dd4bf', '#10b981'],
+      slate: ['#cbd5e1', '#94a3b8', '#64748b', '#475569'],
+      rose: ['#f9a8d4', '#f472b6', '#ec4899', '#db2777'],
+    };
+    return map[theme];
   }
 
   donutGradient(segments: DashboardDonutSegment[] | undefined): string {
@@ -808,10 +1263,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       'EXPIRED',
     ]);
 
-    const transferRequested = this.countByStatus(transfers, ['REQUESTED']);
-    const transferApproved = this.countByStatus(transfers, ['APPROVED']);
-    const transferInTransit = this.countByStatus(transfers, ['IN_TRANSIT']);
-    const transferCompleted = this.countByStatus(transfers, ['COMPLETED']);
+    const transferPipeline = this.resolveTransferPipeline(transfers, shipments);
+    const {
+      requested: transferRequested,
+      approved: transferApproved,
+      inTransit: transferInTransit,
+      completed: transferCompleted,
+      total: transferTotal,
+    } = transferPipeline;
 
     const inStock = stock.filter((s) => s.status === 'IN_STOCK').length;
     const lowStock = stock.filter((s) => s.status === 'LOW_STOCK' || s.isLowStock).length;
@@ -864,21 +1323,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
         id: 'req-pipeline',
         title: 'Requisition pipeline',
         subtitle: 'Purchase requisitions by workflow stage',
-        type: 'bar',
+        type: 'pipeline',
         theme: 'sunset',
         labels: ['Draft', 'In review', 'With supplier', 'Closed'],
         values: [reqDraft, reqReview, reqSupplier, reqClosed],
+        stageColors: ['#94a3b8', '#f59e0b', '#3b82f6', '#10b981'],
         highlight: `${requisitions.length} requisitions`,
       },
       {
         id: 'transfer-flow',
         title: 'Transfer movement',
         subtitle: 'Inter-warehouse transfers by status',
-        type: 'bar',
+        type: 'pipeline',
         theme: 'mint',
         labels: ['Requested', 'Approved', 'In transit', 'Completed'],
         values: [transferRequested, transferApproved, transferInTransit, transferCompleted],
-        highlight: `${transfers.length} transfers tracked`,
+        stageColors: ['#a78bfa', '#6366f1', '#14b8a6', '#22c55e'],
+        highlight: `${transferTotal} transfers tracked`,
+      },
+      {
+        id: 'order-pipeline',
+        title: 'Order pipeline',
+        subtitle: 'Purchase orders and sales orders in flight',
+        type: 'pipeline',
+        theme: 'forest',
+        labels: ['PO draft', 'PO active', 'PO received', 'SO pending', 'SO shipping', 'SO done'],
+        values: [poDraft, poActive, poReceived, soPending, soShipping, soDone],
+        stageColors: ['#94a3b8', '#f97316', '#fb923c', '#3b82f6', '#6366f1', '#10b981'],
+        highlight: `${purchaseOrders.length} POs · ${salesOrders.length} sales orders`,
       },
       {
         id: 'stock-health',
@@ -886,19 +1358,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         subtitle: 'SKU availability across warehouses',
         type: 'donut',
         theme: 'ember',
+        size: 'large',
         donutUnit: 'SKUs',
         highlight: lowStock > 0 ? `${lowStock} low-stock alerts` : `${stock.length} SKUs monitored`,
         segments: stockSegments,
-      },
-      {
-        id: 'order-pipeline',
-        title: 'Order pipeline',
-        subtitle: 'Purchase orders and sales orders in flight',
-        type: 'bar',
-        theme: 'forest',
-        labels: ['PO draft', 'PO active', 'PO received', 'SO pending', 'SO shipping', 'SO done'],
-        values: [poDraft, poActive, poReceived, soPending, soShipping, soDone],
-        highlight: `${purchaseOrders.length} POs · ${salesOrders.length} sales orders`,
       },
       {
         id: 'ship-volume',
@@ -906,6 +1369,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         subtitle: 'Loads in your workspace · 7-day trend',
         type: 'area',
         theme: 'ocean',
+        size: 'large',
         labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
         values: trend,
         highlight: `${shipments.length} total loads`,
@@ -916,6 +1380,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         subtitle: 'Share by operational status',
         type: 'donut',
         theme: 'violet',
+        size: 'large',
         donutUnit: 'loads',
         highlight: inTransit > 0 ? `${inTransit} on corridor` : `${totalShipments} in workspace`,
         segments: laneSegments,
@@ -926,5 +1391,46 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private countByStatus<T extends { status?: string }>(rows: T[], statuses: string[]): number {
     const normalized = new Set(statuses.map((s) => s.toUpperCase()));
     return rows.filter((row) => normalized.has(String(row.status ?? '').toUpperCase())).length;
+  }
+
+  /**
+   * Prefer live inventory-transfer rows; when that feed is empty, infer movement from
+   * shipments created after transfer approval (inventoryTransferId).
+   */
+  private resolveTransferPipeline(
+    transfers: TransferRow[],
+    shipments: ShipmentRow[],
+  ): { requested: number; approved: number; inTransit: number; completed: number; total: number } {
+    if (transfers.length > 0) {
+      return {
+        requested: this.countByStatus(transfers, ['REQUESTED']),
+        approved: this.countByStatus(transfers, ['APPROVED']),
+        inTransit: this.countByStatus(transfers, ['IN_TRANSIT']),
+        completed: this.countByStatus(transfers, ['COMPLETED']),
+        total: transfers.length,
+      };
+    }
+
+    const transferShipments = shipments.filter((s) => (s.inventoryTransferId ?? 0) > 0);
+    if (!transferShipments.length) {
+      return { requested: 0, approved: 0, inTransit: 0, completed: 0, total: 0 };
+    }
+
+    let approved = 0;
+    let inTransit = 0;
+    let completed = 0;
+    for (const shipment of transferShipments) {
+      const bucket = this.boardFilterForShipment(shipment.status);
+      if (bucket === 'PREPARED') {
+        approved++;
+      } else if (bucket === 'IN_TRANSIT') {
+        inTransit++;
+      } else if (bucket === 'COMPLETED') {
+        completed++;
+      }
+    }
+
+    const total = new Set(transferShipments.map((s) => s.inventoryTransferId)).size;
+    return { requested: 0, approved, inTransit, completed, total };
   }
 }

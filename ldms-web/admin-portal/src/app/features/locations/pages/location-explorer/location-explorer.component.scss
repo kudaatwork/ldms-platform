@@ -382,5 +382,5 @@ html.theme-dark .lx-loc-explorer__tile {
 }
 
 html.theme-dark .lx-loc-explorer__column {
-  background: color-mix(in srgb, #fff 5%, transparent);
+  background: color-mix(in srgb, var(--surface) 5%, transparent);
 }

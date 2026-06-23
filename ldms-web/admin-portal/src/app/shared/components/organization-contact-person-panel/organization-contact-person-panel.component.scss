@@ -12,7 +12,7 @@
   border: 1px solid var(--gray-200);
   border-radius: 12px;
   padding: 12px;
-  background: color-mix(in srgb, var(--gray-500) 4%, var(--surface, #fff));
+  background: color-mix(in srgb, var(--gray-500) 4%, var(--surface, var(--surface)));
 }
 
 .section-row span:first-of-type {
@@ -45,7 +45,7 @@
   align-items: flex-start;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .ocpp__avatar {
@@ -59,7 +59,7 @@
   font-weight: 700;
   font-size: 1.25rem;
   color: var(--primary, #1565c0);
-  background: color-mix(in srgb, var(--primary, #1565c0) 12%, #fff);
+  background: color-mix(in srgb, var(--primary, #1565c0) 12%, var(--surface));
 }
 
 .ocpp__title {
@@ -71,7 +71,7 @@
 .ocpp__subtitle {
   margin: 0 0 0.5rem;
   font-size: 0.875rem;
-  color: var(--gray-600, #475569);
+  color: var(--gray-600, var(--gray-600));
 }
 
 .ocpp__chips {
@@ -86,12 +86,12 @@
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, #f97316 18%, #fff);
+  background: color-mix(in srgb, #f97316 18%, var(--surface));
   color: #c2410c;
 }
 
 .ocpp__chip--ok {
-  background: color-mix(in srgb, #198754 14%, #fff);
+  background: color-mix(in srgb, #198754 14%, var(--surface));
   color: #0f5132;
 }
 
@@ -116,7 +116,7 @@
 .ocpp__hint {
   margin: 0 0 0.75rem;
   font-size: 0.8125rem;
-  color: var(--gray-600, #64748b);
+  color: var(--gray-600, var(--gray-500));
 }
 
 .ocpp__empty {
@@ -126,8 +126,8 @@
   gap: 0.5rem;
   padding: 1rem;
   border-radius: 8px;
-  background: var(--gray-50, #f8fafc);
-  color: var(--gray-600, #64748b);
+  background: var(--gray-50, var(--surface-2));
+  color: var(--gray-600, var(--gray-500));
 
   mat-icon {
     opacity: 0.7;

@@ -6,6 +6,7 @@ import { UsersRolesComponent } from './pages/users-roles/users-roles.component';
 import { UsersGroupsComponent } from './pages/users-groups/users-groups.component';
 import { UserProfileShellComponent } from './pages/user-profile-shell/user-profile-shell.component';
 import { UserTypesComponent } from './pages/user-types/user-types.component';
+import { UsersHubNavComponent } from './components/users-hub-nav/users-hub-nav.component';
 import { AssignRolesDialogComponent } from './components/assign-roles-dialog/assign-roles-dialog.component';
 import { UserDocumentDetailDialogComponent } from './components/user-document-detail-dialog/user-document-detail-dialog.component';
 import { UserAssignUserGroupDialogComponent } from './components/user-assign-user-group-dialog/user-assign-user-group-dialog.component';
@@ -21,6 +22,7 @@ import { UsersDialogsModule } from './users-dialogs.module';
     UsersGroupsComponent,
     UserProfileShellComponent,
     UserTypesComponent,
+    UsersHubNavComponent,
     AssignRolesDialogComponent,
     UserDocumentDetailDialogComponent,
   ],

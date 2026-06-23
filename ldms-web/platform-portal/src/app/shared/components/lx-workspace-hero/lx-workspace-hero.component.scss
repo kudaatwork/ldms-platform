@@ -441,7 +441,7 @@
   --lx-ws-radar-sweep: rgba(203, 213, 225, 0.4);
   --lx-ws-glow-primary: rgba(100, 116, 139, 0.28);
   --lx-ws-glow-secondary: rgba(71, 85, 105, 0.22);
-  --lx-ws-eyebrow-text: #e2e8f0;
+  --lx-ws-eyebrow-text: var(--gray-200);
   --lx-ws-eyebrow-bg: rgba(71, 85, 105, 0.45);
   --lx-ws-eyebrow-border: rgba(203, 213, 225, 0.35);
   --lx-ws-hub-bg: linear-gradient(145deg, rgba(100, 116, 139, 0.38), rgba(30, 41, 59, 0.6));

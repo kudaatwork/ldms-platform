@@ -1078,6 +1078,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserResponse findByMultipleFilters(UsersMultipleFiltersRequest usersMultipleFiltersRequest,
                                               String username, Locale locale) {
 
@@ -2798,7 +2799,7 @@ public class UserServiceImpl implements UserService {
         }
         UserGroup userGroup = user.getUserGroup();
         if (userGroup != null) {
-            userDto.setUserGroupDto(modelMapper.map(userGroup, UserGroupDto.class));
+            userDto.setUserGroupDto(mapUserGroupDto(userGroup));
         }
         return userDto;
     }

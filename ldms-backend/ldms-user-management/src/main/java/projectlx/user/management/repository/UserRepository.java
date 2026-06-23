@@ -1,5 +1,8 @@
 package projectlx.user.management.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import projectlx.user.management.model.EntityStatus;
 import projectlx.user.management.model.User;
 import org.springframework.data.jpa.repository.EntityGraph;
@@ -14,6 +17,10 @@ import java.util.Optional;
 import java.util.Set;
 
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
+
+    @EntityGraph(attributePaths = {"userGroup", "userGroup.userRoles", "userType"})
+    @Override
+    Page<User> findAll(Specification<User> spec, Pageable pageable);
 
     @Query("SELECT COUNT(u) FROM User u WHERE u.userGroup IS NOT NULL AND u.userGroup.id = :userGroupId "
             + "AND u.entityStatus <> :excluded")
@@ -63,7 +70,9 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     /** Organisation workspace listing: {@code user.organization_id} or linked {@code user_group.organization_id}. */
     @Query("""
             SELECT DISTINCT u FROM User u
-            LEFT JOIN u.userGroup g
+            LEFT JOIN FETCH u.userGroup g
+            LEFT JOIN FETCH g.userRoles
+            LEFT JOIN FETCH u.userType
             WHERE u.entityStatus <> :excluded
               AND (u.organizationId = :organizationId OR g.organizationId = :organizationId)
             """)
@@ -83,6 +92,7 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
             @Param("organizationId") Long organizationId,
             @Param("excluded") EntityStatus excluded);
 
+    @EntityGraph(attributePaths = {"userGroup", "userGroup.userRoles", "userType"})
     List<User> findByBranchIdAndEntityStatusNot(Long branchId, EntityStatus entityStatus);
 
     List<User> findByOrganizationKycApproverTrueAndOrganizationIdIsNullAndEntityStatusNot(

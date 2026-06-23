@@ -19,4 +19,10 @@ public class PlatformWalletSummaryDto {
     private Boolean platformAccessAllowed;
     private Long subscriptionPackageId;
     private String subscriptionPackageName;
+    /** Monthly SMS / WhatsApp quota from subscription package (included_standard_credits). */
+    private Integer smsIncludedMonthly;
+    private Long smsUsedThisPeriod;
+    private Integer smsRemainingThisPeriod;
+    /** True when subscription SMS quota is used up and wallet cannot cover overage. */
+    private Boolean smsQuotaExhausted;
 }

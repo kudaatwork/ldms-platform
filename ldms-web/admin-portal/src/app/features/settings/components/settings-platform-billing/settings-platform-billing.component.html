@@ -1,121 +1,118 @@
-<div class="pb-shell" *ngIf="!loading; else loadingTpl">
-  <header class="pb-head">
-    <div>
-      <h2 class="pb-head__title">Platform billing</h2>
-      <p class="pb-head__lead">
-        Configure per-module action charges (trips, notifications, procurement, etc.), subscription packages,
-        and confirm organisation wallet top-ups.
-      </p>
-    </div>
-  </header>
-
-  <nav class="pb-tabs" aria-label="Platform billing sections">
-    <button type="button" [class.active]="activeTab === 'charges'" (click)="switchTab('charges')">
-      <mat-icon>apps</mat-icon>
-      Module charges
-    </button>
-    <button type="button" [class.active]="activeTab === 'packages'" (click)="switchTab('packages')">
-      <mat-icon>workspace_premium</mat-icon>
-      Subscription packages
-    </button>
-    <button type="button" [class.active]="activeTab === 'deposits'" (click)="switchTab('deposits')">
-      <mat-icon>account_balance_wallet</mat-icon>
-      Pending deposits ({{ pendingDeposits.length }})
-    </button>
-    <button type="button" [class.active]="activeTab === 'history'" (click)="switchTab('history')">
-      <mat-icon>history</mat-icon>
-      Approved deposits ({{ approvedDeposits.length }})
-    </button>
-  </nav>
-
-  <div class="pb-controls lx-card lx-card--subsection">
-    <div class="lx-controls-head">
-      <div class="lx-controls-head__text">
-        <h3 class="lx-controls-title">Table controls</h3>
-        <p class="lx-controls-subtitle">
-          Search, filter, and manage
-          {{ activeTab === 'charges' ? 'module action charges' : activeTab === 'packages' ? 'subscription packages' : activeTab === 'history' ? 'approved wallet deposits' : 'pending deposits' }}.
-        </p>
+<div class="pb-page pb-page--embedded" *ngIf="!loading; else loadingTpl">
+  <header class="pb-embed-hero">
+    <div class="pb-embed-hero__main">
+      <div class="pb-embed-hero__icon" aria-hidden="true">
+        <mat-icon>account_balance_wallet</mat-icon>
       </div>
-      <button
-        *ngIf="supportsImportExport"
-        type="button"
-        mat-icon-button
-        class="lx-controls-head__info-btn"
-        [class.is-on]="showSampleCsvInfo"
-        (click)="showSampleCsvInfo = !showSampleCsvInfo"
-        aria-label="Toggle sample CSV information"
-      >
-        <mat-icon>info_outline</mat-icon>
-      </button>
-    </div>
-
-    <p class="lx-controls-hint" *ngIf="showSampleCsvInfo && supportsImportExport">
-      <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
-      <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }} The download includes the header row and 2 example rows.</span>
-    </p>
-    <p class="lx-controls-hint lx-import-disclaimer" *ngIf="supportsImportExport">
-      <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
-      <span>{{ importDisclaimer }}</span>
-    </p>
-
-    <div class="lx-data-toolbar">
-      <div class="lx-data-toolbar__actions">
-        <button type="button" class="lx-btn lx-btn-ghost" (click)="reload()" [disabled]="importing">Refresh</button>
-        <button
-          *ngIf="supportsImportExport"
-          type="button"
-          class="lx-btn lx-btn-ghost"
-          (click)="triggerImport()"
-          [disabled]="importing"
-        >
-          {{ importing ? 'Importing…' : 'Import' }}
+      <div class="pb-embed-hero__copy">
+        <h2>Platform billing</h2>
+        <p>Set per-action costs, subscription tiers, and approve organisation wallet top-ups.</p>
+      </div>
+      <div class="pb-embed-hero__actions">
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reload()" [disabled]="importing">
+          <mat-icon>refresh</mat-icon>
+          Refresh
         </button>
-        <button *ngIf="supportsImportExport" type="button" class="lx-btn lx-btn-ghost" (click)="downloadSampleCsv()">Sample CSV</button>
-        <button
-          type="button"
-          class="lx-btn lx-btn-success lx-export-trigger"
-          [matMenuTriggerFor]="billingExportMenu"
-          [disabled]="exporting"
-        >
-          Export{{ exporting ? '…' : '' }}
-        </button>
-        <mat-menu #billingExportMenu="matMenu" panelClass="lx-export-menu">
-          <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')" [disabled]="exporting">
-            <mat-icon>picture_as_pdf</mat-icon>
-            <span>Export PDF</span>
-          </button>
-          <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')" [disabled]="exporting">
-            <mat-icon>table_view</mat-icon>
-            <span>Export CSV</span>
-          </button>
-          <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')" [disabled]="exporting">
-            <mat-icon>grid_on</mat-icon>
-            <span>Export XLSX</span>
-          </button>
-        </mat-menu>
         <button
           *ngIf="activeTab === 'charges'"
           type="button"
-          class="lx-btn lx-btn-primary"
+          class="lx-btn lx-btn-primary lx-btn-sm"
           (click)="openChargeDialog('create')"
         >
-          Add action charge
+          <mat-icon>add</mat-icon>
+          New charge
         </button>
         <button
           *ngIf="activeTab === 'packages'"
           type="button"
-          class="lx-btn lx-btn-primary"
+          class="lx-btn lx-btn-primary lx-btn-sm"
           (click)="openPackageDialog('create')"
         >
-          Add package
+          <mat-icon>add</mat-icon>
+          New package
         </button>
       </div>
-      <div class="lx-data-toolbar__search">
-        <div class="lx-input-shell lx-search-field">
-          <mat-icon class="lx-input-shell__icon">search</mat-icon>
-          <input [(ngModel)]="searchQuery" placeholder="Search…" />
+    </div>
+    <div class="pb-embed-hero__stats">
+      <div class="pb-stat">
+        <strong>{{ statDisplay(totalChargesCount) }}</strong>
+        <span>Charges</span>
+      </div>
+      <div class="pb-stat">
+        <strong>{{ statDisplay(activeChargesCount) }}</strong>
+        <span>Active</span>
+      </div>
+      <div class="pb-stat">
+        <strong>{{ statDisplay(activePackagesCount) }}</strong>
+        <span>Packages</span>
+      </div>
+      <div class="pb-stat pb-stat--alert" [class.is-hot]="pendingDeposits.length > 0">
+        <strong>{{ statDisplay(pendingDeposits.length) }}</strong>
+        <span>Pending</span>
+      </div>
+    </div>
+  </header>
+
+  <p class="pb-load-error lx-alert lx-alert--error" *ngIf="chargesLoadError && activeTab === 'charges'">
+    <mat-icon>error_outline</mat-icon>
+    {{ chargesLoadError }}
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reload()">Retry</button>
+  </p>
+
+  <nav class="pb-segment" aria-label="Platform billing sections">
+    <button type="button" [class.is-active]="activeTab === 'charges'" (click)="switchTab('charges')">
+      <mat-icon>grid_view</mat-icon>
+      <span>Action charges</span>
+      <em>{{ totalChargesCount }}</em>
+    </button>
+    <button type="button" [class.is-active]="activeTab === 'packages'" (click)="switchTab('packages')">
+      <mat-icon>workspace_premium</mat-icon>
+      <span>Packages</span>
+      <em>{{ packages.length }}</em>
+    </button>
+    <button type="button" [class.is-active]="activeTab === 'deposits'" (click)="switchTab('deposits')">
+      <mat-icon>pending_actions</mat-icon>
+      <span>Pending</span>
+      <em *ngIf="pendingDeposits.length">{{ pendingDeposits.length }}</em>
+    </button>
+    <button type="button" [class.is-active]="activeTab === 'history'" (click)="switchTab('history')">
+      <mat-icon>history</mat-icon>
+      <span>Approved</span>
+      <em *ngIf="approvedDeposits.length">{{ approvedDeposits.length }}</em>
+    </button>
+  </nav>
+
+  <p class="pb-load-error lx-alert lx-alert--error" *ngIf="chargesLoadError && activeTab === 'charges'">
+    <mat-icon>error_outline</mat-icon>
+    {{ chargesLoadError }} Check that billing-payments is running and try Refresh.
+  </p>
+
+  <section class="pb-toolbar lx-card">
+    <div class="pb-toolbar__row">
+      <div class="pb-toolbar__search lx-input-shell lx-search-field">
+        <mat-icon class="lx-input-shell__icon">search</mat-icon>
+        <input
+          [(ngModel)]="searchQuery"
+          [placeholder]="activeTab === 'charges' ? 'Search by charge name, action code, or module…' : activeTab === 'packages' ? 'Search packages…' : 'Search deposits…'"
+        />
+      </div>
+
+      <div class="pb-toolbar__actions">
+        <div class="pb-view-toggle" *ngIf="activeTab === 'charges'">
+          <button type="button" [class.is-active]="chargesView === 'catalog'" (click)="setChargesView('catalog')">
+            <mat-icon>library_books</mat-icon>
+            Catalog
+          </button>
+          <button type="button" [class.is-active]="chargesView === 'modules'" (click)="setChargesView('modules')">
+            <mat-icon>dashboard</mat-icon>
+            Configured
+          </button>
+          <button type="button" [class.is-active]="chargesView === 'table'" (click)="setChargesView('table')">
+            <mat-icon>table_rows</mat-icon>
+            Table
+          </button>
         </div>
+
         <button
           type="button"
           class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
@@ -125,48 +122,126 @@
           <mat-icon>tune</mat-icon>
           Filters
         </button>
+
+        <button
+          *ngIf="supportsImportExport"
+          type="button"
+          mat-icon-button
+          class="pb-toolbar__info"
+          [class.is-on]="showSampleCsvInfo"
+          (click)="showSampleCsvInfo = !showSampleCsvInfo"
+          aria-label="CSV import help"
+        >
+          <mat-icon>info_outline</mat-icon>
+        </button>
+
+        <button
+          *ngIf="supportsImportExport"
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm"
+          (click)="triggerImport()"
+          [disabled]="importing"
+        >
+          <mat-icon>upload_file</mat-icon>
+          {{ importing ? 'Importing…' : 'Import' }}
+        </button>
+
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+          [matMenuTriggerFor]="billingExportMenu"
+          [disabled]="exporting"
+        >
+          <mat-icon>download</mat-icon>
+          Export
+        </button>
       </div>
     </div>
+
+    <mat-menu #billingExportMenu="matMenu" panelClass="lx-export-menu">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')" [disabled]="exporting">
+        <mat-icon>picture_as_pdf</mat-icon>
+        <span>Export PDF</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')" [disabled]="exporting">
+        <mat-icon>table_view</mat-icon>
+        <span>Export CSV</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')" [disabled]="exporting">
+        <mat-icon>grid_on</mat-icon>
+        <span>Export XLSX</span>
+      </button>
+    </mat-menu>
 
     <input #chargeCsvInput type="file" accept=".csv,text/csv" hidden (change)="onChargeImportSelected($event)" />
     <input #packageCsvInput type="file" accept=".csv,text/csv" hidden (change)="onPackageImportSelected($event)" />
 
+    <div class="pb-toolbar__hints" *ngIf="showSampleCsvInfo && supportsImportExport">
+      <p>
+        <mat-icon>info_outline</mat-icon>
+        <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }}</span>
+      </p>
+      <p class="pb-toolbar__disclaimer">
+        <mat-icon>upload_file</mat-icon>
+        <span>{{ importDisclaimer }}</span>
+      </p>
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadSampleCsv()">
+        <mat-icon>description</mat-icon>
+        Download sample
+      </button>
+    </div>
+
     <div class="lx-filter-panel" *ngIf="filterFieldsOpen && activeTab === 'charges'">
-      <span class="lx-filter-panel__label">Column filters</span>
+      <span class="lx-filter-panel__label">Refine charges</span>
       <div class="lx-filter-fields">
         <div class="lx-filter-field-wrap">
           <div class="lx-field-label">Action code</div>
           <div class="lx-input-shell lx-filter-field">
             <mat-icon class="lx-input-shell__icon">tag</mat-icon>
-            <input [(ngModel)]="chargeFilters.actionCode" />
+            <select [(ngModel)]="chargeFilters.actionCode">
+              <option value="">All action codes</option>
+              <option *ngFor="let code of chargeActionCodeFilterOptions" [value]="code">{{ code }}</option>
+            </select>
           </div>
         </div>
         <div class="lx-filter-field-wrap">
           <div class="lx-field-label">Display name</div>
           <div class="lx-input-shell lx-filter-field">
             <mat-icon class="lx-input-shell__icon">label</mat-icon>
-            <input [(ngModel)]="chargeFilters.displayName" />
+            <select [(ngModel)]="chargeFilters.displayName">
+              <option value="">All display names</option>
+              <option *ngFor="let name of chargeDisplayNameFilterOptions" [value]="name">{{ name }}</option>
+            </select>
           </div>
         </div>
         <div class="lx-filter-field-wrap">
           <div class="lx-field-label">Category</div>
           <div class="lx-input-shell lx-filter-field">
             <mat-icon class="lx-input-shell__icon">category</mat-icon>
-            <input [(ngModel)]="chargeFilters.category" />
+            <select [(ngModel)]="chargeFilters.category">
+              <option value="">All categories</option>
+              <option *ngFor="let option of chargeCategoryFilterOptions" [value]="option.value">
+                {{ option.label }}
+              </option>
+            </select>
           </div>
         </div>
         <div class="lx-filter-field-wrap">
-          <div class="lx-field-label">Active (true/false)</div>
+          <div class="lx-field-label">Active</div>
           <div class="lx-input-shell lx-filter-field">
             <mat-icon class="lx-input-shell__icon">toggle_on</mat-icon>
-            <input [(ngModel)]="chargeFilters.active" />
+            <select [(ngModel)]="chargeFilters.active">
+              <option *ngFor="let option of chargeActiveFilterOptions" [value]="option.value">
+                {{ option.label }}
+              </option>
+            </select>
           </div>
         </div>
       </div>
     </div>
 
     <div class="lx-filter-panel" *ngIf="filterFieldsOpen && activeTab === 'packages'">
-      <span class="lx-filter-panel__label">Column filters</span>
+      <span class="lx-filter-panel__label">Refine packages</span>
       <div class="lx-filter-fields">
         <div class="lx-filter-field-wrap">
           <div class="lx-field-label">Code</div>
@@ -200,7 +275,7 @@
     </div>
 
     <div class="lx-filter-panel" *ngIf="filterFieldsOpen && activeTab === 'deposits'">
-      <span class="lx-filter-panel__label">Column filters</span>
+      <span class="lx-filter-panel__label">Refine pending deposits</span>
       <div class="lx-filter-fields">
         <div class="lx-filter-field-wrap">
           <div class="lx-field-label">Organisation ID</div>
@@ -220,7 +295,7 @@
     </div>
 
     <div class="lx-filter-panel" *ngIf="filterFieldsOpen && activeTab === 'history'">
-      <span class="lx-filter-panel__label">Column filters</span>
+      <span class="lx-filter-panel__label">Refine approved deposits</span>
       <div class="lx-filter-fields">
         <div class="lx-filter-field-wrap">
           <div class="lx-field-label">Organisation ID</div>
@@ -245,173 +320,261 @@
         </div>
       </div>
     </div>
-  </div>
 
-  <section class="pb-modules" *ngIf="activeTab === 'charges'">
-    <div class="pb-modules__grid">
+    <div class="pb-module-chips" *ngIf="activeTab === 'charges' && (chargesView === 'modules' || chargesView === 'catalog')">
+      <button type="button" class="pb-module-chip" [class.is-active]="!moduleFilter" (click)="clearModuleFilter()">
+        All modules
+      </button>
       @for (mod of billingModules; track mod.category) {
-        <article class="pb-module-card">
-          <header class="pb-module-card__head">
-            <span class="pb-module-card__icon">
-              <mat-icon>{{ mod.icon }}</mat-icon>
-            </span>
-            <div class="pb-module-card__copy">
-              <h3>{{ mod.label }}</h3>
-              <p>{{ mod.description }}</p>
-            </div>
-            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm pb-module-card__add" (click)="openChargeDialog('create', undefined, mod.category)">
-              <mat-icon>add</mat-icon>
-              Add
-            </button>
-          </header>
-
-          @if (chargesForModule(mod.category).length) {
-            <div class="pb-module-card__list-wrap">
-              @if (mod.category === 'ORDERS') {
-                @for (group of ordersChargeGroups; track group.key) {
-                  @if (ordersChargesInGroup(group.prefix).length) {
-                    <div class="pb-module-card__subgroup">
-                      <h4 class="pb-module-card__subgroup-title">{{ group.label }}</h4>
-                      <ul class="pb-module-card__list">
-                        @for (row of ordersChargesInGroup(group.prefix); track row.id ?? row.actionCode) {
-                          <li class="pb-module-card__row">
-                            <button type="button" class="pb-module-card__action" (click)="openChargeDialog('edit', row)">
-                              <span class="pb-module-card__action-copy">
-                                <strong>{{ row.displayName }}</strong>
-                                <code>{{ row.actionCode }}</code>
-                              </span>
-                              <span class="pb-module-card__action-meta">
-                                <span class="pb-module-card__price">{{ formatMoney(row.chargeCents) }}</span>
-                                <span class="lx-status lx-status-sm" [class.lx-status-active]="row.active !== false" [class.lx-status-inactive]="row.active === false">
-                                  {{ row.active !== false ? 'Active' : 'Off' }}
-                                </span>
-                              </span>
-                            </button>
-                            <button
-                              type="button"
-                              class="pb-module-card__delete"
-                              [attr.aria-label]="'Delete ' + row.displayName"
-                              [disabled]="!row.id || deletingChargeId === row.id"
-                              (click)="deleteCharge(row)"
-                            >
-                              <mat-icon>delete_outline</mat-icon>
-                            </button>
-                          </li>
-                        }
-                      </ul>
-                    </div>
-                  }
-                }
-                @if (ordersChargesUncategorized().length) {
-                  <div class="pb-module-card__subgroup">
-                    <h4 class="pb-module-card__subgroup-title">Other</h4>
-                    <ul class="pb-module-card__list">
-                      @for (row of ordersChargesUncategorized(); track row.id ?? row.actionCode) {
-                        <li class="pb-module-card__row">
-                          <button type="button" class="pb-module-card__action" (click)="openChargeDialog('edit', row)">
-                            <span class="pb-module-card__action-copy">
-                              <strong>{{ row.displayName }}</strong>
-                              <code>{{ row.actionCode }}</code>
-                            </span>
-                            <span class="pb-module-card__action-meta">
-                              <span class="pb-module-card__price">{{ formatMoney(row.chargeCents) }}</span>
-                              <span class="lx-status lx-status-sm" [class.lx-status-active]="row.active !== false" [class.lx-status-inactive]="row.active === false">
-                                {{ row.active !== false ? 'Active' : 'Off' }}
-                              </span>
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            class="pb-module-card__delete"
-                            [attr.aria-label]="'Delete ' + row.displayName"
-                            [disabled]="!row.id || deletingChargeId === row.id"
-                            (click)="deleteCharge(row)"
-                          >
-                            <mat-icon>delete_outline</mat-icon>
-                          </button>
-                        </li>
-                      }
-                    </ul>
-                  </div>
-                }
-              } @else {
-                <ul class="pb-module-card__list">
-                  @for (row of chargesForModule(mod.category); track row.id ?? row.actionCode) {
-                    <li class="pb-module-card__row">
-                      <button type="button" class="pb-module-card__action" (click)="openChargeDialog('edit', row)">
-                        <span class="pb-module-card__action-copy">
-                          <strong>{{ row.displayName }}</strong>
-                          <code>{{ row.actionCode }}</code>
-                        </span>
-                        <span class="pb-module-card__action-meta">
-                          <span class="pb-module-card__price">{{ formatMoney(row.chargeCents) }}</span>
-                          <span class="lx-status lx-status-sm" [class.lx-status-active]="row.active !== false" [class.lx-status-inactive]="row.active === false">
-                            {{ row.active !== false ? 'Active' : 'Off' }}
-                          </span>
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        class="pb-module-card__delete"
-                        [attr.aria-label]="'Delete ' + row.displayName"
-                        [disabled]="!row.id || deletingChargeId === row.id"
-                        (click)="deleteCharge(row)"
-                      >
-                        <mat-icon>delete_outline</mat-icon>
-                      </button>
-                    </li>
-                  }
-                </ul>
-              }
-            </div>
-          } @else {
-            <p class="pb-module-card__empty">No charges configured for this module.</p>
-          }
-        </article>
+        <button
+          type="button"
+          class="pb-module-chip"
+          [class.is-active]="moduleFilter === mod.category"
+          (click)="setModuleFilter(mod.category)"
+        >
+          <mat-icon>{{ mod.icon }}</mat-icon>
+          {{ mod.label }}
+          <span class="pb-module-chip__count">{{ chargesView === 'catalog' ? catalogEntriesForModule(mod.category).length : chargesForModule(mod.category).length }}</span>
+        </button>
       }
     </div>
   </section>
 
-  <div class="lx-card pb-table-card" *ngIf="activeTab === 'charges'">
+  <!-- Action catalog: all known platform actions by module -->
+  <section class="pb-catalog" *ngIf="activeTab === 'charges' && chargesView === 'catalog'">
+    <div class="pb-catalog__intro lx-card">
+      <div>
+        <h3>Platform action catalog</h3>
+        <p>
+          {{ catalogSize }} known billable actions grouped by corridor module.
+          {{ configuredCatalogCount }} configured in your wallet rate card —
+          add any missing action with one click.
+        </p>
+      </div>
+      <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openChargeDialog('create')">
+        <mat-icon>add</mat-icon>
+        Custom charge
+      </button>
+    </div>
+
+    <div class="pb-catalog__grid">
+      @for (mod of visibleBillingModules; track mod.category) {
+        @if (catalogEntriesForModule(mod.category).length) {
+          <article class="pb-catalog-card" [attr.data-module]="mod.category">
+            <header class="pb-catalog-card__head">
+              <span class="pb-catalog-card__icon"><mat-icon>{{ mod.icon }}</mat-icon></span>
+              <div>
+                <h4>{{ mod.label }}</h4>
+                <p>{{ mod.description }}</p>
+              </div>
+              <span class="pb-catalog-card__count">{{ catalogEntriesForModule(mod.category).length }}</span>
+            </header>
+            <ul class="pb-catalog-card__list">
+              @for (entry of catalogEntriesForModule(mod.category); track entry.actionCode) {
+                <li class="pb-catalog-row" [class.is-configured]="isCatalogEntryConfigured(entry)">
+                  <div class="pb-catalog-row__main">
+                    <strong>{{ entry.displayName }}</strong>
+                    <code>{{ entry.actionCode }}</code>
+                    <span class="pb-catalog-row__desc">{{ entry.description }}</span>
+                    <div class="pb-catalog-row__meta">
+                      <span class="pb-catalog-row__tier" *ngIf="entry.billingTier">{{ entry.billingTier }}</span>
+                      <span class="pb-catalog-row__suggest" *ngIf="entry.suggestedCents != null">
+                        Suggested {{ formatMoney(entry.suggestedCents) }}
+                      </span>
+                      <span class="pb-catalog-row__live" *ngIf="configuredChargeForCode(entry.actionCode) as live">
+                        Live {{ formatMoney(live.chargeCents) }}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    class="lx-btn lx-btn-ghost lx-btn-sm"
+                    (click)="openChargeFromCatalog(entry)"
+                  >
+                    <mat-icon>{{ isCatalogEntryConfigured(entry) ? 'edit' : 'add' }}</mat-icon>
+                    {{ isCatalogEntryConfigured(entry) ? 'Edit' : 'Add' }}
+                  </button>
+                </li>
+              }
+            </ul>
+          </article>
+        }
+      }
+    </div>
+
+    <div class="pb-empty lx-card" *ngIf="!filteredCatalogEntries.length">
+      <div class="pb-empty__icon"><mat-icon>search_off</mat-icon></div>
+      <h3>No catalog actions match your search</h3>
+      <p>Try a different charge name or action code, or clear the search box.</p>
+    </div>
+  </section>
+
+  <!-- Action charges: module cards (configured only) -->
+  <section class="pb-modules" *ngIf="activeTab === 'charges' && chargesView === 'modules'">
+    <div class="pb-modules__grid">
+      @for (mod of visibleBillingModules; track mod.category) {
+        <article class="pb-module-card" [attr.data-module]="mod.category">
+            <header class="pb-module-card__head">
+              <span class="pb-module-card__icon">
+                <mat-icon>{{ mod.icon }}</mat-icon>
+              </span>
+              <div class="pb-module-card__copy">
+                <h3>{{ mod.label }}</h3>
+                <p>{{ mod.description }}</p>
+                <span class="pb-module-card__count">{{ chargesForModule(mod.category).length }} charges</span>
+              </div>
+              <button
+                type="button"
+                class="pb-module-card__add"
+                [attr.aria-label]="'Add charge to ' + mod.label"
+                (click)="openChargeDialog('create', undefined, mod.category)"
+              >
+                <mat-icon>add</mat-icon>
+              </button>
+            </header>
+
+            @if (chargesForModule(mod.category).length) {
+              <div class="pb-module-card__list-wrap">
+                @if (mod.category === 'ORDERS') {
+                  @for (group of ordersChargeGroups; track group.key) {
+                    @if (ordersChargesInGroup(group.prefix).length) {
+                      <div class="pb-module-card__subgroup">
+                        <h4 class="pb-module-card__subgroup-title">{{ group.label }}</h4>
+                        <ul class="pb-module-card__list">
+                          @for (row of ordersChargesInGroup(group.prefix); track row.id ?? row.actionCode) {
+                            <ng-container *ngTemplateOutlet="chargeItem; context: { row: row }"></ng-container>
+                          }
+                        </ul>
+                      </div>
+                    }
+                  }
+                  @if (ordersChargesUncategorized().length) {
+                    <div class="pb-module-card__subgroup">
+                      <h4 class="pb-module-card__subgroup-title">Other</h4>
+                      <ul class="pb-module-card__list">
+                        @for (row of ordersChargesUncategorized(); track row.id ?? row.actionCode) {
+                          <ng-container *ngTemplateOutlet="chargeItem; context: { row: row }"></ng-container>
+                        }
+                      </ul>
+                    </div>
+                  }
+                } @else {
+                  <ul class="pb-module-card__list">
+                    @for (row of chargesForModule(mod.category); track row.id ?? row.actionCode) {
+                      <ng-container *ngTemplateOutlet="chargeItem; context: { row: row }"></ng-container>
+                    }
+                  </ul>
+                }
+              </div>
+            } @else {
+              <div class="pb-module-card__empty">
+                <mat-icon>add_circle_outline</mat-icon>
+                <p>No charges yet</p>
+                <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openChargeDialog('create', undefined, mod.category)">
+                  Add first charge
+                </button>
+              </div>
+            }
+          </article>
+        }
+
+        @if (unmappedActionCharges.length) {
+          <article class="pb-module-card" data-module="UNMAPPED">
+            <header class="pb-module-card__head">
+              <span class="pb-module-card__icon">
+                <mat-icon>extension</mat-icon>
+              </span>
+              <div class="pb-module-card__copy">
+                <h3>Other categories</h3>
+                <p>Charges whose module category is not in the standard list</p>
+                <span class="pb-module-card__count">{{ unmappedActionCharges.length }} charges</span>
+              </div>
+            </header>
+            <div class="pb-module-card__list-wrap">
+              <ul class="pb-module-card__list">
+                @for (row of unmappedActionCharges; track row.id ?? row.actionCode) {
+                  <ng-container *ngTemplateOutlet="chargeItem; context: { row: row }"></ng-container>
+                }
+              </ul>
+            </div>
+          </article>
+        }
+      </div>
+
+    <div class="pb-empty lx-card" *ngIf="!actionCharges.length && !chargesLoadError && !searchQuery.trim() && !filterFieldsOpen">
+      <div class="pb-empty__icon">
+        <mat-icon>payments</mat-icon>
+      </div>
+      <h3>No action charges configured</h3>
+      <p>Add your first per-action cost or import a CSV to bulk configure pricing.</p>
+      <div class="pb-empty__actions">
+        <button type="button" class="lx-btn lx-btn-primary" (click)="openChargeDialog('create')">
+          <mat-icon>add</mat-icon>
+          Create charge
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="triggerImport()">
+          <mat-icon>upload_file</mat-icon>
+          Import CSV
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Action charges: table view -->
+  <div class="lx-card pb-table-card" *ngIf="activeTab === 'charges' && chargesView === 'table'">
     <div class="lx-table-header">
-      <p class="lx-table-meta">All action charges (table view)</p>
+      <div>
+        <h3 class="pb-table-card__title">All action charges</h3>
+        <p class="lx-table-meta">{{ filteredActionCharges.length }} rows — click a row menu to edit or remove</p>
+      </div>
     </div>
     <ng-container *ngIf="filteredActionCharges.length; else emptyCharges">
       <div class="lx-table-wrap">
-        <table mat-table [dataSource]="filteredActionCharges" class="lx-mat-table">
+        <table mat-table [dataSource]="filteredActionCharges" class="lx-mat-table pb-charges-table">
           <ng-container matColumnDef="action">
             <th mat-header-cell *matHeaderCellDef>Action</th>
             <td mat-cell *matCellDef="let row">
-              <strong>{{ row.displayName }}</strong>
-              <div class="muted"><code>{{ row.actionCode }}</code></div>
+              <div class="pb-table-action">
+                <span class="pb-table-action__name">{{ row.displayName }}</span>
+                <code>{{ row.actionCode }}</code>
+              </div>
             </td>
           </ng-container>
           <ng-container matColumnDef="category">
             <th mat-header-cell *matHeaderCellDef>Module</th>
-            <td mat-cell *matCellDef="let row">{{ moduleLabel(row.category) }}</td>
+            <td mat-cell *matCellDef="let row">
+              <span class="pb-table-pill">{{ moduleLabel(row.category) }}</span>
+            </td>
           </ng-container>
           <ng-container matColumnDef="charge">
             <th mat-header-cell *matHeaderCellDef>Charge</th>
-            <td mat-cell *matCellDef="let row">{{ formatMoney(row.chargeCents) }}</td>
+            <td mat-cell *matCellDef="let row">
+              <span class="pb-table-price">{{ formatMoney(row.chargeCents) }}</span>
+            </td>
           </ng-container>
           <ng-container matColumnDef="active">
-            <th mat-header-cell *matHeaderCellDef>Active</th>
+            <th mat-header-cell *matHeaderCellDef>Status</th>
             <td mat-cell *matCellDef="let row">
               <span class="lx-status" [class.lx-status-active]="row.active !== false" [class.lx-status-inactive]="row.active === false">
-                {{ yesNo(row.active) }}
+                {{ row.active !== false ? 'Active' : 'Paused' }}
               </span>
             </td>
           </ng-container>
           <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef>Actions</th>
+            <th mat-header-cell *matHeaderCellDef></th>
             <td mat-cell *matCellDef="let row" class="lx-actions-cell">
               <button type="button" mat-icon-button [matMenuTriggerFor]="chargeRowMenu" [matMenuTriggerData]="{ chargeRow: row }">
                 <mat-icon>more_vert</mat-icon>
               </button>
             </td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="chargeColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: chargeColumns"></tr>
+          <tr mat-header-row *matHeaderRowDef="chargeColumns; sticky: true"></tr>
+          <tr
+            mat-row
+            *matRowDef="let row; columns: chargeColumns"
+            class="pb-charges-table__row"
+            [attr.data-charge-module]="row.category || 'GENERAL'"
+          ></tr>
         </table>
       </div>
     </ng-container>
@@ -435,26 +598,68 @@
         </button>
       </ng-template>
     </mat-menu>
-    <ng-template #emptyCharges>
-      <div class="lx-empty">
-        <mat-icon class="lx-empty-icon">inbox</mat-icon>
-        <div class="lx-empty-title">No action charges match</div>
-        <div class="lx-empty-sub">Add a charge or import from CSV.</div>
-      </div>
-    </ng-template>
   </div>
 
-  <section class="pb-packages" *ngIf="activeTab === 'packages'">
-    <div class="pb-packages__head">
-      <div>
-        <h3 class="pb-packages__title">Subscription packages</h3>
-        <p class="pb-packages__lead">
-          Packages shown on the platform landing page and organisation billing settings. Edit pricing, mark featured,
-          or remove unused tiers.
-        </p>
+  <ng-template #chargeItem let-row="row">
+    <li
+      class="pb-charge-item"
+      [class.is-inactive]="row.active === false"
+      [attr.data-charge-module]="row.category || 'GENERAL'"
+      [attr.data-billing-tier]="row.billingTier || null"
+    >
+      <button type="button" class="pb-charge-item__main" (click)="openChargeDialog('edit', row)">
+        <span class="pb-charge-item__price">{{ formatMoney(row.chargeCents) }}</span>
+        <span class="pb-charge-item__copy">
+          <strong>{{ row.displayName }}</strong>
+          <code>{{ row.actionCode }}</code>
+          <span class="pb-charge-item__tier" *ngIf="row.billingTier">{{ row.billingTier }}</span>
+        </span>
+        <span class="pb-charge-item__status" [class.is-on]="row.active !== false">
+          {{ row.active !== false ? 'Live' : 'Paused' }}
+        </span>
+      </button>
+      <div class="pb-charge-item__actions">
+        <button type="button" class="pb-charge-item__btn" [attr.aria-label]="'Edit ' + row.displayName" (click)="openChargeDialog('edit', row)">
+          <mat-icon>edit</mat-icon>
+        </button>
+        <button
+          type="button"
+          class="pb-charge-item__btn pb-charge-item__btn--danger"
+          [attr.aria-label]="'Delete ' + row.displayName"
+          [disabled]="!row.id || deletingChargeId === row.id"
+          (click)="deleteCharge(row)"
+        >
+          <mat-icon>{{ deletingChargeId === row.id ? 'hourglass_empty' : 'delete_outline' }}</mat-icon>
+        </button>
+      </div>
+    </li>
+  </ng-template>
+
+  <ng-template #emptyCharges>
+    <div class="pb-empty lx-card">
+      <div class="pb-empty__icon">
+        <mat-icon>{{ chargesLoadError ? 'error_outline' : 'search_off' }}</mat-icon>
+      </div>
+      <h3>{{ chargesLoadError ? 'Could not load action charges' : 'No charges match your filters' }}</h3>
+      <p *ngIf="chargesLoadError">{{ chargesLoadError }}</p>
+      <p *ngIf="!chargesLoadError">Try clearing search and filters, or switch to the Modules view.</p>
+      <div class="pb-empty__actions">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="searchQuery = ''; chargeFilters = { actionCode: '', displayName: '', category: '', active: '' }; filterFieldsOpen = false">
+          Clear filters
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary" *ngIf="!chargesLoadError" (click)="openChargeDialog('create')">
+          <mat-icon>add</mat-icon>
+          Create charge
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary" *ngIf="chargesLoadError" (click)="reload()">
+          <mat-icon>refresh</mat-icon>
+          Retry
+        </button>
       </div>
     </div>
+  </ng-template>
 
+  <section class="pb-packages" *ngIf="activeTab === 'packages'">
     <ng-container *ngIf="filteredPackages.length; else emptyPackages">
       <div class="pb-packages__grid">
         @for (row of filteredPackages; track row.id ?? row.code) {
@@ -492,7 +697,7 @@
               </button>
               <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openPackageDialog('edit', row)">
                 <mat-icon>edit</mat-icon>
-                Edit price
+                Edit
               </button>
               <button
                 type="button"
@@ -510,18 +715,26 @@
     </ng-container>
 
     <ng-template #emptyPackages>
-      <div class="lx-empty pb-packages__empty">
-        <mat-icon class="lx-empty-icon">workspace_premium</mat-icon>
-        <div class="lx-empty-title">No packages match</div>
-        <div class="lx-empty-sub">Add a package or import from CSV — they appear on the landing page when active.</div>
-        <button type="button" class="lx-btn lx-btn-primary" (click)="openPackageDialog('create')">Add package</button>
+      <div class="pb-empty lx-card pb-packages__empty">
+        <div class="pb-empty__icon">
+          <mat-icon>workspace_premium</mat-icon>
+        </div>
+        <h3>No packages match</h3>
+        <p>Create subscription tiers shown on the landing page and in organisation billing settings.</p>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="openPackageDialog('create')">
+          <mat-icon>add</mat-icon>
+          Add package
+        </button>
       </div>
     </ng-template>
   </section>
 
   <div class="lx-card pb-table-card" *ngIf="activeTab === 'deposits'">
     <div class="lx-table-header">
-      <p class="lx-table-meta">Awaiting administrator confirmation</p>
+      <div>
+        <h3 class="pb-table-card__title">Pending wallet deposits</h3>
+        <p class="lx-table-meta">Awaiting administrator confirmation</p>
+      </div>
     </div>
     <ng-container *ngIf="filteredDeposits.length; else emptyDeposits">
       <div class="lx-table-wrap">
@@ -563,24 +776,29 @@
               </button>
             </td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="depositColumns"></tr>
+          <tr mat-header-row *matHeaderRowDef="depositColumns; sticky: true"></tr>
           <tr mat-row *matRowDef="let row; columns: depositColumns"></tr>
         </table>
       </div>
     </ng-container>
     <ng-template #emptyDeposits>
-      <div class="lx-empty">
-        <mat-icon class="lx-empty-icon">{{ depositsLoadError ? 'error_outline' : 'inbox' }}</mat-icon>
-        <div class="lx-empty-title">{{ depositsLoadError ? 'Could not load pending deposits' : 'No pending deposits' }}</div>
-        <div class="lx-empty-sub" *ngIf="depositsLoadError">{{ depositsLoadError }}</div>
-        <div class="lx-empty-sub" *ngIf="!depositsLoadError">Organisation wallet top-ups appear here after suppliers submit proof of payment.</div>
+      <div class="pb-empty lx-card">
+        <div class="pb-empty__icon">
+          <mat-icon>{{ depositsLoadError ? 'error_outline' : 'inbox' }}</mat-icon>
+        </div>
+        <h3>{{ depositsLoadError ? 'Could not load pending deposits' : 'No pending deposits' }}</h3>
+        <p *ngIf="depositsLoadError">{{ depositsLoadError }}</p>
+        <p *ngIf="!depositsLoadError">Organisation wallet top-ups appear here after suppliers submit proof of payment.</p>
       </div>
     </ng-template>
   </div>
 
   <div class="lx-card pb-table-card" *ngIf="activeTab === 'history'">
     <div class="lx-table-header">
-      <p class="lx-table-meta">Confirmed wallet top-ups credited to organisation balances</p>
+      <div>
+        <h3 class="pb-table-card__title">Approved deposits</h3>
+        <p class="lx-table-meta">Confirmed wallet top-ups credited to organisation balances</p>
+      </div>
     </div>
     <ng-container *ngIf="filteredApprovedDeposits.length; else emptyHistory">
       <div class="lx-table-wrap">
@@ -609,24 +827,26 @@
             <th mat-header-cell *matHeaderCellDef>Approved by</th>
             <td mat-cell *matCellDef="let row">{{ row.modifiedBy || '—' }}</td>
           </ng-container>
-          <tr mat-header-row *matHeaderRowDef="historyColumns"></tr>
+          <tr mat-header-row *matHeaderRowDef="historyColumns; sticky: true"></tr>
           <tr mat-row *matRowDef="let row; columns: historyColumns"></tr>
         </table>
       </div>
     </ng-container>
     <ng-template #emptyHistory>
-      <div class="lx-empty">
-        <mat-icon class="lx-empty-icon">{{ historyLoadError ? 'error_outline' : 'history' }}</mat-icon>
-        <div class="lx-empty-title">{{ historyLoadError ? 'Could not load approved deposits' : 'No approved deposits yet' }}</div>
-        <div class="lx-empty-sub" *ngIf="historyLoadError">{{ historyLoadError }}</div>
-        <div class="lx-empty-sub" *ngIf="!historyLoadError">Confirmed wallet top-ups appear here after you approve pending deposits.</div>
+      <div class="pb-empty lx-card">
+        <div class="pb-empty__icon">
+          <mat-icon>{{ historyLoadError ? 'error_outline' : 'history' }}</mat-icon>
+        </div>
+        <h3>{{ historyLoadError ? 'Could not load approved deposits' : 'No approved deposits yet' }}</h3>
+        <p *ngIf="historyLoadError">{{ historyLoadError }}</p>
+        <p *ngIf="!historyLoadError">Confirmed wallet top-ups appear here after you approve pending deposits.</p>
       </div>
     </ng-template>
   </div>
 </div>
 
 <ng-template #loadingTpl>
-  <div class="pb-shell">
+  <div class="pb-page pb-page--embedded">
     <lx-inline-busy message="Loading platform billing…" />
   </div>
 </ng-template>

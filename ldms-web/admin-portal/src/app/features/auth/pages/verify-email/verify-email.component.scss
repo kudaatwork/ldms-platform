@@ -4,7 +4,7 @@
   align-items: center;
   gap: 14px;
   padding: 28px 0 12px;
-  color: var(--gray-500, #64748b);
+  color: var(--gray-500, var(--gray-500));
 
   &__text {
     margin: 0;
@@ -67,7 +67,7 @@
     margin: 14px 0 0;
     font-size: 13px;
     line-height: 1.45;
-    color: var(--gray-500, #64748b);
+    color: var(--gray-500, var(--gray-500));
     font-weight: 500;
   }
 
@@ -90,12 +90,12 @@
     &--secondary {
       background: transparent;
       color: var(--primary, #2563eb);
-      border: 1px solid color-mix(in srgb, var(--primary, #2563eb) 35%, var(--gray-200, #e2e8f0));
+      border: 1px solid color-mix(in srgb, var(--primary, #2563eb) 35%, var(--gray-200));
       box-shadow: none;
 
       &:hover {
-        background: color-mix(in srgb, var(--primary, #2563eb) 8%, var(--surface, #fff));
-        border-color: color-mix(in srgb, var(--primary, #2563eb) 55%, var(--gray-200, #e2e8f0));
+        background: color-mix(in srgb, var(--primary, #2563eb) 8%, var(--surface, var(--surface)));
+        border-color: color-mix(in srgb, var(--primary, #2563eb) 55%, var(--gray-200));
       }
     }
   }
@@ -104,13 +104,13 @@
     .ve-result__banner {
       background: linear-gradient(
         135deg,
-        color-mix(in srgb, var(--success, #22c55e) 14%, var(--surface, #fff)) 0%,
-        color-mix(in srgb, var(--success, #22c55e) 6%, var(--surface, #fff)) 100%
+        color-mix(in srgb, var(--success, #22c55e) 14%, var(--surface, var(--surface))) 0%,
+        color-mix(in srgb, var(--success, #22c55e) 6%, var(--surface, var(--surface))) 100%
       );
-      border-color: color-mix(in srgb, var(--success, #22c55e) 38%, var(--gray-200, #e2e8f0));
+      border-color: color-mix(in srgb, var(--success, #22c55e) 38%, var(--gray-200));
       box-shadow:
         0 1px 0 color-mix(in srgb, var(--success, #22c55e) 12%, transparent),
-        inset 0 1px 0 color-mix(in srgb, #fff 40%, transparent);
+        inset 0 1px 0 color-mix(in srgb, var(--surface) 40%, transparent);
     }
 
     .ve-result__icon {
@@ -126,7 +126,7 @@
     }
 
     .ve-result__message {
-      color: color-mix(in srgb, #166534 88%, var(--gray-700, #334155));
+      color: color-mix(in srgb, #166534 88%, var(--gray-700, var(--gray-700)));
     }
   }
 
@@ -134,10 +134,10 @@
     .ve-result__banner {
       background: linear-gradient(
         135deg,
-        color-mix(in srgb, var(--primary, #2563eb) 14%, var(--surface, #fff)) 0%,
-        color-mix(in srgb, var(--primary, #2563eb) 6%, var(--surface, #fff)) 100%
+        color-mix(in srgb, var(--primary, #2563eb) 14%, var(--surface, var(--surface))) 0%,
+        color-mix(in srgb, var(--primary, #2563eb) 6%, var(--surface, var(--surface))) 100%
       );
-      border-color: color-mix(in srgb, var(--primary, #2563eb) 35%, var(--gray-200, #e2e8f0));
+      border-color: color-mix(in srgb, var(--primary, #2563eb) 35%, var(--gray-200));
     }
 
     .ve-result__icon--info {
@@ -151,7 +151,7 @@
     }
 
     .ve-result__message {
-      color: color-mix(in srgb, #1e3a8a 88%, var(--gray-700, #334155));
+      color: color-mix(in srgb, #1e3a8a 88%, var(--gray-700, var(--gray-700)));
     }
   }
 
@@ -159,10 +159,10 @@
     .ve-result__banner {
       background: linear-gradient(
         135deg,
-        color-mix(in srgb, #ef4444 12%, var(--surface, #fff)) 0%,
-        color-mix(in srgb, #ef4444 5%, var(--surface, #fff)) 100%
+        color-mix(in srgb, #ef4444 12%, var(--surface, var(--surface))) 0%,
+        color-mix(in srgb, #ef4444 5%, var(--surface, var(--surface))) 100%
       );
-      border-color: color-mix(in srgb, #ef4444 32%, var(--gray-200, #e2e8f0));
+      border-color: color-mix(in srgb, #ef4444 32%, var(--gray-200));
     }
 
     .ve-result__icon--error {
@@ -176,7 +176,7 @@
     }
 
     .ve-result__message {
-      color: color-mix(in srgb, #991b1b 85%, var(--gray-700, #334155));
+      color: color-mix(in srgb, #991b1b 85%, var(--gray-700, var(--gray-700)));
     }
   }
 }
@@ -222,11 +222,11 @@ html.theme-dark {
     }
 
     .ve-result__message {
-      color: color-mix(in srgb, #bbf7d0 75%, var(--gray-200, #e2e8f0));
+      color: color-mix(in srgb, #bbf7d0 75%, var(--gray-200));
     }
 
     .ve-result__hint {
-      color: var(--gray-400, #94a3b8);
+      color: var(--gray-400, var(--gray-400));
     }
   }
 
@@ -245,7 +245,7 @@ html.theme-dark {
     }
 
     .ve-result__message {
-      color: color-mix(in srgb, #fecaca 80%, var(--gray-200, #e2e8f0));
+      color: color-mix(in srgb, #fecaca 80%, var(--gray-200));
     }
   }
 

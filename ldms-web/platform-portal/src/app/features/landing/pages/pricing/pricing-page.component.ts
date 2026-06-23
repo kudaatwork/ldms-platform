@@ -53,10 +53,10 @@ export class PricingPageComponent implements OnInit, AfterViewInit {
 
   readonly prepaidDemoEvents = [
     { icon: 'account_balance_wallet', label: 'Wallet top-up', cents: 50000, credit: true },
-    { icon: 'local_shipping', label: 'Completed delivery (Heavy)', cents: 45, credit: false },
-    { icon: 'share_location', label: 'Live tracking day', cents: 20, credit: false },
-    { icon: 'sms', label: 'SMS alert sent', cents: 7, credit: false },
-    { icon: 'rule', label: 'Workflow approval (Light)', cents: 5, credit: false },
+    { icon: 'local_shipping', label: 'Trip booking (milestone)', cents: 1000, credit: false },
+    { icon: 'share_location', label: 'Premium GPS day', cents: 150, credit: false },
+    { icon: 'sms', label: 'SMS alert sent', cents: 10, credit: false },
+    { icon: 'upload_file', label: 'Document upload (included)', cents: 0, credit: false },
   ] as const;
 
   readonly pricingChargesByModule = computed(() => {
@@ -81,16 +81,13 @@ export class PricingPageComponent implements OnInit, AfterViewInit {
   packageCreditSummary(pkg: SubscriptionPackageRow): string | null {
     const parts: string[] = [];
     if (pkg.includedHeavyCredits) {
-      parts.push(`${pkg.includedHeavyCredits} Heavy`);
+      parts.push(`${pkg.includedHeavyCredits} milestone`);
     }
     if (pkg.includedStandardCredits) {
-      parts.push(`${pkg.includedStandardCredits} Standard`);
-    }
-    if (pkg.includedLightCredits) {
-      parts.push(`${pkg.includedLightCredits} Light`);
+      parts.push(`${pkg.includedStandardCredits} SMS`);
     }
     if (pkg.includedTrackingDayCredits) {
-      parts.push(`${pkg.includedTrackingDayCredits} tracking-day`);
+      parts.push(`${pkg.includedTrackingDayCredits} premium GPS days`);
     }
     return parts.length ? parts.join(' · ') : null;
   }

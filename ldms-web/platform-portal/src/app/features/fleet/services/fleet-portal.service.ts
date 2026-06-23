@@ -53,6 +53,13 @@ import {
 } from '../models/fleet.model';
 import { presentTransporterContract } from '../utils/transporter-contract.util';
 
+export interface OrganizationFleetDashboardCounts {
+  ownedFleetCount: number;
+  contractedFleetCount: number;
+  organizationDriverCount: number;
+  contractedDriverCount: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class FleetPortalService {
   /** Transporter contracts remain in organization-management. */
@@ -64,6 +71,17 @@ export class FleetPortalService {
 
   constructor(private readonly http: HttpClient) {}
 
+  /** GET /dashboard-summary — owned fleet and contracted driver counts for the signed-in organisation. */
+  getOrganizationDashboardSummary(): Observable<OrganizationFleetDashboardCounts> {
+    return this.http.get<unknown>(`${this.fleetBase}/dashboard-summary`).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.extractOrganizationFleetDashboard(resp);
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
   /** GET file-upload by id (frontend surface — includes base64 content for previews). */
   getFileUploadById(id: number): Observable<Record<string, unknown> | null> {
     if (!Number.isFinite(id) || id < 1) {
@@ -74,8 +92,6 @@ export class FleetPortalService {
       catchError(() => of(null)),
     );
   }
-
-  // ── Own fleet (fleet-management assets) ───────────────────────────────────
 
   /** GET /assets — trucks/trailers for the signed-in organisation. */
   listOwnFleet(): Observable<FleetVehicleRow[]> {
@@ -1072,6 +1088,22 @@ export class FleetPortalService {
       }
     }
     return envelope;
+  }
+
+  private extractOrganizationFleetDashboard(response: unknown): OrganizationFleetDashboardCounts {
+    const envelope = this.unwrapEnvelope(response);
+    const dto = this.toObj(envelope['organizationFleetDashboardDto']) ?? envelope;
+    const num = (key: string) => {
+      const raw = dto[key];
+      const n = Number(raw ?? 0);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    };
+    return {
+      ownedFleetCount: num('ownedFleetCount'),
+      contractedFleetCount: num('contractedFleetCount'),
+      organizationDriverCount: num('organizationDriverCount'),
+      contractedDriverCount: num('contractedDriverCount'),
+    };
   }
 
   private extractFleetRows(response: unknown): Record<string, unknown>[] {

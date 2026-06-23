@@ -137,7 +137,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--surface);
   animation: shBlink 0.8s ease-in-out infinite;
 }
 

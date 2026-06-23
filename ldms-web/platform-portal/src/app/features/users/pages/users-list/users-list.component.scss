@@ -304,7 +304,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 26px 24px 16px;
-  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .lx-close-button {
@@ -388,7 +388,7 @@
   box-sizing: border-box;
   min-height: 42px;
   padding: 8px 12px;
-  border: 1px solid var(--gray-200, #e2e8f0);
+  border: 1px solid var(--gray-200);
   border-radius: 12px;
   background: var(--surface, #fff);
   font-family: var(--font, inherit);
@@ -438,7 +438,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  border-top: 1px solid var(--gray-200, #e2e8f0);
+  border-top: 1px solid var(--gray-200);
 }
 
 .lx-modal__error {

@@ -13,6 +13,7 @@ export type ShellNotificationAction =
   | 'fuel-alert'
   | 'wallet-low'
   | 'wallet-frozen'
+  | 'sms-exhausted'
   | 'usage-report';
 
 export interface ShellNotification {
@@ -137,6 +138,21 @@ export class ShellNotificationService {
           action: 'wallet-frozen',
           urgent: true,
           tone: 'critical',
+        });
+      }
+    } else if (summary?.smsQuotaExhausted && summary.billingMode === 'PREMIUM_SUBSCRIPTION') {
+      const id = 'sms-quota-exhausted';
+      if (!dismissed.has(id)) {
+        const included = summary.smsIncludedMonthly ?? 0;
+        const used = summary.smsUsedThisPeriod ?? included;
+        items.push({
+          id,
+          title: 'SMS quota exhausted',
+          body: `You have used all ${included} included SMS this period (${used} sent). Top up your wallet in Settings → Billing to resume SMS notifications.`,
+          time: 'Billing',
+          action: 'sms-exhausted',
+          urgent: true,
+          tone: 'warn',
         });
       }
     } else if (summary?.lowBalance) {
