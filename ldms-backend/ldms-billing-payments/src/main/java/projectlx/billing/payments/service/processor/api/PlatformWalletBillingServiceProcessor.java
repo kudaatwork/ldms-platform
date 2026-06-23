@@ -38,6 +38,8 @@ public interface PlatformWalletBillingServiceProcessor {
 
     PlatformWalletResponse listActionCharges(Locale locale);
 
+    PlatformWalletResponse getActionCharge(Long chargeId, Locale locale);
+
     PlatformWalletResponse listActiveActionCharges(Locale locale);
 
     PlatformWalletResponse saveActionCharge(SavePlatformActionChargeRequest request, Locale locale, String username);
@@ -61,4 +63,6 @@ public interface PlatformWalletBillingServiceProcessor {
     WalletReceiptPdfDto getTransactionReceiptPdf(Long transactionId, Locale locale, String username);
 
     PlatformWalletResponse rejectWalletDeposit(Long depositId, Locale locale, String username);
+
+    PlatformWalletResponse isFuelConsumptionAvailableForOrganization(Long organizationId, Locale locale);
 }

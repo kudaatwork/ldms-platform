@@ -4,10 +4,10 @@
 }
 
 .lx-email-preview {
-  border: 1px solid var(--gray-200, #e2e8f0);
+  border: 1px solid var(--gray-200);
   border-radius: 12px;
   overflow: hidden;
-  background: var(--surface, #ffffff);
+  background: var(--surface, var(--surface));
 }
 
 .lx-email-preview__subject {
@@ -15,8 +15,8 @@
   align-items: baseline;
   gap: 8px;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--gray-200, #e2e8f0);
-  background: var(--gray-50, #f8fafc);
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--gray-50, var(--surface-2));
 }
 
 .lx-email-preview__subject-label {
@@ -25,7 +25,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--gray-500, #64748b);
+  color: var(--gray-500, var(--gray-500));
 }
 
 .lx-email-preview__subject-value {
@@ -43,11 +43,11 @@
   gap: 6px;
   width: 100%;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+  border-bottom: 1px solid var(--gray-200);
   font-size: 12px;
   font-weight: 700;
-  color: var(--gray-700, #334155);
-  background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  color: var(--gray-700, var(--gray-700));
+  background: linear-gradient(180deg, var(--surface-2) 0%, #eef2ff 100%);
 
   .mat-icon {
     font-size: 15px;
@@ -60,7 +60,7 @@
 .lx-email-preview__hint {
   font-size: 11px;
   font-weight: 500;
-  color: var(--gray-500, #64748b);
+  color: var(--gray-500, var(--gray-500));
   margin-left: auto;
 }
 
@@ -68,7 +68,7 @@
   width: 100%;
   min-height: 420px;
   border: 0;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 html.theme-dark .lx-email-preview {
@@ -92,7 +92,7 @@ html.theme-dark .lx-email-preview__title {
 }
 
 html.theme-dark .lx-email-preview__hint {
-  color: var(--gray-400, #94a3b8);
+  color: var(--gray-400, var(--gray-400));
 }
 
 @media (max-width: 720px) {

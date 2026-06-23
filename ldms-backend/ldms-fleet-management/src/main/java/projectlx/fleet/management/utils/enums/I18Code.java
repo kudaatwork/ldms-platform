@@ -63,6 +63,7 @@ public enum I18Code {
     MESSAGE_TRACKING_DEVICE_SUSPEND_SUCCESS("fleet.tracking.device.suspend.success"),
     MESSAGE_TRACKING_DEVICE_LIST_SUCCESS("fleet.tracking.device.list.success"),
     MESSAGE_TRACKING_DEVICE_INSTALL_INVALID("fleet.tracking.device.install.invalid"),
+    MESSAGE_FUEL_CONSUMPTION_DISABLED("fleet.tracking.fuel.consumption.disabled"),
     MESSAGE_TRACKING_DEVICE_UPDATE_INVALID("fleet.tracking.device.update.invalid"),
     MESSAGE_TRACKING_DEVICE_TYPE_INVALID("fleet.tracking.device.type.invalid"),
     MESSAGE_TRACKING_INTEGRATION_PROVIDER_INVALID("fleet.tracking.integration.provider.invalid"),
@@ -90,7 +91,8 @@ public enum I18Code {
     MESSAGE_DRIVER_SIGNUP_DOCUMENT_UPLOAD_SUCCESS("fleet.driver.signup.document.upload.success"),
     MESSAGE_DRIVER_SIGNUP_DOCUMENT_UPLOAD_FAILED("fleet.driver.signup.document.upload.failed"),
     MESSAGE_DRIVER_SIGNUP_DOCUMENTS_REQUIRED("fleet.driver.signup.documents.required"),
-    MESSAGE_DRIVER_SIGNUP_DOCUMENTS_INVALID("fleet.driver.signup.documents.invalid");
+    MESSAGE_DRIVER_SIGNUP_DOCUMENTS_INVALID("fleet.driver.signup.documents.invalid"),
+    MESSAGE_FLEET_DASHBOARD_SUCCESS("fleet.dashboard.success");
 
     private final String code;
 }

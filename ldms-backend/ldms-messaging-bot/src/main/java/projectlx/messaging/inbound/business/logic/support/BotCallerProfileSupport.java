@@ -29,11 +29,13 @@ public class BotCallerProfileSupport {
         String organizationName = "—";
         try {
             UserResponse userResponse = userManagementServiceClient.findSessionProfileByUsername(username);
-            UserDto user = userResponse != null ? userResponse.getUserDto() : null;
-            if (user != null) {
-                displayName = buildDisplayName(user, username);
-                phone = user.getPhoneNumber() != null ? user.getPhoneNumber() : "";
-                organizationId = user.getOrganizationId();
+            if (userResponse != null && userResponse.isSuccess()) {
+                UserDto user = userResponse.getUserDto();
+                if (user != null) {
+                    displayName = buildDisplayName(user, username);
+                    phone = user.getPhoneNumber() != null ? user.getPhoneNumber() : "";
+                    organizationId = user.getOrganizationId();
+                }
             }
         } catch (Exception ex) {
             log.debug("Could not load session profile for {}: {}", username, ex.getMessage());
@@ -41,9 +43,11 @@ public class BotCallerProfileSupport {
         if (organizationId != null) {
             try {
                 OrganizationResponse orgResponse = organizationManagementServiceClient.findById(organizationId);
-                OrganizationDto org = orgResponse != null ? orgResponse.getOrganizationDto() : null;
-                if (org != null && org.getName() != null) {
-                    organizationName = org.getName();
+                if (orgResponse != null && orgResponse.isSuccess()) {
+                    OrganizationDto org = orgResponse.getOrganizationDto();
+                    if (org != null && org.getName() != null) {
+                        organizationName = org.getName();
+                    }
                 }
             } catch (Exception ex) {
                 log.debug("Could not load organization {}: {}", organizationId, ex.getMessage());

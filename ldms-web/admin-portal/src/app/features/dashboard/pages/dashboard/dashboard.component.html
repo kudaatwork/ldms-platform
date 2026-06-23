@@ -30,6 +30,20 @@
       icon="inbox"
       theme="mint"
     ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      *ngIf="!opsLoading && opsSnapshot"
+      [value]="opsSnapshot.totalFleetAssets.toString()"
+      label="Platform fleet"
+      icon="garage"
+      theme="teal"
+    ></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat
+      *ngIf="!opsLoading && opsSnapshot"
+      [value]="opsSnapshot.totalDrivers.toString()"
+      label="Platform drivers"
+      icon="groups"
+      theme="amber"
+    ></lx-workspace-hero-stat>
   </lx-workspace-hero>
   <mat-menu #dashboardExportMenu="matMenu" panelClass="lx-export-menu">
     <button mat-menu-item class="lx-export-option--pdf" (click)="exportSnapshot('pdf')">
@@ -51,7 +65,12 @@
       <label class="ops-field">
         <span class="ops-label">Search shipment / PO</span>
         <div class="lx-input-shell">
-          <input [(ngModel)]="searchTerm" placeholder="e.g. ZW-1234-A, PO-22410" />
+          <input
+            [ngModel]="searchTerm"
+            (ngModelChange)="onSearchTermChange($event)"
+            placeholder="e.g. ZW-1234-A, PO-22410"
+            autocomplete="off"
+          />
         </div>
       </label>
       <label class="ops-field">
@@ -69,12 +88,14 @@
       <div class="ops-field ops-buttons">
         <span class="ops-label">Actions</span>
         <div class="ops-button-row">
-          <button type="button" class="lx-btn lx-btn-primary">Apply</button>
-          <button type="button" class="lx-btn lx-btn-ghost">Reset</button>
-          <button type="button" class="lx-btn lx-btn-primary is-disabled">Syncing</button>
+          <button type="button" class="lx-btn lx-btn-primary" (click)="applyFilters()" [disabled]="searchLoading">
+            {{ searchLoading ? 'Searching…' : 'Apply' }}
+          </button>
+          <button type="button" class="lx-btn lx-btn-ghost" (click)="resetFilters()" [disabled]="searchLoading">Reset</button>
         </div>
       </div>
     </div>
+    <p class="ops-search-hint" *ngIf="searchError" role="alert">{{ searchError }}</p>
   </div>
 
   <div class="lx-card ops-accounts mb-lg" *ngIf="!opsLoading">
@@ -137,7 +158,7 @@
   </div>
 
   <div class="lx-grid lx-grid-4 mb-lg kpi-grid">
-    <ng-container *ngIf="!loading; else kpiSkeleton">
+    <ng-container *ngIf="!loading && !opsLoading; else kpiSkeleton">
       <div
         class="lx-card kpi-card"
         *ngFor="let k of kpiCards; let ki = index"
@@ -172,7 +193,7 @@
       </div>
     </ng-container>
     <ng-template #kpiSkeleton>
-      <div class="lx-card" *ngFor="let i of [1,2,3,4]" style="height:140px">
+      <div class="lx-card" *ngFor="let i of [1,2,3,4,5,6]" style="height:140px">
         <div class="skeleton" style="width:60%;height:12px;margin-bottom:12px"></div>
         <div class="skeleton" style="width:40%;height:28px;margin-bottom:8px"></div>
         <div class="skeleton" style="width:80px;height:20px;margin-bottom:16px"></div>
@@ -348,11 +369,39 @@
         </div>
         <div class="card-hd__copy">
           <div class="card-hdtitle">Active Shipments</div>
-          <div class="card-hdsub">{{ filteredShipments.length }} loads across all organisations</div>
+          <div class="card-hdsub">
+            <ng-container *ngIf="showingSearchResults; else defaultShipmentCount">
+              {{ filteredShipments.length }} shipment match(es)
+              <span *ngIf="purchaseOrderHits.length"> · {{ purchaseOrderHits.length }} PO match(es)</span>
+            </ng-container>
+            <ng-template #defaultShipmentCount>
+              {{ filteredShipments.length }} loads across all organisations
+            </ng-template>
+          </div>
         </div>
         <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" routerLink="/analytics">View analytics</button>
       </div>
       <ng-container *ngIf="!loading; else listSkeleton">
+        <div class="ship-row ship-row--po" *ngFor="let po of purchaseOrderHits; trackBy: trackByPoId">
+          <div class="ship-icon ship-icon--submitted">
+            <mat-icon>receipt_long</mat-icon>
+          </div>
+          <div class="ship-info">
+            <div class="ship-reg">{{ po.orderNumber }}</div>
+            <div class="ship-org" *ngIf="po.organizationId">Organisation #{{ po.organizationId }}</div>
+            <div class="ship-route">
+              <span>Purchase order</span>
+              <mat-icon class="ship-route__arrow">arrow_forward</mat-icon>
+              <span>{{ po.contact }}</span>
+            </div>
+          </div>
+          <div class="ship-right">
+            <span class="lx-status lx-status-submitted">{{ po.statusLabel }}</span>
+          </div>
+        </div>
+        <p class="ship-empty" *ngIf="showingSearchResults && !searchLoading && !filteredShipments.length && !purchaseOrderHits.length">
+          No shipments or purchase orders matched “{{ searchTerm.trim() }}”.
+        </p>
         <div class="ship-row" *ngFor="let s of filteredShipments; trackBy: trackByReg">
           <div class="ship-icon" [ngClass]="'ship-icon--' + s.status">
             <mat-icon>local_shipping</mat-icon>
@@ -360,6 +409,7 @@
           <div class="ship-info">
             <div class="ship-reg">{{ s.shipmentRef || s.reg }}</div>
             <div class="ship-org" *ngIf="s.organizationName">{{ s.organizationName }}</div>
+            <div class="ship-product" *ngIf="s.productName">{{ s.productName }}</div>
             <div class="ship-route">
               <span>{{ s.from }}</span>
               <mat-icon class="ship-route__arrow">arrow_forward</mat-icon>

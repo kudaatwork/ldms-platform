@@ -73,7 +73,7 @@
   padding: 10px 14px;
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(248, 250, 252, 0.9);
+  background: color-mix(in srgb, var(--raised) 90%, transparent);
 
   input {
     border: none;
@@ -84,7 +84,7 @@
   }
 
   mat-icon {
-    color: #94a3b8;
+    color: var(--gray-400);
     font-size: 18px;
   }
 }
@@ -101,7 +101,7 @@
   border: 1px solid rgba(148, 163, 184, 0.28);
   border-radius: 18px;
   padding: 18px;
-  background: linear-gradient(145deg, #fff, rgba(248, 250, 252, 0.95));
+  background: linear-gradient(145deg, var(--raised), color-mix(in srgb, var(--raised) 95%, transparent));
   cursor: pointer;
   overflow: hidden;
   transition:
@@ -139,7 +139,7 @@
     letter-spacing: 0.06em;
     padding: 4px 10px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--co-accent) 12%, #fff);
+    background: color-mix(in srgb, var(--co-accent) 12%, var(--surface));
     color: var(--co-accent);
   }
 
@@ -162,7 +162,7 @@
     display: block;
     font-size: 1.25rem;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--gray-900);
   }
 
   &__lbl {
@@ -170,7 +170,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: #94a3b8;
+    color: var(--gray-400);
   }
 
   &__foot {
@@ -178,7 +178,7 @@
     justify-content: space-between;
     align-items: center;
     font-size: 12px;
-    color: #64748b;
+    color: var(--gray-500);
     padding-top: 12px;
     border-top: 1px solid rgba(148, 163, 184, 0.2);
   }
@@ -209,7 +209,7 @@
 .analytics-co-skeleton {
   height: 180px;
   border-radius: 18px;
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background: linear-gradient(90deg, #f1f5f9 25%, var(--gray-200) 50%, #f1f5f9 75%);
   background-size: 200% 100%;
   animation: co-shimmer 1.2s infinite;
 }

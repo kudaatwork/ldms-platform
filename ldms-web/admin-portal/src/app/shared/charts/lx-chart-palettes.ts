@@ -32,6 +32,10 @@ export const LX_CHART_COLORS = {
   revenue: {
     earned: 'rgba(59, 130, 246, 0.88)',
     earnedHover: '#2563EB',
+    deposits: 'rgba(245, 158, 11, 0.88)',
+    depositsHover: '#D97706',
+    usage: 'rgba(34, 197, 94, 0.88)',
+    usageHover: '#16A34A',
     costs: 'rgba(244, 63, 94, 0.78)',
     costsHover: '#E11D48',
   },

@@ -1,0 +1,83 @@
+/* Sticky headers / chrome — admin portal (shell + in-page sections + tables) */
+
+:root {
+  --lx-sticky-bg: color-mix(in srgb, var(--surface) 88%, var(--page-bg));
+  --lx-sticky-blur: 10px;
+}
+
+html.theme-dark {
+  --lx-sticky-bg: color-mix(in srgb, var(--surface) 86%, var(--page-bg));
+}
+
+/* Shell: topbar + session warning + breadcrumbs */
+.main-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  flex-shrink: 0;
+  background: var(--lx-sticky-bg);
+  backdrop-filter: blur(var(--lx-sticky-blur));
+  -webkit-backdrop-filter: blur(var(--lx-sticky-blur));
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--gray-300) 35%, transparent);
+}
+
+/* Section nav strips (Help, Users hub, etc.) */
+.help-shell__nav,
+.lx-quick-nav,
+.links-strip,
+.settings-nav {
+  position: sticky;
+  top: 0;
+  z-index: 14;
+  background: var(--lx-sticky-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding-bottom: 2px;
+  margin-bottom: 10px;
+}
+
+/* List / filter toolbars inside scrolling pages */
+.lx-data-toolbar,
+.lx-table-header,
+.lx-controls-head,
+.page-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 12;
+  background: var(--lx-sticky-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding-block: 6px;
+  margin-bottom: 4px;
+}
+
+.lx-filter-panel {
+  position: sticky;
+  top: 0;
+  z-index: 11;
+}
+
+/* Mat tab bars on long detail pages */
+.mat-mdc-tab-group .mat-mdc-tab-header {
+  position: sticky;
+  top: 0;
+  z-index: 13;
+  background: var(--lx-sticky-bg);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Mat table header rows (requires sticky: true on mat-header-row) */
+.mat-mdc-table .mat-mdc-header-row {
+  z-index: 2;
+}
+
+.mat-mdc-table .mat-mdc-header-cell {
+  background: var(--surface);
+  color: var(--gray-500);
+}
+
+html.theme-dark .mat-mdc-table .mat-mdc-header-cell {
+  background: var(--raised);
+  color: var(--gray-700);
+}

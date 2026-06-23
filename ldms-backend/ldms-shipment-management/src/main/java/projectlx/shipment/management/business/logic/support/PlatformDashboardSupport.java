@@ -1,5 +1,6 @@
 package projectlx.shipment.management.business.logic.support;
 
+import org.springframework.data.domain.PageRequest;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.shipment.management.model.Shipment;
 import projectlx.shipment.management.repository.ShipmentRepository;
@@ -19,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -89,6 +91,32 @@ public class PlatformDashboardSupport {
         dto.setWeeklyVolume(buildWeeklyVolume(weekStart));
         dto.setLiveShipments(buildLiveShipments());
         return dto;
+    }
+
+    /**
+     * Cross-tenant shipment lookup for LX Admin — mirrors frontend
+     * {@code ShipmentServiceImpl#findByMultipleFilters} search fields, plus optional PO linkage.
+     */
+    public List<ShipmentDto> searchShipments(String term, List<Long> purchaseOrderIds, int limit) {
+        int capped = Math.max(1, Math.min(limit, 50));
+        if ((term == null || term.isBlank()) && (purchaseOrderIds == null || purchaseOrderIds.isEmpty())) {
+            return List.of();
+        }
+
+        LinkedHashSet<Shipment> merged = new LinkedHashSet<>();
+        if (term != null && !term.isBlank()) {
+            merged.addAll(shipmentRepository.searchByTerm(term.trim(), PageRequest.of(0, capped)));
+        }
+        if (purchaseOrderIds != null && !purchaseOrderIds.isEmpty()) {
+            merged.addAll(shipmentRepository.findByPurchaseOrderIdInAndEntityStatusNotOrderByModifiedAtDesc(
+                    purchaseOrderIds.stream().filter(id -> id != null && id > 0).distinct().toList(),
+                    EntityStatus.DELETED));
+        }
+
+        return merged.stream()
+                .limit(capped)
+                .map(ShipmentMapper::toDto)
+                .toList();
     }
 
     private void mergeOrganizationStats(Map<Long, PlatformOrganizationShipmentStatsDto> merged,

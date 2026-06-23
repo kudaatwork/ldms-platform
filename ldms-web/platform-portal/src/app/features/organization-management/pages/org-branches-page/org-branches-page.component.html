@@ -224,7 +224,12 @@
       <div class="lx-data-toolbar__search">
         <div class="lx-input-shell lx-search-field">
           <mat-icon class="lx-input-shell__icon">search</mat-icon>
-          <input [(ngModel)]="searchQuery" (ngModelChange)="applyFilters()" placeholder="Search…" autocomplete="off" />
+          <input
+            [(ngModel)]="searchQuery"
+            (ngModelChange)="applyFilters()"
+            [placeholder]="isSubLevel ? 'Search sub-branches, depots…' : 'Search branches…'"
+            autocomplete="off"
+          />
         </div>
         <button
           type="button"

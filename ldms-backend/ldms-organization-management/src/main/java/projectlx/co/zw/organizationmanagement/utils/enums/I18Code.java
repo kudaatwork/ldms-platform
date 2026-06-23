@@ -71,6 +71,7 @@ public enum I18Code {
     // Operational mode
     ORG_OP_CANNOT_DOWNGRADE_TO_CROSS_DOCK("org.op.cannotDowngradeToCrossDock"),
     ORG_OP_CANNOT_CHANGE_DATA_SOURCE_TO_EXTERNAL("org.op.cannotChangeDataSourceToExternal"),
+    ORG_OP_FUEL_CONSUMPTION_NOT_AVAILABLE("org.op.fuelConsumptionNotAvailable"),
     ORG_OP_SETTINGS_UPDATED("org.op.settingsUpdated"),
     ORG_OP_VALIDATION_FAILED("org.op.validationFailed"),
 

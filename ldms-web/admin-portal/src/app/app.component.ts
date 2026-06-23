@@ -145,6 +145,7 @@ export class AppComponent implements OnInit, OnDestroy {
       icon: 'people_outline',
       route: '/users',
       children: [
+        { label: 'All users', icon: 'person_search', route: '/users' },
         { label: 'User groups', icon: 'groups', route: '/users/groups' },
         { label: 'User roles', icon: 'verified_user', route: '/users/roles' },
       ],

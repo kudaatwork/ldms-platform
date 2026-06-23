@@ -221,28 +221,77 @@
         <section class="dr-actions-panel">
           <h3 class="dr-actions-panel__title">Workflow</h3>
           <div class="dr-actions-panel__buttons">
-            <button type="button" class="dr-action dr-action--contact" [disabled]="actionBusy" (click)="updateStatus('CONTACTED')">
+            <button
+              type="button"
+              class="dr-action dr-action--contact"
+              [disabled]="!canMarkContacted()"
+              (click)="updateStatus('CONTACTED')"
+            >
               <span class="material-icons" aria-hidden="true">call</span>
               Mark contacted
             </button>
-            <button type="button" class="dr-action dr-action--schedule" [disabled]="actionBusy" (click)="updateStatus('SCHEDULED')">
+            <button
+              type="button"
+              class="dr-action dr-action--schedule"
+              [disabled]="!canSchedule() && !canReschedule()"
+              (click)="beginSchedule()"
+            >
               <span class="material-icons" aria-hidden="true">event</span>
-              Schedule demo
+              {{ selected.status === 'SCHEDULED' ? 'Reschedule' : 'Schedule demo' }}
             </button>
-            <button type="button" class="dr-action dr-action--complete" [disabled]="actionBusy" (click)="updateStatus('COMPLETED')">
+            <button
+              type="button"
+              class="dr-action dr-action--complete"
+              [disabled]="!canComplete()"
+              (click)="updateStatus('COMPLETED')"
+            >
               <span class="material-icons" aria-hidden="true">check_circle</span>
               Complete
             </button>
-            <button type="button" class="dr-action dr-action--cancel" [disabled]="actionBusy" (click)="updateStatus('CANCELLED')">
+            <button
+              type="button"
+              class="dr-action dr-action--cancel"
+              [disabled]="!canCancel()"
+              (click)="updateStatus('CANCELLED')"
+            >
               <span class="material-icons" aria-hidden="true">cancel</span>
               Cancel
             </button>
           </div>
 
-          <label class="dr-field">
-            <span class="dr-field__label">Scheduled date &amp; time</span>
-            <input type="datetime-local" [(ngModel)]="scheduledAtDraft" [disabled]="actionBusy" />
-          </label>
+          <div class="dr-schedule-block" *ngIf="showScheduleFields()">
+            <label class="dr-field">
+              <span class="dr-field__label">Scheduled date &amp; time</span>
+              <input
+                type="datetime-local"
+                [(ngModel)]="scheduledAtDraft"
+                [disabled]="actionBusy || (!scheduleMode() && selected.status === 'SCHEDULED')"
+                [min]="scheduleMode() ? defaultScheduleMin() : null"
+              />
+            </label>
+
+            <div class="dr-schedule-block__actions" *ngIf="scheduleMode()">
+              <button
+                type="button"
+                class="dr-schedule-confirm"
+                [disabled]="actionBusy || !scheduledAtDraft"
+                (click)="confirmSchedule()"
+              >
+                <span class="material-icons" aria-hidden="true">event_available</span>
+                Confirm schedule
+              </button>
+              <button type="button" class="dr-schedule-cancel" [disabled]="actionBusy" (click)="cancelSchedule()">
+                Dismiss
+              </button>
+            </div>
+
+            <p class="dr-schedule-block__hint" *ngIf="scheduleMode()">
+              Pick when the demo will take place, then confirm to save.
+            </p>
+            <p class="dr-schedule-block__hint" *ngIf="!scheduleMode() && selected.status === 'SCHEDULED'">
+              Scheduled for {{ formatWhen(selected.scheduledAt) }}. Click Reschedule to change the date.
+            </p>
+          </div>
 
           <label class="dr-field">
             <span class="dr-field__label">Internal notes</span>
@@ -250,7 +299,7 @@
               rows="4"
               [(ngModel)]="adminNotesDraft"
               placeholder="Call outcomes, demo link, follow-up actions…"
-              [disabled]="actionBusy"
+              [disabled]="actionBusy || isTerminalStatus(selected.status)"
             ></textarea>
           </label>
 

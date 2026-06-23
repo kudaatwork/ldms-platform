@@ -788,6 +788,34 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
         return response;
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PurchaseOrderResponse searchForPlatformDashboard(String term, int limit, Locale locale) {
+        if (term == null || term.isBlank()) {
+            String message = messageService.getMessage(I18Code.MESSAGE_PURCHASE_ORDER_RETRIEVED_SUCCESSFULLY.getCode(),
+                    new String[]{}, locale);
+            PurchaseOrderResponse response = buildResponse(200, true, message, null, null, null);
+            response.setPurchaseOrderDtoList(List.of());
+            return response;
+        }
+
+        int capped = Math.max(1, Math.min(limit, 50));
+        Specification<PurchaseOrder> spec = PurchaseOrderSpecification.deleted()
+                .and(PurchaseOrderSpecification.any(term.trim()));
+        Page<PurchaseOrder> result = purchaseOrderRepository.findAll(spec, PageRequest.of(0, capped));
+
+        modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        List<PurchaseOrderDto> rows = result.getContent().stream()
+                .map(po -> modelMapper.map(po, PurchaseOrderDto.class))
+                .toList();
+
+        String message = messageService.getMessage(I18Code.MESSAGE_PURCHASE_ORDER_RETRIEVED_SUCCESSFULLY.getCode(),
+                new String[]{}, locale);
+        PurchaseOrderResponse response = buildResponse(200, true, message, null, null, null);
+        response.setPurchaseOrderDtoList(rows);
+        return response;
+    }
+
     private String safe(String value) {
         return value == null ? "" : value.replace(",", " ");
     }

@@ -16,8 +16,11 @@ public class PlatformRevenueReportDto {
     private long subscriptionCents;
     private long actionChargesCents;
     private long walletDepositsCents;
+    private long walletDepositCount;
     private List<String> monthLabels = new ArrayList<>();
     private List<Long> earnedSeries = new ArrayList<>();
+    private List<Long> walletDepositsSeries = new ArrayList<>();
+    private List<Long> usageSeries = new ArrayList<>();
     private List<Long> costSeries = new ArrayList<>();
     private List<PlatformRevenueOrgRowDto> byOrganization = new ArrayList<>();
     private List<PlatformRevenueCategoryRowDto> costBreakdown = new ArrayList<>();

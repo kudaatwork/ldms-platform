@@ -57,6 +57,8 @@ export class SettingsOrganizationComponent implements OnInit, OnDestroy {
       organizationDescription: [''],
       businessHours: [''],
       regionsServed: [''],
+      registrationNumber: [''],
+      taxNumber: [''],
       numberOfEmployees: [null as number | null],
       annualRevenueEstimate: [null as number | null],
     });
@@ -185,6 +187,8 @@ export class SettingsOrganizationComponent implements OnInit, OnDestroy {
       organizationDescription: org.organizationDescription ?? '',
       businessHours: org.businessHours ?? '',
       regionsServed: org.regionsServed ?? '',
+      registrationNumber: org.registrationNumber ?? '',
+      taxNumber: org.taxNumber ?? '',
       numberOfEmployees: org.numberOfEmployees ?? null,
       annualRevenueEstimate: org.annualRevenueEstimate ?? null,
     });
@@ -246,6 +250,8 @@ export class SettingsOrganizationComponent implements OnInit, OnDestroy {
       organizationDescription: String(raw.organizationDescription ?? '').trim() || undefined,
       businessHours: String(raw.businessHours ?? '').trim() || undefined,
       regionsServed: String(raw.regionsServed ?? '').trim() || undefined,
+      registrationNumber: String(raw.registrationNumber ?? '').trim() || undefined,
+      taxNumber: String(raw.taxNumber ?? '').trim() || undefined,
       numberOfEmployees:
         raw.numberOfEmployees != null && Number(raw.numberOfEmployees) > 0
           ? Number(raw.numberOfEmployees)

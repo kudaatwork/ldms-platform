@@ -7,6 +7,7 @@ import projectlx.billing.payments.model.SubscriptionPackage;
 import projectlx.billing.payments.model.UsageChargeRecord;
 import projectlx.billing.payments.model.WalletDeposit;
 import projectlx.billing.payments.model.WalletTransaction;
+import projectlx.billing.payments.repository.UsageChargeRecordRepository;
 import projectlx.billing.payments.utils.enums.OrganizationBillingMode;
 import projectlx.billing.payments.utils.dtos.OrganizationBillingSettingDto;
 import projectlx.billing.payments.utils.dtos.PlatformActionChargeDto;
@@ -50,6 +51,7 @@ public final class PlatformWalletMapper {
         dto.setIncludedStandardCredits(entity.getIncludedStandardCredits());
         dto.setIncludedLightCredits(entity.getIncludedLightCredits());
         dto.setIncludedTrackingDayCredits(entity.getIncludedTrackingDayCredits());
+        dto.setFuelConsumptionAvailable(entity.getFuelConsumptionAvailable());
         dto.setSortOrder(entity.getSortOrder());
         dto.setFeatured(entity.getFeatured());
         dto.setActive(entity.getActive());
@@ -78,6 +80,15 @@ public final class PlatformWalletMapper {
             PlatformWallet wallet,
             OrganizationBillingSetting setting,
             String packageName) {
+        return toSummaryDto(wallet, setting, packageName, null, null);
+    }
+
+    public static PlatformWalletSummaryDto toSummaryDto(
+            PlatformWallet wallet,
+            OrganizationBillingSetting setting,
+            String packageName,
+            SubscriptionPackage subscriptionPackage,
+            UsageChargeRecordRepository usageChargeRecordRepository) {
         PlatformWalletSummaryDto dto = new PlatformWalletSummaryDto();
         dto.setOrganizationId(wallet.getOrganizationId());
         dto.setOrganizationName(wallet.getOrganizationName());
@@ -95,6 +106,21 @@ public final class PlatformWalletMapper {
             boolean frozen = prepaid && balance <= 0;
             dto.setWalletFrozen(frozen);
             dto.setPlatformAccessAllowed(!frozen);
+
+            if (setting.getBillingMode() == OrganizationBillingMode.PREMIUM_SUBSCRIPTION
+                    && subscriptionPackage != null
+                    && usageChargeRecordRepository != null) {
+                int smsQuota = SubscriptionMessagingQuotaSupport.resolveSmsQuota(subscriptionPackage);
+                long smsUsed = SubscriptionMessagingQuotaSupport.countMessagingUsed(
+                        wallet.getOrganizationId(), setting, usageChargeRecordRepository);
+                int smsRemaining = SubscriptionMessagingQuotaSupport.smsRemaining(smsQuota, smsUsed);
+                dto.setSmsIncludedMonthly(smsQuota);
+                dto.setSmsUsedThisPeriod(smsUsed);
+                dto.setSmsRemainingThisPeriod(smsRemaining);
+                boolean exhausted = SubscriptionMessagingQuotaSupport.isQuotaExhausted(smsQuota, smsUsed)
+                        && balance < 10L;
+                dto.setSmsQuotaExhausted(exhausted);
+            }
         }
         return dto;
     }

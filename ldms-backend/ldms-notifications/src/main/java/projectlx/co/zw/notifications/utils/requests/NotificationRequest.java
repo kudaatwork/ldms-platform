@@ -97,6 +97,8 @@ public class NotificationRequest implements Serializable {
     public static class Metadata implements Serializable {
         private String sourceService;
         private String traceId;
+        /** Organisation that pays for billable channels (SMS / WhatsApp). */
+        private Long billingOrganizationId;
 
         public Metadata() {}
 
@@ -105,11 +107,22 @@ public class NotificationRequest implements Serializable {
             this.traceId = traceId;
         }
 
+        public Metadata(String sourceService, String traceId, Long billingOrganizationId) {
+            this.sourceService = sourceService;
+            this.traceId = traceId;
+            this.billingOrganizationId = billingOrganizationId;
+        }
+
         public String getSourceService() { return sourceService; }
         public void setSourceService(String sourceService) { this.sourceService = sourceService; }
 
         public String getTraceId() { return traceId; }
         public void setTraceId(String traceId) { this.traceId = traceId; }
+
+        public Long getBillingOrganizationId() { return billingOrganizationId; }
+        public void setBillingOrganizationId(Long billingOrganizationId) {
+            this.billingOrganizationId = billingOrganizationId;
+        }
 
         @Override
         public String toString() {

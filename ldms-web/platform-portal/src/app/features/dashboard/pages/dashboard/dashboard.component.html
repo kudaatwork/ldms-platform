@@ -17,11 +17,11 @@
         </span>
         <span
           class="dash-welcome-chip dash-welcome-chip--live"
-          [class.dash-welcome-chip--sync]="supplierOperationsLoading"
-          *ngIf="isSupplier"
+          [class.dash-welcome-chip--sync]="showHeroStatsLoading"
+          *ngIf="showsLiveOrganizationDashboard"
         >
           <span class="dash-welcome-chip__dot" aria-hidden="true"></span>
-          {{ supplierOperationsLoading ? 'Syncing live data…' : 'Live data' }}
+          {{ showHeroStatsLoading ? 'Syncing live data…' : 'Live data' }}
         </span>
       </div>
 
@@ -170,8 +170,8 @@
         <h2 id="dash-analytics-title" class="dash-analytics__title">Analytics pulse</h2>
         <p class="dash-analytics__sub">{{ analyticsSubtitle }}</p>
       </div>
-      <span class="dash-analytics__badge" [class.dash-analytics__badge--live]="isSupplier && !supplierOperationsLoading">
-        <span class="material-icons" aria-hidden="true">{{ isSupplier ? 'monitoring' : 'auto_graph' }}</span>
+      <span class="dash-analytics__badge" [class.dash-analytics__badge--live]="showsLiveOrganizationDashboard && !showHeroStatsLoading">
+        <span class="material-icons" aria-hidden="true">{{ showsLiveOrganizationDashboard ? 'monitoring' : 'auto_graph' }}</span>
         {{ analyticsBadgeLabel }}
       </span>
     </header>
@@ -181,6 +181,8 @@
         class="lx-card dash-chart-card"
         *ngFor="let chart of charts; trackBy: trackChart; let chartIndex = index"
         [ngClass]="'dash-chart-card--' + chart.theme"
+        [class.dash-chart-card--large]="chart.size === 'large'"
+        [attr.data-chart-id]="chart.id"
         [style.animation-delay.ms]="chartIndex * 90"
       >
         <div class="dash-chart-card__ambient" aria-hidden="true"></div>
@@ -241,6 +243,55 @@
             </div>
             <div class="dash-chart-area__labels" *ngIf="chart.labels?.length">
               <span *ngFor="let lbl of chart.labels">{{ lbl }}</span>
+            </div>
+          </div>
+
+          <!-- Pipeline chart -->
+          <div *ngSwitchCase="'pipeline'" class="dash-chart-pipeline">
+            <div class="dash-chart-pipeline__flow" *ngIf="pipelineHasData(chart); else pipelineEmptyFlow">
+              <ng-container *ngFor="let stage of pipelineStages(chart); let last = last">
+                <div
+                  class="dash-chart-pipeline__node"
+                  [style.--stage-color]="stage.color"
+                  [style.flex-grow]="pipelineFlowWidth(stage.value, chart.values)"
+                  [attr.title]="stage.label + ': ' + stage.value"
+                >
+                  <span class="dash-chart-pipeline__node-ring" aria-hidden="true"></span>
+                  <span class="dash-chart-pipeline__node-val">{{ stage.value }}</span>
+                  <span class="dash-chart-pipeline__node-lbl">{{ stage.label }}</span>
+                </div>
+                <span class="dash-chart-pipeline__connector" *ngIf="!last" aria-hidden="true"></span>
+              </ng-container>
+            </div>
+            <ng-template #pipelineEmptyFlow>
+              <div class="dash-chart-pipeline__empty-flow">
+                <span class="material-icons" aria-hidden="true">timeline</span>
+                <p>No pipeline activity yet — stages will appear as requisitions, transfers, or orders are created.</p>
+              </div>
+            </ng-template>
+
+            <div class="dash-chart-pipeline__rows">
+              <div
+                class="dash-chart-pipeline__row"
+                *ngFor="let stage of pipelineStages(chart); let rowIndex = index"
+                [style.animation-delay.ms]="rowIndex * 70"
+              >
+                <div class="dash-chart-pipeline__row-label">
+                  <span class="dash-chart-pipeline__dot" [style.background]="stage.color"></span>
+                  <span>{{ stage.label }}</span>
+                </div>
+                <div class="dash-chart-pipeline__track">
+                  <div
+                    class="dash-chart-pipeline__fill"
+                    [style.width.%]="pipelineTrackWidth(stage.pct)"
+                    [style.background]="'linear-gradient(90deg, ' + stage.color + ' 0%, color-mix(in srgb, ' + stage.color + ' 72%, var(--raised)) 100%)'"
+                  ></div>
+                </div>
+                <div class="dash-chart-pipeline__counts">
+                  <span class="dash-chart-pipeline__count">{{ stage.value }}</span>
+                  <span class="dash-chart-pipeline__pct">{{ stage.pct }}%</span>
+                </div>
+              </div>
             </div>
           </div>
 

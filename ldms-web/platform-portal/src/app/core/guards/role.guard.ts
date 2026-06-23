@@ -4,7 +4,7 @@ import { AuthStateService } from '../services/auth-state.service';
 import { StorageService } from '../services/storage.service';
 import { canAccessPath, normalizeRoleCodes } from '../utils/nav-access.util';
 
-const BOOTSTRAP_PATHS = ['/dashboard', '/account', '/help', '/users/groups', '/users/roles'] as const;
+const BOOTSTRAP_PATHS = ['/dashboard', '/account', '/help', '/users', '/users/groups', '/users/roles'] as const;
 
 /** Organisation workspace modules — allow navigation when signed in; APIs enforce fine-grained roles. */
 const ORG_WORKSPACE_PREFIXES = ['/users', '/activity', '/documents', '/settings', '/fleet'] as const;

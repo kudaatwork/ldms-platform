@@ -4,7 +4,7 @@
     eyebrow="Billing intelligence"
     eyebrowIcon="payments"
     title="Platform revenue"
-    lead="Earnings from organisations using LDMS — wallet top-ups, prepaid usage charges, subscription consumption, and per-organisation drill-down."
+    lead="Platform earnings from prepaid usage charges and subscription consumption — plus wallet top-up volume and per-organisation drill-down."
     hubIcon="account_balance_wallet"
     [orbitIcons]="['trending_up', 'receipt_long', 'savings']"
   >
@@ -14,9 +14,9 @@
     </a>
     <lx-workspace-hero-stat
       *ngIf="report"
-      [value]="formatMoney(report.totalEarnedCents)"
+      [value]="formatMoney(report.actionChargesCents)"
       label="Total earned"
-      icon="payments"
+      icon="bolt"
       theme="amber"
     ></lx-workspace-hero-stat>
     <lx-workspace-hero-stat
@@ -28,9 +28,9 @@
     ></lx-workspace-hero-stat>
     <lx-workspace-hero-stat
       *ngIf="report"
-      [value]="formatMoney(report.actionChargesCents)"
-      label="Action charges"
-      icon="bolt"
+      [value]="formatMoney(report.walletDepositsCents)"
+      label="Total deposits"
+      icon="account_balance"
       theme="mint"
     ></lx-workspace-hero-stat>
   </lx-workspace-hero>
@@ -56,7 +56,10 @@
       <mat-icon>account_balance</mat-icon>
       <div>
         <span class="revenue-kpi__val">{{ formatMoney(report.walletDepositsCents) }}</span>
-        <span class="revenue-kpi__lbl">Wallet deposits (confirmed)</span>
+        <span class="revenue-kpi__lbl">
+          Wallet deposits (confirmed)
+          <ng-container *ngIf="report.walletDepositCount"> · {{ report.walletDepositCount | number }} deposit{{ report.walletDepositCount === 1 ? '' : 's' }}</ng-container>
+        </span>
       </div>
     </article>
   </div>
@@ -66,8 +69,8 @@
       <header class="lx-chart-card__hd">
         <mat-icon class="lx-chart-card__icon" aria-hidden="true">bar_chart</mat-icon>
         <div class="lx-chart-card__copy">
-          <h3>Earned vs subscription usage</h3>
-          <p>Monthly deposits and prepaid charges vs subscription consumption</p>
+          <h3>Deposits &amp; charges</h3>
+          <p>Monthly wallet top-ups (left axis) and platform charges earned (right axis)</p>
         </div>
       </header>
       <div class="lx-chart-card__body lx-chart-card__body--tall">

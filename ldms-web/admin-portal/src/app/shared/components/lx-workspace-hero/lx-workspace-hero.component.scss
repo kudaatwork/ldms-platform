@@ -12,7 +12,7 @@
   padding: clamp(24px, 3.5vw, 40px);
   border-radius: calc(var(--card-radius, 16px) + 8px);
   overflow: hidden;
-  color: #f8fafc;
+  color: var(--lx-ws-fg, #f8fafc);
   isolation: isolate;
   box-shadow:
     0 1px 0 rgba(255, 255, 255, 0.06) inset,
@@ -180,6 +180,7 @@
   font-weight: 800;
   letter-spacing: -0.04em;
   line-height: 1.05;
+  color: var(--lx-ws-fg, #f8fafc);
 }
 
 /* ── Lead paragraph ────────────────────────────────────── */
@@ -203,7 +204,7 @@
    * These helpers ensure correct colours when they appear over the dark hero.
    */
   ::ng-deep .lx-btn {
-    color: #f8fafc !important;
+    color: var(--surface-2) !important;
     border-color: rgba(255, 255, 255, 0.28) !important;
   }
 
@@ -441,7 +442,7 @@
   --lx-ws-radar-sweep: rgba(203, 213, 225, 0.4);
   --lx-ws-glow-primary: rgba(100, 116, 139, 0.28);
   --lx-ws-glow-secondary: rgba(71, 85, 105, 0.22);
-  --lx-ws-eyebrow-text: #e2e8f0;
+  --lx-ws-eyebrow-text: var(--gray-200);
   --lx-ws-eyebrow-bg: rgba(71, 85, 105, 0.45);
   --lx-ws-eyebrow-border: rgba(203, 213, 225, 0.35);
   --lx-ws-hub-bg: linear-gradient(145deg, rgba(100, 116, 139, 0.38), rgba(30, 41, 59, 0.6));

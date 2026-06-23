@@ -25,6 +25,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import projectlx.fleet.management.service.processor.api.FleetAssetServiceProcessor;
+import projectlx.fleet.management.service.processor.api.FleetDashboardServiceProcessor;
+import projectlx.fleet.management.utils.responses.OrganizationFleetDashboardResponse;
 import projectlx.fleet.management.service.processor.api.FleetComplianceServiceProcessor;
 import projectlx.fleet.management.service.processor.api.FleetDriverServiceProcessor;
 import projectlx.fleet.management.service.processor.api.FleetTrackingDeviceServiceProcessor;
@@ -62,10 +64,29 @@ public class FleetFrontendResource {
     private static final Logger logger = LoggerFactory.getLogger(FleetFrontendResource.class);
 
     private final FleetAssetServiceProcessor fleetAssetServiceProcessor;
+    private final FleetDashboardServiceProcessor fleetDashboardServiceProcessor;
     private final FleetDriverServiceProcessor fleetDriverServiceProcessor;
     private final FleetComplianceServiceProcessor fleetComplianceServiceProcessor;
     private final FleetTrackingDeviceServiceProcessor fleetTrackingDeviceServiceProcessor;
     private final FleetTrackingIntegrationCredentialServiceProcessor fleetTrackingIntegrationCredentialServiceProcessor;
+
+    @Auditable(action = "LIST_FLEET_ASSETS")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/dashboard-summary")
+    @Operation(summary = "Organisation fleet dashboard", description = "Owned fleet and contracted driver counts for the signed-in organisation.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Fleet dashboard retrieved"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "500", description = "Internal Server Error")
+    })
+    public ResponseEntity<OrganizationFleetDashboardResponse> dashboardSummary(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        OrganizationFleetDashboardResponse response =
+                fleetDashboardServiceProcessor.getOrganizationDashboard(locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
 
     @Auditable(action = "LIST_FLEET_ASSETS")
     @PreAuthorize("isAuthenticated()")

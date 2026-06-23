@@ -8,6 +8,8 @@ import org.springframework.util.StringUtils;
 import projectlx.co.zw.notifications.business.logic.api.NotificationLogRecorder;
 import projectlx.co.zw.notifications.business.logic.api.NotificationProviderService;
 import projectlx.co.zw.notifications.business.logic.api.TemplateProcessorService;
+import projectlx.co.zw.notifications.business.logic.support.NotificationBillingSupport;
+import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
 import projectlx.co.zw.notifications.model.Channel;
 import projectlx.co.zw.notifications.model.NotificationLog;
 import projectlx.co.zw.notifications.model.NotificationTemplate;
@@ -25,18 +27,21 @@ public class SmsNotificationProviderServiceImpl implements NotificationProviderS
     private final OutboundMessagingReadiness outboundMessagingReadiness;
     private final OutboundTwilioInitializer outboundTwilioInitializer;
     private final LdmsConfigRepoSecretsResolver secretsResolver;
+    private final NotificationBillingSupport notificationBillingSupport;
 
     public SmsNotificationProviderServiceImpl(
             TemplateProcessorService templateProcessor,
             NotificationLogRecorder notificationLogRecorder,
             OutboundMessagingReadiness outboundMessagingReadiness,
             OutboundTwilioInitializer outboundTwilioInitializer,
-            LdmsConfigRepoSecretsResolver secretsResolver) {
+            LdmsConfigRepoSecretsResolver secretsResolver,
+            NotificationBillingSupport notificationBillingSupport) {
         this.templateProcessor = templateProcessor;
         this.notificationLogRecorder = notificationLogRecorder;
         this.outboundMessagingReadiness = outboundMessagingReadiness;
         this.outboundTwilioInitializer = outboundTwilioInitializer;
         this.secretsResolver = secretsResolver;
+        this.notificationBillingSupport = notificationBillingSupport;
     }
 
     @Override
@@ -67,6 +72,11 @@ public class SmsNotificationProviderServiceImpl implements NotificationProviderS
                     request.getEventId(), request.getTemplateKey());
             notificationLogRecorder.markSkipped(request, Channel.SMS,
                     "twilio_not_configured (set twilio.account-sid and twilio.auth-token)");
+            return;
+        }
+
+        if (!notificationBillingSupport.authorizeMessagingCharge(request, PlatformWalletActionCodes.NOTIFICATION_SMS)) {
+            notificationLogRecorder.markSkipped(request, Channel.SMS, "sms_quota_exhausted_wallet_topup_required");
             return;
         }
 

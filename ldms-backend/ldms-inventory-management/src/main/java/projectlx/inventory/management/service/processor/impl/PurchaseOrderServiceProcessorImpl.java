@@ -121,4 +121,9 @@ public class PurchaseOrderServiceProcessorImpl implements PurchaseOrderServicePr
         logger.info("Outgoing response after importing from CSV: Success: {}", result != null);
         return result;
     }
+
+    @Override
+    public PurchaseOrderResponse searchForPlatformDashboard(String term, int limit, Locale locale) {
+        return purchaseOrderService.searchForPlatformDashboard(term, limit, locale);
+    }
 }

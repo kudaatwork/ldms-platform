@@ -54,6 +54,11 @@ export interface PlatformOpsSummary {
   onTimePct: number;
   platformRevenueCents: number;
   pendingInvoicesCents: number;
+  totalFleetAssets: number;
+  ownedFleetAssets: number;
+  contractedFleetAssets: number;
+  totalDrivers: number;
+  organizationsWithFleet: number;
   shipmentsByStatus: Array<{ status: string; label: string; count: number; color: string }>;
   weeklyVolume: number[];
   companies: PlatformCompanyOps[];
@@ -266,6 +271,11 @@ export function buildPlatformOpsSummary(orgNames: Array<{ id: number; name: stri
     onTimePct: 94.6,
     platformRevenueCents,
     pendingInvoicesCents: 84_200_00,
+    totalFleetAssets: 186,
+    ownedFleetAssets: 124,
+    contractedFleetAssets: 62,
+    totalDrivers: 214,
+    organizationsWithFleet: companies.length,
     shipmentsByStatus: [
       { status: 'IN_TRANSIT', label: 'In transit', count: 28, color: '#22c55e' },
       { status: 'APPROVED', label: 'Approved', count: 14, color: '#818cf8' },

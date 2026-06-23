@@ -135,7 +135,7 @@
                         class="sb-subitem"
                         [routerLink]="navChild(c).route"
                         routerLinkActive="active"
-                        [routerLinkActiveOptions]="{ exact: false }"
+                        [routerLinkActiveOptions]="navChild(c).route === '/users' ? { exact: true } : { exact: false }"
                       >
                         <div class="sb-subicon">
                           <mat-icon>{{ navChild(c).icon }}</mat-icon>
@@ -202,8 +202,9 @@
   <!-- ═══ MAIN ══════════════════════════════════════════════════════════ -->
   <div class="main" [class.main--auth]="!showShell">
 
-    <!-- Topbar -->
+    <!-- Topbar + breadcrumbs — pinned while page content scrolls -->
     @if (showShell) {
+    <div class="main-chrome">
     <header class="topbar">
       <div class="tb-left">
         <button
@@ -341,6 +342,7 @@
         </li>
       </ol>
     </nav>
+    </div>
     }
 
     <!-- Content — single outlet so login → dashboard navigation is not lost when chrome toggles -->

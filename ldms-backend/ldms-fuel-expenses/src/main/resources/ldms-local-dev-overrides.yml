@@ -1,7 +1,16 @@
 # Loaded after Config Server — wins over ldms-config-repo for local LDMS port map.
+spring:
+  application:
+    name: fuel-expenses-service
+
 server:
   port: 8017
 
 management:
   server:
     port: 9017
+
+eureka:
+  instance:
+    metadata-map:
+      management.port: 9017

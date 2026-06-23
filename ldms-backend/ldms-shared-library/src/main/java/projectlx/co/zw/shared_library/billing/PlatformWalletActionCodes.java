@@ -14,9 +14,12 @@ public final class PlatformWalletActionCodes {
     public static final String TRIP_ASSIGN_DRIVER = "TRIP_ASSIGN_DRIVER";
     public static final String LIVE_MAP_SESSION = "LIVE_MAP_SESSION";
     public static final String GPS_PING = "GPS_PING";
+    public static final String FUEL_TELEMETRY_DAY = "FUEL_TELEMETRY_DAY";
 
     public static final String SHIPMENT_UPDATE = "SHIPMENT_UPDATE";
     public static final String SHIPMENT_DISPATCH = "SHIPMENT_DISPATCH";
+    public static final String CLEARING_AGENT_MATCH = "CLEARING_AGENT_MATCH";
+    public static final String ROAD_FUND_TRANSFER = "ROAD_FUND_TRANSFER";
 
     public static final String ORDER_CREATE = "ORDER_CREATE";
     public static final String INVENTORY_GRV_CREATE = "INVENTORY_GRV_CREATE";
@@ -30,9 +33,15 @@ public final class PlatformWalletActionCodes {
     public static final String NOTIFICATION_SMS = "NOTIFICATION_SMS";
     public static final String WHATSAPP_COMMAND = "WHATSAPP_COMMAND";
 
+    public static final String BOT_SESSION_START = "BOT_SESSION_START";
     public static final String HELP_BOT_MESSAGE = "HELP_BOT_MESSAGE";
     public static final String HELP_SUPPORT_TICKET_OPEN = "HELP_SUPPORT_TICKET_OPEN";
     public static final String HELP_LIVE_CHAT_MESSAGE = "HELP_LIVE_CHAT_MESSAGE";
 
     public static final String INVOICE_GENERATE = "INVOICE_GENERATE";
+
+    public static final String REPORT_EXPORT = "REPORT_EXPORT";
+    public static final String BOT_ANALYTICS_EXPORT = "BOT_ANALYTICS_EXPORT";
+    public static final String SHIPMENT_ANALYTICS_EXPORT = "SHIPMENT_ANALYTICS_EXPORT";
+    public static final String REVENUE_REPORT_EXPORT = "REVENUE_REPORT_EXPORT";
 }

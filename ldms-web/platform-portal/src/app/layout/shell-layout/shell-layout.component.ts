@@ -368,10 +368,9 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     const tree = this.router.createUrlTree(commands, { queryParams: child.queryParams });
     const targetPath = this.router.serializeUrl(tree).split('?')[0].split('#')[0];
     const currentPath = this.router.url.split('?')[0].split('#')[0];
-    if (targetPath === currentPath) {
-      return;
-    }
-    void this.router.navigateByUrl(tree);
+    void this.router.navigateByUrl(tree, {
+      onSameUrlNavigation: targetPath === currentPath ? 'reload' : 'ignore',
+    });
   }
 
   isNavChildActive(child: { route: string; queryParams?: Record<string, string> }): boolean {
@@ -468,6 +467,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     if (
       notification.action === 'wallet-low'
       || notification.action === 'wallet-frozen'
+      || notification.action === 'sms-exhausted'
     ) {
       void this.router.navigate(['/settings'], { queryParams: { section: 'billing' } });
       this.cdr.markForCheck();

@@ -368,7 +368,8 @@ public class BusinessConfig {
             WalletBillingEventPublisher walletBillingEventPublisher,
             WalletDepositReceiptNotifier walletDepositReceiptNotifier,
             PlatformWalletUsageNotifier platformWalletUsageNotifier,
-            OrganizationNameResolver organizationNameResolver) {
+            OrganizationNameResolver organizationNameResolver,
+            projectlx.billing.payments.clients.OrganizationManagementServiceClient organizationManagementServiceClient) {
         return new PlatformWalletBillingServiceImpl(
                 platformWalletRepository,
                 organizationBillingSettingRepository,
@@ -391,7 +392,8 @@ public class BusinessConfig {
                 walletBillingEventPublisher,
                 walletDepositReceiptNotifier,
                 platformWalletUsageNotifier,
-                organizationNameResolver);
+                organizationNameResolver,
+                organizationManagementServiceClient);
     }
 
     @Bean

@@ -274,8 +274,15 @@ ldms:
       - id: fuel-expenses
         display-name: Fuel & Expenses
         eureka-name: fuel-expenses-service
+        alternate-eureka-names:
+          - ldms-fuel-expenses
         host: ${FUEL_EXPENSES_HOST:127.0.0.1}
         port: ${FUEL_EXPENSES_PORT:8017}
+        management-port: ${FUEL_EXPENSES_MANAGEMENT_PORT:9017}
+        alternate-ports:
+          - 8092
+        alternate-management-ports:
+          - 9092
       - id: file-upload
         display-name: File Upload
         eureka-name: file-upload-service

@@ -125,11 +125,11 @@
         <mat-icon>sensors_off</mat-icon>
         No telematics signal
       </span>
-      <span class="lt-chip lt-chip--fuel lt-chip--fuel-warn" *ngIf="fuelTone === 'warn'">
+      <span class="lt-chip lt-chip--fuel lt-chip--fuel-warn" *ngIf="fuelConsumptionEnabled && fuelTone === 'warn'">
         <mat-icon>local_gas_station</mat-icon>
         Fuel low
       </span>
-      <span class="lt-chip lt-chip--fuel lt-chip--fuel-critical" *ngIf="fuelTone === 'critical'">
+      <span class="lt-chip lt-chip--fuel lt-chip--fuel-critical" *ngIf="fuelConsumptionEnabled && fuelTone === 'critical'">
         <mat-icon>local_gas_station</mat-icon>
         Critical fuel
       </span>
@@ -190,7 +190,7 @@
         </div>
         <div
           class="lt-stat-pill lt-stat-pill--fuel"
-          *ngIf="fuelSnapshot"
+          *ngIf="fuelConsumptionEnabled && fuelSnapshot"
           [class.lt-stat-pill--fuel-warn]="fuelTone === 'warn'"
           [class.lt-stat-pill--fuel-critical]="fuelTone === 'critical'"
         >
@@ -369,7 +369,7 @@
           </div>
         </div>
       </div>
-      <div class="lt-fuel lx-card" [class]="'lt-fuel--' + fuelTone">
+      <div class="lt-fuel lx-card" *ngIf="fuelConsumptionEnabled" [class]="'lt-fuel--' + fuelTone">
         <div class="lt-fuel__banner" *ngIf="fuelAlertMessage" role="status">
           <mat-icon>{{ fuelTone === 'critical' ? 'warning' : 'info' }}</mat-icon>
           <span>{{ fuelAlertMessage }}</span>

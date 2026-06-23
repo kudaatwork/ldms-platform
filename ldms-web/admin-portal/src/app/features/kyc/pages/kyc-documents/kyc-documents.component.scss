@@ -923,7 +923,7 @@ html.theme-dark .vault-card__preview--image {
   width: 100%;
   height: 460px;
   border: 0;
-  background: #fff;
+  background: var(--surface);
 }
 
 .vault-stage__empty {

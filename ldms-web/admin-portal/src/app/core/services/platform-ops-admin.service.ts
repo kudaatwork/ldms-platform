@@ -13,6 +13,7 @@ import {
 } from './platform-ops-mock.data';
 import {
   PlatformDashboardAdminService,
+  PlatformFleetDashboardApi,
   PlatformShipmentDashboardApi,
   PlatformTripDashboardApi,
 } from './platform-dashboard-admin.service';
@@ -45,9 +46,10 @@ export class PlatformOpsAdminService {
       shipments: this.platformDashboard.fetchShipmentDashboard().pipe(catchError(() => of(null))),
       trips: this.platformDashboard.fetchTripDashboard().pipe(catchError(() => of(null))),
       billing: this.platformDashboard.fetchBillingDashboard().pipe(catchError(() => of({ pendingInvoicesCents: 0 }))),
+      fleet: this.platformDashboard.fetchFleetDashboard().pipe(catchError(() => of(null))),
     }).pipe(
-      map(({ orgs, shipments, trips, billing }) =>
-        this.mergeDashboardSnapshot(orgs.rows, shipments, trips, billing.pendingInvoicesCents),
+      map(({ orgs, shipments, trips, billing, fleet }) =>
+        this.mergeDashboardSnapshot(orgs.rows, shipments, trips, billing.pendingInvoicesCents, fleet),
       ),
       tap((summary) => this.summarySubject.next(summary)),
     );
@@ -96,6 +98,7 @@ export class PlatformOpsAdminService {
     shipmentDash: PlatformShipmentDashboardApi | null,
     tripDash: PlatformTripDashboardApi | null,
     pendingInvoicesCents: number,
+    fleetDash: PlatformFleetDashboardApi | null,
   ): PlatformOpsSummary {
     const shipments = shipmentDash ?? {
       activeShipments: 0,
@@ -111,6 +114,13 @@ export class PlatformOpsAdminService {
       deliveredTrips: 0,
       onTimePct: 0,
       organizationStats: [],
+    };
+    const fleet = fleetDash ?? {
+      totalFleetAssets: 0,
+      ownedFleetAssets: 0,
+      contractedFleetAssets: 0,
+      totalDrivers: 0,
+      organizationsWithFleet: 0,
     };
 
     const orgById = new Map(
@@ -215,6 +225,11 @@ export class PlatformOpsAdminService {
       onTimePct: trips.onTimePct ?? 0,
       platformRevenueCents: 0,
       pendingInvoicesCents,
+      totalFleetAssets: fleet.totalFleetAssets ?? 0,
+      ownedFleetAssets: fleet.ownedFleetAssets ?? 0,
+      contractedFleetAssets: fleet.contractedFleetAssets ?? 0,
+      totalDrivers: fleet.totalDrivers ?? 0,
+      organizationsWithFleet: fleet.organizationsWithFleet ?? 0,
       shipmentsByStatus: shipments.shipmentsByStatus ?? [],
       weeklyVolume: normalizeWeeklyVolume(shipments.weeklyVolume),
       companies,

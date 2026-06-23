@@ -30,4 +30,6 @@ public class UpdateMyOrganizationRequest {
     private Integer numberOfEmployees;
     private BigDecimal annualRevenueEstimate;
     private String regionsServed;
+    private String registrationNumber;
+    private String taxNumber;
 }

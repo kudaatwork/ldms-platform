@@ -1,13 +1,18 @@
 package projectlx.billing.payments.utils.enums;
 
 /**
- * Customer-facing fused pricing tier for prepaid wallet actions.
- * Light / Standard / Heavy simplify the rate card; Tracking and Messaging are specialised tiers.
+ * Customer-facing pricing tier for prepaid wallet actions.
+ * INCLUDED = subscription-bundled admin; MILESTONE = transactional fees;
+ * TRACKING / TELEMETRY / MESSAGING = premium add-ons.
+ * LIGHT / STANDARD / HEAVY retained for legacy rows only.
  */
 public enum PlatformBillingTier {
+    INCLUDED,
+    MILESTONE,
     LIGHT,
     STANDARD,
     HEAVY,
     TRACKING,
+    TELEMETRY,
     MESSAGING
 }

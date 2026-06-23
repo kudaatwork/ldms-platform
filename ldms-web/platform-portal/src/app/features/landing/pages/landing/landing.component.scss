@@ -15,7 +15,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  color: #e2e8f0;
+  color: var(--gray-200);
   font-family: var(--font);
   background: linear-gradient(180deg, #070f24 0%, #0a1224 42%, #0d1830 100%);
 }
@@ -1448,7 +1448,7 @@
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
-  color: #e2e8f0;
+  color: var(--gray-200);
 
   .material-icons {
     font-size: 20px;

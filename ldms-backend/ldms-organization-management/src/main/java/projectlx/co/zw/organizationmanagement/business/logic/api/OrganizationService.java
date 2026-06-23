@@ -253,4 +253,6 @@ public interface OrganizationService {
             Long organizationId,
             projectlx.co.zw.organizationmanagement.utils.requests.UpdateOrganizationOperationalSettingsRequest request,
             Locale locale, String username);
+
+    OrganizationResponse disableFuelConsumptionForOrganization(Long organizationId, Locale locale, String username);
 }

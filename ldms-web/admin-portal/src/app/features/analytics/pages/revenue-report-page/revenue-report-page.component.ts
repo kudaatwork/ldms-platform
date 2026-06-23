@@ -10,7 +10,7 @@ import {
 import { PlatformWalletAdminService } from '../../../settings/services/platform-wallet-admin.service';
 import { ensureChartJsRegistered } from '@shared/charts/chartjs-register';
 import { LX_CHART_COLORS } from '@shared/charts/lx-chart-palettes';
-import { lxDoughnutChartOptions, lxGroupedBarChartOptions } from '@shared/charts/lx-chart-theme';
+import { lxMoneyDoughnutChartOptions, lxRevenueDualAxisBarChartOptions } from '@shared/charts/lx-chart-theme';
 
 @Component({
   selector: 'app-revenue-report-page',
@@ -31,8 +31,8 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
   revenueChartData: ChartData<'bar'> = { labels: [], datasets: [] };
   costDonutData: ChartData<'doughnut'> = { labels: [], datasets: [] };
 
-  revenueChartOptions: ChartOptions<'bar'> = lxGroupedBarChartOptions();
-  costDonutOptions: ChartOptions<'doughnut'> = lxDoughnutChartOptions({
+  revenueChartOptions: ChartOptions<'bar'> = lxRevenueDualAxisBarChartOptions();
+  costDonutOptions: ChartOptions<'doughnut'> = lxMoneyDoughnutChartOptions({
     cutout: '70%',
     legendPosition: 'bottom',
   });
@@ -121,29 +121,53 @@ export class RevenueReportPageComponent implements OnInit, OnDestroy {
   }
 
   private buildCharts(report: PlatformRevenueReportApi): void {
+    const deposits = report.walletDepositsSeries ?? [];
+    const charges = report.usageSeries ?? report.earnedSeries ?? [];
+    const subscription = report.costSeries ?? [];
+    const hasSubscription = subscription.some((value) => value > 0);
+
+    const datasets: ChartData<'bar'>['datasets'] = [
+      {
+        label: 'Wallet deposits',
+        data: deposits,
+        yAxisID: 'yDeposits',
+        backgroundColor: LX_CHART_COLORS.revenue.deposits,
+        hoverBackgroundColor: LX_CHART_COLORS.revenue.depositsHover,
+        borderRadius: 10,
+        borderSkipped: false,
+        maxBarThickness: 32,
+      },
+      {
+        label: 'Platform charges',
+        data: charges,
+        yAxisID: 'yCharges',
+        backgroundColor: LX_CHART_COLORS.revenue.earned,
+        hoverBackgroundColor: LX_CHART_COLORS.revenue.earnedHover,
+        borderRadius: 10,
+        borderSkipped: false,
+        maxBarThickness: 32,
+      },
+    ];
+
+    if (hasSubscription) {
+      datasets.push({
+        label: 'Subscription usage',
+        data: subscription,
+        yAxisID: 'yCharges',
+        backgroundColor: LX_CHART_COLORS.revenue.costs,
+        hoverBackgroundColor: LX_CHART_COLORS.revenue.costsHover,
+        borderRadius: 10,
+        borderSkipped: false,
+        maxBarThickness: 32,
+      });
+    }
+
     this.revenueChartData = {
       labels: report.monthLabels,
-      datasets: [
-        {
-          label: 'Earned',
-          data: report.earnedSeries,
-          backgroundColor: LX_CHART_COLORS.revenue.earned,
-          hoverBackgroundColor: LX_CHART_COLORS.revenue.earnedHover,
-          borderRadius: 10,
-          borderSkipped: false,
-          maxBarThickness: 40,
-        },
-        {
-          label: 'Subscription usage',
-          data: report.costSeries,
-          backgroundColor: LX_CHART_COLORS.revenue.costs,
-          hoverBackgroundColor: LX_CHART_COLORS.revenue.costsHover,
-          borderRadius: 10,
-          borderSkipped: false,
-          maxBarThickness: 40,
-        },
-      ],
+      datasets,
     };
+
+    this.revenueChartOptions = lxRevenueDualAxisBarChartOptions();
 
     const breakdown = report.costBreakdown;
     this.costTotalCents = breakdown.reduce((sum, row) => sum + row.amountCents, 0);

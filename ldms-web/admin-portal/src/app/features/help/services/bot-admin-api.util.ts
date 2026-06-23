@@ -48,6 +48,14 @@ export function mapBotAdminApiError(err: unknown, fallback: string): Error {
     return new Error(body.message ?? 'Messaging bot service is unavailable. Start ldms-messaging-inbound on port 8095.');
   }
 
+  if (err.status >= 500) {
+    return new Error(
+      body.message ??
+        body.error ??
+        'Bot analytics failed on the server. Restart ldms-messaging-inbound (8095) after pulling latest code, then retry.',
+    );
+  }
+
   return new Error(body.message ?? body.error ?? `${fallback} (HTTP ${err.status}).`);
 }
 

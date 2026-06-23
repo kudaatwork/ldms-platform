@@ -9,11 +9,13 @@ import {
   signal,
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
+import { ActivatedRoute } from '@angular/router';
 import { Subject, catchError, finalize, forkJoin, of, takeUntil, timer } from 'rxjs';
 import {
   BotAnalyticsAdminService,
   BotAnalyticsSummary,
 } from '../../services/bot-analytics-admin.service';
+import { buildMessageChartRows, buildSessionVolumeYAxisTicks, botMixRingDash, botMixRingOffset } from '../../utils/bot-analytics-chart.util';
 import {
   BotConversationSession,
   BotMessage,
@@ -52,6 +54,7 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
   loading = true;
   analyticsLoading = true;
   error = '';
+  analyticsError = '';
   sessions: BotConversationSession[] = [];
   selected: BotConversationSession | null = null;
   analytics: BotAnalyticsSummary | null = null;
@@ -80,10 +83,16 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
     private readonly analyticsService: BotAnalyticsAdminService,
     private readonly cdr: ChangeDetectorRef,
     private readonly title: Title,
+    private readonly route: ActivatedRoute,
   ) {}
 
   ngOnInit(): void {
     this.title.setTitle('Bot service | LX Admin');
+    const topicParam = this.route.snapshot.queryParamMap.get('topic');
+    if (topicParam) {
+      this.topicFilter.set(topicParam);
+      this.pageView.set('live');
+    }
     this.reload();
     timer(5000, 5000)
       .pipe(takeUntil(this.destroy$))
@@ -104,10 +113,14 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
       this.loading = true;
     }
     this.error = '';
+    this.analyticsError = '';
     forkJoin({
       sessions: this.botService.listSessions(),
       analytics: this.analyticsService.getSummary(this.analyticsDays).pipe(
-        catchError(() => of(null)),
+        catchError((err: Error) => {
+          this.analyticsError = err.message;
+          return of(null);
+        }),
       ),
     })
       .pipe(
@@ -140,14 +153,25 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
 
   setPageView(view: PageView): void {
     this.pageView.set(view);
+    if (view === 'topics' && !this.analytics && !this.analyticsLoading) {
+      this.refreshAnalytics();
+    }
     this.cdr.markForCheck();
   }
 
   setAnalyticsDays(days: number): void {
+    if (days === this.analyticsDays && this.analytics) {
+      return;
+    }
     this.analyticsDays = days;
+    this.refreshAnalytics();
+  }
+
+  refreshAnalytics(): void {
     this.analyticsLoading = true;
+    this.analyticsError = '';
     this.analyticsService
-      .getSummary(days)
+      .getSummary(this.analyticsDays, true)
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
@@ -158,6 +182,11 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (s) => {
           this.analytics = s;
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.analytics = null;
+          this.analyticsError = err.message;
           this.cdr.markForCheck();
         },
       });
@@ -210,8 +239,16 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  get displayAnalytics(): BotAnalyticsSummary {
+    return this.analytics ?? this.buildFallbackAnalytics();
+  }
+
+  get usingAnalyticsFallback(): boolean {
+    return !this.analytics && this.sessions.length > 0;
+  }
+
   get topicInsights(): TopicInsightRow[] {
-    const api = this.analytics?.topTopics ?? [];
+    const api = this.displayAnalytics.topTopics ?? [];
     if (api.length) {
       const max = Math.max(...api.map((t) => t.count), 1);
       return api.slice(0, 10).map((t) => ({
@@ -220,17 +257,7 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
         pct: Math.round((t.count / max) * 100),
       }));
     }
-    const map = new Map<string, number>();
-    for (const s of this.sessions) {
-      const t = (s.topic || 'General inquiry').trim();
-      map.set(t, (map.get(t) ?? 0) + 1);
-    }
-    const rows = Array.from(map.entries())
-      .map(([topic, count]) => ({ topic, count, pct: 0 }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 10);
-    const max = rows[0]?.count ?? 1;
-    return rows.map((r) => ({ ...r, pct: Math.round((r.count / max) * 100) }));
+    return [];
   }
 
   get activeCount(): number {
@@ -278,17 +305,6 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
     }
   }
 
-  channelLabel(channel: string): string {
-    switch (channel) {
-      case 'WHATSAPP':
-        return 'WhatsApp';
-      case 'SMS':
-        return 'SMS';
-      default:
-        return 'Web';
-    }
-  }
-
   statusClass(status: BotSessionStatus): string {
     return `bot-status--${status.toLowerCase()}`;
   }
@@ -326,7 +342,7 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
   }
 
   maxChannelCount(): number {
-    return (this.analytics?.channelBreakdown ?? []).reduce((max, r) => Math.max(max, r.count), 1);
+    return (this.displayAnalytics.channelBreakdown ?? []).reduce((max, r) => Math.max(max, r.count), 1);
   }
 
   channelBarWidth(count: number): number {
@@ -340,19 +356,12 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
   }
 
   maxDailySessions(): number {
-    return (this.analytics?.sessionsByDay ?? []).reduce((max, r) => Math.max(max, r.count), 1);
+    return (this.displayAnalytics.sessionsByDay ?? []).reduce((max, r) => Math.max(max, r.count), 1);
   }
 
   dailyBarWidth(count: number): number {
     const max = this.maxDailySessions();
     return max > 0 ? Math.round((count / max) * 100) : 0;
-  }
-
-  formatScore(score?: number | null): string {
-    if (score == null) {
-      return '—';
-    }
-    return score.toFixed(1);
   }
 
   trackBySessionId(_i: number, row: BotConversationSession): string {
@@ -421,6 +430,197 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
     } catch {
       return dateKey;
     }
+  }
+
+  formatScore(score?: number | null): string {
+    if (score == null) {
+      return '—';
+    }
+    return score.toFixed(1);
+  }
+
+  get chartDays(): ReturnType<typeof buildMessageChartRows> {
+    return buildMessageChartRows(this.displayAnalytics.messagesByDay ?? [], (iso) =>
+      this.formatChartDate(iso),
+    );
+  }
+
+  get chartYAxisTicks(): number[] {
+    const max = this.chartDays.reduce((m, row) => Math.max(m, row.totalMessages), 0);
+    return buildSessionVolumeYAxisTicks(max);
+  }
+
+  get botMessageShare(): number {
+    return 100 - this.userMessageShare;
+  }
+
+  get mixUserDash(): string {
+    return botMixRingDash(this.userMessageShare);
+  }
+
+  get mixBotDash(): string {
+    return botMixRingDash(this.botMessageShare);
+  }
+
+  get mixBotOffset(): number {
+    return botMixRingOffset(this.userMessageShare);
+  }
+
+  get userMessageShare(): number {
+    const total = (this.displayAnalytics.userMessages ?? 0) + (this.displayAnalytics.botMessages ?? 0);
+    if (total <= 0) {
+      return 50;
+    }
+    return Math.round(((this.displayAnalytics.userMessages ?? 0) / total) * 100);
+  }
+
+  get satisfactionPct(): number {
+    const score = this.displayAnalytics.averageSatisfactionScore;
+    if (score == null) {
+      return 0;
+    }
+    return Math.round((score / 5) * 100);
+  }
+
+  get satisfactionRingOffset(): number {
+    return 264 - (this.satisfactionPct / 100) * 264;
+  }
+
+  rankMedal(index: number): 'gold' | 'silver' | 'bronze' | null {
+    if (index === 0) {
+      return 'gold';
+    }
+    if (index === 1) {
+      return 'silver';
+    }
+    if (index === 2) {
+      return 'bronze';
+    }
+    return null;
+  }
+
+  channelLabel(channel: string): string {
+    switch ((channel ?? '').toUpperCase()) {
+      case 'WHATSAPP':
+        return 'WhatsApp';
+      case 'SMS':
+        return 'SMS';
+      case 'WEB':
+        return 'Web portal';
+      default:
+        return channel;
+    }
+  }
+
+  private formatChartDate(iso: string): string {
+    try {
+      const d = new Date(iso.includes('T') ? iso : `${iso}T12:00:00`);
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+    } catch {
+      return iso;
+    }
+  }
+
+  private buildFallbackAnalytics(): BotAnalyticsSummary {
+    const windowStart = Date.now() - (this.analyticsDays - 1) * 86_400_000;
+    const inWindow = this.sessions.filter((s) => {
+      const stamp = s.lastMessageAt || s.messages?.[s.messages.length - 1]?.sentAt;
+      if (!stamp) {
+        return true;
+      }
+      return new Date(stamp).getTime() >= windowStart;
+    });
+
+    const dayMap = new Map<string, number>();
+    const messageDayMap = new Map<string, { user: number; bot: number }>();
+    const topicMap = new Map<string, number>();
+    const channelMap = new Map<string, number>();
+    let userMessages = 0;
+    let botMessages = 0;
+    let ratedTotal = 0;
+    let ratedCount = 0;
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const weekStart = Date.now() - 6 * 86_400_000;
+    let sessionsToday = 0;
+    let sessionsLast7Days = 0;
+
+    for (const session of inWindow) {
+      const dayKey = this.dateKey(session.lastMessageAt);
+      dayMap.set(dayKey, (dayMap.get(dayKey) ?? 0) + 1);
+
+      const topic = (session.topic || 'General inquiry').trim();
+      topicMap.set(topic, (topicMap.get(topic) ?? 0) + 1);
+
+      const channel = session.channel ?? 'WEB';
+      channelMap.set(channel, (channelMap.get(channel) ?? 0) + 1);
+
+      if (dayKey === todayKey) {
+        sessionsToday++;
+      }
+      if (new Date(session.lastMessageAt).getTime() >= weekStart) {
+        sessionsLast7Days++;
+      }
+
+      for (const message of session.messages ?? []) {
+        const messageDayKey = this.dateKey(message.sentAt || session.lastMessageAt);
+        const bucket = messageDayMap.get(messageDayKey) ?? { user: 0, bot: 0 };
+        const role = (message.role ?? '').toLowerCase();
+        if (role === 'user') {
+          userMessages++;
+          bucket.user++;
+        } else if (role === 'bot') {
+          botMessages++;
+          bucket.bot++;
+        }
+        messageDayMap.set(messageDayKey, bucket);
+      }
+
+      if (session.satisfactionScore != null) {
+        ratedTotal += session.satisfactionScore;
+        ratedCount++;
+      }
+    }
+
+    const sessionsByDay = Array.from(dayMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }));
+
+    const messagesByDay = Array.from(messageDayMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, counts]) => ({
+        date,
+        userMessages: counts.user,
+        botMessages: counts.bot,
+      }));
+
+    const topTopics = Array.from(topicMap.entries())
+      .map(([topic, count]) => ({ topic, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const channelBreakdown = Array.from(channelMap.entries()).map(([channel, count]) => ({
+      channel,
+      count,
+    }));
+
+    const totalMessages = userMessages + botMessages;
+
+    return {
+      totalSessions: inWindow.length,
+      sessionsToday,
+      sessionsLast7Days,
+      totalMessages,
+      userMessages,
+      botMessages,
+      averageMessagesPerSession:
+        inWindow.length > 0 ? Math.round((totalMessages / inWindow.length) * 100) / 100 : 0,
+      averageSatisfactionScore: ratedCount > 0 ? ratedTotal / ratedCount : null,
+      ratedSessionCount: ratedCount,
+      publishedFaqCount: 0,
+      sessionsByDay,
+      messagesByDay,
+      topTopics,
+      channelBreakdown,
+    };
   }
 
   private scrollChatToBottom(): void {

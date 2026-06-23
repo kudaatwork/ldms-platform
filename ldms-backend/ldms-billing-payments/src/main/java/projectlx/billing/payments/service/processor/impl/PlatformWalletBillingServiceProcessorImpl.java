@@ -82,6 +82,11 @@ public class PlatformWalletBillingServiceProcessorImpl implements PlatformWallet
     }
 
     @Override
+    public PlatformWalletResponse getActionCharge(Long chargeId, Locale locale) {
+        return platformWalletBillingService.getActionCharge(chargeId, locale);
+    }
+
+    @Override
     public PlatformWalletResponse listActiveActionCharges(Locale locale) {
         return platformWalletBillingService.listActiveActionCharges(locale);
     }
@@ -143,5 +148,10 @@ public class PlatformWalletBillingServiceProcessorImpl implements PlatformWallet
     @Override
     public PlatformWalletResponse rejectWalletDeposit(Long depositId, Locale locale, String username) {
         return platformWalletBillingService.rejectWalletDeposit(depositId, locale, username);
+    }
+
+    @Override
+    public PlatformWalletResponse isFuelConsumptionAvailableForOrganization(Long organizationId, Locale locale) {
+        return platformWalletBillingService.isFuelConsumptionAvailableForOrganization(organizationId, locale);
     }
 }

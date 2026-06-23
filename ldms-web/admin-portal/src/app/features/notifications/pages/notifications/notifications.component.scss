@@ -1,7 +1,7 @@
 .nt-log-detail {
   max-width: 280px;
   font-size: 12px;
-  color: #64748b;
+  color: var(--gray-500);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -14,9 +14,9 @@
   margin: 12px 0 0;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid #fde68a;
-  background: #fffbeb;
-  color: #92400e;
+  border: 1px solid var(--warning);
+  background: var(--warning-light);
+  color: var(--warning);
   font-size: 13px;
 
   mat-icon {
@@ -66,9 +66,9 @@
 .nt-import-help {
   margin: 10px 0 14px;
   padding: 10px 12px;
-  border: 1px solid var(--gray-200, #e2e8f0);
+  border: 1px solid var(--gray-200);
   border-radius: 10px;
-  background: var(--gray-50, #f8fafc);
+  background: var(--gray-50, var(--surface-2));
 }
 
 .nt-hb-guide {
@@ -76,7 +76,7 @@
   padding: 12px;
   border: 1px solid #dbeafe;
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  background: linear-gradient(180deg, var(--raised) 0%, var(--surface-2) 100%);
 }
 
 .nt-hb-guide__title {
@@ -98,16 +98,16 @@
   margin: 6px 0 0;
   font-size: 12px;
   line-height: 1.45;
-  color: var(--gray-600, #475569);
+  color: var(--gray-600, var(--gray-600));
 }
 
 .nt-hb-guide__toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border: 1px solid var(--primary-light);
+  background: var(--primary-light);
+  color: var(--primary);
   border-radius: 999px;
   padding: 4px 10px;
   font-size: 12px;
@@ -127,9 +127,9 @@
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  border: 1px solid #fde68a;
-  background: #fffbeb;
-  color: #92400e;
+  border: 1px solid var(--warning);
+  background: var(--warning-light);
+  color: var(--warning);
   border-radius: 10px;
   padding: 8px 10px;
   font-size: 12px;
@@ -151,8 +151,8 @@
 }
 
 .nt-hb-item {
-  border: 1px solid #dbeafe;
-  background: #f8fbff;
+  border: 1px solid var(--primary-light);
+  background: var(--surface);
   border-radius: 10px;
   padding: 10px;
   display: flex;
@@ -164,9 +164,9 @@
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  border: 1px solid #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border: 1px solid var(--primary-light);
+  background: var(--primary-light);
+  color: var(--primary);
   font-size: 12px;
   font-weight: 700;
   padding: 2px 10px;
@@ -175,7 +175,7 @@
 
 .nt-hb-item__label {
   font-size: 12px;
-  color: var(--gray-700, #334155);
+  color: var(--gray-700, var(--gray-700));
 }
 
 .nt-hb-item__where {
@@ -187,15 +187,15 @@
 .nt-hb-chip {
   font-size: 11px;
   border-radius: 999px;
-  border: 1px solid #c7d2fe;
-  background: #eef2ff;
-  color: #4338ca;
+  border: 1px solid var(--primary-light);
+  background: var(--surface-2);
+  color: var(--primary);
   padding: 2px 8px;
 }
 
 .nt-hb-item__example {
   font-size: 11px;
-  color: var(--gray-500, #64748b);
+  color: var(--gray-500, var(--gray-500));
 }
 
 .nt-import-help__title {
@@ -209,7 +209,7 @@
   margin: 0;
   font-size: 12px;
   line-height: 1.45;
-  color: var(--gray-600, #475569);
+  color: var(--gray-600, var(--gray-600));
 }
 
 .nt-import-help__sample {
@@ -223,7 +223,7 @@
   text-decoration: none;
 
   &:hover {
-    text-decoration: underline;
+    background: var(--surface-elevated);
   }
 
   mat-icon {
@@ -252,9 +252,9 @@
 }
 
 .nt-channel-delivery-pill {
-  --nt-pill-accent: #475569;
-  --nt-pill-bg: #f8fafc;
-  --nt-pill-border: #e2e8f0;
+  --nt-pill-accent: var(--gray-600);
+  --nt-pill-bg: var(--surface-2);
+  --nt-pill-border: var(--gray-200);
 
   display: flex;
   align-items: center;
@@ -262,11 +262,11 @@
   padding: 8px 10px 8px 8px;
   border-radius: 12px;
   border: 1px solid var(--nt-pill-border);
-  background: linear-gradient(120deg, #fff 0%, var(--nt-pill-bg) 100%);
+  background: linear-gradient(120deg, var(--raised) 0%, var(--nt-pill-bg) 100%);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
 
   &--active {
-    border-color: color-mix(in srgb, var(--nt-pill-accent) 40%, #fff);
+    border-color: color-mix(in srgb, var(--nt-pill-accent) 40%, var(--surface));
     box-shadow: 0 4px 14px color-mix(in srgb, var(--nt-pill-accent) 18%, transparent);
   }
 
@@ -300,13 +300,13 @@
   &__label {
     font-size: 12px;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--gray-900);
     line-height: 1.2;
   }
 
   &__state {
     font-size: 11px;
-    color: #64748b;
+    color: var(--gray-500);
     line-height: 1.2;
   }
 
@@ -323,7 +323,7 @@
 
 .nt-channels-plain {
   font-size: 13px;
-  color: #475569;
+  color: var(--gray-600);
 }
 
 .nt-log-toolbar,
@@ -337,7 +337,7 @@
   gap: 8px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--gray-200, #e2e8f0);
+  border-top: 1px solid var(--gray-200);
 }
 
 .nt-filter-date.lx-input-shell {

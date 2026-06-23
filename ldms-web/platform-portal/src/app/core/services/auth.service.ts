@@ -352,6 +352,7 @@ export class AuthService {
       crossDockingEnabled: org.crossDockingEnabled ?? base.crossDockingEnabled,
       inventoryDataSource: org.inventoryDataSource ?? base.inventoryDataSource,
       counterpartyEngagementMode: org.counterpartyEngagementMode ?? base.counterpartyEngagementMode,
+      fuelConsumptionEnabled: org.fuelConsumptionEnabled ?? base.fuelConsumptionEnabled,
     };
   }
 

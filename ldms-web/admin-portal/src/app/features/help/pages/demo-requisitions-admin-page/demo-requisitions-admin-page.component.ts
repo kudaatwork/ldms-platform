@@ -45,6 +45,7 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
   readonly search = signal('');
   readonly statusFilter = signal<StatusFilter>('ALL');
   readonly mobileShowDetail = signal(false);
+  readonly scheduleMode = signal(false);
 
   readonly statusFilters: { id: StatusFilter; label: string }[] = [
     { id: 'ALL', label: 'All' },
@@ -137,6 +138,7 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
       this.mobileShowDetail.set(true);
       return;
     }
+    this.scheduleMode.set(false);
     this.detailLoading = true;
     this.detailError = '';
     this.linkedUser = null;
@@ -194,15 +196,99 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
     this.mobileShowDetail.set(false);
   }
 
+  isTerminalStatus(status: DemoRequisitionStatus): boolean {
+    return status === 'COMPLETED' || status === 'CANCELLED';
+  }
+
+  canMarkContacted(): boolean {
+    if (!this.selected || this.actionBusy || this.isTerminalStatus(this.selected.status)) {
+      return false;
+    }
+    return this.selected.status === 'NEW';
+  }
+
+  canSchedule(): boolean {
+    if (!this.selected || this.actionBusy || this.isTerminalStatus(this.selected.status)) {
+      return false;
+    }
+    return this.selected.status === 'CONTACTED';
+  }
+
+  canReschedule(): boolean {
+    return !!this.selected && !this.actionBusy && this.selected.status === 'SCHEDULED';
+  }
+
+  canComplete(): boolean {
+    if (!this.selected || this.actionBusy || this.isTerminalStatus(this.selected.status)) {
+      return false;
+    }
+    return (
+      this.selected.status === 'CONTACTED' ||
+      this.selected.status === 'SCHEDULED' ||
+      this.selected.status === 'NEW'
+    );
+  }
+
+  canCancel(): boolean {
+    return !!this.selected && !this.actionBusy && !this.isTerminalStatus(this.selected.status);
+  }
+
+  showScheduleFields(): boolean {
+    return this.scheduleMode() || this.selected?.status === 'SCHEDULED';
+  }
+
+  beginSchedule(): void {
+    if (!this.canSchedule() && !this.canReschedule()) {
+      return;
+    }
+    if (!this.scheduledAtDraft) {
+      this.scheduledAtDraft = this.defaultScheduleDatetime();
+    }
+    this.scheduleMode.set(true);
+    this.cdr.markForCheck();
+  }
+
+  defaultScheduleMin(): string {
+    const d = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  cancelSchedule(): void {
+    this.scheduleMode.set(false);
+    if (this.selected) {
+      this.scheduledAtDraft = this.toDatetimeLocal(this.selected.scheduledAt);
+    }
+    this.cdr.markForCheck();
+  }
+
+  confirmSchedule(): void {
+    if (!this.selected || this.actionBusy) {
+      return;
+    }
+    if (!this.scheduledAtDraft.trim()) {
+      this.snackBar.open('Choose a date and time before scheduling the demo.', 'Close', {
+        duration: 4000,
+        panelClass: ['app-snackbar-error'],
+      });
+      return;
+    }
+    this.updateStatus('SCHEDULED');
+  }
+
   updateStatus(status: DemoRequisitionStatus): void {
     if (!this.selected || this.actionBusy) {
+      return;
+    }
+    if (status === 'SCHEDULED' && !this.scheduledAtDraft.trim()) {
+      this.beginSchedule();
       return;
     }
     this.actionBusy = true;
     this.cdr.markForCheck();
     const scheduledAt =
       status === 'SCHEDULED' && this.scheduledAtDraft
-        ? new Date(this.scheduledAtDraft).toISOString()
+        ? this.toScheduledAtPayload(this.scheduledAtDraft)
         : undefined;
     this.helpApi
       .updateDemoRequisitionStatus(this.selected.id, status, {
@@ -219,8 +305,13 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
       .subscribe({
         next: (updated) => {
           this.selected = updated;
+          this.adminNotesDraft = updated.adminNotes ?? '';
+          this.scheduledAtDraft = this.toDatetimeLocal(updated.scheduledAt);
+          if (status === 'SCHEDULED' || this.isTerminalStatus(status)) {
+            this.scheduleMode.set(false);
+          }
           this.patchListRow(updated);
-          this.snackBar.open('Requisition updated.', 'Close', {
+          this.snackBar.open(this.statusSuccessMessage(status), 'Close', {
             duration: 3000,
             panelClass: ['app-snackbar-success'],
           });
@@ -232,6 +323,17 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
           });
         },
       });
+  }
+
+  private statusSuccessMessage(status: DemoRequisitionStatus): string {
+    const map: Record<DemoRequisitionStatus, string> = {
+      NEW: 'Requisition updated.',
+      CONTACTED: 'Marked as contacted.',
+      SCHEDULED: 'Demo scheduled.',
+      COMPLETED: 'Requisition completed.',
+      CANCELLED: 'Requisition cancelled.',
+    };
+    return map[status] ?? 'Requisition updated.';
   }
 
   initials(name: string): string {
@@ -338,10 +440,25 @@ export class DemoRequisitionsAdminPageComponent implements OnInit {
     if (!iso) {
       return '';
     }
-    const d = new Date(iso);
+    const normalized = iso.includes('T') ? iso : iso.replace(' ', 'T');
+    const d = new Date(normalized);
     if (Number.isNaN(d.getTime())) {
       return '';
     }
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  /** Send local wall-clock time — avoid UTC shift from `toISOString()`. */
+  private toScheduledAtPayload(datetimeLocal: string): string {
+    const value = datetimeLocal.trim();
+    return value.length === 16 ? `${value}:00` : value;
+  }
+
+  private defaultScheduleDatetime(): string {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(10, 0, 0, 0);
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }

@@ -105,15 +105,14 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
 
         Set<String> monitoredEurekaNames = new LinkedHashSet<>();
         for (PlatformHealthProperties.ServiceTarget target : targets) {
-            if (target.getEurekaName() == null || target.getEurekaName().isBlank()) {
-                continue;
-            }
-            for (ServiceInstance instance : resolveEurekaInstances(discoveryClient, target.getEurekaName())) {
-                if (instance.getServiceId() != null && !instance.getServiceId().isBlank()) {
-                    monitoredEurekaNames.add(instance.getServiceId().toLowerCase(Locale.ROOT));
+            for (String eurekaName : eurekaNamesFor(target)) {
+                for (ServiceInstance instance : lookupEurekaInstances(discoveryClient, eurekaName)) {
+                    if (instance.getServiceId() != null && !instance.getServiceId().isBlank()) {
+                        monitoredEurekaNames.add(instance.getServiceId().toLowerCase(Locale.ROOT));
+                    }
                 }
+                monitoredEurekaNames.add(eurekaName.toLowerCase(Locale.ROOT));
             }
-            monitoredEurekaNames.add(target.getEurekaName().trim().toLowerCase(Locale.ROOT));
         }
 
         for (String serviceName : discoveryClient.getServices()) {
@@ -186,23 +185,21 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
 
         String configuredHost = resolveHost(target);
 
-        if (target.getManagementPort() == null) {
-            int eurekaInstances = countEurekaInstances(target.getEurekaName());
-            if (eurekaInstances > 0) {
-                snapshot.setHost(configuredHost);
-                snapshot.setPort(target.getPort());
-                snapshot.setManagementPortUsed(false);
-                snapshot.setStatus("UP");
-                long tcpStart = System.nanoTime();
-                boolean reachable = isTcpReachable(configuredHost, target.getPort());
-                snapshot.setLatencyMs((System.nanoTime() - tcpStart) / 1_000_000L);
-                snapshot.setMessage(reachable
-                        ? "Registered in Eureka (" + eurekaInstances + " instance"
-                        + (eurekaInstances == 1 ? "" : "s") + "); process reachable on port " + target.getPort()
-                        : "Registered in Eureka (" + eurekaInstances + " instance"
-                        + (eurekaInstances == 1 ? "" : "s") + "); actuator health endpoint unavailable");
-                return snapshot;
-            }
+        int registeredInstances = countEurekaInstances(target);
+        if (registeredInstances > 0) {
+            snapshot.setHost(configuredHost);
+            snapshot.setPort(resolveApplicationPort(target));
+            snapshot.setManagementPortUsed(target.getManagementPort() != null);
+            snapshot.setStatus("UP");
+            long tcpStart = System.nanoTime();
+            boolean reachable = isApplicationPortReachable(target, configuredHost);
+            snapshot.setLatencyMs((System.nanoTime() - tcpStart) / 1_000_000L);
+            snapshot.setMessage(reachable
+                    ? "Registered in Eureka (" + registeredInstances + " instance"
+                    + (registeredInstances == 1 ? "" : "s") + "); process reachable on port " + resolveApplicationPort(target)
+                    : "Registered in Eureka (" + registeredInstances + " instance"
+                    + (registeredInstances == 1 ? "" : "s") + "); actuator health endpoint unavailable");
+            return snapshot;
         }
 
         List<ProbeTarget> probeTargets = buildProbeTargets(target, configuredHost);
@@ -228,6 +225,9 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
                 if (isHealthyEnough(snapshot.getStatus())) {
                     return snapshot;
                 }
+                if (markUpWhenApplicationPortReachable(snapshot, target, configuredHost)) {
+                    return snapshot;
+                }
             } catch (Exception ex) {
                 snapshot.setLatencyMs((System.nanoTime() - startNanos) / 1_000_000L);
                 lastFailure = ex;
@@ -235,10 +235,10 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
             }
         }
 
-        int eurekaInstances = countEurekaInstances(target.getEurekaName());
+        int eurekaInstances = countEurekaInstances(target);
         if (eurekaInstances > 0) {
             snapshot.setHost(configuredHost);
-            snapshot.setPort(target.getPort());
+            snapshot.setPort(resolveApplicationPort(target));
             snapshot.setManagementPortUsed(target.getManagementPort() != null);
             snapshot.setStatus("UP");
             snapshot.setMessage("Registered in Eureka (" + eurekaInstances + " instance"
@@ -247,12 +247,13 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
             return snapshot;
         }
 
-        if (isTcpReachable(configuredHost, target.getPort())) {
+        if (isApplicationPortReachable(target, configuredHost)) {
+            int reachablePort = resolveReachableApplicationPort(target, configuredHost);
             snapshot.setHost(configuredHost);
-            snapshot.setPort(target.getPort());
+            snapshot.setPort(reachablePort);
             snapshot.setManagementPortUsed(false);
             snapshot.setStatus("UP");
-            snapshot.setMessage("Process reachable on port " + target.getPort()
+            snapshot.setMessage("Process reachable on port " + reachablePort
                     + " (actuator health unavailable)");
             return snapshot;
         }
@@ -268,14 +269,20 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
         LinkedHashSet<String> seen = new LinkedHashSet<>();
         List<ProbeTarget> targets = new ArrayList<>();
 
-        if (target.getManagementPort() != null) {
-            addProbeTarget(targets, seen, configuredHost, target.getManagementPort(), true);
+        for (int port : managementPortsFor(target)) {
+            for (String host : probeHostsFor(target, configuredHost)) {
+                addProbeTarget(targets, seen, host, port, true);
+            }
         }
-        addProbeTarget(targets, seen, configuredHost, target.getPort(), false);
+        for (int port : applicationPortsFor(target)) {
+            for (String host : probeHostsFor(target, configuredHost)) {
+                addProbeTarget(targets, seen, host, port, false);
+            }
+        }
 
         DiscoveryClient discoveryClient = discoveryClientProvider.getIfAvailable();
-        if (discoveryClient != null && target.getEurekaName() != null && !target.getEurekaName().isBlank()) {
-            for (ServiceInstance instance : resolveEurekaInstances(discoveryClient, target.getEurekaName())) {
+        if (discoveryClient != null) {
+            for (ServiceInstance instance : resolveEurekaInstances(discoveryClient, target)) {
                 addProbeTarget(targets, seen, instance.getHost(), instance.getPort(), false);
                 String managementPort = instance.getMetadata().get("management.port");
                 if (managementPort != null && !managementPort.isBlank()) {
@@ -306,7 +313,28 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
         }
     }
 
-    private List<ServiceInstance> resolveEurekaInstances(DiscoveryClient discoveryClient, String eurekaName) {
+    private List<ServiceInstance> resolveEurekaInstances(DiscoveryClient discoveryClient,
+                                                       PlatformHealthProperties.ServiceTarget target) {
+        LinkedHashSet<String> seenInstanceIds = new LinkedHashSet<>();
+        List<ServiceInstance> merged = new ArrayList<>();
+        for (String eurekaName : eurekaNamesFor(target)) {
+            List<ServiceInstance> instances = lookupEurekaInstances(discoveryClient, eurekaName);
+            for (ServiceInstance instance : instances) {
+                String key = instance.getInstanceId() != null
+                        ? instance.getInstanceId()
+                        : instance.getHost() + ":" + instance.getPort();
+                if (seenInstanceIds.add(key)) {
+                    merged.add(instance);
+                }
+            }
+        }
+        return merged;
+    }
+
+    private List<ServiceInstance> lookupEurekaInstances(DiscoveryClient discoveryClient, String eurekaName) {
+        if (eurekaName == null || eurekaName.isBlank()) {
+            return List.of();
+        }
         List<ServiceInstance> instances = discoveryClient.getInstances(eurekaName);
         if (!instances.isEmpty()) {
             return instances;
@@ -319,15 +347,152 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
         return List.of();
     }
 
-    private int countEurekaInstances(String eurekaName) {
-        if (eurekaName == null || eurekaName.isBlank()) {
-            return 0;
+    private List<String> eurekaNamesFor(PlatformHealthProperties.ServiceTarget target) {
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        if (target.getEurekaName() != null && !target.getEurekaName().isBlank()) {
+            names.add(target.getEurekaName().trim());
         }
+        if (target.getAlternateEurekaNames() != null) {
+            for (String alternate : target.getAlternateEurekaNames()) {
+                if (alternate != null && !alternate.isBlank()) {
+                    names.add(alternate.trim());
+                }
+            }
+        }
+        return new ArrayList<>(names);
+    }
+
+    private int countEurekaInstances(PlatformHealthProperties.ServiceTarget target) {
         DiscoveryClient discoveryClient = discoveryClientProvider.getIfAvailable();
         if (discoveryClient == null) {
             return 0;
         }
-        return resolveEurekaInstances(discoveryClient, eurekaName).size();
+        return resolveEurekaInstances(discoveryClient, target).size();
+    }
+
+    private int resolveApplicationPort(PlatformHealthProperties.ServiceTarget target) {
+        DiscoveryClient discoveryClient = discoveryClientProvider.getIfAvailable();
+        if (discoveryClient != null) {
+            List<ServiceInstance> instances = resolveEurekaInstances(discoveryClient, target);
+            if (!instances.isEmpty() && instances.get(0).getPort() > 0) {
+                return instances.get(0).getPort();
+            }
+        }
+        List<Integer> ports = applicationPortsFor(target);
+        return ports.isEmpty() ? target.getPort() : ports.get(0);
+    }
+
+    private int resolveReachableApplicationPort(PlatformHealthProperties.ServiceTarget target, String configuredHost) {
+        for (int port : applicationPortsFor(target)) {
+            if (isPortReachableOnAnyHost(target, configuredHost, port)) {
+                return port;
+            }
+        }
+        return resolveApplicationPort(target);
+    }
+
+    private List<Integer> applicationPortsFor(PlatformHealthProperties.ServiceTarget target) {
+        LinkedHashSet<Integer> ports = new LinkedHashSet<>();
+        addPort(ports, target.getPort());
+        if (target.getAlternatePorts() != null) {
+            for (Integer port : target.getAlternatePorts()) {
+                addPort(ports, port);
+            }
+        }
+        DiscoveryClient discoveryClient = discoveryClientProvider.getIfAvailable();
+        if (discoveryClient != null) {
+            for (ServiceInstance instance : resolveEurekaInstances(discoveryClient, target)) {
+                addPort(ports, instance.getPort());
+            }
+        }
+        return new ArrayList<>(ports);
+    }
+
+    private List<Integer> managementPortsFor(PlatformHealthProperties.ServiceTarget target) {
+        LinkedHashSet<Integer> ports = new LinkedHashSet<>();
+        addPort(ports, target.getManagementPort());
+        if (target.getAlternateManagementPorts() != null) {
+            for (Integer port : target.getAlternateManagementPorts()) {
+                addPort(ports, port);
+            }
+        }
+        DiscoveryClient discoveryClient = discoveryClientProvider.getIfAvailable();
+        if (discoveryClient != null) {
+            for (ServiceInstance instance : resolveEurekaInstances(discoveryClient, target)) {
+                String managementPort = instance.getMetadata().get("management.port");
+                if (managementPort != null && !managementPort.isBlank()) {
+                    try {
+                        addPort(ports, Integer.parseInt(managementPort.trim()));
+                    } catch (NumberFormatException ignored) {
+                        log.debug("Invalid management.port metadata for {}: {}", target.getId(), managementPort);
+                    }
+                }
+            }
+        }
+        return new ArrayList<>(ports);
+    }
+
+    private void addPort(LinkedHashSet<Integer> ports, Integer port) {
+        if (port != null && port > 0) {
+            ports.add(port);
+        }
+    }
+
+    private LinkedHashSet<String> probeHostsFor(PlatformHealthProperties.ServiceTarget target, String configuredHost) {
+        LinkedHashSet<String> hosts = new LinkedHashSet<>();
+        if (configuredHost != null && !configuredHost.isBlank()) {
+            hosts.add(configuredHost.trim());
+        }
+        hosts.add("127.0.0.1");
+        hosts.add("localhost");
+
+        DiscoveryClient discoveryClient = discoveryClientProvider.getIfAvailable();
+        if (discoveryClient != null) {
+            for (ServiceInstance instance : resolveEurekaInstances(discoveryClient, target)) {
+                if (instance.getHost() != null && !instance.getHost().isBlank()) {
+                    hosts.add(instance.getHost().trim());
+                }
+            }
+        }
+        return hosts;
+    }
+
+    private boolean markUpWhenApplicationPortReachable(ServiceHealthSnapshotDto snapshot,
+                                                       PlatformHealthProperties.ServiceTarget target,
+                                                       String configuredHost) {
+        if (!isApplicationPortReachable(target, configuredHost)) {
+            return false;
+        }
+        String reported = snapshot.getStatus();
+        snapshot.setHost(configuredHost);
+        snapshot.setPort(resolveReachableApplicationPort(target, configuredHost));
+        snapshot.setManagementPortUsed(false);
+        snapshot.setStatus("UP");
+        snapshot.setMessage("Process reachable on port " + resolveReachableApplicationPort(target, configuredHost)
+                + (reported != null && !"UP".equalsIgnoreCase(reported)
+                ? " (actuator aggregate reported " + reported + ")"
+                : " (actuator health unavailable)"));
+        return true;
+    }
+
+    private boolean isApplicationPortReachable(PlatformHealthProperties.ServiceTarget target, String configuredHost) {
+        for (int port : applicationPortsFor(target)) {
+            if (isPortReachableOnAnyHost(target, configuredHost, port)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isPortReachableOnAnyHost(PlatformHealthProperties.ServiceTarget target,
+                                           String configuredHost,
+                                           int port) {
+        for (String host : probeHostsFor(target, configuredHost)) {
+            if (isTcpReachable(host, port)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean isTcpReachable(String host, int port) {
@@ -352,6 +517,12 @@ public class PlatformHealthServiceImpl implements PlatformHealthService {
         }
         String ping = snapshot.getComponents().get("ping");
         if ("UP".equalsIgnoreCase(ping)) {
+            snapshot.setStatus("UP");
+            snapshot.setMessage("Process up; some health contributors reported down");
+            return;
+        }
+        String liveness = snapshot.getComponents().get("livenessState");
+        if ("UP".equalsIgnoreCase(liveness)) {
             snapshot.setStatus("UP");
             snapshot.setMessage("Process up; some health contributors reported down");
         }

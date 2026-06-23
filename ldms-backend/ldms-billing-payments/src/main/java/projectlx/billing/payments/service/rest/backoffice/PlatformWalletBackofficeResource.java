@@ -4,8 +4,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,10 +34,11 @@ import java.util.Locale;
 @RequiredArgsConstructor
 public class PlatformWalletBackofficeResource {
 
+    private static final String BACKOFFICE_ACTOR = "BACKOFFICE";
+
     private final PlatformWalletBillingServiceProcessor platformWalletBillingServiceProcessor;
 
     @Auditable(action = "BACKOFFICE_LIST_ACTION_CHARGES")
-    @PreAuthorize("isAuthenticated()")
     @GetMapping("/action-charges")
     @Operation(summary = "List platform-wide per-action charges (cents)")
     public ResponseEntity<PlatformWalletResponse> listActionCharges(
@@ -45,31 +47,39 @@ public class PlatformWalletBackofficeResource {
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
+    @Auditable(action = "BACKOFFICE_GET_ACTION_CHARGE")
+    @GetMapping("/action-charges/{chargeId}")
+    @Operation(summary = "Get a single platform action charge by id")
+    public ResponseEntity<PlatformWalletResponse> getActionCharge(
+            @PathVariable Long chargeId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.getActionCharge(chargeId, locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
     @Auditable(action = "BACKOFFICE_SAVE_ACTION_CHARGE")
-    @PreAuthorize("isAuthenticated()")
     @PutMapping("/action-charges")
+    @Operation(summary = "Create or update a platform action charge")
     public ResponseEntity<PlatformWalletResponse> saveActionCharge(
             @RequestBody SavePlatformActionChargeRequest request,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        PlatformWalletResponse response = platformWalletBillingServiceProcessor.saveActionCharge(request, locale, username);
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.saveActionCharge(
+                request, locale, backofficeActor());
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
     @Auditable(action = "BACKOFFICE_DELETE_ACTION_CHARGE")
-    @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/action-charges/{chargeId}")
     @Operation(summary = "Soft-delete a platform action charge")
     public ResponseEntity<PlatformWalletResponse> deleteActionCharge(
             @PathVariable Long chargeId,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        PlatformWalletResponse response = platformWalletBillingServiceProcessor.deleteActionCharge(chargeId, locale, username);
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.deleteActionCharge(
+                chargeId, locale, backofficeActor());
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
     @Auditable(action = "BACKOFFICE_LIST_SUBSCRIPTION_PACKAGES")
-    @PreAuthorize("isAuthenticated()")
     @GetMapping("/subscription-packages")
     public ResponseEntity<PlatformWalletResponse> listSubscriptionPackages(
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
@@ -78,30 +88,27 @@ public class PlatformWalletBackofficeResource {
     }
 
     @Auditable(action = "BACKOFFICE_SAVE_SUBSCRIPTION_PACKAGE")
-    @PreAuthorize("isAuthenticated()")
     @PostMapping("/subscription-packages")
     public ResponseEntity<PlatformWalletResponse> saveSubscriptionPackage(
             @RequestBody SaveSubscriptionPackageRequest request,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        PlatformWalletResponse response = platformWalletBillingServiceProcessor.saveSubscriptionPackage(request, locale, username);
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.saveSubscriptionPackage(
+                request, locale, backofficeActor());
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
     @Auditable(action = "BACKOFFICE_DELETE_SUBSCRIPTION_PACKAGE")
-    @PreAuthorize("isAuthenticated()")
     @DeleteMapping("/subscription-packages/{packageId}")
     @Operation(summary = "Soft-delete a subscription package (blocked when assigned to an organisation)")
     public ResponseEntity<PlatformWalletResponse> deleteSubscriptionPackage(
             @PathVariable Long packageId,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        PlatformWalletResponse response = platformWalletBillingServiceProcessor.deleteSubscriptionPackage(packageId, locale, username);
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.deleteSubscriptionPackage(
+                packageId, locale, backofficeActor());
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
     @Auditable(action = "BACKOFFICE_LIST_PENDING_WALLET_DEPOSITS")
-    @PreAuthorize("isAuthenticated()")
     @GetMapping("/deposits/pending")
     public ResponseEntity<PlatformWalletResponse> listPendingDeposits(
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
@@ -110,7 +117,6 @@ public class PlatformWalletBackofficeResource {
     }
 
     @Auditable(action = "BACKOFFICE_LIST_CONFIRMED_WALLET_DEPOSITS")
-    @PreAuthorize("isAuthenticated()")
     @GetMapping("/deposits/confirmed")
     @Operation(summary = "List confirmed wallet deposits (approved transaction history)")
     public ResponseEntity<PlatformWalletResponse> listConfirmedDeposits(
@@ -120,36 +126,45 @@ public class PlatformWalletBackofficeResource {
     }
 
     @Auditable(action = "BACKOFFICE_CONFIRM_WALLET_DEPOSIT")
-    @PreAuthorize("isAuthenticated()")
     @PostMapping("/deposits/{depositId}/confirm")
     public ResponseEntity<PlatformWalletResponse> confirmWalletDeposit(
             @PathVariable Long depositId,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        PlatformWalletResponse response = platformWalletBillingServiceProcessor.confirmWalletDeposit(depositId, locale, username);
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.confirmWalletDeposit(
+                depositId, locale, backofficeActor());
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
     @Auditable(action = "BACKOFFICE_REJECT_WALLET_DEPOSIT")
-    @PreAuthorize("isAuthenticated()")
     @PostMapping("/deposits/{depositId}/reject")
     public ResponseEntity<PlatformWalletResponse> rejectWalletDeposit(
             @PathVariable Long depositId,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        PlatformWalletResponse response = platformWalletBillingServiceProcessor.rejectWalletDeposit(depositId, locale, username);
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.rejectWalletDeposit(
+                depositId, locale, backofficeActor());
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
     @Auditable(action = "BACKOFFICE_CREDIT_ORGANIZATION_WALLET")
-    @PreAuthorize("isAuthenticated()")
     @PostMapping("/organizations/credit")
     @Operation(summary = "Credit an organisation prepaid wallet (admin POP confirmation)")
     public ResponseEntity<PlatformWalletResponse> creditOrganizationWallet(
             @RequestBody CreditOrganizationWalletRequest request,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        PlatformWalletResponse response = platformWalletBillingServiceProcessor.creditOrganizationWallet(request, locale, username);
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.creditOrganizationWallet(
+                request, locale, backofficeActor());
         return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    /**
+     * Backoffice is authenticated at the API gateway; services accept internal calls without re-validating JWT.
+     */
+    private static String backofficeActor() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && StringUtils.hasText(auth.getName())
+                && !"anonymousUser".equalsIgnoreCase(auth.getName())) {
+            return auth.getName();
+        }
+        return BACKOFFICE_ACTOR;
     }
 }

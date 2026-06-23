@@ -24,6 +24,10 @@ import {
 } from '../../../../shared/utils/lx-export.util';
 import { PLATFORM_BILLING_MODULES, type PlatformBillingModuleMeta } from '../../utils/platform-billing-modules.util';
 import { packageFeaturePoints } from '../../../../shared/utils/subscription-package-description.util';
+import {
+  isFuelConsumptionBillingAction,
+  isFuelConsumptionFeatureEnabled,
+} from '../../../../shared/utils/fuel-consumption.util';
 
 interface PaymentMethodOption {
   id: WalletDepositPaymentMethod;
@@ -107,11 +111,11 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
 
   constructor(
     private readonly wallet: PlatformWalletService,
+    private readonly authState: AuthStateService,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
     private readonly router: Router,
     private readonly route: ActivatedRoute,
-    private readonly authState: AuthStateService,
   ) {}
 
   ngOnInit(): void {
@@ -139,6 +143,15 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
     return this.wallet.isWalletFrozen(this.walletSummary);
   }
 
+  get smsUsagePct(): number {
+    const included = this.walletSummary?.smsIncludedMonthly ?? 0;
+    if (included <= 0) {
+      return 0;
+    }
+    const used = this.walletSummary?.smsUsedThisPeriod ?? 0;
+    return Math.min(100, Math.round((used / included) * 100));
+  }
+
   get selectedPaymentMethod(): PaymentMethodOption {
     return this.paymentMethods.find((m) => m.id === this.depositPaymentMethod) ?? this.paymentMethods[0];
   }
@@ -158,7 +171,15 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
   }
 
   chargesForModule(category: string): PlatformActionChargeRow[] {
-    return this.actionCharges.filter((row) => (row.category ?? 'GENERAL') === category);
+    return this.visibleActionCharges.filter((row) => (row.category ?? 'GENERAL') === category);
+  }
+
+  get visibleActionCharges(): PlatformActionChargeRow[] {
+    const fuelEnabled = isFuelConsumptionFeatureEnabled(this.authState.currentUser?.fuelConsumptionEnabled);
+    if (fuelEnabled) {
+      return this.actionCharges;
+    }
+    return this.actionCharges.filter((row) => !isFuelConsumptionBillingAction(row.actionCode));
   }
 
   chargesForCategory(category: string): PlatformActionChargeRow[] {
@@ -166,11 +187,11 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
   }
 
   get filteredActionCharges(): PlatformActionChargeRow[] {
-    return this.actionCharges;
+    return this.visibleActionCharges;
   }
 
   get filteredChargeCategories(): string[] {
-    const categories = new Set(this.actionCharges.map((row) => row.category ?? 'GENERAL'));
+    const categories = new Set(this.visibleActionCharges.map((row) => row.category ?? 'GENERAL'));
     return [...categories].sort();
   }
 

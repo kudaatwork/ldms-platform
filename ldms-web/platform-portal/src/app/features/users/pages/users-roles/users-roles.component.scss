@@ -541,7 +541,7 @@
 }
 
 .lx-card--group-roles {
-  border-color: color-mix(in srgb, var(--primary, #1976d2) 14%, var(--gray-200, #e2e8f0));
+  border-color: color-mix(in srgb, var(--primary, #1976d2) 14%, var(--gray-200));
 }
 
 .lx-fetch-hint {
@@ -579,7 +579,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 26px 24px 16px;
-  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .lx-close-button {
@@ -642,7 +642,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  border-top: 1px solid var(--gray-200, #e2e8f0);
+  border-top: 1px solid var(--gray-200);
 }
 
 .lx-modal__error {

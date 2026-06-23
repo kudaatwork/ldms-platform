@@ -153,7 +153,8 @@ public class BusinessConfig {
             projectlx.co.zw.organizationmanagement.business.logic.support.SupplierRegisteredOrganizationOnboardingSupport
                     supplierRegisteredOrganizationOnboardingSupport,
             ApplicationEventPublisher applicationEventPublisher,
-            projectlx.co.zw.shared_library.business.logic.impl.TokenService tokenService) {
+            projectlx.co.zw.shared_library.business.logic.impl.TokenService tokenService,
+            projectlx.co.zw.organizationmanagement.clients.BillingPaymentsServiceClient billingPaymentsServiceClient) {
         return new OrganizationServiceImpl(
                 organizationRepository,
                 contractedTransporterLinkRepository,
@@ -173,6 +174,7 @@ public class BusinessConfig {
                 kycApprovalStageResolver,
                 platformKycPolicyRepository,
                 userManagementServiceClient,
+                billingPaymentsServiceClient,
                 messageService,
                 organizationFileUploadHelper,
                 organizationDirectoryAdminService,

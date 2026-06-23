@@ -12,7 +12,7 @@ export interface KpiCard {
   theme: KpiCardTheme;
 }
 
-export type DashboardChartType = 'area' | 'bar' | 'donut';
+export type DashboardChartType = 'area' | 'bar' | 'donut' | 'pipeline';
 
 export interface DashboardDonutSegment {
   label: string;
@@ -32,6 +32,10 @@ export interface DashboardChart {
   highlight?: string;
   /** Center label on donut charts (defaults to "total"). */
   donutUnit?: string;
+  /** Per-stage accent colors for pipeline charts. */
+  stageColors?: string[];
+  /** Larger chart canvas for insight cards (donut / area). */
+  size?: 'default' | 'large';
 }
 
 export type SupplierShipmentStatus = 'PREPARED' | 'IN_TRANSIT' | 'COMPLETED' | 'FAILED';

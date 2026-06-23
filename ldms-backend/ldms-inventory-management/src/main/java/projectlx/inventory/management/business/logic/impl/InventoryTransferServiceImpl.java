@@ -689,9 +689,9 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         List<InventoryTransfer> list = repository.findAllActiveWithDetails(EntityStatus.DELETED);
 
         if (list.isEmpty()) {
-            message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_TRANSFER_NOT_FOUND.getCode(),
+            message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_TRANSFER_RETRIEVED_SUCCESSFULLY.getCode(),
                     new String[]{}, locale);
-            return buildResponse(404, false, message, null, null, null);
+            return buildResponse(200, true, message, null, List.of(), null);
         }
 
         Map<Long, String> requesterNames = resolveRequesterNames(list);

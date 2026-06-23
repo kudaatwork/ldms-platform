@@ -62,6 +62,7 @@ public enum I18Code {
     MESSAGE_WALLET_DEPOSIT_PREMIUM_ONLY("billing.wallet.deposit.premium.only"),
     MESSAGE_WALLET_TX_LIST_SUCCESS("billing.wallet.tx.list.success"),
     MESSAGE_WALLET_INSUFFICIENT_BALANCE("billing.wallet.insufficient.balance"),
+    MESSAGE_SMS_QUOTA_EXHAUSTED("billing.sms.quota.exhausted"),
     MESSAGE_ACTION_CHARGE_LIST_SUCCESS("billing.action.charge.list.success"),
     MESSAGE_ACTION_CHARGE_SAVE_SUCCESS("billing.action.charge.save.success"),
     MESSAGE_ACTION_CHARGE_INVALID("billing.action.charge.invalid"),

@@ -24,6 +24,7 @@ import projectlx.messaging.inbound.business.logic.impl.BotFaqServiceImpl;
 import projectlx.messaging.inbound.business.logic.impl.BotKnowledgeDocumentServiceImpl;
 import projectlx.messaging.inbound.business.logic.impl.BotKnowledgeServiceImpl;
 import projectlx.messaging.inbound.business.logic.impl.BotSessionServiceImpl;
+import projectlx.messaging.inbound.business.logic.support.BotBillingSupport;
 import projectlx.messaging.inbound.business.logic.support.BotCallerProfileSupport;
 import projectlx.messaging.inbound.business.logic.support.BotFaqRagSupport;
 import projectlx.messaging.inbound.business.logic.support.BotKnowledgeDocumentRagSupport;
@@ -185,6 +186,13 @@ public class BusinessConfig {
     }
 
     @Bean
+    public BotBillingSupport botBillingSupport(
+            BotCallerProfileSupport botCallerProfileSupport,
+            PlatformWalletUsageSupport platformWalletUsageSupport) {
+        return new BotBillingSupport(botCallerProfileSupport, platformWalletUsageSupport);
+    }
+
+    @Bean
     public BotSessionService botSessionService(BotSessionRepository botSessionRepository,
                                                BotMessageRepository botMessageRepository,
                                                BotSessionServiceAuditable botSessionServiceAuditable,
@@ -195,7 +203,7 @@ public class BusinessConfig {
                                                BotFaqRagSupport botFaqRagSupport,
                                                BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport,
                                                GeminiLlmClient geminiLlmClient,
-                                               PlatformWalletUsageSupport platformWalletUsageSupport,
+                                               BotBillingSupport botBillingSupport,
                                                MessageService messageService) {
         return new BotSessionServiceImpl(
                 botSessionRepository,
@@ -208,7 +216,7 @@ public class BusinessConfig {
                 botFaqRagSupport,
                 botKnowledgeDocumentRagSupport,
                 geminiLlmClient,
-                platformWalletUsageSupport,
+                botBillingSupport,
                 messageService);
     }
 }
