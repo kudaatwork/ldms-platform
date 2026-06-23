@@ -29,7 +29,7 @@
   border: 1px solid var(--odp-border);
   border-radius: 14px;
   overflow: hidden;
-  background: var(--raised, #fff);
+  background: var(--raised, var(--surface));
 }
 
 .odp--compact .odp-layout {
@@ -110,7 +110,7 @@
   flex-direction: column;
   min-height: 280px;
   padding: 16px;
-  background: linear-gradient(180deg, #fafbfc 0%, #fff 40%);
+  background: linear-gradient(180deg, var(--surface-2) 0%, var(--raised) 40%);
 }
 
 .odp-preview__toolbar {
@@ -163,7 +163,7 @@
   min-height: 240px;
   border-radius: 12px;
   border: 1px solid var(--odp-border);
-  background: #fff;
+  background: var(--surface);
   overflow: hidden;
 
   img {

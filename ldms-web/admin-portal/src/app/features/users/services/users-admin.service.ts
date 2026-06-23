@@ -2,6 +2,12 @@ import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http'
 import { Injectable } from '@angular/core';
 import { Observable, catchError, forkJoin, from, map, of, switchMap, throwError } from 'rxjs';
 import { extractFileUploadDtoFromResponse } from '../../../core/utils/file-upload-dto-extract.util';
+import {
+  extractPagedResult,
+  isApiFailureEnvelope,
+  readApiFailureMessage,
+  readInBodyStatusCode,
+} from '../../../core/utils/api-paged-response.util';
 import { ldmsApiUrl, ldmsServiceUrl } from '../../../core/utils/api-url.util';
 import { collectUploadIdsFromJsonTree } from '../../../shared/utils/collect-upload-ids';
 import { resolveFilePreview } from '../../../shared/utils/file-upload-preview';
@@ -154,18 +160,31 @@ export class UsersAdminService {
   queryUsers(q: UsersQuery): Observable<{ rows: UserListRow[]; totalElements: number }> {
     const body = this.buildUsersFilterBody(q);
     return this.http.post<unknown>(`${this.base}/user/find-by-multiple-filters`, body).pipe(
-      map((resp) => {
-        const page = this.extractPagedResult(resp, 'userDtoPage');
-        const safeRows = page.rows.filter(
-          (r): r is Record<string, unknown> => r !== null && typeof r === 'object' && !Array.isArray(r),
-        );
-        return {
-          rows: safeRows.map((r) => this.mapUserRow(r)),
-          totalElements: page.totalElements,
-        };
-      }),
+      map((resp) => this.mapUsersPageResponse(resp)),
       catchError((err) => this.emptyUsersPageOnNotFound(err)),
     );
+  }
+
+  private mapUsersPageResponse(resp: unknown): { rows: UserListRow[]; totalElements: number } {
+    if (isApiFailureEnvelope(resp)) {
+      const status = readInBodyStatusCode(resp);
+      if (status === 404) {
+        return { rows: [], totalElements: 0 };
+      }
+      throw new Error(readApiFailureMessage(resp, 'Failed to load users.'));
+    }
+
+    const fallbackDtos = this.extractUserDtoList(resp);
+    const { rows: raw, totalElements } = extractPagedResult(resp, 'userDtoPage');
+    const sourceRows = raw.length > 0 ? raw : fallbackDtos;
+    const safeRows = sourceRows.filter(
+      (r): r is Record<string, unknown> => r !== null && typeof r === 'object' && !Array.isArray(r),
+    );
+    const total = totalElements > 0 ? totalElements : safeRows.length;
+    return {
+      rows: safeRows.map((r) => this.mapUserRow(r)),
+      totalElements: total,
+    };
   }
 
   /** Resolve a portal user account by exact email match (demo leads, contact inbox). */

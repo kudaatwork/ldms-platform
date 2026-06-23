@@ -288,7 +288,7 @@ html.theme-dark .lt-map-panel__empty {
   padding: 0 8px;
   border: none;
   background: transparent;
-  color: #e2e8f0;
+  color: var(--gray-200);
   font-size: 10px;
   font-weight: 700;
   cursor: pointer;
@@ -339,7 +339,7 @@ html.theme-dark .lt-map-panel__empty {
     font-size: 14px;
     font-weight: 700;
     color: #0f172a;
-    background: #e2e8f0;
+    background: var(--gray-200);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
   }
 
@@ -406,7 +406,7 @@ html.theme-dark .lt-map-panel__empty {
   border-radius: 999px;
   border: 1px solid rgba(148, 163, 184, 0.28);
   background: rgba(255, 255, 255, 0.06);
-  color: #e2e8f0;
+  color: var(--gray-200);
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;

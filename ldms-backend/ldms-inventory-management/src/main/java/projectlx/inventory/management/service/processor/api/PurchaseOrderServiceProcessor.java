@@ -26,4 +26,6 @@ public interface PurchaseOrderServiceProcessor {
     byte[] exportToExcel(List<PurchaseOrderDto> items) throws IOException;
     byte[] exportToPdf(List<PurchaseOrderDto> items) throws DocumentException;
     ImportSummary importPurchaseOrderFromCsv(InputStream csvInputStream) throws IOException;
+
+    PurchaseOrderResponse searchForPlatformDashboard(String term, int limit, Locale locale);
 }

@@ -2,6 +2,7 @@ package projectlx.user.management.business.validator.impl;
 
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.user.management.business.validator.api.HelpSupportServiceValidator;
+import projectlx.user.management.model.DemoRequisitionStatus;
 import projectlx.user.management.utils.requests.AddSupportTicketMessageRequest;
 import projectlx.user.management.utils.requests.AssignSupportTicketRequest;
 import projectlx.user.management.utils.requests.CreateDemoRequisitionRequest;
@@ -136,6 +137,9 @@ public class HelpSupportServiceValidatorImpl implements HelpSupportServiceValida
         }
         if (request.getStatus() == null) {
             errors.add("Status is required.");
+        }
+        if (request.getStatus() == DemoRequisitionStatus.SCHEDULED && request.getScheduledAt() == null) {
+            errors.add("Scheduled date and time is required when status is SCHEDULED.");
         }
         if (request.getAdminNotes() != null && request.getAdminNotes().length() > 4000) {
             errors.add("Admin notes must be at most 4000 characters.");

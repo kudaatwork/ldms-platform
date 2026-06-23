@@ -1,5 +1,7 @@
 @use '@angular/material' as mat;
 @use 'tokens' as *;
+@use 'dark-mode-surfaces';
+@use 'sticky-chrome';
 @use 'shared-ui/styles/lx-premium';
 @use '../app/shared/styles/lx-loading';
 @use '../app/shared/styles/lx-dialog-form-shell';
@@ -171,9 +173,9 @@ html.theme-dark .lx-status-active {
 }
 html.theme-dark .lx-status-inactive {
   background: rgba(148, 163, 184, 0.15);
-  color: #94a3b8;
+  color: var(--gray-400);
   &::before {
-    background: #64748b;
+    background: var(--gray-500);
   }
 }
 html.theme-dark .lx-status-pending {
@@ -192,17 +194,21 @@ html.theme-dark .lx-status-transit {
 }
 
 html.theme-dark .mat-mdc-table .mat-mdc-header-cell {
-  color: var(--gray-500);
+  color: var(--gray-700) !important;
   border-bottom-color: rgba(148, 163, 184, 0.25);
 }
+html.theme-dark .mat-mdc-table .mat-mdc-row {
+  background: var(--surface);
+}
+html.theme-dark .mat-mdc-table .mat-mdc-row:nth-child(even) {
+  background: var(--raised);
+}
 html.theme-dark .mat-mdc-table .mat-mdc-row:hover {
-  background: #25354d;
+  background: var(--raised-hover);
 }
-html.theme-dark .mat-mdc-table .mat-mdc-row:nth-child(odd) {
-  background: rgba(30, 41, 59, 0.82);
-}
+html.theme-dark .mat-mdc-table .mat-mdc-row:nth-child(even):hover,
 html.theme-dark .mat-mdc-table .mat-mdc-row:nth-child(odd):hover {
-  background: #25354d;
+  background: var(--raised-hover);
 }
 html.theme-dark .mat-mdc-table .mat-mdc-cell {
   color: var(--gray-700);
@@ -313,7 +319,10 @@ html.theme-dark .skeleton {
 /* ── Reset + base ──────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body { height: 100%; }
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
 
 body {
   font-family: var(--font);
@@ -812,8 +821,8 @@ html.theme-dark .lx-table-paginator.mat-mdc-paginator {
 .mat-mdc-table {
   width: 100%; background: transparent;
   .mat-mdc-header-cell {
-    font-size: 11px; font-weight: 600; text-transform: uppercase;
-    letter-spacing: .5px; color: var(--gray-400); border-bottom: 1px solid var(--gray-100);
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: var(--gray-500); border-bottom: 1px solid var(--gray-100);
   }
   /* `cursor: pointer` on the whole row breaks mat-menu triggers (first click “hits” the row). */
   .mat-mdc-row {
@@ -1051,7 +1060,7 @@ html.theme-dark .lx-mat-field-select.mat-mdc-form-field-appearance-outline {
 
   /* Native Country select uses mute placeholder tint; avoids harsh contrast. */
   .mat-mdc-select-placeholder {
-    color: var(--gray-500, #64748b) !important;
+    color: var(--gray-500, var(--gray-500)) !important;
   }
 
   /* Same downward chevron treatment as `.lx-input-shell select` dark SVG */
@@ -1060,7 +1069,7 @@ html.theme-dark .lx-mat-field-select.mat-mdc-form-field-appearance-outline {
   }
 
   .mat-mdc-form-field-icon-prefix mat-icon.mat-icon {
-    color: var(--gray-400, #94a3b8);
+    color: var(--gray-400, var(--gray-400));
   }
 }
 

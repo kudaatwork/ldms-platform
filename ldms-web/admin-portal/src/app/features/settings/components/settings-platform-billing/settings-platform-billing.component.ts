@@ -27,6 +27,11 @@ import {
   type SubscriptionPackageFormDialogData,
 } from '../subscription-package-form-dialog/subscription-package-form-dialog.component';
 import { PLATFORM_BILLING_MODULES, moduleLabel } from '../../utils/platform-billing-modules.util';
+import {
+  PLATFORM_ACTION_CATALOG,
+  searchPlatformActionCatalog,
+  type PlatformActionCatalogEntry,
+} from '../../utils/platform-action-catalog.util';
 import { packageFeaturePoints } from '../../../../shared/utils/subscription-package-description.util';
 import { PendingDepositsStatsService } from '../../../../core/services/pending-deposits-stats.service';
 import {
@@ -37,6 +42,7 @@ import {
 } from '@shared/utils/lx-export.util';
 
 type BillingTab = 'charges' | 'packages' | 'deposits' | 'history';
+type ChargesView = 'catalog' | 'modules' | 'table';
 
 @Component({
   selector: 'app-settings-platform-billing',
@@ -52,11 +58,14 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
   importing = false;
   exporting = false;
   activeTab: BillingTab = 'charges';
+  chargesView: ChargesView = 'catalog';
+  moduleFilter = '';
 
   actionCharges: PlatformActionChargeRow[] = [];
   packages: SubscriptionPackageRow[] = [];
   pendingDeposits: WalletDepositRow[] = [];
   approvedDeposits: WalletDepositRow[] = [];
+  chargesLoadError = '';
   depositsLoadError = '';
   historyLoadError = '';
   confirmingDepositId: number | null = null;
@@ -84,7 +93,17 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
   readonly chargeImportDisclaimer = ACTION_CHARGE_IMPORT_DISCLAIMER;
   readonly packageImportDisclaimer = SUBSCRIPTION_PACKAGE_IMPORT_DISCLAIMER;
   readonly billingModules = PLATFORM_BILLING_MODULES.filter((mod) => mod.category !== 'PROCUREMENT');
+  readonly chargeCategoryFilterOptions = PLATFORM_BILLING_MODULES.map((mod) => ({
+    value: mod.category,
+    label: mod.label,
+  }));
+  readonly chargeActiveFilterOptions = [
+    { value: '', label: 'All statuses' },
+    { value: 'true', label: 'Active only' },
+    { value: 'false', label: 'Inactive only' },
+  ];
   readonly moduleLabel = moduleLabel;
+  readonly catalogSize = PLATFORM_ACTION_CATALOG.length;
   readonly packageFeaturePoints = packageFeaturePoints;
   readonly ordersChargeGroups = [
     { key: 'inventory', label: 'Inventory & stock', prefix: 'INVENTORY_' },
@@ -119,27 +138,76 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
+  get totalChargesCount(): number {
+    return this.actionCharges.length;
+  }
+
+  get activeChargesCount(): number {
+    return this.actionCharges.filter((row) => row.active !== false).length;
+  }
+
+  get activePackagesCount(): number {
+    return this.packages.filter((row) => row.active !== false).length;
+  }
+
+  get visibleBillingModules() {
+    if (!this.moduleFilter) {
+      return this.billingModules;
+    }
+    return this.billingModules.filter((mod) => mod.category === this.moduleFilter);
+  }
+
+  get chargeActionCodeFilterOptions(): string[] {
+    const codes = new Set<string>();
+    for (const row of this.actionCharges) {
+      if (row.actionCode?.trim()) {
+        codes.add(row.actionCode.trim().toUpperCase());
+      }
+    }
+    for (const entry of PLATFORM_ACTION_CATALOG) {
+      codes.add(entry.actionCode);
+    }
+    return Array.from(codes).sort((a, b) => a.localeCompare(b));
+  }
+
+  get chargeDisplayNameFilterOptions(): string[] {
+    const names = new Set<string>();
+    for (const row of this.actionCharges) {
+      if (row.displayName?.trim()) {
+        names.add(row.displayName.trim());
+      }
+    }
+    for (const entry of PLATFORM_ACTION_CATALOG) {
+      if (entry.displayName?.trim()) {
+        names.add(entry.displayName.trim());
+      }
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }
+
   get filteredActionCharges(): PlatformActionChargeRow[] {
     const q = this.searchQuery.trim().toLowerCase();
     return this.actionCharges.filter((row) => {
       if (q && !`${row.actionCode} ${row.displayName} ${row.description ?? ''} ${row.category ?? ''}`.toLowerCase().includes(q)) {
         return false;
       }
-      if (this.chargeFilters.actionCode && !row.actionCode.toLowerCase().includes(this.chargeFilters.actionCode.trim().toLowerCase())) {
+      if (this.chargeFilters.actionCode && row.actionCode.toUpperCase() !== this.chargeFilters.actionCode.trim().toUpperCase()) {
         return false;
       }
-      if (this.chargeFilters.displayName && !row.displayName.toLowerCase().includes(this.chargeFilters.displayName.trim().toLowerCase())) {
+      if (this.chargeFilters.displayName && row.displayName.trim() !== this.chargeFilters.displayName.trim()) {
         return false;
       }
-      if (this.chargeFilters.category && !(row.category ?? '').toLowerCase().includes(this.chargeFilters.category.trim().toLowerCase())) {
+      if (
+        this.chargeFilters.category &&
+        (row.category ?? '').toUpperCase() !== this.chargeFilters.category.trim().toUpperCase()
+      ) {
         return false;
       }
-      if (this.chargeFilters.active) {
-        const want = this.chargeFilters.active.trim().toLowerCase();
-        const active = row.active !== false ? 'true' : 'false';
-        if (want !== active && want !== 'yes' && want !== 'no' && !active.includes(want)) {
-          return false;
-        }
+      if (this.chargeFilters.active === 'true' && row.active === false) {
+        return false;
+      }
+      if (this.chargeFilters.active === 'false' && row.active !== false) {
+        return false;
       }
       return true;
     });
@@ -237,6 +305,56 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
     );
   }
 
+  get unmappedActionCharges(): PlatformActionChargeRow[] {
+    return this.filteredActionCharges.filter(
+      (row) => !this.billingModules.some((mod) => this.chargeBelongsToModule(row, mod.category)),
+    );
+  }
+
+  get configuredCatalogCount(): number {
+    const codes = new Set(this.actionCharges.map((row) => row.actionCode.trim().toUpperCase()));
+    return PLATFORM_ACTION_CATALOG.filter((entry) => codes.has(entry.actionCode)).length;
+  }
+
+  get filteredCatalogEntries(): PlatformActionCatalogEntry[] {
+    const q = this.searchQuery.trim();
+    if (!q) {
+      return [...PLATFORM_ACTION_CATALOG];
+    }
+    return searchPlatformActionCatalog(q, 200);
+  }
+
+  catalogEntriesForModule(category: string): PlatformActionCatalogEntry[] {
+    return this.filteredCatalogEntries
+      .filter((entry) => this.catalogEntryBelongsToModule(entry, category))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }
+
+  configuredChargeForCode(actionCode: string): PlatformActionChargeRow | undefined {
+    const normalized = actionCode.trim().toUpperCase();
+    return this.actionCharges.find((row) => row.actionCode.trim().toUpperCase() === normalized);
+  }
+
+  isCatalogEntryConfigured(entry: PlatformActionCatalogEntry): boolean {
+    return !!this.configuredChargeForCode(entry.actionCode);
+  }
+
+  private catalogEntryBelongsToModule(entry: PlatformActionCatalogEntry, category: string): boolean {
+    if (category === 'ORDERS') {
+      return entry.category === 'ORDERS' || entry.category === 'PROCUREMENT';
+    }
+    return entry.category === category;
+  }
+
+  openChargeFromCatalog(entry: PlatformActionCatalogEntry): void {
+    const existing = this.configuredChargeForCode(entry.actionCode);
+    if (existing) {
+      this.openChargeDialog('edit', existing);
+      return;
+    }
+    this.openChargeDialog('create', undefined, entry.category, entry);
+  }
+
   private chargeBelongsToModule(row: PlatformActionChargeRow, category: string): boolean {
     const rowCategory = row.category ?? 'GENERAL';
     if (category === 'ORDERS') {
@@ -250,15 +368,41 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
     this.searchQuery = '';
     this.filterFieldsOpen = false;
     this.showSampleCsvInfo = false;
+    this.moduleFilter = '';
     this.cdr.markForCheck();
+  }
+
+  setChargesView(view: ChargesView): void {
+    this.chargesView = view;
+    this.cdr.markForCheck();
+  }
+
+  setModuleFilter(category: string): void {
+    this.moduleFilter = this.moduleFilter === category ? '' : category;
+    this.cdr.markForCheck();
+  }
+
+  clearModuleFilter(): void {
+    this.moduleFilter = '';
+    this.cdr.markForCheck();
+  }
+
+  statDisplay(value: number): string {
+    return String(value);
   }
 
   reload(): void {
     this.loading = true;
+    this.chargesLoadError = '';
     this.depositsLoadError = '';
     this.historyLoadError = '';
     forkJoin({
-      charges: this.walletAdmin.listActionCharges().pipe(catchError(() => of([] as PlatformActionChargeRow[]))),
+      charges: this.walletAdmin.listActionCharges().pipe(
+        catchError((err: unknown) => {
+          this.chargesLoadError = err instanceof Error ? err.message : 'Could not load action charges.';
+          return of([] as PlatformActionChargeRow[]);
+        }),
+      ),
       packages: this.walletAdmin.listSubscriptionPackages().pipe(catchError(() => of([] as SubscriptionPackageRow[]))),
       deposits: this.walletAdmin.listPendingDeposits().pipe(
         catchError((err: unknown) => {
@@ -286,6 +430,9 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
         this.pendingDeposits = deposits;
         this.approvedDeposits = history;
         this.pendingDepositsStats.setSnapshot(deposits);
+        if (this.chargesLoadError) {
+          this.snackBar.open(this.chargesLoadError, 'Close', { duration: 6500 });
+        }
         if (this.depositsLoadError) {
           this.snackBar.open(this.depositsLoadError, 'Close', { duration: 6500 });
         }
@@ -299,30 +446,63 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
     return this.walletAdmin.formatWhen(iso);
   }
 
-  openChargeDialog(mode: 'create' | 'edit' | 'view', row?: PlatformActionChargeRow, defaultCategory?: string): void {
+  openChargeDialog(
+    mode: 'create' | 'edit' | 'view',
+    row?: PlatformActionChargeRow,
+    defaultCategory?: string,
+    preset?: PlatformActionCatalogEntry,
+  ): void {
+    if (mode === 'edit' && row?.id) {
+      this.walletAdmin
+        .getActionCharge(row.id)
+        .pipe(catchError(() => of(row)))
+        .subscribe((fresh) => this.openChargeDialogInternal(mode, fresh, defaultCategory, preset));
+      return;
+    }
+    this.openChargeDialogInternal(mode, row, defaultCategory, preset);
+  }
+
+  private openChargeDialogInternal(
+    mode: 'create' | 'edit' | 'view',
+    row?: PlatformActionChargeRow,
+    defaultCategory?: string,
+    preset?: PlatformActionCatalogEntry,
+  ): void {
     const ref = this.dialog.open(PlatformActionChargeFormDialogComponent, {
-      width: '640px',
-      maxWidth: '92vw',
-      panelClass: 'lx-location-dialog-panel',
-      data: { mode, row, defaultCategory } satisfies PlatformActionChargeFormDialogData,
+      width: '720px',
+      maxWidth: '95vw',
+      panelClass: ['lx-location-dialog-panel', 'pb-charge-dialog-panel'],
+      data: {
+        mode,
+        row,
+        defaultCategory,
+        preset,
+        existingCharges: this.actionCharges,
+      } satisfies PlatformActionChargeFormDialogData,
     });
     ref.afterClosed().subscribe((payload) => {
       if (!payload) return;
-      this.walletAdmin.saveActionCharge(payload).subscribe({
-        next: () => {
-          this.snackBar.open(
-            mode === 'edit' ? `Updated ${payload.actionCode}` : `Saved ${payload.actionCode}`,
-            'Close',
-            { duration: 2500 },
-          );
-          this.reload();
-        },
-        error: (err: unknown) => {
-          const message = err instanceof Error ? err.message : 'Could not save action charge.';
-          this.snackBar.open(message, 'Close', { duration: 5000 });
-        },
-      });
+      this.upsertActionCharge(payload);
+      this.snackBar.open(
+        mode === 'edit' ? `Updated ${payload.actionCode} — ${this.formatMoney(payload.chargeCents)}` : `Saved ${payload.actionCode}`,
+        'Close',
+        { duration: 3500 },
+      );
+      this.reload();
     });
+  }
+
+  private upsertActionCharge(saved: PlatformActionChargeRow): void {
+    const code = saved.actionCode.trim().toUpperCase();
+    const index = this.actionCharges.findIndex((row) => row.actionCode.trim().toUpperCase() === code);
+    if (index >= 0) {
+      const next = [...this.actionCharges];
+      next[index] = { ...next[index], ...saved, actionCode: code };
+      this.actionCharges = next;
+    } else {
+      this.actionCharges = [...this.actionCharges, { ...saved, actionCode: code }];
+    }
+    this.cdr.markForCheck();
   }
 
   deleteCharge(row: PlatformActionChargeRow): void {

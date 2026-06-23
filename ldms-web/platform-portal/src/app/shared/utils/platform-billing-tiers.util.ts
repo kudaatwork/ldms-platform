@@ -1,44 +1,44 @@
-/** Fused customer-facing prepaid wallet tiers (USD cents). */
+/** Customer-facing prepaid wallet tiers (USD cents). See docs/PROJECT-LX-PLATFORM-PRICING-GUIDE.md */
 export const PLATFORM_BILLING_TIERS = [
   {
-    tier: 'LIGHT',
-    label: 'Light',
-    cents: 5,
-    icon: 'tune',
-    summary: 'Workflow steps, documents, stock admin, email & push',
-    examples: 'PO approvals, compliance uploads, stock reserve',
+    tier: 'INCLUDED',
+    label: 'Included',
+    cents: 0,
+    icon: 'check_circle',
+    summary: 'Admin, documents, and status updates — bundled in subscription',
+    examples: 'Uploads, PO approvals, fleet registration, email & push',
   },
   {
-    tier: 'STANDARD',
-    label: 'Standard',
-    cents: 15,
-    icon: 'swap_horiz',
-    summary: 'Orders, fleet ops, and corridor activity steps',
-    examples: 'New order, driver assign, fuel fund request',
-  },
-  {
-    tier: 'HEAVY',
-    label: 'Heavy',
-    cents: 45,
+    tier: 'MILESTONE',
+    label: 'Milestone',
+    cents: 1000,
     icon: 'local_shipping',
-    summary: 'Deliveries, proof of receipt, invoices, exports',
-    examples: 'Trip complete, GRV, shipment dispatch, invoice',
+    summary: 'High-value corridor transactions ($5–$25 per event)',
+    examples: 'Trip booking $10, dispatch $8, GRV $5, clearing match $25',
   },
   {
     tier: 'TRACKING',
-    label: 'Live tracking',
-    cents: 20,
+    label: 'Premium GPS',
+    cents: 150,
     icon: 'share_location',
-    summary: 'Per trip per calendar day (not per GPS ping)',
-    examples: 'Live map, GPS trail, ops tracking session',
+    summary: 'Hardware GPS integration — per trip per calendar day',
+    examples: 'Live map, GPS trail, high-frequency device pings',
+  },
+  {
+    tier: 'TELEMETRY',
+    label: 'Fuel telemetry',
+    cents: 175,
+    icon: 'local_gas_station',
+    summary: 'Fuel sensor hardware — per vehicle per calendar day',
+    examples: 'Fuel level telemetry, consumption analytics',
   },
   {
     tier: 'MESSAGING',
     label: 'SMS / WhatsApp',
-    cents: 7,
+    cents: 10,
     icon: 'sms',
-    summary: 'Outbound SMS and WhatsApp bot commands',
-    examples: 'Driver alerts, WhatsApp stop commands',
+    summary: 'After included monthly SMS quota in your plan',
+    examples: 'Border alerts, delivery OTPs, WhatsApp stop commands',
   },
 ] as const;
 
@@ -46,7 +46,15 @@ export type PlatformBillingTierCode = (typeof PLATFORM_BILLING_TIERS)[number]['t
 
 export function billingTierLabel(tier?: string | null): string {
   const match = PLATFORM_BILLING_TIERS.find((entry) => entry.tier === tier);
-  return match?.label ?? tier ?? 'General';
+  if (match) {
+    return match.label;
+  }
+  const legacy: Record<string, string> = {
+    LIGHT: 'Included',
+    STANDARD: 'Included',
+    HEAVY: 'Milestone',
+  };
+  return legacy[tier ?? ''] ?? tier ?? 'General';
 }
 
 export function chargesForTier<T extends { billingTier?: string | null }>(

@@ -131,7 +131,7 @@
   padding: 10px 12px;
   border: 1px solid var(--gray-100);
   border-radius: 10px;
-  background: white;
+  background: var(--surface);
   cursor: pointer;
   text-align: left;
   transition: border-color 140ms ease, background 140ms ease;
@@ -167,7 +167,7 @@
   }
 
   &__icon--own {
-    background: #eff6ff;
+    background: var(--primary-light);
 
     mat-icon {
       color: #2563eb;
@@ -206,7 +206,7 @@
     text-transform: uppercase;
     padding: 0.15rem 0.45rem;
     border-radius: 999px;
-    background: #eff6ff;
+    background: var(--primary-light);
     color: #1d4ed8;
     white-space: nowrap;
   }

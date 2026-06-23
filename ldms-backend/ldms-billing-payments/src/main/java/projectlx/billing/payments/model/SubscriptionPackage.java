@@ -50,6 +50,10 @@ public class SubscriptionPackage {
     @Column(name = "included_tracking_day_credits", nullable = false)
     private Integer includedTrackingDayCredits = 0;
 
+    /** When false (e.g. Starter), organisations on this package cannot enable fuel consumption. */
+    @Column(name = "fuel_consumption_available", nullable = false)
+    private Boolean fuelConsumptionAvailable = Boolean.TRUE;
+
     @Column(name = "currency_code", nullable = false, length = 3)
     private String currencyCode = "USD";
 

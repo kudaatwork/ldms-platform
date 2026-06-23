@@ -20,9 +20,15 @@ export const PLATFORM_BILLING_MODULES: PlatformBillingModuleMeta[] = [
     icon: 'notifications',
   },
   {
+    category: 'BOT_SERVICE',
+    label: 'Bot service',
+    description: 'LDMS Assistant sessions, AI messages, and WhatsApp bot commands',
+    icon: 'smart_toy',
+  },
+  {
     category: 'SUPPORT',
     label: 'Help & support',
-    description: 'LDMS Assistant bot messages vs live agent ticket chat',
+    description: 'Live agent tickets and support ticket chat',
     icon: 'support_agent',
   },
   {
@@ -30,6 +36,12 @@ export const PLATFORM_BILLING_MODULES: PlatformBillingModuleMeta[] = [
     label: 'Shipments',
     description: 'Shipment status updates',
     icon: 'inventory_2',
+  },
+  {
+    category: 'FLEET',
+    label: 'Fleet',
+    description: 'Drivers, vehicles, and compliance documents',
+    icon: 'directions_car',
   },
   {
     category: 'ORDERS',
@@ -48,6 +60,12 @@ export const PLATFORM_BILLING_MODULES: PlatformBillingModuleMeta[] = [
     label: 'Billing documents',
     description: 'Invoice generation',
     icon: 'receipt_long',
+  },
+  {
+    category: 'ANALYTICS',
+    label: 'Analytics & reporting',
+    description: 'Report exports, shipment analytics, and platform revenue downloads',
+    icon: 'insights',
   },
   {
     category: 'IOT',

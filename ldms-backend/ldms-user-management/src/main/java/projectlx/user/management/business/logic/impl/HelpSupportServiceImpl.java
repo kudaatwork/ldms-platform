@@ -521,7 +521,7 @@ public class HelpSupportServiceImpl implements HelpSupportService {
         if (organizationId == null || organizationId <= 0L) {
             return;
         }
-        platformWalletUsageSupport.chargeRequired(organizationId, actionCode, referenceType, referenceId);
+        platformWalletUsageSupport.chargeBestEffort(organizationId, actionCode, referenceType, referenceId);
     }
 
     private DemoRequisitionDto toDemoRequisitionDto(DemoRequisition entity) {

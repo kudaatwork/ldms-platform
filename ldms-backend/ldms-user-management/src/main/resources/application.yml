@@ -22,7 +22,8 @@ spring:
   autoconfigure:
     exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
-    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/ldms_user_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+    # Default 127.0.0.1 (not localhost) — infrastructure/mysql binds 127.0.0.1:3306; ::1 would time out.
+    url: jdbc:mysql://${DB_HOST:127.0.0.1}:${DB_PORT:3306}/ldms_user_management?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true&connectTimeout=5000&socketTimeout=60000
     username: ${DB_USERNAME:${MYSQL_USER:developer}}
     password: ${DB_PASSWORD:${MYSQL_DEVELOPER_PASSWORD:Password098()!}}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -199,8 +200,15 @@ ldms:
       - id: fuel-expenses
         display-name: Fuel & Expenses
         eureka-name: fuel-expenses-service
+        alternate-eureka-names:
+          - ldms-fuel-expenses
         host: ${API_GATEWAY_HOST:127.0.0.1}
         port: ${FUEL_EXPENSES_PORT:8017}
+        management-port: ${FUEL_EXPENSES_MANAGEMENT_PORT:9017}
+        alternate-ports:
+          - 8092
+        alternate-management-ports:
+          - 9092
       - id: billing-payments
         display-name: Billing & Payments
         eureka-name: billing-payments-service

@@ -130,6 +130,7 @@ public final class OrganizationMapping {
         dto.setStandaloneMode(o.isStandaloneMode());
         dto.setInventoryManagementEnabled(o.isInventoryManagementEnabled());
         dto.setCrossDockingEnabled(o.isCrossDockingEnabled());
+        dto.setFuelConsumptionEnabled(o.isFuelConsumptionEnabled());
         dto.setInventoryDataSource(o.getInventoryDataSource());
         dto.setCounterpartyEngagementMode(o.getCounterpartyEngagementMode());
         dto.setCreatedViaSignup(o.getCreatedViaSignup());

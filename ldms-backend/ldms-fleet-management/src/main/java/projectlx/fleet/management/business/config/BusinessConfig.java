@@ -18,6 +18,9 @@ import projectlx.fleet.management.business.logic.api.FleetAssetService;
 import projectlx.fleet.management.business.logic.api.FleetComplianceService;
 import projectlx.fleet.management.business.logic.api.FleetDriverService;
 import projectlx.fleet.management.business.logic.api.FleetDriverSignupRequestService;
+import projectlx.fleet.management.business.logic.api.FleetDashboardService;
+import projectlx.fleet.management.business.logic.impl.FleetDashboardServiceImpl;
+import projectlx.fleet.management.business.logic.support.FleetDashboardSupport;
 import projectlx.fleet.management.business.logic.impl.FleetAssetServiceImpl;
 import projectlx.fleet.management.business.logic.impl.FleetComplianceServiceImpl;
 import projectlx.fleet.management.business.logic.impl.FleetDriverServiceImpl;
@@ -47,6 +50,7 @@ import projectlx.fleet.management.business.validator.api.FleetTrackingDeviceServ
 import projectlx.fleet.management.business.validator.api.FleetTrackingIntegrationCredentialServiceValidator;
 import projectlx.fleet.management.business.validator.impl.FleetTrackingDeviceServiceValidatorImpl;
 import projectlx.fleet.management.business.validator.impl.FleetTrackingIntegrationCredentialServiceValidatorImpl;
+import projectlx.fleet.management.clients.OrganizationManagementServiceClient;
 import projectlx.fleet.management.repository.FleetAssetRepository;
 import projectlx.fleet.management.repository.FleetComplianceRecordRepository;
 import projectlx.fleet.management.repository.FleetDriverRepository;
@@ -176,6 +180,7 @@ public class BusinessConfig {
             FleetTrackingDeviceRepository fleetTrackingDeviceRepository,
             FleetAssetRepository fleetAssetRepository,
             CallerOrganizationResolver callerOrganizationResolver,
+            OrganizationManagementServiceClient organizationManagementServiceClient,
             MessageService messageService) {
         return new FleetTrackingDeviceServiceImpl(
                 fleetTrackingDeviceServiceValidator,
@@ -183,6 +188,7 @@ public class BusinessConfig {
                 fleetTrackingDeviceRepository,
                 fleetAssetRepository,
                 callerOrganizationResolver,
+                organizationManagementServiceClient,
                 messageService);
     }
 
@@ -268,5 +274,20 @@ public class BusinessConfig {
                 fleetDriverServiceAuditable,
                 fleetDriverOnboardingSupport,
                 fleetDriverSignupDocumentSupport);
+    }
+
+    @Bean
+    public FleetDashboardSupport fleetDashboardSupport(
+            FleetAssetRepository fleetAssetRepository,
+            FleetDriverRepository fleetDriverRepository) {
+        return new FleetDashboardSupport(fleetAssetRepository, fleetDriverRepository);
+    }
+
+    @Bean
+    public FleetDashboardService fleetDashboardService(
+            FleetDashboardSupport fleetDashboardSupport,
+            CallerOrganizationResolver callerOrganizationResolver,
+            MessageService messageService) {
+        return new FleetDashboardServiceImpl(fleetDashboardSupport, callerOrganizationResolver, messageService);
     }
 }

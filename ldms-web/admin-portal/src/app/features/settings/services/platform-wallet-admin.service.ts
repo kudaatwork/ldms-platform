@@ -69,11 +69,32 @@ export class PlatformWalletAdminService {
     );
   }
 
+  getActionCharge(chargeId: number): Observable<PlatformActionChargeRow> {
+    return this.http.get<PlatformWalletApiResponse>(`${this.backofficeBase}/action-charges/${chargeId}`).pipe(
+      map((res) => {
+        this.assertSuccess(res, 'Could not load action charge.');
+        return res.platformActionChargeDto ?? ({} as PlatformActionChargeRow);
+      }),
+      catchError((err) => throwError(() => this.toError(err, 'Could not load action charge.'))),
+    );
+  }
+
   saveActionCharge(payload: PlatformActionChargeRow): Observable<PlatformActionChargeRow> {
-    return this.http.put<PlatformWalletApiResponse>(`${this.backofficeBase}/action-charges`, payload).pipe(
+    const body = {
+      ...payload,
+      id: payload.id != null && payload.id > 0 ? payload.id : undefined,
+      chargeCents: Math.round(Number(payload.chargeCents ?? 0)),
+    };
+    return this.http.put<PlatformWalletApiResponse>(`${this.backofficeBase}/action-charges`, body).pipe(
       map((res) => {
         this.assertSuccess(res, 'Could not save action charge.');
-        return res.platformActionChargeDto ?? payload;
+        const saved = res.platformActionChargeDto;
+        if (!saved?.actionCode) {
+          throw new Error(
+            'Billing service did not return the saved charge. Ensure ldms-billing-payments is running on the latest build, then retry.',
+          );
+        }
+        return saved;
       }),
       catchError((err) => throwError(() => this.toError(err, 'Could not save action charge.'))),
     );
@@ -203,12 +224,29 @@ export class PlatformWalletAdminService {
   }
 
   private toError(err: unknown, fallback: string): Error {
-    if (err instanceof Error && err.message) {
+    if (err instanceof Error && err.message && err.message !== fallback) {
       return err;
     }
-    const httpBody = (err as { error?: unknown })?.error;
+    const http = err as { status?: number; statusText?: string; error?: unknown; message?: string };
+    const httpBody = http?.error;
     if (httpBody) {
       return new Error(readApiFailureMessage(httpBody, fallback));
+    }
+    if (http?.status === 0) {
+      return new Error('Cannot reach billing-payments. Check that the API gateway and billing service are running.');
+    }
+    if (http?.status === 401 || http?.status === 403) {
+      const denied = httpBody ? readApiFailureMessage(httpBody, '') : '';
+      if (denied) {
+        return new Error(denied);
+      }
+      return new Error('Session expired or insufficient permissions. Sign in again and retry.');
+    }
+    if (http?.status && http.status >= 500) {
+      return new Error(`Billing service error (${http.status}). Restart ldms-billing-payments and retry.`);
+    }
+    if (http?.message && http.message !== 'Http failure response') {
+      return new Error(http.message);
     }
     return new Error(fallback);
   }

@@ -105,9 +105,21 @@ public class GeminiLlmClient {
             return "Trips start when a truck and driver are assigned to a shipment. Live GPS and stop events "
                     + "are recorded in **Trip & Tracking**. Drivers can also report border stops via WhatsApp commands.";
         }
-        if (lower.contains("invoice") || lower.contains("billing") || lower.contains("payment")) {
-            return "Invoices are generated after goods are received (GRV). View them under **Billing** in the platform portal. "
-                    + "For disputes, open a **Billing** support ticket with the invoice number.";
+        if (lower.contains("invoice") || lower.contains("billing") || lower.contains("payment")
+                || lower.contains("charge") || lower.contains("wallet") || lower.contains("report")) {
+            return """
+                    LDMS has two billing layers:
+                    
+                    **Customer invoicing (GRV → invoice)**
+                    - Invoices are generated after goods are received (GRV).
+                    - View them under **Billing** on the platform portal.
+                    - For disputes, open a **Billing** support ticket with the invoice number.
+                    
+                    **Platform billing charges (prepaid wallet)**
+                    - Organisations pay small per-action fees from a prepaid wallet (trips, shipments, bot messages, notifications, etc.).
+                    - **Report export** and analytics exports are billable actions — a strong recurring revenue source for the platform.
+                    - Admins configure prices in **LX Admin → Settings → Platform billing → Action charges**.
+                    - Organisations review usage under **Settings → Platform billing** on the platform portal.""";
         }
         if (lower.contains("kyc") || lower.contains("onboard") || lower.contains("register")) {
             return "Organisation onboarding includes registration, email verification, and KYC review. "

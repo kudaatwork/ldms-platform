@@ -2,12 +2,11 @@ package projectlx.messaging.inbound.business.logic.impl;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
-import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
-import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.messaging.inbound.business.auditable.api.BotSessionServiceAuditable;
 import projectlx.messaging.inbound.business.logic.api.BotSessionService;
+import projectlx.messaging.inbound.business.logic.support.BotBillingSupport;
 import projectlx.messaging.inbound.business.logic.support.BotCallerProfileSupport;
 import projectlx.messaging.inbound.business.logic.support.BotSessionMapper;
 import projectlx.messaging.inbound.business.logic.support.GeminiLlmClient;
@@ -47,7 +46,7 @@ public class BotSessionServiceImpl implements BotSessionService {
     private final BotFaqRagSupport botFaqRagSupport;
     private final BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport;
     private final GeminiLlmClient geminiLlmClient;
-    private final PlatformWalletUsageSupport platformWalletUsageSupport;
+    private final BotBillingSupport botBillingSupport;
     private final MessageService messageService;
 
     public BotSessionServiceImpl(BotSessionRepository botSessionRepository,
@@ -60,7 +59,7 @@ public class BotSessionServiceImpl implements BotSessionService {
                                  BotFaqRagSupport botFaqRagSupport,
                                  BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport,
                                  GeminiLlmClient geminiLlmClient,
-                                 PlatformWalletUsageSupport platformWalletUsageSupport,
+                                 BotBillingSupport botBillingSupport,
                                  MessageService messageService) {
         this.botSessionRepository = botSessionRepository;
         this.botMessageRepository = botMessageRepository;
@@ -72,7 +71,7 @@ public class BotSessionServiceImpl implements BotSessionService {
         this.botFaqRagSupport = botFaqRagSupport;
         this.botKnowledgeDocumentRagSupport = botKnowledgeDocumentRagSupport;
         this.geminiLlmClient = geminiLlmClient;
-        this.platformWalletUsageSupport = platformWalletUsageSupport;
+        this.botBillingSupport = botBillingSupport;
         this.messageService = messageService;
     }
 
@@ -105,6 +104,8 @@ public class BotSessionServiceImpl implements BotSessionService {
         session.setModifiedBy(username);
 
         BotSession saved = botSessionServiceAuditable.createSession(session, locale, username);
+
+        botBillingSupport.chargeForSessionStart(saved, username);
 
         BotMessage greeting = new BotMessage();
         greeting.setBotSession(saved);
@@ -140,14 +141,6 @@ public class BotSessionServiceImpl implements BotSessionService {
                     new String[]{}, locale));
         }
 
-        if (session.getOrganizationId() != null && session.getOrganizationId() > 0L) {
-            platformWalletUsageSupport.chargeRequired(
-                    session.getOrganizationId(),
-                    PlatformWalletActionCodes.HELP_BOT_MESSAGE,
-                    "BOT_SESSION",
-                    session.getId());
-        }
-
         LocalDateTime now = LocalDateTime.now();
         String userBody = request.getBody().trim();
 
@@ -158,7 +151,9 @@ public class BotSessionServiceImpl implements BotSessionService {
         userMessage.setEntityStatus(EntityStatus.ACTIVE);
         userMessage.setCreatedAt(now);
         userMessage.setCreatedBy(username);
-        botSessionServiceAuditable.createMessage(userMessage, locale, username);
+        BotMessage savedUserMessage = botSessionServiceAuditable.createMessage(userMessage, locale, username);
+
+        botBillingSupport.chargeForUserMessage(session, username, savedUserMessage.getId());
 
         if (session.getTopic() == null || session.getTopic().isBlank()
                 || "LDMS assistant".equalsIgnoreCase(session.getTopic())) {

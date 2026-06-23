@@ -57,4 +57,15 @@ public class PlatformWalletSystemResource {
         PlatformWalletResponse response = platformWalletBillingServiceProcessor.getPublicPricingCatalog(locale);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
+
+    @Auditable(action = "SYSTEM_FUEL_CONSUMPTION_AVAILABLE")
+    @GetMapping("/organization/{organizationId}/fuel-consumption-available")
+    @Operation(summary = "Whether fuel consumption may be enabled for an organisation (package-gated)")
+    public ResponseEntity<PlatformWalletResponse> isFuelConsumptionAvailable(
+            @PathVariable Long organizationId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        PlatformWalletResponse response =
+                platformWalletBillingServiceProcessor.isFuelConsumptionAvailableForOrganization(organizationId, locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
 }

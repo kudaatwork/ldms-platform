@@ -587,7 +587,7 @@
 }
 
 .cust-bento__card--draft .cust-bento__value {
-  color: #e2e8f0;
+  color: var(--gray-200);
 }
 
 .cust-bento__label {
@@ -634,7 +634,7 @@
   padding: 4px;
   border-radius: 14px;
   background: var(--gray-100, #f1f5f9);
-  border: 1px solid var(--gray-200, #e2e8f0);
+  border: 1px solid var(--gray-200);
 }
 
 .cust-view-toggle__btn {
@@ -682,7 +682,7 @@
   gap: 8px;
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid var(--gray-200, #e2e8f0);
+  border: 1px solid var(--gray-200);
   background: var(--gray-50, #f8fafc);
   font-size: 12px;
   font-weight: 600;
@@ -925,7 +925,7 @@
     justify-content: space-between;
     margin-top: 14px;
     padding-top: 12px;
-    border-top: 1px dashed var(--gray-200, #e2e8f0);
+    border-top: 1px dashed var(--gray-200);
   }
 
   &__joined {
@@ -1360,7 +1360,7 @@
   .cust-header__btn.lx-btn-ghost {
     background: rgba(15, 23, 42, 0.4) !important;
     border-color: rgba(148, 163, 184, 0.35) !important;
-    color: #e2e8f0 !important;
+    color: var(--gray-200) !important;
 
     &:hover:not(:disabled) {
       background: rgba(59, 130, 246, 0.22) !important;

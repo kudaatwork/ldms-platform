@@ -1,119 +1,312 @@
-<section class="lx-page lx-page--audit bot-analytics-page">
+<section class="lx-page lx-page--audit ba-page">
   <lx-workspace-hero
     variant="violet"
-    eyebrow="Messaging · Bot analytics"
+    eyebrow="Messaging · Intelligence"
     eyebrowIcon="insights"
-    title="Assistant usage"
-    lead="Session volume, message activity, satisfaction scores, and popular topics from the LDMS web assistant."
+    title="Bot usage analytics"
+    lead="Session trends, conversation depth, satisfaction, and the topics your users ask about most."
     hubIcon="insights"
-    [orbitIcons]="['forum', 'smart_toy', 'star']"
+    [orbitIcons]="['forum', 'smart_toy', 'trending_up']"
   >
-    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="load()" [disabled]="loading">
+    <nav class="ba-period" lxWorkspaceHeroActions aria-label="Analytics window">
+      <button type="button" class="ba-period__btn" [class.ba-period__btn--on]="days === 7" (click)="setDays(7)">7 days</button>
+      <button type="button" class="ba-period__btn" [class.ba-period__btn--on]="days === 30" (click)="setDays(30)">30 days</button>
+      <button type="button" class="ba-period__btn" [class.ba-period__btn--on]="days === 90" (click)="setDays(90)">90 days</button>
+    </nav>
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="load(true)" [disabled]="loading">
       <mat-icon aria-hidden="true">refresh</mat-icon>
       Refresh
     </button>
-    <nav class="bot-analytics-days" lxWorkspaceHeroActions aria-label="Analytics window">
-      <button type="button" class="bot-analytics-days__btn" [class.bot-analytics-days__btn--on]="days === 7" (click)="setDays(7)">7d</button>
-      <button type="button" class="bot-analytics-days__btn" [class.bot-analytics-days__btn--on]="days === 30" (click)="setDays(30)">30d</button>
-      <button type="button" class="bot-analytics-days__btn" [class.bot-analytics-days__btn--on]="days === 90" (click)="setDays(90)">90d</button>
-    </nav>
-    <lx-workspace-hero-stat [value]="summary?.totalSessions ?? 0" label="Total sessions" icon="forum" theme="violet"></lx-workspace-hero-stat>
-    <lx-workspace-hero-stat [value]="summary?.sessionsToday ?? 0" label="Today" icon="today" theme="mint"></lx-workspace-hero-stat>
-    <lx-workspace-hero-stat [value]="summary?.totalMessages ?? 0" label="Messages" icon="chat" theme="amber"></lx-workspace-hero-stat>
-    <lx-workspace-hero-stat [value]="formatScore(summary?.averageSatisfactionScore)" label="Avg rating" icon="star" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="heroStat(summary?.totalSessions ?? 0)" label="Sessions" icon="forum" theme="violet"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="heroStat(summary?.sessionsToday ?? 0)" label="Today" icon="today" theme="mint"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="heroStat(summary?.totalMessages ?? 0)" label="Messages" icon="chat" theme="amber"></lx-workspace-hero-stat>
+    <lx-workspace-hero-stat [value]="heroStat(summary ? formatScore(summary.averageSatisfactionScore) : null)" label="Avg rating" icon="star" theme="violet"></lx-workspace-hero-stat>
   </lx-workspace-hero>
 
-  <div class="bot-alert" *ngIf="error" role="alert">
+  <div class="ba-alert" *ngIf="error" role="alert">
     <mat-icon aria-hidden="true">error_outline</mat-icon>
     {{ error }}
-    <button type="button" class="bot-alert__action" (click)="load()">Retry</button>
+    <button type="button" class="ba-alert__action" (click)="load(true)">Retry</button>
   </div>
 
-  <div class="bot-analytics-grid" *ngIf="!loading && summary">
-    <div class="lx-card bot-analytics-card bot-analytics-card--metrics">
-      <header class="bot-analytics-card__hd">
-        <mat-icon aria-hidden="true">speed</mat-icon>
-        <h3>Engagement</h3>
-      </header>
-      <div class="bot-analytics-metrics">
-        <div class="bot-analytics-metric">
-          <span class="bot-analytics-metric__label">Sessions (7 days)</span>
-          <strong>{{ summary.sessionsLast7Days }}</strong>
+  <!-- Loading (first visit only — revisits and refreshes keep prior data visible) -->
+  <div class="ba-skeleton-grid" *ngIf="initialLoading">
+    <div class="ba-skeleton ba-skeleton--kpi" *ngFor="let i of [1,2,3,4]"></div>
+    <div class="ba-skeleton ba-skeleton--wide"></div>
+    <div class="ba-skeleton ba-skeleton--tall"></div>
+    <div class="ba-skeleton ba-skeleton--tall"></div>
+  </div>
+
+  <ng-container *ngIf="summary">
+    <!-- KPI strip -->
+    <div class="ba-kpi-grid" [class.ba-kpi-grid--refreshing]="loading">
+      <article class="ba-kpi ba-kpi--violet">
+        <div class="ba-kpi__glow"></div>
+        <div class="ba-kpi__icon"><mat-icon>forum</mat-icon></div>
+        <div class="ba-kpi__copy">
+          <span class="ba-kpi__label">Total sessions</span>
+          <strong class="ba-kpi__value">{{ summary.totalSessions }}</strong>
+          <span class="ba-kpi__hint">{{ summary.sessionsLast7Days }} in last 7 days</span>
         </div>
-        <div class="bot-analytics-metric">
-          <span class="bot-analytics-metric__label">User messages</span>
-          <strong>{{ summary.userMessages }}</strong>
+      </article>
+
+      <article class="ba-kpi ba-kpi--mint">
+        <div class="ba-kpi__glow"></div>
+        <div class="ba-kpi__icon"><mat-icon>chat</mat-icon></div>
+        <div class="ba-kpi__copy">
+          <span class="ba-kpi__label">Messages exchanged</span>
+          <strong class="ba-kpi__value">{{ summary.totalMessages }}</strong>
+          <span class="ba-kpi__hint">{{ summary.averageMessagesPerSession }} avg / session</span>
         </div>
-        <div class="bot-analytics-metric">
-          <span class="bot-analytics-metric__label">Bot replies</span>
-          <strong>{{ summary.botMessages }}</strong>
+      </article>
+
+      <article class="ba-kpi ba-kpi--amber">
+        <div class="ba-kpi__glow"></div>
+        <div class="ba-kpi__icon"><mat-icon>star</mat-icon></div>
+        <div class="ba-kpi__copy">
+          <span class="ba-kpi__label">Satisfaction</span>
+          <strong class="ba-kpi__value">{{ formatScore(summary.averageSatisfactionScore) }}<small>/5</small></strong>
+          <span class="ba-kpi__hint">{{ summary.ratedSessionCount }} rated sessions</span>
         </div>
-        <div class="bot-analytics-metric">
-          <span class="bot-analytics-metric__label">Avg / session</span>
-          <strong>{{ summary.averageMessagesPerSession }}</strong>
+      </article>
+
+      <article class="ba-kpi ba-kpi--sky">
+        <div class="ba-kpi__glow"></div>
+        <div class="ba-kpi__icon"><mat-icon>menu_book</mat-icon></div>
+        <div class="ba-kpi__copy">
+          <span class="ba-kpi__label">Knowledge base</span>
+          <strong class="ba-kpi__value">{{ summary.publishedFaqCount }}</strong>
+          <span class="ba-kpi__hint">Published FAQ entries</span>
         </div>
-        <div class="bot-analytics-metric">
-          <span class="bot-analytics-metric__label">Rated sessions</span>
-          <strong>{{ summary.ratedSessionCount }}</strong>
-        </div>
-        <div class="bot-analytics-metric">
-          <span class="bot-analytics-metric__label">Published FAQs</span>
-          <strong>{{ summary.publishedFaqCount }}</strong>
-        </div>
-      </div>
+      </article>
     </div>
 
-    <div class="lx-card bot-analytics-card bot-analytics-card--chart">
-      <header class="bot-analytics-card__hd">
-        <mat-icon aria-hidden="true">bar_chart</mat-icon>
-        <h3>Sessions by day</h3>
-      </header>
-      <div class="bot-analytics-bars">
-        <div class="bot-analytics-bar" *ngFor="let row of summary.sessionsByDay">
-          <span class="bot-analytics-bar__label">{{ row.date }}</span>
-          <div class="bot-analytics-bar__track">
-            <div class="bot-analytics-bar__fill" [style.width.%]="barWidth(row.count)"></div>
+    <!-- Main grid -->
+    <div class="ba-dashboard" [class.ba-dashboard--refreshing]="loading">
+      <!-- Volume chart -->
+      <section class="ba-panel ba-panel--chart lx-card">
+        <header class="ba-panel__hd">
+          <div class="ba-panel__icon ba-panel__icon--chart"><mat-icon>bar_chart</mat-icon></div>
+          <div>
+            <h2>Session volume</h2>
+            <p>Daily user and bot messages</p>
           </div>
-          <span class="bot-analytics-bar__val">{{ row.count }}</span>
-        </div>
-        <p class="bot-analytics-empty" *ngIf="!summary.sessionsByDay.length">No sessions in this window yet.</p>
-      </div>
-    </div>
+          <span class="ba-panel__badge">{{ days }}d</span>
+        </header>
 
-    <div class="lx-card bot-analytics-card">
-      <header class="bot-analytics-card__hd">
-        <mat-icon aria-hidden="true">topic</mat-icon>
-        <h3>Top topics</h3>
-      </header>
-      <ul class="bot-analytics-list">
-        <li *ngFor="let t of summary.topTopics; let i = index">
-          <span class="bot-analytics-list__rank">{{ i + 1 }}</span>
-          <span class="bot-analytics-list__label">{{ t.topic }}</span>
-          <strong>{{ t.count }}</strong>
-        </li>
-        <li class="bot-analytics-empty" *ngIf="!summary.topTopics.length">No topics recorded yet.</li>
-      </ul>
-    </div>
-
-    <div class="lx-card bot-analytics-card">
-      <header class="bot-analytics-card__hd">
-        <mat-icon aria-hidden="true">devices</mat-icon>
-        <h3>Channels</h3>
-      </header>
-      <ul class="bot-analytics-list bot-analytics-list--channels">
-        <li *ngFor="let c of summary.channelBreakdown">
-          <span class="bot-analytics-list__label">{{ c.channel }}</span>
-          <div class="bot-analytics-channel-bar">
-            <div [style.width.%]="channelWidth(c.count)"></div>
+        <div class="ba-column-chart" *ngIf="chartDays.length; else emptyChart" role="img" aria-label="Daily message volume chart">
+          <div class="ba-column-chart__plot">
+            <div class="ba-column-chart__y-axis" aria-hidden="true">
+              <span class="ba-column-chart__y-title">Messages</span>
+              <ol class="ba-column-chart__y-ticks">
+                <li *ngFor="let tick of chartYAxisTicks">{{ tick }}</li>
+              </ol>
+            </div>
+            <div class="ba-column-chart__canvas">
+              <div class="ba-column-chart__grid" aria-hidden="true">
+                <span *ngFor="let tick of chartYAxisTicks" class="ba-column-chart__grid-line"></span>
+              </div>
+              <div class="ba-column-chart__cols">
+                <div
+                  class="ba-column"
+                  *ngFor="let row of chartDays"
+                  [attr.title]="row.date + ': ' + row.userMessages + ' user, ' + row.botMessages + ' bot'"
+                >
+                  <span class="ba-column__val">{{ row.totalMessages }}</span>
+                  <div class="ba-column__track">
+                    <div class="ba-column__stack">
+                      <div class="ba-column__fill ba-column__fill--bot" [style.flex]="row.botMessages || 0.001"></div>
+                      <div class="ba-column__fill ba-column__fill--user" [style.flex]="row.userMessages || 0.001"></div>
+                    </div>
+                  </div>
+                  <span class="ba-column__label">{{ row.label }}</span>
+                </div>
+              </div>
+            </div>
           </div>
-          <strong>{{ c.count }}</strong>
-        </li>
-        <li class="bot-analytics-empty" *ngIf="!summary.channelBreakdown.length">No channel data yet.</li>
-      </ul>
-    </div>
-  </div>
+          <div class="ba-column-chart__footer">
+            <p class="ba-column-chart__x-title">Date</p>
+            <div class="ba-column-chart__legend" aria-hidden="true">
+              <span class="ba-column-chart__legend-item"><i class="ba-column-chart__swatch ba-column-chart__swatch--user"></i> User</span>
+              <span class="ba-column-chart__legend-item"><i class="ba-column-chart__swatch ba-column-chart__swatch--bot"></i> Bot</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #emptyChart>
+          <p class="ba-empty">No sessions recorded in this period yet.</p>
+        </ng-template>
+      </section>
 
-  <div class="bot-analytics-skeleton lx-card" *ngIf="loading">
-    <div class="bot-skeleton" *ngFor="let i of [1,2,3,4]"></div>
-  </div>
+      <!-- Conversation mix -->
+      <section class="ba-panel ba-panel--mix lx-card">
+        <header class="ba-panel__hd">
+          <div class="ba-panel__icon ba-panel__icon--mix"><mat-icon>swap_horiz</mat-icon></div>
+          <div>
+            <h2>Conversation mix</h2>
+            <p>User prompts vs bot replies</p>
+          </div>
+        </header>
+
+        <div class="ba-mix-ring">
+          <svg class="ba-mix-ring__svg" viewBox="0 0 120 120" aria-hidden="true">
+            <circle class="ba-mix-ring__bg" cx="60" cy="60" r="48" />
+            <circle
+              class="ba-mix-ring__bot"
+              cx="60"
+              cy="60"
+              r="48"
+              [style.stroke-dasharray]="mixBotDash"
+              [style.stroke-dashoffset]="mixBotOffset"
+            />
+            <circle class="ba-mix-ring__user" cx="60" cy="60" r="48" [style.stroke-dasharray]="mixUserDash" />
+          </svg>
+          <div class="ba-mix-ring__center">
+            <strong>{{ summary.totalMessages }}</strong>
+            <span>total msgs</span>
+          </div>
+        </div>
+
+        <div class="ba-mix-legend">
+          <div class="ba-mix-legend__row">
+            <span class="ba-mix-legend__dot ba-mix-legend__dot--user"></span>
+            <span>User prompts</span>
+            <strong>{{ summary.userMessages }}</strong>
+            <em>{{ userMessageShare }}%</em>
+          </div>
+          <div class="ba-mix-legend__row">
+            <span class="ba-mix-legend__dot ba-mix-legend__dot--bot"></span>
+            <span>Bot replies</span>
+            <strong>{{ summary.botMessages }}</strong>
+            <em>{{ 100 - userMessageShare }}%</em>
+          </div>
+        </div>
+      </section>
+
+      <!-- Top topics -->
+      <section class="ba-panel ba-panel--topics lx-card">
+        <header class="ba-panel__hd">
+          <div class="ba-panel__icon ba-panel__icon--topics"><mat-icon>trending_up</mat-icon></div>
+          <div>
+            <h2>Most asked topics</h2>
+            <p>What users are curious about</p>
+          </div>
+        </header>
+
+        <ul class="ba-topic-list" *ngIf="topicRows.length; else emptyTopics">
+          <li *ngFor="let t of topicRows; let i = index" [class.ba-topic-row--medal]="rankMedal(i)">
+            <button type="button" class="ba-topic-row" (click)="openLiveChatForTopic(t.topic)">
+              <span class="ba-topic-row__rank" [attr.data-medal]="rankMedal(i)">{{ i + 1 }}</span>
+              <span class="ba-topic-row__body">
+                <span class="ba-topic-row__title">{{ t.topic }}</span>
+                <span class="ba-topic-row__bar"><span [style.width.%]="t.pct"></span></span>
+              </span>
+              <span class="ba-topic-row__count">{{ t.count }}</span>
+              <mat-icon class="ba-topic-row__arrow" aria-hidden="true">arrow_forward</mat-icon>
+            </button>
+          </li>
+        </ul>
+        <ng-template #emptyTopics>
+          <p class="ba-empty">No topics recorded yet — conversations will populate this list.</p>
+        </ng-template>
+      </section>
+
+      <!-- Channels + satisfaction -->
+      <section class="ba-panel ba-panel--side lx-card">
+        <header class="ba-panel__hd">
+          <div class="ba-panel__icon ba-panel__icon--channel"><mat-icon>devices</mat-icon></div>
+          <div>
+            <h2>Channels</h2>
+            <p>Where users reach the bot</p>
+          </div>
+        </header>
+
+        <ul class="ba-channel-cards" *ngIf="summary.channelBreakdown.length; else emptyChannels">
+          <li *ngFor="let c of summary.channelBreakdown" class="ba-channel-card">
+            <div class="ba-channel-card__icon"><mat-icon>{{ channelIcon(c.channel) }}</mat-icon></div>
+            <div class="ba-channel-card__copy">
+              <strong>{{ channelLabel(c.channel) }}</strong>
+              <div class="ba-channel-card__bar"><div [style.width.%]="channelWidth(c.count)"></div></div>
+            </div>
+            <span class="ba-channel-card__val">{{ c.count }}</span>
+          </li>
+        </ul>
+        <ng-template #emptyChannels>
+          <p class="ba-empty ba-empty--compact">No channel data yet.</p>
+        </ng-template>
+
+        <div class="ba-sat-block">
+          <div class="ba-sat-block__ring">
+            <svg viewBox="0 0 100 100" aria-hidden="true">
+              <circle class="ba-sat-block__bg" cx="50" cy="50" r="42" />
+              <circle
+                class="ba-sat-block__fill"
+                cx="50"
+                cy="50"
+                r="42"
+                [style.stroke-dashoffset]="satisfactionRingOffset"
+              />
+            </svg>
+            <div class="ba-sat-block__score">
+              <strong>{{ formatScore(summary.averageSatisfactionScore) }}</strong>
+              <span>/ 5</span>
+            </div>
+          </div>
+          <div class="ba-sat-block__copy">
+            <h3>User satisfaction</h3>
+            <p>From thumbs up/down feedback after chats</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Engagement detail -->
+      <section class="ba-panel ba-panel--engage lx-card">
+        <header class="ba-panel__hd">
+          <div class="ba-panel__icon ba-panel__icon--engage"><mat-icon>speed</mat-icon></div>
+          <div>
+            <h2>Engagement breakdown</h2>
+            <p>Depth and coverage metrics</p>
+          </div>
+        </header>
+
+        <div class="ba-engage-grid">
+          <div class="ba-engage-tile">
+            <mat-icon>today</mat-icon>
+            <strong>{{ summary.sessionsToday }}</strong>
+            <span>Sessions today</span>
+          </div>
+          <div class="ba-engage-tile">
+            <mat-icon>date_range</mat-icon>
+            <strong>{{ summary.sessionsLast7Days }}</strong>
+            <span>Last 7 days</span>
+          </div>
+          <div class="ba-engage-tile">
+            <mat-icon>question_answer</mat-icon>
+            <strong>{{ summary.averageMessagesPerSession }}</strong>
+            <span>Avg msgs / session</span>
+          </div>
+          <div class="ba-engage-tile">
+            <mat-icon>thumb_up</mat-icon>
+            <strong>{{ summary.ratedSessionCount }}</strong>
+            <span>Rated chats</span>
+          </div>
+          <div class="ba-engage-tile">
+            <mat-icon>person</mat-icon>
+            <strong>{{ summary.userMessages }}</strong>
+            <span>User messages</span>
+          </div>
+          <div class="ba-engage-tile">
+            <mat-icon>smart_toy</mat-icon>
+            <strong>{{ summary.botMessages }}</strong>
+            <span>Bot replies</span>
+          </div>
+        </div>
+
+        <a class="ba-engage-cta" routerLink="/help/bot-service">
+          <mat-icon>forum</mat-icon>
+          Open live bot monitor
+          <mat-icon>arrow_forward</mat-icon>
+        </a>
+      </section>
+    </div>
+  </ng-container>
 </section>

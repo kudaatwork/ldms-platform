@@ -14,7 +14,8 @@ import projectlx.co.zw.notifications.model.NotificationTemplate;
 import projectlx.co.zw.notifications.utils.config.LdmsConfigRepoSecretsResolver;
 import projectlx.co.zw.notifications.utils.config.OutboundMessagingReadiness;
 import projectlx.co.zw.notifications.utils.config.OutboundTwilioInitializer;
-import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
+import projectlx.co.zw.notifications.business.logic.support.NotificationBillingSupport;
+import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
 
 public class WhatsAppNotificationProviderServiceImpl implements NotificationProviderService {
 
@@ -25,18 +26,21 @@ public class WhatsAppNotificationProviderServiceImpl implements NotificationProv
     private final OutboundMessagingReadiness outboundMessagingReadiness;
     private final OutboundTwilioInitializer outboundTwilioInitializer;
     private final LdmsConfigRepoSecretsResolver secretsResolver;
+    private final NotificationBillingSupport notificationBillingSupport;
 
     public WhatsAppNotificationProviderServiceImpl(
             TemplateProcessorService templateProcessor,
             NotificationLogRecorder notificationLogRecorder,
             OutboundMessagingReadiness outboundMessagingReadiness,
             OutboundTwilioInitializer outboundTwilioInitializer,
-            LdmsConfigRepoSecretsResolver secretsResolver) {
+            LdmsConfigRepoSecretsResolver secretsResolver,
+            NotificationBillingSupport notificationBillingSupport) {
         this.templateProcessor = templateProcessor;
         this.notificationLogRecorder = notificationLogRecorder;
         this.outboundMessagingReadiness = outboundMessagingReadiness;
         this.outboundTwilioInitializer = outboundTwilioInitializer;
         this.secretsResolver = secretsResolver;
+        this.notificationBillingSupport = notificationBillingSupport;
     }
 
     @Override
@@ -67,6 +71,11 @@ public class WhatsAppNotificationProviderServiceImpl implements NotificationProv
                     request.getEventId(), request.getTemplateKey());
             notificationLogRecorder.markSkipped(request, Channel.WHATSAPP,
                     "twilio_not_configured (set twilio.account-sid and twilio.auth-token)");
+            return;
+        }
+
+        if (!notificationBillingSupport.authorizeMessagingCharge(request, PlatformWalletActionCodes.WHATSAPP_COMMAND)) {
+            notificationLogRecorder.markSkipped(request, Channel.WHATSAPP, "sms_quota_exhausted_wallet_topup_required");
             return;
         }
 

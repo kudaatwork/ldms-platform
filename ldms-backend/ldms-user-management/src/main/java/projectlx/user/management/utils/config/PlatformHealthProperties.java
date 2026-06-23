@@ -24,8 +24,14 @@ public class PlatformHealthProperties {
         private String id;
         private String displayName;
         private String eurekaName;
+        /** Extra Eureka registration names (e.g. ldms-fuel-expenses from config server). */
+        private List<String> alternateEurekaNames = new ArrayList<>();
         private String host;
         private int port;
         private Integer managementPort;
+        /** Fallback application ports when config-server and local overrides differ (e.g. 8092 vs 8017). */
+        private List<Integer> alternatePorts = new ArrayList<>();
+        /** Fallback management actuator ports (e.g. 9092 vs 9017). */
+        private List<Integer> alternateManagementPorts = new ArrayList<>();
     }
 }

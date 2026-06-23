@@ -4,7 +4,7 @@ import { StorageService } from '../services/storage.service';
 import { canAccessPath, normalizeRoleCodes } from '../utils/nav-access.util';
 
 /** Routes reachable while the user group has no permission roles yet (self-service setup). */
-const BOOTSTRAP_PATHS = ['/dashboard', '/account', '/help', '/users/groups', '/users/roles'] as const;
+const BOOTSTRAP_PATHS = ['/dashboard', '/account', '/help', '/users', '/users/groups', '/users/roles'] as const;
 
 function isBootstrapPath(path: string): boolean {
   return BOOTSTRAP_PATHS.some((p) => path === p || path.startsWith(`${p}/`));

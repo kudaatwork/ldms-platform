@@ -6,8 +6,10 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import projectlx.fleet.management.model.FleetDriver;
+import projectlx.fleet.management.utils.enums.DriverEmploymentType;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -56,4 +58,14 @@ public interface FleetDriverRepository extends JpaRepository<FleetDriver, Long> 
 
     /** Checks if the caller org already has a driver linked to the given userId. */
     boolean existsByUserIdAndOrganizationIdAndEntityStatusNot(Long userId, Long organizationId, EntityStatus entityStatus);
+
+    long countByOrganizationIdAndEntityStatusNot(Long organizationId, EntityStatus entityStatus);
+
+    long countByEntityStatusNot(EntityStatus entityStatus);
+
+    List<FleetDriver> findByOrganizationIdAndEmploymentTypeAndEntityStatusNotOrderByIdDesc(
+            Long organizationId, DriverEmploymentType employmentType, EntityStatus entityStatus);
+
+    List<FleetDriver> findByOrganizationIdInAndEntityStatusNotOrderByIdDesc(
+            Collection<Long> organizationIds, EntityStatus entityStatus);
 }

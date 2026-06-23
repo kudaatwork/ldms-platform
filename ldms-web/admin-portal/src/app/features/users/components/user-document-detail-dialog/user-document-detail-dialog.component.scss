@@ -14,7 +14,7 @@
   font-size: 12px;
   line-height: 1.45;
   color: var(--gray-700);
-  background: color-mix(in srgb, var(--primary, #1976d2) 8%, var(--surface, #fff));
+  background: color-mix(in srgb, var(--primary, #1976d2) 8%, var(--surface, var(--surface)));
   border: 1px solid color-mix(in srgb, var(--primary, #1976d2) 22%, transparent);
   border-radius: 8px;
 }

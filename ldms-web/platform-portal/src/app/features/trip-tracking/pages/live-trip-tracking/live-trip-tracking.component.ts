@@ -14,6 +14,7 @@ import * as L from 'leaflet';
 import { Subject, interval, switchMap, takeUntil, catchError, of, startWith, take } from 'rxjs';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { AuthStateService } from '../../../../core/services/auth-state.service';
+import { isFuelConsumptionFeatureEnabled } from '../../../../shared/utils/fuel-consumption.util';
 import { DriverPortalService } from '../../../driver-portal/services/driver-portal.service';
 import { fuelAlertTone } from '../../../../core/constants/fuel-alert.constants';
 import { FuelAlertMonitorService } from '../../../../core/services/fuel-alert-monitor.service';
@@ -375,6 +376,10 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
           this.cdr.markForCheck();
         },
       });
+  }
+
+  get fuelConsumptionEnabled(): boolean {
+    return isFuelConsumptionFeatureEnabled(this.authState.currentUser?.fuelConsumptionEnabled);
   }
 
   get fuelTone(): 'ok' | 'warn' | 'critical' {

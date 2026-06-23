@@ -81,6 +81,9 @@ public class OrganizationDto {
     /** When true, org operates cross-dock logistics (mutually exclusive with full inventory). */
     private Boolean crossDockingEnabled;
 
+    /** When true, org may use fuel telemetry, consumption tracking, and related platform actions. */
+    private Boolean fuelConsumptionEnabled;
+
     /** How inventory data is sourced for this organisation. */
     private InventoryDataSource inventoryDataSource;
 

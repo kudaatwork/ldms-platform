@@ -46,7 +46,7 @@
   display: grid;
   place-items: center;
   color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 12%, var(--surface, #fff));
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface, var(--surface)));
   border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
   box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 12%, transparent);
 
@@ -66,8 +66,8 @@
   border-radius: 14px;
   background: linear-gradient(
     135deg,
-    color-mix(in srgb, var(--primary) 8%, var(--surface, #fff)) 0%,
-    color-mix(in srgb, var(--gray-100) 60%, var(--surface, #fff)) 100%
+    color-mix(in srgb, var(--primary) 8%, var(--surface, var(--surface))) 0%,
+    color-mix(in srgb, var(--gray-100) 60%, var(--surface, var(--surface))) 100%
   );
   border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--gray-200));
 
@@ -223,7 +223,7 @@
   padding: 12px 14px;
   border-radius: 14px;
   border: 1px solid var(--gray-200);
-  background: var(--surface, #fff);
+  background: var(--surface, var(--surface));
   text-align: left;
   cursor: pointer;
   transition:

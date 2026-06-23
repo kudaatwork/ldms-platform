@@ -13,7 +13,7 @@
   --page-bg: #0a1224;
   --surface: rgba(17, 30, 63, 0.92);
   --gray-900: #f8fafc;
-  --gray-800: #e2e8f0;
+  --gray-800: var(--gray-200);
   --gray-700: #cbd5e1;
   --gray-600: #94a3b8;
   --gray-500: #64748b;
@@ -25,7 +25,7 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  color: #e2e8f0;
+  color: var(--gray-200);
   font-family: var(--font);
   background: linear-gradient(180deg, #070f24 0%, #0a1224 42%, #0d1830 100%);
 }
@@ -251,7 +251,7 @@
   border-radius: 11px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(15, 23, 42, 0.65);
-  color: #e2e8f0;
+  color: var(--gray-200);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -304,7 +304,7 @@
   border-radius: 10px;
   font-weight: 600;
   font-size: 14px;
-  color: #e2e8f0;
+  color: var(--gray-200);
   text-decoration: none;
 
   &:hover,

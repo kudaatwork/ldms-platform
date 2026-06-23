@@ -1,6 +1,7 @@
 package projectlx.shipment.management.repository;
 
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
@@ -102,4 +103,22 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long>,
             projectlx.shipment.management.utils.enums.ShipmentStatus status,
             LocalDateTime modifiedAt,
             EntityStatus entityStatus);
+
+    @Query("""
+            SELECT s FROM Shipment s
+            WHERE s.entityStatus <> projectlx.co.zw.shared_library.utils.enums.EntityStatus.DELETED
+              AND (
+                LOWER(s.shipmentNumber) LIKE LOWER(CONCAT('%', :term, '%'))
+                OR LOWER(COALESCE(s.productName, '')) LIKE LOWER(CONCAT('%', :term, '%'))
+                OR LOWER(COALESCE(s.productCode, '')) LIKE LOWER(CONCAT('%', :term, '%'))
+                OR LOWER(COALESCE(s.fromWarehouseName, '')) LIKE LOWER(CONCAT('%', :term, '%'))
+                OR LOWER(COALESCE(s.toWarehouseName, '')) LIKE LOWER(CONCAT('%', :term, '%'))
+                OR LOWER(COALESCE(s.transportCompanyName, '')) LIKE LOWER(CONCAT('%', :term, '%'))
+              )
+            ORDER BY s.modifiedAt DESC, s.id DESC
+            """)
+    List<Shipment> searchByTerm(@Param("term") String term, Pageable pageable);
+
+    List<Shipment> findByPurchaseOrderIdInAndEntityStatusNotOrderByModifiedAtDesc(
+            List<Long> purchaseOrderIds, EntityStatus entityStatus);
 }

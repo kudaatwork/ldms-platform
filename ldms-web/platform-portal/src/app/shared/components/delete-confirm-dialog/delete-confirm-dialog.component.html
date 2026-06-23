@@ -1,10 +1,18 @@
 <div class="lx-delete-confirm">
-  <h2 mat-dialog-title>Delete {{ entityLabel }}?</h2>
+  <h2 mat-dialog-title>{{ title }}</h2>
   <mat-dialog-content>
-    This action cannot be undone. Are you sure you want to continue?
+    {{ message }}
   </mat-dialog-content>
   <mat-dialog-actions align="end">
     <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="close(false)">Cancel</button>
-    <button type="button" class="lx-btn lx-btn-danger lx-btn-sm" (click)="close(true)">Delete</button>
+    <button
+      type="button"
+      class="lx-btn lx-btn-sm"
+      [class.lx-btn-danger]="confirmDanger"
+      [class.lx-btn-primary]="!confirmDanger"
+      (click)="close(true)"
+    >
+      {{ confirmLabel }}
+    </button>
   </mat-dialog-actions>
 </div>

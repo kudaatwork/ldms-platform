@@ -36,7 +36,7 @@
     padding: 10px 12px;
     border: 1px solid var(--gray-200);
     border-radius: 10px;
-    background: white;
+    background: var(--surface);
     cursor: pointer;
   }
 
@@ -105,7 +105,7 @@
     padding: 10px 12px;
     border: 1px solid var(--gray-100);
     border-radius: 10px;
-    background: white;
+    background: var(--surface);
     cursor: pointer;
     text-align: left;
     transition: border-color 140ms ease, background 140ms ease;

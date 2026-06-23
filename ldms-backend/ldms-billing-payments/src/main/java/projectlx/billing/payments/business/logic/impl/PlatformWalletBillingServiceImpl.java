@@ -1,6 +1,7 @@
 package projectlx.billing.payments.business.logic.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import projectlx.billing.payments.business.auditable.api.OrganizationBillingSettingServiceAuditable;
@@ -14,11 +15,14 @@ import projectlx.billing.payments.business.logic.api.PlatformWalletBillingServic
 import projectlx.billing.payments.business.logic.support.CallerOrganizationResolver;
 import projectlx.billing.payments.business.logic.support.OrganizationNameResolver;
 import projectlx.billing.payments.business.logic.support.OrganizationCurrencySupport;
+import projectlx.billing.payments.business.logic.support.OrganizationFuelConsumptionAvailabilitySupport;
 import projectlx.billing.payments.business.logic.support.PlatformWalletMapper;
 import projectlx.billing.payments.business.logic.support.PlatformWalletUsageNotifier;
+import projectlx.billing.payments.business.logic.support.SubscriptionMessagingQuotaSupport;
 import projectlx.billing.payments.business.logic.support.WalletBillingEventPublisher;
 import projectlx.billing.payments.business.logic.support.WalletDepositReceiptNotifier;
 import projectlx.billing.payments.business.logic.support.WalletReceiptSupport;
+import projectlx.billing.payments.clients.OrganizationManagementServiceClient;
 import projectlx.billing.payments.business.validator.api.PlatformWalletBillingServiceValidator;
 import projectlx.billing.payments.model.OrganizationBillingSetting;
 import projectlx.billing.payments.model.PlatformActionCharge;
@@ -70,6 +74,7 @@ import java.util.Optional;
 
 @Transactional
 @RequiredArgsConstructor
+@Slf4j
 public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingService {
 
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
@@ -96,6 +101,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
     private final WalletDepositReceiptNotifier walletDepositReceiptNotifier;
     private final PlatformWalletUsageNotifier platformWalletUsageNotifier;
     private final OrganizationNameResolver organizationNameResolver;
+    private final OrganizationManagementServiceClient organizationManagementServiceClient;
 
     @Override
     @Transactional(readOnly = true)
@@ -108,7 +114,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public PlatformWalletResponse getWalletSummaryByOrganizationId(Long organizationId, Locale locale) {
         if (organizationId == null || organizationId < 1) {
             return error(400, messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"organizationId"}, locale),
@@ -120,12 +126,18 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
 
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_WALLET_SUMMARY_SUCCESS.getCode(), new String[]{}, locale));
-        response.setPlatformWalletSummaryDto(PlatformWalletMapper.toSummaryDto(wallet, setting, packageName));
+        SubscriptionPackage pkg = resolveSubscriptionPackage(setting.getSubscriptionPackageId());
+        response.setPlatformWalletSummaryDto(PlatformWalletMapper.toSummaryDto(
+                wallet,
+                setting,
+                packageName,
+                pkg,
+                usageChargeRecordRepository));
         return response;
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public PlatformWalletResponse getBillingSetting(Locale locale, String username) {
         Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
         if (organizationId == null) {
@@ -189,6 +201,9 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                 setting.setSubscriptionStartedAt(LocalDateTime.now());
             }
             setting.setSubscriptionRenewsAt(LocalDateTime.now().plusMonths(1));
+            if (!Boolean.TRUE.equals(pkg.getFuelConsumptionAvailable())) {
+                disableOrganizationFuelConsumption(organizationId, locale);
+            }
         } else {
             setting.setSubscriptionPackageId(null);
             setting.setSubscriptionStartedAt(null);
@@ -543,7 +558,12 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
 
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_WALLET_CREDIT_SUCCESS.getCode(), new String[]{}, locale));
-        response.setPlatformWalletSummaryDto(PlatformWalletMapper.toSummaryDto(locked, setting, resolvePackageName(setting.getSubscriptionPackageId())));
+        response.setPlatformWalletSummaryDto(PlatformWalletMapper.toSummaryDto(
+                locked,
+                setting,
+                resolvePackageName(setting.getSubscriptionPackageId()),
+                resolveSubscriptionPackage(setting.getSubscriptionPackageId()),
+                usageChargeRecordRepository));
         response.setWalletTransactionDto(PlatformWalletMapper.toDto(savedTx));
         return response;
     }
@@ -578,6 +598,28 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_ACTION_CHARGE_LIST_SUCCESS.getCode(), new String[]{}, locale));
         response.setPlatformActionChargeDtoList(charges.stream().map(PlatformWalletMapper::toDto).toList());
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PlatformWalletResponse getActionCharge(Long chargeId, Locale locale) {
+        if (chargeId == null || chargeId <= 0) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_ACTION_CHARGE_INVALID.getCode(), new String[]{}, locale),
+                    List.of("id"));
+        }
+        PlatformActionCharge charge = platformActionChargeRepository
+                .findByIdAndEntityStatusNot(chargeId, EntityStatus.DELETED)
+                .orElse(null);
+        if (charge == null) {
+            return error(404,
+                    messageService.getMessage(I18Code.MESSAGE_ACTION_CHARGE_NOT_FOUND.getCode(), new String[]{}, locale),
+                    List.of("id"));
+        }
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_ACTION_CHARGE_LIST_SUCCESS.getCode(), new String[]{}, locale));
+        response.setPlatformActionChargeDto(PlatformWalletMapper.toDto(charge));
         return response;
     }
 
@@ -628,11 +670,18 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                 charge.setCategory(PlatformActionCategory.GENERAL);
             }
         }
-        if (StringUtils.hasText(request.getBillingTier())) {
-            try {
-                charge.setBillingTier(PlatformBillingTier.valueOf(request.getBillingTier().trim().toUpperCase()));
-            } catch (IllegalArgumentException ignored) {
+        if (request.getBillingTier() != null) {
+            String tierRaw = request.getBillingTier().trim();
+            if (!StringUtils.hasText(tierRaw)) {
                 charge.setBillingTier(null);
+            } else {
+                try {
+                    charge.setBillingTier(PlatformBillingTier.valueOf(tierRaw.toUpperCase()));
+                } catch (IllegalArgumentException ex) {
+                    return error(400,
+                            messageService.getMessage(I18Code.MESSAGE_ACTION_CHARGE_INVALID.getCode(), new String[]{}, locale),
+                            List.of("billingTier"));
+                }
             }
         }
         if (request.getActive() != null) {
@@ -838,7 +887,22 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
 
         Long chargeCents = catalog.getChargeCents() != null ? catalog.getChargeCents() : 0L;
         OrganizationBillingSetting setting = ensureBillingSetting(request.getOrganizationId(), actor);
-        boolean prepaid = setting.getBillingMode() == OrganizationBillingMode.PREPAID_WALLET;
+        boolean subscription = setting.getBillingMode() == OrganizationBillingMode.PREMIUM_SUBSCRIPTION;
+        boolean messagingAction = SubscriptionMessagingQuotaSupport.isMessagingAction(actionCode);
+        SubscriptionPackage subscriptionPackage = subscription
+                ? resolveSubscriptionPackage(setting.getSubscriptionPackageId())
+                : null;
+        int smsQuota = subscription ? SubscriptionMessagingQuotaSupport.resolveSmsQuota(subscriptionPackage) : 0;
+        long smsUsed = subscription && messagingAction
+                ? SubscriptionMessagingQuotaSupport.countMessagingUsed(
+                        request.getOrganizationId(), setting, usageChargeRecordRepository)
+                : 0L;
+        boolean smsIncludedInSubscription = subscription
+                && messagingAction
+                && smsQuota > 0
+                && smsUsed < smsQuota;
+        boolean prepaid = setting.getBillingMode() == OrganizationBillingMode.PREPAID_WALLET
+                || (subscription && messagingAction && !smsIncludedInSubscription && chargeCents > 0);
 
         if (isTrackingAction(actionCode)
                 && request.getTripId() != null
@@ -894,12 +958,14 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                 result.setAllowed(false);
                 result.setDeducted(false);
                 result.setBalanceAfterCents(locked.getBalanceCents());
-                result.setMessage(messageService.getMessage(
-                        I18Code.MESSAGE_WALLET_INSUFFICIENT_BALANCE.getCode(), new String[]{}, locale));
+                String insufficientMessage = subscription && messagingAction && SubscriptionMessagingQuotaSupport.isQuotaExhausted(smsQuota, smsUsed)
+                        ? messageService.getMessage(I18Code.MESSAGE_SMS_QUOTA_EXHAUSTED.getCode(), new String[]{}, locale)
+                        : messageService.getMessage(I18Code.MESSAGE_WALLET_INSUFFICIENT_BALANCE.getCode(), new String[]{}, locale);
 
-                PlatformWalletResponse response = error(402,
-                        messageService.getMessage(I18Code.MESSAGE_WALLET_INSUFFICIENT_BALANCE.getCode(), new String[]{}, locale),
-                        List.of("balanceCents"));
+                result.setMessage(insufficientMessage);
+
+                PlatformWalletResponse response = error(402, insufficientMessage,
+                        List.of(subscription && messagingAction ? "smsQuota" : "balanceCents"));
                 response.setRecordPlatformUsageChargeResultDto(result);
                 return response;
             }
@@ -1135,6 +1201,13 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         return StringUtils.hasText(value) ? value.trim() : null;
     }
 
+    private SubscriptionPackage resolveSubscriptionPackage(Long packageId) {
+        if (packageId == null || packageId < 1L) {
+            return null;
+        }
+        return subscriptionPackageRepository.findByIdAndEntityStatusNot(packageId, EntityStatus.DELETED).orElse(null);
+    }
+
     private boolean isTrackingAction(String actionCode) {
         if (!StringUtils.hasText(actionCode)) {
             return false;
@@ -1143,6 +1216,26 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         return "TRIP_TRACK".equals(normalized)
                 || "GPS_PING".equals(normalized)
                 || "LIVE_MAP_SESSION".equals(normalized);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PlatformWalletResponse isFuelConsumptionAvailableForOrganization(Long organizationId, Locale locale) {
+        boolean available = OrganizationFuelConsumptionAvailabilitySupport.isAvailableForOrganization(
+                organizationId, organizationBillingSettingRepository, subscriptionPackageRepository);
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_BILLING_SETTING_SUCCESS.getCode(), new String[]{}, locale));
+        response.setFuelConsumptionAvailable(available);
+        return response;
+    }
+
+    private void disableOrganizationFuelConsumption(Long organizationId, Locale locale) {
+        try {
+            organizationManagementServiceClient.disableFuelConsumption(organizationId, locale);
+        } catch (Exception ex) {
+            log.warn("Could not disable fuel consumption for org {} after package change: {}",
+                    organizationId, ex.getMessage());
+        }
     }
 
     private boolean hasTrackingChargeToday(Long organizationId, Long tripId) {

@@ -18,6 +18,7 @@ public class SubscriptionPackageDto {
     private Integer includedStandardCredits;
     private Integer includedLightCredits;
     private Integer includedTrackingDayCredits;
+    private Boolean fuelConsumptionAvailable;
     private Integer sortOrder;
     private Boolean featured;
     private Boolean active;

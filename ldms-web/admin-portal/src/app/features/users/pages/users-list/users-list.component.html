@@ -16,11 +16,7 @@
     </p>
   </div>
 
-  <div class="lx-card lx-card--subsection lx-quick-nav">
-    <a class="lx-quick-nav__item" routerLink="/users/groups" routerLinkActive="is-active"><mat-icon>groups</mat-icon>User Groups</a>
-    <a class="lx-quick-nav__item" routerLink="/users/roles" routerLinkActive="is-active"><mat-icon>verified_user</mat-icon>User Roles</a>
-    <a class="lx-quick-nav__item" routerLink="/users/types" routerLinkActive="is-active"><mat-icon>category</mat-icon>User Types</a>
-  </div>
+  <app-users-hub-nav></app-users-hub-nav>
 
   <div class="lx-card lx-card--subsection">
     <div class="lx-controls-head">
@@ -209,18 +205,24 @@
       </div>
       <span class="lx-fetch-hint" *ngIf="fetching">Refreshing…</span>
     </div>
-    <div class="lx-table-loading-panel" *ngIf="fetching && userTable.data.length === 0" role="status" aria-live="polite">
+    <div class="lx-table-loading-panel" *ngIf="fetching && users.length === 0" role="status" aria-live="polite">
       <lx-table-loading [busy]="true" message="Loading users…"></lx-table-loading>
     </div>
 
-    <ng-container *ngIf="userTable.data.length > 0">
+    <p class="lx-alert lx-alert--error users-load-error" *ngIf="loadError && !fetching">
+      <mat-icon>error_outline</mat-icon>
+      {{ loadError }}
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="resetPaging()">Retry</button>
+    </p>
+
+    <ng-container *ngIf="users.length > 0">
       <div class="lx-table-wrap lx-users-table-wrap lx-table-wrap--host">
         <lx-table-loading
           [busy]="fetching"
           [hasData]="true"
           message="Refreshing users…"
         ></lx-table-loading>
-        <table mat-table [dataSource]="userTable" class="lx-mat-table lx-users-table">
+        <table mat-table [dataSource]="users" class="lx-mat-table lx-users-table">
           <ng-container matColumnDef="name">
             <th mat-header-cell *matHeaderCellDef>Name</th>
             <td mat-cell *matCellDef="let row">{{ row.name }}</td>
@@ -393,7 +395,7 @@
         <mat-icon>password</mat-icon> Change password
       </button>
     </mat-menu>
-    <ng-container *ngIf="!fetching && userTable.data.length === 0">
+    <ng-container *ngIf="!fetching && users.length === 0 && !loadError">
       <div class="lx-empty lx-empty--compact">
         <mat-icon class="lx-empty-icon">search_off</mat-icon>
         <div class="lx-empty-title">No matching rows</div>

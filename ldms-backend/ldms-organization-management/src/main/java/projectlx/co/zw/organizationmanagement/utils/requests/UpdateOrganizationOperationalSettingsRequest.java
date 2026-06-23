@@ -31,4 +31,7 @@ public class UpdateOrganizationOperationalSettingsRequest {
      * PLATFORM_ORG (register or link platform organisations).
      */
     private projectlx.co.zw.shared_library.utils.enums.CounterpartyEngagementMode counterpartyEngagementMode;
+
+    /** When true, org may use fuel telemetry, consumption tracking, and related platform actions. */
+    private Boolean fuelConsumptionEnabled;
 }

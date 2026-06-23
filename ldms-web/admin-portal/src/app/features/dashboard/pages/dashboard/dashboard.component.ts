@@ -15,6 +15,10 @@ import { UserListRow, UsersAdminService } from '../../../users/services/users-ad
 import { KycDocumentsAdminService } from '../../../kyc/services/kyc-documents-admin.service';
 import { formatWelcomeMessage } from '@core/utils/welcome-message.util';
 import { PlatformOpsAdminService } from '@core/services/platform-ops-admin.service';
+import {
+  PlatformDashboardAdminService,
+  PlatformPurchaseOrderSearchRow,
+} from '@core/services/platform-dashboard-admin.service';
 import type { PlatformCompanyOps, PlatformOpsSummary, PlatformShipmentOps } from '@core/services/platform-ops-mock.data';
 import { PlatformWalletAdminService } from '../../../settings/services/platform-wallet-admin.service';
 import {
@@ -28,7 +32,7 @@ import {
   exportFormatLabel,
 } from '@shared/utils/lx-export.util';
 import { ChartData, ChartOptions } from 'chart.js';
-import { Subject, takeUntil, timer } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, switchMap, takeUntil, timer } from 'rxjs';
 import { ensureChartJsRegistered } from '@shared/charts/chartjs-register';
 import {
   lxBarChartOptions,
@@ -57,8 +61,17 @@ interface ShipmentRow {
   progress: number;
   organizationName?: string;
   shipmentRef?: string;
+  productName?: string;
   organizationId?: number;
   shipmentId?: number;
+}
+
+interface PurchaseOrderHitRow {
+  id: number;
+  orderNumber: string;
+  organizationId?: number;
+  statusLabel: string;
+  contact: string;
 }
 
 interface PipelineRow {
@@ -111,6 +124,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   greetingFirstName = '';
   activePeriod = '1M';
   searchTerm = '';
+  searchLoading = false;
+  searchError = '';
+  purchaseOrderHits: PurchaseOrderHitRow[] = [];
+  private defaultShipments: ShipmentRow[] = [];
+  private searchShipments: ShipmentRow[] = [];
+  private readonly searchInput$ = new Subject<string>();
   selectedRegion = 'All Hubs';
   selectedWindow = 'Last 30 days';
 
@@ -158,6 +177,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
       iconBg: 'var(--analytics-light)',
       iconColor: 'var(--analytics)',
       spark: [60, 40, 80, 55, 70, 45, 85, 65],
+    },
+    {
+      label: 'Platform Fleet',
+      value: '—',
+      trend: 'Owned + contracted',
+      up: true,
+      icon: 'garage',
+      iconBg: 'var(--primary-light)',
+      iconColor: 'var(--primary)',
+      spark: [35, 48, 42, 58, 52, 68, 62, 75],
+    },
+    {
+      label: 'Platform Drivers',
+      value: '—',
+      trend: 'All organisations',
+      up: true,
+      icon: 'groups',
+      iconBg: 'var(--success-light)',
+      iconColor: 'var(--success)',
+      spark: [40, 55, 50, 62, 58, 74, 68, 80],
     },
   ];
 
@@ -230,6 +269,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private readonly kycDocuments: KycDocumentsAdminService,
     private readonly storage: StorageService,
     private readonly platformOps: PlatformOpsAdminService,
+    private readonly platformDashboard: PlatformDashboardAdminService,
     private readonly walletAdmin: PlatformWalletAdminService,
     private readonly helpSupportAdmin: HelpSupportAdminService,
     private readonly router: Router,
@@ -246,17 +286,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   get filteredShipments(): ShipmentRow[] {
-    const q = this.searchTerm.trim().toLowerCase();
+    const q = this.searchTerm.trim();
+    const base = q ? this.searchShipments : this.defaultShipments;
     if (!q) {
-      return this.shipments;
+      return base;
     }
-    return this.shipments.filter(
-      (s) =>
-        s.reg.toLowerCase().includes(q) ||
-        s.from.toLowerCase().includes(q) ||
-        s.to.toLowerCase().includes(q) ||
-        s.statusLabel.toLowerCase().includes(q),
-    );
+    const needle = q.toLowerCase();
+    return base.filter((s) => this.shipmentHaystack(s).includes(needle));
+  }
+
+  get showingSearchResults(): boolean {
+    return this.searchTerm.trim().length > 0;
   }
 
   get totalPipelineApplications(): number {
@@ -307,7 +347,71 @@ export class DashboardComponent implements OnInit, OnDestroy {
     });
     this.loading = false;
     this.cdr.markForCheck();
+    this.bindOpsSearch();
     setTimeout(() => this.bootstrapDashboardData(), 0);
+  }
+
+  private bindOpsSearch(): void {
+    this.searchInput$
+      .pipe(
+        debounceTime(350),
+        distinctUntilChanged(),
+        switchMap((term) => {
+          const q = term.trim();
+          if (!q) {
+            this.searchLoading = false;
+            this.searchError = '';
+            this.searchShipments = [];
+            this.purchaseOrderHits = [];
+            this.cdr.markForCheck();
+            return of(null);
+          }
+          this.searchLoading = true;
+          this.searchError = '';
+          return forkJoin({
+            purchaseOrders: this.platformDashboard.searchPurchaseOrders(q).pipe(
+              catchError(() => of([] as PlatformPurchaseOrderSearchRow[])),
+            ),
+            shipments: this.platformDashboard.searchShipments(q).pipe(
+              catchError(() => of({ liveShipments: [] })),
+            ),
+          }).pipe(
+            switchMap(({ purchaseOrders, shipments }) => {
+              const poIds = purchaseOrders.map((row) => row.id).filter((id) => id > 0);
+              if (!poIds.length) {
+                return of({ purchaseOrders, shipments });
+              }
+              return this.platformDashboard.searchShipments(q, poIds).pipe(
+                map((enriched) => ({ purchaseOrders, shipments: enriched })),
+                catchError(() => of({ purchaseOrders, shipments })),
+              );
+            }),
+            finalize(() => {
+              this.searchLoading = false;
+              this.cdr.markForCheck();
+            }),
+          );
+        }),
+        takeUntil(this.destroy$),
+      )
+      .subscribe({
+        next: (result) => {
+          if (!result) {
+            return;
+          }
+          this.purchaseOrderHits = result.purchaseOrders.map((row) => this.mapPurchaseOrderHit(row));
+          this.searchShipments = (result.shipments.liveShipments ?? []).map((row) =>
+            this.mapLiveShipmentRow(row),
+          );
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.searchError = err.message ?? 'Search failed.';
+          this.searchShipments = [];
+          this.purchaseOrderHits = [];
+          this.cdr.markForCheck();
+        },
+      });
   }
 
   private bootstrapDashboardData(): void {
@@ -663,8 +767,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.opsSnapshot = summary;
     this.topActiveCompanies = [...summary.companies];
     this.shipments = summary.liveShipments.slice(0, 8).map((s) => this.mapShipmentRow(s));
+    this.defaultShipments = [...this.shipments];
     this.liveOnTimePct = summary.onTimePct;
+    this.syncOpsKpiCards(summary);
+  }
 
+  private syncOpsKpiCards(summary: PlatformOpsSummary): void {
     const volumeSpark = this.normalizeSpark(summary.weeklyVolume);
 
     this.kpiCards = this.kpiCards.map((card) => {
@@ -683,6 +791,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
           value: this.walletAdmin.formatCents(summary.pendingInvoicesCents),
           trend: summary.pendingInvoicesCents > 0 ? 'Outstanding balance' : 'All clear',
           up: summary.pendingInvoicesCents === 0,
+          spark: volumeSpark,
+        };
+      }
+      if (card.label === 'Platform Fleet') {
+        return {
+          ...card,
+          value: String(summary.totalFleetAssets),
+          trend: `${summary.ownedFleetAssets} owned · ${summary.contractedFleetAssets} contracted`,
+          up: summary.totalFleetAssets > 0,
+          spark: volumeSpark,
+        };
+      }
+      if (card.label === 'Platform Drivers') {
+        return {
+          ...card,
+          value: String(summary.totalDrivers),
+          trend: `${summary.organizationsWithFleet} orgs with fleet`,
+          up: summary.totalDrivers > 0,
           spark: volumeSpark,
         };
       }
@@ -723,9 +849,90 @@ export class DashboardComponent implements OnInit, OnDestroy {
       progress: s.progressPct,
       organizationName: s.organizationName,
       shipmentRef: s.shipmentRef,
+      productName: s.cargoSummary,
       organizationId: s.organizationId,
       shipmentId: s.shipmentId,
     };
+  }
+
+  private mapLiveShipmentRow(row: {
+    id: number;
+    shipmentNumber?: string;
+    organizationId?: number;
+    fromWarehouseName?: string;
+    toWarehouseName?: string;
+    transportCompanyName?: string;
+    status?: string;
+    productName?: string;
+  }): ShipmentRow {
+    const status = row.status ?? 'IN_TRANSIT';
+    return {
+      reg: row.transportCompanyName?.slice(0, 12) ?? `LDMS-${row.id}`,
+      from: row.fromWarehouseName ?? 'Origin',
+      to: row.toWarehouseName ?? 'Destination',
+      status: this.shipmentStatusClass(this.mapApiShipmentStatus(status)),
+      statusLabel: this.apiShipmentStatusLabel(status),
+      eta: '—',
+      progress: status === 'DELIVERED' ? 100 : status === 'IN_TRANSIT' ? 68 : 42,
+      organizationName: row.organizationId ? `Organisation #${row.organizationId}` : undefined,
+      shipmentRef: row.shipmentNumber ?? `SHP-${row.id}`,
+      productName: row.productName,
+      organizationId: row.organizationId,
+      shipmentId: row.id,
+    };
+  }
+
+  private mapPurchaseOrderHit(row: PlatformPurchaseOrderSearchRow): PurchaseOrderHitRow {
+    return {
+      id: row.id,
+      orderNumber: row.purchaseOrderNumber ?? `PO-${row.id}`,
+      organizationId: row.organizationId,
+      statusLabel: String(row.status ?? '—').replaceAll('_', ' '),
+      contact: row.supplierContact ?? row.buyerContact ?? '—',
+    };
+  }
+
+  private shipmentHaystack(row: ShipmentRow): string {
+    return [
+      row.shipmentRef,
+      row.reg,
+      row.from,
+      row.to,
+      row.statusLabel,
+      row.organizationName,
+      row.productName,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+  }
+
+  private mapApiShipmentStatus(status: string): PlatformShipmentOps['status'] {
+    switch (status) {
+      case 'IN_TRANSIT':
+        return 'IN_TRANSIT';
+      case 'ARRIVED_PENDING_OTP':
+        return 'AT_BORDER';
+      case 'DELIVERED':
+        return 'DELIVERED';
+      case 'CANCELLED':
+        return 'CANCELLED';
+      default:
+        return 'SUBMITTED';
+    }
+  }
+
+  private apiShipmentStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
+      PENDING_ALLOCATION: 'Pending allocation',
+      PENDING_FLEET_ALLOCATION: 'Pending fleet',
+      ALLOCATED: 'Allocated',
+      IN_TRANSIT: 'In transit',
+      ARRIVED_PENDING_OTP: 'At destination',
+      DELIVERED: 'Delivered',
+      CANCELLED: 'Cancelled',
+    };
+    return labels[status] ?? status;
   }
 
   private shipmentStatusClass(status: string): string {
@@ -754,7 +961,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
         .pipe(takeUntil(this.destroy$))
         .subscribe((summary) => {
           this.opsSnapshot = summary;
-          this.shipments = summary.liveShipments.slice(0, 8).map((s) => this.mapShipmentRow(s));
+          this.syncOpsKpiCards(summary);
+          if (!this.showingSearchResults) {
+            this.shipments = summary.liveShipments.slice(0, 8).map((s) => this.mapShipmentRow(s));
+            this.defaultShipments = [...this.shipments];
+          }
           this.liveOnTimePct = summary.onTimePct;
           this.cdr.markForCheck();
         });
@@ -765,6 +976,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.activePeriod = p;
     this.cdr.markForCheck();
   }
+
+  onSearchTermChange(value: string): void {
+    this.searchTerm = value;
+    this.searchInput$.next(value);
+    this.cdr.markForCheck();
+  }
+
+  applyFilters(): void {
+    this.searchInput$.next(this.searchTerm);
+  }
+
+  resetFilters(): void {
+    this.searchTerm = '';
+    this.searchError = '';
+    this.searchShipments = [];
+    this.purchaseOrderHits = [];
+    this.selectedRegion = 'All Hubs';
+    this.selectedWindow = 'Last 30 days';
+    this.searchInput$.next('');
+    this.cdr.markForCheck();
+  }
+
+  trackByPoId = (_: number, row: PurchaseOrderHitRow): number => row.id;
 
   setChartView(view: 'bars' | 'donut'): void {
     this.chartView = view;

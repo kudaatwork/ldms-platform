@@ -1,85 +1,165 @@
-<div class="lx-dialog-shell" [class.is-edit]="isEdit" [class.is-view]="isView">
-  <div class="lx-dialog-header">
-    <div class="lx-header-text">
-      <h2 class="lx-dialog-title">{{ title }}</h2>
-      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+<div class="pb-charge-dialog" [class.is-edit]="isEdit" [class.is-view]="isView" [class.is-create]="!isEdit && !isView">
+  <header class="pb-charge-dialog__hero">
+    <div class="pb-charge-dialog__hero-icon" aria-hidden="true">
+      <mat-icon>{{ headerIcon }}</mat-icon>
     </div>
-    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+    <div class="pb-charge-dialog__hero-copy">
+      <span class="pb-charge-dialog__badge">{{ modeLabel }}</span>
+      <h2>{{ title }}</h2>
+      <p>{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="pb-charge-dialog__close" type="button" aria-label="Close dialog" (click)="cancel()">
       <mat-icon>close</mat-icon>
     </button>
-  </div>
+  </header>
 
-  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="save()">
-    <div class="lx-form-grid">
-      <div class="lx-field span-2">
-        <label class="lx-field-label">Action code <span class="req">*</span></label>
-        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('actionCode', 'required')">
-          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
-          <input formControlName="actionCode" placeholder="e.g. TRIP_TRACK" />
+  <form [formGroup]="form" class="pb-charge-dialog__body" (ngSubmit)="save()">
+    <section class="pb-charge-dialog__section">
+      <h3 class="pb-charge-dialog__section-title">
+        <mat-icon>fingerprint</mat-icon>
+        Identity
+      </h3>
+
+      <div class="pb-charge-dialog__search-callout" *ngIf="isCreate">
+        <mat-icon>manage_search</mat-icon>
+        <p>Type an <strong>action code</strong> or <strong>charge name</strong> below — matching platform actions appear as you type.</p>
+      </div>
+
+      <div class="pb-charge-dialog__grid">
+        <div class="pb-field span-2">
+          <label class="pb-field__label">Action code <span class="req">*</span></label>
+          <div class="pb-field__input" [class.is-invalid]="hasError('actionCode', 'required')">
+            <mat-icon>tag</mat-icon>
+            <input
+              formControlName="actionCode"
+              placeholder="Search e.g. TRIP_CREATE or trip booking"
+              [matAutocomplete]="codeAuto"
+            />
+          </div>
+          <mat-autocomplete #codeAuto="matAutocomplete" (optionSelected)="onCatalogEntryPicked($event.option.value)">
+            @for (entry of catalogSuggestions; track entry.actionCode) {
+              <mat-option [value]="entry">
+                <div class="pb-ac-option">
+                  <code class="pb-ac-option__code">{{ entry.actionCode }}</code>
+                  <span class="pb-ac-option__name">{{ entry.displayName }}</span>
+                  <span class="pb-ac-option__meta">{{ categoryLabel(entry.category) }}</span>
+                  <span class="pb-ac-option__badge" *ngIf="catalogEntryConfigured(entry)">Configured</span>
+                </div>
+              </mat-option>
+            }
+          </mat-autocomplete>
+          <p class="pb-field__hint">Unique uppercase token used when platform services record usage.</p>
+          <p class="pb-field__error" *ngIf="hasError('actionCode', 'required')">Action code is required</p>
         </div>
-        <div class="lx-field-hint">Unique uppercase token referenced by platform services when recording usage.</div>
-        <div class="lx-field-error" *ngIf="hasError('actionCode', 'required')">Action code is required</div>
-      </div>
 
-      <div class="lx-field span-2">
-        <label class="lx-field-label">Display name <span class="req">*</span></label>
-        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('displayName', 'required')">
-          <mat-icon class="lx-input-shell__icon">label</mat-icon>
-          <input formControlName="displayName" placeholder="e.g. Trip tracking ping" />
+        <div class="pb-field span-2">
+          <label class="pb-field__label">Display name <span class="req">*</span></label>
+          <div class="pb-field__input" [class.is-invalid]="hasError('displayName', 'required')">
+            <mat-icon>label</mat-icon>
+            <input
+              formControlName="displayName"
+              placeholder="Search charge name e.g. Trip booking fee"
+              [matAutocomplete]="nameAuto"
+            />
+          </div>
+          <mat-autocomplete #nameAuto="matAutocomplete" (optionSelected)="onCatalogEntryPicked($event.option.value)">
+            @for (entry of catalogSuggestions; track entry.actionCode) {
+              <mat-option [value]="entry">
+                <div class="pb-ac-option">
+                  <span class="pb-ac-option__name pb-ac-option__name--lead">{{ entry.displayName }}</span>
+                  <code class="pb-ac-option__code">{{ entry.actionCode }}</code>
+                  <span class="pb-ac-option__badge" *ngIf="catalogEntryConfigured(entry)">Configured</span>
+                </div>
+              </mat-option>
+            }
+          </mat-autocomplete>
+          <p class="pb-field__error" *ngIf="hasError('displayName', 'required')">Display name is required</p>
         </div>
-        <div class="lx-field-error" *ngIf="hasError('displayName', 'required')">Display name is required</div>
-      </div>
 
-      <div class="lx-field span-2">
-        <label class="lx-field-label">Description</label>
-        <div class="lx-input-shell lx-input-shell--textarea">
-          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
-          <textarea formControlName="description" rows="2" placeholder="When this charge applies"></textarea>
-        </div>
-      </div>
-
-      <div class="lx-field">
-        <label class="lx-field-label">Charge (cents) <span class="req">*</span></label>
-        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('chargeCents', 'required') || hasError('chargeCents', 'min')">
-          <mat-icon class="lx-input-shell__icon">payments</mat-icon>
-          <input type="number" min="0" formControlName="chargeCents" />
-        </div>
-        <div class="lx-field-hint">Amount deducted per occurrence on prepaid wallets.</div>
-      </div>
-
-      <div class="lx-field">
-        <label class="lx-field-label">Category <span class="req">*</span></label>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">category</mat-icon>
-          <select formControlName="category" aria-label="Category">
-            <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
-          </select>
+        <div class="pb-field span-2">
+          <label class="pb-field__label">Description</label>
+          <div class="pb-field__input pb-field__input--area">
+            <mat-icon>notes</mat-icon>
+            <textarea formControlName="description" rows="2" placeholder="e.g. Charged when a trip is booked or updated"></textarea>
+          </div>
         </div>
       </div>
+    </section>
 
-      <div class="lx-field">
-        <label class="lx-field-label">Billing tier</label>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">layers</mat-icon>
-          <select formControlName="billingTier" aria-label="Billing tier">
-            <option value="">— None —</option>
-            <option *ngFor="let t of billingTiers" [value]="t">{{ t }}</option>
-          </select>
+    <section class="pb-charge-dialog__section pb-charge-dialog__section--pricing">
+      <div class="pb-charge-dialog__pricing-head">
+        <h3 class="pb-charge-dialog__section-title">
+          <mat-icon>payments</mat-icon>
+          Pricing
+        </h3>
+        <div class="pb-price-preview" aria-live="polite">
+          <span class="pb-price-preview__label">Customer sees</span>
+          <strong>{{ chargePreview }}</strong>
+          <span class="pb-price-preview__suffix">per use</span>
         </div>
-        <div class="lx-field-hint">Fused customer-facing tier (Light, Standard, Heavy, etc.).</div>
       </div>
+      <div class="pb-charge-dialog__grid">
+        <div class="pb-field">
+          <label class="pb-field__label">Price (USD) <span class="req">*</span></label>
+          <div
+            class="pb-field__input"
+            [class.is-invalid]="hasError('chargeAmountDollars', 'required') || hasError('chargeAmountDollars', 'min')"
+          >
+            <mat-icon>attach_money</mat-icon>
+            <input type="number" min="0" step="0.01" formControlName="chargeAmountDollars" placeholder="e.g. 0.50" />
+          </div>
+          <p class="pb-field__hint">
+            Deducted from prepaid wallets on each occurrence (stored as {{ storedCents }} cents).
+          </p>
+        </div>
 
-      <div class="lx-field lx-field--toggle span-2">
-        <span class="lx-field-label">Active</span>
-        <mat-slide-toggle formControlName="active">Charge is applied when active</mat-slide-toggle>
+        <div class="pb-field pb-field--toggle">
+          <label class="pb-field__label">Status</label>
+          <div class="pb-toggle-card" [class.is-on]="form.get('active')?.value === true">
+            <mat-slide-toggle formControlName="active">
+              {{ form.get('active')?.value ? 'Charge is live' : 'Charge is paused' }}
+            </mat-slide-toggle>
+          </div>
+        </div>
       </div>
-    </div>
+    </section>
 
-    <div class="lx-step-actions">
-      <button type="button" mat-button (click)="cancel()">{{ isView ? 'Close' : 'Cancel' }}</button>
-      <button *ngIf="!isView" type="submit" mat-raised-button color="primary">
-        {{ isEdit ? 'Save changes' : 'Create charge' }}
+    <section class="pb-charge-dialog__section">
+      <h3 class="pb-charge-dialog__section-title">
+        <mat-icon>category</mat-icon>
+        Classification
+      </h3>
+      <div class="pb-charge-dialog__grid">
+        <div class="pb-field">
+          <label class="pb-field__label">Module <span class="req">*</span></label>
+          <div class="pb-field__input">
+            <mat-icon>apps</mat-icon>
+            <select formControlName="category" aria-label="Module category">
+              <option *ngFor="let c of categories" [value]="c">{{ categoryLabel(c) }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="pb-field">
+          <label class="pb-field__label">Billing tier</label>
+          <div class="pb-field__input">
+            <mat-icon>layers</mat-icon>
+            <select formControlName="billingTier" aria-label="Billing tier">
+              <option value="">— None —</option>
+              <option *ngFor="let t of billingTiers" [value]="t">{{ t }}</option>
+            </select>
+          </div>
+          <p class="pb-field__hint">Milestone, included, tracking, telemetry, or messaging tier.</p>
+        </div>
+      </div>
+    </section>
+
+    <footer class="pb-charge-dialog__footer">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()">{{ isView ? 'Close' : 'Cancel' }}</button>
+      <button *ngIf="!isView" type="submit" class="lx-btn lx-btn-primary lx-btn-accent" [disabled]="saving">
+        <mat-icon>{{ isEdit ? 'save' : 'add' }}</mat-icon>
+        {{ saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Create charge') }}
       </button>
-    </div>
+    </footer>
   </form>
 </div>

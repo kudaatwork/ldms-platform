@@ -66,4 +66,6 @@ export interface CurrentUser {
   /** How inventory data is sourced when not managed internally. */
   inventoryDataSource?: 'INTERNAL' | 'EXTERNAL_API' | 'MANUAL_ACK';
   counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
+  /** When true, org may use fuel telemetry, consumption tracking, and related platform actions. */
+  fuelConsumptionEnabled?: boolean;
 }

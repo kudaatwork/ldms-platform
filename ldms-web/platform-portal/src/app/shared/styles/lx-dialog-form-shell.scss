@@ -25,7 +25,7 @@
   align-items: center;
   gap: 12px;
   padding: 26px 24px 16px;
-  border-bottom: 1px solid var(--gray-200, #e2e8f0);
+  border-bottom: 1px solid var(--gray-200);
 }
 
 .lx-header-text {
@@ -229,7 +229,7 @@
   gap: 12px;
   margin-top: 14px;
   padding-top: 14px;
-  border-top: 1px solid var(--gray-200, #e2e8f0);
+  border-top: 1px solid var(--gray-200);
 }
 
 .lx-step-actions button[mat-raised-button] {
@@ -283,7 +283,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid var(--gray-200, #e2e8f0);
+  border: 1px solid var(--gray-200);
   border-radius: 12px;
   background: var(--gray-50, #f8fafc);
 

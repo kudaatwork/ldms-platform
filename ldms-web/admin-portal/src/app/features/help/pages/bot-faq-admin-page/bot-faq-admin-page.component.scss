@@ -62,7 +62,7 @@
   span {
     font-size: 12px;
     font-weight: 700;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted, var(--gray-500));
   }
 
   input,
@@ -72,7 +72,7 @@
     border-radius: 12px;
     padding: 11px 14px;
     font: inherit;
-    background: var(--surface, #fff);
+    background: var(--surface, var(--surface));
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
     &:focus {
@@ -114,7 +114,7 @@
 .bot-faq-list__sub {
   margin: 4px 0 0;
   font-size: 13px;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, var(--gray-500));
 }
 
 .bot-faq-search {
@@ -125,7 +125,7 @@
   border-radius: 999px;
   padding: 8px 14px;
   min-width: 280px;
-  background: rgba(248, 250, 252, 0.9);
+  background: color-mix(in srgb, var(--raised) 90%, transparent);
 
   input {
     border: none;
@@ -151,12 +151,12 @@
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted, var(--gray-500));
     padding: 8px 14px;
   }
 
   tbody tr {
-    background: rgba(248, 250, 252, 0.85);
+    background: color-mix(in srgb, var(--raised) 85%, transparent);
     transition: background 0.15s ease, transform 0.15s ease;
 
     &:hover {
@@ -182,7 +182,7 @@
 
     p {
       margin: 6px 0 0;
-      color: var(--text-muted, #64748b);
+      color: var(--text-muted, var(--gray-500));
       font-size: 13px;
       line-height: 1.45;
       display: -webkit-box;
@@ -209,7 +209,7 @@
   color: #059669;
 
   &--off {
-    color: #94a3b8;
+    color: var(--gray-400);
   }
 }
 
@@ -225,7 +225,7 @@
 .bot-faq-empty {
   padding: 32px;
   text-align: center;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted, var(--gray-500));
 }
 
 .bot-faq-skeleton,
@@ -238,7 +238,7 @@
 .bot-skeleton {
   height: 56px;
   border-radius: 12px;
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background: linear-gradient(90deg, #f1f5f9 25%, var(--gray-200) 50%, #f1f5f9 75%);
   background-size: 200% 100%;
   animation: bot-shimmer 1.2s infinite;
 }
@@ -253,7 +253,7 @@
     margin: -8px 0 16px;
     font-size: 14px;
     line-height: 1.55;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted, var(--gray-500));
   }
 
   &__row {
@@ -293,14 +293,14 @@
       margin: 0;
       font-size: 14px;
       line-height: 1.55;
-      color: var(--text-muted, #64748b);
+      color: var(--text-muted, var(--gray-500));
     }
   }
 
   &__hint {
     margin: 0 0 16px;
     font-size: 13px;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted, var(--gray-500));
     font-style: italic;
   }
 }
@@ -317,8 +317,8 @@
   align-items: center;
   gap: 6px;
   border: 1px solid rgba(124, 58, 237, 0.2);
-  background: rgba(248, 250, 252, 0.9);
-  color: #475569;
+  background: color-mix(in srgb, var(--raised) 90%, transparent);
+  color: var(--gray-600);
   border-radius: 999px;
   padding: 8px 14px;
   font-size: 13px;
@@ -358,12 +358,12 @@
 
 .bot-list-filter {
   border: 1px solid rgba(15, 23, 42, 0.1);
-  background: #fff;
+  background: var(--surface);
   border-radius: 999px;
   padding: 6px 12px;
   font-size: 12px;
   font-weight: 700;
-  color: #64748b;
+  color: var(--gray-500);
   cursor: pointer;
 
   &--on {
@@ -377,7 +377,7 @@
   display: block;
   margin-top: 4px;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--gray-400);
 }
 
 .bot-faq-pill--kind {

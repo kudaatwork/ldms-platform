@@ -3,7 +3,6 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { PageEvent } from '@angular/material/paginator';
-import { MatTableDataSource } from '@angular/material/table';
 import { IdLabelOption, UsersAdminService, UserListRow } from '../../services/users-admin.service';
 import { Subject, debounceTime, forkJoin } from 'rxjs';
 import { finalize } from 'rxjs/operators';
@@ -49,6 +48,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
     'Search, filter, and manage platform users — accounts, verification, roles, and group membership.';
 
   fetching = true;
+  loadError = '';
   exporting = false;
   resendingVerificationUserId: number | null = null;
   activeUserRow: UserListRow | null = null;
@@ -68,8 +68,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
     'actions',
   ];
 
-  /** Material table + async loads: use dataSource so rows render reliably after HTTP. */
-  readonly userTable = new MatTableDataSource<UserListRow>([]);
+  users: UserListRow[] = [];
 
   searchQuery = '';
   filterFieldsOpen = false;
@@ -409,12 +408,12 @@ export class UsersListComponent implements OnInit, OnDestroy {
         data: {
           entityLabel: 'user',
           onConfirm: () => {
-            const rows = this.userTable.data;
+            const rows = this.users;
             const idx = rows.findIndex((r) => r.id === row.id);
             let didPageBack = false;
-            this.userTable.data = rows.filter((r) => r.id !== row.id);
+            this.users = rows.filter((r) => r.id !== row.id);
             this.totalRecords = Math.max(0, this.totalRecords - 1);
-            if (this.userTable.data.length === 0 && this.totalRecords > 0 && this.pageIndex > 0) {
+            if (this.users.length === 0 && this.totalRecords > 0 && this.pageIndex > 0) {
               this.pageIndex -= 1;
               didPageBack = true;
               this.reload$.next();
@@ -880,10 +879,10 @@ export class UsersListComponent implements OnInit, OnDestroy {
       this.reload$.next();
       return;
     }
-    const rows = this.userTable.data.slice();
+    const rows = this.users.slice();
     const insertAt = Math.min(Math.max(snap.index, 0), rows.length);
     rows.splice(insertAt, 0, snap.row);
-    this.userTable.data = rows;
+    this.users = rows;
     this.totalRecords += 1;
     this.pendingDeleteSnapshot = null;
     this.cdr.detectChanges();
@@ -950,6 +949,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
   private loadUsers(): void {
     const loadToken = ++this.latestLoadToken;
     this.fetching = true;
+    this.loadError = '';
     this.usersService
       .queryUsers({
         page: this.pageIndex,
@@ -975,15 +975,17 @@ export class UsersListComponent implements OnInit, OnDestroy {
             this.loadUsers();
             return;
           }
-          // New array ref so MatTableDataSource always emits; avoids stale empty state after HTTP.
-          this.userTable.data = rows.slice();
+          this.users = rows.slice();
           this.totalRecords = totalElements;
           this.cdr.detectChanges();
         },
-        error: () => {
+        error: (err: unknown) => {
           if (loadToken !== this.latestLoadToken) return;
-          this.userTable.data = [];
+          this.users = [];
           this.totalRecords = 0;
+          this.loadError = err instanceof Error ? err.message : 'Could not load users from the server.';
+          this.snackBar.open(this.loadError, 'Close', { duration: 6500 });
+          this.cdr.detectChanges();
         },
       });
   }

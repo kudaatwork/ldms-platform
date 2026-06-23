@@ -29,7 +29,7 @@
     display: grid;
     place-items: center;
     border-radius: 12px;
-    background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 14%, #fff), color-mix(in srgb, var(--analytics) 10%, #fff));
+    background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 14%, var(--surface)), color-mix(in srgb, var(--analytics) 10%, var(--surface)));
     color: var(--analytics);
     box-shadow: 0 8px 20px color-mix(in srgb, var(--analytics) 12%, transparent);
     flex-shrink: 0;

@@ -22,6 +22,7 @@ public class BotAnalyticsSummaryDto {
     private long ratedSessionCount;
     private long publishedFaqCount;
     private List<BotAnalyticsDailyCountDto> sessionsByDay;
+    private List<BotAnalyticsMessageDailyCountDto> messagesByDay;
     private List<BotAnalyticsTopicCountDto> topTopics;
     private List<BotAnalyticsChannelCountDto> channelBreakdown;
 }

@@ -4,6 +4,7 @@ import projectlx.shipment.management.business.logic.api.PlatformDashboardService
 import projectlx.shipment.management.service.processor.api.PlatformDashboardServiceProcessor;
 import projectlx.shipment.management.utils.responses.PlatformShipmentDashboardResponse;
 
+import java.util.List;
 import java.util.Locale;
 
 public class PlatformDashboardServiceProcessorImpl implements PlatformDashboardServiceProcessor {
@@ -17,5 +18,11 @@ public class PlatformDashboardServiceProcessorImpl implements PlatformDashboardS
     @Override
     public PlatformShipmentDashboardResponse getShipmentDashboard(Locale locale) {
         return platformDashboardService.getShipmentDashboard(locale);
+    }
+
+    @Override
+    public PlatformShipmentDashboardResponse searchShipments(String term, List<Long> purchaseOrderIds, int limit,
+                                                             Locale locale) {
+        return platformDashboardService.searchShipments(term, purchaseOrderIds, limit, locale);
     }
 }

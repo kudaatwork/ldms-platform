@@ -23,6 +23,7 @@ import projectlx.co.zw.organizationmanagement.business.kyc.KycApprovalStageResol
 import projectlx.co.zw.organizationmanagement.business.kyc.KycStageSupport;
 import projectlx.co.zw.organizationmanagement.business.kyc.KycStateMachine;
 import projectlx.co.zw.organizationmanagement.business.kyc.OrganizationEventPublisher;
+import projectlx.co.zw.organizationmanagement.clients.BillingPaymentsServiceClient;
 import projectlx.co.zw.organizationmanagement.clients.UserManagementServiceClient;
 import projectlx.co.zw.organizationmanagement.business.logic.api.OrganizationService;
 import projectlx.co.zw.organizationmanagement.business.logic.support.BranchHierarchySupport;
@@ -34,6 +35,7 @@ import projectlx.co.zw.organizationmanagement.business.logic.support.Organizatio
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationApprovedCredentialsSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationContactPersonProvisioningSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationKycNotifier;
+import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationOperationalModeSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationAddressSupport;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationRegistrationNotifier;
 import projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationSupplierRegisteredEvent;
@@ -131,6 +133,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -162,6 +165,7 @@ public class OrganizationServiceImpl implements OrganizationService {
     private final KycApprovalStageResolver kycApprovalStageResolver;
     private final PlatformKycPolicyRepository platformKycPolicyRepository;
     private final UserManagementServiceClient userManagementServiceClient;
+    private final BillingPaymentsServiceClient billingPaymentsServiceClient;
     private final MessageService messageService;
     private final OrganizationFileUploadHelper organizationFileUploadHelper;
     private final OrganizationDirectoryAdminService organizationDirectoryAdminService;
@@ -557,6 +561,12 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         if (request.getRegionsServed() != null) {
             org.setRegionsServed(request.getRegionsServed());
+        }
+        if (request.getRegistrationNumber() != null) {
+            org.setRegistrationNumber(request.getRegistrationNumber());
+        }
+        if (request.getTaxNumber() != null) {
+            org.setTaxNumber(request.getTaxNumber());
         }
 
         // ============================================================
@@ -4019,6 +4029,18 @@ public class OrganizationServiceImpl implements OrganizationService {
                         request.getInventoryDataSource(),
                         request.getCounterpartyEngagementMode());
 
+        if (Boolean.TRUE.equals(request.getFuelConsumptionEnabled())
+                && !isFuelConsumptionAvailableForOrganization(org.getId())) {
+            OrganizationResponse response = buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(
+                            I18Code.ORG_OP_FUEL_CONSUMPTION_NOT_AVAILABLE.getCode(), new String[]{}, locale)));
+            response.setStatusCode(422);
+            return response;
+        }
+
+        projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationOperationalModeSupport
+                .applyFuelConsumption(org, request.getFuelConsumptionEnabled());
+
         org.setModifiedAt(java.time.LocalDateTime.now());
         org.setModifiedBy(username);
         Organization saved = organizationServiceAuditable.save(org);
@@ -4090,6 +4112,18 @@ public class OrganizationServiceImpl implements OrganizationService {
                         request.getInventoryDataSource(),
                         request.getCounterpartyEngagementMode());
 
+        if (Boolean.TRUE.equals(request.getFuelConsumptionEnabled())
+                && !isFuelConsumptionAvailableForOrganization(org.getId())) {
+            OrganizationResponse response = buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(
+                            I18Code.ORG_OP_FUEL_CONSUMPTION_NOT_AVAILABLE.getCode(), new String[]{}, locale)));
+            response.setStatusCode(422);
+            return response;
+        }
+
+        projectlx.co.zw.organizationmanagement.business.logic.support.OrganizationOperationalModeSupport
+                .applyFuelConsumption(org, request.getFuelConsumptionEnabled());
+
         org.setModifiedAt(java.time.LocalDateTime.now());
         org.setModifiedBy(username);
         Organization saved = organizationServiceAuditable.save(org);
@@ -4099,5 +4133,49 @@ public class OrganizationServiceImpl implements OrganizationService {
         OrganizationResponse response = buildOrganizationResponse(OrganizationMapping.toDto(saved));
         response.setMessage(messageService.getMessage(I18Code.ORG_OP_SETTINGS_UPDATED.getCode(), new String[]{}, locale));
         return response;
+    }
+
+    @Override
+    @Transactional(isolation = org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
+    public OrganizationResponse disableFuelConsumptionForOrganization(Long organizationId, Locale locale, String username) {
+        Organization org = organizationRepository.findByIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
+                .orElse(null);
+        if (org == null) {
+            OrganizationResponse response = buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_NOT_FOUND.getCode(), new String[]{}, locale)));
+            response.setStatusCode(404);
+            return response;
+        }
+        if (!org.isFuelConsumptionEnabled()) {
+            OrganizationResponse response = buildOrganizationResponse(OrganizationMapping.toDto(org));
+            response.setMessage(messageService.getMessage(I18Code.ORG_OP_SETTINGS_UPDATED.getCode(), new String[]{}, locale));
+            return response;
+        }
+        OrganizationOperationalModeSupport.disableFuelConsumption(org);
+        org.setModifiedAt(LocalDateTime.now());
+        org.setModifiedBy(username);
+        Organization saved = organizationServiceAuditable.save(org);
+        log.info("Fuel consumption disabled for org={} by {}", saved.getId(), username);
+        OrganizationResponse response = buildOrganizationResponse(OrganizationMapping.toDto(saved));
+        response.setMessage(messageService.getMessage(I18Code.ORG_OP_SETTINGS_UPDATED.getCode(), new String[]{}, locale));
+        return response;
+    }
+
+    private boolean isFuelConsumptionAvailableForOrganization(Long organizationId) {
+        try {
+            Map<String, Object> response = billingPaymentsServiceClient
+                    .isFuelConsumptionAvailableForOrganization(organizationId, Locale.getDefault());
+            if (response == null) {
+                return true;
+            }
+            Object flag = response.get("fuelConsumptionAvailable");
+            if (flag instanceof Boolean bool) {
+                return bool;
+            }
+            return true;
+        } catch (Exception ex) {
+            log.warn("Could not resolve fuel consumption availability for org {}: {}", organizationId, ex.getMessage());
+            return true;
+        }
     }
 }
