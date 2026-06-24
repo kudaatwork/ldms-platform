@@ -7,6 +7,7 @@ import lombok.ToString;
 import projectlx.user.management.model.EntityStatus;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -23,4 +24,8 @@ public class UserRoleDto {
     private String moduleKey;
     /** Human-readable module label for admin UI grouping. */
     private String moduleLabel;
+    /** Organization classifications this role applies to. Empty/null = platform-only. */
+    private Set<String> organizationClassifications;
+    /** True when the role can belong to an organisation classification (editable in the admin drill-down). */
+    private Boolean organizationPortalRole;
 }

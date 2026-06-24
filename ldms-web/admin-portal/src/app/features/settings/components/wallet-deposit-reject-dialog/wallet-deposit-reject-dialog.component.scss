@@ -1,0 +1,40 @@
+@use '../../../../shared/styles/lx-dialog-form-shell';
+
+:host {
+  display: block;
+}
+
+.wd-reject-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.wd-reject-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--warning-50, #fffbeb);
+  color: var(--warning-800, #92400e);
+  font-size: 13px;
+  line-height: 1.5;
+
+  mat-icon {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+    color: var(--warning-600, #d97706);
+  }
+}
+
+.lx-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 24px 24px;
+  border-top: 1px solid var(--gray-200, #e2e8f0);
+}

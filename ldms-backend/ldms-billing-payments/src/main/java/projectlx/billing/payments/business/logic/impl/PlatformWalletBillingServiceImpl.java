@@ -389,7 +389,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
     }
 
     @Override
-    public PlatformWalletResponse rejectWalletDeposit(Long depositId, Locale locale, String username) {
+    public PlatformWalletResponse rejectWalletDeposit(Long depositId, String rejectionReason, Locale locale, String username) {
         if (depositId == null || depositId < 1) {
             return error(400,
                     messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"depositId"}, locale),
@@ -406,7 +406,13 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                     messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_INVALID.getCode(), new String[]{}, locale),
                     List.of("status"));
         }
+        if (!StringUtils.hasText(rejectionReason)) {
+            return error(400,
+                    messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"rejectionReason"}, locale),
+                    List.of("rejectionReason"));
+        }
         deposit.setStatus(WalletDepositStatus.REJECTED);
+        deposit.setRejectionReason(rejectionReason.trim());
         deposit.setModifiedAt(LocalDateTime.now());
         deposit.setModifiedBy(username);
         WalletDeposit saved = walletDepositServiceAuditable.update(deposit, locale, username);

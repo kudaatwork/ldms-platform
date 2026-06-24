@@ -24,7 +24,6 @@ import { UsersDialogsModule } from './users-dialogs.module';
     UserTypesComponent,
     UsersHubNavComponent,
     AssignRolesDialogComponent,
-    UserDocumentDetailDialogComponent,
   ],
   imports: [
     SharedModule,
@@ -34,6 +33,7 @@ import { UsersDialogsModule } from './users-dialogs.module';
     UserAssignUserGroupDialogComponent,
     UserGroupMembersDialogComponent,
     UserAddressCascadeFieldsComponent,
+    UserDocumentDetailDialogComponent,
   ],
   exports: [UsersDialogsModule, UserDocumentDetailDialogComponent],
 })

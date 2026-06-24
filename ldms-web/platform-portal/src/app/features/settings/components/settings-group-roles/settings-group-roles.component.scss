@@ -222,9 +222,58 @@
     cursor: wait;
   }
 
+  &--locked {
+    background: color-mix(in srgb, var(--gray-400) 8%, var(--raised));
+    border-style: dashed;
+
+    .gr-role-chip__icon {
+      color: var(--gray-500);
+    }
+  }
+
   &:disabled {
     cursor: not-allowed;
   }
+}
+
+/* Administrator lock + default affordances */
+.gr-group-card__name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.gr-group-card__lock {
+  font-size: 15px;
+  width: 15px;
+  height: 15px;
+  color: var(--primary-600, #1d4ed8);
+}
+
+.gr-group-card__badge--default {
+  background: color-mix(in srgb, var(--primary-500, #2563eb) 14%, var(--raised));
+  color: var(--primary-600, #1d4ed8);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gr-lock-inline {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+  color: var(--primary-600, #1d4ed8);
+}
+
+.gr-roles-head__class {
+  font-weight: 700;
+  color: var(--primary-600, #1d4ed8);
+  text-transform: capitalize;
+}
+
+.gr-roles-head__locked {
+  color: var(--gray-500);
+  font-size: 0.8rem;
 }
 
 .gr-role-chip__name {

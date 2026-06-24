@@ -34,8 +34,24 @@
             (click)="selectGroup(group)"
           >
             <div class="gr-group-card__top">
-              <span class="gr-group-card__name">{{ group.name }}</span>
-              <span class="gr-group-card__badge">{{ group.roles }} roles</span>
+              <span class="gr-group-card__name">
+                <mat-icon
+                  *ngIf="group.systemGroup && group.name.toLowerCase() === 'administrator'"
+                  class="gr-group-card__lock"
+                  >lock</mat-icon
+                >
+                {{ group.name }}
+              </span>
+              <span
+                class="gr-group-card__badge gr-group-card__badge--default"
+                *ngIf="group.systemGroup && group.name.toLowerCase() === 'administrator'"
+                >default</span
+              >
+              <span
+                class="gr-group-card__badge"
+                *ngIf="!(group.systemGroup && group.name.toLowerCase() === 'administrator')"
+                >{{ group.roles }} roles</span
+              >
             </div>
             <p class="gr-group-card__class" *ngIf="group.organizationClassification">
               {{ group.organizationClassification.replace('_', ' ') }}
@@ -54,9 +70,20 @@
       <ng-container *ngIf="selectedGroup; else noGroup">
         <header class="gr-roles-head">
           <div>
-            <p class="gr-roles-head__eyebrow">Selected group</p>
-            <h3>{{ selectedGroup.name }}</h3>
-            <p>{{ assignedCount }} of {{ roleRows.length }} catalog roles assigned</p>
+            <p class="gr-roles-head__eyebrow">
+              {{ isAdminGroupSelected ? 'Default workspace group' : 'Selected group' }}
+              <span class="gr-roles-head__class" *ngIf="selectedGroup.organizationClassification">
+                · {{ selectedGroup.organizationClassification.replace('_', ' ') }}
+              </span>
+            </p>
+            <h3>
+              <mat-icon *ngIf="isAdminGroupSelected" class="gr-lock-inline">lock</mat-icon>
+              {{ selectedGroup.name }}
+            </h3>
+            <p *ngIf="!isAdminGroupSelected">{{ assignedCount }} of {{ roleRows.length }} classification roles assigned</p>
+            <p *ngIf="isAdminGroupSelected" class="gr-roles-head__locked">
+              {{ assignedCount }} roles · locked default group — managed by the platform administrator
+            </p>
           </div>
           <div class="lx-input-shell gr-search gr-search--roles">
             <mat-icon class="lx-input-shell__icon">filter_list</mat-icon>
@@ -86,12 +113,15 @@
                     class="gr-role-chip"
                     [class.gr-role-chip--on]="row.assigned"
                     [class.gr-role-chip--busy]="row.busy"
-                    [disabled]="row.busy || savingRoleId !== null"
+                    [class.gr-role-chip--locked]="row.locked"
+                    [disabled]="row.busy || savingRoleId !== null || row.locked"
+                    [matTooltip]="row.locked ? 'Default role — managed by the platform administrator' : ''"
+                    matTooltipPosition="above"
                     (click)="toggleRole(row)"
                   >
                     <span class="gr-role-chip__name">{{ row.role }}</span>
                     <span class="gr-role-chip__desc">{{ row.description }}</span>
-                    <mat-icon class="gr-role-chip__icon">{{ row.assigned ? 'check_circle' : 'add_circle_outline' }}</mat-icon>
+                    <mat-icon class="gr-role-chip__icon">{{ row.locked ? 'lock' : (row.assigned ? 'check_circle' : 'add_circle_outline') }}</mat-icon>
                   </button>
                 }
               </div>

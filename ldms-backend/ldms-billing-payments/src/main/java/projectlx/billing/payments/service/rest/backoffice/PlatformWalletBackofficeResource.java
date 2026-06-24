@@ -139,9 +139,11 @@ public class PlatformWalletBackofficeResource {
     @PostMapping("/deposits/{depositId}/reject")
     public ResponseEntity<PlatformWalletResponse> rejectWalletDeposit(
             @PathVariable Long depositId,
+            @RequestBody projectlx.billing.payments.utils.requests.RejectWalletDepositRequest request,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String reason = request != null ? request.getRejectionReason() : null;
         PlatformWalletResponse response = platformWalletBillingServiceProcessor.rejectWalletDeposit(
-                depositId, locale, backofficeActor());
+                depositId, reason, locale, backofficeActor());
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 

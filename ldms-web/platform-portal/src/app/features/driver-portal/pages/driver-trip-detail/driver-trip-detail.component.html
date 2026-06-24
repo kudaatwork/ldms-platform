@@ -108,6 +108,7 @@
       [tripId]="tripIdFromRoute"
       [initialPhase]="workflowInitialPhase"
       [arrivalSuggested]="arrivalSuggested"
+      [receiverActorRole]="receiverActorRole"
       (phaseChange)="onWorkflowPhaseChange($event)"
       (stateLoaded)="onWorkflowStateLoaded($event)"
       (workflowComplete)="onWorkflowComplete()">

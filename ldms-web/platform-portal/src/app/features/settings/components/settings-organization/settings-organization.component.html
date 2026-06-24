@@ -23,7 +23,7 @@
   <ng-container *ngIf="!loading && !error && org">
     <p class="org-settings__notice" *ngIf="identityLocked">
       <mat-icon>lock</mat-icon>
-      Company name and organisation email are locked after KYC approval. You can still update phone, address, hours, and business details.
+      Company name, contact details, registration number, tax number, and approved documents are locked after KYC approval. You can still update address, hours, description, and business details.
     </p>
     <p class="org-settings__notice org-settings__notice--info" *ngIf="verificationHint">
       <mat-icon>mark_email_unread</mat-icon>
@@ -31,6 +31,28 @@
     </p>
 
     <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" class="org-settings__form">
+      <section class="org-settings__card lx-card--subsection">
+        <h3><mat-icon>fact_check</mat-icon> KYC status</h3>
+        <div class="org-settings__grid">
+          <div class="org-settings__field">
+            <span>Current status</span>
+            <strong>{{ kycStatusLabel }}</strong>
+          </div>
+          <div class="org-settings__field" *ngIf="org.submittedAt">
+            <span>Submitted</span>
+            <strong>{{ org.submittedAt }}</strong>
+          </div>
+          <div class="org-settings__field" *ngIf="org.lastRejectionReason">
+            <span>Last rejection reason</span>
+            <strong>{{ org.lastRejectionReason }}</strong>
+          </div>
+          <div class="org-settings__field" *ngIf="org.resubmissionCount != null && org.resubmissionCount > 0">
+            <span>Resubmissions</span>
+            <strong>{{ org.resubmissionCount }}</strong>
+          </div>
+        </div>
+      </section>
+
       <section class="org-settings__card lx-card--subsection">
         <h3><mat-icon>business</mat-icon> Company profile</h3>
         <div class="org-settings__grid">
@@ -78,6 +100,83 @@
             <span>Annual revenue estimate</span>
             <input type="number" min="0" step="0.01" formControlName="annualRevenueEstimate" />
           </label>
+        </div>
+      </section>
+
+      <section class="org-settings__card lx-card--subsection">
+        <h3><mat-icon>person</mat-icon> Contact person</h3>
+        <div class="org-settings__grid">
+          <div class="org-settings__field">
+            <span>First name</span>
+            <strong>{{ org.contactPersonFirstName || '—' }}</strong>
+          </div>
+          <div class="org-settings__field">
+            <span>Last name</span>
+            <strong>{{ org.contactPersonLastName || '—' }}</strong>
+          </div>
+          <div class="org-settings__field">
+            <span>Email</span>
+            <strong>{{ org.contactPersonEmail || '—' }}</strong>
+          </div>
+          <div class="org-settings__field">
+            <span>Phone</span>
+            <strong>{{ org.contactPersonPhoneNumber || '—' }}</strong>
+          </div>
+          <div class="org-settings__field">
+            <span>Position</span>
+            <strong>{{ org.contactPersonPosition || '—' }}</strong>
+          </div>
+          <div class="org-settings__field">
+            <span>Gender</span>
+            <strong>{{ org.contactPersonGender || '—' }}</strong>
+          </div>
+          <div class="org-settings__field">
+            <span>Date of birth</span>
+            <strong>{{ org.contactPersonDateOfBirth || '—' }}</strong>
+          </div>
+          <div class="org-settings__field">
+            <span>National ID</span>
+            <strong>{{ org.contactPersonNationalIdNumber || '—' }}</strong>
+          </div>
+          <div class="org-settings__field">
+            <span>Passport</span>
+            <strong>{{ org.contactPersonPassportNumber || '—' }}</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="org-settings__card lx-card--subsection org-docs" *ngIf="kycDocuments.length">
+        <div class="org-docs__head">
+          <h3><mat-icon>folder_open</mat-icon> KYC documents</h3>
+          <span class="org-docs__badge" title="Documents are read-only">
+            <mat-icon>lock</mat-icon> Read-only
+          </span>
+        </div>
+        <p class="org-settings__hint">Submitted during KYC. You can preview each file, but they cannot be edited here.</p>
+
+        <div class="org-docs__grid">
+          <article
+            *ngFor="let doc of kycDocuments"
+            class="org-docs__card"
+            [attr.data-category]="doc.category"
+            (click)="viewDocument(doc.uploadId)"
+            (keyup.enter)="viewDocument(doc.uploadId)"
+            tabindex="0"
+            role="button"
+            [attr.aria-label]="'Preview ' + doc.label"
+          >
+            <span class="org-docs__icon" [attr.data-category]="doc.category">
+              <mat-icon>{{ docIcon(doc.category) }}</mat-icon>
+            </span>
+            <div class="org-docs__body">
+              <span class="org-docs__name" [title]="doc.label">{{ doc.label }}</span>
+              <span class="org-docs__category">{{ doc.category }} · #{{ doc.uploadId }}</span>
+            </div>
+            <span class="org-docs__view">
+              <mat-icon>visibility</mat-icon>
+              <span>View</span>
+            </span>
+          </article>
         </div>
       </section>
 

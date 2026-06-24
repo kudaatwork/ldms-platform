@@ -146,7 +146,7 @@ public class OrganizationContactPersonProvisioner {
         user.setUserType(resolveOrganizationContactUserType(locale, actor));
 
         User saved = userServiceAuditable.create(user, locale, actor);
-        administratorGroupSupport.assignIfPresent(saved);
+        administratorGroupSupport.assignIfPresent(saved, request.getOrganizationClassification());
         saved = userServiceAuditable.update(saved, locale, actor);
 
         CreateUserAccountRequest accountRequest = new CreateUserAccountRequest();
@@ -225,7 +225,7 @@ public class OrganizationContactPersonProvisioner {
             user.setOrganizationId(orgId);
         }
         user = userServiceAuditable.update(user, locale, actor);
-        administratorGroupSupport.assignIfPresent(user);
+        administratorGroupSupport.assignIfPresent(user, request.getOrganizationClassification());
         user = userServiceAuditable.update(user, locale, actor);
 
         UserResponse artifacts = ensureLoginArtifacts(user, locale, actor);
@@ -262,7 +262,7 @@ public class OrganizationContactPersonProvisioner {
             user.setOrganizationId(orgId);
             user = userServiceAuditable.update(user, locale, actor);
         }
-        administratorGroupSupport.assignIfPresent(user);
+        administratorGroupSupport.assignIfPresent(user, request.getOrganizationClassification());
         user = userServiceAuditable.update(user, locale, actor);
         UserResponse artifacts = ensureLoginArtifacts(user, locale, actor);
         if (!artifacts.isSuccess()) {

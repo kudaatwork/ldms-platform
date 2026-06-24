@@ -140,4 +140,7 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     long countNonDeletedUsersForUserTypeAtMostTwo(
             @Param("userTypeId") Long userTypeId,
             @Param("excludedStatus") String excludedEntityStatusName);
+
+    /** Count active users belonging to a specific user group. */
+    long countByUserGroup_IdAndEntityStatusNot(Long userGroupId, EntityStatus excluded);
 }

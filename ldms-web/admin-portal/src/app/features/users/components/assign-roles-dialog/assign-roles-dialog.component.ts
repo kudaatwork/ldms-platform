@@ -14,6 +14,8 @@ export interface AssignRolesDialogData {
   userGroupId: number;
   /** Shown in the dialog title for context */
   groupLabel?: string;
+  /** Whether the group is a system group (e.g. Administrator) with locked default roles. */
+  isSystemGroup?: boolean;
 }
 
 export interface AssignRoleRow {
@@ -25,6 +27,8 @@ export interface AssignRoleRow {
   selected: boolean;
   /** Role is already linked to this user group (from server). */
   alreadyAssigned: boolean;
+  /** Role is a locked default role on a system group and cannot be removed. */
+  locked: boolean;
 }
 
 export type AssignRolesFilter = 'all' | 'on-group' | 'available';
@@ -142,6 +146,7 @@ export class AssignRolesDialogComponent implements OnInit, OnDestroy {
                 moduleLabel: module.label,
                 selected: false,
                 alreadyAssigned: false,
+                locked: false,
               };
             })
             .filter((r) => Number.isFinite(r.id) && r.id > 0);
@@ -171,6 +176,8 @@ export class AssignRolesDialogComponent implements OnInit, OnDestroy {
       .pipe(timeout(AssignRolesDialogComponent.LOAD_TIMEOUT_MS), catchError(() => of(null)))
       .subscribe((group) => {
         const assignedIds = this.extractAssignedRoleIds(group);
+        const isSystem = Boolean(group?.['systemGroup'] ?? group?.['system_group'] ?? this.data.isSystemGroup);
+        const lockedIds = isSystem ? this.extractDefaultRoleIds(group) : new Set<number>();
         if (!assignedIds.size || this.roles.length === 0) {
           return;
         }
@@ -179,6 +186,7 @@ export class AssignRolesDialogComponent implements OnInit, OnDestroy {
             return {
               ...r,
               alreadyAssigned: assignedIds.has(r.id),
+              locked: lockedIds.has(r.id),
             };
           })
           .sort((a, b) => {
@@ -347,7 +355,13 @@ export class AssignRolesDialogComponent implements OnInit, OnDestroy {
   }
 
   remove(): void {
-    const userRoleIds = this.roles.filter((r) => r.selected && r.alreadyAssigned).map((r) => r.id);
+    const selectedToRemove = this.roles.filter((r) => r.selected && r.alreadyAssigned);
+    const lockedSelected = selectedToRemove.filter((r) => r.locked);
+    if (lockedSelected.length > 0) {
+      this.error = `${lockedSelected.length} selected role(s) are locked default roles on the Administrator group and cannot be removed.`;
+      return;
+    }
+    const userRoleIds = selectedToRemove.map((r) => r.id);
     if (userRoleIds.length === 0) {
       this.error = 'Select at least one role that is already on this group to remove it.';
       return;
@@ -406,6 +420,17 @@ export class AssignRolesDialogComponent implements OnInit, OnDestroy {
       }
     }
     return ids;
+  }
+
+  private extractDefaultRoleIds(group: Record<string, unknown> | null): Set<number> {
+    if (!group) {
+      return new Set();
+    }
+    const raw = (group['defaultRoleIds'] ?? group['default_role_ids']) as unknown;
+    if (Array.isArray(raw)) {
+      return new Set(raw.filter((id): id is number => typeof id === 'number' && id > 0));
+    }
+    return new Set();
   }
 
   private recalculateViewModel(): void {

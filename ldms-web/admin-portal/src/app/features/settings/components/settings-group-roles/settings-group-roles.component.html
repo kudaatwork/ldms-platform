@@ -7,6 +7,7 @@
   </header>
 
   <div class="gr-layout">
+    <!-- LEFT PANEL: Group list -->
     <aside class="gr-groups">
       <div class="lx-input-shell gr-search">
         <mat-icon class="lx-input-shell__icon">search</mat-icon>
@@ -30,11 +31,16 @@
             type="button"
             class="gr-group-card"
             [class.gr-group-card--active]="selectedGroupId === group.id"
+            [class.gr-group-card--system]="group.systemGroup"
             (click)="selectGroup(group)"
           >
             <div class="gr-group-card__top">
-              <span class="gr-group-card__name">{{ group.name }}</span>
-              <span class="gr-group-card__badge">{{ group.roles }} roles</span>
+              <span class="gr-group-card__name">
+                <mat-icon *ngIf="group.systemGroup && group.name.toLowerCase() === 'administrator'" class="gr-group-card__lock">lock</mat-icon>
+                {{ group.name }}
+              </span>
+              <span class="gr-group-card__badge" *ngIf="group.systemGroup && group.name.toLowerCase() === 'administrator'">default</span>
+              <span class="gr-group-card__badge" *ngIf="!(group.systemGroup && group.name.toLowerCase() === 'administrator')">{{ group.roles }} roles</span>
             </div>
             <p class="gr-group-card__desc">{{ group.description || 'No description' }}</p>
             <div class="gr-group-card__meta">
@@ -46,12 +52,26 @@
       </ul>
     </aside>
 
+    <!-- RIGHT PANEL: Dynamic based on selection -->
     <div class="gr-roles">
-      <ng-container *ngIf="selectedGroup; else noGroup">
+      <!-- MODE: nothing selected -->
+      <ng-container *ngIf="rightPanelMode === 'none'">
+        <div class="lx-empty gr-empty">
+          <mat-icon class="lx-empty-icon">groups</mat-icon>
+          <div class="lx-empty-title">Pick a user group</div>
+          <div class="lx-empty-sub">Role assignments appear here once you select a group on the left.</div>
+        </div>
+      </ng-container>
+
+      <!-- MODE: regular group roles (non-Administrator groups) -->
+      <ng-container *ngIf="rightPanelMode === 'regular-group'">
         <header class="gr-roles-head">
           <div>
             <p class="gr-roles-head__eyebrow">Selected group</p>
-            <h3>{{ selectedGroup.name }}</h3>
+            <h3>
+              <mat-icon *ngIf="isAdminGroupSelected" class="gr-lock-inline">lock</mat-icon>
+              {{ selectedGroup!.name }}
+            </h3>
             <p>{{ assignedCount }} of {{ roleRows.length }} catalog roles assigned</p>
           </div>
           <div class="lx-input-shell gr-search gr-search--roles">
@@ -82,12 +102,17 @@
                     class="gr-role-chip"
                     [class.gr-role-chip--on]="row.assigned"
                     [class.gr-role-chip--busy]="row.busy"
-                    [disabled]="row.busy || savingRoleId !== null"
+                    [class.gr-role-chip--locked]="row.locked"
+                    [disabled]="row.busy || savingRoleId !== null || row.locked"
+                    [matTooltip]="row.locked ? 'Default role — cannot be removed' : ''"
+                    matTooltipPosition="above"
                     (click)="toggleRole(row)"
                   >
                     <span class="gr-role-chip__name">{{ row.role }}</span>
                     <span class="gr-role-chip__desc">{{ row.description }}</span>
-                    <mat-icon class="gr-role-chip__icon">{{ row.assigned ? 'check_circle' : 'add_circle_outline' }}</mat-icon>
+                    <mat-icon class="gr-role-chip__icon">
+                      {{ row.locked ? 'lock' : (row.assigned ? 'check_circle' : 'add_circle_outline') }}
+                    </mat-icon>
                   </button>
                 }
               </div>
@@ -96,13 +121,141 @@
         </div>
       </ng-container>
 
-      <ng-template #noGroup>
-        <div class="lx-empty gr-empty">
-          <mat-icon class="lx-empty-icon">groups</mat-icon>
-          <div class="lx-empty-title">Pick a user group</div>
-          <div class="lx-empty-sub">Role assignments appear here once you select a group on the left.</div>
+      <!-- MODE: Administrator group with classification drill-down -->
+      <ng-container *ngIf="rightPanelMode === 'admin-classifications'">
+        <header class="gr-roles-head">
+          <div>
+            <p class="gr-roles-head__eyebrow">Default system group</p>
+            <h3>
+              <mat-icon class="gr-lock-inline">lock</mat-icon>
+              {{ selectedGroup!.name }}
+            </h3>
+            <p>{{ assignedCount }} of {{ roleRows.length }} catalog roles assigned</p>
+          </div>
+          <div class="lx-input-shell gr-search gr-search--roles">
+            <mat-icon class="lx-input-shell__icon">filter_list</mat-icon>
+            <input
+              type="search"
+              placeholder="Filter roles..."
+              [(ngModel)]="roleSearch"
+              (ngModelChange)="onRoleSearchChange()"
+            />
+          </div>
+        </header>
+
+        <lx-table-loading [busy]="loadingRoles" message="Loading role catalog..."></lx-table-loading>
+
+        <!-- Full catalog view (platform admin sees everything) -->
+        <div class="gr-modules" *ngIf="!loadingRoles">
+          @for (module of roleModuleGroups; track module.section.key) {
+            <section class="gr-module">
+              <header class="gr-module__head">
+                <mat-icon>layers</mat-icon>
+                <span>{{ module.section.label }}</span>
+                <span class="gr-module__count">{{ moduleAssignedCount(module) }}/{{ module.roles.length }}</span>
+              </header>
+              <div class="gr-role-grid">
+                @for (row of module.roles; track trackRole($index, row)) {
+                  <button
+                    type="button"
+                    class="gr-role-chip"
+                    [class.gr-role-chip--on]="row.assigned"
+                    [class.gr-role-chip--busy]="row.busy"
+                    [class.gr-role-chip--locked]="row.locked"
+                    [disabled]="row.busy || savingRoleId !== null || row.locked"
+                    [matTooltip]="row.locked ? 'Default role — cannot be removed' : ''"
+                    matTooltipPosition="above"
+                    (click)="toggleRole(row)"
+                  >
+                    <span class="gr-role-chip__name">{{ row.role }}</span>
+                    <span class="gr-role-chip__desc">{{ row.description }}</span>
+                    <mat-icon class="gr-role-chip__icon">
+                      {{ row.locked ? 'lock' : (row.assigned ? 'check_circle' : 'add_circle_outline') }}
+                    </mat-icon>
+                  </button>
+                }
+              </div>
+            </section>
+          }
         </div>
-      </ng-template>
+
+        <!-- Classification drill-down (editable) -->
+        <div class="gr-classifications" *ngIf="!loadingRoles">
+          <h4 class="gr-classifications__title">
+            <mat-icon>account_tree</mat-icon>
+            Organisation classification roles
+          </h4>
+          <p class="gr-classifications__sub">
+            Toggle the roles each organisation type inherits. Changes apply immediately and flow to every
+            workspace Administrator group of that classification.
+          </p>
+
+          @for (view of classificationViews; track view.key) {
+            <div
+              class="gr-classification-panel"
+              [class.gr-classification-panel--open]="expandedClassification === view.key"
+            >
+              <button
+                type="button"
+                class="gr-classification-panel__header"
+                (click)="toggleClassification(view.key)"
+              >
+                <mat-icon class="gr-classification-panel__chevron">
+                  {{ expandedClassification === view.key ? 'expand_more' : 'chevron_right' }}
+                </mat-icon>
+                <span class="gr-classification-panel__icon">
+                  <mat-icon>corporate_fare</mat-icon>
+                </span>
+                <span class="gr-classification-panel__label">{{ view.label }}</span>
+                <span class="gr-classification-panel__count">
+                  <strong>{{ view.memberCount }}</strong> / {{ view.roleRows.length }} roles
+                </span>
+              </button>
+
+              @if (expandedClassification === view.key) {
+                <div class="gr-classification-panel__body">
+                  @if (view.roleRows.length === 0) {
+                    <div class="gr-classification-panel__empty">
+                      No organisation-portal roles are available to assign.
+                    </div>
+                  }
+                  @for (module of view.moduleGroups; track module.section.key) {
+                    <section class="gr-module">
+                      <header class="gr-module__head">
+                        <mat-icon>layers</mat-icon>
+                        <span>{{ module.section.label }}</span>
+                        <span class="gr-module__count">
+                          {{ classificationMemberCount(module) }}/{{ module.roles.length }}
+                        </span>
+                      </header>
+                      <div class="gr-role-grid">
+                        @for (row of module.roles; track trackClassificationRole($index, row)) {
+                          <button
+                            type="button"
+                            class="gr-role-chip"
+                            [class.gr-role-chip--on]="row.member"
+                            [class.gr-role-chip--busy]="row.busy"
+                            [disabled]="row.busy || savingRoleId !== null"
+                            [matTooltip]="row.member ? 'Remove from ' + view.label : 'Add to ' + view.label"
+                            matTooltipPosition="above"
+                            (click)="toggleClassificationRole(view, row)"
+                          >
+                            <span class="gr-role-chip__name">{{ row.role }}</span>
+                            <span class="gr-role-chip__desc">{{ row.description }}</span>
+                            <mat-icon class="gr-role-chip__icon">
+                              {{ row.busy ? 'hourglass_empty' : (row.member ? 'check_circle' : 'add_circle_outline') }}
+                            </mat-icon>
+                          </button>
+                        }
+                      </div>
+                    </section>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      </ng-container>
     </div>
   </div>
 </section>

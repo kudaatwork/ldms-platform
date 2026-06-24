@@ -28,7 +28,13 @@
     <section class="odp-preview" aria-live="polite">
       <div class="odp-preview__toolbar" *ngIf="selected">
         <div>
-          <h4 class="odp-preview__title">{{ selected.fileName }}</h4>
+          <h4 class="odp-preview__title">
+            {{ selected.fileName }}
+            <span class="odp-readonly-badge" *ngIf="readOnly">
+              <mat-icon>lock</mat-icon>
+              Read-only
+            </span>
+          </h4>
           <p class="odp-preview__sub">{{ selected.category }} · Upload #{{ selected.uploadId }}</p>
         </div>
         <button
@@ -41,6 +47,11 @@
           <mat-icon>open_in_new</mat-icon>
           Open PDF
         </button>
+      </div>
+
+      <div class="odp-readonly-banner" *ngIf="readOnly && selected">
+        <mat-icon>lock</mat-icon>
+        <span>This organisation's KYC has been approved. Documents are view-only and cannot be modified.</span>
       </div>
 
       <div class="odp-preview__loading" *ngIf="loading">

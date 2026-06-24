@@ -3,7 +3,7 @@ import { ActivatedRoute, ParamMap } from '@angular/router';
 import { Title } from '@angular/platform-browser';
 import { Subject, takeUntil } from 'rxjs';
 
-export type SettingsSection = 'group-roles' | 'kyc-approvers' | 'currency' | 'platform-billing';
+export type SettingsSection = 'group-roles' | 'kyc-approvers' | 'currency' | 'platform-billing' | 'organization-documents';
 
 @Component({
   selector: 'app-settings',
@@ -42,6 +42,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
       icon: 'account_balance_wallet',
       hint: 'Action charges, packages, wallet deposits, and approval history',
     },
+    {
+      id: 'organization-documents',
+      label: 'Documents',
+      icon: 'folder_open',
+      hint: 'View organisation verification documents read-only',
+    },
   ];
 
   constructor(
@@ -71,7 +77,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
     return value === 'group-roles'
       || value === 'kyc-approvers'
       || value === 'currency'
-      || value === 'platform-billing';
+      || value === 'platform-billing'
+      || value === 'organization-documents';
   }
 
   selectSection(section: SettingsSection): void {

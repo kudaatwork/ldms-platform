@@ -42,6 +42,7 @@ import projectlx.trip.tracking.utils.responses.TripDeliveryWorkflowResponse;
 import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
+import projectlx.co.zw.shared_library.utils.requests.NotificationRequest;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
@@ -166,7 +167,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
                     workflow.setDriverCountingStartedAt(now);
                 }
             }
-            case "CUSTOMER", "RECEIVER" -> {
+            case "CUSTOMER", "RECEIVER", "DEPOT_CLERK" -> {
                 if (workflow.getCustomerCountingStartedAt() != null) {
                     alreadyStarted = true;
                 } else {
@@ -269,7 +270,7 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
         String role = request.getActorRole().trim().toUpperCase();
         switch (role) {
             case "DRIVER" -> workflow.setDriverCountingFinishedAt(now);
-            case "CUSTOMER", "RECEIVER" -> workflow.setCustomerCountingFinishedAt(now);
+            case "CUSTOMER", "RECEIVER", "DEPOT_CLERK" -> workflow.setCustomerCountingFinishedAt(now);
             default -> {
                 return errorResponse(400, "Unknown actor role: " + role);
             }
@@ -405,16 +406,33 @@ public class TripDeliveryServiceImpl implements TripDeliveryService {
         // STEP 6: Publish OTP notification with channel in payload
         // ============================================================
         try {
-            Map<String, Object> notificationPayload = new HashMap<>();
-            notificationPayload.put("templateCode", "DELIVERY_ARRIVAL_OTP");
-            notificationPayload.put("tripId", trip.getId());
-            notificationPayload.put("tripNumber", trip.getTripNumber());
-            notificationPayload.put("recipientUserId", request.getRecipientUserId());
-            notificationPayload.put("recipientContact", request.getRecipientContact());
-            notificationPayload.put("channel", channel);
-            notificationPayload.put("otp", rawOtp);
-            notificationPayload.put("expiresAt", otpExpiry.toString());
-            rabbitTemplate.convertAndSend("notifications.direct", "notifications.send", notificationPayload);
+            String recipientEmail = null;
+            String recipientPhone = null;
+            if ("EMAIL".equals(channel)) {
+                recipientEmail = request.getRecipientContact();
+            } else {
+                recipientPhone = request.getRecipientContact();
+            }
+
+            String recipientUserId = request.getRecipientUserId() != null
+                    ? String.valueOf(request.getRecipientUserId())
+                    : null;
+
+            Map<String, Object> templateData = new HashMap<>();
+            templateData.put("otp", rawOtp);
+            templateData.put("tripNumber", trip.getTripNumber());
+            templateData.put("tripId", trip.getId());
+            templateData.put("expiresAt", otpExpiry.toString());
+
+            NotificationRequest notificationRequest = new NotificationRequest(
+                    java.util.UUID.randomUUID().toString(),
+                    "DELIVERY_ARRIVAL_OTP",
+                    new NotificationRequest.Recipient(recipientUserId, recipientEmail, recipientPhone, null),
+                    templateData,
+                    new NotificationRequest.Metadata("ldms-trip-tracking", null)
+            );
+
+            rabbitTemplate.convertAndSend("notifications.direct", "notifications.send", notificationRequest);
             log.info("OTP notification enqueued for trip {} via channel {}", trip.getId(), channel);
         } catch (Exception ex) {
             log.error("Failed to publish OTP notification for trip {}: {}", trip.getId(), ex.getMessage());

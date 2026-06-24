@@ -62,7 +62,7 @@ public interface PlatformWalletBillingService {
 
     WalletReceiptPdfDto getTransactionReceiptPdf(Long transactionId, Locale locale, String username);
 
-    PlatformWalletResponse rejectWalletDeposit(Long depositId, Locale locale, String username);
+    PlatformWalletResponse rejectWalletDeposit(Long depositId, String rejectionReason, Locale locale, String username);
 
     PlatformWalletResponse isFuelConsumptionAvailableForOrganization(Long organizationId, Locale locale);
 }

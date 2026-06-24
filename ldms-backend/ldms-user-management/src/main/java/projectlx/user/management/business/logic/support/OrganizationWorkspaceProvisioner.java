@@ -1,6 +1,7 @@
 package projectlx.user.management.business.logic.support;
 
 import java.sql.Connection;
+import java.util.Optional;
 import javax.sql.DataSource;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -46,11 +47,31 @@ public class OrganizationWorkspaceProvisioner {
                             ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED)
                     .orElse(null);
         }
-        try (Connection connection = dataSource.getConnection()) {
-            long groupId = LdmsRoleCatalogSeeder.seedOrganizationAdministratorGroup(connection, organizationId);
-            UserGroup group = userGroupRepository.findById(groupId).orElse(null);
-            if (group != null && organizationClassification != null && !organizationClassification.isBlank()) {
+        // Check if an active Administrator group already exists for this organisation
+        Optional<UserGroup> existing = userGroupRepository
+                .findByOrganizationIdAndNameIgnoreCaseAndEntityStatusNot(
+                        organizationId, ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED);
+        if (existing.isPresent()) {
+            UserGroup group = existing.get();
+            if (!group.isSystemGroup()) {
+                group.setSystemGroup(true);
+                userGroupRepository.save(group);
+            }
+            if (organizationClassification != null && !organizationClassification.isBlank()) {
                 group.setOrganizationClassification(organizationClassification.trim().toUpperCase());
+                userGroupRepository.save(group);
+            }
+            return group;
+        }
+        try (Connection connection = dataSource.getConnection()) {
+            String classification = organizationClassification != null ? organizationClassification.trim().toUpperCase() : null;
+            long groupId = LdmsRoleCatalogSeeder.seedOrganizationAdministratorGroup(connection, organizationId, classification);
+            UserGroup group = userGroupRepository.findById(groupId).orElse(null);
+            if (group != null) {
+                group.setSystemGroup(true);
+                if (organizationClassification != null && !organizationClassification.isBlank()) {
+                    group.setOrganizationClassification(organizationClassification.trim().toUpperCase());
+                }
                 userGroupRepository.save(group);
             }
             return group;

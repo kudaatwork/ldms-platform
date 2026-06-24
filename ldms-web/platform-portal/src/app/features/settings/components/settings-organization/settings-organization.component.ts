@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
 import { Subject, catchError, finalize, of, takeUntil } from 'rxjs';
@@ -9,6 +10,7 @@ import {
   type OrganizationSummary,
   type UpdateMyOrganizationPayload,
 } from '../../../../core/services/organization.service';
+import { UserDocumentDetailDialogComponent } from '../../../users/components/user-document-detail-dialog/user-document-detail-dialog.component';
 import type { AddressHierarchySeed } from '../../../users/components/user-address-cascade-fields/user-address-cascade-fields.component';
 import {
   canEditOrganizationProfile,
@@ -48,6 +50,7 @@ export class SettingsOrganizationComponent implements OnInit, OnDestroy {
     private readonly snackBar: MatSnackBar,
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
+    private readonly dialog: MatDialog,
   ) {
     this.profileForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(2)]],
@@ -104,6 +107,93 @@ export class SettingsOrganizationComponent implements OnInit, OnDestroy {
       return false;
     }
     return ks !== 'DRAFT' && ks !== 'RESUBMITTED';
+  }
+
+  get kycStatusLabel(): string {
+    const ks = (this.org?.kycStatus ?? '').toUpperCase();
+    switch (ks) {
+      case 'APPROVED':
+        return 'Approved';
+      case 'REJECTED':
+        return 'Rejected';
+      case 'SUBMITTED':
+        return 'Submitted';
+      case 'RESUBMITTED':
+        return 'Resubmitted';
+      case 'STAGE_1_REVIEW':
+        return 'Stage 1 Review';
+      case 'STAGE_2_REVIEW':
+        return 'Stage 2 Review';
+      case 'STAGE_3_REVIEW':
+        return 'Stage 3 Review';
+      case 'STAGE_4_REVIEW':
+        return 'Stage 4 Review';
+      case 'STAGE_5_REVIEW':
+        return 'Stage 5 Review';
+      default:
+        return 'Draft';
+    }
+  }
+
+  get kycDocuments(): { uploadId: number; label: string; category: string }[] {
+    const org = this.org;
+    if (!org) {
+      return [];
+    }
+    const docs: { uploadId: number; label: string; category: string }[] = [];
+    const push = (id: number | undefined, label: string, category: string) => {
+      if (id && id > 0) {
+        docs.push({ uploadId: id, label, category });
+      }
+    };
+    push(
+      org.taxClearanceCertificateUploadId,
+      org.taxNumber ? `ZIMRA tax clearance (${org.taxNumber})` : 'ZIMRA tax clearance certificate',
+      'Tax certificate',
+    );
+    push(org.registrationCertificateUploadId, 'Company registration certificate', 'Registration');
+    push(org.businessLicenseUploadId, 'Business licence', 'Licence');
+    push(org.proofOfAddressUploadId, 'Proof of address', 'Address');
+    push(org.contactPersonNationalIdUploadId, 'Contact person national ID', 'Identification');
+    push(org.contactPersonPassportUploadId, 'Contact person passport', 'Identification');
+    push(org.industrySpecificLicenseUploadId, 'Industry-specific licence', 'Licence');
+    push(org.logoUploadId, 'Organisation logo', 'Branding');
+    return docs;
+  }
+
+  /** Material icon for a KYC document category (used by the document grid). */
+  docIcon(category: string): string {
+    switch ((category ?? '').toLowerCase()) {
+      case 'tax certificate':
+        return 'receipt_long';
+      case 'registration':
+        return 'verified';
+      case 'licence':
+        return 'workspace_premium';
+      case 'address':
+        return 'home_work';
+      case 'identification':
+        return 'badge';
+      case 'branding':
+        return 'image';
+      default:
+        return 'description';
+    }
+  }
+
+  /** Opens a read-only document preview modal (image/PDF + metadata) — documents cannot be edited here. */
+  viewDocument(uploadId: number): void {
+    if (!uploadId || uploadId <= 0) {
+      return;
+    }
+    this.dialog.open(UserDocumentDetailDialogComponent, {
+      data: { id: uploadId },
+      width: '720px',
+      maxWidth: '94vw',
+      maxHeight: '92vh',
+      autoFocus: false,
+      panelClass: 'lx-dialog-panel',
+    });
   }
 
   get verificationHint(): string {
@@ -195,9 +285,15 @@ export class SettingsOrganizationComponent implements OnInit, OnDestroy {
     if (this.identityLocked) {
       this.profileForm.get('name')?.disable({ emitEvent: false });
       this.profileForm.get('email')?.disable({ emitEvent: false });
+      this.profileForm.get('phoneNumber')?.disable({ emitEvent: false });
+      this.profileForm.get('registrationNumber')?.disable({ emitEvent: false });
+      this.profileForm.get('taxNumber')?.disable({ emitEvent: false });
     } else {
       this.profileForm.get('name')?.enable({ emitEvent: false });
       this.profileForm.get('email')?.enable({ emitEvent: false });
+      this.profileForm.get('phoneNumber')?.enable({ emitEvent: false });
+      this.profileForm.get('registrationNumber')?.enable({ emitEvent: false });
+      this.profileForm.get('taxNumber')?.enable({ emitEvent: false });
     }
     this.addressLine1 = org.addressLine1 ?? '';
     this.addressLine2 = org.addressLine2 ?? '';

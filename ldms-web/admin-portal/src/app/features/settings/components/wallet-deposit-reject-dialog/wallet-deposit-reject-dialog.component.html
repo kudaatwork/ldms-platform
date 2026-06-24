@@ -1,0 +1,39 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Reject deposit</h2>
+      <p class="lx-dialog-subtitle">Deposit #{{ deposit.id }} · {{ deposit.currencyCode }} {{ deposit.amountCents / 100 | number:'1.2-2' }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <mat-dialog-content class="lx-step-content">
+    <form [formGroup]="form" class="wd-reject-body">
+      <p class="wd-reject-hint">
+        <mat-icon>info</mat-icon>
+        The organisation will be notified that their deposit was rejected. Provide a clear reason so they know what to correct and resubmit.
+      </p>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Rejection reason <span class="req">*</span></label>
+        <div class="lx-input-shell lx-input-shell--textarea" [class.lx-input-shell--invalid]="reasonError">
+          <mat-icon class="lx-input-shell__icon">feedback</mat-icon>
+          <textarea
+            formControlName="reason"
+            rows="4"
+            placeholder="e.g. Proof of payment does not match the reference number provided."
+          ></textarea>
+        </div>
+        <div class="lx-field-error" *ngIf="reasonError">{{ reasonError }}</div>
+        <div class="lx-field-hint">Minimum {{ minReasonLength }} characters required.</div>
+      </div>
+    </form>
+  </mat-dialog-content>
+
+  <div class="lx-dialog-footer">
+    <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()">Cancel</button>
+    <button type="button" class="lx-btn lx-btn-danger" (click)="submit()">Reject deposit</button>
+  </div>
+</div>

@@ -216,14 +216,15 @@
                 [class.assign-roles-row--assigned]="r.alreadyAssigned"
                 [class.assign-roles-row--selected]="r.selected"
                 [class.assign-roles-row--selected-assign]="r.selected && !r.alreadyAssigned"
-                [class.assign-roles-row--selected-remove]="r.selected && r.alreadyAssigned"
-                [attr.title]="rowTitle(r)"
+                [class.assign-roles-row--selected-remove]="r.selected && r.alreadyAssigned && !r.locked"
+                [class.assign-roles-row--locked]="r.locked"
+                [attr.title]="r.locked ? 'Default role — cannot be removed' : rowTitle(r)"
                 (click)="toggleRow(r, $event)"
               >
                 <span class="assign-roles-row__check">
                   <mat-checkbox
                     [(ngModel)]="r.selected"
-                    [disabled]="assigning || removing"
+                    [disabled]="assigning || removing || r.locked"
                     (click)="$event.stopPropagation()"
                   ></mat-checkbox>
                 </span>
@@ -232,8 +233,10 @@
                   <span class="assign-roles-row__desc" *ngIf="r.description !== '—'">{{ r.description }}</span>
                 </span>
                 <span class="assign-roles-row__status" *ngIf="r.alreadyAssigned">
-                  <mat-icon class="assign-roles-row__status-icon" aria-hidden="true">link</mat-icon>
-                  On group
+                  <mat-icon class="assign-roles-row__status-icon" aria-hidden="true">
+                    {{ r.locked ? 'lock' : 'link' }}
+                  </mat-icon>
+                  {{ r.locked ? 'Locked' : 'On group' }}
                 </span>
               </label>
             </div>

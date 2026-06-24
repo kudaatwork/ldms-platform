@@ -1,0 +1,520 @@
+/* Global dark-mode surface fixes for platform portal components that use light-only literals. */
+
+html.theme-dark {
+  /* ── Titles & Headings ─────────────────────────────────────
+     NOTE: Avoid [class*="__title"] — it catches landing page hero titles
+     that have their own gradient/white styles. Use explicit selectors only. */
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--gray-900);
+  }
+
+  .page-title,
+  .section-title,
+  .card-title,
+  .panel-title,
+  .form-title,
+  .dialog-title,
+  .tb-title,
+  .lc-title,
+  .dashboard-title,
+  .dash-section-head__title,
+  .dash-analytics__title,
+  .dw-section__title,
+  .dtd-header-card__num,
+  .dwf-step__title,
+  .mode-picker__choice-title,
+  .onboarding-status__stat-value,
+  .fleet-workspace__title,
+  .inventory-workspace__title,
+  .trip-tracking__title,
+  .reports-page__title,
+  .settings-page__title,
+  .users-page__title,
+  .documents-page__title,
+  .customers-page__title,
+  .trading-partners-page__title,
+  .signup-wizard__title,
+  .login-page__title,
+  .lx-page-hero__title,
+  .lx-workspace-hero__title,
+  .lx-workspace-hero-stat__value,
+  .sh-metric__value,
+  .analytics-page__stat-value,
+  .admin-dashboard__kpi-value,
+  .ba-dashboard__metric-value,
+  .dra-timeline__item,
+  .bfa-card__title,
+  .hsa-ticket-card__title,
+  .kyc-doc__title,
+  .org-table__org-name,
+  .rod-step__title,
+  .pacf-tier-badge,
+  .ntfd-preview-panel__title,
+  .nep-preview-frame__title,
+  .nehp-editor__title {
+    color: var(--gray-900);
+  }
+
+  /* ── Operational Mode Picker ─────────────────────────────── */
+  .mode-picker-banner {
+    background: color-mix(in srgb, var(--warning) 12%, var(--raised));
+    color: var(--gray-800);
+    border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+  }
+
+  .mode-picker__choice {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 22%, transparent);
+
+    &--active {
+      border-color: var(--primary);
+      background: color-mix(in srgb, var(--primary) 8%, var(--raised));
+    }
+
+    &--crossdock {
+      border-color: var(--accent);
+    }
+  }
+
+  .mode-picker__choice-title {
+    color: var(--gray-900);
+  }
+
+  .mode-picker__choice-desc {
+    color: var(--gray-500);
+  }
+
+  .mode-picker__icon-wrap {
+    background: color-mix(in srgb, var(--primary) 12%, var(--raised));
+    color: var(--primary-dark);
+  }
+
+  .mode-picker__tab {
+    background: var(--surface-2);
+    color: var(--gray-500);
+
+    &--active {
+      color: var(--primary-dark);
+      background: color-mix(in srgb, var(--primary) 10%, var(--surface-2));
+    }
+  }
+
+  .mode-picker__panel-body {
+    background: var(--surface-2);
+  }
+
+  .mode-picker__list-item {
+    color: var(--gray-700);
+  }
+
+  .mode-picker__api-link {
+    background: color-mix(in srgb, var(--primary) 10%, var(--raised));
+    color: var(--primary-dark);
+
+    &:hover {
+      background: color-mix(in srgb, var(--primary) 18%, var(--raised));
+    }
+  }
+
+  /* ── Onboarding Status ───────────────────────────────────── */
+  .onboarding-status__node {
+    &--done {
+      background: color-mix(in srgb, var(--success) 12%, var(--raised));
+      color: var(--success);
+    }
+
+    &--pending {
+      background: var(--surface-2);
+      color: var(--gray-500);
+    }
+
+    &--rejected {
+      background: color-mix(in srgb, var(--warn) 12%, var(--raised));
+      color: var(--warn);
+    }
+
+    &--active {
+      color: var(--primary-dark);
+    }
+  }
+
+  .onboarding-status__label {
+    &--active { color: var(--primary-dark); }
+    &--done { color: var(--success); }
+    &--rejected { color: var(--warn); }
+    &--pending { color: var(--gray-500); }
+  }
+
+  .onboarding-status__rejection-banner {
+    background: color-mix(in srgb, var(--warn) 10%, var(--raised));
+    color: var(--gray-800);
+    border-color: color-mix(in srgb, var(--warn) 25%, transparent);
+  }
+
+  .onboarding-status__stat-value {
+    color: var(--gray-900);
+  }
+
+  /* ── Driver Portal ───────────────────────────────────────── */
+  .dw-card {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 20%, transparent);
+  }
+
+  .dw-tag {
+    background: var(--surface-2);
+    border-color: color-mix(in srgb, var(--gray-400) 20%, transparent);
+    color: var(--gray-500);
+  }
+
+  .dw-section__title,
+  .dw-card__trip-num {
+    color: var(--gray-900);
+  }
+
+  .dw-card__route {
+    color: var(--gray-500);
+  }
+
+  .dw-status--muted {
+    background: var(--surface-2);
+  }
+
+  .dw-empty__title {
+    color: var(--gray-500);
+  }
+
+  .dtd-header-card {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 20%, transparent);
+  }
+
+  .dtd-detail {
+    background: var(--surface-2);
+    border-color: color-mix(in srgb, var(--gray-400) 20%, transparent);
+  }
+
+  .dtd-header-card__num {
+    color: var(--gray-900);
+  }
+
+  .dwf-field__input {
+    background: var(--surface-2);
+    border-color: color-mix(in srgb, var(--gray-400) 25%, transparent);
+    color: var(--gray-900);
+  }
+
+  .dwf-toggle {
+    background: var(--surface-2);
+    border-color: color-mix(in srgb, var(--gray-400) 20%, transparent);
+  }
+
+  .dwf-otp-input {
+    background: var(--surface-2);
+    border-color: color-mix(in srgb, var(--gray-400) 25%, transparent);
+    color: var(--gray-900);
+  }
+
+  .dwf-add-return {
+    background: var(--surface-2);
+    border-color: color-mix(in srgb, var(--gray-400) 20%, transparent);
+  }
+
+  .dwf-return-item {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 20%, transparent);
+  }
+
+  .dwf-step__title {
+    color: var(--gray-900);
+  }
+
+  .driver-shell__nav {
+    background: var(--surface);
+    border-top-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  .driver-shell__nav-item {
+    color: var(--gray-500);
+
+    &--active {
+      color: var(--primary-dark);
+    }
+  }
+
+  /* ── Fleet ───────────────────────────────────────────────── */
+  .fleet-workspace__status {
+    &--online { background: color-mix(in srgb, var(--success) 18%, var(--raised)); color: #86efac; }
+    &--offline { background: color-mix(in srgb, var(--warn) 18%, var(--raised)); color: #fca5a5; }
+  }
+
+  .driver-marketplace-search__status {
+    &--available { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: var(--success); }
+    &--busy { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: var(--warn); }
+    &--away { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: var(--accent); }
+  }
+
+  .driver-signup-requests__badge {
+    &--approved { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: var(--success); }
+    &--pending { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: var(--accent); }
+    &--rejected { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: var(--warn); }
+  }
+
+  /* ── Inventory ───────────────────────────────────────────── */
+  .en-route-stop {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 18%, transparent);
+
+    &--warning {
+      background: color-mix(in srgb, var(--warning) 8%, var(--raised));
+      border-color: color-mix(in srgb, var(--warning) 25%, transparent);
+    }
+
+    &--success {
+      background: color-mix(in srgb, var(--success) 8%, var(--raised));
+      border-color: color-mix(in srgb, var(--success) 25%, transparent);
+    }
+  }
+
+  .logistics-route-journey__step {
+    &--info { background: color-mix(in srgb, var(--primary) 8%, var(--raised)); }
+    &--warning { background: color-mix(in srgb, var(--warning) 8%, var(--raised)); }
+    &--purple { background: color-mix(in srgb, var(--analytics) 8%, var(--raised)); }
+  }
+
+  .view-transfer-dialog__header {
+    background: color-mix(in srgb, var(--primary) 8%, var(--raised));
+  }
+
+  .view-transfer-dialog__alert {
+    background: color-mix(in srgb, var(--warn) 10%, var(--raised));
+    color: var(--gray-800);
+  }
+
+  .create-transfer-dialog__hint {
+    background: color-mix(in srgb, var(--primary) 8%, var(--raised));
+    color: var(--primary-dark);
+  }
+
+  .receive-goods-dialog__header {
+    background: var(--surface-2);
+  }
+
+  .inventory-integration-api-page__btn {
+    &--primary { background: var(--gradient-brand); }
+    &--success { background: var(--success); }
+  }
+
+  .inventory-integration-setup-panel__status {
+    &--connected { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: var(--success); }
+    &--pending { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: var(--accent); }
+  }
+
+  /* ── Trip Tracking ───────────────────────────────────────── */
+  .live-trip-tracking__map-panel,
+  .trip-live-map-panel__overlay {
+    background: var(--raised);
+  }
+
+  .trip-replay-page__canvas {
+    background: var(--page-bg);
+  }
+
+  /* ── Roadside Support ────────────────────────────────────── */
+  .roadside-workspace__panel {
+    background: var(--raised);
+  }
+
+  /* ── Reports / Analytics ─────────────────────────────────── */
+  .usage-charge-report-page__status {
+    &--paid { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: var(--success); }
+    &--pending { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: var(--accent); }
+    &--overdue { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: var(--warn); }
+  }
+
+  .login-analytics-page__stat {
+    color: var(--gray-900);
+  }
+
+  /* ── Signup / Auth ───────────────────────────────────────── */
+  .signup-wizard__step {
+    &--active { color: var(--primary-dark); }
+    &--done { color: var(--success); }
+    &--pending { color: var(--gray-500); }
+  }
+
+  .signup-wizard__card {
+    background: var(--raised);
+  }
+
+  /* ── Documents ───────────────────────────────────────────── */
+  .documents-staging__status {
+    &--error { background: color-mix(in srgb, var(--warn) 10%, var(--raised)); color: var(--warn); }
+    &--success { background: color-mix(in srgb, var(--success) 10%, var(--raised)); color: var(--success); }
+  }
+
+  /* ── Customers ───────────────────────────────────────────── */
+  .customers-list__status {
+    &--active { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: var(--success); }
+    &--inactive { background: color-mix(in srgb, var(--gray-400) 12%, var(--raised)); color: var(--gray-500); }
+    &--pending { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: var(--accent); }
+  }
+
+  /* ── Trading Partners ────────────────────────────────────── */
+  .trading-partners-workspace__banner {
+    background: color-mix(in srgb, var(--primary) 8%, var(--raised));
+    color: var(--primary-dark);
+  }
+
+  /* ── Active Clearances ───────────────────────────────────── */
+  .active-clearances-workspace__status {
+    &--approved { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: var(--success); }
+    &--pending { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: var(--accent); }
+    &--rejected { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: var(--warn); }
+  }
+
+  /* ── Shared Components ───────────────────────────────────── */
+  .lx-page-layout__hero-title {
+    color: #fff;
+  }
+
+  .lx-page-layout__hero-subtitle {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .lx-data-table__row--selected {
+    background: color-mix(in srgb, var(--primary) 10%, var(--raised));
+  }
+
+  .lx-dialog-form-shell__title {
+    color: var(--gray-900);
+  }
+
+  .lx-dialog-form-shell__error {
+    color: #f87171;
+  }
+
+  .lx-workspace-hero__title {
+    color: var(--gray-900);
+  }
+
+  .lx-workspace-hero__subtitle {
+    color: var(--gray-500);
+  }
+
+  .lx-page-hero__title {
+    color: #f8fafc;
+  }
+
+  .lx-page-hero__subtitle {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .lx-workspace-hero-stat__value {
+    color: var(--gray-900);
+  }
+
+  .lx-workspace-hero-stat__label {
+    color: var(--gray-500);
+  }
+
+  /* ── Landing Page ──────────────────────────────────────────
+     The landing page has its own dark styles (ViewEncapsulation.None).
+     Do NOT override — let its own styles handle everything. */
+
+  /* ── Page Layout / Content Backgrounds ───────────────────── */
+  .page-content__section {
+    background: var(--surface);
+  }
+
+  .page-content__card {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  /* ── Form Elements ───────────────────────────────────────── */
+  .form-field__input,
+  .form-field__select,
+  .form-field__textarea {
+    background: var(--surface-2);
+    color: var(--gray-900);
+    border-color: color-mix(in srgb, var(--gray-400) 25%, transparent);
+
+    &::placeholder {
+      color: var(--gray-500);
+    }
+  }
+
+  /* ── Tables ──────────────────────────────────────────────── */
+  .data-table__header {
+    background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+  }
+
+  .data-table__row:hover {
+    background: color-mix(in srgb, var(--primary) 5%, var(--raised));
+  }
+
+  /* ── Tabs ────────────────────────────────────────────────── */
+  .tab-group__tab:not(.tab-group__tab--active) {
+    color: var(--gray-500);
+  }
+
+  .tab-group__tab--active {
+    color: var(--primary-dark);
+  }
+
+  /* ── Badges / Chips ──────────────────────────────────────── */
+  .badge {
+    &--primary { background: color-mix(in srgb, var(--primary) 12%, var(--raised)); color: var(--primary-dark); }
+    &--success { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: #86efac; }
+    &--warning { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: #fcd34d; }
+    &--error { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: #fca5a5; }
+    &--info { background: color-mix(in srgb, var(--analytics) 12%, var(--raised)); color: #c4b5fd; }
+  }
+
+  /* ── Callouts / Banners ──────────────────────────────────── */
+  .callout {
+    &--info {
+      background: color-mix(in srgb, var(--primary) 8%, var(--raised));
+      border-color: color-mix(in srgb, var(--primary) 20%, transparent);
+      color: var(--primary-dark);
+    }
+
+    &--success {
+      background: color-mix(in srgb, var(--success) 8%, var(--raised));
+      border-color: color-mix(in srgb, var(--success) 20%, transparent);
+      color: #86efac;
+    }
+
+    &--warning {
+      background: color-mix(in srgb, var(--warning) 8%, var(--raised));
+      border-color: color-mix(in srgb, var(--warning) 20%, transparent);
+      color: #fcd34d;
+    }
+
+    &--error {
+      background: color-mix(in srgb, var(--warn) 8%, var(--raised));
+      border-color: color-mix(in srgb, var(--warn) 20%, transparent);
+      color: #fca5a5;
+    }
+  }
+
+  /* ── Skeleton / Shimmer Loading ──────────────────────────── */
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--surface-2) 25%,
+      color-mix(in srgb, var(--gray-400) 10%, var(--surface-2)) 50%,
+      var(--surface-2) 75%
+    );
+  }
+
+  /* ── Scrollbar ───────────────────────────────────────────── */
+  ::-webkit-scrollbar-track {
+    background: var(--surface-2);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, var(--gray-300), var(--primary));
+  }
+}
