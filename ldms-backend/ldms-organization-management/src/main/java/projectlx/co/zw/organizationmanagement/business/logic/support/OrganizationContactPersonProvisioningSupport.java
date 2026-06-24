@@ -49,6 +49,8 @@ public class OrganizationContactPersonProvisioningSupport {
         ProvisionOrganizationContactPersonRequest request = new ProvisionOrganizationContactPersonRequest();
         request.setOrganizationId(org.getId());
         request.setOrganizationName(org.getName());
+        request.setOrganizationClassification(
+                org.getOrganizationClassification() != null ? org.getOrganizationClassification().name() : null);
         request.setEmail(email);
         request.setFirstName(org.getContactPersonFirstName());
         request.setLastName(org.getContactPersonLastName());

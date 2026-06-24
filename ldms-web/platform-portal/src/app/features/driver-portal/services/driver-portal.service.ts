@@ -143,6 +143,7 @@ export class DriverPortalService {
       driverPhone: String(raw['driverPhone'] ?? '').trim() || undefined,
       fleetDriverId: Number(raw['fleetDriverId'] ?? 0) > 0 ? Number(raw['fleetDriverId']) : undefined,
       driverUserId: Number(raw['driverUserId'] ?? 0) > 0 ? Number(raw['driverUserId']) : undefined,
+      inventoryTransferId: Number(raw['inventoryTransferId'] ?? 0) > 0 ? Number(raw['inventoryTransferId']) : undefined,
     };
   }
 

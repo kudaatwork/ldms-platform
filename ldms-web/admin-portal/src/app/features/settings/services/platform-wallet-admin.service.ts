@@ -41,7 +41,12 @@ export interface WalletDepositRow {
   amountCents: number;
   currencyCode: string;
   referenceNumber?: string;
+  notes?: string;
   status: string;
+  proofDocumentId?: number;
+  gatewayProvider?: string;
+  paymentMethod?: string;
+  rejectionReason?: string;
   createdAt?: string;
   modifiedAt?: string;
   modifiedBy?: string;
@@ -161,8 +166,8 @@ export class PlatformWalletAdminService {
     );
   }
 
-  rejectDeposit(depositId: number): Observable<void> {
-    return this.http.post<PlatformWalletApiResponse>(`${this.backofficeBase}/deposits/${depositId}/reject`, {}).pipe(
+  rejectDeposit(depositId: number, rejectionReason: string): Observable<void> {
+    return this.http.post<PlatformWalletApiResponse>(`${this.backofficeBase}/deposits/${depositId}/reject`, { id: depositId, rejectionReason }).pipe(
       map((res) => {
         this.assertSuccess(res, 'Could not reject deposit.');
         return undefined;

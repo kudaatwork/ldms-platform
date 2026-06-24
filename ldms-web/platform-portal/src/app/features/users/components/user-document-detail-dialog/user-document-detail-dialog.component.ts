@@ -1,5 +1,9 @@
 import { Component, Inject, OnInit } from '@angular/core';
-import { MAT_DIALOG_DATA } from '@angular/material/dialog';
+import { CommonModule } from '@angular/common';
+import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { normalizeBase64, resolveFilePreview } from '../../../../shared/utils/file-upload-preview';
 import { FileUploadPortalService } from '../../../../core/services/file-upload-portal.service';
@@ -12,7 +16,14 @@ export interface UserDocumentDetailDialogData {
   selector: 'app-user-document-detail-dialog',
   templateUrl: './user-document-detail-dialog.component.html',
   styleUrl: './user-document-detail-dialog.component.scss',
-  standalone: false,
+  standalone: true,
+  imports: [
+    CommonModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatIconModule,
+    MatProgressSpinnerModule,
+  ],
 })
 export class UserDocumentDetailDialogComponent implements OnInit {
   loading = true;

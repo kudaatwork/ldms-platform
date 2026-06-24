@@ -15,6 +15,7 @@ import projectlx.co.zw.notifications.utils.config.LdmsConfigRepoSecretsResolver;
 import projectlx.co.zw.notifications.utils.config.OutboundMessagingReadiness;
 import projectlx.co.zw.notifications.utils.config.OutboundTwilioInitializer;
 import projectlx.co.zw.notifications.business.logic.support.NotificationBillingSupport;
+import projectlx.co.zw.notifications.utils.requests.NotificationRequest;
 import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
 
 public class WhatsAppNotificationProviderServiceImpl implements NotificationProviderService {

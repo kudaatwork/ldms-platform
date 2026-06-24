@@ -18,4 +18,14 @@ public interface UserGroupRepository extends JpaRepository<UserGroup, Long>, Jpa
             Long organizationId, String name, EntityStatus entityStatus);
     Optional<UserGroup> findByName(String name);
     List<UserGroup> findByEntityStatusNot(EntityStatus entityStatus);
+
+    /** Organisation-scoped groups (e.g. Administrator) for a given organisation classification. */
+    List<UserGroup> findByOrganizationClassificationIgnoreCaseAndEntityStatusNot(
+            String organizationClassification, EntityStatus entityStatus);
+
+    /** Count active users in a given user group. */
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT COUNT(u) FROM User u WHERE u.userGroup.id = :groupId AND u.entityStatus <> :excluded")
+    long countActiveUsersInGroup(@org.springframework.data.repository.query.Param("groupId") Long groupId,
+                                  @org.springframework.data.repository.query.Param("excluded") EntityStatus excluded);
 }

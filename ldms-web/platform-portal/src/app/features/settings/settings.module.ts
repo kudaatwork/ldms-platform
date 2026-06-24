@@ -11,6 +11,7 @@ import { SettingsBillingComponent } from './components/settings-billing/settings
 import { SettingsOperationalModeComponent } from './components/settings-operational-mode/settings-operational-mode.component';
 import { SettingsOrganizationComponent } from './components/settings-organization/settings-organization.component';
 import { UserAddressCascadeFieldsComponent } from '../users/components/user-address-cascade-fields/user-address-cascade-fields.component';
+import { UserDocumentDetailDialogComponent } from '../users/components/user-document-detail-dialog/user-document-detail-dialog.component';
 
 @NgModule({
   declarations: [
@@ -24,6 +25,11 @@ import { UserAddressCascadeFieldsComponent } from '../users/components/user-addr
     SettingsOperationalModeComponent,
     SettingsOrganizationComponent,
   ],
-  imports: [SharedModule, SettingsRoutingModule, UserAddressCascadeFieldsComponent],
+  imports: [
+    SharedModule,
+    SettingsRoutingModule,
+    UserAddressCascadeFieldsComponent,
+    UserDocumentDetailDialogComponent,
+  ],
 })
 export class SettingsModule {}

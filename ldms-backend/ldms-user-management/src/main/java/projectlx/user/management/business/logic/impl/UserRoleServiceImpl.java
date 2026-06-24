@@ -33,6 +33,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.transaction.annotation.Transactional;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -122,6 +123,7 @@ public class UserRoleServiceImpl implements UserRoleService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserRoleResponse findById(Long id, Locale locale, String username) {
         String message = "";
 
@@ -150,6 +152,7 @@ public class UserRoleServiceImpl implements UserRoleService {
 
         UserRole userRoleReturned = userRoleRetrieved.get();
         UserRoleDto userRoleDto = modelMapper.map(userRoleReturned, UserRoleDto.class);
+        UserRoleDtoModuleEnricher.enrich(userRoleDto);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_ROLE_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
@@ -159,6 +162,7 @@ public class UserRoleServiceImpl implements UserRoleService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserRoleResponse findAllAsList(String username, Locale locale) {
         String message = "";
 
@@ -174,6 +178,7 @@ public class UserRoleServiceImpl implements UserRoleService {
         }
 
         List<UserRoleDto> userRoleDtoList = modelMapper.map(userRoleList, new TypeToken<List<UserRoleDto>>(){}.getType());
+        UserRoleDtoModuleEnricher.enrichAll(userRoleDtoList);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_ROLE_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -280,6 +285,7 @@ public class UserRoleServiceImpl implements UserRoleService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserRoleResponse findByMultipleFilters(UserRoleMultipleFiltersRequest userRoleMultipleFiltersRequest, String username, Locale locale) {
 
         String message = "";
@@ -442,6 +448,15 @@ public class UserRoleServiceImpl implements UserRoleService {
         for (UserRole userRole : userRolePage) {
             UserRoleDto userRoleDto = modelMapper.map(userRole, UserRoleDto.class);
             UserRoleDtoModuleEnricher.enrich(userRoleDto);
+            // Explicitly copy the lazy classification set while still inside the read transaction
+            // so the admin-portal drill-down receives an accurate role -> classification mapping.
+            userRoleDto.setOrganizationClassifications(
+                    userRole.getOrganizationClassifications() == null
+                            ? new java.util.HashSet<>()
+                            : new java.util.HashSet<>(userRole.getOrganizationClassifications()));
+            userRoleDto.setOrganizationPortalRole(
+                    projectlx.user.management.utils.support.OrganizationPortalRolePolicy
+                            .isOrganizationPortalRole(userRole.getRole()));
             userRoleDtoList.add(userRoleDto);
         }
 

@@ -1,12 +1,17 @@
 package projectlx.user.management.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -39,6 +44,15 @@ public class UserRole {
     @ManyToMany(mappedBy = "userRoles")  // This field is already mapped in Student
     @JsonIgnore
     private Set<UserGroup> userGroups = new HashSet<>();
+
+    /** Organization classifications this role applies to. Empty = platform-only (admin portal). */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "user_role_organization_classifications",
+            joinColumns = @JoinColumn(name = "user_role_id")
+    )
+    @Column(name = "organization_classification")
+    private Set<String> organizationClassifications = new HashSet<>();
 
     @PreUpdate
     public void update(){

@@ -2,6 +2,9 @@ package projectlx.user.management.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -43,6 +46,12 @@ public class UserGroup {
     /** Organisation class for workspace groups (SUPPLIER, TRANSPORT_COMPANY, etc.). */
     @jakarta.persistence.Column(name = "organization_classification", length = 50)
     private String organizationClassification;
+    /** Whether this is a system-provisioned group (e.g. Administrator) that cannot be deleted. */
+    @Column(name = "is_system_group", nullable = false)
+    private boolean systemGroup = false;
+    /** User-editable display alias for a system group (e.g. renaming "Administrator" to "Org Admins"). */
+    @Column(name = "system_group_alias", length = 100)
+    private String systemGroupAlias;
     private LocalDateTime createdAt; // Timestamp when the user group was created
     private LocalDateTime updatedAt; // Timestamp when the user group was last updated
     @Enumerated(EnumType.STRING)
@@ -63,6 +72,15 @@ public class UserGroup {
             inverseJoinColumns = @JoinColumn(name = "user_role_id")  // Foreign key for UserRole
     )
     private Set<UserRole> userRoles = new HashSet<>();
+
+    /** Role IDs that are "locked" (default) for this system group and cannot be removed. */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(
+            name = "user_group_default_roles",
+            joinColumns = @JoinColumn(name = "user_group_id")
+    )
+    @Column(name = "user_role_id")
+    private Set<Long> defaultRoleIds = new HashSet<>();
 
     @PreUpdate
     public void update(){

@@ -8,7 +8,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { DriverPortalService } from '../../services/driver-portal.service';
-import { DriverTripRow, DeliveryWorkflowPhase, TripDeliveryWorkflowResponse } from '../../models/driver-portal.model';
+import { DriverTripRow, DeliveryActorRole, DeliveryWorkflowPhase, TripDeliveryWorkflowResponse } from '../../models/driver-portal.model';
 
 @Component({
   selector: 'app-driver-trip-detail',
@@ -64,6 +64,10 @@ export class DriverTripDetailComponent implements OnInit, OnDestroy {
 
   get backLabel(): string {
     return this.returnTo === 'trips' ? 'Trips' : 'My trips';
+  }
+
+  get receiverActorRole(): DeliveryActorRole {
+    return this.trip?.inventoryTransferId ? 'DEPOT_CLERK' : 'CUSTOMER';
   }
 
   private loadTrip(id: number, showLoading = true): void {

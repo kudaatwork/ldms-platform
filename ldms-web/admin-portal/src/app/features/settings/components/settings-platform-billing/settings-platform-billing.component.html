@@ -760,6 +760,14 @@
             <td mat-cell *matCellDef="let row" class="lx-actions-cell">
               <button
                 type="button"
+                class="lx-btn lx-btn-sm lx-btn-secondary"
+                [disabled]="confirmingDepositId === row.id || rejectingDepositId === row.id"
+                (click)="viewDeposit(row)"
+              >
+                View
+              </button>
+              <button
+                type="button"
                 class="lx-btn lx-btn-sm lx-btn-primary"
                 [disabled]="confirmingDepositId === row.id || rejectingDepositId === row.id"
                 (click)="confirmDeposit(row)"

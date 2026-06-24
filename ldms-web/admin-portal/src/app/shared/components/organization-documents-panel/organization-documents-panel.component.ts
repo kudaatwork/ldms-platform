@@ -18,6 +18,7 @@ import { normalizeBase64, resolveFilePreview } from '../../utils/file-upload-pre
 export class OrganizationDocumentsPanelComponent implements OnChanges, OnDestroy {
   @Input() documents: KycApplicationDocument[] = [];
   @Input() compact = false;
+  @Input() readOnly = false;
 
   selected: KycApplicationDocument | null = null;
   loading = false;

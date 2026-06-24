@@ -9,5 +9,6 @@
   "java.import.gradle.enabled": false,
   "[java]": {
     "editor.semanticHighlighting.enabled": true
-  }
+  },
+  "chat.agent.maxRequests": 100
 }

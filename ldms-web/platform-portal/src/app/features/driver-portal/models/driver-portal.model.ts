@@ -2,7 +2,7 @@
 export type OtpChannel = 'SMS' | 'WHATSAPP' | 'EMAIL';
 
 /** Actor role used in stock-counting and returns API calls. */
-export type DeliveryActorRole = 'DRIVER' | 'CUSTOMER' | 'RECEIVER';
+export type DeliveryActorRole = 'DRIVER' | 'CUSTOMER' | 'RECEIVER' | 'DEPOT_CLERK';
 
 /** The delivery workflow phases (no separate DELIVERY_NOTES — notes go into verifyOtp). */
 export type DeliveryWorkflowPhase =
@@ -168,6 +168,8 @@ export interface DriverTripRow {
   driverPhone?: string;
   fleetDriverId?: number;
   driverUserId?: number;
+  /** When present, this trip is an inventory transfer (not a customer delivery). */
+  inventoryTransferId?: number;
 }
 
 /** Summary stats for the driver workspace hero. */

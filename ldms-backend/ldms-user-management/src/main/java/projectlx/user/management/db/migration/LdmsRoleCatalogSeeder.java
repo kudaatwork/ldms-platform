@@ -15,7 +15,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import projectlx.user.management.utils.support.OrganizationPortalRolePolicy;
+import projectlx.user.management.utils.support.RoleClassificationPolicy;
 
 /**
  * Idempotent seed of {@code user_role} rows and assignment to platform / organisation administrator groups.
@@ -38,6 +40,7 @@ public final class LdmsRoleCatalogSeeder {
         for (RoleSeed seed : loadRoleCatalog()) {
             upsertRole(connection, seed.role(), seed.description());
         }
+        seedRoleClassifications(connection);
         long groupId = ensurePlatformAdministratorGroup(connection);
         linkAllActiveRolesToGroup(connection, groupId);
     }
@@ -55,11 +58,18 @@ public final class LdmsRoleCatalogSeeder {
     }
 
     /**
-     * Ensures an organisation-scoped {@code Administrator} group exists and holds all workspace permissions.
-     * @deprecated Use the platform-wide {@link #ensurePlatformAdministratorGroup(Connection)} group instead.
+     * Ensures an organisation-scoped {@code Administrator} group exists and holds
+     * classification-filtered workspace permissions.
      */
-    @Deprecated
     public static long seedOrganizationAdministratorGroup(Connection connection, long organizationId) throws SQLException {
+        return seedOrganizationAdministratorGroup(connection, organizationId, null);
+    }
+
+    /**
+     * Ensures an organisation-scoped {@code Administrator} group exists and holds
+     * classification-filtered workspace permissions.
+     */
+    public static long seedOrganizationAdministratorGroup(Connection connection, long organizationId, String organizationClassification) throws SQLException {
         if (organizationId <= 0) {
             throw new IllegalArgumentException("organizationId must be positive");
         }
@@ -67,8 +77,9 @@ public final class LdmsRoleCatalogSeeder {
         for (RoleSeed seed : loadRoleCatalog()) {
             upsertRole(connection, seed.role(), seed.description());
         }
+        seedRoleClassifications(connection);
         long groupId = ensureOrganizationAdministratorGroup(connection, organizationId);
-        linkOrganizationPortalRolesToGroup(connection, groupId);
+        linkClassificationFilteredRolesToGroup(connection, groupId, organizationClassification);
         return groupId;
     }
 
@@ -162,6 +173,8 @@ public final class LdmsRoleCatalogSeeder {
                     UPDATE user_group
                     SET description = 'Platform administrators — full LDMS catalog; effective JWT roles depend on user organisation scope',
                         organization_id = NULL,
+                        organization_classification = 'ADMIN_PORTAL',
+                        is_system_group = TRUE,
                         entity_status = 'ACTIVE',
                         updated_at = NOW(6)
                     WHERE id = ?
@@ -173,8 +186,8 @@ public final class LdmsRoleCatalogSeeder {
             return existingId;
         }
         String insert = """
-                INSERT INTO user_group (name, description, organization_id, entity_status, created_at, updated_at)
-                VALUES (?, 'Platform administrators — full LDMS catalog; effective JWT roles depend on user organisation scope', NULL, 'ACTIVE', NOW(6), NOW(6))
+                INSERT INTO user_group (name, description, organization_id, organization_classification, is_system_group, entity_status, created_at, updated_at)
+                VALUES (?, 'Platform administrators — full LDMS catalog; effective JWT roles depend on user organisation scope', NULL, 'ADMIN_PORTAL', TRUE, 'ACTIVE', NOW(6), NOW(6))
                 """;
         try (PreparedStatement ps = connection.prepareStatement(insert)) {
             ps.setString(1, ADMIN_GROUP_NAME);
@@ -194,6 +207,7 @@ public final class LdmsRoleCatalogSeeder {
             String update = """
                     UPDATE user_group
                     SET description = ?,
+                        is_system_group = TRUE,
                         entity_status = 'ACTIVE',
                         updated_at = NOW(6)
                     WHERE id = ?
@@ -206,8 +220,8 @@ public final class LdmsRoleCatalogSeeder {
             return existingId;
         }
         String insert = """
-                INSERT INTO user_group (name, description, organization_id, entity_status, created_at, updated_at)
-                VALUES (?, ?, ?, 'ACTIVE', NOW(6), NOW(6))
+                INSERT INTO user_group (name, description, organization_id, is_system_group, entity_status, created_at, updated_at)
+                VALUES (?, ?, ?, TRUE, 'ACTIVE', NOW(6), NOW(6))
                 """;
         try (PreparedStatement ps = connection.prepareStatement(insert)) {
             ps.setString(1, ADMIN_GROUP_NAME);
@@ -264,13 +278,30 @@ public final class LdmsRoleCatalogSeeder {
     }
 
     private static void linkOrganizationPortalRolesToGroup(Connection connection, long groupId) throws SQLException {
+        linkClassificationFilteredRolesToGroup(connection, groupId, null);
+    }
+
+    private static void linkClassificationFilteredRolesToGroup(Connection connection, long groupId,
+                                                                String organizationClassification) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement("DELETE FROM user_group_user_role WHERE user_group_id = ?")) {
             ps.setLong(1, groupId);
             ps.executeUpdate();
         }
+        try (PreparedStatement ps = connection.prepareStatement("DELETE FROM user_group_default_roles WHERE user_group_id = ?")) {
+            ps.setLong(1, groupId);
+            ps.executeUpdate();
+        }
 
+        String classificationFilter = organizationClassification == null || organizationClassification.isBlank()
+                ? null
+                : organizationClassification.trim().toUpperCase();
         for (RoleSeed seed : loadRoleCatalog()) {
             if (!OrganizationPortalRolePolicy.isOrganizationPortalRole(seed.role())) {
+                continue;
+            }
+            // Read the admin-editable persisted mapping (source of truth), not the bootstrap policy.
+            if (classificationFilter != null
+                    && !roleHasClassification(connection, seed.role(), classificationFilter)) {
                 continue;
             }
             String insertLink = """
@@ -282,6 +313,89 @@ public final class LdmsRoleCatalogSeeder {
                 ps.setLong(1, groupId);
                 ps.setString(2, seed.role());
                 ps.executeUpdate();
+            }
+            String insertDefault = """
+                    INSERT IGNORE INTO user_group_default_roles (user_group_id, user_role_id)
+                    SELECT ?, ur.id FROM user_role ur
+                    WHERE ur.role = ? AND ur.entity_status = 'ACTIVE'
+                    """;
+            try (PreparedStatement ps = connection.prepareStatement(insertDefault)) {
+                ps.setLong(1, groupId);
+                ps.setString(2, seed.role());
+                ps.executeUpdate();
+            }
+        }
+    }
+
+    private static boolean hasAnyRoleClassificationMapping(Connection connection) throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(
+                "SELECT 1 FROM user_role_organization_classifications LIMIT 1");
+                ResultSet rs = ps.executeQuery()) {
+            return rs.next();
+        }
+    }
+
+    private static boolean roleHasClassification(Connection connection, String role, String classification)
+            throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(
+                """
+                SELECT 1 FROM user_role_organization_classifications uroc
+                INNER JOIN user_role ur ON ur.id = uroc.user_role_id
+                WHERE ur.role = ? AND UPPER(uroc.organization_classification) = ?
+                LIMIT 1
+                """)) {
+            ps.setString(1, role);
+            ps.setString(2, classification);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
+        }
+    }
+
+    private static void seedRoleClassifications(Connection connection) throws SQLException {
+        // Clear stale mappings for deleted roles (always — keeps the editable table tidy)
+        String cleanup = """
+                DELETE uroc FROM user_role_organization_classifications uroc
+                LEFT JOIN user_role ur ON ur.id = uroc.user_role_id
+                WHERE ur.id IS NULL OR ur.entity_status = 'DELETED'
+                """;
+        try (PreparedStatement ps = connection.prepareStatement(cleanup)) {
+            ps.executeUpdate();
+        }
+
+        // The classification -> role mapping is admin-editable from the portal, so the policy only
+        // provides the one-time bootstrap. Once any mapping exists, the persisted table is the
+        // source of truth and must not be overwritten on subsequent startups.
+        if (hasAnyRoleClassificationMapping(connection)) {
+            return;
+        }
+
+        for (RoleSeed seed : loadRoleCatalog()) {
+            Set<String> classifications = RoleClassificationPolicy.classificationsForRole(seed.role());
+            if (classifications.isEmpty()) {
+                // Remove any existing mappings for platform-only roles
+                String delete = """
+                        DELETE uroc FROM user_role_organization_classifications uroc
+                        INNER JOIN user_role ur ON ur.id = uroc.user_role_id
+                        WHERE ur.role = ?
+                        """;
+                try (PreparedStatement ps = connection.prepareStatement(delete)) {
+                    ps.setString(1, seed.role());
+                    ps.executeUpdate();
+                }
+                continue;
+            }
+            for (String classification : classifications) {
+                String upsert = """
+                        INSERT IGNORE INTO user_role_organization_classifications (user_role_id, organization_classification)
+                        SELECT ur.id, ? FROM user_role ur
+                        WHERE ur.role = ? AND ur.entity_status = 'ACTIVE'
+                        """;
+                try (PreparedStatement ps = connection.prepareStatement(upsert)) {
+                    ps.setString(1, classification.trim().toUpperCase());
+                    ps.setString(2, seed.role());
+                    ps.executeUpdate();
+                }
             }
         }
     }
@@ -297,6 +411,10 @@ public final class LdmsRoleCatalogSeeder {
             ps.setLong(1, groupId);
             ps.executeUpdate();
         }
+        try (PreparedStatement ps = connection.prepareStatement("DELETE FROM user_group_default_roles WHERE user_group_id = ?")) {
+            ps.setLong(1, groupId);
+            ps.executeUpdate();
+        }
 
         String insertLinks = """
                 INSERT IGNORE INTO user_group_user_role (user_group_id, user_role_id)
@@ -305,6 +423,16 @@ public final class LdmsRoleCatalogSeeder {
                 WHERE ur.entity_status = 'ACTIVE'
                 """;
         try (PreparedStatement ps = connection.prepareStatement(insertLinks)) {
+            ps.setLong(1, groupId);
+            ps.executeUpdate();
+        }
+        String insertDefaults = """
+                INSERT IGNORE INTO user_group_default_roles (user_group_id, user_role_id)
+                SELECT ?, ur.id
+                FROM user_role ur
+                WHERE ur.entity_status = 'ACTIVE'
+                """;
+        try (PreparedStatement ps = connection.prepareStatement(insertDefaults)) {
             ps.setLong(1, groupId);
             ps.executeUpdate();
         }

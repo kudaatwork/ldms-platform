@@ -284,4 +284,307 @@ html.theme-dark {
     background: color-mix(in srgb, var(--success) 18%, #1e293b);
     color: #86efac;
   }
+
+  /* ── Bot Analytics Dashboard ─────────────────────────────── */
+  .ba-dashboard__avatar {
+    &--primary { background: color-mix(in srgb, #6366f1 20%, var(--raised)); }
+    &--accent { background: color-mix(in srgb, #ec4899 20%, var(--raised)); }
+  }
+
+  .ba-dashboard__metric-label {
+    color: var(--gray-500);
+  }
+
+  .ba-dashboard__metric-value {
+    color: var(--gray-900);
+  }
+
+  /* ── Bot Service Admin ───────────────────────────────────── */
+  .bsa-status {
+    &--online { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: #86efac; }
+    &--offline { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: #fca5a5; }
+    &--warning { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: #fcd34d; }
+  }
+
+  .bsa-card {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  /* ── Demo Requisitions Admin ─────────────────────────────── */
+  .dra-status-badge {
+    &--new { background: color-mix(in srgb, var(--primary) 12%, var(--raised)); color: var(--primary-dark); }
+    &--in-progress { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: #fcd34d; }
+    &--resolved { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: #86efac; }
+    &--escalated { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: #fca5a5; }
+  }
+
+  .dra-card {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  .dra-timeline__item {
+    &--completed { color: var(--success); }
+    &--pending { color: var(--gray-500); }
+    &--active { color: var(--primary-dark); }
+  }
+
+  /* ── Bot FAQ Admin ───────────────────────────────────────── */
+  .bfa-card {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  .bfa-intent-tag {
+    background: color-mix(in srgb, var(--primary) 12%, var(--raised));
+    color: var(--primary-dark);
+  }
+
+  /* ── Help Support Admin ──────────────────────────────────── */
+  .hsa-ticket-card {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+
+    &--urgent {
+      border-color: color-mix(in srgb, var(--warn) 30%, transparent);
+    }
+  }
+
+  .hsa-priority-badge {
+    &--low { background: color-mix(in srgb, var(--gray-400) 12%, var(--raised)); color: var(--gray-500); }
+    &--medium { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: #fcd34d; }
+    &--high { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: #fca5a5; }
+    &--critical { background: color-mix(in srgb, var(--warn) 20%, var(--raised)); color: #f87171; }
+  }
+
+  /* ── System Health ───────────────────────────────────────── */
+  .sh-status {
+    &--healthy { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: #86efac; }
+    &--degraded { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: #fcd34d; }
+    &--down { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: #fca5a5; }
+    &--unknown { background: color-mix(in srgb, var(--gray-400) 12%, var(--raised)); color: var(--gray-500); }
+  }
+
+  .sh-metric {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  .sh-metric__value {
+    color: var(--gray-900);
+  }
+
+  .sh-metric__label {
+    color: var(--gray-500);
+  }
+
+  /* ── User Profile Shell ──────────────────────────────────── */
+  .ups-verification-badge {
+    &--verified { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: #86efac; }
+    &--pending { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: #fcd34d; }
+    &--unverified { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: #fca5a5; }
+  }
+
+  /* ── KYC Documents ───────────────────────────────────────── */
+  .kyc-doc-status {
+    &--approved { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: #86efac; }
+    &--rejected { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: #fca5a5; }
+    &--pending { background: color-mix(in srgb, var(--warning) 12%, var(--raised)); color: #fcd34d; }
+  }
+
+  /* ── Organization Table ──────────────────────────────────── */
+  .org-table__status {
+    &--active { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: #86efac; }
+    &--inactive { background: color-mix(in srgb, var(--gray-400) 12%, var(--raised)); color: var(--gray-500); }
+    &--suspended { background: color-mix(in srgb, var(--warn) 12%, var(--raised)); color: #fca5a5; }
+  }
+
+  /* ── Register Organization Dialog ────────────────────────── */
+  .rod-step {
+    &--completed { background: color-mix(in srgb, var(--success) 12%, var(--raised)); color: #86efac; }
+    &--active { background: color-mix(in srgb, var(--primary) 12%, var(--raised)); color: var(--primary-dark); }
+    &--pending { background: var(--surface-2); color: var(--gray-500); }
+  }
+
+  /* ── Org Admin Operational Mode ──────────────────────────── */
+  .oaom-mode-card {
+    &--standard { background: color-mix(in srgb, var(--success) 8%, var(--raised)); }
+    &--crossdock { background: color-mix(in srgb, var(--analytics) 8%, var(--raised)); }
+  }
+
+  /* ── Settings Platform Action Charge Form ────────────────── */
+  .pacf-tier-badge {
+    background: color-mix(in srgb, var(--primary) 12%, var(--raised));
+    color: var(--primary-dark);
+  }
+
+  /* ── Notification Template Form Dialog ───────────────────── */
+  .ntfd-preview-panel {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  /* ── Notification Email HTML Preview ─────────────────────── */
+  .nep-preview-frame {
+    background: var(--surface);
+  }
+
+  /* ── Notification Email HTML Pad ─────────────────────────── */
+  .nehp-editor {
+    background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  .nehp-toolbar {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  /* ── Analytics Pages ─────────────────────────────────────── */
+  .analytics-page__chart-tooltip {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 20%, transparent);
+    color: var(--gray-900);
+  }
+
+  .analytics-page__legend-item {
+    color: var(--gray-600);
+  }
+
+  .analytics-page__stat-value {
+    color: var(--gray-900);
+  }
+
+  .analytics-page__stat-label {
+    color: var(--gray-500);
+  }
+
+  /* ── Dashboard Page (admin) ──────────────────────────────── */
+  .admin-dashboard__panel {
+    background: linear-gradient(145deg, var(--surface) 0%, var(--surface-2) 100%);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  .admin-dashboard__kpi {
+    background: var(--raised);
+    border-color: color-mix(in srgb, var(--gray-400) 15%, transparent);
+  }
+
+  .admin-dashboard__kpi-value {
+    color: var(--gray-900);
+  }
+
+  .admin-dashboard__kpi-label {
+    color: var(--gray-500);
+  }
+
+  /* ── Shared Component Overrides ──────────────────────────── */
+  .lx-page-layout__hero-title {
+    color: #fff;
+  }
+
+  .lx-page-layout__hero-subtitle {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .lx-dialog-form-shell__title {
+    color: var(--gray-900);
+  }
+
+  .lx-dialog-form-shell__error {
+    color: #f87171;
+  }
+
+  .lx-workspace-hero__title {
+    color: var(--gray-900);
+  }
+
+  .lx-workspace-hero__subtitle {
+    color: var(--gray-500);
+  }
+
+  .lx-page-hero__title {
+    color: #f8fafc;
+  }
+
+  .lx-page-hero__subtitle {
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .lx-workspace-hero-stat__value {
+    color: var(--gray-900);
+  }
+
+  .lx-workspace-hero-stat__label {
+    color: var(--gray-500);
+  }
+
+  /* ── Global Title Safety Net ─────────────────────────────── */
+  h1, h2, h3, h4, h5, h6,
+  .page-title,
+  .section-title,
+  .card-title,
+  .panel-title {
+    color: var(--gray-900);
+  }
+
+  /* ── Form Elements ───────────────────────────────────────── */
+  .form-field__input,
+  .form-field__select,
+  .form-field__textarea {
+    background: var(--surface-2);
+    color: var(--gray-900);
+    border-color: color-mix(in srgb, var(--gray-400) 25%, transparent);
+
+    &::placeholder {
+      color: var(--gray-500);
+    }
+  }
+
+  /* ── Tables ──────────────────────────────────────────────── */
+  .data-table__header {
+    background: color-mix(in srgb, var(--surface-2) 80%, transparent);
+  }
+
+  .data-table__row:hover {
+    background: color-mix(in srgb, var(--primary) 5%, var(--raised));
+  }
+
+  /* ── Callouts / Banners ──────────────────────────────────── */
+  .callout {
+    &--info {
+      background: color-mix(in srgb, var(--primary) 8%, var(--raised));
+      border-color: color-mix(in srgb, var(--primary) 20%, transparent);
+      color: var(--primary-dark);
+    }
+
+    &--success {
+      background: color-mix(in srgb, var(--success) 8%, var(--raised));
+      border-color: color-mix(in srgb, var(--success) 20%, transparent);
+      color: #86efac;
+    }
+
+    &--warning {
+      background: color-mix(in srgb, var(--warning) 8%, var(--raised));
+      border-color: color-mix(in srgb, var(--warning) 20%, transparent);
+      color: #fcd34d;
+    }
+
+    &--error {
+      background: color-mix(in srgb, var(--warn) 8%, var(--raised));
+      border-color: color-mix(in srgb, var(--warn) 20%, transparent);
+      color: #fca5a5;
+    }
+  }
+
+  /* ── Skeleton / Shimmer Loading ──────────────────────────── */
+  .skeleton-shimmer {
+    background: linear-gradient(
+      90deg,
+      var(--surface-2) 25%,
+      color-mix(in srgb, var(--gray-400) 10%, var(--surface-2)) 50%,
+      var(--surface-2) 75%
+    );
+  }
 }

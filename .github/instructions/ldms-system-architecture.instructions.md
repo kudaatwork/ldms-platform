@@ -1,0 +1,63 @@
+---
+description: "LDMS / Project LX system architecture — 23 microservices, end-to-end phases, events, clients"
+applyTo: "ldms-backend/**/*.java"
+---
+
+# LDMS System Architecture (Developer Reference)
+
+Full doc: `docs/LDMS-SYSTEM-ARCHITECTURE.md`. Details may evolve during implementation.
+
+## LDMS purpose
+
+Road-based logistics platform: suppliers → customers across locations/borders. Actors: suppliers, customers, drivers, transporters, clearing agents, roadside providers, platform admin.
+
+## 23 microservices
+
+**Platform:** API Gateway, Config Server, Eureka, Scheduler/Job (#23), Audit Trail (#22), Reporting Analytics Feeder (#21), Integration (#20).
+
+**Identity:** User Management (#4) — profiles/roles/groups. Authentication (#5) — login/JWT/password reset. Organization (#6) — org profiles, verification.
+
+**Business:** Inventory (#9) — products, warehouses, stock, POs, reservations, transfers, GRVs (large ERP service). Shipment (#10) — dispatch, docs, ready-for-release. Billing & Payments (#16) — invoices, payments, expense reconciliation.
+
+**Logistics:** Fleet (#12), Trip & Tracking (#13), Roadside & Support (#14), Fuel & Expenses (#15).
+
+**Utility:** Location (#7) — `location_id` master data. Reference/Config (#8) — business lists. Documents (#11) — metadata + file URLs (not binary storage).
+
+**Comms:** Notifications (#17) outbound. Messaging Inbound & Bot (#18) inbound (e.g. WhatsApp → events).
+
+**Admin:** Platform Admin & Monitoring (#19) — event-driven cross-tenant read model for admin portal.
+
+## End-to-end phases
+
+| Phase | Trigger → outcome | Key services |
+|-------|-------------------|--------------|
+| **A** Onboarding | Register org/user → verify email → ops approve → `org.verified` | Org, User, Auth, Notifications, Platform Admin |
+| **B** Master data | Warehouses, products, stock, product docs, customer orgs | Inventory, Location, Documents, Org |
+| **C** PO & stock | Customer PO → reserve stock → `po.created` → approve → `po.approved`; SLA job → `po.approval_sla_breached` | Inventory, Reference/Config, Scheduler |
+| **D** Dispatch | Dispatch/SO → Shipment → docs → payment check → `shipment.ready_for_pickup` | Inventory, Shipment, Documents, Billing |
+| **E** Trip | Assign truck/driver → compliance check → `trip.started` → GPS/stops (app or WhatsApp `trip.stop_recorded`) | Fleet, Trip, Documents, Integration, Messaging Inbound |
+| **F** Expenses | Fuel/funds request → `fund_request.created` → approve → Billing; mechanic stops → Roadside | Fuel & Expenses, Billing, Trip, Roadside |
+| **G** Delivery | Arrive → GRV (`grv.created`) or return; trip → Delivered | Inventory, Trip |
+| **H** Billing | `grv.created` → invoice → `invoice.created`; Scheduler → `invoice.reminder_due` | Billing, Scheduler, Notifications |
+| **X** Observability | All key events → Platform Admin, Audit Trail, Analytics Feeder | RabbitMQ consumers |
+
+## Event-driven rules
+
+- **Notifications** sends outbound comms from events (never duplicate send logic in domain services).
+- **Scheduler** wakes services via events/API — no business logic in scheduler itself.
+- **Platform Admin / Audit / Analytics** subscribe broadly; domain services publish and move on.
+- **Documents** returns `document_id`; owning service stores the association.
+- **Location** owns addresses/GPS; others reference `location_id`.
+
+## Clients (all via API Gateway)
+
+- **Angular:** Web portal + consolidated admin portal — heavy workflows (PO, GRV, fleet, finance).
+- **Flutter:** Driver (trip, GPS, stops, fuel), Receiver (QR, GRV), Ops (live map, approvals).
+- **WhatsApp:** Notifications outbound; Messaging Inbound parses commands (e.g. `1` = at border) → RabbitMQ events.
+
+## When implementing
+
+- Match service boundaries above; Inventory owns PO→GRV unless explicitly redesigned.
+- User Management ≠ Authentication (profiles/roles vs login/tokens).
+- Cross-service workflows prefer RabbitMQ events over synchronous chains where the flow doc specifies events.
+- See also: `ldms-microservice-package-structure.instructions.md`, `platform-portal-org-onboarding.instructions.md`.

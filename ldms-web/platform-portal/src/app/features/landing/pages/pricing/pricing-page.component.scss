@@ -167,9 +167,15 @@
 .ldms-pricing__tier-card {
   padding: 16px 18px;
   border-radius: 16px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(8px);
+  transition: border-color 0.25s, box-shadow 0.25s;
+
+  &:hover {
+    border-color: rgba(59, 130, 246, 0.35);
+    box-shadow: 0 12px 32px rgba(59, 130, 246, 0.08);
+  }
 }
 
 html.theme-dark .ldms-pricing__tier-card {
@@ -186,13 +192,14 @@ html.theme-dark .ldms-pricing__tier-card {
   margin: 8px 0 2px;
   font-weight: 700;
   font-size: 15px;
+  color: #ffffff;
 }
 
 .ldms-pricing__tier-price {
   margin: 0 0 8px;
   font-size: 22px;
   font-weight: 800;
-  color: var(--lx-primary, #1d4ed8);
+  color: #1d4ed8;
 }
 
 .ldms-pricing__tier-summary,
@@ -207,12 +214,23 @@ html.theme-dark .ldms-pricing__tier-card {
 html.theme-dark .ldms-pricing__tier-summary,
 html.theme-dark .ldms-pricing__tier-examples,
 html.theme-dark .ldms-pricing__tier-count {
-  color: rgba(226, 232, 240, 0.82);
+  color: #94a3b8;
+}
+
+/* Landing pages have hardcoded dark styling */
+.ldms-landing .ldms-pricing__tier-summary,
+.ldms-landing .ldms-pricing__tier-examples,
+.ldms-landing .ldms-pricing__tier-count {
+  color: #94a3b8;
 }
 
 .ldms-pricing__tier-examples {
   font-style: italic;
   opacity: 0.85;
+}
+
+html.theme-dark .ldms-pricing__tier-examples {
+  opacity: 1;
 }
 
 .ldms-pricing__charge-tier {
@@ -267,4 +285,13 @@ html.theme-dark .ldms-pricing__tier-count {
   max-width: 36rem;
   font-size: 15px;
   line-height: 1.65;
+}
+
+.ldms-pricing__package-cta {
+  width: fit-content;
+  min-width: auto;
+  align-self: center;
+  margin: 0 auto;
+  justify-content: center;
+  text-align: center;
 }
