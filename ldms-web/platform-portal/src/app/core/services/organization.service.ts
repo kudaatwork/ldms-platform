@@ -69,6 +69,36 @@ export interface OrganizationSummary {
   counterpartyEngagementMode?: 'RECORD_ONLY' | 'PLATFORM_ORG';
   fuelConsumptionEnabled?: boolean;
   branches?: BranchAllocationOption[];
+
+  // === KYC / contact person fields (read-only after approval) ===
+  contactPersonFirstName?: string;
+  contactPersonLastName?: string;
+  contactPersonEmail?: string;
+  contactPersonPhoneNumber?: string;
+  contactPersonPosition?: string;
+  contactPersonGender?: string;
+  contactPersonNationalIdNumber?: string;
+  contactPersonNationalIdUploadId?: number;
+  contactPersonPassportNumber?: string;
+  contactPersonPassportUploadId?: number;
+  contactPersonDateOfBirth?: string;
+  contactPersonUserId?: number;
+  representativeNationalIdNumber?: string;
+  representativePassportNumber?: string;
+
+  // === KYC document upload ids ===
+  registrationCertificateUploadId?: number;
+  taxClearanceCertificateUploadId?: number;
+  businessLicenseUploadId?: number;
+  proofOfAddressUploadId?: number;
+  industrySpecificLicenseUploadId?: number;
+  logoUploadId?: number;
+
+  // === KYC audit trail ===
+  submittedAt?: string;
+  currentResubmissionCycle?: number;
+  lastRejectionReason?: string;
+  resubmissionCount?: number;
 }
 
 export interface BranchAllocationOption {
@@ -496,6 +526,36 @@ export class OrganizationService {
       inventoryDataSource: this.readInventoryDataSource(dto),
       counterpartyEngagementMode: this.readCounterpartyEngagementMode(dto),
       fuelConsumptionEnabled: Boolean(dto['fuelConsumptionEnabled']),
+
+      // KYC contact person
+      contactPersonFirstName: this.readOptionalString(dto, 'contactPersonFirstName'),
+      contactPersonLastName: this.readOptionalString(dto, 'contactPersonLastName'),
+      contactPersonEmail: this.readOptionalString(dto, 'contactPersonEmail'),
+      contactPersonPhoneNumber: this.readOptionalString(dto, 'contactPersonPhoneNumber'),
+      contactPersonPosition: this.readOptionalString(dto, 'contactPersonPosition'),
+      contactPersonGender: this.readOptionalString(dto, 'contactPersonGender'),
+      contactPersonNationalIdNumber: this.readOptionalString(dto, 'contactPersonNationalIdNumber'),
+      contactPersonNationalIdUploadId: dto['contactPersonNationalIdUploadId'] != null ? Number(dto['contactPersonNationalIdUploadId']) : undefined,
+      contactPersonPassportNumber: this.readOptionalString(dto, 'contactPersonPassportNumber'),
+      contactPersonPassportUploadId: dto['contactPersonPassportUploadId'] != null ? Number(dto['contactPersonPassportUploadId']) : undefined,
+      contactPersonDateOfBirth: this.readOptionalString(dto, 'contactPersonDateOfBirth'),
+      contactPersonUserId: dto['contactPersonUserId'] != null ? Number(dto['contactPersonUserId']) : undefined,
+      representativeNationalIdNumber: this.readOptionalString(dto, 'representativeNationalIdNumber'),
+      representativePassportNumber: this.readOptionalString(dto, 'representativePassportNumber'),
+
+      // KYC document uploads
+      registrationCertificateUploadId: dto['registrationCertificateUploadId'] != null ? Number(dto['registrationCertificateUploadId']) : undefined,
+      taxClearanceCertificateUploadId: dto['taxClearanceCertificateUploadId'] != null ? Number(dto['taxClearanceCertificateUploadId']) : undefined,
+      businessLicenseUploadId: dto['businessLicenseUploadId'] != null ? Number(dto['businessLicenseUploadId']) : undefined,
+      proofOfAddressUploadId: dto['proofOfAddressUploadId'] != null ? Number(dto['proofOfAddressUploadId']) : undefined,
+      industrySpecificLicenseUploadId: dto['industrySpecificLicenseUploadId'] != null ? Number(dto['industrySpecificLicenseUploadId']) : undefined,
+      logoUploadId: dto['logoUploadId'] != null ? Number(dto['logoUploadId']) : undefined,
+
+      // KYC audit trail
+      submittedAt: this.readOptionalString(dto, 'submittedAt'),
+      currentResubmissionCycle: dto['currentResubmissionCycle'] != null ? Number(dto['currentResubmissionCycle']) : undefined,
+      lastRejectionReason: this.readOptionalString(dto, 'lastRejectionReason'),
+      resubmissionCount: dto['resubmissionCount'] != null ? Number(dto['resubmissionCount']) : undefined,
     };
   }
 

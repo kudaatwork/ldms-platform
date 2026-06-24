@@ -19,6 +19,10 @@ public class OrganizationContactAdministratorGroupSupport {
     private final OrganizationWorkspaceProvisioner organizationWorkspaceProvisioner;
 
     public void assignIfPresent(User user) {
+        assignIfPresent(user, null);
+    }
+
+    public void assignIfPresent(User user, String organizationClassification) {
         if (user == null || user.getId() == null) {
             return;
         }
@@ -30,7 +34,8 @@ public class OrganizationContactAdministratorGroupSupport {
             return;
         }
         organizationWorkspaceProvisioner.ensureBaselineUserTypes();
-        UserGroup adminGroup = organizationWorkspaceProvisioner.ensureAdministratorGroup(organizationId);
+        UserGroup adminGroup = organizationWorkspaceProvisioner.ensureAdministratorGroup(
+                organizationId, organizationClassification);
         if (adminGroup == null) {
             log.warn(
                     "Organisation {} Administrator group could not be resolved; contact user {} was not assigned",

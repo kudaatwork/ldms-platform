@@ -15,6 +15,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { DeliveryWorkflowService } from '../../services/delivery-workflow.service';
 import { AuthStateService } from '../../../../core/services/auth-state.service';
 import {
+  DeliveryActorRole,
   DeliveryReturnLine,
   DeliveryWorkflowPhase,
   OtpChannel,
@@ -53,6 +54,12 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
    * Set by the parent page when the live-tracking snapshot indicates the truck is near the destination.
    */
   @Input() arrivalSuggested = false;
+  /**
+   * The role label for the receiving party toggle.
+   * 'CUSTOMER' = generic customer rep (default).
+   * 'DEPOT_CLERK' = depot/branch clerk receiving stock.
+   */
+  @Input() receiverActorRole: DeliveryActorRole = 'CUSTOMER';
 
   /** Emitted when the entire workflow reaches COMPLETE. */
   @Output() workflowComplete = new EventEmitter<void>();
@@ -92,6 +99,10 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
     { value: 'WHATSAPP', label: 'WhatsApp', icon: 'chat' },
     { value: 'EMAIL', label: 'Email', icon: 'email' },
   ];
+
+  get receiverLabel(): string {
+    return this.receiverActorRole === 'DEPOT_CLERK' ? 'Depot clerk' : 'Customer rep';
+  }
 
   private readonly destroy$ = new Subject<void>();
 
@@ -248,12 +259,12 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  toggleCustomerCounting(): void {
+  toggleReceiverCounting(): void {
     this.customerConfirmedCounting = !this.customerConfirmedCounting;
     if (this.customerConfirmedCounting) {
       this.error = '';
       this.workflowService
-        .startCounting(this.tripId, { actorRole: 'CUSTOMER' })
+        .startCounting(this.tripId, { actorRole: this.receiverActorRole })
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           error: (e: Error) => {
@@ -301,12 +312,12 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  toggleCustomerFinished(): void {
+  toggleReceiverFinished(): void {
     this.customerConfirmedFinished = !this.customerConfirmedFinished;
     if (this.customerConfirmedFinished) {
       this.error = '';
       this.workflowService
-        .finishCounting(this.tripId, { actorRole: 'CUSTOMER' })
+        .finishCounting(this.tripId, { actorRole: this.receiverActorRole })
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           error: (e: Error) => {
@@ -324,7 +335,48 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
   }
 
   confirmFinishedCounting(): void {
-    this.advanceTo('SEND_OTP');
+    this.loading = true;
+    this.error = '';
+    this.cdr.markForCheck();
+
+    this.workflowService
+      .getWorkflowState(this.tripId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (res) => {
+          this.loading = false;
+          const status = (res.tripDto?.status ?? '').toUpperCase();
+          if (status === 'COUNT_COMPLETE') {
+            this.advanceTo('SEND_OTP');
+          } else {
+            this.error = 'Stock counting is not yet complete. Please ensure both parties have finished counting.';
+            // Re-sync local state from server
+            const wf = res.workflowDto;
+            if (wf) {
+              this.driverConfirmedFinished = !!wf.driverCountingFinishedAt;
+              this.customerConfirmedFinished = !!wf.customerCountingFinishedAt;
+            }
+            this.cdr.markForCheck();
+          }
+        },
+        error: (e: Error) => {
+          this.loading = false;
+          this.error = e.message;
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  goBack(): void {
+    const idx = this.currentStepIndex;
+    if (idx > 0) {
+      this.currentPhase = PHASES[idx - 1];
+      this.error = '';
+      this.cdr.markForCheck();
+      setTimeout(() => {
+        document.querySelector('.dwf-body')?.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 80);
+    }
   }
 
   // ── Step 4: Send OTP ──────────────────────────────────────────────────────

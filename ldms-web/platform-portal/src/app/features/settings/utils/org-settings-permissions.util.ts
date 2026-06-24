@@ -42,7 +42,11 @@ export function canManageBillingSettings(classification?: OrganizationClassifica
   return (
     classification === 'SUPPLIER' ||
     classification === 'TRANSPORT_COMPANY' ||
-    classification === 'CLEARING_AGENT'
+    classification === 'CLEARING_AGENT' ||
+    classification === 'CUSTOMER' ||
+    classification === 'SERVICE_STATION' ||
+    classification === 'ROADSIDE_SUPPORT_SERVICE' ||
+    classification === 'GOVERNMENT_AGENCY'
   );
 }
 

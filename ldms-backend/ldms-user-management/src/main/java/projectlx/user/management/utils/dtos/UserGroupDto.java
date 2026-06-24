@@ -17,6 +17,8 @@ public class UserGroupDto {
     private String description;
     private Long organizationId;
     private String organizationClassification;
+    private boolean systemGroup;
+    private String systemGroupAlias;
     private List<UserRoleDto> userRoleDtoSet;
     /** Non-deleted users whose primary {@code user_group_id} points at this group. */
     private Long userMemberCount;

@@ -179,7 +179,21 @@
         <button mat-menu-item type="button" class="lx-action-view-roles" (click)="goViewGroupRoles(groupRow)">
           <mat-icon>format_list_bulleted</mat-icon> View roles
         </button>
-        <button mat-menu-item type="button" class="lx-action-delete" (click)="deleteRow(groupRow)">
+        <button
+          mat-menu-item
+          type="button"
+          class="lx-action-delete"
+          [disabled]="groupRow.systemGroup || groupRow.users > 0 || groupRow.roles > 0"
+          [matTooltip]="
+            groupRow.systemGroup
+              ? 'System group — cannot be deleted'
+              : groupRow.users > 0 || groupRow.roles > 0
+                ? 'Remove all users and roles before deleting'
+                : ''
+          "
+          matTooltipPosition="left"
+          (click)="deleteRow(groupRow)"
+        >
           <mat-icon>delete</mat-icon> Delete
         </button>
       </ng-template>

@@ -11,6 +11,8 @@ public class ProvisionOrganizationContactPersonRequest {
 
     private Long organizationId;
     private String organizationName;
+    /** Organisation classification (e.g. SUPPLIER, TRANSPORT_COMPANY) — scopes the workspace Administrator roles. */
+    private String organizationClassification;
     private String email;
     private String firstName;
     private String lastName;

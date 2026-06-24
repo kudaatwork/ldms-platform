@@ -539,11 +539,22 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
 
         // ============================================================
-        // Fields always editable regardless of KYC status
+        // Contact-locked fields: phone, registration, and tax may not be
+        // changed once KYC has progressed past DRAFT / RESUBMITTED.
         // ============================================================
-        if (request.getPhoneNumber() != null) {
+        if (!identityLocked && request.getPhoneNumber() != null) {
             org.setPhoneNumber(request.getPhoneNumber());
         }
+        if (!identityLocked && request.getRegistrationNumber() != null) {
+            org.setRegistrationNumber(request.getRegistrationNumber());
+        }
+        if (!identityLocked && request.getTaxNumber() != null) {
+            org.setTaxNumber(request.getTaxNumber());
+        }
+
+        // ============================================================
+        // Fields always editable regardless of KYC status
+        // ============================================================
         if (request.getWebsiteUrl() != null) {
             org.setWebsiteUrl(request.getWebsiteUrl());
         }
@@ -561,12 +572,6 @@ public class OrganizationServiceImpl implements OrganizationService {
         }
         if (request.getRegionsServed() != null) {
             org.setRegionsServed(request.getRegionsServed());
-        }
-        if (request.getRegistrationNumber() != null) {
-            org.setRegistrationNumber(request.getRegistrationNumber());
-        }
-        if (request.getTaxNumber() != null) {
-            org.setTaxNumber(request.getTaxNumber());
         }
 
         // ============================================================

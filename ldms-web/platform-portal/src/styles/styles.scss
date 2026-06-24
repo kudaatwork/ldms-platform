@@ -1,5 +1,6 @@
 @use '@angular/material' as mat;
 @use 'tokens' as *;
+@use 'dark-mode-surfaces';
 @use 'shared-ui/styles/lx-premium';
 @use '../app/shared/styles/lx-loading';
 @use '../app/shared/styles/lx-dialog-form-shell';

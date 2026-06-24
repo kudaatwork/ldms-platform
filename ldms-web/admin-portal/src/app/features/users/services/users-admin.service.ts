@@ -1276,6 +1276,22 @@ export class UsersAdminService {
     });
   }
 
+  /** Adds catalog roles to an organisation classification (and resyncs its Administrator groups). */
+  assignRolesToClassification(classification: string, roleIds: number[]): Observable<unknown> {
+    return this.http.post<unknown>(`${this.base}/user-role/classification/assign-roles`, {
+      classification,
+      roleIds,
+    });
+  }
+
+  /** Removes catalog roles from an organisation classification (and resyncs its Administrator groups). */
+  removeRolesFromClassification(classification: string, roleIds: number[]): Observable<unknown> {
+    return this.http.post<unknown>(`${this.base}/user-role/classification/remove-roles`, {
+      classification,
+      roleIds,
+    });
+  }
+
   /** Sets the user's primary user group (server replaces any previous assignment). */
   addUserToUserGroup(userId: number, userGroupId: number): Observable<unknown> {
     return this.http.post(`${this.base}/user-group/add-user-group-to-user`, { userId, userGroupId });

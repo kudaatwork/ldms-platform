@@ -12,7 +12,9 @@ public enum PlatformRoles {
     KYC_STAGE3("KYC_STAGE3", "Organisation KYC stage-3 reviewer (admin portal)"),
     KYC_STAGE4("KYC_STAGE4", "Organisation KYC stage-4 reviewer (admin portal)"),
     KYC_STAGE5("KYC_STAGE5", "Organisation KYC stage-5 reviewer (admin portal)"),
-    READ_ONLY("READ_ONLY", "Read-only platform access (admin portal)");
+    READ_ONLY("READ_ONLY", "Read-only platform access (admin portal)"),
+    DEPOT_CLERK("DEPOT_CLERK", "Depot or branch clerk — receives stock and confirms deliveries (mobile portal)"),
+    DEPOT_MANAGER("DEPOT_MANAGER", "Depot or branch manager — oversees stock receipts and warehouse operations");
 
     private final String roleName;
     private final String description;

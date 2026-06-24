@@ -26,6 +26,14 @@ import {
   SubscriptionPackageFormDialogComponent,
   type SubscriptionPackageFormDialogData,
 } from '../subscription-package-form-dialog/subscription-package-form-dialog.component';
+import {
+  WalletDepositDetailDialogComponent,
+  type WalletDepositDetailDialogData,
+} from '../wallet-deposit-detail-dialog/wallet-deposit-detail-dialog.component';
+import {
+  WalletDepositRejectDialogComponent,
+  type WalletDepositRejectDialogData,
+} from '../wallet-deposit-reject-dialog/wallet-deposit-reject-dialog.component';
 import { PLATFORM_BILLING_MODULES, moduleLabel } from '../../utils/platform-billing-modules.util';
 import {
   PLATFORM_ACTION_CATALOG,
@@ -586,6 +594,13 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
       });
   }
 
+  viewDeposit(deposit: WalletDepositRow): void {
+    this.dialog.open(WalletDepositDetailDialogComponent, {
+      panelClass: 'lx-location-dialog-panel',
+      data: { deposit } satisfies WalletDepositDetailDialogData,
+    });
+  }
+
   confirmDeposit(deposit: WalletDepositRow): void {
     this.confirmingDepositId = deposit.id;
     this.walletAdmin
@@ -606,22 +621,31 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
   }
 
   rejectDeposit(deposit: WalletDepositRow): void {
-    this.rejectingDepositId = deposit.id;
-    this.walletAdmin
-      .rejectDeposit(deposit.id)
-      .pipe(
-        finalize(() => {
-          this.rejectingDepositId = null;
-          this.cdr.markForCheck();
-        }),
-      )
-      .subscribe({
-        next: () => {
-          this.snackBar.open('Deposit rejected.', 'Close', { duration: 3500 });
-          this.reload();
-        },
-        error: () => this.snackBar.open('Could not reject deposit.', 'Close', { duration: 4000 }),
-      });
+    const ref = this.dialog.open(WalletDepositRejectDialogComponent, {
+      panelClass: 'lx-location-dialog-panel',
+      data: { deposit } satisfies WalletDepositRejectDialogData,
+    });
+    ref.afterClosed().subscribe((reason: string | null) => {
+      if (!reason) {
+        return;
+      }
+      this.rejectingDepositId = deposit.id;
+      this.walletAdmin
+        .rejectDeposit(deposit.id, reason)
+        .pipe(
+          finalize(() => {
+            this.rejectingDepositId = null;
+            this.cdr.markForCheck();
+          }),
+        )
+        .subscribe({
+          next: () => {
+            this.snackBar.open('Deposit rejected.', 'Close', { duration: 3500 });
+            this.reload();
+          },
+          error: () => this.snackBar.open('Could not reject deposit.', 'Close', { duration: 4000 }),
+        });
+    });
   }
 
   downloadSampleCsv(): void {

@@ -21,7 +21,7 @@ import java.util.Set;
 public class TripDeliveryServiceValidatorImpl implements TripDeliveryServiceValidator {
 
     private static final Logger logger = LoggerFactory.getLogger(TripDeliveryServiceValidatorImpl.class);
-    private static final Set<String> VALID_ACTOR_ROLES = Set.of("DRIVER", "CUSTOMER", "RECEIVER");
+    private static final Set<String> VALID_ACTOR_ROLES = Set.of("DRIVER", "CUSTOMER", "RECEIVER", "DEPOT_CLERK");
     private static final Set<String> VALID_OTP_CHANNELS = Set.of("SMS", "WHATSAPP", "EMAIL");
 
     private final MessageService messageService;

@@ -144,7 +144,7 @@
         <p class="kd-hint">
           Tax clearance, registration certificate, licences, and contact identification uploaded with this application.
         </p>
-        <app-organization-documents-panel [documents]="detail.documents"></app-organization-documents-panel>
+        <app-organization-documents-panel [documents]="detail.documents" [readOnly]="detail.kycStatus === 'APPROVED'"></app-organization-documents-panel>
         <p class="kd-hint kd-hint--warn" *ngIf="!detail.documents.length">
           No documents are linked on this record yet. Confirm file-upload completed during signup.
         </p>

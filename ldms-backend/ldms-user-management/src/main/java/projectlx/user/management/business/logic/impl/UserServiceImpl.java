@@ -37,6 +37,7 @@ import projectlx.user.management.business.logic.api.UserSecurityService;
 import projectlx.user.management.business.logic.api.UserService;
 import projectlx.user.management.business.logic.api.UserTypeService;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
+import projectlx.user.management.business.logic.support.OrganizationWorkspaceProvisioner;
 import projectlx.user.management.business.logic.support.PhoneVerificationSupport;
 import projectlx.user.management.business.logic.support.SmsDeliveryDisabledException;
 import projectlx.user.management.utils.support.OrganizationPortalRolePolicy;
@@ -1031,6 +1032,21 @@ public class UserServiceImpl implements UserService {
         }
 
         User userToBeDeleted = userRetrieved.get();
+
+        // Guard: cannot delete the last admin user in an Administrator group
+        UserGroup userGroup = userToBeDeleted.getUserGroup();
+        if (userGroup != null
+                && (userGroup.isSystemGroup()
+                    || OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(userGroup.getName()))) {
+            long adminCount = userRepository.countByUserGroup_IdAndEntityStatusNot(userGroup.getId(), EntityStatus.DELETED);
+            if (adminCount <= 1) {
+                message = messageService.getMessage(I18Code.MESSAGE_CANNOT_DELETE_LAST_ADMIN_USER.getCode(),
+                        new String[]{}, locale);
+                return buildUserResponseWithErrors(400, false, message, null, null,
+                        List.of(message));
+            }
+        }
+
         userToBeDeleted.setEntityStatus(EntityStatus.DELETED);
 
         Optional<UserAccount> userAccountRetrieved = userAccountRepository.findByIdAndEntityStatusNot(

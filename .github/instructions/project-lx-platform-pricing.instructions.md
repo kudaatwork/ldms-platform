@@ -1,0 +1,18 @@
+---
+description: "Project LX — Platform pricing rules for wallet charges, subscriptions, and billing"
+applyTo: "ldms-backend/ldms-billing-payments/**/*.java"
+---
+
+# Project LX — Platform pricing
+
+When changing platform wallet charges, subscription packages, landing pricing, or billing copy, read and follow **`docs/PROJECT-LX-PLATFORM-PRICING-GUIDE.md`**.
+
+## Rules
+
+1. **Milestone PAYG** — trip booking, dispatch, GRV, invoice, clearing match, road-fund transfer carry fees; mundane admin actions stay **$0** (tier `INCLUDED`).
+2. **Subscriptions** — `STARTER` = Supplier Pro, `GROWTH` = Fleet Manager Premium, `ENTERPRISE` = Clearing Agent Portal; drivers/customers never pay subscriptions.
+3. **Premium GPS / fuel telemetry** — per trip-day / vehicle-day only, not per ping.
+4. **SMS** — `MESSAGING` tier after subscription SMS quota; email/push included.
+5. New Flyway pricing migrations must update the guide's rate table if defaults change.
+
+Do not reintroduce per-action fees on document uploads, status updates, or procurement approvals.

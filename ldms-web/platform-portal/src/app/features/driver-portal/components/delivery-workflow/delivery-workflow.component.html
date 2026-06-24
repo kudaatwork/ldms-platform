@@ -65,6 +65,10 @@
 
     <!-- ════════════════════ STEP 2: STOCK COUNTING -->
     <div class="dwf-step" *ngIf="currentPhase === 'STOCK_COUNTING'">
+      <button class="dwf-back" (click)="goBack()" type="button">
+        <span class="material-icons" aria-hidden="true">arrow_back</span>
+        Back
+      </button>
       <div class="dwf-step__icon dwf-step__icon--counting">
         <span class="material-icons" aria-hidden="true">calculate</span>
       </div>
@@ -92,10 +96,10 @@
           </div>
         </button>
         <button class="dwf-toggle" [class.dwf-toggle--on]="customerConfirmedCounting"
-          (click)="toggleCustomerCounting()">
+          (click)="toggleReceiverCounting()">
           <span class="material-icons">{{ customerConfirmedCounting ? 'check_circle' : 'radio_button_unchecked' }}</span>
           <div class="dwf-toggle__labels">
-            <span class="dwf-toggle__who">Customer rep</span>
+            <span class="dwf-toggle__who">{{ receiverLabel }}</span>
             <span class="dwf-toggle__state">{{ customerConfirmedCounting ? "We're counting" : 'Tap to confirm' }}</span>
           </div>
         </button>
@@ -110,6 +114,10 @@
 
     <!-- ════════════════════ STEP 3: FINISHED COUNTING -->
     <div class="dwf-step" *ngIf="currentPhase === 'FINISHED_COUNTING'">
+      <button class="dwf-back" (click)="goBack()" type="button">
+        <span class="material-icons" aria-hidden="true">arrow_back</span>
+        Back
+      </button>
       <div class="dwf-step__icon dwf-step__icon--finished">
         <span class="material-icons" aria-hidden="true">done_all</span>
       </div>
@@ -127,10 +135,10 @@
           </div>
         </button>
         <button class="dwf-toggle" [class.dwf-toggle--on]="customerConfirmedFinished"
-          (click)="toggleCustomerFinished()">
+          (click)="toggleReceiverFinished()">
           <span class="material-icons">{{ customerConfirmedFinished ? 'check_circle' : 'radio_button_unchecked' }}</span>
           <div class="dwf-toggle__labels">
-            <span class="dwf-toggle__who">Customer rep</span>
+            <span class="dwf-toggle__who">{{ receiverLabel }}</span>
             <span class="dwf-toggle__state">{{ customerConfirmedFinished ? 'Counting done' : 'Tap to confirm' }}</span>
           </div>
         </button>
@@ -144,6 +152,10 @@
 
     <!-- ════════════════════ STEP 4: SEND OTP -->
     <div class="dwf-step" *ngIf="currentPhase === 'SEND_OTP'">
+      <button class="dwf-back" (click)="goBack()" type="button">
+        <span class="material-icons" aria-hidden="true">arrow_back</span>
+        Back
+      </button>
       <div class="dwf-step__icon dwf-step__icon--otp">
         <span class="material-icons" aria-hidden="true">lock</span>
       </div>
@@ -183,6 +195,10 @@
 
     <!-- ════════════════════ STEP 5: OTP VERIFICATION + DELIVERY NOTES -->
     <div class="dwf-step" *ngIf="currentPhase === 'OTP_VERIFICATION'">
+      <button class="dwf-back" (click)="goBack()" type="button">
+        <span class="material-icons" aria-hidden="true">arrow_back</span>
+        Back
+      </button>
 
       <!-- Waiting animation while OTP is being delivered -->
       <div class="dwf-otp-waiting-state" *ngIf="otpWaiting">
@@ -241,6 +257,10 @@
 
     <!-- ════════════════════ STEP 6: START RETURN JOURNEY -->
     <div class="dwf-step" *ngIf="currentPhase === 'START_RETURN'">
+      <button class="dwf-back" (click)="goBack()" type="button">
+        <span class="material-icons" aria-hidden="true">arrow_back</span>
+        Back
+      </button>
       <div class="dwf-step__icon dwf-step__icon--return">
         <span class="material-icons" aria-hidden="true">u_turn_left</span>
       </div>
@@ -268,6 +288,10 @@
 
     <!-- ════════════════════ STEP 7: RETURNS -->
     <div class="dwf-step" *ngIf="currentPhase === 'RETURNS'">
+      <button class="dwf-back" (click)="goBack()" type="button">
+        <span class="material-icons" aria-hidden="true">arrow_back</span>
+        Back
+      </button>
       <div class="dwf-step__icon dwf-step__icon--returns">
         <span class="material-icons" aria-hidden="true">assignment_return</span>
       </div>

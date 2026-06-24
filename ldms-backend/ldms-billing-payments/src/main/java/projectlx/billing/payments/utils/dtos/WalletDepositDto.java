@@ -18,6 +18,7 @@ public class WalletDepositDto {
     private Long proofDocumentId;
     private String gatewayProvider;
     private String paymentMethod;
+    private String rejectionReason;
     private String createdAt;
     private String modifiedAt;
     private String modifiedBy;

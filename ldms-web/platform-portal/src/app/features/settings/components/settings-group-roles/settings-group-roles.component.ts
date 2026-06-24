@@ -17,6 +17,7 @@ interface GroupCard {
   organizationClassification: string;
   users: number;
   roles: number;
+  systemGroup: boolean;
 }
 
 interface RoleToggleRow {
@@ -27,6 +28,8 @@ interface RoleToggleRow {
   moduleLabel: string;
   assigned: boolean;
   busy: boolean;
+  /** True when the Administrator (default) group is selected — toggling is disabled. */
+  locked: boolean;
 }
 
 @Component({
@@ -59,8 +62,19 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
   ) {}
 
   get orgClassificationLabel(): string {
-    const raw = this.authState.currentUser?.orgClassification ?? '';
+    const raw = this.orgClassification;
     return raw ? raw.replace(/_/g, ' ') : '';
+  }
+
+  /** Raw organisation classification (uppercase) of the signed-in workspace, e.g. SUPPLIER. */
+  get orgClassification(): string {
+    return String(this.authState.currentUser?.orgClassification ?? '').trim().toUpperCase();
+  }
+
+  /** True when the selected group is the locked, default Administrator group. */
+  get isAdminGroupSelected(): boolean {
+    const g = this.selectedGroup;
+    return g != null && g.systemGroup && g.name.toLowerCase() === 'administrator';
   }
 
   ngOnInit(): void {
@@ -103,7 +117,7 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
   }
 
   toggleRole(row: RoleToggleRow): void {
-    if (!this.selectedGroupId || row.busy || this.savingRoleId !== null) {
+    if (!this.selectedGroupId || row.busy || this.savingRoleId !== null || row.locked) {
       return;
     }
     this.savingRoleId = row.id;
@@ -240,6 +254,8 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
           group: Record<string, unknown> | null;
         }) => {
           const assignedIds = this.extractAssignedRoleIds(result.group);
+          const orgClass = this.orgClassification;
+          const locked = this.isAdminGroupSelected;
           const rows: RoleToggleRow[] = [];
           for (const raw of result.catalog.rows) {
             const id = Number(raw['id'] ?? 0);
@@ -247,6 +263,15 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
               continue;
             }
             const role = String(raw['role'] ?? '');
+            // The locked Administrator group shows only its assigned roles. Editable custom groups show
+            // the classification-applicable catalog (plus anything already assigned) so role assignments
+            // stay isolated per organisation classification.
+            const keep = locked
+              ? assignedIds.has(id)
+              : assignedIds.has(id) || this.isRoleApplicableToClassification(raw, orgClass);
+            if (!keep) {
+              continue;
+            }
             const module = moduleSectionFromApi(
               role,
               String(raw['moduleKey'] ?? raw['module_key'] ?? ''),
@@ -260,6 +285,7 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
               moduleLabel: module.label,
               assigned: assignedIds.has(id),
               busy: false,
+              locked,
             });
           }
           rows.sort((a, b) => {
@@ -314,7 +340,20 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
         src['userRoleMemberCount'] ?? src['user_role_member_count'],
         Array.isArray(rolesRaw) ? rolesRaw.length : null,
       ),
+      systemGroup: Boolean(src['systemGroup'] ?? src['system_group'] ?? false),
     };
+  }
+
+  /** A role belongs to a classification when its mapping includes it (platform-only roles never do). */
+  private isRoleApplicableToClassification(roleDto: Record<string, unknown>, orgClassification: string): boolean {
+    if (!orgClassification) {
+      return false;
+    }
+    const raw = roleDto['organizationClassifications'] ?? roleDto['organization_classifications'];
+    if (!Array.isArray(raw)) {
+      return false;
+    }
+    return raw.some((v) => typeof v === 'string' && v.trim().toUpperCase() === orgClassification);
   }
 
   /** API rows are usually flat `UserGroupDto`; some gateways wrap as `userGroupDto`. */

@@ -1,5 +1,7 @@
 package projectlx.billing.payments.model;
 
+import java.time.LocalDateTime;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,8 +15,6 @@ import lombok.Setter;
 import lombok.ToString;
 import projectlx.billing.payments.utils.enums.WalletDepositStatus;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
-
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "wallet_deposit")
@@ -54,6 +54,9 @@ public class WalletDeposit {
 
     @Column(name = "payment_method", length = 50)
     private String paymentMethod;
+
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)

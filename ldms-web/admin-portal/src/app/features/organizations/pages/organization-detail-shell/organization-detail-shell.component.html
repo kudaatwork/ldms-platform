@@ -323,6 +323,7 @@
             <app-organization-documents-panel
               *ngIf="!documentsLoading"
               [documents]="verificationDocuments"
+              [readOnly]="profile?.kycStatus === 'APPROVED'"
             ></app-organization-documents-panel>
           </section>
         </mat-tab>

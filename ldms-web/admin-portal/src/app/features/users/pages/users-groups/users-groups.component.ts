@@ -28,6 +28,7 @@ interface UserGroupRow {
   roles: number;
   status: string;
   statusLabel: string;
+  systemGroup: boolean;
 }
 
 @Component({
@@ -138,6 +139,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
               roles: row.roles,
               status: 'active',
               statusLabel: 'Active',
+              systemGroup: row.systemGroup,
             });
             this.cdr.markForCheck();
           });
@@ -271,7 +273,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
         maxWidth: '96vw',
         maxHeight: '92vh',
         panelClass: 'lx-location-dialog-panel',
-        data: { userGroupId: fresh.id, groupLabel: fresh.name },
+        data: { userGroupId: fresh.id, groupLabel: fresh.name, isSystemGroup: fresh.systemGroup },
       })
       .afterClosed()
       .subscribe((changed) => {
@@ -574,6 +576,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       roles,
       status: 'active',
       statusLabel: 'Active',
+      systemGroup: Boolean(src['systemGroup'] ?? src['system_group'] ?? false),
     };
   }
 
@@ -675,6 +678,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       roles: 0,
       status: 'active',
       statusLabel: 'Active',
+      systemGroup: false,
     };
     const withoutDup = this.groups.filter((r) => r.id !== createdId);
     let next = [...withoutDup, nextRow];
@@ -695,6 +699,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       roles: 0,
       status: 'active',
       statusLabel: 'Active',
+      systemGroup: false,
     };
     const withoutDup = this.groups.filter((r) => r.id !== tempId);
     let next = [...withoutDup, nextRow];
@@ -723,13 +728,14 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
         roles: 0,
         status: 'active',
         statusLabel: 'Active',
+        systemGroup: false,
       };
       this.groups = next;
     } else {
       const filtered = this.groups.filter((r) => r.id !== createdId);
       let next = [
         ...filtered,
-        { id: createdId, name, description, users: 0, roles: 0, status: 'active', statusLabel: 'Active' },
+        { id: createdId, name, description, users: 0, roles: 0, status: 'active', statusLabel: 'Active', systemGroup: false },
       ];
       if (next.length > this.pageSize) {
         next = next.slice(next.length - this.pageSize);

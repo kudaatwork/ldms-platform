@@ -2,11 +2,15 @@ package projectlx.user.management.service.rest.backoffice;
 
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
+import projectlx.user.management.business.logic.support.ClassificationRoleService;
 import projectlx.user.management.service.processor.api.UserRoleServiceProcessor;
+import projectlx.user.management.utils.requests.ClassificationRolesRequest;
 import projectlx.user.management.utils.requests.CreateUserRoleRequest;
 import projectlx.user.management.utils.requests.EditUserRoleRequest;
 import projectlx.user.management.utils.requests.UserRoleMultipleFiltersRequest;
 import projectlx.user.management.utils.responses.UserRoleResponse;
+
+import java.util.List;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -43,6 +47,7 @@ import java.util.Locale;
 public class UserRoleBackofficeResource {
 
     private final UserRoleServiceProcessor userRoleServiceProcessor;
+    private final ClassificationRoleService classificationRoleService;
     private static final Logger logger = LoggerFactory.getLogger(UserRoleBackofficeResource.class);
 
     @Auditable(action = "CREATE_USER_ROLE")
@@ -134,6 +139,39 @@ public class UserRoleBackofficeResource {
                                                            defaultValue = Constants.DEFAULT_LOCALE) final Locale locale)
     {
         return userRoleServiceProcessor.findByMultipleFilters(userRoleMultipleFiltersRequest, "BACKOFFICE", locale);
+    }
+
+    @Auditable(action = "ASSIGN_USER_ROLES_TO_USER_GROUP")
+    @PostMapping("/classification/assign-roles")
+    @Operation(summary = "Assign roles to an organisation classification",
+            description = "Adds catalog roles to an organisation classification and resyncs that classification's "
+                    + "Administrator groups.")
+    public UserRoleResponse assignRolesToClassification(@Valid @RequestBody final ClassificationRolesRequest request) {
+        ClassificationRoleService.Result result = classificationRoleService
+                .assignRolesToClassification(request.getClassification(), request.getRoleIds());
+        return toResponse(result);
+    }
+
+    @Auditable(action = "REMOVE_USER_ROLES_FROM_USER_GROUP")
+    @PostMapping("/classification/remove-roles")
+    @Operation(summary = "Remove roles from an organisation classification",
+            description = "Removes catalog roles from an organisation classification and resyncs that classification's "
+                    + "Administrator groups.")
+    public UserRoleResponse removeRolesFromClassification(@Valid @RequestBody final ClassificationRolesRequest request) {
+        ClassificationRoleService.Result result = classificationRoleService
+                .removeRolesFromClassification(request.getClassification(), request.getRoleIds());
+        return toResponse(result);
+    }
+
+    private UserRoleResponse toResponse(ClassificationRoleService.Result result) {
+        UserRoleResponse response = new UserRoleResponse();
+        response.setSuccess(result.success());
+        response.setStatusCode(result.success() ? 200 : 400);
+        response.setMessage(result.message());
+        if (!result.success()) {
+            response.setErrorMessages(List.of(result.message()));
+        }
+        return response;
     }
 
     @Auditable(action = "EXPORT_USER_ROLES")

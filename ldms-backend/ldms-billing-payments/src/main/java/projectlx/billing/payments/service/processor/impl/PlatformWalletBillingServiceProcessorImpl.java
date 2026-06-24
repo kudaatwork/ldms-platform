@@ -146,8 +146,8 @@ public class PlatformWalletBillingServiceProcessorImpl implements PlatformWallet
     }
 
     @Override
-    public PlatformWalletResponse rejectWalletDeposit(Long depositId, Locale locale, String username) {
-        return platformWalletBillingService.rejectWalletDeposit(depositId, locale, username);
+    public PlatformWalletResponse rejectWalletDeposit(Long depositId, String rejectionReason, Locale locale, String username) {
+        return platformWalletBillingService.rejectWalletDeposit(depositId, rejectionReason, locale, username);
     }
 
     @Override

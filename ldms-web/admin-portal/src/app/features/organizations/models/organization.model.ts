@@ -294,6 +294,10 @@ export function organizationTypeLabel(t: OrganizationType | string): string {
 }
 
 export function classificationLabel(c: OrganizationClassification | string): string {
+  // The admin portal itself is a classification (the platform-wide Administrator group).
+  if (String(c).toUpperCase() === 'ADMIN_PORTAL') {
+    return 'Admin Portal';
+  }
   return ORG_CLASSIFICATIONS.find((x) => x.slug === c)?.label ?? String(c).replace(/_/g, ' ');
 }
 

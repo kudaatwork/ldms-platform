@@ -45,6 +45,7 @@ import projectlx.co.zw.notifications.business.validation.impl.WhatsAppNotificati
 import projectlx.co.zw.notifications.utils.config.OutboundMessagingReadiness;
 import projectlx.co.zw.notifications.business.logic.support.NotificationBillingSupport;
 import projectlx.co.zw.notifications.clients.BillingPaymentsServiceClient;
+import projectlx.co.zw.notifications.repository.NotificationLogRepository;
 import projectlx.co.zw.notifications.repository.NotificationTemplateRepository;
 import projectlx.co.zw.notifications.repository.UserNotificationPreferenceRepository;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;

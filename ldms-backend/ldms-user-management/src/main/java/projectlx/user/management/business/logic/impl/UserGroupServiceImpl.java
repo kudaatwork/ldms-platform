@@ -26,6 +26,7 @@ import projectlx.user.management.repository.UserRoleRepository;
 import projectlx.user.management.repository.specification.UserGroupSpecification;
 import projectlx.user.management.utils.dtos.UserGroupDto;
 import projectlx.user.management.utils.dtos.UserRoleDto;
+import projectlx.user.management.utils.support.RoleClassificationPolicy;
 import projectlx.user.management.utils.support.UserRoleDtoModuleEnricher;
 import projectlx.user.management.utils.enums.I18Code;
 import projectlx.user.management.utils.requests.AddUserToUserGroupRequest;
@@ -112,6 +113,9 @@ public class UserGroupServiceImpl implements UserGroupService {
         String normalizedName = createUserGroupRequest.getName().toUpperCase();
         Long workspaceOrganizationId = resolveOrganizationIdForWorkspaceMutation(
                 username, createUserGroupRequest.getOrganizationId());
+        // Custom workspace groups inherit their organisation's classification so groups and role
+        // assignments stay isolated to that organisation classification.
+        String workspaceClassification = resolveOrganizationClassification(workspaceOrganizationId);
 
         if (OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(normalizedName)) {
             message = messageService.getMessage(I18Code.MESSAGE_CREATE_USER_GROUP_INVALID_REQUEST.getCode(),
@@ -144,11 +148,17 @@ public class UserGroupServiceImpl implements UserGroupService {
             if (workspaceOrganizationId != null && workspaceOrganizationId > 0) {
                 userGroupToBeReactivated.setOrganizationId(workspaceOrganizationId);
             }
+            if (workspaceClassification != null && !workspaceClassification.isBlank()) {
+                userGroupToBeReactivated.setOrganizationClassification(workspaceClassification);
+            }
             userGroupSaved = userGroupServiceAuditable.update(userGroupToBeReactivated, locale, username);
         } else {
             UserGroup userGroupToBeSaved = modelMapper.map(createUserGroupRequest, UserGroup.class);
             if (workspaceOrganizationId != null && workspaceOrganizationId > 0) {
                 userGroupToBeSaved.setOrganizationId(workspaceOrganizationId);
+            }
+            if (workspaceClassification != null && !workspaceClassification.isBlank()) {
+                userGroupToBeSaved.setOrganizationClassification(workspaceClassification);
             }
             userGroupSaved = userGroupServiceAuditable.create(userGroupToBeSaved, locale, username);
         }
@@ -200,12 +210,19 @@ public class UserGroupServiceImpl implements UserGroupService {
         if (roleSet != null) {
             for (UserRole role : roleSet) {
                 if (role.getEntityStatus() != EntityStatus.DELETED) {
-                    roleDtos.add(modelMapper.map(role, UserRoleDto.class));
+                    UserRoleDto roleDto = modelMapper.map(role, UserRoleDto.class);
+                    // Copy the lazy classification set in-transaction so classification filtering is accurate.
+                    roleDto.setOrganizationClassifications(
+                            role.getOrganizationClassifications() == null
+                                    ? new java.util.HashSet<>()
+                                    : new java.util.HashSet<>(role.getOrganizationClassifications()));
+                    roleDtos.add(roleDto);
                 }
             }
         }
         UserRoleDtoModuleEnricher.enrichAll(roleDtos);
         roleDtos = filterRoleDtosForPortalScope(roleDtos, resolvePortalScopeForSession(username));
+        roleDtos = filterRoleDtosForGroupClassification(roleDtos, userGroupReturned.getOrganizationClassification());
         userGroupDto.setUserRoleDtoSet(roleDtos);
         enrichMemberCount(userGroupDto);
 
@@ -322,11 +339,37 @@ public class UserGroupServiceImpl implements UserGroupService {
         }
 
         UserGroup userGroupToBeDeleted = userGroupRetrieved.get();
-        detachAllUsersFromGroup(userGroupToBeDeleted.getId(), locale, username);
-        // Drop join-table links only for this group; UserRole rows stay and remain linked to other groups.
-        if (userGroupToBeDeleted.getUserRoles() != null) {
-            userGroupToBeDeleted.getUserRoles().clear();
+
+        // Guard: cannot delete a system group (e.g. Administrator)
+        if (userGroupToBeDeleted.isSystemGroup()
+                || OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(
+                        userGroupToBeDeleted.getName())) {
+            message = messageService.getMessage(I18Code.MESSAGE_CANNOT_DELETE_SYSTEM_GROUP.getCode(),
+                    new String[]{}, locale);
+            return buildUserGroupResponseWithErrors(400, false, message, null, null,
+                    List.of(message));
         }
+
+        // Guard: cannot delete a group that still has users
+        long userCount = userGroupRepository.countActiveUsersInGroup(
+                userGroupToBeDeleted.getId(), EntityStatus.DELETED);
+        if (userCount > 0) {
+            message = messageService.getMessage(I18Code.MESSAGE_CANNOT_DELETE_GROUP_WITH_USERS.getCode(),
+                    new String[]{}, locale);
+            return buildUserGroupResponseWithErrors(400, false, message, null, null,
+                    List.of(message));
+        }
+
+        // Guard: cannot delete a group that still has roles
+        long roleCount = userRoleRepository.countActiveRolesForUserGroup(
+                userGroupToBeDeleted.getId(), EntityStatus.DELETED);
+        if (roleCount > 0) {
+            message = messageService.getMessage(I18Code.MESSAGE_CANNOT_DELETE_GROUP_WITH_ROLES.getCode(),
+                    new String[]{}, locale);
+            return buildUserGroupResponseWithErrors(400, false, message, null, null,
+                    List.of(message));
+        }
+
         userGroupToBeDeleted.setEntityStatus(EntityStatus.DELETED);
 
         UserGroup userGroupDeleted = userGroupServiceAuditable.delete(userGroupToBeDeleted, locale, username);
@@ -393,7 +436,9 @@ public class UserGroupServiceImpl implements UserGroupService {
         Optional<Long> workspaceOrganizationId = resolveWorkspaceOrganizationFilter(
                 username, userGroupMultipleFiltersRequest);
         if (workspaceOrganizationId.isPresent()) {
-            spec = addToSpec(workspaceOrganizationId.get(), spec, UserGroupSpecification::organizationWorkspaceVisible);
+            // Strictly scope to the organisation's own groups so workspace users never see the
+            // platform-wide Administrator (organization_id IS NULL) or other organisations' groups.
+            spec = addToSpec(workspaceOrganizationId.get(), spec, UserGroupSpecification::organizationIdEquals);
         }
 
         Page<UserGroup> result = userGroupRepository.findAll(spec, pageable);
@@ -440,6 +485,11 @@ public class UserGroupServiceImpl implements UserGroupService {
         }
 
         UserGroup userGroupToBeUpdated = userGroup.get();
+
+        if (isAdministratorGroupLockedForCaller(userGroupToBeUpdated)) {
+            message = administratorGroupLockedMessage(locale);
+            return buildUserGroupResponseWithErrors(403, false, message, null, null, List.of(message));
+        }
 
         Set<UserRole> userRoleSet = userRoleRepository.findByIdInAndEntityStatusNot(
                 assignUserRoleToUserGroupRequest.getUserRoleIds(), EntityStatus.DELETED);
@@ -535,6 +585,11 @@ public class UserGroupServiceImpl implements UserGroupService {
 
         UserGroup userGroupToBeUpdated = userGroup.get();
 
+        if (isAdministratorGroupLockedForCaller(userGroupToBeUpdated)) {
+            message = administratorGroupLockedMessage(locale);
+            return buildUserGroupResponseWithErrors(403, false, message, null, null, List.of(message));
+        }
+
         Set<UserRole> userRoleSet = userRoleRepository.findByIdInAndEntityStatusNot(
                 removeUserRolesFromUserGroupRequest.getUserRoleIds(), EntityStatus.DELETED);
 
@@ -545,6 +600,26 @@ public class UserGroupServiceImpl implements UserGroupService {
 
             return buildUserGroupResponse(400, false, message, null, null,
                     null);
+        }
+
+        // Guard: for system Administrator groups, block removal of default (locked) roles
+        if (userGroupToBeUpdated.isSystemGroup()
+                || OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(
+                        userGroupToBeUpdated.getName())) {
+            Set<Long> lockedRoleIds = userGroupToBeUpdated.getDefaultRoleIds();
+            if (lockedRoleIds != null && !lockedRoleIds.isEmpty()) {
+                Set<Long> attemptedLocked = userRoleSet.stream()
+                        .map(UserRole::getId)
+                        .filter(lockedRoleIds::contains)
+                        .collect(Collectors.toSet());
+                if (!attemptedLocked.isEmpty()) {
+                    message = messageService.getMessage(
+                            I18Code.MESSAGE_CANNOT_REMOVE_DEFAULT_ROLE_FROM_ADMIN_GROUP.getCode(),
+                            new String[]{}, locale);
+                    return buildUserGroupResponseWithErrors(400, false, message, null, null,
+                            List.of(message));
+                }
+            }
         }
 
         Set<UserRole> remainingUserRoles = userGroupToBeUpdated.getUserRoles();
@@ -720,6 +795,21 @@ public class UserGroupServiceImpl implements UserGroupService {
         }
 
         UserGroup userGroup = userGroupOptional.get();
+
+        // Guard: prevent emptying a system Administrator group
+        boolean isAdminGroup = userGroup.isSystemGroup()
+                || OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(userGroup.getName());
+        if (isAdminGroup) {
+            long currentMembers = userGroupRepository.countActiveUsersInGroup(userGroup.getId(), EntityStatus.DELETED);
+            long toRemove = removeUsersFromUserGroupRequest.getUserIds().size();
+            if (currentMembers - toRemove <= 0) {
+                message = messageService.getMessage(I18Code.MESSAGE_CANNOT_DELETE_LAST_ADMIN_USER.getCode(),
+                        new String[]{}, locale);
+                return buildUserGroupResponseWithErrors(400, false, message, null, null,
+                        List.of(message));
+            }
+        }
+
         boolean removedAny = false;
 
         for (Long userId : removeUsersFromUserGroupRequest.getUserIds()) {
@@ -827,6 +917,40 @@ public class UserGroupServiceImpl implements UserGroupService {
         }
     }
 
+    /**
+     * The Administrator group is the default, locked workspace group. Organisation users on the platform
+     * portal cannot change its roles; only platform operators (admin portal) may, via the role catalog.
+     */
+    private boolean isAdministratorGroupLockedForCaller(UserGroup group) {
+        if (group == null) {
+            return false;
+        }
+        boolean isAdministrator = group.isSystemGroup()
+                && OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(group.getName());
+        return isAdministrator && !organizationWorkspaceAccessSupport.hasWorkspaceSuperRole();
+    }
+
+    private String administratorGroupLockedMessage(Locale locale) {
+        return messageService.getMessage(
+                I18Code.MESSAGE_ADMINISTRATOR_GROUP_LOCKED.getCode(),
+                new String[]{},
+                locale);
+    }
+
+    /** Resolves an organisation's classification from its provisioned Administrator group. */
+    private String resolveOrganizationClassification(Long organizationId) {
+        if (organizationId == null || organizationId <= 0) {
+            return null;
+        }
+        return userGroupRepository
+                .findByOrganizationIdAndNameIgnoreCaseAndEntityStatusNot(
+                        organizationId,
+                        OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME,
+                        EntityStatus.DELETED)
+                .map(UserGroup::getOrganizationClassification)
+                .orElse(null);
+    }
+
     private Optional<Long> resolveWorkspaceOrganizationFilter(
             String username, UserGroupMultipleFiltersRequest request) {
         if (organizationWorkspaceAccessSupport.hasWorkspaceSuperRole()) {
@@ -918,29 +1042,19 @@ public class UserGroupServiceImpl implements UserGroupService {
         if (groups == null || groups.isEmpty()) {
             return List.of();
         }
-        boolean hasOrgScopedAdministrator = groups.stream()
-                .anyMatch(group -> group != null
-                        && isAdministratorGroupName(group.getName())
-                        && group.getOrganizationId() != null
-                        && group.getOrganizationId() > 0);
+        // Deduplicate by ID only. The single-Administrator-per-scope enforcement
+        // prevents true duplicates; platform and org-scoped Administrator groups
+        // are all returned so the settings page can show classifications.
+        Set<Long> seen = new LinkedHashSet<>();
         List<UserGroup> filtered = new ArrayList<>();
-        boolean platformAdministratorAdded = false;
         for (UserGroup group : groups) {
-            if (group == null) {
+            if (group == null || group.getId() == null) {
                 continue;
             }
-            if (isAdministratorGroupName(group.getName())) {
-                Long organizationId = group.getOrganizationId();
-                if (organizationId == null || organizationId <= 0) {
-                    if (hasOrgScopedAdministrator) {
-                        continue;
-                    }
-                    if (platformAdministratorAdded) {
-                        continue;
-                    }
-                    platformAdministratorAdded = true;
-                }
+            if (seen.contains(group.getId())) {
+                continue;
             }
+            seen.add(group.getId());
             filtered.add(group);
         }
         return filtered;
@@ -968,6 +1082,37 @@ public class UserGroupServiceImpl implements UserGroupService {
                 continue;
             }
             if (AdministratorRoleScopePolicy.isEffectiveForScope(roleDto.getRole(), scope)) {
+                filtered.add(roleDto);
+            }
+        }
+        return filtered;
+    }
+
+    /**
+     * Further filters roles by the user group's organisation classification.
+     * Platform-wide groups (no classification) keep all roles.
+     * Organisation-scoped groups keep only roles applicable to their classification.
+     */
+    private List<UserRoleDto> filterRoleDtosForGroupClassification(
+            List<UserRoleDto> roleDtos,
+            String groupClassification) {
+        if (roleDtos == null || roleDtos.isEmpty()) {
+            return List.of();
+        }
+        if (!StringUtils.hasText(groupClassification)) {
+            return roleDtos;
+        }
+        String classification = groupClassification.trim().toUpperCase(java.util.Locale.ROOT);
+        List<UserRoleDto> filtered = new ArrayList<>();
+        for (UserRoleDto roleDto : roleDtos) {
+            if (roleDto == null || !StringUtils.hasText(roleDto.getRole())) {
+                continue;
+            }
+            // Use the admin-editable persisted classification mapping (source of truth).
+            Set<String> roleClassifications = roleDto.getOrganizationClassifications();
+            if (roleClassifications != null
+                    && roleClassifications.stream()
+                            .anyMatch(c -> c != null && c.trim().toUpperCase(java.util.Locale.ROOT).equals(classification))) {
                 filtered.add(roleDto);
             }
         }

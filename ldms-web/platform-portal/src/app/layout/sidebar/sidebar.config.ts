@@ -428,6 +428,7 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
     { ...FLEET_NAV_ITEM, label: 'Fleet & Transport', children: [...(FLEET_NAV_ITEM.children ?? [])] },
     { label: 'Invoices', route: '/invoices', icon: 'request_quote' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
+    { label: 'Billing', route: '/settings', icon: 'receipt_long', queryParams: { section: 'billing' } },
     { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
   TRANSPORT_COMPANY: [
@@ -456,6 +457,7 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
     { label: 'Truck Visits', route: '/truck-visits', icon: 'local_gas_station' },
     { label: 'Fuel Log', route: '/fuel-log', icon: 'oil_barrel' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
+    { label: 'Billing', route: '/settings', icon: 'receipt_long', queryParams: { section: 'billing' } },
     { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
   ROADSIDE_SUPPORT_SERVICE: [
@@ -463,12 +465,14 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
     { label: 'Incidents', route: '/incidents', icon: 'car_crash' },
     { label: 'Service Log', route: '/service-log', icon: 'build' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
+    { label: 'Billing', route: '/settings', icon: 'receipt_long', queryParams: { section: 'billing' } },
     { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
   GOVERNMENT_AGENCY: [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
     { label: 'Border Activity', route: '/border-activity', icon: 'border_outer' },
     { label: 'Documents', route: '/documents', icon: 'folder_open' },
+    { label: 'Billing', route: '/settings', icon: 'receipt_long', queryParams: { section: 'billing' } },
     { ...ANALYTICS_NAV_ITEM, children: [...(ANALYTICS_NAV_ITEM.children ?? [])] },
   ],
 };

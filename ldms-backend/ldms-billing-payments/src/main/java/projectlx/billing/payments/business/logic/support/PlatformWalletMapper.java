@@ -137,6 +137,7 @@ public final class PlatformWalletMapper {
         dto.setProofDocumentId(entity.getProofDocumentId());
         dto.setGatewayProvider(entity.getGatewayProvider());
         dto.setPaymentMethod(entity.getPaymentMethod());
+        dto.setRejectionReason(entity.getRejectionReason());
         if (entity.getCreatedAt() != null) {
             dto.setCreatedAt(entity.getCreatedAt().format(ISO));
         }
