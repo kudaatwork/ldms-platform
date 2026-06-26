@@ -11,7 +11,11 @@ import projectlx.messaging.inbound.clients.UserManagementServiceClient;
 @Slf4j
 public class BotCallerProfileSupport {
 
-    public record CallerProfile(String displayName, String phone, Long organizationId, String organizationName) {}
+public record CallerProfile(String displayName,
+                                String phone,
+                                Long organizationId,
+                                String organizationName,
+                                String organizationClassification) {}
 
     private final UserManagementServiceClient userManagementServiceClient;
     private final OrganizationManagementServiceClient organizationManagementServiceClient;
@@ -27,6 +31,7 @@ public class BotCallerProfileSupport {
         String phone = "";
         Long organizationId = null;
         String organizationName = "—";
+        String organizationClassification = "";
         try {
             UserResponse userResponse = userManagementServiceClient.findSessionProfileByUsername(username);
             if (userResponse != null && userResponse.isSuccess()) {
@@ -48,12 +53,15 @@ public class BotCallerProfileSupport {
                     if (org != null && org.getName() != null) {
                         organizationName = org.getName();
                     }
+                    if (org != null && org.getOrganizationClassification() != null) {
+                        organizationClassification = org.getOrganizationClassification().name();
+                    }
                 }
             } catch (Exception ex) {
                 log.debug("Could not load organization {}: {}", organizationId, ex.getMessage());
             }
         }
-        return new CallerProfile(displayName, phone, organizationId, organizationName);
+        return new CallerProfile(displayName, phone, organizationId, organizationName, organizationClassification);
     }
 
     private static String buildDisplayName(UserDto user, String fallback) {

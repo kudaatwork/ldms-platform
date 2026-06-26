@@ -18,13 +18,14 @@ import java.util.Properties;
 import java.util.Set;
 import projectlx.user.management.utils.support.OrganizationPortalRolePolicy;
 import projectlx.user.management.utils.support.RoleClassificationPolicy;
+import projectlx.user.management.utils.support.UserGroupNameSupport;
 
 /**
  * Idempotent seed of {@code user_role} rows and assignment to platform / organisation administrator groups.
  */
 public final class LdmsRoleCatalogSeeder {
 
-    private static final String ADMIN_GROUP_NAME = "Administrator";
+    private static final String ADMIN_GROUP_NAME = UserGroupNameSupport.ADMINISTRATOR_GROUP_NAME;
     public static final String ORGANIZATION_ADMIN_GROUP_DESCRIPTION =
             "Organisation workspace administrators with user-management, audit, and self-service permissions";
     private static final String CATALOG_RESOURCE = "ldms/role-catalog.properties";
@@ -43,6 +44,38 @@ public final class LdmsRoleCatalogSeeder {
         seedRoleClassifications(connection);
         long groupId = ensurePlatformAdministratorGroup(connection);
         linkAllActiveRolesToGroup(connection, groupId);
+        seedClassificationDefaultAdminGroups(connection);
+    }
+
+    /**
+     * Ensures the shared classification default {@code Administrator} group (organization_id IS NULL,
+     * one per classification) exists for every organisation classification and holds the
+     * classification-filtered workspace roles. Admin users of every org in a classification inherit
+     * their admin roles from this single shared default.
+     */
+    public static void seedClassificationDefaultAdminGroups(Connection connection) throws SQLException {
+        for (String classification : RoleClassificationPolicy.ALL_CLASSIFICATIONS) {
+            seedClassificationDefaultAdminGroup(connection, classification);
+        }
+    }
+
+    public static long seedClassificationDefaultAdminGroup(Connection connection, String classification)
+            throws SQLException {
+        if (classification == null || classification.isBlank()) {
+            throw new IllegalArgumentException("classification is required");
+        }
+        String normalized = classification.trim().toUpperCase();
+        long groupId = ensureClassificationDefaultAdminGroup(connection, normalized);
+        linkClassificationFilteredRolesToGroup(connection, groupId, normalized);
+        return groupId;
+    }
+
+    public static Long classificationDefaultAdminGroupId(Connection connection, String classification)
+            throws SQLException {
+        if (classification == null || classification.isBlank()) {
+            return null;
+        }
+        return findClassificationDefaultAdminGroupId(connection, classification.trim().toUpperCase());
     }
 
     public static String administratorGroupName() {
@@ -237,12 +270,76 @@ public final class LdmsRoleCatalogSeeder {
         return createdId;
     }
 
+    private static long ensureClassificationDefaultAdminGroup(Connection connection, String classification)
+            throws SQLException {
+        Long existingId = findClassificationDefaultAdminGroupId(connection, classification);
+        String description = "Default administrators inherited by all " + classification + " organisations";
+        if (existingId != null) {
+            String update = """
+                    UPDATE user_group
+                    SET description = ?,
+                        organization_id = NULL,
+                        organization_classification = ?,
+                        is_system_group = TRUE,
+                        entity_status = 'ACTIVE',
+                        updated_at = NOW(6)
+                    WHERE id = ?
+                    """;
+            try (PreparedStatement ps = connection.prepareStatement(update)) {
+                ps.setString(1, description);
+                ps.setString(2, classification);
+                ps.setLong(3, existingId);
+                ps.executeUpdate();
+            }
+            return existingId;
+        }
+        String insert = """
+                INSERT INTO user_group (name, description, organization_id, organization_classification, is_system_group, is_locked, entity_status, created_at, updated_at)
+                VALUES (?, ?, NULL, ?, TRUE, TRUE, 'ACTIVE', NOW(6), NOW(6))
+                """;
+        try (PreparedStatement ps = connection.prepareStatement(insert)) {
+            ps.setString(1, ADMIN_GROUP_NAME);
+            ps.setString(2, description);
+            ps.setString(3, classification);
+            ps.executeUpdate();
+        }
+        Long createdId = findClassificationDefaultAdminGroupId(connection, classification);
+        if (createdId == null) {
+            throw new IllegalStateException(
+                    "Classification default Administrator group was not created for " + classification);
+        }
+        return createdId;
+    }
+
+    private static Long findClassificationDefaultAdminGroupId(Connection connection, String classification)
+            throws SQLException {
+        try (PreparedStatement ps = connection.prepareStatement(
+                """
+                SELECT id FROM user_group
+                WHERE LOWER(name) = LOWER(?)
+                  AND organization_id IS NULL
+                  AND UPPER(organization_classification) = ?
+                  AND entity_status <> 'DELETED'
+                LIMIT 1
+                """)) {
+            ps.setString(1, ADMIN_GROUP_NAME);
+            ps.setString(2, classification);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getLong(1);
+                }
+            }
+        }
+        return null;
+    }
+
     private static Long findPlatformAdministratorGroupId(Connection connection) throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(
                 """
                 SELECT id FROM user_group
                 WHERE LOWER(name) = LOWER(?)
                   AND organization_id IS NULL
+                  AND (organization_classification = 'ADMIN_PORTAL' OR organization_classification IS NULL)
                   AND entity_status <> 'DELETED'
                 LIMIT 1
                 """)) {

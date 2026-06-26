@@ -17,6 +17,7 @@ export type RequisitionQuoteLineDetail = {
   estimatedUnitPrice?: number;
 };
 import { CurrencyContextService } from '../../../core/services/currency-context.service';
+import { OrgContextService } from '../../../core/services/org-context.service';
 import {
   LxExportFormat,
   exportFormatToApiParam,
@@ -108,7 +109,11 @@ export class InventoryPortalService {
   private readonly integrationCredentialBase = ldmsServiceUrl('inventory-management', 'integration-credential', undefined, 'frontend');
   private readonly fileUploadBase = ldmsApiUrl('/ldms-file-upload-service/v1/frontend/file-upload');
 
-  constructor(private readonly http: HttpClient, private readonly currencyContext: CurrencyContextService) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly currencyContext: CurrencyContextService,
+    private readonly orgContext: OrgContextService,
+  ) {}
 
   // ── Products ──────────────────────────────────────────────────────────────
 
@@ -124,7 +129,8 @@ export class InventoryPortalService {
 
   /** POST /product/create — create a new product. */
   createProduct(payload: CreateProductPayload): Observable<ProductRow> {
-    return this.http.post<unknown>(`${this.productBase}/create`, payload).pipe(
+    const body = this.orgContext.withSupplierScope(payload);
+    return this.http.post<unknown>(`${this.productBase}/create`, body).pipe(
       map((resp) => {
         this.assertSuccess(resp);
         const dto = this.extractSingle(resp, 'productDto');
@@ -136,7 +142,8 @@ export class InventoryPortalService {
 
   /** PUT /product/update — update an existing product. */
   updateProduct(payload: EditProductPayload): Observable<ProductRow> {
-    return this.http.put<unknown>(`${this.productBase}/update`, payload).pipe(
+    const body = this.orgContext.withSupplierScope(payload);
+    return this.http.put<unknown>(`${this.productBase}/update`, body).pipe(
       map((resp) => {
         this.assertSuccess(resp);
         const dto = this.extractSingle(resp, 'productDto');
@@ -332,7 +339,8 @@ export class InventoryPortalService {
 
   /** POST /warehouse-locations — create a new warehouse location. */
   createWarehouse(payload: CreateWarehouseLocationPayload): Observable<WarehouseRow> {
-    return this.http.post<unknown>(`${this.warehouseBase}`, payload).pipe(
+    const body = this.orgContext.withSupplierScope(payload);
+    return this.http.post<unknown>(`${this.warehouseBase}`, body).pipe(
       map((resp) => {
         this.assertSuccess(resp);
         const dto = this.extractSingle(resp, 'warehouseLocationDto');
@@ -452,7 +460,8 @@ export class InventoryPortalService {
 
   /** POST /inventory-item/initial-stock — opening balance for a product at a warehouse. */
   createInitialStock(payload: CreateInitialStockPayload): Observable<StockRow> {
-    return this.http.post<unknown>(`${this.stockBase}/initial-stock`, payload).pipe(
+    const body = this.orgContext.withSupplierScope(payload);
+    return this.http.post<unknown>(`${this.stockBase}/initial-stock`, body).pipe(
       map((resp) => {
         this.assertSuccess(resp);
         const dto = this.extractSingle(resp, 'inventoryItemDto');
@@ -521,8 +530,9 @@ export class InventoryPortalService {
     if (options.productId != null && options.productId > 0) {
       body['productId'] = options.productId;
     }
-    if (options.supplierId != null && options.supplierId > 0) {
-      body['supplierId'] = options.supplierId;
+    const supplierId = options.supplierId ?? this.orgContext.organizationId;
+    if (supplierId != null && supplierId > 0) {
+      body['supplierId'] = supplierId;
     }
     return body;
   }
@@ -595,7 +605,8 @@ export class InventoryPortalService {
 
   /** POST /purchase-requisition/create — save a draft requisition. */
   createRequisition(payload: CreateRequisitionPayload): Observable<PurchaseRequisitionRow> {
-    return this.http.post<unknown>(`${this.requisitionBase}/create`, payload).pipe(
+    const body = this.orgContext.withOrgScope(payload);
+    return this.http.post<unknown>(`${this.requisitionBase}/create`, body).pipe(
       map((resp) => {
         this.assertSuccess(resp);
         const dto = this.extractSingle(resp, 'purchaseRequisitionDto');

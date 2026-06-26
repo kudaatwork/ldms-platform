@@ -32,11 +32,16 @@
 
     <form [formGroup]="profileForm" (ngSubmit)="saveProfile()" class="org-settings__form">
       <section class="org-settings__card lx-card--subsection">
-        <h3><mat-icon>fact_check</mat-icon> KYC status</h3>
+        <div class="org-settings__card-head">
+          <h3><mat-icon>fact_check</mat-icon> KYC status</h3>
+          <span class="org-settings__readonly-badge" title="This information is read-only">
+            <mat-icon>lock</mat-icon> Read-only
+          </span>
+        </div>
         <div class="org-settings__grid">
-          <div class="org-settings__field">
+          <div class="org-settings__field org-settings__field--stat">
             <span>Current status</span>
-            <strong>{{ kycStatusLabel }}</strong>
+            <strong [class]="kycStatusClass">{{ kycStatusLabel }}</strong>
           </div>
           <div class="org-settings__field" *ngIf="org.submittedAt">
             <span>Submitted</span>
@@ -104,7 +109,12 @@
       </section>
 
       <section class="org-settings__card lx-card--subsection">
-        <h3><mat-icon>person</mat-icon> Contact person</h3>
+        <div class="org-settings__card-head">
+          <h3><mat-icon>person</mat-icon> Contact person</h3>
+          <span class="org-settings__readonly-badge" title="This information is read-only">
+            <mat-icon>lock</mat-icon> Read-only
+          </span>
+        </div>
         <div class="org-settings__grid">
           <div class="org-settings__field">
             <span>First name</span>

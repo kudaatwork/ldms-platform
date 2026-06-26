@@ -42,6 +42,8 @@ export interface UserListRow {
   role: string;
   /** When set, row actions can deep-link to this group's role assignment screen. */
   userGroupId: number | null;
+  /** Organisation the user belongs to ({@code null} for platform users). */
+  organizationId: number | null;
   accountType: string;
   status: string;
   statusLabel: string;
@@ -81,6 +83,32 @@ export interface UserFileUploadSummary {
 export interface IdLabelOption {
   id: number;
   label: string;
+  classification?: string | null;
+}
+
+/** Normalizes organisation classification from API strings or Jackson enum objects. */
+export function parseOrganizationClassificationSlug(raw: unknown): string | null {
+  if (raw === null || raw === undefined || raw === '') {
+    return null;
+  }
+  if (typeof raw === 'string') {
+    const slug = raw.trim().toUpperCase();
+    return slug && slug !== '[OBJECT OBJECT]' ? slug : null;
+  }
+  if (typeof raw === 'object') {
+    const record = raw as Record<string, unknown>;
+    for (const key of ['organizationClassification', 'organization_classification', 'name', 'classification']) {
+      const nested = record[key];
+      if (typeof nested === 'string') {
+        const slug = nested.trim().toUpperCase();
+        if (slug && slug !== '[OBJECT OBJECT]') {
+          return slug;
+        }
+      }
+    }
+  }
+  const slug = String(raw).trim().toUpperCase();
+  return slug && slug !== '[OBJECT OBJECT]' ? slug : null;
 }
 
 @Injectable({
@@ -1249,8 +1277,17 @@ export class UsersAdminService {
     return this.formatUserMutationError(resp, fallback);
   }
 
-  createUserGroup(payload: { name: string; description: string }): Observable<unknown> {
-    return this.http.post(`${this.base}/user-group/create`, payload);
+  createUserGroup(payload: {
+    name: string;
+    description: string;
+    organizationClassification: string;
+  }): Observable<unknown> {
+    const body: Record<string, unknown> = {
+      name: payload.name,
+      description: payload.description,
+      organizationClassification: payload.organizationClassification,
+    };
+    return this.http.post(`${this.base}/user-group/create`, body);
   }
 
   updateUserGroup(payload: { id: number; name: string; description: string }): Observable<unknown> {
@@ -1290,6 +1327,15 @@ export class UsersAdminService {
       classification,
       roleIds,
     });
+  }
+
+  /** Platform-admin only: lock/unlock a classification's default admin roles for org workspaces. */
+  setClassificationLock(classification: string, locked: boolean): Observable<unknown> {
+    const action = locked ? 'lock' : 'unlock';
+    return this.http.post<unknown>(
+      `${this.base}/user-role/classification/${encodeURIComponent(classification)}/${action}`,
+      {},
+    );
   }
 
   /** Sets the user's primary user group (server replaces any previous assignment). */
@@ -1503,9 +1549,15 @@ export class UsersAdminService {
             .map((r) => {
               const id = Number(r['id'] ?? 0);
               const name = String(r['name'] ?? '').trim();
-              return Number.isFinite(id) && id > 0 && name ? { id, label: name } : null;
+              const classification =
+                parseOrganizationClassificationSlug(r['organizationClassification']) ??
+                parseOrganizationClassificationSlug(r['organization_classification']) ??
+                parseOrganizationClassificationSlug(r['classification']);
+              return Number.isFinite(id) && id > 0 && name
+                ? { id, label: name, classification: classification ?? undefined }
+                : null;
             })
-            .filter((o): o is IdLabelOption => !!o);
+            .filter((o) => o != null) as IdLabelOption[];
         }),
         catchError(() => of([])),
       );
@@ -1551,6 +1603,7 @@ export class UsersAdminService {
         canResendVerificationEmail: false,
         role: '—',
         userGroupId: null,
+        organizationId: null,
         accountType: '—',
         status: 'pending',
         statusLabel: 'Unknown',
@@ -1574,6 +1627,10 @@ export class UsersAdminService {
     const emailVerifiedLabel =
       emailVerified === true ? 'Yes' : emailVerified === false ? 'No' : '—';
     const canResendVerificationEmail = this.canResendVerificationEmail(emailVerified, row['createdAt']);
+    const orgIdRaw = row['organizationId'] ?? row['organization_id'];
+    const orgIdParsed = Number(orgIdRaw);
+    const organizationId =
+      orgIdRaw != null && Number.isFinite(orgIdParsed) && orgIdParsed > 0 ? orgIdParsed : null;
     return {
       id: Number(row['id'] ?? 0),
       username: String(row['username'] ?? '').trim(),
@@ -1587,6 +1644,7 @@ export class UsersAdminService {
       canResendVerificationEmail,
       role: String(role ?? '—'),
       userGroupId,
+      organizationId,
       accountType: String(accountType ?? '—'),
       status: statusRaw,
       statusLabel: this.readableStatus(statusRaw),
@@ -1920,12 +1978,15 @@ export class UsersAdminService {
   private buildUserGroupsFilterBody(q: UsersQuery): Record<string, unknown> {
     const name = this.normalizedFilter(q.columnFilters['name']);
     const description = this.normalizedFilter(q.columnFilters['description']);
+    const oid = q.organizationId;
+    const organizationId = oid != null && Number.isFinite(oid) && oid > 0 ? Math.trunc(oid) : null;
     return {
       page: q.page,
       size: q.size,
       searchValue: q.searchQuery.trim(),
       ...(name ? { name } : {}),
       ...(description ? { description } : {}),
+      ...(organizationId != null ? { organizationId } : {}),
     };
   }
 

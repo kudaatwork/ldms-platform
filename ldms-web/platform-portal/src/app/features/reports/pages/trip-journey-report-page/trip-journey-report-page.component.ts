@@ -1,8 +1,13 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
+import { PageEvent } from '@angular/material/paginator';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, finalize, map, switchMap, takeUntil } from 'rxjs/operators';
+import {
+  DEFAULT_TABLE_PAGE_SIZE,
+  DEFAULT_TABLE_PAGE_SIZE_OPTIONS,
+} from '../../../../shared/constants/table-pagination';
 import { buildJourneyProgressView } from '../../../trip-tracking/utils/journey-progress.util';
 import { buildJourneyTimeView, journeyPhaseIcon } from '../../../trip-tracking/utils/journey-timing.util';
 import type { TripLiveSnapshot, TripRow } from '../../../trip-tracking/models/trip-tracking.model';
@@ -34,6 +39,9 @@ export class TripJourneyReportPageComponent implements OnInit, OnDestroy {
   error = '';
   rows: TripJourneyReportRow[] = [];
   tableSearch = '';
+  pageIndex = 0;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
+  readonly tablePageSizeOptions = DEFAULT_TABLE_PAGE_SIZE_OPTIONS;
 
   readonly displayedColumns = [
     'trip',
@@ -77,6 +85,20 @@ export class TripJourneyReportPageComponent implements OnInit, OnDestroy {
       const haystack = `${row.trip.tripNumber} ${row.trip.route} ${row.trip.driverName} ${row.trip.vehicleRegistration} ${row.phaseLabel}`.toLowerCase();
       return haystack.includes(q);
     });
+  }
+
+  get pagedRows(): TripJourneyReportRow[] {
+    const start = this.pageIndex * this.pageSize;
+    return this.filteredRows.slice(start, start + this.pageSize);
+  }
+
+  onTablePage(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+  }
+
+  resetTablePage(): void {
+    this.pageIndex = 0;
   }
 
   get activeTripCount(): number {
@@ -178,6 +200,7 @@ export class TripJourneyReportPageComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows) => {
           this.rows = rows.sort((a, b) => b.progressPct - a.progressPct);
+          this.resetTablePage();
         },
         error: () => {
           this.error = 'Could not load trip journey report.';

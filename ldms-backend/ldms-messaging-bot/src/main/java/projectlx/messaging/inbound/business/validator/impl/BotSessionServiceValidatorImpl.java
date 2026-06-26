@@ -7,6 +7,8 @@ import projectlx.messaging.inbound.utils.enums.I18Code;
 import projectlx.messaging.inbound.utils.requests.RateBotSessionRequest;
 import projectlx.messaging.inbound.utils.requests.SendBotMessageRequest;
 import projectlx.messaging.inbound.utils.requests.StartBotSessionRequest;
+import projectlx.messaging.inbound.utils.requests.UpdateBotAssistantModeRequest;
+import projectlx.messaging.inbound.utils.enums.BotAssistantMode;
 
 import java.util.Locale;
 
@@ -32,6 +34,12 @@ public class BotSessionServiceValidatorImpl implements BotSessionServiceValidato
                 || request.getBody() == null || request.getBody().isBlank()) {
             return invalid(I18Code.MESSAGE_BOT_SEND_MESSAGE_INVALID, locale);
         }
+        if (request.getAssistantMode() != null && !request.getAssistantMode().isBlank()) {
+            String mode = request.getAssistantMode().trim().toUpperCase(Locale.ROOT);
+            if (!"ASSISTANT".equals(mode) && !"AGENT".equals(mode)) {
+                return invalid(I18Code.MESSAGE_BOT_ASSISTANT_MODE_INVALID, locale);
+            }
+        }
         return valid();
     }
 
@@ -40,6 +48,19 @@ public class BotSessionServiceValidatorImpl implements BotSessionServiceValidato
         if (request == null || request.getSessionId() == null || request.getSessionId().isBlank()
                 || request.getScore() == null || request.getScore() < 1 || request.getScore() > 5) {
             return invalid(I18Code.MESSAGE_BOT_RATE_SESSION_INVALID, locale);
+        }
+        return valid();
+    }
+
+    @Override
+    public ValidatorDto isUpdateAssistantModeRequestValid(UpdateBotAssistantModeRequest request, Locale locale) {
+        if (request == null || request.getSessionId() == null || request.getSessionId().isBlank()
+                || request.getAssistantMode() == null || request.getAssistantMode().isBlank()) {
+            return invalid(I18Code.MESSAGE_BOT_ASSISTANT_MODE_INVALID, locale);
+        }
+        String mode = request.getAssistantMode().trim().toUpperCase(Locale.ROOT);
+        if (!"ASSISTANT".equals(mode) && !"AGENT".equals(mode)) {
+            return invalid(I18Code.MESSAGE_BOT_ASSISTANT_MODE_INVALID, locale);
         }
         return valid();
     }

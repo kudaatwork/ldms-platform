@@ -2,7 +2,12 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Title } from '@angular/platform-browser';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { PageEvent } from '@angular/material/paginator';
 import { Subject, finalize, takeUntil } from 'rxjs';
+import {
+  DEFAULT_TABLE_PAGE_SIZE,
+  DEFAULT_TABLE_PAGE_SIZE_OPTIONS,
+} from '../../../../shared/constants/table-pagination';
 import {
   PlatformWalletService,
   type UsageChargeBreakdownRow,
@@ -40,6 +45,9 @@ export class UsageChargeReportPageComponent implements OnInit, OnDestroy {
   to = '';
 
   readonly displayedColumns = ['time', 'action', 'charge', 'deducted', 'trip', 'season'];
+  readonly tablePageSizeOptions = DEFAULT_TABLE_PAGE_SIZE_OPTIONS;
+  pageIndex = 0;
+  pageSize = DEFAULT_TABLE_PAGE_SIZE;
   private readonly palette = ['#2563eb', '#06b6d4', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#64748b'];
 
   private readonly destroy$ = new Subject<void>();
@@ -208,6 +216,20 @@ export class UsageChargeReportPageComponent implements OnInit, OnDestroy {
     });
   }
 
+  get pagedRecords(): UsageChargeRecordRow[] {
+    const start = this.pageIndex * this.pageSize;
+    return this.filteredRecords.slice(start, start + this.pageSize);
+  }
+
+  onTablePage(event: PageEvent): void {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+  }
+
+  resetTablePage(): void {
+    this.pageIndex = 0;
+  }
+
   loadReport(): void {
     this.loading = true;
     this.error = '';
@@ -230,6 +252,7 @@ export class UsageChargeReportPageComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (report: UsageChargeReport) => {
           this.report = report;
+          this.resetTablePage();
         },
         error: (err: unknown) => {
           this.error = this.resolveLoadError(err);
@@ -271,6 +294,7 @@ export class UsageChargeReportPageComponent implements OnInit, OnDestroy {
     this.actionFilter = '';
     this.deductedFilter = '';
     this.tableSearchQuery = '';
+    this.resetTablePage();
   }
 
   exportAs(format: LxExportFormat): void {

@@ -11,6 +11,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
+import projectlx.messaging.inbound.utils.enums.BotAssistantMode;
 import projectlx.messaging.inbound.utils.enums.BotChannel;
 import projectlx.messaging.inbound.utils.enums.BotSessionStatus;
 
@@ -54,6 +55,10 @@ public class BotSession {
 
     @Column(name = "topic", length = 200)
     private String topic;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "assistant_mode", nullable = false, length = 50)
+    private BotAssistantMode assistantMode;
 
     @Column(name = "satisfaction_score")
     private Integer satisfactionScore;

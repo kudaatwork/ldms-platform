@@ -5,6 +5,7 @@ import projectlx.messaging.inbound.service.processor.api.BotSessionServiceProces
 import projectlx.messaging.inbound.utils.requests.RateBotSessionRequest;
 import projectlx.messaging.inbound.utils.requests.SendBotMessageRequest;
 import projectlx.messaging.inbound.utils.requests.StartBotSessionRequest;
+import projectlx.messaging.inbound.utils.requests.UpdateBotAssistantModeRequest;
 import projectlx.messaging.inbound.utils.responses.BotSessionResponse;
 
 import java.util.Locale;
@@ -50,5 +51,15 @@ public class BotSessionServiceProcessorImpl implements BotSessionServiceProcesso
     @Override
     public BotSessionResponse rateSession(RateBotSessionRequest request, Locale locale, String username) {
         return botSessionService.rateSession(request, locale, username);
+    }
+
+    @Override
+    public BotSessionResponse updateAssistantMode(UpdateBotAssistantModeRequest request, Locale locale, String username) {
+        return botSessionService.updateAssistantMode(request, locale, username);
+    }
+
+    @Override
+    public BotSessionResponse getPricing(Locale locale) {
+        return botSessionService.getPricing(locale);
     }
 }

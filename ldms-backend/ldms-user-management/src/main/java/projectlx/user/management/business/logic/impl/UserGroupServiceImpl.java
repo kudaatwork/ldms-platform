@@ -26,6 +26,7 @@ import projectlx.user.management.repository.UserRoleRepository;
 import projectlx.user.management.repository.specification.UserGroupSpecification;
 import projectlx.user.management.utils.dtos.UserGroupDto;
 import projectlx.user.management.utils.dtos.UserRoleDto;
+import projectlx.user.management.utils.support.UserGroupNameSupport;
 import projectlx.user.management.utils.support.RoleClassificationPolicy;
 import projectlx.user.management.utils.support.UserRoleDtoModuleEnricher;
 import projectlx.user.management.utils.enums.I18Code;
@@ -110,12 +111,34 @@ public class UserGroupServiceImpl implements UserGroupService {
                     null, validatorDto.getErrorMessages());
         }
 
-        String normalizedName = createUserGroupRequest.getName().toUpperCase();
+        String normalizedName = UserGroupNameSupport.normalize(createUserGroupRequest.getName());
         Long workspaceOrganizationId = resolveOrganizationIdForWorkspaceMutation(
                 username, createUserGroupRequest.getOrganizationId());
         // Custom workspace groups inherit their organisation's classification so groups and role
         // assignments stay isolated to that organisation classification.
         String workspaceClassification = resolveOrganizationClassification(workspaceOrganizationId);
+        if (!StringUtils.hasText(workspaceClassification)) {
+            workspaceClassification = normalizeRequestedClassification(
+                    createUserGroupRequest.getOrganizationClassification());
+        }
+
+        if (organizationWorkspaceAccessSupport.hasWorkspaceSuperRole()
+                && (workspaceOrganizationId == null || workspaceOrganizationId <= 0)) {
+            if (!StringUtils.hasText(workspaceClassification)) {
+                message = messageService.getMessage(
+                        I18Code.MESSAGE_CREATE_USER_GROUP_CLASSIFICATION_MISSING.getCode(),
+                        new String[]{}, locale);
+                return buildUserGroupResponseWithErrors(400, false, message, null, null,
+                        List.of(message));
+            }
+            if (!RoleClassificationPolicy.ALL_CLASSIFICATIONS.contains(workspaceClassification)) {
+                message = messageService.getMessage(
+                        I18Code.MESSAGE_CREATE_USER_GROUP_INVALID_CLASSIFICATION.getCode(),
+                        new String[]{}, locale);
+                return buildUserGroupResponseWithErrors(400, false, message, null, null,
+                        List.of(message));
+            }
+        }
 
         if (OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(normalizedName)) {
             message = messageService.getMessage(I18Code.MESSAGE_CREATE_USER_GROUP_INVALID_REQUEST.getCode(),
@@ -124,7 +147,8 @@ public class UserGroupServiceImpl implements UserGroupService {
                     List.of("The Administrator group is provisioned automatically. New roles are added to it as they are introduced."));
         }
 
-        Optional<UserGroup> userGroupRetrieved = existingActiveGroupByName(normalizedName, workspaceOrganizationId);
+        Optional<UserGroup> userGroupRetrieved = existingActiveGroupByName(
+                normalizedName, workspaceOrganizationId, workspaceClassification);
 
         if (userGroupRetrieved.isPresent()) {
 
@@ -135,7 +159,8 @@ public class UserGroupServiceImpl implements UserGroupService {
                         null, null);
         }
 
-        Optional<UserGroup> deletedUserGroup = existingDeletedGroupByName(normalizedName, workspaceOrganizationId);
+        Optional<UserGroup> deletedUserGroup = existingDeletedGroupByName(
+                normalizedName, workspaceOrganizationId, workspaceClassification);
 
         createUserGroupRequest.setName(normalizedName);
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -224,6 +249,11 @@ public class UserGroupServiceImpl implements UserGroupService {
         roleDtos = filterRoleDtosForPortalScope(roleDtos, resolvePortalScopeForSession(username));
         roleDtos = filterRoleDtosForGroupClassification(roleDtos, userGroupReturned.getOrganizationClassification());
         userGroupDto.setUserRoleDtoSet(roleDtos);
+        userGroupDto.setLocked(userGroupReturned.isLocked());
+        userGroupDto.setDefaultRoleIds(
+                userGroupReturned.getDefaultRoleIds() == null
+                        ? new java.util.HashSet<>()
+                        : new java.util.HashSet<>(userGroupReturned.getDefaultRoleIds()));
         enrichMemberCount(userGroupDto);
 
         message = messageService.getMessage(I18Code.MESSAGE_USER_GROUP_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
@@ -293,7 +323,8 @@ public class UserGroupServiceImpl implements UserGroupService {
 
         UserGroup userGroupToBeEdited = userGroupRetrieved.get();
 
-        userGroupToBeEdited.setName(editUserGroupRequest.getName());
+        String normalizedName = UserGroupNameSupport.normalize(editUserGroupRequest.getName());
+        userGroupToBeEdited.setName(normalizedName);
         userGroupToBeEdited.setDescription(editUserGroupRequest.getDescription());
 
         UserGroup userGroupEdited = userGroupServiceAuditable.update(userGroupToBeEdited, locale, username);
@@ -385,6 +416,7 @@ public class UserGroupServiceImpl implements UserGroupService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public UserGroupResponse findByMultipleFilters(UserGroupMultipleFiltersRequest userGroupMultipleFiltersRequest, String username, Locale locale) {
 
         String message = "";
@@ -404,8 +436,9 @@ public class UserGroupServiceImpl implements UserGroupService {
             return response;
         }
 
-        Pageable pageable = PageRequest.of(userGroupMultipleFiltersRequest.getPage(),
-                userGroupMultipleFiltersRequest.getSize());
+        int page = Math.max(0, userGroupMultipleFiltersRequest.getPage());
+        int size = userGroupMultipleFiltersRequest.getSize() <= 0 ? 10 : userGroupMultipleFiltersRequest.getSize();
+        Pageable pageable = PageRequest.of(page, size);
 
         ValidatorDto nameValidatorDto = userGroupServiceValidator.isStringValid(
                 userGroupMultipleFiltersRequest.getName(), locale);
@@ -436,9 +469,10 @@ public class UserGroupServiceImpl implements UserGroupService {
         Optional<Long> workspaceOrganizationId = resolveWorkspaceOrganizationFilter(
                 username, userGroupMultipleFiltersRequest);
         if (workspaceOrganizationId.isPresent()) {
-            // Strictly scope to the organisation's own groups so workspace users never see the
-            // platform-wide Administrator (organization_id IS NULL) or other organisations' groups.
-            spec = addToSpec(workspaceOrganizationId.get(), spec, UserGroupSpecification::organizationIdEquals);
+            // Scope to the organisation's own groups PLUS the shared classification default admin group
+            // (organization_id IS NULL) that the org's admins belong to, so workspace users see their
+            // inherited Administrator roles (read-only) without seeing other organisations' groups.
+            spec = addToSpec(workspaceOrganizationId.get(), spec, UserGroupSpecification::organizationWorkspaceVisible);
         }
 
         Page<UserGroup> result = userGroupRepository.findAll(spec, pageable);
@@ -511,6 +545,30 @@ public class UserGroupServiceImpl implements UserGroupService {
         Set<UserRole> rolesToAssign = userRoleSet.stream()
                 .filter(role -> role.getId() != null && !existingRoleIds.contains(role.getId()))
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        // Org-scoped groups may not receive a classification's default roles while that classification
+        // is LOCKED — those admin roles are inherited (read-only) from the shared classification default.
+        if (userGroupToBeUpdated.getOrganizationId() != null) {
+            String classification = userGroupToBeUpdated.getOrganizationClassification();
+            if (classification != null && !classification.isBlank()) {
+                Optional<UserGroup> defaultGroup = userGroupRepository
+                        .findByOrganizationIdIsNullAndOrganizationClassificationIgnoreCaseAndNameIgnoreCaseAndEntityStatusNot(
+                                classification.trim().toUpperCase(),
+                                OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME,
+                                EntityStatus.DELETED);
+                if (defaultGroup.isPresent() && defaultGroup.get().isLocked()) {
+                    Set<Long> lockedRoleIds = defaultGroup.get().getDefaultRoleIds();
+                    boolean violates = rolesToAssign.stream()
+                            .anyMatch(r -> r.getId() != null && lockedRoleIds.contains(r.getId()));
+                    if (violates) {
+                        message = messageService.getMessage(
+                                I18Code.MESSAGE_CLASSIFICATION_ROLES_LOCKED.getCode(),
+                                new String[]{classification}, locale);
+                        return buildUserGroupResponseWithErrors(403, false, message, null, null, List.of(message));
+                    }
+                }
+            }
+        }
 
         int skippedRoleCount = userRoleSet.size() - rolesToAssign.size();
 
@@ -716,6 +774,18 @@ public class UserGroupServiceImpl implements UserGroupService {
             }
 
             User user = userOptional.get();
+
+            // Org-scoped groups may only receive users belonging to the same organisation.
+            // Platform-wide groups (organizationId == null) accept any user.
+            if (targetGroup.getOrganizationId() != null
+                    && !targetGroup.getOrganizationId().equals(user.getOrganizationId())) {
+
+                message = messageService.getMessage(I18Code.MESSAGE_USER_ORG_MISMATCH_FOR_GROUP.getCode(),
+                        new String[]{}, locale);
+
+                return buildUserGroupResponse(400, false, message, null, null, null);
+            }
+
             UserGroup previousGroup = user.getUserGroup();
 
             if (previousGroup != null
@@ -975,20 +1045,47 @@ public class UserGroupServiceImpl implements UserGroupService {
         return organizationWorkspaceAccessSupport.sessionOrganizationId(username).orElse(null);
     }
 
-    private Optional<UserGroup> existingActiveGroupByName(String normalizedName, Long organizationId) {
+    private Optional<UserGroup> existingActiveGroupByName(
+            String normalizedName, Long organizationId, String classification) {
         if (organizationId != null && organizationId > 0) {
             return userGroupRepository.findByOrganizationIdAndNameIgnoreCaseAndEntityStatusNot(
                     organizationId, normalizedName, EntityStatus.DELETED);
         }
-        return userGroupRepository.findByNameAndEntityStatusNot(normalizedName, EntityStatus.DELETED);
+        if (StringUtils.hasText(classification)) {
+            return userGroupRepository.findByOrganizationIdIsNullAndOrganizationClassificationIgnoreCaseAndNameIgnoreCaseAndEntityStatusNot(
+                    classification, normalizedName, EntityStatus.DELETED);
+        }
+        return userGroupRepository.findByOrganizationIdIsNullAndNameIgnoreCaseAndEntityStatusNot(
+                normalizedName, EntityStatus.DELETED);
     }
 
-    private Optional<UserGroup> existingDeletedGroupByName(String normalizedName, Long organizationId) {
+    private Optional<UserGroup> existingDeletedGroupByName(
+            String normalizedName, Long organizationId, String classification) {
         return userGroupRepository.findByName(normalizedName)
                 .filter(group -> group.getEntityStatus() == EntityStatus.DELETED
-                        && (organizationId == null
-                        || organizationId <= 0
-                        || organizationId.equals(group.getOrganizationId())));
+                        && matchesGroupScope(group, organizationId, classification));
+    }
+
+    private boolean matchesGroupScope(UserGroup group, Long organizationId, String classification) {
+        if (organizationId != null && organizationId > 0) {
+            return organizationId.equals(group.getOrganizationId());
+        }
+        if (StringUtils.hasText(classification)) {
+            return group.getOrganizationId() == null
+                    && classification.equalsIgnoreCase(
+                    group.getOrganizationClassification() != null
+                            ? group.getOrganizationClassification().trim()
+                            : "");
+        }
+        return group.getOrganizationId() == null
+                && !StringUtils.hasText(group.getOrganizationClassification());
+    }
+
+    private String normalizeRequestedClassification(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return null;
+        }
+        return raw.trim().toUpperCase(Locale.ROOT);
     }
 
     private Specification<UserGroup> addToSpec(final Long value, Specification<UserGroup> spec,
@@ -1018,24 +1115,37 @@ public class UserGroupServiceImpl implements UserGroupService {
         return spec;
     }
 
-        private Page<UserGroupDto> convertUserGroupEntityToUserGroupDto(Page<UserGroup> userGroupPage) {
+    private Page<UserGroupDto> convertUserGroupEntityToUserGroupDto(Page<UserGroup> userGroupPage) {
 
         List<UserGroupDto> userGroupDtoList = new ArrayList<>();
 
         for (UserGroup userGroup : userGroupPage) {
-            UserGroupDto userGroupDto = modelMapper.map(userGroup, UserGroupDto.class);
+            UserGroupDto userGroupDto = toUserGroupListDto(userGroup);
             enrichMemberCount(userGroupDto);
             userGroupDtoList.add(userGroupDto);
         }
 
         int page = userGroupPage.getNumber();
         int size = userGroupPage.getSize();
-
         size = size <= 0 ? 10 : size;
 
         Pageable pageableUserGroups = PageRequest.of(page, size);
 
-        return new PageImpl<UserGroupDto>(userGroupDtoList, pageableUserGroups, userGroupPage.getTotalElements());
+        return new PageImpl<>(userGroupDtoList, pageableUserGroups, userGroupPage.getTotalElements());
+    }
+
+    /** List/paged views: scalar fields only — avoids lazy-loading roles and defaultRoleIds (open-in-view is off). */
+    private static UserGroupDto toUserGroupListDto(UserGroup userGroup) {
+        UserGroupDto dto = new UserGroupDto();
+        dto.setId(userGroup.getId());
+        dto.setName(userGroup.getName());
+        dto.setDescription(userGroup.getDescription());
+        dto.setOrganizationId(userGroup.getOrganizationId());
+        dto.setOrganizationClassification(userGroup.getOrganizationClassification());
+        dto.setSystemGroup(userGroup.isSystemGroup());
+        dto.setLocked(userGroup.isLocked());
+        dto.setSystemGroupAlias(userGroup.getSystemGroupAlias());
+        return dto;
     }
 
     private List<UserGroup> collapseDuplicateAdministratorGroups(List<UserGroup> groups) {

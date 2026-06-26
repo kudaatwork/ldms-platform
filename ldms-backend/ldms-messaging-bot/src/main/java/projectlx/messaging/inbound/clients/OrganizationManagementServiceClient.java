@@ -10,7 +10,7 @@ import java.util.Locale;
 
 public interface OrganizationManagementServiceClient {
 
-    @GetMapping("/ldms-organization-management/v1/system/organization/find-by-id/{id}")
+    @GetMapping("/ldms-organization-management/v1/system/organization/{id}")
     OrganizationResponse findById(
             @PathVariable("id") Long id,
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale);

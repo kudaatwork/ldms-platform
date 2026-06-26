@@ -13,12 +13,15 @@ export interface UserAssignUserGroupDialogData {
   userId: number;
   /** When set, pre-selects this group in the list */
   currentGroupId?: number | null;
+  /** The user's organisation — restricts the picker to platform + same-org groups. */
+  userOrganizationId?: number | null;
 }
 
 interface UserGroupOption {
   id: number;
   name: string;
   description: string;
+  organizationId: number | null;
 }
 
 @Component({
@@ -83,13 +86,26 @@ export class UserAssignUserGroupDialogComponent implements OnInit {
       })
       .subscribe({
         next: ({ rows }) => {
+          const userOrgId = this.data.userOrganizationId;
+          const hasUserOrg = userOrgId != null && Number.isFinite(userOrgId) && userOrgId > 0;
           this.groups = rows
-            .map((r) => ({
-              id: Number(r['id'] ?? 0),
-              name: String(r['name'] ?? '').trim(),
-              description: String(r['description'] ?? '').trim(),
-            }))
-            .filter((g) => Number.isFinite(g.id) && g.id > 0);
+            .map((r) => {
+              const orgRaw = r['organizationId'] ?? r['organization_id'];
+              return {
+                id: Number(r['id'] ?? 0),
+                name: String(r['name'] ?? '').trim(),
+                description: String(r['description'] ?? '').trim(),
+                organizationId: orgRaw == null ? null : Number(orgRaw),
+              };
+            })
+            .filter((g) => Number.isFinite(g.id) && g.id > 0)
+            // Platform groups (no org) are always assignable; org-scoped groups only when they
+            // match the user's organisation — mirrors the backend membership rule.
+            .filter(
+              (g) =>
+                g.organizationId == null ||
+                (hasUserOrg && g.organizationId === Math.trunc(userOrgId as number)),
+            );
           const current = this.data.currentGroupId;
           if (Number.isFinite(current) && (current as number) > 0) {
             const hit = this.groups.find((g) => g.id === current);

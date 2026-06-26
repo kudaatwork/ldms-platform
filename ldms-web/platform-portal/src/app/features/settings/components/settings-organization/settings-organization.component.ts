@@ -135,6 +135,23 @@ export class SettingsOrganizationComponent implements OnInit, OnDestroy {
     }
   }
 
+  get kycStatusClass(): string {
+    const ks = (this.org?.kycStatus ?? '').toUpperCase();
+    if (ks === 'APPROVED') {
+      return 'org-settings__status-pill org-settings__status-pill--approved';
+    }
+    if (ks === 'REJECTED') {
+      return 'org-settings__status-pill org-settings__status-pill--rejected';
+    }
+    if (ks.startsWith('STAGE_')) {
+      return 'org-settings__status-pill org-settings__status-pill--review';
+    }
+    if (ks === 'SUBMITTED' || ks === 'RESUBMITTED') {
+      return 'org-settings__status-pill org-settings__status-pill--submitted';
+    }
+    return 'org-settings__status-pill org-settings__status-pill--draft';
+  }
+
   get kycDocuments(): { uploadId: number; label: string; category: string }[] {
     const org = this.org;
     if (!org) {
@@ -388,8 +405,6 @@ export class SettingsOrganizationComponent implements OnInit, OnDestroy {
         if (!updated) {
           return;
         }
-        this.org = updated;
-        this.applyOrgToForm(updated);
         const user = this.authState.currentUser;
         if (user) {
           this.authState.setCurrentUser({
@@ -398,6 +413,25 @@ export class SettingsOrganizationComponent implements OnInit, OnDestroy {
           });
         }
         this.snackBar.open('Organisation settings saved.', 'Dismiss', { duration: 3500 });
+        // The update response can omit the resolved address hierarchy (province/district/city/suburb),
+        // which briefly clears the address fields. Re-fetch the authoritative record so they persist
+        // without needing a page refresh.
+        this.orgService
+          .getMy()
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (fresh) => {
+              const org = fresh ?? updated;
+              this.org = org;
+              this.applyOrgToForm(org);
+              this.cdr.markForCheck();
+            },
+            error: () => {
+              this.org = updated;
+              this.applyOrgToForm(updated);
+              this.cdr.markForCheck();
+            },
+          });
       });
   }
 

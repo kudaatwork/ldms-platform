@@ -22,6 +22,10 @@ import {
   BotSessionStatus,
 } from '../../services/bot-service-mock.data';
 import { BotServiceAdminService } from '../../services/bot-service-admin.service';
+import {
+  BotLlmSettings,
+  BotLlmSettingsAdminService,
+} from '../../services/bot-llm-settings-admin.service';
 
 type StatusFilter = 'ALL' | BotSessionStatus;
 type PageView = 'live' | 'topics';
@@ -60,6 +64,19 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
   analytics: BotAnalyticsSummary | null = null;
   analyticsDays = 30;
 
+  llmSettings: BotLlmSettings | null = null;
+  llmLoading = false;
+  llmSaving = false;
+  llmError = '';
+  llmProvider = 'auto';
+  llmModel = '';
+
+  readonly llmProviderOptions: Array<{ id: string; label: string }> = [
+    { id: 'auto', label: 'Auto' },
+    { id: 'anthropic', label: 'Claude' },
+    { id: 'gemini', label: 'Gemini' },
+  ];
+
   search = signal('');
   statusFilter = signal<StatusFilter>('ALL');
   topicFilter = signal('');
@@ -80,6 +97,7 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
 
   constructor(
     private readonly botService: BotServiceAdminService,
+    private readonly llmSettingsService: BotLlmSettingsAdminService,
     private readonly analyticsService: BotAnalyticsAdminService,
     private readonly cdr: ChangeDetectorRef,
     private readonly title: Title,
@@ -94,6 +112,7 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
       this.pageView.set('live');
     }
     this.reload();
+    this.loadLlmSettings();
     timer(5000, 5000)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
@@ -149,6 +168,113 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
           this.cdr.markForCheck();
         },
       });
+  }
+
+  loadLlmSettings(): void {
+    this.llmLoading = true;
+    this.llmError = '';
+    this.llmSettingsService
+      .currentSettings()
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.llmLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (settings) => {
+          this.llmSettings = settings;
+          this.llmProvider = settings.runtimeProvider ?? settings.configuredProvider ?? 'auto';
+          this.llmModel = this.resolveLlmModelSelection(settings);
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.llmError = err.message;
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  applyLlmSettings(): void {
+    if (this.llmSaving) {
+      return;
+    }
+    if (this.llmProvider === 'gemini' && !this.llmSettings?.geminiConfigured) {
+      this.llmError = 'Gemini is not configured on this server (missing API key).';
+      return;
+    }
+    if (this.llmProvider === 'anthropic' && !this.llmSettings?.anthropicConfigured) {
+      this.llmError = 'Claude is not configured on this server (missing API key).';
+      return;
+    }
+    if (this.llmProvider !== 'auto' && !this.llmModel?.trim()) {
+      this.llmError = 'Select a model before applying.';
+      return;
+    }
+    this.llmSaving = true;
+    this.llmError = '';
+    const provider = this.llmProvider === 'auto' ? '' : this.llmProvider;
+    const payload =
+      this.llmProvider === 'gemini'
+        ? { provider, geminiModel: this.llmModel || null, anthropicModel: null }
+        : this.llmProvider === 'anthropic'
+          ? { provider, anthropicModel: this.llmModel || null, geminiModel: null }
+          : { provider: null, geminiModel: null, anthropicModel: null };
+
+    this.llmSettingsService
+      .updateRuntime(payload)
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.llmSaving = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (settings) => {
+          this.llmSettings = settings;
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.llmError = err.message;
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  onLlmProviderChange(): void {
+    const options = this.llmModelOptions;
+    this.llmModel = options.length ? options[0].modelId : '';
+    this.cdr.markForCheck();
+  }
+
+  get llmModelOptions(): Array<{ modelId: string; label: string }> {
+    const catalog = this.llmSettings?.modelCatalog ?? [];
+    const provider = this.llmProvider === 'auto' ? this.llmSettings?.activeProvider ?? 'anthropic' : this.llmProvider;
+    return catalog
+      .filter((row) => row.providerId === provider)
+      .map((row) => ({ modelId: row.modelId, label: row.label }));
+  }
+
+  llmActiveLabel(): string {
+    if (!this.llmSettings) {
+      return 'Loading…';
+    }
+    const provider = this.llmSettings.activeProvider ?? '—';
+    const model = this.llmSettings.activeModel ?? '—';
+    return `${provider} · ${model}`;
+  }
+
+  private resolveLlmModelSelection(settings: BotLlmSettings): string {
+    const provider = settings.runtimeProvider ?? settings.activeProvider ?? 'auto';
+    if (provider === 'gemini') {
+      return settings.runtimeGeminiModel ?? settings.activeModel ?? '';
+    }
+    if (provider === 'anthropic') {
+      return settings.runtimeAnthropicModel ?? settings.activeModel ?? '';
+    }
+    return settings.activeModel ?? '';
   }
 
   setPageView(view: PageView): void {

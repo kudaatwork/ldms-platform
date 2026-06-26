@@ -436,6 +436,10 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
       typeof currentGroupIdRaw === 'number' && Number.isFinite(currentGroupIdRaw) && currentGroupIdRaw > 0
         ? currentGroupIdRaw
         : Number(currentGroupIdRaw);
+    const orgIdRaw = this.bundle.user?.['organizationId'] ?? this.bundle.user?.['organization_id'];
+    const orgIdParsed = Number(orgIdRaw);
+    const userOrganizationId =
+      orgIdRaw != null && Number.isFinite(orgIdParsed) && orgIdParsed > 0 ? orgIdParsed : null;
     this.dialog
       .open(UserAssignUserGroupDialogComponent, {
         width: '560px',
@@ -445,6 +449,7 @@ export class UserProfileShellComponent implements OnInit, OnDestroy {
         data: {
           userId: this.userIdNumber,
           currentGroupId: Number.isFinite(currentGroupId) && currentGroupId > 0 ? currentGroupId : null,
+          userOrganizationId,
         },
       })
       .afterClosed()

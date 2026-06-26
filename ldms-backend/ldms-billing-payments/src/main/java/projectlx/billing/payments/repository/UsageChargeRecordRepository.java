@@ -5,9 +5,11 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import projectlx.billing.payments.model.UsageChargeRecord;
 import projectlx.billing.payments.utils.enums.OrganizationBillingMode;
+import projectlx.billing.payments.utils.enums.PlatformBillingTier;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 
 public interface UsageChargeRecordRepository extends JpaRepository<UsageChargeRecord, Long> {
@@ -146,6 +148,21 @@ public interface UsageChargeRecordRepository extends JpaRepository<UsageChargeRe
             """)
     long countMessagingUsageInPeriod(
             @Param("organizationId") Long organizationId,
+            @Param("periodStart") LocalDateTime periodStart,
+            @Param("periodEnd") LocalDateTime periodEnd,
+            @Param("deleted") EntityStatus deleted);
+
+    @Query("""
+            SELECT COUNT(u) FROM UsageChargeRecord u
+            WHERE u.organizationId = :organizationId
+              AND u.billingTier IN :tiers
+              AND u.entityStatus <> :deleted
+              AND u.createdAt >= :periodStart
+              AND u.createdAt < :periodEnd
+            """)
+    long countTierUsageInPeriod(
+            @Param("organizationId") Long organizationId,
+            @Param("tiers") Collection<PlatformBillingTier> tiers,
             @Param("periodStart") LocalDateTime periodStart,
             @Param("periodEnd") LocalDateTime periodEnd,
             @Param("deleted") EntityStatus deleted);

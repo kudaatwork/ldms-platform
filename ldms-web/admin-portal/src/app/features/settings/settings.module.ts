@@ -6,12 +6,10 @@ import { SettingsGroupRolesComponent } from './components/settings-group-roles/s
 import { SettingsKycApproversComponent } from './components/settings-kyc-approvers/settings-kyc-approvers.component';
 import { SettingsCurrencyComponent } from './components/settings-currency/settings-currency.component';
 import { SettingsPlatformBillingComponent } from './components/settings-platform-billing/settings-platform-billing.component';
-import { SettingsOrganizationDocumentsComponent } from './components/settings-organization-documents/settings-organization-documents.component';
 import { PlatformActionChargeFormDialogComponent } from './components/platform-action-charge-form-dialog/platform-action-charge-form-dialog.component';
 import { SubscriptionPackageFormDialogComponent } from './components/subscription-package-form-dialog/subscription-package-form-dialog.component';
 import { WalletDepositDetailDialogComponent } from './components/wallet-deposit-detail-dialog/wallet-deposit-detail-dialog.component';
 import { WalletDepositRejectDialogComponent } from './components/wallet-deposit-reject-dialog/wallet-deposit-reject-dialog.component';
-import { OrganizationDocumentsPanelComponent } from '../../shared/components/organization-documents-panel/organization-documents-panel.component';
 
 @NgModule({
   declarations: [
@@ -20,12 +18,11 @@ import { OrganizationDocumentsPanelComponent } from '../../shared/components/org
     SettingsKycApproversComponent,
     SettingsCurrencyComponent,
     SettingsPlatformBillingComponent,
-    SettingsOrganizationDocumentsComponent,
     PlatformActionChargeFormDialogComponent,
     SubscriptionPackageFormDialogComponent,
     WalletDepositDetailDialogComponent,
     WalletDepositRejectDialogComponent,
   ],
-  imports: [SharedModule, SettingsRoutingModule, OrganizationDocumentsPanelComponent],
+  imports: [SharedModule, SettingsRoutingModule],
 })
 export class SettingsModule {}

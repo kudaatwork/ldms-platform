@@ -45,3 +45,16 @@ You are the Senior System Architect for Project LX LDMS.
 @mobile-developer → Flutter screens/providers/API clients
 @java-code-reviewer → review before merging any service
 @test-engineer → E2E test scripts and SQL verification
+
+## INSTRUCTIONS
+@ldms-microservice-package-structure → canonical package layout and layering rules
+@ldms-system-architecture → 23 services, phases, events, clients
+@ldms-data-models → entity/DTO/request/response patterns across all layers
+@project-lx-platform-pricing → wallet charges, subscriptions, billing
+@platform-portal-org-onboarding → supplier-initiated customer/transporter onboarding
+
+## SKILLS
+@ldms-create-microservice → scaffold a new backend microservice
+@ldms-create-entity → scaffold a new JPA entity, DTO, request, response, repo, and Flyway migration
+@ldms-flyway-migration → write Flyway SQL migrations
+@ldms-angular-feature → scaffold Angular feature module

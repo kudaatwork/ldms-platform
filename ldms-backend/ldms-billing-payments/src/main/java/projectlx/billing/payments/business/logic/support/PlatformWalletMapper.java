@@ -13,11 +13,15 @@ import projectlx.billing.payments.utils.dtos.OrganizationBillingSettingDto;
 import projectlx.billing.payments.utils.dtos.PlatformActionChargeDto;
 import projectlx.billing.payments.utils.dtos.PlatformWalletSummaryDto;
 import projectlx.billing.payments.utils.dtos.SubscriptionPackageDto;
+import projectlx.billing.payments.utils.dtos.SubscriptionQuotaMeterDto;
 import projectlx.billing.payments.utils.dtos.UsageChargeRecordDto;
 import projectlx.billing.payments.utils.dtos.WalletDepositDto;
 import projectlx.billing.payments.utils.dtos.WalletTransactionDto;
+import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 
 public final class PlatformWalletMapper {
 
@@ -99,6 +103,12 @@ public final class PlatformWalletMapper {
             dto.setLowBalanceThresholdCents(setting.getLowBalanceThresholdCents());
             dto.setSubscriptionPackageId(setting.getSubscriptionPackageId());
             dto.setSubscriptionPackageName(packageName);
+            if (setting.getSubscriptionStartedAt() != null) {
+                dto.setSubscriptionStartedAt(setting.getSubscriptionStartedAt().format(ISO));
+            }
+            if (setting.getSubscriptionRenewsAt() != null) {
+                dto.setSubscriptionRenewsAt(setting.getSubscriptionRenewsAt().format(ISO));
+            }
             long threshold = setting.getLowBalanceThresholdCents() != null ? setting.getLowBalanceThresholdCents() : 0L;
             long balance = wallet.getBalanceCents() != null ? wallet.getBalanceCents() : 0L;
             dto.setLowBalance(balance <= threshold);
@@ -120,9 +130,58 @@ public final class PlatformWalletMapper {
                 boolean exhausted = SubscriptionMessagingQuotaSupport.isQuotaExhausted(smsQuota, smsUsed)
                         && balance < 10L;
                 dto.setSmsQuotaExhausted(exhausted);
+
+                dto.setSubscriptionQuotas(buildQuotaMeters(
+                        wallet.getOrganizationId(), setting, subscriptionPackage, usageChargeRecordRepository));
             }
         }
         return dto;
+    }
+
+    /** Builds a usage meter for each configurable subscription quota bucket the package grants. */
+    private static List<SubscriptionQuotaMeterDto> buildQuotaMeters(
+            Long organizationId,
+            OrganizationBillingSetting setting,
+            SubscriptionPackage subscriptionPackage,
+            UsageChargeRecordRepository usageChargeRecordRepository) {
+        List<SubscriptionQuotaMeterDto> meters = new ArrayList<>();
+        meters.add(buildMeter(SubscriptionQuotaSupport.Dimension.MILESTONE, "Milestone events",
+                organizationId, setting, subscriptionPackage, usageChargeRecordRepository));
+        meters.add(buildMeter(SubscriptionQuotaSupport.Dimension.MESSAGING, "SMS / WhatsApp",
+                organizationId, setting, subscriptionPackage, usageChargeRecordRepository));
+        meters.add(buildMeter(SubscriptionQuotaSupport.Dimension.TRACKING, "Premium GPS trip-days",
+                organizationId, setting, subscriptionPackage, usageChargeRecordRepository));
+        meters.removeIf(meter -> meter == null || meter.getIncludedMonthly() == null || meter.getIncludedMonthly() <= 0);
+        return meters;
+    }
+
+    private static SubscriptionQuotaMeterDto buildMeter(
+            SubscriptionQuotaSupport.Dimension dimension,
+            String label,
+            Long organizationId,
+            OrganizationBillingSetting setting,
+            SubscriptionPackage subscriptionPackage,
+            UsageChargeRecordRepository usageChargeRecordRepository) {
+        int included = SubscriptionQuotaSupport.quotaFor(dimension, subscriptionPackage);
+        if (included <= 0) {
+            return null;
+        }
+        long used = dimension == SubscriptionQuotaSupport.Dimension.MESSAGING
+                ? SubscriptionMessagingQuotaSupport.countMessagingUsed(organizationId, setting, usageChargeRecordRepository)
+                : usageChargeRecordRepository.countTierUsageInPeriod(
+                        organizationId,
+                        SubscriptionQuotaSupport.tiersFor(dimension),
+                        SubscriptionMessagingQuotaSupport.periodStart(setting),
+                        SubscriptionMessagingQuotaSupport.periodEnd(setting),
+                        EntityStatus.DELETED);
+        SubscriptionQuotaMeterDto meter = new SubscriptionQuotaMeterDto();
+        meter.setCode(dimension.name());
+        meter.setLabel(label);
+        meter.setIncludedMonthly(included);
+        meter.setUsedThisPeriod(used);
+        meter.setRemainingThisPeriod((int) Math.max(0, included - Math.min(Integer.MAX_VALUE, used)));
+        meter.setExhausted(SubscriptionQuotaSupport.isQuotaExhausted(included, used));
+        return meter;
     }
 
     public static WalletDepositDto toDto(WalletDeposit entity) {
@@ -134,10 +193,17 @@ public final class PlatformWalletMapper {
         dto.setReferenceNumber(entity.getReferenceNumber());
         dto.setNotes(entity.getNotes());
         dto.setStatus(entity.getStatus() != null ? entity.getStatus().name() : null);
+        dto.setPurpose(entity.getPurpose() != null ? entity.getPurpose().name() : null);
+        dto.setSubscriptionPackageId(entity.getSubscriptionPackageId());
         dto.setProofDocumentId(entity.getProofDocumentId());
         dto.setGatewayProvider(entity.getGatewayProvider());
         dto.setPaymentMethod(entity.getPaymentMethod());
         dto.setRejectionReason(entity.getRejectionReason());
+        dto.setReceiptEmailStatus(entity.getReceiptEmailStatus() != null ? entity.getReceiptEmailStatus().name() : null);
+        dto.setReceiptEmailAddress(entity.getReceiptEmailAddress());
+        if (entity.getReceiptEmailAt() != null) {
+            dto.setReceiptEmailAt(entity.getReceiptEmailAt().format(ISO));
+        }
         if (entity.getCreatedAt() != null) {
             dto.setCreatedAt(entity.getCreatedAt().format(ISO));
         }

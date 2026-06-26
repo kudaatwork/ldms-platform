@@ -36,6 +36,42 @@
     <button type="button" class="bot-alert__action" (click)="reload()">Retry</button>
   </div>
 
+  <section class="bot-llm-bar lx-card" aria-label="Assistant model">
+    <div class="bot-llm-bar__meta">
+      <mat-icon aria-hidden="true">psychology</mat-icon>
+      <div>
+        <strong>Assistant model</strong>
+        <span class="bot-llm-bar__active">Active: {{ llmActiveLabel() }}</span>
+      </div>
+    </div>
+    <div class="bot-llm-bar__controls">
+      <label class="bot-llm-bar__field">
+        <span>Provider</span>
+        <select [(ngModel)]="llmProvider" (ngModelChange)="onLlmProviderChange()" [disabled]="llmLoading || llmSaving">
+          <option *ngFor="let p of llmProviderOptions" [ngValue]="p.id">{{ p.label }}</option>
+        </select>
+      </label>
+      <label class="bot-llm-bar__field" *ngIf="llmProvider !== 'auto'">
+        <span>Model</span>
+        <select [(ngModel)]="llmModel" [disabled]="llmLoading || llmSaving || !llmModelOptions.length">
+          <option *ngFor="let m of llmModelOptions" [ngValue]="m.modelId">{{ m.label }}</option>
+        </select>
+      </label>
+      <button
+        type="button"
+        class="lx-btn lx-btn-primary lx-btn-sm"
+        (click)="applyLlmSettings()"
+        [disabled]="llmLoading || llmSaving"
+      >
+        Apply
+      </button>
+    </div>
+    <p class="bot-llm-bar__hint" *ngIf="llmSettings && !llmSettings.geminiConfigured && !llmSettings.anthropicConfigured">
+      No API keys on server — set <code>ANTHROPIC_API_KEY</code> or <code>GEMINI_API_KEY</code> in <code>.env</code> and restart messaging-bot.
+    </p>
+    <p class="bot-llm-bar__error" *ngIf="llmError">{{ llmError }}</p>
+  </section>
+
   <!-- ── Live chat workspace ───────────────────────────── -->
   <div class="bot-workspace" *ngIf="pageView() === 'live'" [class.bot-workspace--loading]="loading">
     <aside class="bot-inbox lx-card">
@@ -150,7 +186,7 @@
               <mat-icon>smart_toy</mat-icon>
             </div>
             <div class="bot-msg__bubble">
-              <div class="bot-msg__role" *ngIf="m.role === 'bot'">LDMS Assistant</div>
+              <div class="bot-msg__role" *ngIf="m.role === 'bot'">Lexi</div>
               <div class="bot-msg__role bot-msg__role--system" *ngIf="m.role === 'system'">System</div>
               <div
                 class="bot-bubble__body bot-bubble__body--md"

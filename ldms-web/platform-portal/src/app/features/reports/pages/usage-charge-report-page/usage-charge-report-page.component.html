@@ -109,6 +109,7 @@
           <mat-icon class="lx-input-shell__icon">search</mat-icon>
           <input
             [(ngModel)]="tableSearchQuery"
+            (ngModelChange)="resetTablePage()"
             placeholder="Search line items…"
             [disabled]="!report?.records?.length"
           />
@@ -353,7 +354,7 @@
 
     <ng-container *ngIf="filteredRecords.length; else emptyTable">
       <div class="lx-table-wrap">
-        <table mat-table [dataSource]="filteredRecords" class="lx-mat-table usage-report-table__grid">
+        <table mat-table [dataSource]="pagedRecords" class="lx-mat-table usage-report-table__grid">
           <ng-container matColumnDef="time">
             <th mat-header-cell *matHeaderCellDef>Time</th>
             <td mat-cell *matCellDef="let row">{{ formatRowTime(row.createdAt) }}</td>
@@ -400,6 +401,15 @@
           <tr mat-row *matRowDef="let row; columns: displayedColumns" class="usage-report-row"></tr>
         </table>
       </div>
+      <mat-paginator
+        class="lx-table-paginator"
+        [length]="filteredRecords.length"
+        [pageIndex]="pageIndex"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="tablePageSizeOptions"
+        [showFirstLastButtons]="true"
+        (page)="onTablePage($event)"
+      ></mat-paginator>
     </ng-container>
 
     <ng-template #emptyTable>

@@ -36,6 +36,16 @@ ldms:
   api-gateway:
     base-url: http://${API_GATEWAY_HOST:127.0.0.1}:${GATEWAY_SERVER_PORT:8091}
   bot:
+    llm:
+      provider: ${BOT_LLM_PROVIDER:auto}
+      gemini:
+        api-key: ${GEMINI_API_KEY:}
+        model: ${GEMINI_MODEL:gemini-2.5-flash}
+        enabled: ${GEMINI_ENABLED:true}
+      anthropic:
+        api-key: ${ANTHROPIC_API_KEY:}
+        model: ${ANTHROPIC_MODEL:claude-sonnet-4-6}
+        enabled: ${ANTHROPIC_ENABLED:true}
     gemini:
       api-key: ${GEMINI_API_KEY:}
       model: ${GEMINI_MODEL:gemini-2.5-flash}

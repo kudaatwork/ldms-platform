@@ -1349,7 +1349,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
           barcode: '',
           productCode: 'GAS-OXY-40L-001',
           warehouseLocationId: 1,
-          supplierId: this.orgContext.organizationId ?? 9,
+          supplierId: this.orgContext.organizationId ?? 0,
           currentStock: 50,
           minStockLevel: 10,
           reorderQuantity: 25,

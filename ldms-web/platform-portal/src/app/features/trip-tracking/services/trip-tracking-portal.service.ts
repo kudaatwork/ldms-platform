@@ -3,6 +3,7 @@ import { Injectable } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import { isApiFailureEnvelope, readApiFailureMessage, readInBodyStatusCode } from '../../../core/utils/api-paged-response.util';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
+import { OrgContextService } from '../../../core/services/org-context.service';
 import {
   AssignTransportCompanyPayload,
   AllocateShipmentPayload,
@@ -28,15 +29,19 @@ export class TripTrackingPortalService {
   private readonly shipmentBase = ldmsServiceUrl('shipment-management', 'shipment', undefined, 'frontend');
   private readonly tripBase = ldmsServiceUrl('trip-tracking', 'trip', undefined, 'frontend');
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    private readonly orgContext: OrgContextService,
+  ) {}
 
   // ── Shipments ────────────────────────────────────────────────────────────
 
   /** POST /shipment/find-by-multiple-filters */
   findShipments(filters: ShipmentFilterPayload): Observable<ShipmentRow[]> {
     const payload: Record<string, unknown> = {};
-    if (filters.organizationId) {
-      payload['organizationId'] = filters.organizationId;
+    const organizationId = filters.organizationId ?? this.orgContext.organizationId ?? undefined;
+    if (organizationId) {
+      payload['organizationId'] = organizationId;
     }
     if (filters.inventoryTransferId) {
       payload['inventoryTransferId'] = filters.inventoryTransferId;
@@ -109,8 +114,9 @@ export class TripTrackingPortalService {
   /** POST /trip/find-by-multiple-filters */
   findTrips(filters: TripFilterPayload): Observable<TripRow[]> {
     const payload: Record<string, unknown> = { page: 0, size: 100 };
-    if (filters.organizationId) {
-      payload['organizationId'] = filters.organizationId;
+    const organizationId = filters.organizationId ?? this.orgContext.organizationId ?? undefined;
+    if (organizationId) {
+      payload['organizationId'] = organizationId;
     }
     if (filters.search?.trim()) {
       payload['searchTerm'] = filters.search.trim();

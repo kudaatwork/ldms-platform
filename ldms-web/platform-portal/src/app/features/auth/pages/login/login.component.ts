@@ -2,6 +2,8 @@ import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, E
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, NavigationExtras, Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
+import { take } from 'rxjs/operators';
 import { AuthService } from '../../../../core/services/auth.service';
 import { GoogleGsiService } from '../../../../core/services/google-gsi.service';
 import { ThemeService } from '../../../../core/services/theme.service';
@@ -87,7 +89,12 @@ export class LoginComponent implements OnInit, AfterViewInit {
 
   /** Replace login in browser history so Back does not return to the sign-in form after entry. */
   private async navigateAfterLogin(): Promise<void> {
-    // Always check mustChangeCredentials first — applies to both org and driver logins.
+    try {
+      await firstValueFrom(this.authService.initializeSession().pipe(take(1)));
+    } catch {
+      // Proceed with JWT-only session when enrichment is slow or unavailable.
+    }
+
     const postLoginRoute = this.authService.postLoginRoute();
     const needsCredentialSetup = postLoginRoute[0] === '/auth/setup-credentials';
 
@@ -106,8 +113,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
     try {
       let ok = await this.router.navigate(commands, extras);
       if (!ok) {
-        const path = `/${commands.filter(Boolean).join('/')}`;
-        ok = await this.router.navigateByUrl(path, { replaceUrl: true });
+        ok = await this.router.navigateByUrl(this.commandsToUrl(commands), { replaceUrl: true });
       }
       if (!ok) {
         this.error = 'Could not open your workspace after sign-in. Refresh the page or try again.';
@@ -117,6 +123,14 @@ export class LoginComponent implements OnInit, AfterViewInit {
       this.error = 'Navigation failed. Please try again.';
       this.cdr.markForCheck();
     }
+  }
+
+  /** Router commands may include leading slashes — join without producing `//segment`. */
+  private commandsToUrl(commands: string[]): string {
+    const segments = commands
+      .flatMap((command) => command.split('/'))
+      .filter((segment) => segment.length > 0);
+    return segments.length > 0 ? `/${segments.join('/')}` : '/dashboard';
   }
 
   ngAfterViewInit(): void {

@@ -99,6 +99,33 @@ public class BotKnowledgeDocumentRagSupport {
         return block.toString().trim();
     }
 
+    /**
+     * Clean excerpt for guide-mode user replies (no internal RAG scaffolding).
+     */
+    public String bestSnippetForUserReply(String userQuery) {
+        List<ScoredChunk> matches = rank(userQuery, 2);
+        if (matches.isEmpty()) {
+            return "";
+        }
+
+        Set<Long> matchedDocIds = matches.stream().map(s -> s.chunk().documentId()).collect(Collectors.toSet());
+        try {
+            botKnowledgeDocumentRepository.incrementUseCount(new ArrayList<>(matchedDocIds));
+        } catch (Exception ex) {
+            log.warn("Could not increment knowledge document use counts: {}", ex.getMessage());
+        }
+
+        StringBuilder snippet = new StringBuilder();
+        for (ScoredChunk scored : matches) {
+            if (snippet.length() > 0) {
+                snippet.append("\n\n");
+            }
+            snippet.append(scored.chunk().text().trim());
+        }
+        String text = snippet.toString().trim();
+        return text.length() <= 1200 ? text : text.substring(0, 1200).trim() + "…";
+    }
+
     List<ScoredChunk> rank(String userQuery, int topK) {
         if (userQuery == null || userQuery.isBlank() || chunkCache.isEmpty()) {
             return List.of();

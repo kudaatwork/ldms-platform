@@ -9,13 +9,14 @@
 .ba-panel {
   padding: 22px 24px;
   border-radius: 22px;
-  border: var(--card-border);
-  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-2) 100%);
-  box-shadow: var(--card-shadow);
-  transition: box-shadow 0.22s ease;
+  border: 1px solid color-mix(in srgb, var(--gray-400) 14%, transparent);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: none;
+  transition: border-color 0.22s ease;
 
   &:hover {
-    box-shadow: 0 20px 50px rgba(124, 58, 237, 0.08);
+    border-color: color-mix(in srgb, #8b5cf6 22%, transparent);
+    box-shadow: none;
   }
 
   &--chart { grid-column: span 8; }
@@ -72,8 +73,9 @@
     border-radius: 999px;
     font-size: 11px;
     font-weight: 800;
-    background: rgba(99, 102, 241, 0.1);
-    color: #4338ca;
+    background: color-mix(in srgb, #6366f1 12%, transparent);
+    border: 1px solid color-mix(in srgb, #6366f1 20%, transparent);
+    color: color-mix(in srgb, #6366f1 78%, var(--gray-900));
   }
 }
 
@@ -396,18 +398,18 @@
   gap: 12px;
   align-items: center;
   padding: 12px 14px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid color-mix(in srgb, var(--gray-400) 14%, transparent);
   border-radius: 16px;
-  background: rgba(248, 250, 252, 0.8);
+  background: color-mix(in srgb, var(--gray-400) 7%, transparent);
   cursor: pointer;
   text-align: left;
   transition: all 0.18s ease;
 
   &:hover {
-    border-color: rgba(99, 102, 241, 0.35);
-    background: var(--surface);
+    border-color: color-mix(in srgb, #6366f1 24%, transparent);
+    background: color-mix(in srgb, #6366f1 10%, transparent);
     transform: translateX(4px);
-    box-shadow: 0 10px 28px rgba(99, 102, 241, 0.1);
+    box-shadow: none;
 
     .ba-topic-row__arrow {
       opacity: 1;
@@ -423,7 +425,7 @@
     place-items: center;
     font-size: 13px;
     font-weight: 900;
-    background: rgba(15, 23, 42, 0.06);
+    background: color-mix(in srgb, var(--gray-400) 12%, transparent);
     color: var(--gray-500);
 
     &[data-medal='gold'] {
@@ -446,7 +448,7 @@
     display: block;
     font-size: 13px;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--gray-800);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -471,7 +473,7 @@
   &__count {
     font-size: 15px;
     font-weight: 900;
-    color: #4338ca;
+    color: color-mix(in srgb, #6366f1 78%, var(--gray-900));
   }
 
   &__arrow {

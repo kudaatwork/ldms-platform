@@ -31,24 +31,28 @@
         Balance is zero — inventory, fleet, trips, and other billable modules are locked until you top up.
       </p>
       <p class="settings-billing__hint" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION'">
-        Subscription mode — milestone usage is included up to package credits. SMS beyond your monthly quota deducts from your wallet.
+        Subscription mode — each attribute is included up to your package credits. Usage beyond a monthly quota deducts from your wallet at pay-as-you-go rates.
       </p>
-      <p class="settings-billing__hint settings-billing__hint--warn" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION' && walletSummary?.smsQuotaExhausted">
-        Monthly SMS quota exhausted — top up your wallet below to resume outbound SMS notifications.
+      <p class="settings-billing__hint settings-billing__hint--warn" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION' && hasExhaustedQuota">
+        One or more included quotas are used up — top up your wallet below to continue at pay-as-you-go rates.
       </p>
-      <div class="settings-billing__sms-meter" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION' && (walletSummary?.smsIncludedMonthly ?? 0) > 0">
-        <div class="settings-billing__sms-meter-head">
-          <span>SMS this period</span>
-          <strong>{{ walletSummary?.smsUsedThisPeriod ?? 0 }} / {{ walletSummary?.smsIncludedMonthly }}</strong>
+      <div class="settings-billing__meters" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION' && quotaMeters.length">
+        <div class="settings-billing__sms-meter" *ngFor="let meter of quotaMeters; trackBy: trackMeter">
+          <div class="settings-billing__sms-meter-head">
+            <span>{{ meter.label }} this period</span>
+            <strong>{{ meter.usedThisPeriod }} / {{ meter.includedMonthly }}</strong>
+          </div>
+          <div class="settings-billing__sms-meter-bar" aria-hidden="true">
+            <span
+              class="settings-billing__sms-meter-fill"
+              [style.width.%]="meterUsagePct(meter)"
+              [class.settings-billing__sms-meter-fill--warn]="meter.exhausted"
+            ></span>
+          </div>
+          <p class="settings-billing__hint">
+            {{ meter.remainingThisPeriod }} {{ meter.label }} remaining before wallet overage applies.
+          </p>
         </div>
-        <div class="settings-billing__sms-meter-bar" aria-hidden="true">
-          <span
-            class="settings-billing__sms-meter-fill"
-            [style.width.%]="smsUsagePct"
-            [class.settings-billing__sms-meter-fill--warn]="walletSummary?.smsQuotaExhausted"
-          ></span>
-        </div>
-        <p class="settings-billing__hint">{{ walletSummary?.smsRemainingThisPeriod ?? 0 }} SMS remaining before wallet overage applies.</p>
       </div>
     </div>
     <div class="settings-billing__balance-actions">
@@ -79,10 +83,18 @@
     <div class="settings-billing__panel">
       <div class="settings-billing__packages">
         @for (pkg of packages; track pkg.id) {
-          <label class="settings-billing__package" [class.settings-billing__package--featured]="pkg.featured">
+          <label
+            class="settings-billing__package"
+            [class.settings-billing__package--featured]="pkg.featured"
+            [class.settings-billing__package--active]="subscriptionPackageId === pkg.id"
+          >
             <input type="radio" name="subscriptionPackage" [value]="pkg.id" [(ngModel)]="subscriptionPackageId" />
+            <span class="settings-billing__package-check" aria-hidden="true">
+              <span class="material-icons">{{ subscriptionPackageId === pkg.id ? 'check_circle' : 'radio_button_unchecked' }}</span>
+            </span>
+            <span class="settings-billing__package-badge" *ngIf="pkg.featured">Featured</span>
             <span class="settings-billing__package-name">{{ pkg.name }}</span>
-            <span class="settings-billing__package-price">{{ packagePrice(pkg) }}/mo</span>
+            <span class="settings-billing__package-price">{{ packagePrice(pkg) }}<small>/month</small></span>
             <ul class="settings-billing__package-features" *ngIf="packageFeatures(pkg.description).length">
               @for (point of packageFeatures(pkg.description); track point) {
                 <li>{{ point }}</li>
@@ -94,6 +106,109 @@
           </label>
         }
       </div>
+    </div>
+  </section>
+
+  <section class="settings-billing__section" *ngIf="billingMode === 'PREMIUM_SUBSCRIPTION'">
+    <h3 class="settings-billing__section-title">3. Activate subscription</h3>
+    <div class="settings-billing__panel">
+      <div class="settings-billing__sub-status settings-billing__sub-status--active" *ngIf="subscriptionActive">
+        <mat-icon aria-hidden="true">verified</mat-icon>
+        <div>
+          <strong>{{ walletSummary?.subscriptionPackageName }} is active</strong>
+          <p *ngIf="subscriptionEndsAt">
+            Your paid month runs until {{ formatWhen(subscriptionEndsAt) }}, then your account automatically returns to
+            pay-as-you-go unless you renew.
+          </p>
+        </div>
+      </div>
+
+      <div class="settings-billing__sub-status settings-billing__sub-status--pending" *ngIf="pendingSubscription as pend">
+        <mat-icon aria-hidden="true">hourglass_top</mat-icon>
+        <div>
+          <strong>Activation pending LX approval</strong>
+          <p>
+            {{ pend.subscriptionPackageName || 'Your package' }} — {{ formatMoney(pend.amountCents, pend.currencyCode) }}
+            submitted {{ formatWhen(pend.createdAt) }}. LX activates it once your payment is confirmed.
+          </p>
+        </div>
+      </div>
+
+      <ng-container *ngIf="!pendingSubscription">
+        <p class="settings-billing__hint">
+          Pick a package above, pay by bank transfer or cash, and attach proof. LX activates your subscription for one
+          month after confirming payment.
+        </p>
+
+        <div class="settings-billing__sub-summary" *ngIf="selectedPackage as pkg">
+          <span>{{ pkg.name }}</span>
+          <strong>{{ packagePrice(pkg) }}/month</strong>
+        </div>
+
+        <div class="settings-billing__pay-methods">
+          @for (method of paymentMethods; track method.id) {
+            <button
+              type="button"
+              class="settings-billing__pay-method"
+              [class.settings-billing__pay-method--active]="depositPaymentMethod === method.id"
+              [class.settings-billing__pay-method--soon]="method.comingSoon"
+              [attr.aria-pressed]="depositPaymentMethod === method.id"
+              (click)="selectPaymentMethod(method.id)"
+            >
+              <span class="settings-billing__pay-method-badge" *ngIf="method.comingSoon">Coming soon</span>
+              <span class="settings-billing__pay-method-icon" aria-hidden="true">
+                <mat-icon>{{ method.icon }}</mat-icon>
+              </span>
+              <span class="settings-billing__pay-method-body">
+                <span class="settings-billing__pay-method-label">{{ method.label }}</span>
+                <span class="settings-billing__pay-method-hint">{{ method.hint }}</span>
+              </span>
+              <mat-icon
+                class="settings-billing__pay-method-check"
+                *ngIf="depositPaymentMethod === method.id && !method.comingSoon"
+                aria-hidden="true"
+                >check_circle</mat-icon
+              >
+            </button>
+          }
+        </div>
+
+        <div class="settings-billing__deposit-form lx-form-grid" *ngIf="!selectedPaymentMethod.comingSoon">
+          <div class="lx-field">
+            <label class="lx-field-label">Payment reference</label>
+            <div class="lx-input-shell">
+              <mat-icon class="lx-input-shell__icon">receipt</mat-icon>
+              <input [(ngModel)]="subscriptionReference" placeholder="Bank reference or receipt no." />
+            </div>
+          </div>
+          <div class="lx-field" *ngIf="depositPaymentMethod === 'BANK_TRANSFER'">
+            <label class="lx-field-label">Proof of payment</label>
+            <div class="settings-billing__proof">
+              <label class="lx-btn lx-btn-ghost lx-btn-sm settings-billing__proof-trigger">
+                <mat-icon>attach_file</mat-icon>
+                {{ subscriptionProofFile ? subscriptionProofFile.name : 'Attach bank slip or receipt…' }}
+                <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onSubscriptionProofSelected($event)" hidden />
+              </label>
+              <span class="settings-billing__proof-hint">PDF or image — required unless you enter a reference above</span>
+            </div>
+          </div>
+          <div class="settings-billing__deposit-actions span-2">
+            <button
+              type="button"
+              class="lx-btn lx-btn-primary"
+              [disabled]="submittingSubscription || !canSubmitSubscription"
+              (click)="submitSubscriptionActivation()"
+            >
+              {{ submittingSubscription ? 'Submitting…' : 'Submit for activation' }}
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-billing__gateways-hint" *ngIf="selectedPaymentMethod.comingSoon">
+          <mat-icon aria-hidden="true">info</mat-icon>
+          <span>PayNow, PayPal, and Mastercard checkout will be enabled in a future release. Use bank transfer or cash today.</span>
+        </div>
+      </ng-container>
     </div>
   </section>
 
@@ -112,12 +227,23 @@
             class="settings-billing__pay-method"
             [class.settings-billing__pay-method--active]="depositPaymentMethod === method.id"
             [class.settings-billing__pay-method--soon]="method.comingSoon"
+            [attr.aria-pressed]="depositPaymentMethod === method.id"
             (click)="selectPaymentMethod(method.id)"
           >
-            <mat-icon aria-hidden="true">{{ method.icon }}</mat-icon>
-            <span class="settings-billing__pay-method-label">{{ method.label }}</span>
-            <span class="settings-billing__pay-method-hint">{{ method.hint }}</span>
             <span class="settings-billing__pay-method-badge" *ngIf="method.comingSoon">Coming soon</span>
+            <span class="settings-billing__pay-method-icon" aria-hidden="true">
+              <mat-icon>{{ method.icon }}</mat-icon>
+            </span>
+            <span class="settings-billing__pay-method-body">
+              <span class="settings-billing__pay-method-label">{{ method.label }}</span>
+              <span class="settings-billing__pay-method-hint">{{ method.hint }}</span>
+            </span>
+            <mat-icon
+              class="settings-billing__pay-method-check"
+              *ngIf="depositPaymentMethod === method.id && !method.comingSoon"
+              aria-hidden="true"
+              >check_circle</mat-icon
+            >
           </button>
         }
       </div>
@@ -187,9 +313,9 @@
         <div class="settings-billing__module-grid">
           @for (mod of billingModules; track mod.category) {
             @if (chargesForModule(mod.category).length) {
-              <article class="settings-billing__module-card">
+              <article class="settings-billing__module-card" [attr.data-category]="mod.category">
                 <header class="settings-billing__module-head">
-                  <span class="settings-billing__module-icon">
+                  <span class="settings-billing__module-icon" [attr.data-category]="mod.category">
                     <mat-icon>{{ mod.icon }}</mat-icon>
                   </span>
                   <div>
@@ -201,7 +327,12 @@
                   @for (row of chargesForModule(mod.category); track row.actionCode) {
                     <li>
                       <span class="settings-billing__module-action-name">{{ row.displayName }}</span>
-                      <span class="settings-billing__charge-amount">{{ formatMoney(row.chargeCents) }}</span>
+                      <span
+                        class="settings-billing__charge-amount"
+                        [class.settings-billing__charge-amount--free]="row.chargeCents === 0"
+                      >
+                        {{ row.chargeCents === 0 ? 'Free' : formatMoney(row.chargeCents) }}
+                      </span>
                     </li>
                   }
                 </ul>
@@ -362,6 +493,22 @@
                 <span *ngIf="!row.status" class="settings-billing__muted">Posted</span>
               </td>
             </ng-container>
+            <ng-container matColumnDef="email">
+              <th mat-header-cell *matHeaderCellDef>Email</th>
+              <td mat-cell *matCellDef="let row">
+                <span
+                  *ngIf="row.emailSent === true"
+                  style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600;background:#DCFCE7;color:#166534;"
+                  >Sent</span
+                >
+                <span
+                  *ngIf="row.emailSent === false"
+                  style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:11px;font-weight:600;background:#FEE2E2;color:#991B1B;"
+                  >Not Sent</span
+                >
+                <span *ngIf="row.emailSent == null" class="settings-billing__muted">—</span>
+              </td>
+            </ng-container>
             <ng-container matColumnDef="balance">
               <th mat-header-cell *matHeaderCellDef>Balance after</th>
               <td mat-cell *matCellDef="let row">
@@ -384,7 +531,11 @@
               </td>
             </ng-container>
             <tr mat-header-row *matHeaderRowDef="billingHistoryColumns"></tr>
-            <tr mat-row *matRowDef="let row; columns: billingHistoryColumns"></tr>
+            <tr
+              mat-row
+              *matRowDef="let row; columns: billingHistoryColumns"
+              [style.border-left]="row.type === 'Invoice Request' ? '3px solid #F59E0B' : null"
+            ></tr>
           </table>
         </div>
         <mat-paginator

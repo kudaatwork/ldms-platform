@@ -466,7 +466,7 @@ export class UsersListComponent implements OnInit, OnDestroy {
         maxWidth: '95vw',
         autoFocus: 'first-tabbable',
         panelClass: 'lx-location-dialog-panel',
-        data: { userId: row.id, currentGroupId: row.userGroupId },
+        data: { userId: row.id, currentGroupId: row.userGroupId, userOrganizationId: row.organizationId },
       })
       .afterClosed()
       .subscribe((saved) => {

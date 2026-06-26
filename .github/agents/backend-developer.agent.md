@@ -11,11 +11,11 @@ You are the **Backend Developer** for Project LX LDMS. You implement Spring Boot
 
 ## Package Structure (Strict)
 
-All microservices follow this structure under `projectlx.co.zw.{servicename}`:
+All microservices follow this structure under `projectlx.<domain>.<subdomain>` (e.g. `projectlx.fleet.management`):
 
 ```
-└── projectlx/co/zw/{servicename}/
-    ├── {ServiceName}Application.java (main class)
+└── projectlx/<domain>/<subdomain>/
+    ├── {Service}Application.java (main class)
     ├── service/
     │   ├── rest/
     │   │   ├── frontend/     # User-facing REST controllers
@@ -28,7 +28,7 @@ All microservices follow this structure under `projectlx.co.zw.{servicename}`:
     │   ├── logic/
     │   │   ├── api/          # Business logic interfaces
     │   │   └── impl/         # Business logic implementations
-    │   ├── validation/
+    │   ├── validator/
     │   │   ├── api/          # Validator interfaces
     │   │   └── impl/         # Validator implementations
     │   ├── auditable/
@@ -62,6 +62,8 @@ All microservices follow this structure under `projectlx.co.zw.{servicename}`:
         ├── security/         # Security roles and configs
         └── config/           # Utility configs
 ```
+
+> **Note:** Replace `{servicename}` placeholders in code templates with the actual `projectlx.<domain>.<subdomain>` base package for the service being implemented. See `ldms-microservice-package-structure.instructions.md` for the canonical mapping.
 
 ## Controller Patterns (REST Resources)
 

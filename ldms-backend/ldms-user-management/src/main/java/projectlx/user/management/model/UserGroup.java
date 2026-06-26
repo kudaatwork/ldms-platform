@@ -23,6 +23,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import projectlx.user.management.utils.support.UserGroupNameSupport;
+
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -49,6 +51,12 @@ public class UserGroup {
     /** Whether this is a system-provisioned group (e.g. Administrator) that cannot be deleted. */
     @Column(name = "is_system_group", nullable = false)
     private boolean systemGroup = false;
+    /**
+     * Classification default admin groups only: when {@code true}, organisation admins cannot assign
+     * this classification's default roles to their own org-scoped groups. Toggled by platform admins.
+     */
+    @Column(name = "is_locked", nullable = false)
+    private boolean locked = true;
     /** User-editable display alias for a system group (e.g. renaming "Administrator" to "Org Admins"). */
     @Column(name = "system_group_alias", length = 100)
     private String systemGroupAlias;
@@ -84,12 +92,21 @@ public class UserGroup {
 
     @PreUpdate
     public void update(){
+        normalizeName();
         updatedAt = LocalDateTime.now();
     }
 
     @PrePersist
     public void create(){
+        normalizeName();
         createdAt = LocalDateTime.now();
         entityStatus = EntityStatus.ACTIVE;
+    }
+
+    private void normalizeName() {
+        String normalized = UserGroupNameSupport.normalize(name);
+        if (normalized != null) {
+            name = normalized;
+        }
     }
 }

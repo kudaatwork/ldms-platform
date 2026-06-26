@@ -19,6 +19,9 @@ import {
   UserGroupMembersDialogResult,
 } from '../../components/user-group-members-dialog/user-group-members-dialog.component';
 import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import { OrgContextService } from '../../../../core/services/org-context.service';
+import { AuthStateService } from '../../../../core/services/auth-state.service';
+import { formatClassificationLabel } from '../../../../core/utils/portal-navigation.util';
 
 interface UserGroupRow {
   id: number;
@@ -28,6 +31,10 @@ interface UserGroupRow {
   roles: number;
   status: string;
   statusLabel: string;
+  organizationId: number | null;
+  organizationClassification: string | null;
+  scopeLabel: string;
+  scopeKind: 'platform' | 'classification' | 'organisation';
 }
 
 @Component({
@@ -41,11 +48,11 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     'Your organisation workspace starts with the provisioned Administrator group. Create additional groups here for roles unique to your organisation.';
 
   /** Bumped when row shape changes (e.g. member counts) so stale localStorage does not keep `users: 0`. */
-  private static readonly ROWS_CACHE_KEY = 'lx.admin.users.userGroups.rows.v3';
+  private static readonly ROWS_CACHE_KEY = 'lx.platform.users.userGroups.rows.v6';
   private viewGroupQuerySub?: Subscription;
   fetching = false;
   exporting = false;
-  displayedColumns = ['name', 'description', 'users', 'roles', 'status', 'actions'];
+  displayedColumns = ['name', 'scope', 'description', 'users', 'roles', 'status', 'actions'];
   searchQuery = '';
   filterFieldsOpen = false;
   showSampleCsvInfo = false;
@@ -79,6 +86,26 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     return this.createMode === 'view';
   }
 
+  get workspaceCompanyLabel(): string {
+    const name = this.orgContext.organizationName || this.authState.currentUser?.orgName?.trim();
+    if (name) {
+      return name;
+    }
+    const id = this.orgContext.organizationId;
+    return id != null ? `Organisation #${id}` : '—';
+  }
+
+  get workspaceScopeLabel(): string {
+    return this.formatOrganisationScopeLabel(
+      this.orgContext.organizationId,
+      this.orgContext.organizationClassification ?? this.authState.currentUser?.orgClassification ?? null,
+    ).label;
+  }
+
+  get workspaceClassificationLabel(): string {
+    return this.resolveClassificationLabel(null);
+  }
+
   isProvisionedAdministratorGroup(row: UserGroupRow): boolean {
     return row.name.trim().toLowerCase() === 'administrator';
   }
@@ -92,11 +119,13 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
+    private readonly orgContext: OrgContextService,
+    private readonly authState: AuthStateService,
   ) {}
 
   ngOnInit(): void {
     this.readPendingGroupListRefreshFromLocationState();
-    this.title.setTitle('User Groups | LX Admin');
+    this.title.setTitle('User Groups | LX Platform');
     this.reload$.pipe(debounceTime(150)).subscribe(() => this.loadGroups());
     this.reload$.next();
     this.viewGroupQuerySub = this.route.queryParamMap
@@ -131,18 +160,8 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
               this.snackBar.open('User group could not be loaded.', 'Close', { duration: 5000 });
               return;
             }
-            const name = String(dto['name'] ?? '').trim() || 'User group';
-            const description = String(dto['description'] ?? '').trim();
             const row = this.mapRecordToUserGroupRow(dto as Record<string, unknown>);
-            this.viewRow({
-              id: Number(dto['id'] ?? id),
-              name,
-              description,
-              users: row.users,
-              roles: row.roles,
-              status: 'active',
-              statusLabel: 'Active',
-            });
+            this.viewRow(row);
             this.cdr.markForCheck();
           });
       });
@@ -582,6 +601,18 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       src['userRoleMemberCount'] ?? src['user_role_member_count'],
       Array.isArray(src['userRoleDtoSet']) ? (src['userRoleDtoSet'] as unknown[]).length : null,
     );
+    const rawOrgId = src['organizationId'] ?? src['organization_id'];
+    const organizationId =
+      rawOrgId === null || rawOrgId === undefined || rawOrgId === ''
+        ? null
+        : Number(rawOrgId);
+    const organizationClassification = String(
+      src['organizationClassification'] ?? src['organization_classification'] ?? '',
+    ).trim() || null;
+    const scope = this.formatOrganisationScopeLabel(
+      Number.isFinite(organizationId as number) ? (organizationId as number) : null,
+      organizationClassification,
+    );
     return {
       id: Number(src['id'] ?? r['id'] ?? 0),
       name: String(src['name'] ?? ''),
@@ -590,6 +621,80 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       roles,
       status: 'active',
       statusLabel: 'Active',
+      organizationId: scope.organizationId,
+      organizationClassification,
+      scopeLabel: scope.label,
+      scopeKind: scope.kind,
+    };
+  }
+
+  private formatOrganisationScopeLabel(
+    organizationId: number | null,
+    classification: string | null,
+  ): {
+    organizationId: number | null;
+    label: string;
+    kind: 'platform' | 'classification' | 'organisation';
+  } {
+    const sessionClassification =
+      this.orgContext.organizationClassification ?? this.authState.currentUser?.orgClassification ?? null;
+    const cls = String(classification ?? sessionClassification ?? '').trim();
+    const clsLabel = cls ? formatClassificationLabel(cls) : '';
+    if (organizationId != null && organizationId > 0) {
+      const name = this.resolveCompanyLabel(organizationId);
+      const base = name !== '—' ? name : `Organisation #${organizationId}`;
+      const suffix = clsLabel ? ` - ${clsLabel}` : '';
+      return { organizationId, label: `${base}${suffix}`, kind: 'organisation' };
+    }
+    const sessionId = this.orgContext.organizationId;
+    if (sessionId != null && sessionId > 0) {
+      const name = this.resolveCompanyLabel(sessionId);
+      const base = name !== '—' ? name : `Organisation #${sessionId}`;
+      const suffix = clsLabel ? ` - ${clsLabel}` : '';
+      return { organizationId: sessionId, label: `${base}${suffix}`, kind: 'organisation' };
+    }
+    if (clsLabel) {
+      return { organizationId: null, label: `${clsLabel} default`, kind: 'classification' };
+    }
+    return { organizationId: null, label: 'Platform', kind: 'platform' };
+  }
+
+  private resolveCompanyLabel(organizationId: number | null): string {
+    const sessionId = this.orgContext.organizationId;
+    const sessionName =
+      this.orgContext.organizationName || this.authState.currentUser?.orgName?.trim() || '';
+    if (organizationId != null && organizationId > 0) {
+      if (sessionId != null && organizationId === sessionId && sessionName) {
+        return sessionName;
+      }
+      return sessionName && sessionId === organizationId ? sessionName : `Organisation #${organizationId}`;
+    }
+    return sessionName || (sessionId != null ? `Organisation #${sessionId}` : '—');
+  }
+
+  private resolveClassificationLabel(classification: string | null): string {
+    const cls = String(classification ?? '').trim();
+    if (cls) {
+      return formatClassificationLabel(cls);
+    }
+    const session =
+      this.orgContext.organizationClassification ?? this.authState.currentUser?.orgClassification;
+    return session ? formatClassificationLabel(session) : '—';
+  }
+
+  private workspaceScopeRowFields(): Pick<
+    UserGroupRow,
+    'organizationId' | 'organizationClassification' | 'scopeLabel' | 'scopeKind'
+  > {
+    const organizationId = this.orgContext.organizationId;
+    const organizationClassification =
+      this.orgContext.organizationClassification ?? this.authState.currentUser?.orgClassification ?? null;
+    const scope = this.formatOrganisationScopeLabel(organizationId, organizationClassification);
+    return {
+      organizationId: scope.organizationId,
+      organizationClassification,
+      scopeLabel: scope.label,
+      scopeKind: scope.kind,
     };
   }
 
@@ -691,6 +796,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       roles: 0,
       status: 'active',
       statusLabel: 'Active',
+      ...this.workspaceScopeRowFields(),
     };
     const withoutDup = this.groups.filter((r) => r.id !== createdId);
     let next = [...withoutDup, nextRow];
@@ -711,6 +817,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       roles: 0,
       status: 'active',
       statusLabel: 'Active',
+      ...this.workspaceScopeRowFields(),
     };
     const withoutDup = this.groups.filter((r) => r.id !== tempId);
     let next = [...withoutDup, nextRow];
@@ -739,13 +846,23 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
         roles: 0,
         status: 'active',
         statusLabel: 'Active',
+        ...this.workspaceScopeRowFields(),
       };
       this.groups = next;
     } else {
       const filtered = this.groups.filter((r) => r.id !== createdId);
       let next = [
         ...filtered,
-        { id: createdId, name, description, users: 0, roles: 0, status: 'active', statusLabel: 'Active' },
+        {
+          id: createdId,
+          name,
+          description,
+          users: 0,
+          roles: 0,
+          status: 'active',
+          statusLabel: 'Active',
+          ...this.workspaceScopeRowFields(),
+        },
       ];
       if (next.length > this.pageSize) {
         next = next.slice(next.length - this.pageSize);

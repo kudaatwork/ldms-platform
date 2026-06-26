@@ -38,15 +38,22 @@ export interface SubscriptionPackageRow {
 export interface WalletDepositRow {
   id: number;
   organizationId?: number;
+  organizationName?: string;
   amountCents: number;
   currencyCode: string;
   referenceNumber?: string;
   notes?: string;
   status: string;
+  purpose?: string;
+  subscriptionPackageId?: number;
+  subscriptionPackageName?: string;
   proofDocumentId?: number;
   gatewayProvider?: string;
   paymentMethod?: string;
   rejectionReason?: string;
+  receiptEmailStatus?: string;
+  receiptEmailAddress?: string;
+  receiptEmailAt?: string;
   createdAt?: string;
   modifiedAt?: string;
   modifiedBy?: string;
@@ -59,6 +66,7 @@ interface PlatformWalletApiResponse {
   subscriptionPackageDto?: SubscriptionPackageRow;
   walletDepositDtoList?: WalletDepositRow[];
   walletDepositDto?: WalletDepositRow;
+  receiptHtml?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -174,6 +182,34 @@ export class PlatformWalletAdminService {
       }),
       catchError((err) => throwError(() => this.toError(err, 'Could not reject deposit.'))),
     );
+  }
+
+  resendDepositReceiptEmail(depositId: number): Observable<void> {
+    return this.http.post<PlatformWalletApiResponse>(`${this.backofficeBase}/deposits/${depositId}/receipt/resend`, {}).pipe(
+      map((res) => {
+        this.assertSuccess(res, 'Could not re-send the receipt email.');
+        return undefined;
+      }),
+      catchError((err) => throwError(() => this.toError(err, 'Could not re-send the receipt email.'))),
+    );
+  }
+
+  /** Receipt HTML for an approved deposit (rendered inline in the detail dialog). */
+  getDepositReceiptHtml(depositId: number): Observable<string> {
+    return this.http.get<PlatformWalletApiResponse>(`${this.backofficeBase}/deposits/${depositId}/receipt`).pipe(
+      map((res) => {
+        this.assertSuccess(res, 'Could not load the receipt.');
+        return res.receiptHtml ?? '';
+      }),
+      catchError((err) => throwError(() => this.toError(err, 'Could not load the receipt.'))),
+    );
+  }
+
+  /** Downloads the approved-deposit receipt as a PDF blob. */
+  downloadDepositReceiptPdf(depositId: number): Observable<Blob> {
+    return this.http
+      .get(`${this.backofficeBase}/deposits/${depositId}/receipt/pdf`, { responseType: 'blob' })
+      .pipe(catchError((err) => throwError(() => this.toError(err, 'Could not download the receipt PDF.'))));
   }
 
   creditOrganization(payload: {
