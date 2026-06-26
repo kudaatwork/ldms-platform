@@ -41,7 +41,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 18px 20px 14px;
-  border-bottom: 1px solid var(--gray-100);
+  border-bottom: 1px solid var(--border-subtle, var(--gray-100));
 
   h3 {
     margin: 0 0 4px;
@@ -63,6 +63,13 @@
     color: var(--primary);
     opacity: 0.85;
   }
+}
+
+.tjr-table-card__count {
+  display: inline-block;
+  margin-left: 6px;
+  font-weight: 700;
+  color: var(--text-muted, var(--gray-500));
 }
 
 .tjr-table-card__actions {

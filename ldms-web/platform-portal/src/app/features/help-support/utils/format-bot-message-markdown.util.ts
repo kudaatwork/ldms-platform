@@ -1,3 +1,6 @@
+import { stripLegacyBotNag } from './strip-legacy-bot-nag.util';
+import { stripBotToolMarkup } from './strip-bot-tool-markup.util';
+
 function escapeHtml(text: string): string {
   return text
     .replace(/&/g, '&amp;')
@@ -14,11 +17,12 @@ function inlineFormat(line: string): string {
 
 /** Renders lightweight markdown from LDMS bot replies (bold, lists, headings). */
 export function formatBotMessageMarkdown(text: string): string {
-  if (!text?.trim()) {
+  const cleaned = stripBotToolMarkup(stripLegacyBotNag(text));
+  if (!cleaned) {
     return '';
   }
 
-  const lines = text.replace(/\r\n/g, '\n').split('\n');
+  const lines = cleaned.replace(/\r\n/g, '\n').split('\n');
   const out: string[] = [];
   let inUl = false;
   let inOl = false;

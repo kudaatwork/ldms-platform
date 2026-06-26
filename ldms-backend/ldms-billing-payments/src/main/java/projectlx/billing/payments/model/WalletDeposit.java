@@ -13,7 +13,9 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import projectlx.billing.payments.utils.enums.WalletDepositPurpose;
 import projectlx.billing.payments.utils.enums.WalletDepositStatus;
+import projectlx.billing.payments.utils.enums.WalletReceiptEmailStatus;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 @Entity
@@ -46,6 +48,15 @@ public class WalletDeposit {
     @Column(name = "status", nullable = false, length = 50)
     private WalletDepositStatus status = WalletDepositStatus.PENDING;
 
+    /** Whether this payment tops up the wallet or activates a subscription. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purpose", nullable = false, length = 30)
+    private WalletDepositPurpose purpose = WalletDepositPurpose.WALLET_TOPUP;
+
+    /** Target subscription package when {@code purpose = SUBSCRIPTION}. */
+    @Column(name = "subscription_package_id")
+    private Long subscriptionPackageId;
+
     @Column(name = "proof_document_id")
     private Long proofDocumentId;
 
@@ -57,6 +68,17 @@ public class WalletDeposit {
 
     @Column(name = "rejection_reason", length = 500)
     private String rejectionReason;
+
+    /** Best-effort outcome of dispatching the receipt email when this deposit was approved. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "receipt_email_status", length = 20)
+    private WalletReceiptEmailStatus receiptEmailStatus;
+
+    @Column(name = "receipt_email_address", length = 255)
+    private String receiptEmailAddress;
+
+    @Column(name = "receipt_email_at")
+    private LocalDateTime receiptEmailAt;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)

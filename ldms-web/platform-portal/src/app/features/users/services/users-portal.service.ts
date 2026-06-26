@@ -1245,10 +1245,14 @@ export class UsersPortalService {
 
   createUserGroup(payload: { name: string; description: string; organizationId?: number }): Observable<unknown> {
     const orgId = this.orgContext.organizationId;
+    const classification = this.orgContext.organizationClassification;
     const body: Record<string, unknown> = { name: payload.name, description: payload.description };
     const oid = payload.organizationId ?? orgId;
     if (oid != null && Number.isFinite(oid) && oid > 0) {
       body['organizationId'] = Math.trunc(oid);
+    }
+    if (classification) {
+      body['organizationClassification'] = classification;
     }
     return this.http.post(`${this.base}/user-group/create`, body);
   }
@@ -2075,6 +2079,7 @@ export class UsersPortalService {
     const oid = q.organizationId ?? sessionOrgId;
     const organizationId =
       oid != null && Number.isFinite(oid) && oid > 0 ? Math.trunc(oid) : sessionOrgId;
+    const organizationClassification = this.orgContext.organizationClassification;
     return {
       page: q.page,
       size: q.size,
@@ -2082,6 +2087,7 @@ export class UsersPortalService {
       ...(name ? { name } : {}),
       ...(description ? { description } : {}),
       ...(organizationId != null && organizationId > 0 ? { organizationId } : {}),
+      ...(organizationClassification ? { organizationClassification } : {}),
     };
   }
 

@@ -2,7 +2,7 @@
   <div class="lx-dialog-header">
     <div class="lx-header-text">
       <h2 class="lx-dialog-title">Deposit details</h2>
-      <p class="lx-dialog-subtitle">Review wallet deposit before confirming or rejecting.</p>
+      <p class="lx-dialog-subtitle">{{ actionable ? 'Review the proof of payment, then approve or reject this deposit.' : 'Wallet deposit details and proof of payment.' }}</p>
     </div>
     <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="close()">
       <mat-icon>close</mat-icon>
@@ -20,12 +20,24 @@
         <span class="wd-detail-item__value">#{{ deposit.organizationId ?? '—' }}</span>
       </div>
       <div class="wd-detail-item">
+        <span class="wd-detail-item__label">Organisation</span>
+        <span class="wd-detail-item__value">{{ deposit.organizationName || '—' }}</span>
+      </div>
+      <div class="wd-detail-item">
         <span class="wd-detail-item__label">Amount</span>
         <span class="wd-detail-item__value wd-detail-item__value--highlight">{{ formatMoney(deposit.amountCents, deposit.currencyCode) }}</span>
       </div>
       <div class="wd-detail-item">
         <span class="wd-detail-item__label">Currency</span>
         <span class="wd-detail-item__value">{{ deposit.currencyCode }}</span>
+      </div>
+      <div class="wd-detail-item">
+        <span class="wd-detail-item__label">Type</span>
+        <span class="wd-detail-item__value">{{ (deposit.purpose || 'WALLET_TOPUP') === 'SUBSCRIPTION' ? 'Subscription activation' : 'Wallet top-up' }}</span>
+      </div>
+      <div class="wd-detail-item" *ngIf="(deposit.purpose || '') === 'SUBSCRIPTION'">
+        <span class="wd-detail-item__label">Package</span>
+        <span class="wd-detail-item__value">{{ deposit.subscriptionPackageName || ('#' + deposit.subscriptionPackageId) }}</span>
       </div>
       <div class="wd-detail-item">
         <span class="wd-detail-item__label">Reference number</span>
@@ -36,6 +48,20 @@
         <span class="wd-detail-item__value">
           <span class="lx-status" [ngClass]="'lx-status-' + (deposit.status | lowercase)">{{ deposit.status }}</span>
         </span>
+      </div>
+      <div class="wd-detail-item" *ngIf="hasReceipt">
+        <span class="wd-detail-item__label">Receipt email</span>
+        <span class="wd-detail-item__value">
+          <span class="lx-status" [ngClass]="'lx-status-' + emailStatusTone">{{ emailStatusLabel }}</span>
+        </span>
+      </div>
+      <div class="wd-detail-item" *ngIf="hasReceipt && deposit.receiptEmailAddress">
+        <span class="wd-detail-item__label">Sent to</span>
+        <span class="wd-detail-item__value">{{ deposit.receiptEmailAddress }}</span>
+      </div>
+      <div class="wd-detail-item" *ngIf="hasReceipt && deposit.receiptEmailAt">
+        <span class="wd-detail-item__label">Emailed</span>
+        <span class="wd-detail-item__value">{{ formatWhen(deposit.receiptEmailAt) }}</span>
       </div>
       <div class="wd-detail-item">
         <span class="wd-detail-item__label">Gateway provider</span>
@@ -66,9 +92,77 @@
         <span class="wd-detail-item__value wd-detail-item__value--reason">{{ deposit.rejectionReason }}</span>
       </div>
     </div>
+
+    <!-- Proof of payment -->
+    <div class="wd-proof">
+      <span class="wd-detail-item__label">Proof of payment</span>
+
+      <div class="wd-proof__state" *ngIf="!hasProof">No proof of payment was attached to this deposit.</div>
+      <div class="wd-proof__state" *ngIf="hasProof && proofLoading">Loading proof of payment…</div>
+      <div class="wd-proof__state wd-proof__state--error" *ngIf="hasProof && !proofLoading && proofError">{{ proofError }}</div>
+
+      <p class="wd-proof__hint" *ngIf="canOpenPdfInNewTab">
+        If the preview is blank, use <strong>Open PDF</strong> to view the file in a new tab.
+      </p>
+      <div class="wd-proof__preview" *ngIf="previewImageUrl">
+        <img [src]="previewImageUrl" alt="Proof of payment preview" />
+      </div>
+      <div class="wd-proof__preview wd-proof__preview--pdf" *ngIf="previewPdfUrl">
+        <iframe [src]="previewPdfUrl" title="Proof of payment PDF"></iframe>
+      </div>
+      <div class="wd-proof__actions" *ngIf="canOpenPdfInNewTab">
+        <button type="button" class="lx-btn lx-btn-sm lx-btn-secondary" (click)="openPdfInNewTab()">Open PDF</button>
+      </div>
+    </div>
+
+    <!-- Receipt (confirmed deposits only) -->
+    <div class="wd-receipt" *ngIf="hasReceipt">
+      <div class="wd-receipt__head">
+        <span class="wd-detail-item__label">Receipt</span>
+        <button
+          type="button"
+          class="lx-btn lx-btn-sm lx-btn-secondary"
+          [disabled]="receiptDownloading"
+          (click)="downloadReceiptPdf()"
+        >
+          {{ receiptDownloading ? 'Preparing…' : 'Download PDF' }}
+        </button>
+      </div>
+
+      <div class="wd-receipt__state" *ngIf="receiptLoading">Loading receipt…</div>
+      <div class="wd-receipt__state wd-receipt__state--error" *ngIf="!receiptLoading && receiptError">{{ receiptError }}</div>
+      <div class="wd-receipt__preview" *ngIf="receiptHtml" [innerHTML]="receiptHtml"></div>
+    </div>
+
+    <!-- Reject reason (in-modal) -->
+    <div class="wd-reject" *ngIf="rejecting">
+      <label class="wd-detail-item__label" for="wd-reject-reason">Reason for rejection</label>
+      <textarea
+        id="wd-reject-reason"
+        class="lx-input wd-reject__input"
+        rows="3"
+        [(ngModel)]="rejectReason"
+        placeholder="Explain why this deposit is being rejected (the organisation will see this)…"
+      ></textarea>
+      <span class="wd-reject__error" *ngIf="rejectError">{{ rejectError }}</span>
+    </div>
   </mat-dialog-content>
 
   <div class="lx-dialog-footer">
-    <button type="button" class="lx-btn lx-btn-secondary" (click)="close()">Close</button>
+    <ng-container *ngIf="actionable; else closeOnly">
+      <ng-container *ngIf="!rejecting; else confirmReject">
+        <button type="button" class="lx-btn lx-btn-ghost" (click)="startReject()">Reject</button>
+        <button type="button" class="lx-btn lx-btn-primary" (click)="approve()">
+          {{ (deposit.purpose || '') === 'SUBSCRIPTION' ? 'Approve & activate subscription' : 'Approve & credit wallet' }}
+        </button>
+      </ng-container>
+      <ng-template #confirmReject>
+        <button type="button" class="lx-btn lx-btn-secondary" (click)="cancelReject()">Back</button>
+        <button type="button" class="lx-btn lx-btn-danger" (click)="submitReject()">Confirm rejection</button>
+      </ng-template>
+    </ng-container>
+    <ng-template #closeOnly>
+      <button type="button" class="lx-btn lx-btn-secondary" (click)="close()">Close</button>
+    </ng-template>
   </div>
 </div>

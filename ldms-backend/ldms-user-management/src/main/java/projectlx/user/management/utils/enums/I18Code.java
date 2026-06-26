@@ -102,6 +102,8 @@ public enum I18Code {
     MESSAGE_CREATE_USER_GROUP_NAME_MISSING("message.create.user.group.name.missing"),
     MESSAGE_CREATE_USER_GROUP_DESCRIPTION_MISSING("message.create.user.group.description.missing"),
     MESSAGE_CREATE_USER_GROUP_NAME_CONTAINS_DIGITS("message.create.user.group.name.contains.digits"),
+    MESSAGE_CREATE_USER_GROUP_CLASSIFICATION_MISSING("message.create.user.group.classification.missing"),
+    MESSAGE_CREATE_USER_GROUP_INVALID_CLASSIFICATION("message.create.user.group.invalid.classification"),
     MESSAGE_USER_GROUP_CREATED_SUCCESSFULLY("message.user.group.created.successfully"),
     MESSAGE_USER_GROUP_RETRIEVED_SUCCESSFULLY("message.user.group.retrieved.successfully"),
     MESSAGE_UPDATE_USER_GROUP_INVALID_REQUEST("message.update.user.group.invalid.request"),
@@ -148,6 +150,8 @@ public enum I18Code {
     MESSAGE_USERS_ADDED_TO_USER_GROUP_SUCCESSFULLY("message.users.added.to.user.group.successfully"),
     MESSAGE_USERS_ALREADY_IN_USER_GROUP("message.users.already.in.user.group"),
     MESSAGE_USERS_ADDED_TO_USER_GROUP_WITH_SKIPPED("message.users.added.to.user.group.with.skipped"),
+    MESSAGE_USER_ORG_MISMATCH_FOR_GROUP("message.user.org.mismatch.for.group"),
+    MESSAGE_CLASSIFICATION_ROLES_LOCKED("message.classification.roles.locked"),
     MESSAGE_USER_ROLES_ASSIGNED_WITH_SKIPPED("message.user.roles.assigned.with.skipped"),
 
     MESSAGE_USER_PASSWORD_NOT_FOUND("message.user.password.not.found"),

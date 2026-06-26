@@ -8,6 +8,7 @@ import projectlx.user.management.model.EntityStatus;
 import projectlx.user.management.model.User;
 import projectlx.user.management.model.UserGroup;
 import projectlx.user.management.repository.UserGroupRepository;
+import projectlx.user.management.utils.support.UserGroupNameSupport;
 
 /**
  * Ensures that an org-scoped {@code Driver} user group exists and assigns
@@ -19,7 +20,7 @@ import projectlx.user.management.repository.UserGroupRepository;
 public class DriverUserGroupSupport {
 
     private static final Logger log = LoggerFactory.getLogger(DriverUserGroupSupport.class);
-    public static final String DRIVER_GROUP_NAME = "Driver";
+    public static final String DRIVER_GROUP_NAME = UserGroupNameSupport.DRIVER_GROUP_NAME;
 
     private final UserGroupRepository userGroupRepository;
 

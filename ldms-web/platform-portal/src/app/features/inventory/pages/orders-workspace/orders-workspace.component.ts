@@ -8,6 +8,15 @@ import { AuthStateService } from '../../../../core/services/auth-state.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { UserProfileService } from '../../../../core/services/user-profile.service';
 import { BillingSettingsService } from '../../../settings/services/billing-settings.service';
+import type { WalletDepositPaymentMethod } from '../../../../core/services/platform-wallet.service';
+
+interface OrderPaymentMethodOption {
+  id: WalletDepositPaymentMethod;
+  label: string;
+  hint: string;
+  icon: string;
+  comingSoon?: boolean;
+}
 import { CreateRequisitionDialogComponent } from '../../components/create-requisition-dialog/create-requisition-dialog.component';
 import { ProcurementStageTimelineDialogComponent } from '../../components/procurement-stage-timeline-dialog/procurement-stage-timeline-dialog.component';
 import type { ProcurementStageTimelineDialogData } from '../../components/procurement-stage-timeline-dialog/procurement-stage-timeline-dialog.component';
@@ -72,6 +81,16 @@ export class OrdersWorkspaceComponent implements OnInit, OnDestroy {
   paymentNotes = '';
   paymentProofFile: File | null = null;
   paymentSubmitting = false;
+  paymentMethod: WalletDepositPaymentMethod = 'BANK_TRANSFER';
+
+  readonly orderPaymentMethods: OrderPaymentMethodOption[] = [
+    { id: 'BANK_TRANSFER', label: 'Bank transfer', hint: 'EFT or RTGS — attach proof of payment', icon: 'account_balance' },
+    { id: 'CASH', label: 'Cash deposit', hint: 'Paid in person — reference the receipt number', icon: 'payments' },
+    { id: 'ECOCASH', label: 'EcoCash', hint: 'Zimbabwe mobile money', icon: 'smartphone', comingSoon: true },
+    { id: 'PAYNOW', label: 'PayNow', hint: 'Zimbabwe mobile & bank rails', icon: 'account_balance_wallet', comingSoon: true },
+    { id: 'PAYPAL', label: 'PayPal', hint: 'International checkout', icon: 'paid', comingSoon: true },
+    { id: 'MASTERCARD', label: 'Mastercard', hint: 'Card payments via LX', icon: 'credit_card', comingSoon: true },
+  ];
 
   private userId = 0;
   isProcurementApprover = false;
@@ -334,11 +353,26 @@ export class OrdersWorkspaceComponent implements OnInit, OnDestroy {
     this.paymentReference = '';
     this.paymentNotes = '';
     this.paymentProofFile = null;
+    this.paymentMethod = 'BANK_TRANSFER';
     this.cdr.markForCheck();
   }
 
   setPaymentCaptureMode(mode: 'SYSTEM_GENERATED' | 'EXTERNAL_UPLOAD'): void {
     this.paymentCaptureMode = mode;
+    this.cdr.markForCheck();
+  }
+
+  get selectedOrderPaymentMethod(): OrderPaymentMethodOption {
+    return this.orderPaymentMethods.find((m) => m.id === this.paymentMethod) ?? this.orderPaymentMethods[0];
+  }
+
+  selectPaymentMethod(method: WalletDepositPaymentMethod): void {
+    const option = this.orderPaymentMethods.find((m) => m.id === method);
+    if (option?.comingSoon) {
+      this.notifications.error(`${option.label} checkout is coming soon. Use bank transfer or cash for now.`);
+      return;
+    }
+    this.paymentMethod = method;
     this.cdr.markForCheck();
   }
 
@@ -370,6 +404,10 @@ export class OrdersWorkspaceComponent implements OnInit, OnDestroy {
       this.notifications.error('Upload proof of payment for the external upload option.');
       return;
     }
+    if (this.selectedOrderPaymentMethod.comingSoon) {
+      this.notifications.error('This payment channel is not live yet. Use bank transfer or cash.');
+      return;
+    }
     if (this.paymentSubmitting) {
       return;
     }
@@ -387,7 +425,7 @@ export class OrdersWorkspaceComponent implements OnInit, OnDestroy {
             purchaseOrderId: order.id,
             amount,
             currency: 'USD',
-            paymentMethod: 'BANK_TRANSFER',
+            paymentMethod: this.paymentMethod,
             referenceNumber,
             notes: this.paymentNotes.trim() || undefined,
             proofSource: this.paymentCaptureMode,

@@ -14,6 +14,9 @@ public interface UserGroupRepository extends JpaRepository<UserGroup, Long>, Jpa
     Optional<UserGroup> findByNameIgnoreCaseAndEntityStatusNot(String name, EntityStatus entityStatus);
     Optional<UserGroup> findByOrganizationIdIsNullAndNameIgnoreCaseAndEntityStatusNot(
             String name, EntityStatus entityStatus);
+    /** The shared classification default admin group (organisation_id IS NULL + classification). */
+    Optional<UserGroup> findByOrganizationIdIsNullAndOrganizationClassificationIgnoreCaseAndNameIgnoreCaseAndEntityStatusNot(
+            String organizationClassification, String name, EntityStatus entityStatus);
     Optional<UserGroup> findByOrganizationIdAndNameIgnoreCaseAndEntityStatusNot(
             Long organizationId, String name, EntityStatus entityStatus);
     Optional<UserGroup> findByName(String name);

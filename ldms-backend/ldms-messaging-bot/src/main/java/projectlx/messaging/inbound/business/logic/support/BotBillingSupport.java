@@ -5,6 +5,7 @@ import org.springframework.util.StringUtils;
 import projectlx.co.zw.shared_library.billing.PlatformWalletActionCodes;
 import projectlx.co.zw.shared_library.billing.PlatformWalletUsageSupport;
 import projectlx.messaging.inbound.model.BotSession;
+import projectlx.messaging.inbound.utils.enums.BotAssistantMode;
 
 @Slf4j
 public class BotBillingSupport {
@@ -26,12 +27,16 @@ public class BotBillingSupport {
     public void chargeForUserMessage(BotSession session, String username, Long messageId) {
         Long organizationId = attachOrganizationContext(session, username);
         if (organizationId == null) {
-            log.warn("Skipping HELP_BOT_MESSAGE charge — no organisation context for user {}", username);
+            log.warn("Skipping bot message charge — no organisation context for user {}", username);
             return;
         }
+        BotAssistantMode mode = session.getAssistantMode() != null ? session.getAssistantMode() : BotAssistantMode.ASSISTANT;
+        String actionCode = mode == BotAssistantMode.AGENT
+                ? PlatformWalletActionCodes.HELP_BOT_AGENT_MESSAGE
+                : PlatformWalletActionCodes.HELP_BOT_MESSAGE;
         platformWalletUsageSupport.chargeBestEffort(
                 organizationId,
-                PlatformWalletActionCodes.HELP_BOT_MESSAGE,
+                actionCode,
                 "BOT_MESSAGE",
                 messageId);
     }

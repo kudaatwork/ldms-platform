@@ -75,6 +75,17 @@ public class BotFaqRagSupport {
         return block.toString().trim();
     }
 
+  /**
+     * Best matching FAQ answer for guide-mode replies (no LLM).
+     */
+    public String bestAnswerForQuery(String userQuery) {
+        List<ScoredFaq> matches = rank(userQuery, 1);
+        if (matches.isEmpty() || matches.get(0).score() < 2) {
+            return "";
+        }
+        return matches.get(0).faq().getAnswer().trim();
+    }
+
     List<ScoredFaq> rank(String userQuery, int topK) {
         if (userQuery == null || userQuery.isBlank() || publishedCache.isEmpty()) {
             return List.of();

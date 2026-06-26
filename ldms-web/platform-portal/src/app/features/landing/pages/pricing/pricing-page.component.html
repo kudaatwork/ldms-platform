@@ -62,7 +62,7 @@
               <p class="ldms-pricing__tier-label">{{ tier.label }}</p>
               <p class="ldms-pricing__tier-price">{{ formatPrice(tier.cents) }}</p>
               <p class="ldms-pricing__tier-summary">{{ tier.summary }}</p>
-              <p class="ldms-pricing__tier-examples">{{ tier.examples }}</p>
+              <p class="ldms-pricing__tier-examples">{{ tierExamples(tier.tier) }}</p>
               <p class="ldms-pricing__tier-count" *ngIf="tierCharges(tier.tier).length">
                 {{ tierCharges(tier.tier).length }} mapped events
               </p>
@@ -114,7 +114,7 @@
               </svg>
 
               <ul class="ldms-prepaid-demo__events">
-                @for (event of prepaidDemoEvents; track event.label; let i = $index) {
+                @for (event of prepaidDemoEvents(); track event.label; let i = $index) {
                   <li
                     class="ldms-prepaid-demo__event"
                     [class.ldms-prepaid-demo__event--credit]="event.credit"

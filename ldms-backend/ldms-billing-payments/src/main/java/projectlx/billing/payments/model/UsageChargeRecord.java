@@ -1,6 +1,7 @@
 package projectlx.billing.payments.model;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -12,6 +13,8 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 import projectlx.billing.payments.utils.enums.OrganizationBillingMode;
+import projectlx.billing.payments.utils.enums.PlatformBillingTier;
+import projectlx.billing.payments.utils.enums.PlatformBillingTierConverter;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.time.LocalDateTime;
@@ -39,6 +42,11 @@ public class UsageChargeRecord {
 
     @Column(name = "action_display_name", length = 200)
     private String actionDisplayName;
+
+    /** Snapshot of the action's billing tier, used to count subscription quota consumption. */
+    @Convert(converter = PlatformBillingTierConverter.class)
+    @Column(name = "billing_tier", length = 20)
+    private PlatformBillingTier billingTier;
 
     @Column(name = "charge_cents", nullable = false)
     private Long chargeCents;

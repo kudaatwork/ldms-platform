@@ -1,9 +1,11 @@
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
+import { stripLegacyBotNag } from '../utils/strip-legacy-bot-nag.util';
 
 export type BotMessageRole = 'user' | 'bot' | 'system';
+export type BotAssistantMode = 'ASSISTANT' | 'AGENT';
 
 export interface BotChatMessage {
   id: string;
@@ -18,10 +20,21 @@ export interface BotChatSession {
   topic: string;
   status: string;
   statusLabel: string;
+  assistantMode?: BotAssistantMode;
+  assistantModeLabel?: string;
   lastMessageAt: string;
   messageCount: number;
   satisfactionScore?: number;
   messages?: BotChatMessage[];
+}
+
+export interface BotPricing {
+  assistantMessageCents: number;
+  agentMessageCents: number;
+  sessionStartCents: number;
+  supportTicketOpenCents: number;
+  liveChatMessageCents: number;
+  currencyCode: string;
 }
 
 interface BotSessionApiResponse {
@@ -31,6 +44,7 @@ interface BotSessionApiResponse {
   message?: string;
   botSessionDto?: BotChatSession;
   botSessionDtoList?: BotChatSession[];
+  botPricingDto?: BotPricing;
 }
 
 function apiOk(resp: BotSessionApiResponse): boolean {
@@ -63,33 +77,98 @@ function mapHttpError(err: unknown, fallback: string): Error {
   return new Error(fallback);
 }
 
+function normalizeSession(session: BotChatSession): BotChatSession {
+  if (!session.messages?.length) {
+    return session;
+  }
+  return {
+    ...session,
+    messages: session.messages.map((m) =>
+      m.role === 'bot' ? { ...m, body: stripLegacyBotNag(m.body) } : m,
+    ),
+  };
+}
+
+function normalizePricing(raw: BotPricing | undefined): BotPricing {
+  return {
+    assistantMessageCents: Number(raw?.assistantMessageCents ?? 0),
+    agentMessageCents: Number(raw?.agentMessageCents ?? 0),
+    sessionStartCents: Number(raw?.sessionStartCents ?? 0),
+    supportTicketOpenCents: Number(raw?.supportTicketOpenCents ?? 0),
+    liveChatMessageCents: Number(raw?.liveChatMessageCents ?? 0),
+    currencyCode: String(raw?.currencyCode ?? 'USD').trim() || 'USD',
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class BotChatService {
   private readonly base = ldmsServiceUrl('messaging-inbound', 'bot-session');
 
   constructor(private readonly http: HttpClient) {}
 
-  startSession(topic?: string): Observable<BotChatSession> {
-    return this.http.post<BotSessionApiResponse>(`${this.base}/start`, { topic: topic ?? '' }).pipe(
+  fetchPricing(): Observable<BotPricing> {
+    return this.http.get<BotSessionApiResponse>(`${this.base}/pricing`).pipe(
       map((resp) => {
-        if (!apiOk(resp) || !resp.botSessionDto) {
-          throw new Error(resp.message ?? 'Could not start assistant chat.');
+        if (!apiOk(resp) || !resp.botPricingDto) {
+          throw new Error(resp.message ?? 'Could not load Lexi pricing.');
         }
-        return resp.botSessionDto;
+        return normalizePricing(resp.botPricingDto);
       }),
-      catchError((err) => throwError(() => mapHttpError(err, 'Could not start assistant chat.'))),
+      catchError((err) => throwError(() => mapHttpError(err, 'Could not load Lexi pricing.'))),
     );
   }
 
-  sendMessage(sessionId: string, body: string): Observable<BotChatSession> {
+  startSession(topic?: string, assistantMode?: BotAssistantMode): Observable<{ session: BotChatSession; pricing?: BotPricing }> {
     return this.http
-      .post<BotSessionApiResponse>(`${this.base}/send-message`, { sessionId, body })
+      .post<BotSessionApiResponse>(`${this.base}/start`, {
+        topic: topic ?? '',
+        assistantMode: assistantMode ?? 'ASSISTANT',
+      })
+      .pipe(
+        map((resp) => {
+          if (!apiOk(resp) || !resp.botSessionDto) {
+            throw new Error(resp.message ?? 'Could not start assistant chat.');
+          }
+          return {
+            session: normalizeSession(resp.botSessionDto),
+            pricing: resp.botPricingDto ? normalizePricing(resp.botPricingDto) : undefined,
+          };
+        }),
+        catchError((err) => throwError(() => mapHttpError(err, 'Could not start assistant chat.'))),
+      );
+  }
+
+  setAssistantMode(sessionId: string, assistantMode: BotAssistantMode): Observable<BotChatSession> {
+    return this.http
+      .post<BotSessionApiResponse>(`${this.base}/assistant-mode`, { sessionId, assistantMode })
+      .pipe(
+        map((resp) => {
+          if (!apiOk(resp) || !resp.botSessionDto) {
+            throw new Error(resp.message ?? 'Could not switch assistant mode.');
+          }
+          return normalizeSession(resp.botSessionDto);
+        }),
+        catchError((err) => throwError(() => mapHttpError(err, 'Could not switch assistant mode.'))),
+      );
+  }
+
+  sendMessage(
+    sessionId: string,
+    body: string,
+    assistantMode?: BotAssistantMode,
+  ): Observable<BotChatSession> {
+    return this.http
+      .post<BotSessionApiResponse>(`${this.base}/send-message`, {
+        sessionId,
+        body,
+        ...(assistantMode ? { assistantMode } : {}),
+      })
       .pipe(
         map((resp) => {
           if (!apiOk(resp) || !resp.botSessionDto) {
             throw new Error(resp.message ?? 'Could not send message.');
           }
-          return resp.botSessionDto;
+          return normalizeSession(resp.botSessionDto);
         }),
         catchError((err) => throwError(() => mapHttpError(err, 'Could not send message.'))),
       );
@@ -101,7 +180,7 @@ export class BotChatService {
         if (!apiOk(resp)) {
           throw new Error(resp.message ?? 'Could not load assistant chats.');
         }
-        return resp.botSessionDtoList ?? [];
+        return (resp.botSessionDtoList ?? []).map(normalizeSession);
       }),
       catchError((err) => throwError(() => mapHttpError(err, 'Could not load assistant chats.'))),
     );
@@ -115,7 +194,7 @@ export class BotChatService {
           if (!apiOk(resp) || !resp.botSessionDto) {
             throw new Error(resp.message ?? 'Could not load chat.');
           }
-          return resp.botSessionDto;
+          return normalizeSession(resp.botSessionDto);
         }),
         catchError((err) => throwError(() => mapHttpError(err, 'Could not load chat.'))),
       );
@@ -129,7 +208,7 @@ export class BotChatService {
           if (!apiOk(resp) || !resp.botSessionDto) {
             throw new Error(resp.message ?? 'Could not save feedback.');
           }
-          return resp.botSessionDto;
+          return normalizeSession(resp.botSessionDto);
         }),
         catchError((err) => throwError(() => mapHttpError(err, 'Could not save feedback.'))),
       );

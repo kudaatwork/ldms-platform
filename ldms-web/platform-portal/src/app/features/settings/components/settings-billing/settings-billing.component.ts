@@ -11,6 +11,7 @@ import {
   type PlatformActionChargeRow,
   type PlatformWalletSummary,
   type SubscriptionPackageRow,
+  type SubscriptionQuotaMeter,
   type WalletDepositPaymentMethod,
   type WalletDepositRow,
   type WalletTransactionRow,
@@ -40,12 +41,15 @@ interface PaymentMethodOption {
 
 interface BillingHistoryRow {
   key: string;
+  id?: string;
+  type?: string;
   sortAt: string;
   typeLabel: string;
   description: string;
   amountCents: number;
   currencyCode?: string;
   status?: string;
+  emailSent?: boolean;
   balanceAfterCents?: number;
   receiptNumber?: string;
   transactionId?: number;
@@ -85,17 +89,22 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
   readonly historyPageSizeOptions = DEFAULT_TABLE_PAGE_SIZE_OPTIONS;
   walletSummary: PlatformWalletSummary | null = null;
   readonly billingModules = PLATFORM_BILLING_MODULES;
-  readonly billingHistoryColumns = ['when', 'type', 'description', 'amount', 'status', 'balance', 'actions'];
+  readonly billingHistoryColumns = ['when', 'type', 'description', 'amount', 'status', 'email', 'actions', 'balance'];
   depositAmount = '';
   depositReference = '';
   depositNotes = '';
   depositPaymentMethod: WalletDepositPaymentMethod = 'BANK_TRANSFER';
   depositProofFile: File | null = null;
 
+  submittingSubscription = false;
+  subscriptionReference = '';
+  subscriptionProofFile: File | null = null;
+
   readonly paymentMethods: PaymentMethodOption[] = [
     { id: 'BANK_TRANSFER', label: 'Bank transfer', hint: 'EFT or RTGS to LX — attach proof of payment', icon: 'account_balance' },
     { id: 'CASH', label: 'Cash deposit', hint: 'Paid in person — reference the receipt number', icon: 'payments' },
-    { id: 'PAYNOW', label: 'PayNow', hint: 'Zimbabwe mobile & bank rails', icon: 'smartphone', online: true, comingSoon: true },
+    { id: 'ECOCASH', label: 'EcoCash', hint: 'Zimbabwe mobile money', icon: 'smartphone', online: true, comingSoon: true },
+    { id: 'PAYNOW', label: 'PayNow', hint: 'Zimbabwe mobile & bank rails', icon: 'account_balance_wallet', online: true, comingSoon: true },
     { id: 'PAYPAL', label: 'PayPal', hint: 'International checkout', icon: 'account_balance_wallet', online: true, comingSoon: true },
     { id: 'MASTERCARD', label: 'Mastercard', hint: 'Card payments via LX', icon: 'credit_card', online: true, comingSoon: true },
   ];
@@ -143,13 +152,24 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
     return this.wallet.isWalletFrozen(this.walletSummary);
   }
 
-  get smsUsagePct(): number {
-    const included = this.walletSummary?.smsIncludedMonthly ?? 0;
+  get quotaMeters(): SubscriptionQuotaMeter[] {
+    return this.walletSummary?.subscriptionQuotas ?? [];
+  }
+
+  get hasExhaustedQuota(): boolean {
+    return this.quotaMeters.some((meter) => meter.exhausted);
+  }
+
+  meterUsagePct(meter: SubscriptionQuotaMeter): number {
+    const included = meter.includedMonthly ?? 0;
     if (included <= 0) {
       return 0;
     }
-    const used = this.walletSummary?.smsUsedThisPeriod ?? 0;
-    return Math.min(100, Math.round((used / included) * 100));
+    return Math.min(100, Math.round(((meter.usedThisPeriod ?? 0) / included) * 100));
+  }
+
+  trackMeter(_: number, meter: SubscriptionQuotaMeter): string {
+    return meter.code;
   }
 
   get selectedPaymentMethod(): PaymentMethodOption {
@@ -269,8 +289,24 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
       ),
       packages: this.wallet.listSubscriptionPackages(false).pipe(catchError(() => of([]))),
       actionCharges: this.wallet.listActiveActionCharges().pipe(catchError(() => of([]))),
-      transactions: this.adminMode ? of([]) : this.wallet.listTransactions().pipe(catchError(() => of([]))),
-      deposits: this.adminMode ? of([]) : this.wallet.listDeposits().pipe(catchError(() => of([]))),
+      transactions: this.adminMode
+        ? of([])
+        : this.wallet.listTransactions().pipe(
+            catchError((err: unknown) => {
+              const message = err instanceof Error ? err.message : 'Could not load transactions.';
+              this.snackBar.open(message, 'Close', { duration: 6000 });
+              return of([]);
+            }),
+          ),
+      deposits: this.adminMode
+        ? of([])
+        : this.wallet.listDeposits().pipe(
+            catchError((err: unknown) => {
+              const message = err instanceof Error ? err.message : 'Could not load deposits.';
+              this.snackBar.open(message, 'Close', { duration: 6000 });
+              return of([]);
+            }),
+          ),
     })
       .pipe(
         takeUntil(this.destroy$),
@@ -351,6 +387,16 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
   }
 
   save(): void {
+    // Activating a subscription is gated behind a paid, LX-approved payment — it cannot be
+    // self-applied here. Switching back to pay-as-you-go is allowed.
+    if (this.billingMode === 'PREMIUM_SUBSCRIPTION' && !this.subscriptionActive) {
+      this.snackBar.open(
+        'Submit a subscription payment below — LX activates your package after confirming payment.',
+        'Close',
+        { duration: 5500 },
+      );
+      return;
+    }
     this.saving = true;
     this.wallet
       .saveBillingSetting({
@@ -385,6 +431,113 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
     const input = event.target as HTMLInputElement;
     this.depositProofFile = input.files?.[0] ?? null;
     this.cdr.markForCheck();
+  }
+
+  // ── Subscription activation (LX-approved, paid with proof) ────────────────
+
+  get selectedPackage(): SubscriptionPackageRow | null {
+    return this.packages.find((p) => p.id === this.subscriptionPackageId) ?? null;
+  }
+
+  /** The org's pending subscription activation awaiting LX approval, if any. */
+  get pendingSubscription(): WalletDepositRow | null {
+    return (
+      this.deposits.find(
+        (d) => (d.purpose ?? '').toUpperCase() === 'SUBSCRIPTION' && (d.status ?? '').toUpperCase() === 'PENDING',
+      ) ?? null
+    );
+  }
+
+  get subscriptionActive(): boolean {
+    return this.walletSummary?.billingMode === 'PREMIUM_SUBSCRIPTION' && !!this.walletSummary?.subscriptionPackageName;
+  }
+
+  get subscriptionEndsAt(): string | null {
+    return this.walletSummary?.subscriptionRenewsAt ?? null;
+  }
+
+  get canSubmitSubscription(): boolean {
+    if (!this.selectedPackage || this.selectedPaymentMethod.comingSoon) {
+      return false;
+    }
+    if (this.depositPaymentMethod === 'BANK_TRANSFER' && !this.subscriptionProofFile && !this.subscriptionReference.trim()) {
+      return false;
+    }
+    return true;
+  }
+
+  onSubscriptionProofSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.subscriptionProofFile = input.files?.[0] ?? null;
+    this.cdr.markForCheck();
+  }
+
+  submitSubscriptionActivation(): void {
+    const pkg = this.selectedPackage;
+    if (!pkg) {
+      this.snackBar.open('Select a package to subscribe to.', 'Close', { duration: 3500 });
+      return;
+    }
+    if (this.selectedPaymentMethod.comingSoon) {
+      this.snackBar.open('This payment channel is not live yet.', 'Close', { duration: 4000 });
+      return;
+    }
+    if (this.depositPaymentMethod === 'BANK_TRANSFER' && !this.subscriptionProofFile && !this.subscriptionReference.trim()) {
+      this.snackBar.open('Attach proof of payment or enter a bank reference.', 'Close', { duration: 4500 });
+      return;
+    }
+
+    const orgIdRaw = this.authState.currentUser?.organizationId ?? this.walletSummary?.organizationId;
+    const orgId = typeof orgIdRaw === 'string' ? Number(orgIdRaw) : orgIdRaw;
+    if (!orgId || orgId < 1) {
+      this.snackBar.open('Could not resolve your organisation.', 'Close', { duration: 4500 });
+      return;
+    }
+
+    this.submittingSubscription = true;
+    const proof$: Observable<number | undefined> = this.subscriptionProofFile
+      ? this.wallet.uploadPaymentProof(orgId, this.subscriptionProofFile)
+      : of(undefined);
+
+    proof$
+      .pipe(
+        switchMap((proofDocumentId) => {
+          if (this.subscriptionProofFile && !proofDocumentId) {
+            throw new Error('Proof of payment upload did not return a document id.');
+          }
+          const { gatewayProvider, paymentMethod } = this.mapPaymentMethod(this.depositPaymentMethod);
+          return this.wallet.createDeposit({
+            amountCents: pkg.monthlyPriceCents,
+            currencyCode: pkg.currencyCode,
+            referenceNumber: this.subscriptionReference || undefined,
+            proofDocumentId,
+            gatewayProvider,
+            paymentMethod,
+            purpose: 'SUBSCRIPTION',
+            subscriptionPackageId: pkg.id,
+          });
+        }),
+        finalize(() => {
+          this.submittingSubscription = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.subscriptionReference = '';
+          this.subscriptionProofFile = null;
+          this.snackBar.open(
+            'Subscription payment submitted — LX will activate your package after confirming payment.',
+            'Close',
+            { duration: 6000 },
+          );
+          this.reload();
+        },
+        error: (err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Could not submit subscription payment.';
+          this.snackBar.open(message, 'Close', { duration: 6000 });
+        },
+      });
   }
 
   submitDeposit(): void {
@@ -462,6 +615,7 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
     }
     this.wallet.downloadReceipt(row.transactionId, row.receiptNumber);
   }
+
 
   formatWhen(iso?: string): string {
     if (!iso) {
@@ -581,6 +735,8 @@ export class SettingsBillingComponent implements OnInit, OnDestroy, AfterViewIni
     switch (method) {
       case 'CASH':
         return { gatewayProvider: 'MANUAL', paymentMethod: 'CASH' };
+      case 'ECOCASH':
+        return { gatewayProvider: 'ECOCASH', paymentMethod: 'ECOCASH' };
       case 'PAYNOW':
         return { gatewayProvider: 'PAYNOW', paymentMethod: 'PAYNOW' };
       case 'PAYPAL':

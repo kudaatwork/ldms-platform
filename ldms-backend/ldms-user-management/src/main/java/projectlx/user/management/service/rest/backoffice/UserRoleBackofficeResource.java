@@ -163,6 +163,24 @@ public class UserRoleBackofficeResource {
         return toResponse(result);
     }
 
+    @Auditable(action = "LOCK_CLASSIFICATION_DEFAULT_ROLES")
+    @PostMapping("/classification/{classification}/lock")
+    @Operation(summary = "Lock a classification's default admin roles",
+            description = "Platform-admin only: organisation admins can no longer assign this classification's "
+                    + "default roles to their own org-scoped groups.")
+    public UserRoleResponse lockClassification(@PathVariable final String classification) {
+        return toResponse(classificationRoleService.setLocked(classification, true));
+    }
+
+    @Auditable(action = "UNLOCK_CLASSIFICATION_DEFAULT_ROLES")
+    @PostMapping("/classification/{classification}/unlock")
+    @Operation(summary = "Unlock a classification's default admin roles",
+            description = "Platform-admin only: organisation admins may assign this classification's default roles "
+                    + "to their own org-scoped groups.")
+    public UserRoleResponse unlockClassification(@PathVariable final String classification) {
+        return toResponse(classificationRoleService.setLocked(classification, false));
+    }
+
     private UserRoleResponse toResponse(ClassificationRoleService.Result result) {
         UserRoleResponse response = new UserRoleResponse();
         response.setSuccess(result.success());

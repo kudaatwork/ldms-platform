@@ -97,18 +97,16 @@
   display: grid;
   grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
   gap: 20px;
-  min-height: clamp(560px, 74vh, 820px);
+  align-items: start;
 }
 
 .dr-inbox,
 .dr-detail {
-  min-height: clamp(560px, 74vh, 820px);
   display: flex;
   flex-direction: column;
   border-radius: 22px;
   border: var(--card-border);
   box-shadow: var(--card-shadow);
-  overflow: hidden;
 }
 
 .dr-inbox__head {
@@ -207,8 +205,6 @@
   flex-direction: column;
   gap: 8px;
   padding: 0 12px 12px;
-  overflow: auto;
-  flex: 1;
 }
 
 .dr-inbox-item {

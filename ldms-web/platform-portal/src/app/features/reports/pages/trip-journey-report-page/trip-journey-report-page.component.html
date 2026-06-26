@@ -109,7 +109,7 @@
   <div class="lx-card trip-journey-report__controls" *ngIf="rows.length || !loading">
     <div class="lx-input-shell lx-search-field">
       <mat-icon class="lx-input-shell__icon">search</mat-icon>
-      <input [(ngModel)]="tableSearch" placeholder="Search trip, route, driver, vehicle…" />
+      <input [(ngModel)]="tableSearch" (ngModelChange)="resetTablePage()" placeholder="Search trip, route, driver, vehicle…" />
     </div>
   </div>
 
@@ -117,7 +117,10 @@
     <header class="tjr-table-card__head">
       <div>
         <h3>Journey analytics per trip</h3>
-        <p>Corridor progress, checkpoints, journey timing, and quick links to replay or live tracking.</p>
+        <p>
+          Corridor progress, checkpoints, journey timing, and quick links to replay or live tracking.
+          <span class="tjr-table-card__count" *ngIf="filteredRows.length">{{ filteredRows.length }} trips</span>
+        </p>
       </div>
       <div class="tjr-table-card__actions">
         <span class="lx-fetch-hint" *ngIf="loading">Refreshing…</span>
@@ -126,7 +129,7 @@
     </header>
 
     <div class="lx-table-wrap">
-      <table mat-table [dataSource]="filteredRows" class="lx-mat-table">
+      <table mat-table [dataSource]="pagedRows" class="lx-mat-table">
         <ng-container matColumnDef="trip">
           <th mat-header-cell *matHeaderCellDef>Trip</th>
           <td mat-cell *matCellDef="let row">
@@ -201,6 +204,15 @@
         <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
       </table>
     </div>
+    <mat-paginator
+      class="lx-table-paginator"
+      [length]="filteredRows.length"
+      [pageIndex]="pageIndex"
+      [pageSize]="pageSize"
+      [pageSizeOptions]="tablePageSizeOptions"
+      [showFirstLastButtons]="true"
+      (page)="onTablePage($event)"
+    ></mat-paginator>
   </div>
 
   <ng-template #emptyState>

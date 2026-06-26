@@ -6,6 +6,7 @@ import projectlx.messaging.inbound.model.BotSession;
 import projectlx.messaging.inbound.repository.BotMessageRepository;
 import projectlx.messaging.inbound.utils.dtos.BotMessageDto;
 import projectlx.messaging.inbound.utils.dtos.BotSessionDto;
+import projectlx.messaging.inbound.utils.enums.BotAssistantMode;
 import projectlx.messaging.inbound.utils.enums.BotMessageRole;
 
 import java.time.format.DateTimeFormatter;
@@ -37,6 +38,9 @@ public class BotSessionMapper {
         dto.setStatus(session.getStatus().name());
         dto.setStatusLabel(session.getStatus().getLabel());
         dto.setTopic(session.getTopic() != null ? session.getTopic() : "General LDMS question");
+        BotAssistantMode mode = session.getAssistantMode() != null ? session.getAssistantMode() : BotAssistantMode.ASSISTANT;
+        dto.setAssistantMode(mode.name());
+        dto.setAssistantModeLabel(mode.getLabel());
         dto.setSatisfactionScore(session.getSatisfactionScore());
 
         List<BotMessage> messages = botMessageRepository.findByBotSessionIdAndEntityStatusOrderByCreatedAtAsc(
@@ -67,7 +71,7 @@ public class BotSessionMapper {
         BotMessageDto dto = new BotMessageDto();
         dto.setId("m" + message.getId());
         dto.setRole(message.getRole().getWireValue());
-        dto.setBody(message.getBody());
+        dto.setBody(BotLlmHistorySupport.stripLegacyKeyNag(message.getBody()));
         dto.setSentAt(ISO.format(message.getCreatedAt()));
         return dto;
     }

@@ -146,6 +146,21 @@ public class PlatformWalletBillingServiceProcessorImpl implements PlatformWallet
     }
 
     @Override
+    public PlatformWalletResponse getDepositReceipt(Long depositId, Locale locale) {
+        return platformWalletBillingService.getDepositReceipt(depositId, locale);
+    }
+
+    @Override
+    public WalletReceiptPdfDto getDepositReceiptPdf(Long depositId, Locale locale) {
+        return platformWalletBillingService.getDepositReceiptPdf(depositId, locale);
+    }
+
+    @Override
+    public PlatformWalletResponse resendDepositReceipt(Long depositId, Locale locale, String username) {
+        return platformWalletBillingService.resendDepositReceipt(depositId, locale, username);
+    }
+
+    @Override
     public PlatformWalletResponse rejectWalletDeposit(Long depositId, String rejectionReason, Locale locale, String username) {
         return platformWalletBillingService.rejectWalletDeposit(depositId, rejectionReason, locale, username);
     }

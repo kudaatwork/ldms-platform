@@ -3,6 +3,8 @@ package projectlx.billing.payments.service.rest.backoffice;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import projectlx.billing.payments.service.processor.api.PlatformWalletBillingServiceProcessor;
+import projectlx.billing.payments.utils.dtos.WalletReceiptPdfDto;
 import projectlx.billing.payments.utils.requests.CreditOrganizationWalletRequest;
 import projectlx.billing.payments.utils.requests.SavePlatformActionChargeRequest;
 import projectlx.billing.payments.utils.requests.SaveSubscriptionPackageRequest;
@@ -144,6 +147,45 @@ public class PlatformWalletBackofficeResource {
         String reason = request != null ? request.getRejectionReason() : null;
         PlatformWalletResponse response = platformWalletBillingServiceProcessor.rejectWalletDeposit(
                 depositId, reason, locale, backofficeActor());
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "BACKOFFICE_GET_DEPOSIT_RECEIPT")
+    @GetMapping("/deposits/{depositId}/receipt")
+    @Operation(summary = "Receipt (HTML preview) for an approved wallet deposit")
+    public ResponseEntity<PlatformWalletResponse> getDepositReceipt(
+            @PathVariable Long depositId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.getDepositReceipt(depositId, locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "BACKOFFICE_DOWNLOAD_DEPOSIT_RECEIPT_PDF")
+    @GetMapping(value = "/deposits/{depositId}/receipt/pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @Operation(summary = "Download the receipt for an approved wallet deposit as PDF")
+    public ResponseEntity<byte[]> downloadDepositReceiptPdf(
+            @PathVariable Long depositId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        WalletReceiptPdfDto receipt = platformWalletBillingServiceProcessor.getDepositReceiptPdf(depositId, locale);
+        if (receipt == null || receipt.getPdfBytes() == null || receipt.getPdfBytes().length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        String filename = (receipt.getReceiptNumber() != null ? receipt.getReceiptNumber() : "wallet-receipt")
+                .replaceAll("[^A-Za-z0-9._-]+", "_");
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + ".pdf\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(receipt.getPdfBytes());
+    }
+
+    @Auditable(action = "BACKOFFICE_RESEND_DEPOSIT_RECEIPT")
+    @PostMapping("/deposits/{depositId}/receipt/resend")
+    @Operation(summary = "Re-send the receipt email for an approved wallet deposit")
+    public ResponseEntity<PlatformWalletResponse> resendDepositReceipt(
+            @PathVariable Long depositId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        PlatformWalletResponse response = platformWalletBillingServiceProcessor.resendDepositReceipt(
+                depositId, locale, backofficeActor());
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 

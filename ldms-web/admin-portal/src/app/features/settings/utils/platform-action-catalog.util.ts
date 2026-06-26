@@ -49,8 +49,9 @@ export const PLATFORM_ACTION_CATALOG: readonly PlatformActionCatalogEntry[] = [
   { actionCode: 'WHATSAPP_COMMAND', displayName: 'WhatsApp bot command', description: 'Inbound WhatsApp command processed by the bot', category: 'BOT_SERVICE', billingTier: 'MESSAGING', suggestedCents: 8 },
 
   // Bot & support
-  { actionCode: 'BOT_SESSION_START', displayName: 'Start bot session', description: 'Open a new LDMS Assistant conversation session', category: 'BOT_SERVICE', billingTier: 'INCLUDED', suggestedCents: 0 },
-  { actionCode: 'HELP_BOT_MESSAGE', displayName: 'LDMS Assistant message', description: 'User message to the LDMS AI assistant', category: 'BOT_SERVICE', billingTier: 'INCLUDED', suggestedCents: 0 },
+  { actionCode: 'BOT_SESSION_START', displayName: 'Start bot session', description: 'Open a new LDMS Assistant or Agent conversation', category: 'BOT_SERVICE', billingTier: 'INCLUDED', suggestedCents: 0 },
+  { actionCode: 'HELP_BOT_MESSAGE', displayName: 'LDMS Assistant message', description: 'User message to the LDMS AI assistant (guide mode)', category: 'BOT_SERVICE', billingTier: 'INCLUDED', suggestedCents: 0 },
+  { actionCode: 'HELP_BOT_AGENT_MESSAGE', displayName: 'LDMS Agent message', description: 'User message in Agent mode — autonomous tools (wallet, navigation, tickets)', category: 'BOT_SERVICE', billingTier: 'LIGHT', suggestedCents: 115 },
   { actionCode: 'HELP_SUPPORT_TICKET_OPEN', displayName: 'Support ticket opened', description: 'Open a live support ticket for agent follow-up', category: 'SUPPORT', billingTier: 'INCLUDED', suggestedCents: 0 },
   { actionCode: 'HELP_LIVE_CHAT_MESSAGE', displayName: 'Live support message', description: 'Message in a support ticket conversation', category: 'SUPPORT', billingTier: 'INCLUDED', suggestedCents: 0 },
 

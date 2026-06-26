@@ -13,6 +13,7 @@ import projectlx.user.management.model.UserGroup;
 import projectlx.user.management.model.UserType;
 import projectlx.user.management.repository.UserGroupRepository;
 import projectlx.user.management.repository.UserTypeRepository;
+import projectlx.user.management.utils.support.UserGroupNameSupport;
 
 /**
  * Idempotent workspace bootstrap: platform role catalog plus one {@code Administrator} group per
@@ -23,7 +24,8 @@ import projectlx.user.management.repository.UserTypeRepository;
 public class OrganizationWorkspaceProvisioner {
 
     private static final Logger log = LoggerFactory.getLogger(OrganizationWorkspaceProvisioner.class);
-    public static final String ADMINISTRATOR_GROUP_NAME = "Administrator";
+    public static final String ADMINISTRATOR_GROUP_NAME = UserGroupNameSupport.ADMINISTRATOR_GROUP_NAME;
+    private static final String ADMIN_PORTAL_CLASSIFICATION = "ADMIN_PORTAL";
     private static final String USER_TYPE_ORGANIZATION_CONTACT = "ORGANIZATION_CONTACT";
     private static final String USER_TYPE_ORGANIZATION_MEMBER = "ORGANIZATION_MEMBER";
     private static final String USER_TYPE_FLEET_DRIVER = "FLEET_DRIVER";
@@ -33,55 +35,38 @@ public class OrganizationWorkspaceProvisioner {
     private final UserTypeRepository userTypeRepository;
 
     /**
-     * Ensures the organisation-scoped {@code Administrator} group exists with workspace portal roles.
+     * Returns the platform-wide {@code Administrator} group (organisation_id IS NULL, ADMIN_PORTAL).
      */
-    public UserGroup ensureAdministratorGroup(long organizationId) {
-        return ensureAdministratorGroup(organizationId, null);
+    public UserGroup ensurePlatformAdministratorGroup() {
+        syncRoleCatalog();
+        return userGroupRepository
+                .findByOrganizationIdIsNullAndOrganizationClassificationIgnoreCaseAndNameIgnoreCaseAndEntityStatusNot(
+                        ADMIN_PORTAL_CLASSIFICATION, ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED)
+                .orElseGet(() -> userGroupRepository
+                        .findByOrganizationIdIsNullAndNameIgnoreCaseAndEntityStatusNot(
+                                ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED)
+                        .orElse(null));
     }
 
-    public UserGroup ensureAdministratorGroup(long organizationId, String organizationClassification) {
+    /**
+     * Ensures the shared classification default {@code Administrator} group exists (organisation_id IS
+     * NULL, one per classification) and returns it. This is the single admin group that admin users of
+     * every organisation in the classification inherit their roles from. Per-organisation Administrator
+     * groups are no longer created.
+     */
+    public UserGroup ensureClassificationDefaultAdminGroup(String organizationClassification) {
         syncRoleCatalog();
-        if (organizationId <= 0) {
-            return userGroupRepository
-                    .findByOrganizationIdIsNullAndNameIgnoreCaseAndEntityStatusNot(
-                            ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED)
-                    .orElse(null);
+        if (organizationClassification == null || organizationClassification.isBlank()) {
+            return null;
         }
-        // Check if an active Administrator group already exists for this organisation
-        Optional<UserGroup> existing = userGroupRepository
-                .findByOrganizationIdAndNameIgnoreCaseAndEntityStatusNot(
-                        organizationId, ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED);
-        if (existing.isPresent()) {
-            UserGroup group = existing.get();
-            if (!group.isSystemGroup()) {
-                group.setSystemGroup(true);
-                userGroupRepository.save(group);
-            }
-            if (organizationClassification != null && !organizationClassification.isBlank()) {
-                group.setOrganizationClassification(organizationClassification.trim().toUpperCase());
-                userGroupRepository.save(group);
-            }
-            return group;
-        }
+        String classification = organizationClassification.trim().toUpperCase();
         try (Connection connection = dataSource.getConnection()) {
-            String classification = organizationClassification != null ? organizationClassification.trim().toUpperCase() : null;
-            long groupId = LdmsRoleCatalogSeeder.seedOrganizationAdministratorGroup(connection, organizationId, classification);
-            UserGroup group = userGroupRepository.findById(groupId).orElse(null);
-            if (group != null) {
-                group.setSystemGroup(true);
-                if (organizationClassification != null && !organizationClassification.isBlank()) {
-                    group.setOrganizationClassification(organizationClassification.trim().toUpperCase());
-                }
-                userGroupRepository.save(group);
-            }
-            return group;
+            long groupId = LdmsRoleCatalogSeeder.seedClassificationDefaultAdminGroup(connection, classification);
+            return userGroupRepository.findById(groupId).orElse(null);
         } catch (Exception ex) {
-            log.error("Failed to ensure organisation Administrator group for org {}: {}",
-                    organizationId, ex.getMessage(), ex);
-            return userGroupRepository
-                    .findByOrganizationIdAndNameIgnoreCaseAndEntityStatusNot(
-                            organizationId, ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED)
-                    .orElse(null);
+            log.error("Failed to ensure classification default admin group for {}: {}",
+                    classification, ex.getMessage(), ex);
+            return null;
         }
     }
 

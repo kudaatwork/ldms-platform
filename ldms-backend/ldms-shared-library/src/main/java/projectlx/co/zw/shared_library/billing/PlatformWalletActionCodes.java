@@ -35,6 +35,7 @@ public final class PlatformWalletActionCodes {
 
     public static final String BOT_SESSION_START = "BOT_SESSION_START";
     public static final String HELP_BOT_MESSAGE = "HELP_BOT_MESSAGE";
+    public static final String HELP_BOT_AGENT_MESSAGE = "HELP_BOT_AGENT_MESSAGE";
     public static final String HELP_SUPPORT_TICKET_OPEN = "HELP_SUPPORT_TICKET_OPEN";
     public static final String HELP_LIVE_CHAT_MESSAGE = "HELP_LIVE_CHAT_MESSAGE";
 

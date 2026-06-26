@@ -9,6 +9,7 @@ import projectlx.billing.payments.clients.OrganizationManagementServiceClient;
 import projectlx.billing.payments.model.OrganizationBillingSetting;
 import projectlx.billing.payments.model.PlatformWallet;
 import projectlx.billing.payments.model.WalletTransaction;
+import projectlx.billing.payments.utils.enums.WalletReceiptEmailStatus;
 import projectlx.co.zw.shared_library.utils.requests.NotificationRequest;
 import projectlx.co.zw.shared_library.utils.responses.OrganizationResponse;
 
@@ -31,18 +32,25 @@ public class WalletDepositReceiptNotifier {
     private final RabbitTemplate rabbitTemplate;
     private final OrganizationManagementServiceClient organizationManagementServiceClient;
 
-    public void sendWalletCreditReceipt(
+    /** Outcome of attempting to dispatch the receipt email, so callers can persist delivery status. */
+    public record ReceiptEmailResult(WalletReceiptEmailStatus status, String email) {
+        static ReceiptEmailResult noEmail() {
+            return new ReceiptEmailResult(WalletReceiptEmailStatus.NO_EMAIL, null);
+        }
+    }
+
+    public ReceiptEmailResult sendWalletCreditReceipt(
             Long organizationId,
             WalletTransaction transaction,
             PlatformWallet wallet,
             OrganizationBillingSetting setting) {
         if (transaction == null || organizationId == null) {
-            return;
+            return ReceiptEmailResult.noEmail();
         }
         String email = resolveOrganizationEmail(organizationId);
         if (!StringUtils.hasText(email)) {
             log.warn("Skipping wallet receipt email for org {} — organisation email unavailable", organizationId);
-            return;
+            return ReceiptEmailResult.noEmail();
         }
 
         String receiptHtml = WalletReceiptSupport.buildReceiptHtml(transaction, wallet, setting);
@@ -79,8 +87,10 @@ public class WalletDepositReceiptNotifier {
         try {
             rabbitTemplate.convertAndSend(EXCHANGE, ROUTING_KEY, request);
             log.info("Published wallet receipt email for org {} receipt {}", organizationId, transaction.getReceiptNumber());
+            return new ReceiptEmailResult(WalletReceiptEmailStatus.SENT, email);
         } catch (Exception ex) {
             log.warn("Failed to publish wallet receipt email for org {}: {}", organizationId, ex.getMessage());
+            return new ReceiptEmailResult(WalletReceiptEmailStatus.FAILED, email);
         }
     }
 

@@ -62,6 +62,15 @@ public interface PlatformWalletBillingService {
 
     WalletReceiptPdfDto getTransactionReceiptPdf(Long transactionId, Locale locale, String username);
 
+    /** Backoffice: receipt (HTML preview) for the credit transaction of an approved deposit. */
+    PlatformWalletResponse getDepositReceipt(Long depositId, Locale locale);
+
+    /** Backoffice: receipt (PDF) for the credit transaction of an approved deposit. */
+    WalletReceiptPdfDto getDepositReceiptPdf(Long depositId, Locale locale);
+
+    /** Backoffice: re-sends the receipt email for an approved deposit's credit transaction. */
+    PlatformWalletResponse resendDepositReceipt(Long depositId, Locale locale, String username);
+
     PlatformWalletResponse rejectWalletDeposit(Long depositId, String rejectionReason, Locale locale, String username);
 
     PlatformWalletResponse isFuelConsumptionAvailableForOrganization(Long organizationId, Locale locale);

@@ -463,6 +463,26 @@
               <span>Attach bank slip or receipt from another system with the same metadata.</span>
             </button>
           </div>
+          <div class="ord-payment-field ord-payment-field--wide">
+            <label>Payment method</label>
+            <div class="ord-payment-methods">
+              @for (method of orderPaymentMethods; track method.id) {
+                <button
+                  type="button"
+                  class="ord-payment-method"
+                  [class.ord-payment-method--active]="paymentMethod === method.id"
+                  [class.ord-payment-method--soon]="method.comingSoon"
+                  [attr.aria-pressed]="paymentMethod === method.id"
+                  (click)="selectPaymentMethod(method.id)"
+                >
+                  <span class="ord-payment-method__badge" *ngIf="method.comingSoon">Coming soon</span>
+                  <mat-icon class="ord-payment-method__icon">{{ method.icon }}</mat-icon>
+                  <span class="ord-payment-method__label">{{ method.label }}</span>
+                  <span class="ord-payment-method__hint">{{ method.hint }}</span>
+                </button>
+              }
+            </div>
+          </div>
           <div class="ord-payment-field">
             <label>Amount</label>
             <input

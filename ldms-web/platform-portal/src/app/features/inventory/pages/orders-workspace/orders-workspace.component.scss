@@ -551,3 +551,61 @@
     }
   }
 }
+
+.ord-payment-methods {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.6rem;
+}
+
+.ord-payment-method {
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+  text-align: left;
+  border: 1px solid var(--gray-200);
+  border-radius: 12px;
+  padding: 0.7rem 0.8rem;
+  background: var(--gray-50);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  .ord-payment-method__icon {
+    color: var(--brand-primary, #1d4ed8);
+  }
+
+  &--active {
+    border-color: var(--brand-primary, #1d4ed8);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-primary, #1d4ed8) 20%, transparent);
+  }
+
+  &--soon {
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+}
+
+.ord-payment-method__label {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.ord-payment-method__hint {
+  font-size: 0.76rem;
+  color: var(--gray-600);
+  line-height: 1.35;
+}
+
+.ord-payment-method__badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #f97316 16%, var(--surface, #fff));
+  color: #c2410c;
+}

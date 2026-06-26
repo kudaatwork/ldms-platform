@@ -2,9 +2,26 @@ import { Location } from '@angular/common';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ActivatedRoute, Router } from '@angular/router';
-import { UsersAdminService } from '../../services/users-admin.service';
+import {
+  parseOrganizationClassificationSlug,
+  UsersAdminService,
+} from '../../services/users-admin.service';
+import { OrganizationsAdminService } from '../../../organizations/services/organizations-admin.service';
 import { PageEvent } from '@angular/material/paginator';
-import { Subject, Subscription, debounceTime, distinctUntilChanged, finalize, map, of, switchMap } from 'rxjs';
+import {
+  Observable,
+  Subject,
+  Subscription,
+  catchError,
+  debounceTime,
+  distinctUntilChanged,
+  finalize,
+  forkJoin,
+  map,
+  of,
+  switchMap,
+  tap,
+} from 'rxjs';
 import {
   LxExportFormat,
   downloadBlob,
@@ -19,6 +36,10 @@ import {
   UserGroupMembersDialogResult,
 } from '../../components/user-group-members-dialog/user-group-members-dialog.component';
 import { DEFAULT_TABLE_PAGE_SIZE } from '@shared/constants/table-pagination';
+import {
+  ORG_CLASSIFICATIONS,
+  type OrganizationClassification,
+} from '../../../organizations/models/organization.model';
 
 interface UserGroupRow {
   id: number;
@@ -29,7 +50,22 @@ interface UserGroupRow {
   status: string;
   statusLabel: string;
   systemGroup: boolean;
+  organizationId: number | null;
+  organizationClassification: string | null;
+  scopeLabel: string;
+  scopeKind: 'platform' | 'classification' | 'organisation';
 }
+
+const CLASSIFICATION_LABELS: Record<string, string> = {
+  SUPPLIER: 'Supplier',
+  CUSTOMER: 'Customer',
+  TRANSPORT_COMPANY: 'Transport Company',
+  CLEARING_AGENT: 'Clearing Agent',
+  SERVICE_STATION: 'Service Station',
+  ROADSIDE_SUPPORT_SERVICE: 'Roadside Support',
+  GOVERNMENT_AGENCY: 'Government Agency',
+  ADMIN_PORTAL: 'Admin Portal',
+};
 
 @Component({
   selector: 'app-users-groups',
@@ -41,12 +77,14 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
   readonly pageLead =
     'Bundle users and roles into groups for faster permission management across the platform.';
 
+  readonly classifications = ORG_CLASSIFICATIONS;
+
   /** Bumped when row shape changes (e.g. member counts) so stale localStorage does not keep `users: 0`. */
-  private static readonly ROWS_CACHE_KEY = 'lx.admin.users.userGroups.rows.v3';
+  private static readonly ROWS_CACHE_KEY = 'lx.admin.users.userGroups.rows.v8';
   private viewGroupQuerySub?: Subscription;
   fetching = false;
   exporting = false;
-  displayedColumns = ['name', 'description', 'users', 'roles', 'status', 'actions'];
+  displayedColumns = ['name', 'scope', 'description', 'users', 'roles', 'status', 'actions'];
   searchQuery = '';
   filterFieldsOpen = false;
   showSampleCsvInfo = false;
@@ -60,6 +98,15 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
   totalRecords = 0;
   private readonly reload$ = new Subject<void>();
   private latestLoadToken = 0;
+  private organizationCatalogById = new Map<number, { name: string; classification: string | null }>();
+
+  /** Admin-portal created groups are classification-default scoped unless tied to an organisation. */
+  private readonly platformScopeFields = {
+    organizationId: null,
+    organizationClassification: null,
+    scopeLabel: 'Platform',
+    scopeKind: 'platform' as const,
+  };
 
   groups: UserGroupRow[] = [];
   showCreateModal = false;
@@ -74,7 +121,12 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
   private pendingListRefreshFromRoles: { id: number } | null = null;
   createError = '';
   createMode: 'create' | 'view' | 'edit' = 'create';
-  createModel = { id: 0, name: '', description: '' };
+  createModel: {
+    id: number;
+    name: string;
+    description: string;
+    organizationClassification: OrganizationClassification;
+  } = { id: 0, name: '', description: '', organizationClassification: 'SUPPLIER' };
 
   get isViewMode(): boolean {
     return this.createMode === 'view';
@@ -86,6 +138,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     private readonly router: Router,
     private readonly location: Location,
     private readonly usersService: UsersAdminService,
+    private readonly organizationsService: OrganizationsAdminService,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
@@ -132,14 +185,10 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
             const description = String(dto['description'] ?? '').trim();
             const row = this.mapRecordToUserGroupRow(dto as Record<string, unknown>);
             this.viewRow({
+              ...row,
               id: Number(dto['id'] ?? id),
               name,
               description,
-              users: row.users,
-              roles: row.roles,
-              status: 'active',
-              statusLabel: 'Active',
-              systemGroup: row.systemGroup,
             });
             this.cdr.markForCheck();
           });
@@ -233,21 +282,31 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     this.createMode = 'create';
     this.showCreateModal = true;
     this.createError = '';
-    this.createModel = { id: 0, name: '', description: '' };
+    this.createModel = { id: 0, name: '', description: '', organizationClassification: 'SUPPLIER' };
   }
 
   viewRow(row: UserGroupRow): void {
     this.createMode = 'view';
     this.showCreateModal = true;
     this.createError = '';
-    this.createModel = { id: row.id, name: row.name, description: row.description };
+    this.createModel = {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      organizationClassification: this.toCreateClassification(row.organizationClassification),
+    };
   }
 
   editRow(row: UserGroupRow): void {
     this.createMode = 'edit';
     this.showCreateModal = true;
     this.createError = '';
-    this.createModel = { id: row.id, name: row.name, description: row.description };
+    this.createModel = {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      organizationClassification: this.toCreateClassification(row.organizationClassification),
+    };
   }
 
   /** Navigate with latest list row + state so the group-roles screen banner matches what you just edited. */
@@ -412,11 +471,16 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     }
     const name = this.createModel.name.trim();
     const description = this.createModel.description.trim();
+    const organizationClassification = this.createModel.organizationClassification;
+    const submittedMode = this.createMode;
     if (!name || !description) {
       this.createError = 'Name and description are required.';
       return;
     }
-    const submittedMode = this.createMode;
+    if (submittedMode === 'create' && !organizationClassification) {
+      this.createError = 'Organisation classification is required.';
+      return;
+    }
     const submittedModel = { ...this.createModel };
     this.createError = '';
     const rowSnapshotBeforeEdit: UserGroupRow | undefined =
@@ -434,13 +498,13 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     } else {
       const tempId = -Math.abs(Date.now() + Math.floor(Math.random() * 1000));
       this.pendingCreateTempId = tempId;
-      this.applyOptimisticCreateRow(tempId, name, description);
+      this.applyOptimisticCreateRow(tempId, name, description, organizationClassification);
     }
 
     const request$ =
       submittedMode === 'edit'
         ? this.usersService.updateUserGroup({ id: submittedModel.id, name, description })
-        : this.usersService.createUserGroup({ name, description });
+        : this.usersService.createUserGroup({ name, description, organizationClassification });
     request$.subscribe({
       next: (response) => {
         this.pendingGroupMutation = false;
@@ -467,7 +531,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
         const createdId = submittedMode === 'create' ? this.extractCreatedUserGroupId(response) : null;
         if (submittedMode === 'create') {
           if (createdId !== null) {
-            this.finalizeOptimisticCreate(createdId, name, description);
+            this.finalizeOptimisticCreate(createdId, name, description, organizationClassification);
           } else {
             this.rollbackOptimisticCreate();
             this.loadGroups();
@@ -525,8 +589,16 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
         searchQuery: this.searchQuery,
         columnFilters: this.columnFilters,
       })
+      .pipe(
+        switchMap((page) =>
+          this.ensureOrganizationCatalog().pipe(
+            switchMap(() => this.enrichOrganizationCatalogFromProfiles(this.collectOrgIdsFromRows(page.rows))),
+            map(() => ({ page })),
+          ),
+        ),
+      )
       .subscribe({
-        next: ({ rows, totalElements }) => {
+        next: ({ page: { rows, totalElements } }) => {
           if (loadToken !== this.latestLoadToken) return;
           if (rows.length === 0 && totalElements > 0 && this.pageIndex > 0) {
             this.pageIndex = 0;
@@ -568,6 +640,16 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       src['userRoleMemberCount'] ?? src['user_role_member_count'],
       Array.isArray(src['userRoleDtoSet']) ? (src['userRoleDtoSet'] as unknown[]).length : null,
     );
+    const rawOrgId = src['organizationId'] ?? src['organization_id'];
+    const orgId = rawOrgId === null || rawOrgId === undefined || rawOrgId === '' ? null : Number(rawOrgId);
+    const classification =
+      parseOrganizationClassificationSlug(src['organizationClassification']) ??
+      parseOrganizationClassificationSlug(src['organization_classification']) ??
+      '';
+    const scope = this.computeScope(
+      Number.isFinite(orgId as number) ? (orgId as number) : null,
+      classification,
+    );
     return {
       id: Number(src['id'] ?? r['id'] ?? 0),
       name: String(src['name'] ?? ''),
@@ -577,7 +659,130 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       status: 'active',
       statusLabel: 'Active',
       systemGroup: Boolean(src['systemGroup'] ?? src['system_group'] ?? false),
+      organizationId: scope.organizationId,
+      organizationClassification: classification || null,
+      scopeLabel: scope.label,
+      scopeKind: scope.kind,
     };
+  }
+
+  /** Derive a human-friendly scope from a group's org id + classification. */
+  private computeScope(
+    organizationId: number | null,
+    classification: string,
+  ): { organizationId: number | null; label: string; kind: 'platform' | 'classification' | 'organisation' } {
+    const catalog = organizationId != null && organizationId > 0
+      ? this.organizationCatalogById.get(organizationId)
+      : undefined;
+    const cls =
+      parseOrganizationClassificationSlug(classification) ??
+      parseOrganizationClassificationSlug(catalog?.classification) ??
+      '';
+    if (organizationId != null && organizationId > 0) {
+      const orgName = catalog?.name?.trim();
+      const base = orgName || `Organisation #${organizationId}`;
+      const suffix = cls && cls !== 'ADMIN_PORTAL' ? ` - ${CLASSIFICATION_LABELS[cls] ?? this.formatClassificationSlug(cls)}` : '';
+      return { organizationId, label: `${base}${suffix}`, kind: 'organisation' };
+    }
+    if (cls && cls !== 'ADMIN_PORTAL') {
+      return { organizationId: null, label: `${CLASSIFICATION_LABELS[cls] ?? cls} default`, kind: 'classification' };
+    }
+    return { organizationId: null, label: 'Platform', kind: 'platform' };
+  }
+
+  private scopeFieldsForClassification(classification: OrganizationClassification | string | null): Pick<
+    UserGroupRow,
+    'organizationId' | 'organizationClassification' | 'scopeLabel' | 'scopeKind'
+  > {
+    const cls = String(classification ?? '').trim().toUpperCase();
+    if (!cls || cls === 'ADMIN_PORTAL') {
+      return this.platformScopeFields;
+    }
+    const scope = this.computeScope(null, cls);
+    return {
+      organizationId: scope.organizationId,
+      organizationClassification: cls,
+      scopeLabel: scope.label,
+      scopeKind: scope.kind,
+    };
+  }
+
+  private toCreateClassification(raw: string | null): OrganizationClassification {
+    const cls = String(raw ?? '').trim().toUpperCase();
+    const match = ORG_CLASSIFICATIONS.find((item) => item.slug === cls);
+    return match?.slug ?? 'SUPPLIER';
+  }
+
+  private ensureOrganizationCatalog(): Observable<Map<number, { name: string; classification: string | null }>> {
+    return this.usersService.queryOrganizationsForSelect().pipe(
+      tap((orgs) => {
+        for (const org of orgs) {
+          const existing = this.organizationCatalogById.get(org.id);
+          this.organizationCatalogById.set(org.id, {
+            name: org.label?.trim() || existing?.name || '',
+            classification: org.classification ?? existing?.classification ?? null,
+          });
+        }
+      }),
+      map(() => this.organizationCatalogById),
+    );
+  }
+
+  private collectOrgIdsFromRows(rows: Record<string, unknown>[]): number[] {
+    const ids = new Set<number>();
+    for (const row of rows) {
+      const src = this.resolveUserGroupPayload(row);
+      const rawOrgId = src['organizationId'] ?? src['organization_id'];
+      const orgId = Number(rawOrgId);
+      if (Number.isFinite(orgId) && orgId > 0) {
+        ids.add(orgId);
+      }
+    }
+    return [...ids];
+  }
+
+  /** List endpoints may omit classification; profile GET always includes it. */
+  private enrichOrganizationCatalogFromProfiles(orgIds: number[]): Observable<void> {
+    const missing = orgIds.filter((id) => {
+      const entry = this.organizationCatalogById.get(id);
+      return !parseOrganizationClassificationSlug(entry?.classification);
+    });
+    if (missing.length === 0) {
+      return of(undefined);
+    }
+    return forkJoin(
+      missing.map((id) =>
+        this.organizationsService.getOrganizationProfile(id).pipe(
+          catchError(() => of(null)),
+          map((profile) => ({ id, profile })),
+        ),
+      ),
+    ).pipe(
+      tap((results) => {
+        for (const item of results) {
+          if (!item?.profile) {
+            continue;
+          }
+          const existing = this.organizationCatalogById.get(item.id);
+          const classification =
+            parseOrganizationClassificationSlug(item.profile.organizationClassification) ??
+            existing?.classification ??
+            null;
+          this.organizationCatalogById.set(item.id, {
+            name: item.profile.name?.trim() || existing?.name || '',
+            classification,
+          });
+        }
+      }),
+      map(() => undefined),
+    );
+  }
+
+  private formatClassificationSlug(slug: string): string {
+    return slug
+      .split('_')
+      .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+      .join(' ');
   }
 
   private resolveMemberCount(rawCount: unknown, legacyListLength: number | null): number {
@@ -647,7 +852,12 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
 
   private applySuccessfulSaveToVisibleRows(
     mode: 'create' | 'edit',
-    model: { id: number; name: string; description: string },
+    model: {
+      id: number;
+      name: string;
+      description: string;
+      organizationClassification: OrganizationClassification;
+    },
     response: unknown,
     knownCreatedId?: number | null,
   ): void {
@@ -679,6 +889,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       status: 'active',
       statusLabel: 'Active',
       systemGroup: false,
+      ...this.scopeFieldsForClassification(model.organizationClassification),
     };
     const withoutDup = this.groups.filter((r) => r.id !== createdId);
     let next = [...withoutDup, nextRow];
@@ -690,7 +901,12 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     this.persistRowsCache();
   }
 
-  private applyOptimisticCreateRow(tempId: number, name: string, description: string): void {
+  private applyOptimisticCreateRow(
+    tempId: number,
+    name: string,
+    description: string,
+    organizationClassification: OrganizationClassification,
+  ): void {
     const nextRow: UserGroupRow = {
       id: tempId,
       name,
@@ -700,6 +916,7 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
       status: 'active',
       statusLabel: 'Active',
       systemGroup: false,
+      ...this.scopeFieldsForClassification(organizationClassification),
     };
     const withoutDup = this.groups.filter((r) => r.id !== tempId);
     let next = [...withoutDup, nextRow];
@@ -712,7 +929,12 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
-  private finalizeOptimisticCreate(createdId: number, name: string, description: string): void {
+  private finalizeOptimisticCreate(
+    createdId: number,
+    name: string,
+    description: string,
+    organizationClassification: OrganizationClassification,
+  ): void {
     const temp = this.pendingCreateTempId;
     if (temp === null) {
       return;
@@ -729,13 +951,24 @@ export class UsersGroupsComponent implements OnInit, OnDestroy {
         status: 'active',
         statusLabel: 'Active',
         systemGroup: false,
+        ...this.scopeFieldsForClassification(organizationClassification),
       };
       this.groups = next;
     } else {
       const filtered = this.groups.filter((r) => r.id !== createdId);
       let next = [
         ...filtered,
-        { id: createdId, name, description, users: 0, roles: 0, status: 'active', statusLabel: 'Active', systemGroup: false },
+        {
+          id: createdId,
+          name,
+          description,
+          users: 0,
+          roles: 0,
+          status: 'active',
+          statusLabel: 'Active',
+          systemGroup: false,
+          ...this.scopeFieldsForClassification(organizationClassification),
+        },
       ];
       if (next.length > this.pageSize) {
         next = next.slice(next.length - this.pageSize);

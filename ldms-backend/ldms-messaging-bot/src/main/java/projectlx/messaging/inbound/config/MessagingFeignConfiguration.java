@@ -7,7 +7,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import projectlx.messaging.inbound.clients.BillingPaymentsServiceClient;
+import projectlx.messaging.inbound.clients.HelpSupportServiceClient;
 import projectlx.messaging.inbound.clients.OrganizationManagementServiceClient;
+import projectlx.messaging.inbound.clients.UserManagementAgentClient;
 import projectlx.messaging.inbound.clients.UserManagementServiceClient;
 
 @Slf4j
@@ -49,6 +51,32 @@ public class MessagingFeignConfiguration {
                 .forType(BillingPaymentsServiceClient.class, "billing-payments-service")
                 .inheritParentContext(true)
                 .contextId("messaging-billing-payments-service")
+                .url(url)
+                .build();
+    }
+
+    @Bean
+    public UserManagementAgentClient userManagementAgentClient(ApplicationContext applicationContext) {
+        Environment env = applicationContext.getEnvironment();
+        String url = LdmsFeignUrls.resolveUserManagementServiceBaseUrl(env);
+        log.info("User management agent Feign client base URL: {}", url);
+        return new FeignClientBuilder(applicationContext)
+                .forType(UserManagementAgentClient.class, "user-management-agent-service")
+                .inheritParentContext(true)
+                .contextId("messaging-user-management-agent-service")
+                .url(url)
+                .build();
+    }
+
+    @Bean
+    public HelpSupportServiceClient helpSupportServiceClient(ApplicationContext applicationContext) {
+        Environment env = applicationContext.getEnvironment();
+        String url = LdmsFeignUrls.resolveUserManagementServiceBaseUrl(env);
+        log.info("Help support Feign client base URL: {}", url);
+        return new FeignClientBuilder(applicationContext)
+                .forType(HelpSupportServiceClient.class, "help-support-service")
+                .inheritParentContext(true)
+                .contextId("messaging-help-support-service")
                 .url(url)
                 .build();
     }
