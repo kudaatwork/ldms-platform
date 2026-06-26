@@ -22,6 +22,7 @@ import projectlx.messaging.inbound.service.processor.api.BotSessionServiceProces
 import projectlx.messaging.inbound.utils.requests.RateBotSessionRequest;
 import projectlx.messaging.inbound.utils.requests.SendBotMessageRequest;
 import projectlx.messaging.inbound.utils.requests.StartBotSessionRequest;
+import projectlx.messaging.inbound.utils.requests.UpdateBotAssistantModeRequest;
 import projectlx.messaging.inbound.utils.responses.BotSessionResponse;
 
 import java.util.Locale;
@@ -93,6 +94,27 @@ public class BotSessionFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         BotSessionResponse response = botSessionServiceProcessor.rateSession(request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "UPDATE_BOT_ASSISTANT_MODE")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/assistant-mode")
+    @Operation(summary = "Switch between Assistant (user guide) and Agent (platform architecture) mode")
+    public ResponseEntity<BotSessionResponse> updateAssistantMode(
+            @Valid @RequestBody UpdateBotAssistantModeRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        BotSessionResponse response = botSessionServiceProcessor.updateAssistantMode(request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/pricing")
+    @Operation(summary = "Live Lexi message costs from the platform action charge catalog")
+    public ResponseEntity<BotSessionResponse> getPricing(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        BotSessionResponse response = botSessionServiceProcessor.getPricing(locale);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 }

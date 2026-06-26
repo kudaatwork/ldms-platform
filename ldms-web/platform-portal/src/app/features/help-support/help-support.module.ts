@@ -5,7 +5,7 @@ import { HelpSupportPageComponent } from './pages/help-support-page/help-support
 import { BotMessageMarkdownPipe } from './pipes/bot-message-markdown.pipe';
 
 @NgModule({
-  declarations: [HelpSupportPageComponent, BotMessageMarkdownPipe],
-  imports: [SharedModule, HelpSupportRoutingModule],
+  declarations: [HelpSupportPageComponent],
+  imports: [SharedModule, HelpSupportRoutingModule, BotMessageMarkdownPipe],
 })
 export class HelpSupportModule {}

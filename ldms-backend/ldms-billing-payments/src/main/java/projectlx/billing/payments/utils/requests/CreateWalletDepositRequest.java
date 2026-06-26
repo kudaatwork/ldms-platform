@@ -15,4 +15,8 @@ public class CreateWalletDepositRequest {
     private Long proofDocumentId;
     private String gatewayProvider;
     private String paymentMethod;
+    /** WALLET_TOPUP (default) or SUBSCRIPTION. */
+    private String purpose;
+    /** Required when purpose = SUBSCRIPTION. */
+    private Long subscriptionPackageId;
 }

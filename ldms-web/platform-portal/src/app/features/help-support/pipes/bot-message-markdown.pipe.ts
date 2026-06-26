@@ -4,7 +4,7 @@ import { formatBotMessageMarkdown } from '../utils/format-bot-message-markdown.u
 
 @Pipe({
   name: 'botMessageMarkdown',
-  standalone: false,
+  standalone: true,
 })
 export class BotMessageMarkdownPipe implements PipeTransform {
   constructor(private readonly sanitizer: DomSanitizer) {}

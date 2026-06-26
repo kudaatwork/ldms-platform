@@ -211,36 +211,6 @@
   font-weight: 600;
 }
 
-.lx-platform-pill {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.lx-platform-pill--admin {
-  background: color-mix(in srgb, #2563eb 12%, transparent);
-  color: #1d4ed8;
-}
-
-.lx-platform-pill--platform {
-  background: color-mix(in srgb, #7c3aed 12%, transparent);
-  color: #6d28d9;
-}
-
-.lx-platform-pill--mobile {
-  background: color-mix(in srgb, #059669 12%, transparent);
-  color: #047857;
-}
-
-.lx-platform-pill--unknown {
-  background: var(--gray-100);
-  color: var(--gray-600);
-}
-
 .lx-method-pill {
   display: inline-flex;
   align-items: center;

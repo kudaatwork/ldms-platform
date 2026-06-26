@@ -20,6 +20,8 @@ public class BotSessionDto {
     private String status;
     private String statusLabel;
     private String topic;
+    private String assistantMode;
+    private String assistantModeLabel;
     private String lastMessageAt;
     private Integer messageCount;
     private Integer satisfactionScore;

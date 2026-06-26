@@ -16,25 +16,58 @@ import java.time.Duration;
 import java.util.List;
 
 @Slf4j
-public class GeminiLlmClient {
+public class GeminiLlmClient implements BotLlmClient {
 
     private final ObjectMapper objectMapper;
     private final String apiKey;
     private final String model;
     private final boolean enabled;
+    private final BotLlmRuntimeSettings runtimeSettings;
     private final HttpClient httpClient;
 
-    public GeminiLlmClient(ObjectMapper objectMapper, String apiKey, String model, boolean enabled) {
+    public GeminiLlmClient(ObjectMapper objectMapper,
+                             String apiKey,
+                             String model,
+                             boolean enabled,
+                             BotLlmRuntimeSettings runtimeSettings) {
         this.objectMapper = objectMapper;
         this.apiKey = apiKey == null ? "" : apiKey.trim();
         this.model = model == null || model.isBlank() ? "gemini-2.5-flash" : model.trim();
         this.enabled = enabled;
+        this.runtimeSettings = runtimeSettings;
         this.httpClient = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(15)).build();
     }
 
+    @Override
+    public String providerId() {
+        return "gemini";
+    }
+
+    @Override
+    public String modelId() {
+        return effectiveModel();
+    }
+
+    private String effectiveModel() {
+        if (runtimeSettings != null) {
+            String override = runtimeSettings.geminiModelOverride();
+            if (override != null && !override.isBlank()) {
+                return override.trim();
+            }
+        }
+        return model;
+    }
+
+    @Override
+    public boolean isConfigured() {
+        return enabled && !apiKey.isBlank();
+    }
+
+    @Override
     public String generateReply(String systemPrompt, List<BotMessage> history) {
-        if (!enabled || apiKey.isBlank()) {
-            return fallbackReply(lastUserMessage(history));
+        List<BotMessage> conversation = BotLlmHistorySupport.sanitizeForLlm(history);
+        if (!isConfigured()) {
+            return BotLlmFallbackSupport.replyFor(BotLlmFallbackSupport.lastUserMessage(conversation), conversation, isConfigured());
         }
         try {
             ObjectNode body = objectMapper.createObjectNode();
@@ -43,7 +76,7 @@ public class GeminiLlmClient {
             systemParts.addObject().put("text", systemPrompt);
 
             ArrayNode contents = body.putArray("contents");
-            for (BotMessage message : history) {
+            for (BotMessage message : conversation) {
                 if (message.getRole() == BotMessageRole.SYSTEM) {
                     continue;
                 }
@@ -53,7 +86,7 @@ public class GeminiLlmClient {
             }
 
             String url = "https://generativelanguage.googleapis.com/v1beta/models/"
-                    + model + ":generateContent?key=" + apiKey;
+                    + effectiveModel() + ":generateContent?key=" + apiKey;
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(45))
@@ -64,75 +97,26 @@ public class GeminiLlmClient {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.warn("Gemini API returned HTTP {}: {}", response.statusCode(), truncate(response.body(), 300));
-                return fallbackReply(lastUserMessage(history));
+                return BotLlmFallbackSupport.replyFor(BotLlmFallbackSupport.lastUserMessage(conversation), conversation, isConfigured());
             }
 
             JsonNode root = objectMapper.readTree(response.body());
             JsonNode candidates = root.path("candidates");
             if (!candidates.isArray() || candidates.isEmpty()) {
-                return fallbackReply(lastUserMessage(history));
+                return BotLlmFallbackSupport.replyFor(BotLlmFallbackSupport.lastUserMessage(conversation), conversation, isConfigured());
             }
             JsonNode parts = candidates.get(0).path("content").path("parts");
             if (!parts.isArray() || parts.isEmpty()) {
-                return fallbackReply(lastUserMessage(history));
+                return BotLlmFallbackSupport.replyFor(BotLlmFallbackSupport.lastUserMessage(conversation), conversation, isConfigured());
             }
-            String text = parts.get(0).path("text").asText("").trim();
-            return text.isBlank() ? fallbackReply(lastUserMessage(history)) : text;
+            String text = BotLlmHistorySupport.stripLegacyKeyNag(parts.get(0).path("text").asText("").trim());
+            return text.isBlank()
+                    ? BotLlmFallbackSupport.replyFor(BotLlmFallbackSupport.lastUserMessage(conversation), conversation, isConfigured())
+                    : text;
         } catch (Exception ex) {
             log.error("Gemini generateContent failed", ex);
-            return fallbackReply(lastUserMessage(history));
+            return BotLlmFallbackSupport.replyFor(BotLlmFallbackSupport.lastUserMessage(conversation), conversation, isConfigured());
         }
-    }
-
-    private static String lastUserMessage(List<BotMessage> history) {
-        for (int i = history.size() - 1; i >= 0; i--) {
-            BotMessage message = history.get(i);
-            if (message.getRole() == BotMessageRole.USER && message.getBody() != null) {
-                return message.getBody();
-            }
-        }
-        return "";
-    }
-
-    private String fallbackReply(String userMessage) {
-        String lower = userMessage == null ? "" : userMessage.toLowerCase();
-        if (lower.contains("shipment") || lower.contains("dispatch")) {
-            return "In LDMS, shipments are created after a purchase order is approved and stock is dispatched. "
-                    + "Track them from **Track shipments** or your operations dashboard. "
-                    + "For a specific reference, open Help & Support → New ticket with the shipment number.";
-        }
-        if (lower.contains("trip") || lower.contains("track") || lower.contains("gps")) {
-            return "Trips start when a truck and driver are assigned to a shipment. Live GPS and stop events "
-                    + "are recorded in **Trip & Tracking**. Drivers can also report border stops via WhatsApp commands.";
-        }
-        if (lower.contains("invoice") || lower.contains("billing") || lower.contains("payment")
-                || lower.contains("charge") || lower.contains("wallet") || lower.contains("report")) {
-            return """
-                    LDMS has two billing layers:
-                    
-                    **Customer invoicing (GRV → invoice)**
-                    - Invoices are generated after goods are received (GRV).
-                    - View them under **Billing** on the platform portal.
-                    - For disputes, open a **Billing** support ticket with the invoice number.
-                    
-                    **Platform billing charges (prepaid wallet)**
-                    - Organisations pay small per-action fees from a prepaid wallet (trips, shipments, bot messages, notifications, etc.).
-                    - **Report export** and analytics exports are billable actions — a strong recurring revenue source for the platform.
-                    - Admins configure prices in **LX Admin → Settings → Platform billing → Action charges**.
-                    - Organisations review usage under **Settings → Platform billing** on the platform portal.""";
-        }
-        if (lower.contains("kyc") || lower.contains("onboard") || lower.contains("register")) {
-            return "Organisation onboarding includes registration, email verification, and KYC review. "
-                    + "After approval, your contact person receives sign-in credentials. "
-                    + "See Help & Support → FAQ → Getting started for the full flow.";
-        }
-        if (lower.contains("grv") || lower.contains("deliver")) {
-            return "A GRV (Goods Received Voucher) confirms delivery at the destination. Receivers scan QR codes "
-                    + "or confirm in the Receiver app. This triggers invoicing in the billing phase.";
-        }
-        return "I'm the LDMS assistant. I can explain how orders, shipments, trips, billing, and onboarding work. "
-                + "Ask a specific question about LDMS, or open **Help & Support → New ticket** for human help. "
-                + "(Configure GEMINI_API_KEY for full AI answers.)";
     }
 
     private static String truncate(String value, int max) {

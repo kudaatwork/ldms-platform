@@ -29,11 +29,8 @@ import {
 import {
   WalletDepositDetailDialogComponent,
   type WalletDepositDetailDialogData,
+  type WalletDepositDetailResult,
 } from '../wallet-deposit-detail-dialog/wallet-deposit-detail-dialog.component';
-import {
-  WalletDepositRejectDialogComponent,
-  type WalletDepositRejectDialogData,
-} from '../wallet-deposit-reject-dialog/wallet-deposit-reject-dialog.component';
 import { PLATFORM_BILLING_MODULES, moduleLabel } from '../../utils/platform-billing-modules.util';
 import {
   PLATFORM_ACTION_CATALOG,
@@ -43,6 +40,7 @@ import {
 import { packageFeaturePoints } from '../../../../shared/utils/subscription-package-description.util';
 import { PendingDepositsStatsService } from '../../../../core/services/pending-deposits-stats.service';
 import {
+  downloadBlob,
   exportClientTableAsCsv,
   exportFormatLabel,
   type LxExportColumn,
@@ -78,6 +76,8 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
   historyLoadError = '';
   confirmingDepositId: number | null = null;
   rejectingDepositId: number | null = null;
+  resendingDepositId: number | null = null;
+  downloadingReceiptId: number | null = null;
   deletingPackageId: number | null = null;
   deletingChargeId: number | null = null;
 
@@ -91,8 +91,8 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
 
   readonly chargeColumns = ['action', 'category', 'charge', 'active', 'actions'];
   readonly packageColumns = ['code', 'name', 'price', 'featured', 'active', 'actions'];
-  readonly depositColumns = ['org', 'amount', 'ref', 'createdAt', 'actions'];
-  readonly historyColumns = ['org', 'amount', 'ref', 'createdAt', 'approvedAt', 'approvedBy'];
+  readonly depositColumns = ['org', 'type', 'amount', 'ref', 'createdAt', 'actions'];
+  readonly historyColumns = ['org', 'type', 'amount', 'ref', 'createdAt', 'approvedAt', 'approvedBy', 'emailStatus', 'resend', 'receipt', 'actions'];
 
   readonly chargeSampleDescription =
     'Columns: actionCode, displayName, description, chargeCents, category, active. Use uppercase action codes referenced by platform services.';
@@ -129,6 +129,47 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
     private readonly dialog: MatDialog,
     private readonly route: ActivatedRoute,
   ) {}
+
+  resendDepositEmail(depositId: number): void {
+    this.resendingDepositId = depositId;
+    this.walletAdmin
+      .resendDepositReceiptEmail(depositId)
+      .pipe(
+        finalize(() => {
+          this.resendingDepositId = null;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.snackBar.open('Receipt email sent.', 'Close', { duration: 3500 });
+          this.reload();
+        },
+        error: (err: { message?: string }) =>
+          this.snackBar.open(err?.message || 'Could not send the receipt email.', 'Close', {
+            duration: 4000,
+          }),
+      });
+  }
+
+  downloadReceipt(deposit: WalletDepositRow): void {
+    this.downloadingReceiptId = deposit.id;
+    this.walletAdmin
+      .downloadDepositReceiptPdf(deposit.id)
+      .pipe(
+        finalize(() => {
+          this.downloadingReceiptId = null;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (blob) => downloadBlob(blob, `wallet-receipt-deposit-${deposit.id}.pdf`),
+        error: (err: { message?: string }) =>
+          this.snackBar.open(err?.message || 'Could not download the receipt PDF.', 'Close', {
+            duration: 4000,
+          }),
+      });
+  }
 
   ngOnInit(): void {
     this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params) => {
@@ -248,7 +289,7 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
   get filteredDeposits(): WalletDepositRow[] {
     const q = this.searchQuery.trim().toLowerCase();
     return this.pendingDeposits.filter((row) => {
-      if (q && !`${row.organizationId} ${row.referenceNumber ?? ''} ${row.amountCents}`.toLowerCase().includes(q)) {
+      if (q && !`${row.organizationId} ${row.organizationName ?? ''} ${row.referenceNumber ?? ''} ${row.amountCents}`.toLowerCase().includes(q)) {
         return false;
       }
       if (this.depositFilters.organizationId && !String(row.organizationId ?? '').includes(this.depositFilters.organizationId.trim())) {
@@ -264,7 +305,7 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
   get filteredApprovedDeposits(): WalletDepositRow[] {
     const q = this.searchQuery.trim().toLowerCase();
     return this.approvedDeposits.filter((row) => {
-      if (q && !`${row.organizationId} ${row.referenceNumber ?? ''} ${row.amountCents} ${row.modifiedBy ?? ''}`.toLowerCase().includes(q)) {
+      if (q && !`${row.organizationId} ${row.organizationName ?? ''} ${row.referenceNumber ?? ''} ${row.amountCents} ${row.modifiedBy ?? ''}`.toLowerCase().includes(q)) {
         return false;
       }
       if (this.historyFilters.organizationId && !String(row.organizationId ?? '').includes(this.historyFilters.organizationId.trim())) {
@@ -454,6 +495,28 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
     return this.walletAdmin.formatWhen(iso);
   }
 
+  isSubscriptionDeposit(row: WalletDepositRow): boolean {
+    return (row.purpose ?? '').toUpperCase() === 'SUBSCRIPTION';
+  }
+
+  depositTypeLabel(row: WalletDepositRow): string {
+    if (!this.isSubscriptionDeposit(row)) {
+      return 'Wallet top-up';
+    }
+    return row.subscriptionPackageName ? `Subscription · ${row.subscriptionPackageName}` : 'Subscription';
+  }
+
+  depositOrganizationLabel(row: WalletDepositRow): string {
+    const name = row.organizationName?.trim();
+    if (name) {
+      return name;
+    }
+    if (row.organizationId != null) {
+      return `Organisation #${row.organizationId}`;
+    }
+    return '—';
+  }
+
   openChargeDialog(
     mode: 'create' | 'edit' | 'view',
     row?: PlatformActionChargeRow,
@@ -595,9 +658,21 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
   }
 
   viewDeposit(deposit: WalletDepositRow): void {
-    this.dialog.open(WalletDepositDetailDialogComponent, {
+    const ref = this.dialog.open(WalletDepositDetailDialogComponent, {
+      width: '760px',
+      maxWidth: '95vw',
       panelClass: 'lx-location-dialog-panel',
       data: { deposit } satisfies WalletDepositDetailDialogData,
+    });
+    ref.afterClosed().subscribe((result?: WalletDepositDetailResult) => {
+      if (!result) {
+        return;
+      }
+      if (result.action === 'confirm') {
+        this.confirmDeposit(deposit);
+      } else if (result.action === 'reject') {
+        this.performReject(deposit, result.reason);
+      }
     });
   }
 
@@ -620,32 +695,23 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
       });
   }
 
-  rejectDeposit(deposit: WalletDepositRow): void {
-    const ref = this.dialog.open(WalletDepositRejectDialogComponent, {
-      panelClass: 'lx-location-dialog-panel',
-      data: { deposit } satisfies WalletDepositRejectDialogData,
-    });
-    ref.afterClosed().subscribe((reason: string | null) => {
-      if (!reason) {
-        return;
-      }
-      this.rejectingDepositId = deposit.id;
-      this.walletAdmin
-        .rejectDeposit(deposit.id, reason)
-        .pipe(
-          finalize(() => {
-            this.rejectingDepositId = null;
-            this.cdr.markForCheck();
-          }),
-        )
-        .subscribe({
-          next: () => {
-            this.snackBar.open('Deposit rejected.', 'Close', { duration: 3500 });
-            this.reload();
-          },
-          error: () => this.snackBar.open('Could not reject deposit.', 'Close', { duration: 4000 }),
-        });
-    });
+  private performReject(deposit: WalletDepositRow, reason: string): void {
+    this.rejectingDepositId = deposit.id;
+    this.walletAdmin
+      .rejectDeposit(deposit.id, reason)
+      .pipe(
+        finalize(() => {
+          this.rejectingDepositId = null;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.snackBar.open('Deposit rejected.', 'Close', { duration: 3500 });
+          this.reload();
+        },
+        error: () => this.snackBar.open('Could not reject deposit.', 'Close', { duration: 4000 }),
+      });
   }
 
   downloadSampleCsv(): void {
@@ -728,6 +794,7 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
         title: 'Approved wallet deposits',
         columns: [
           { header: 'organizationId', value: (r) => (r as WalletDepositRow).organizationId ?? '' },
+          { header: 'organizationName', value: (r) => (r as WalletDepositRow).organizationName ?? '' },
           { header: 'amountCents', value: (r) => (r as WalletDepositRow).amountCents },
           { header: 'currencyCode', value: (r) => (r as WalletDepositRow).currencyCode ?? 'USD' },
           { header: 'referenceNumber', value: (r) => (r as WalletDepositRow).referenceNumber ?? '' },
@@ -744,6 +811,7 @@ export class SettingsPlatformBillingComponent implements OnInit, OnDestroy {
       title: 'Pending wallet deposits',
       columns: [
         { header: 'organizationId', value: (r) => (r as WalletDepositRow).organizationId ?? '' },
+        { header: 'organizationName', value: (r) => (r as WalletDepositRow).organizationName ?? '' },
         { header: 'amountCents', value: (r) => (r as WalletDepositRow).amountCents },
         { header: 'currencyCode', value: (r) => (r as WalletDepositRow).currencyCode ?? 'USD' },
         { header: 'referenceNumber', value: (r) => (r as WalletDepositRow).referenceNumber ?? '' },

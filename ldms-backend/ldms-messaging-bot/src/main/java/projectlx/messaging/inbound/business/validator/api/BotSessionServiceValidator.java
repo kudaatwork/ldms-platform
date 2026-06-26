@@ -4,6 +4,7 @@ import projectlx.co.zw.shared_library.utils.dtos.ValidatorDto;
 import projectlx.messaging.inbound.utils.requests.RateBotSessionRequest;
 import projectlx.messaging.inbound.utils.requests.SendBotMessageRequest;
 import projectlx.messaging.inbound.utils.requests.StartBotSessionRequest;
+import projectlx.messaging.inbound.utils.requests.UpdateBotAssistantModeRequest;
 
 import java.util.Locale;
 
@@ -14,6 +15,8 @@ public interface BotSessionServiceValidator {
     ValidatorDto isSendMessageRequestValid(SendBotMessageRequest request, Locale locale);
 
     ValidatorDto isRateSessionRequestValid(RateBotSessionRequest request, Locale locale);
+
+    ValidatorDto isUpdateAssistantModeRequestValid(UpdateBotAssistantModeRequest request, Locale locale);
 
     ValidatorDto isSessionIdValid(String sessionId, Locale locale);
 }

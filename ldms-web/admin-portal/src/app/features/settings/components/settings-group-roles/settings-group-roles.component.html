@@ -195,22 +195,38 @@
               class="gr-classification-panel"
               [class.gr-classification-panel--open]="expandedClassification === view.key"
             >
-              <button
-                type="button"
-                class="gr-classification-panel__header"
-                (click)="toggleClassification(view.key)"
-              >
-                <mat-icon class="gr-classification-panel__chevron">
-                  {{ expandedClassification === view.key ? 'expand_more' : 'chevron_right' }}
-                </mat-icon>
-                <span class="gr-classification-panel__icon">
-                  <mat-icon>corporate_fare</mat-icon>
-                </span>
-                <span class="gr-classification-panel__label">{{ view.label }}</span>
-                <span class="gr-classification-panel__count">
-                  <strong>{{ view.memberCount }}</strong> / {{ view.roleRows.length }} roles
-                </span>
-              </button>
+              <div class="gr-classification-panel__headrow">
+                <button
+                  type="button"
+                  class="gr-classification-panel__header"
+                  (click)="toggleClassification(view.key)"
+                >
+                  <mat-icon class="gr-classification-panel__chevron">
+                    {{ expandedClassification === view.key ? 'expand_more' : 'chevron_right' }}
+                  </mat-icon>
+                  <span class="gr-classification-panel__icon">
+                    <mat-icon>corporate_fare</mat-icon>
+                  </span>
+                  <span class="gr-classification-panel__label">{{ view.label }}</span>
+                  <span class="gr-classification-panel__count">
+                    <strong>{{ view.memberCount }}</strong> / {{ view.roleRows.length }} roles
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  class="gr-lock-toggle"
+                  [class.gr-lock-toggle--locked]="view.locked"
+                  [disabled]="view.lockBusy"
+                  [matTooltip]="view.locked
+                    ? 'Locked — organisation admins cannot change these inherited roles. Click to unlock.'
+                    : 'Unlocked — organisation admins may use these roles in their own groups. Click to lock.'"
+                  matTooltipPosition="above"
+                  (click)="toggleClassificationLock(view)"
+                >
+                  <mat-icon>{{ view.lockBusy ? 'hourglass_empty' : (view.locked ? 'lock' : 'lock_open') }}</mat-icon>
+                  <span>{{ view.locked ? 'Locked' : 'Unlocked' }}</span>
+                </button>
+              </div>
 
               @if (expandedClassification === view.key) {
                 <div class="gr-classification-panel__body">
@@ -250,6 +266,7 @@
                       </div>
                     </section>
                   }
+
                 </div>
               }
             </div>

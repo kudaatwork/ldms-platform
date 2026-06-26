@@ -15,6 +15,8 @@ import { NavAccessService } from './core/services/nav-access.service';
 import { KycNotificationDismissService } from './core/services/kyc-notification-dismiss.service';
 import { KycQueueStatsService } from './core/services/kyc-queue-stats.service';
 import { PendingDepositsStatsService } from './core/services/pending-deposits-stats.service';
+import { LiveChatStatsService } from './core/services/live-chat-stats.service';
+import type { AdminSupportTicket } from './features/help/services/help-support-admin.service';
 import {
   PlatformWalletAdminService,
   type WalletDepositRow,
@@ -136,6 +138,8 @@ export class AppComponent implements OnInit, OnDestroy {
   private pendingDepositsLoaded = false;
   private kycSummary: KycQueueSummary | null = null;
   private pendingDeposits: WalletDepositRow[] = [];
+  private liveChatTickets: AdminSupportTicket[] = [];
+  private liveChatLoaded = false;
 
   /** Minimal menu when RBAC roles are not loaded yet or the user group has none assigned. */
   private readonly bootstrapNavItems: NavItem[] = [
@@ -263,6 +267,7 @@ export class AppComponent implements OnInit, OnDestroy {
     readonly navAccess: NavAccessService,
     private readonly kycStats: KycQueueStatsService,
     private readonly pendingDepositsStats: PendingDepositsStatsService,
+    private readonly liveChatStats: LiveChatStatsService,
     private readonly walletAdmin: PlatformWalletAdminService,
     private readonly kycNotificationDismiss: KycNotificationDismissService,
     readonly theme: ThemeService,
@@ -290,6 +295,11 @@ export class AppComponent implements OnInit, OnDestroy {
       this.rebuildTopNotifications();
       this.cdr.markForCheck();
     });
+    this.liveChatStats.tickets$.pipe(takeUntil(this.destroy$)).subscribe((tickets) => {
+      this.liveChatTickets = tickets;
+      this.rebuildTopNotifications();
+      this.cdr.markForCheck();
+    });
     this.rebuildVisibleNav();
     this.syncChromeFromUrl();
     this.rebuildBreadcrumbs();
@@ -312,6 +322,7 @@ export class AppComponent implements OnInit, OnDestroy {
           this.notificationsOpen = false;
           this.scheduleKycStatsRefresh();
           this.schedulePendingDepositsRefresh();
+          this.scheduleLiveChatRefresh();
           this.hydrateSessionProfile();
           this.cdr.markForCheck();
         }),
@@ -801,10 +812,26 @@ export class AppComponent implements OnInit, OnDestroy {
       },
     }));
 
+    const liveChatNotifications: TopNotification[] = this.liveChatTickets.map((ticket) => ({
+      id: `livechat-${ticket.id}`,
+      title: 'New live chat message',
+      body: this.formatLiveChatNotificationBody(ticket),
+      time: this.walletAdmin.formatWhen(ticket.modifiedAt ?? ticket.createdAt),
+      route: ['/help/live-chat'],
+      queryParams: { ticketId: ticket.id },
+    }));
+
     this.topNotifications = this.kycNotificationDismiss.filterById([
       ...kycNotifications,
       ...depositNotifications,
+      ...liveChatNotifications,
     ]);
+  }
+
+  private formatLiveChatNotificationBody(ticket: AdminSupportTicket): string {
+    const who = ticket.requesterUsername?.trim() || ticket.organizationName?.trim() || 'Requester';
+    const subject = ticket.subject?.trim();
+    return subject ? `${who} — ${subject}` : who;
   }
 
   private formatDepositNotificationBody(row: WalletDepositRow): string {
@@ -820,6 +847,9 @@ export class AppComponent implements OnInit, OnDestroy {
       this.profileOpen = false;
       if (this.navAccess.canAccessRoute('/settings')) {
         this.pendingDepositsStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
+      }
+      if (this.isOperationsHandler()) {
+        this.liveChatStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
       }
     }
     this.cdr.markForCheck();
@@ -847,14 +877,30 @@ export class AppComponent implements OnInit, OnDestroy {
 
   dismissNotification(id: string, event?: Event): void {
     event?.stopPropagation();
-    this.kycNotificationDismiss.dismiss(id);
+    // Live-chat items dedupe via the stats service (re-notify on new messages), so they must NOT be
+    // added to the permanent dismiss set — only marked seen up to the current activity.
+    if (id.startsWith('livechat-')) {
+      const ticketId = Number(id.slice('livechat-'.length));
+      if (Number.isFinite(ticketId)) {
+        this.liveChatStats.markSeen(ticketId);
+      }
+    } else {
+      this.kycNotificationDismiss.dismiss(id);
+    }
     this.topNotifications = this.topNotifications.filter((n) => n.id !== id);
     this.cdr.markForCheck();
   }
 
   clearAllNotifications(): void {
     for (const n of this.topNotifications) {
-      this.kycNotificationDismiss.dismiss(n.id);
+      if (n.id.startsWith('livechat-')) {
+        const ticketId = Number(n.id.slice('livechat-'.length));
+        if (Number.isFinite(ticketId)) {
+          this.liveChatStats.markSeen(ticketId);
+        }
+      } else {
+        this.kycNotificationDismiss.dismiss(n.id);
+      }
     }
     this.topNotifications = [];
     this.cdr.markForCheck();
@@ -940,6 +986,24 @@ export class AppComponent implements OnInit, OnDestroy {
     }, 450);
   }
 
+  /** Live-chat bell notifications are only for operations handlers (operationalIssueHandler flag). */
+  private isOperationsHandler(): boolean {
+    return this.storage.getUser()?.operationalIssueHandler === true;
+  }
+
+  private scheduleLiveChatRefresh(): void {
+    if (this.liveChatLoaded || !this.showShell || !this.isAuthenticated()) {
+      return;
+    }
+    if (!this.isOperationsHandler()) {
+      return;
+    }
+    this.liveChatLoaded = true;
+    setTimeout(() => {
+      this.liveChatStats.refresh().pipe(takeUntil(this.destroy$)).subscribe();
+    }, 550);
+  }
+
   logout(fromTimeout = false): void {
     this.clearSessionTimers();
     this.sessionWarningVisible = false;
@@ -950,6 +1014,8 @@ export class AppComponent implements OnInit, OnDestroy {
     this.sessionProfileHydrated = false;
     this.kycStatsLoaded = false;
     this.pendingDepositsLoaded = false;
+    this.liveChatLoaded = false;
+    this.liveChatStats.clear();
     this.shellNavExpandedInitialized = false;
     this.userCollapsedNavGroups.clear();
     this.expandedGroups.set({});

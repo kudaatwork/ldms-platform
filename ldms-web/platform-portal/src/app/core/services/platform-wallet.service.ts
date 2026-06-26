@@ -11,6 +11,7 @@ export type OrganizationBillingMode = 'PREPAID_WALLET' | 'PREMIUM_SUBSCRIPTION';
 export type WalletDepositPaymentMethod =
   | 'BANK_TRANSFER'
   | 'CASH'
+  | 'ECOCASH'
   | 'PAYNOW'
   | 'PAYPAL'
   | 'MASTERCARD';
@@ -27,10 +28,22 @@ export interface PlatformWalletSummary {
   platformAccessAllowed?: boolean;
   subscriptionPackageId?: number | null;
   subscriptionPackageName?: string | null;
+  subscriptionStartedAt?: string | null;
+  subscriptionRenewsAt?: string | null;
   smsIncludedMonthly?: number;
   smsUsedThisPeriod?: number;
   smsRemainingThisPeriod?: number;
   smsQuotaExhausted?: boolean;
+  subscriptionQuotas?: SubscriptionQuotaMeter[];
+}
+
+export interface SubscriptionQuotaMeter {
+  code: string;
+  label: string;
+  includedMonthly: number;
+  usedThisPeriod: number;
+  remainingThisPeriod: number;
+  exhausted: boolean;
 }
 
 export interface OrganizationBillingSetting {
@@ -81,6 +94,9 @@ export interface WalletDepositRow {
   referenceNumber?: string;
   notes?: string;
   status: string;
+  purpose?: string;
+  subscriptionPackageId?: number;
+  subscriptionPackageName?: string;
   proofDocumentId?: number;
   gatewayProvider?: string;
   paymentMethod?: string;
@@ -236,6 +252,8 @@ export class PlatformWalletService {
     proofDocumentId?: number;
     gatewayProvider?: string;
     paymentMethod?: string;
+    purpose?: 'WALLET_TOPUP' | 'SUBSCRIPTION';
+    subscriptionPackageId?: number;
   }): Observable<WalletDepositRow> {
     return this.http.post<PlatformWalletApiResponse>(`${this.frontendBase}/deposits`, payload).pipe(
       map((res) => {
@@ -254,13 +272,25 @@ export class PlatformWalletService {
 
   listDeposits(): Observable<WalletDepositRow[]> {
     return this.http.get<PlatformWalletApiResponse>(`${this.frontendBase}/deposits`).pipe(
-      map((res) => res.walletDepositDtoList ?? []),
+      map((res) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Could not load deposits.'));
+        }
+        return res.walletDepositDtoList ?? [];
+      }),
+      catchError((err: unknown) => throwError(() => (err instanceof Error ? err : new Error('Could not load deposits.')))),
     );
   }
 
   listTransactions(): Observable<WalletTransactionRow[]> {
     return this.http.get<PlatformWalletApiResponse>(`${this.frontendBase}/transactions`).pipe(
-      map((res) => res.walletTransactionDtoList ?? []),
+      map((res) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Could not load transactions.'));
+        }
+        return res.walletTransactionDtoList ?? [];
+      }),
+      catchError((err: unknown) => throwError(() => (err instanceof Error ? err : new Error('Could not load transactions.')))),
     );
   }
 

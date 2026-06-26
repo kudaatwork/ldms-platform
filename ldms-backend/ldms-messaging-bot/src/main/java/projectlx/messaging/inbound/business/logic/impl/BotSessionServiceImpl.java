@@ -6,19 +6,28 @@ import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import projectlx.messaging.inbound.business.auditable.api.BotSessionServiceAuditable;
 import projectlx.messaging.inbound.business.logic.api.BotSessionService;
+import projectlx.messaging.inbound.business.logic.support.BotAgentExecutionContext;
+import projectlx.messaging.inbound.business.logic.support.BotAgentOrchestrator;
 import projectlx.messaging.inbound.business.logic.support.BotBillingSupport;
 import projectlx.messaging.inbound.business.logic.support.BotCallerProfileSupport;
+import projectlx.messaging.inbound.business.logic.support.BotPricingSupport;
+import projectlx.messaging.inbound.business.logic.support.BotResponseSanitizer;
 import projectlx.messaging.inbound.business.logic.support.BotSessionMapper;
-import projectlx.messaging.inbound.business.logic.support.GeminiLlmClient;
+import projectlx.messaging.inbound.business.logic.support.BotLlmFallbackSupport;
+import projectlx.messaging.inbound.business.logic.support.BotLlmHistorySupport;
+import projectlx.messaging.inbound.business.logic.support.BotLlmClient;
 import projectlx.messaging.inbound.business.logic.support.BotFaqRagSupport;
 import projectlx.messaging.inbound.business.logic.support.BotKnowledgeDocumentRagSupport;
 import projectlx.messaging.inbound.business.logic.support.LdmsKnowledgeContextSupport;
+import projectlx.messaging.inbound.business.logic.support.LexiBotPersonality;
 import projectlx.messaging.inbound.business.validator.api.BotSessionServiceValidator;
 import projectlx.messaging.inbound.model.BotMessage;
 import projectlx.messaging.inbound.model.BotSession;
 import projectlx.messaging.inbound.repository.BotMessageRepository;
 import projectlx.messaging.inbound.repository.BotSessionRepository;
+import projectlx.messaging.inbound.utils.dtos.BotPricingDto;
 import projectlx.messaging.inbound.utils.dtos.BotSessionDto;
+import projectlx.messaging.inbound.utils.enums.BotAssistantMode;
 import projectlx.messaging.inbound.utils.enums.BotChannel;
 import projectlx.messaging.inbound.utils.enums.BotMessageRole;
 import projectlx.messaging.inbound.utils.enums.BotSessionStatus;
@@ -26,6 +35,7 @@ import projectlx.messaging.inbound.utils.enums.I18Code;
 import projectlx.messaging.inbound.utils.requests.RateBotSessionRequest;
 import projectlx.messaging.inbound.utils.requests.SendBotMessageRequest;
 import projectlx.messaging.inbound.utils.requests.StartBotSessionRequest;
+import projectlx.messaging.inbound.utils.requests.UpdateBotAssistantModeRequest;
 import projectlx.messaging.inbound.utils.responses.BotSessionResponse;
 
 import java.time.LocalDateTime;
@@ -45,8 +55,10 @@ public class BotSessionServiceImpl implements BotSessionService {
     private final LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport;
     private final BotFaqRagSupport botFaqRagSupport;
     private final BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport;
-    private final GeminiLlmClient geminiLlmClient;
+    private final BotLlmClient botLlmClient;
+    private final BotAgentOrchestrator botAgentOrchestrator;
     private final BotBillingSupport botBillingSupport;
+    private final BotPricingSupport botPricingSupport;
     private final MessageService messageService;
 
     public BotSessionServiceImpl(BotSessionRepository botSessionRepository,
@@ -58,8 +70,10 @@ public class BotSessionServiceImpl implements BotSessionService {
                                  LdmsKnowledgeContextSupport ldmsKnowledgeContextSupport,
                                  BotFaqRagSupport botFaqRagSupport,
                                  BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport,
-                                 GeminiLlmClient geminiLlmClient,
+                                 BotLlmClient botLlmClient,
+                                 BotAgentOrchestrator botAgentOrchestrator,
                                  BotBillingSupport botBillingSupport,
+                                 BotPricingSupport botPricingSupport,
                                  MessageService messageService) {
         this.botSessionRepository = botSessionRepository;
         this.botMessageRepository = botMessageRepository;
@@ -70,8 +84,10 @@ public class BotSessionServiceImpl implements BotSessionService {
         this.ldmsKnowledgeContextSupport = ldmsKnowledgeContextSupport;
         this.botFaqRagSupport = botFaqRagSupport;
         this.botKnowledgeDocumentRagSupport = botKnowledgeDocumentRagSupport;
-        this.geminiLlmClient = geminiLlmClient;
+        this.botLlmClient = botLlmClient;
+        this.botAgentOrchestrator = botAgentOrchestrator;
         this.botBillingSupport = botBillingSupport;
+        this.botPricingSupport = botPricingSupport;
         this.messageService = messageService;
     }
 
@@ -84,6 +100,7 @@ public class BotSessionServiceImpl implements BotSessionService {
 
         BotCallerProfileSupport.CallerProfile profile = botCallerProfileSupport.resolve(username);
         LocalDateTime now = LocalDateTime.now();
+        BotAssistantMode assistantMode = BotAssistantMode.from(request.getAssistantMode());
 
         BotSession session = new BotSession();
         session.setSessionId(BotSessionMapper.newSessionPublicId());
@@ -96,7 +113,8 @@ public class BotSessionServiceImpl implements BotSessionService {
         session.setStatus(BotSessionStatus.ACTIVE);
         session.setTopic(request.getTopic() != null && !request.getTopic().isBlank()
                 ? request.getTopic().trim()
-                : "LDMS assistant");
+                : LexiBotPersonality.DEFAULT_TOPIC);
+        session.setAssistantMode(assistantMode);
         session.setEntityStatus(EntityStatus.ACTIVE);
         session.setCreatedAt(now);
         session.setCreatedBy(username);
@@ -110,16 +128,16 @@ public class BotSessionServiceImpl implements BotSessionService {
         BotMessage greeting = new BotMessage();
         greeting.setBotSession(saved);
         greeting.setRole(BotMessageRole.BOT);
-        greeting.setBody("""
-                Hello %s! I'm the LDMS assistant. Ask me how onboarding, purchase orders, shipments, \
-                trips, billing, or Help & Support work — I'll answer from the LDMS platform guide."""
-                .formatted(profile.displayName()).trim());
+        String greetingBody = assistantMode == BotAssistantMode.AGENT
+                ? LexiBotPersonality.agentGreeting(profile.displayName())
+                : LexiBotPersonality.assistantGreeting(profile.displayName());
         greeting.setEntityStatus(EntityStatus.ACTIVE);
         greeting.setCreatedAt(now);
         greeting.setCreatedBy("ldms-bot");
         botSessionServiceAuditable.createMessage(greeting, locale, username);
 
-        return success(I18Code.MESSAGE_BOT_SESSION_CREATED, locale, botSessionMapper.toDto(saved, true));
+        return success(I18Code.MESSAGE_BOT_SESSION_CREATED, locale, botSessionMapper.toDto(saved, true),
+                botPricingSupport.currentPricing());
     }
 
     @Override
@@ -141,6 +159,16 @@ public class BotSessionServiceImpl implements BotSessionService {
                     new String[]{}, locale));
         }
 
+        if (request.getAssistantMode() != null && !request.getAssistantMode().isBlank()) {
+            BotAssistantMode requestedMode = BotAssistantMode.from(request.getAssistantMode());
+            if (session.getAssistantMode() != requestedMode) {
+                session.setAssistantMode(requestedMode);
+                session.setModifiedAt(LocalDateTime.now());
+                session.setModifiedBy(username);
+                botSessionServiceAuditable.updateSession(session, locale, username);
+            }
+        }
+
         LocalDateTime now = LocalDateTime.now();
         String userBody = request.getBody().trim();
 
@@ -156,17 +184,26 @@ public class BotSessionServiceImpl implements BotSessionService {
         botBillingSupport.chargeForUserMessage(session, username, savedUserMessage.getId());
 
         if (session.getTopic() == null || session.getTopic().isBlank()
-                || "LDMS assistant".equalsIgnoreCase(session.getTopic())) {
+                || LexiBotPersonality.LEGACY_TOPIC.equalsIgnoreCase(session.getTopic())
+                || LexiBotPersonality.DEFAULT_TOPIC.equalsIgnoreCase(session.getTopic())) {
             session.setTopic(summarizeTopic(userBody));
         }
 
         List<BotMessage> history = botMessageRepository.findByBotSessionIdAndEntityStatusOrderByCreatedAtAsc(
                 session.getId(), EntityStatus.ACTIVE);
-        String botReply = geminiLlmClient.generateReply(
-                ldmsKnowledgeContextSupport.systemPrompt(
-                        session.getUserDisplayName(), session.getOrganizationName(), userBody,
-                        botFaqRagSupport, botKnowledgeDocumentRagSupport),
-                history);
+        BotAssistantMode mode = session.getAssistantMode() != null ? session.getAssistantMode() : BotAssistantMode.ASSISTANT;
+        String systemPrompt = ldmsKnowledgeContextSupport.systemPrompt(
+                session.getUserDisplayName(), session.getOrganizationName(), userBody, mode,
+                botFaqRagSupport, botKnowledgeDocumentRagSupport);
+        String botReply;
+        if (BotLlmFallbackSupport.isAccuracyChallengeQuery(userBody)) {
+            botReply = BotLlmFallbackSupport.accuracyChallengeReplyFor();
+        } else {
+            BotCallerProfileSupport.CallerProfile profile = botCallerProfileSupport.resolve(username);
+            BotAgentExecutionContext agentContext = BotAgentOrchestrator.contextFrom(username, profile, locale, mode);
+            botReply = botAgentOrchestrator.run(systemPrompt, history, agentContext);
+        }
+        botReply = BotResponseSanitizer.forUserDisplay(botReply);
 
         BotMessage botMessage = new BotMessage();
         botMessage.setBotSession(session);
@@ -262,6 +299,33 @@ public class BotSessionServiceImpl implements BotSessionService {
         return success(I18Code.MESSAGE_BOT_SESSION_RATED, locale, botSessionMapper.toDto(session, false));
     }
 
+    @Override
+    public BotSessionResponse updateAssistantMode(UpdateBotAssistantModeRequest request, Locale locale, String username) {
+        var validation = botSessionServiceValidator.isUpdateAssistantModeRequestValid(request, locale);
+        if (!validation.getSuccess()) {
+            return failure(400, validation.getErrorMessages().get(0));
+        }
+
+        BotSession session = botSessionRepository
+                .findBySessionIdAndEntityStatus(request.getSessionId().trim(), EntityStatus.ACTIVE)
+                .orElse(null);
+        if (session == null) {
+            return failure(404, messageService.getMessage(I18Code.MESSAGE_BOT_SESSION_NOT_FOUND.getCode(),
+                    new String[]{}, locale));
+        }
+        if (!session.getRequesterUsername().equals(username)) {
+            return failure(403, messageService.getMessage(I18Code.MESSAGE_BOT_ACCESS_DENIED.getCode(),
+                    new String[]{}, locale));
+        }
+
+        session.setAssistantMode(BotAssistantMode.from(request.getAssistantMode()));
+        session.setModifiedAt(LocalDateTime.now());
+        session.setModifiedBy(username);
+        botSessionServiceAuditable.updateSession(session, locale, username);
+
+        return success(I18Code.MESSAGE_BOT_ASSISTANT_MODE_UPDATED, locale, botSessionMapper.toDto(session, true));
+    }
+
     private static String summarizeTopic(String userBody) {
         String trimmed = userBody.trim();
         if (trimmed.length() <= 80) {
@@ -270,12 +334,35 @@ public class BotSessionServiceImpl implements BotSessionService {
         return trimmed.substring(0, 77) + "...";
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public BotSessionResponse getPricing(Locale locale) {
+        return pricingSuccess(I18Code.MESSAGE_BOT_PRICING_RETRIEVED, locale, botPricingSupport.currentPricing());
+    }
+
+    private BotSessionResponse pricingSuccess(I18Code code, Locale locale, BotPricingDto pricing) {
+        BotSessionResponse response = new BotSessionResponse();
+        response.setSuccess(true);
+        response.setStatusCode(200);
+        response.setMessage(messageService.getMessage(code.getCode(), new String[]{}, locale));
+        response.setBotPricingDto(pricing);
+        return response;
+    }
+
     private BotSessionResponse success(I18Code code, Locale locale, BotSessionDto dto) {
+        BotSessionResponse response = success(code, locale, dto, null);
+        return response;
+    }
+
+    private BotSessionResponse success(I18Code code, Locale locale, BotSessionDto dto, BotPricingDto pricing) {
         BotSessionResponse response = new BotSessionResponse();
         response.setSuccess(true);
         response.setStatusCode(200);
         response.setMessage(messageService.getMessage(code.getCode(), new String[]{}, locale));
         response.setBotSessionDto(dto);
+        if (pricing != null) {
+            response.setBotPricingDto(pricing);
+        }
         return response;
     }
 

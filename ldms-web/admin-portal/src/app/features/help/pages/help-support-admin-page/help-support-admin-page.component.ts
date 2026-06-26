@@ -14,7 +14,7 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Title } from '@angular/platform-browser';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, catchError, finalize, of, startWith, switchMap } from 'rxjs';
 import {
   AdminSupportTicket,
@@ -83,16 +83,22 @@ export class HelpSupportAdminPageComponent implements OnInit, OnDestroy, AfterVi
   private readonly destroyRef = inject(DestroyRef);
   private readonly reload$ = new Subject<void>();
 
+  /** When the page is opened from a bell notification, auto-select this ticket once loaded. */
+  private pendingTicketId: number | null = null;
+
   constructor(
     private readonly title: Title,
     private readonly helpApi: HelpSupportAdminService,
     private readonly router: Router,
+    private readonly route: ActivatedRoute,
     private readonly snackBar: MatSnackBar,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.title.setTitle('Help & Support | LX Admin');
+    const ticketIdParam = Number(this.route.snapshot.queryParamMap.get('ticketId'));
+    this.pendingTicketId = Number.isFinite(ticketIdParam) && ticketIdParam > 0 ? ticketIdParam : null;
     this.reload$
       .pipe(
         startWith(undefined),
@@ -541,6 +547,16 @@ export class HelpSupportAdminPageComponent implements OnInit, OnDestroy, AfterVi
 
   private applyTickets(tickets: AdminSupportTicket[]): void {
     this.tickets = tickets;
+    if (this.pendingTicketId) {
+      const deepLinked = tickets.find((t) => t.id === this.pendingTicketId);
+      this.pendingTicketId = null;
+      if (deepLinked) {
+        this.selectTicket(deepLinked);
+        this.loading = false;
+        this.cdr.markForCheck();
+        return;
+      }
+    }
     if (tickets.length && !this.selected) {
       this.selectTicket(tickets[0]);
     } else if (this.selected) {

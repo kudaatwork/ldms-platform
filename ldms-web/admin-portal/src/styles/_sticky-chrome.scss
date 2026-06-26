@@ -21,19 +21,19 @@ html.theme-dark {
   box-shadow: 0 1px 0 color-mix(in srgb, var(--gray-300) 35%, transparent);
 }
 
-/* Section nav strips (Help, Users hub, etc.) */
+/* Section nav strips (Help, Users hub, Settings, etc.) — scroll with page content */
 .help-shell__nav,
 .lx-quick-nav,
 .links-strip,
 .settings-nav {
-  position: sticky;
-  top: 0;
-  z-index: 14;
-  background: var(--lx-sticky-bg);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  padding-bottom: 2px;
-  margin-bottom: 10px;
+  position: static;
+  top: auto;
+  z-index: auto;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  padding-bottom: 0;
+  margin-bottom: 0;
 }
 
 /* List / filter toolbars inside scrolling pages */

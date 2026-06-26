@@ -18,14 +18,15 @@ export class ClassificationGuard implements CanActivate {
   canActivate(): boolean | UrlTree | Observable<boolean | UrlTree> {
     return this.ensureUserLoaded().pipe(
       map((user) => {
-        if (!user?.orgClassification) {
-          const token = this.storage.getToken();
-          if (token && !token.startsWith('mock.')) {
-            return this.router.createUrlTree(['/auth/login']);
-          }
-          return this.router.createUrlTree(['/welcome']);
+        if (user?.orgClassification) {
+          return true;
         }
-        return true;
+        const token = this.storage.getToken();
+        if (token && !token.startsWith('mock.')) {
+          // Signed-in workspace — allow entry while org profile loads; do not bounce to login.
+          return true;
+        }
+        return this.router.createUrlTree(['/welcome']);
       }),
     );
   }

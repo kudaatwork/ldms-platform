@@ -21,10 +21,27 @@ import {
   SupportTicketCategory,
 } from '../../services/help-support.service';
 import {
+  BotChatMessage,
   BotChatService,
   BotChatSession,
+  BotAssistantMode,
+  BotPricing,
 } from '../../services/bot-chat.service';
+import {
+  BotLlmSettings,
+  BotLlmSettingsService,
+} from '../../services/bot-llm-settings.service';
 import { UserProfileService } from '../../../../core/services/user-profile.service';
+import { NotificationService } from '../../../../core/services/notification.service';
+import { OrgContextService } from '../../../../core/services/org-context.service';
+import { AuthStateService } from '../../../../core/services/auth-state.service';
+import { PlatformWalletService, type PlatformActionChargeRow } from '../../../../core/services/platform-wallet.service';
+import {
+  HELP_SUPPORT_ACTION_CODES,
+  actionChargeMap,
+  chargeCentsForAction,
+  formatActionPrice,
+} from '../../../../shared/utils/platform-action-pricing.util';
 
 type HelpTab = 'overview' | 'faq' | 'ticket' | 'tickets' | 'status' | 'assistant';
 
@@ -49,7 +66,12 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
   private readonly destroy$ = new Subject<void>();
   private readonly helpApi = inject(HelpSupportService);
   private readonly botApi = inject(BotChatService);
+  private readonly botLlmApi = inject(BotLlmSettingsService);
   private readonly profileApi = inject(UserProfileService);
+  private readonly notifications = inject(NotificationService);
+  private readonly orgContext = inject(OrgContextService);
+  private readonly authState = inject(AuthStateService);
+  private readonly platformWallet = inject(PlatformWalletService);
   private readonly cdr = inject(ChangeDetectorRef);
 
   private pollTimer: ReturnType<typeof setInterval> | null = null;
@@ -82,11 +104,37 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
   readonly botSending = signal(false);
   readonly botRating = signal(false);
   readonly botStarting = signal(false);
+  readonly botAwaitingReply = signal(false);
+  readonly assistantOnline = signal(true);
+  readonly lexiName = 'Lexi';
+  readonly botAssistantMode = signal<BotAssistantMode>('ASSISTANT');
+
+  lexiDisplayName(): string {
+    return this.isAgentMode() ? `${this.lexiName} (Agent)` : this.lexiName;
+  }
+  readonly botModeSwitching = signal(false);
+  readonly botPricing = signal<BotPricing | null>(null);
+  readonly platformActionCharges = signal<PlatformActionChargeRow[]>([]);
+
+  llmSettings: BotLlmSettings | null = null;
+  llmProvider: 'auto' | 'gemini' | 'anthropic' = 'auto';
+  llmModel = '';
+  llmLoading = false;
+  llmSaving = false;
+  llmError = '';
+  private appliedLlmProvider: 'auto' | 'gemini' | 'anthropic' = 'auto';
+  private appliedLlmModel = '';
+  readonly llmProviderOptions = [
+    { id: 'auto' as const, label: 'Auto' },
+    { id: 'gemini' as const, label: 'Gemini' },
+    { id: 'anthropic' as const, label: 'Claude' },
+  ];
 
   articles: HelpArticle[] = [];
   tickets: SupportTicket[] = [];
   platformStatus: PlatformStatusSummary | null = null;
   userDisplayName = '';
+  organizationName = '';
   ticketReplyDraft = '';
   botReplyDraft = '';
 
@@ -119,6 +167,11 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
       this.userDisplayName = profile?.displayName ?? profile?.email ?? '';
       this.cdr.markForCheck();
     });
+    this.authState.currentUser$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.organizationName = this.orgContext.organizationName;
+      this.cdr.markForCheck();
+    });
+    this.organizationName = this.orgContext.organizationName;
     this.reload();
   }
 
@@ -145,7 +198,12 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
       this.mobileShowChat.set(false);
     }
     if (tab === 'assistant') {
+      this.loadHelpSupportPricing();
       this.loadBotSessions();
+      this.loadLlmSettings();
+    }
+    if (tab === 'ticket' || tab === 'tickets') {
+      this.loadHelpSupportPricing();
     }
     if (tab === 'faq' && !this.selectedArticle() && this.filteredArticles.length) {
       this.openArticle(this.filteredArticles[0]);
@@ -679,6 +737,137 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
     return trimmed.slice(0, max - 1) + '…';
   }
 
+  loadHelpSupportPricing(): void {
+    this.platformWallet
+      .listActiveActionCharges()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (charges) => {
+          this.platformActionCharges.set(charges);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.cdr.markForCheck();
+        },
+      });
+
+    this.botApi
+      .fetchPricing()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (pricing) => {
+          this.botPricing.set(pricing);
+          this.cdr.markForCheck();
+        },
+        error: () => {
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  private actionChargeLookup(): Map<string, PlatformActionChargeRow> {
+    return actionChargeMap(this.platformActionCharges());
+  }
+
+  botAssistantPriceLabel(): string {
+    const charges = this.actionChargeLookup();
+    if (charges.size) {
+      const cents = chargeCentsForAction(charges, HELP_SUPPORT_ACTION_CODES.ASSISTANT_MESSAGE);
+      if (cents <= 0) {
+        return 'Included';
+      }
+      return formatActionPrice(charges, HELP_SUPPORT_ACTION_CODES.ASSISTANT_MESSAGE, (c, cur) =>
+        this.platformWallet.formatCents(c, cur),
+      );
+    }
+    const pricing = this.botPricing();
+    if (pricing) {
+      return this.botMessagePriceLabel(pricing.assistantMessageCents, pricing.currencyCode);
+    }
+    return 'Included';
+  }
+
+  botAgentPriceLabel(): string {
+    const charges = this.actionChargeLookup();
+    if (charges.size) {
+      return formatActionPrice(
+        charges,
+        HELP_SUPPORT_ACTION_CODES.AGENT_MESSAGE,
+        (c, cur) => this.platformWallet.formatCents(c, cur),
+        { perMessage: true },
+      );
+    }
+    const pricing = this.botPricing();
+    if (!pricing) {
+      return '… / msg';
+    }
+    return this.botMessagePriceLabel(pricing.agentMessageCents, pricing.currencyCode, true);
+  }
+
+  botAgentPriceHint(): string {
+    const cents = this.chargeCents(HELP_SUPPORT_ACTION_CODES.AGENT_MESSAGE);
+    if (cents <= 0) {
+      return 'Agent mode can create user groups, add users to groups, check your wallet, find portal screens, search LDMS architecture, and open support tickets.';
+    }
+    const agentLabel = this.formatChargeCents(cents);
+    return `Agent mode can create user groups, add users to groups, check your wallet, find portal screens, search LDMS architecture, and open support tickets. Each message is billed at ${agentLabel} / msg from your wallet.`;
+  }
+
+  supportTicketOpenHint(): string {
+    const base = 'Include PO numbers, shipment IDs, or screenshots when relevant.';
+    const cents = this.chargeCents(HELP_SUPPORT_ACTION_CODES.TICKET_OPEN);
+    if (cents <= 0) {
+      return base;
+    }
+    return `${base} Opening a ticket is billed at ${this.formatChargeCents(cents)} from your prepaid wallet.`;
+  }
+
+  liveChatMessageHint(): string {
+    const cents = this.chargeCents(HELP_SUPPORT_ACTION_CODES.LIVE_CHAT_MESSAGE);
+    if (cents <= 0) {
+      return '';
+    }
+    return `Each message in this conversation is billed at ${this.formatChargeCents(cents)} / msg from your prepaid wallet when applicable.`;
+  }
+
+  private chargeCents(actionCode: string): number {
+    const charges = this.platformActionCharges();
+    if (charges.length) {
+      return chargeCentsForAction(charges, actionCode);
+    }
+    const pricing = this.botPricing();
+    if (!pricing) {
+      return 0;
+    }
+    switch (actionCode) {
+      case HELP_SUPPORT_ACTION_CODES.AGENT_MESSAGE:
+        return pricing.agentMessageCents;
+      case HELP_SUPPORT_ACTION_CODES.ASSISTANT_MESSAGE:
+        return pricing.assistantMessageCents;
+      case HELP_SUPPORT_ACTION_CODES.TICKET_OPEN:
+        return pricing.supportTicketOpenCents;
+      case HELP_SUPPORT_ACTION_CODES.LIVE_CHAT_MESSAGE:
+        return pricing.liveChatMessageCents;
+      case HELP_SUPPORT_ACTION_CODES.SESSION_START:
+        return pricing.sessionStartCents;
+      default:
+        return 0;
+    }
+  }
+
+  private formatChargeCents(cents: number): string {
+    const currency = this.botPricing()?.currencyCode ?? 'USD';
+    return this.platformWallet.formatCents(cents, currency);
+  }
+
+  private botMessagePriceLabel(cents: number, currencyCode: string, perMessageSuffix = false): string {
+    if (cents <= 0) {
+      return 'Included';
+    }
+    const formatted = this.platformWallet.formatCents(cents, currencyCode);
+    return perMessageSuffix ? `${formatted} / msg` : formatted;
+  }
+
   loadBotSessions(): void {
     this.botChatLoading.set(true);
     this.botApi
@@ -708,12 +897,16 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
     }
     this.botStarting.set(true);
     this.botApi
-      .startSession()
+      .startSession(undefined, this.botAssistantMode())
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (session) => {
+        next: ({ session, pricing }) => {
+          if (pricing) {
+            this.botPricing.set(pricing);
+          }
           this.botSessions.set([session, ...this.botSessions()]);
           this.selectedBotSession.set(session);
+          this.botAssistantMode.set(session.assistantMode ?? 'ASSISTANT');
           this.botStarting.set(false);
           this.botChatLoading.set(false);
           this.scrollPending = true;
@@ -735,13 +928,17 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
       .subscribe({
         next: (session) => {
           this.selectedBotSession.set(session);
+          this.botAssistantMode.set(session.assistantMode ?? 'ASSISTANT');
           this.botChatLoading.set(false);
+          this.botAwaitingReply.set(false);
+          this.assistantOnline.set(true);
           this.scrollPending = true;
           this.cdr.markForCheck();
         },
         error: (err: Error) => {
           this.setActionError(err.message);
           this.botChatLoading.set(false);
+          this.assistantOnline.set(!this.isUnreachableError(err.message));
           this.cdr.markForCheck();
         },
       });
@@ -762,25 +959,247 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
   sendBotReply(): void {
     const session = this.selectedBotSession();
     const body = this.botReplyDraft.trim();
-    if (!session || !body || this.botSending()) {
+    if (!session || !body || this.botSending() || this.botModeSwitching()) {
       return;
     }
-    this.botSending.set(true);
+
+    const assistantMode = this.botAssistantMode();
+
+    const optimistic: BotChatMessage = {
+      id: `pending-${Date.now()}`,
+      role: 'user',
+      body,
+      sentAt: new Date().toISOString(),
+    };
+    this.selectedBotSession.set({
+      ...session,
+      messages: [...(session.messages ?? []), optimistic],
+      messageCount: (session.messageCount ?? 0) + 1,
+      lastMessageAt: optimistic.sentAt,
+    });
+    this.botReplyDraft = '';
+    this.scrollPending = true;
+    this.cdr.markForCheck();
+
+    // Paint the user's bubble first, then show Lexi typing and call the API.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        this.botSending.set(true);
+        this.botAwaitingReply.set(true);
+        this.actionError.set('');
+        this.cdr.markForCheck();
+
+        this.botApi
+          .sendMessage(session.sessionId, body, assistantMode)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (updated) => {
+              this.selectedBotSession.set(updated);
+              this.botAssistantMode.set(updated.assistantMode ?? assistantMode);
+              this.botSending.set(false);
+              this.botAwaitingReply.set(false);
+              this.assistantOnline.set(true);
+              this.actionError.set('');
+              this.scrollPending = true;
+              this.cdr.markForCheck();
+            },
+            error: (err: Error) => {
+              this.selectedBotSession.set(session);
+              this.botReplyDraft = body;
+              this.botSending.set(false);
+              this.botAwaitingReply.set(false);
+              this.assistantOnline.set(!this.isUnreachableError(err.message));
+              this.setActionError(err.message);
+              this.cdr.markForCheck();
+            },
+          });
+      });
+    });
+  }
+
+  private isUnreachableError(message: string): boolean {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes('reach') ||
+      normalized.includes('gateway') ||
+      normalized.includes('not found') ||
+      normalized.includes('running')
+    );
+  }
+
+  isAgentMode(): boolean {
+    return this.botAssistantMode() === 'AGENT';
+  }
+
+  loadLlmSettings(): void {
+    this.llmLoading = true;
+    this.llmError = '';
+    this.botLlmApi
+      .currentSettings()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (settings) => {
+          this.llmSettings = settings;
+          this.applyLlmSettingsToForm(settings);
+          this.captureAppliedLlmState();
+          this.llmLoading = false;
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.llmError = err.message;
+          this.llmLoading = false;
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  onLlmProviderChange(): void {
+    const options = this.llmModelOptions;
+    this.llmModel = options.length ? options[0].modelId : '';
+    this.cdr.markForCheck();
+  }
+
+  onLlmModelChange(): void {
+    this.cdr.markForCheck();
+  }
+
+  llmHasPendingChanges(): boolean {
+    if (this.llmLoading) {
+      return false;
+    }
+    return this.llmProvider !== this.appliedLlmProvider || this.llmModel !== this.appliedLlmModel;
+  }
+
+  applyLlmSettings(): void {
+    if (this.llmSaving || !this.llmHasPendingChanges()) {
+      return;
+    }
+    if (this.llmProvider === 'gemini' && !this.llmSettings?.geminiConfigured) {
+      this.notifications.error('Gemini is not configured on this server (missing API key).');
+      return;
+    }
+    if (this.llmProvider === 'anthropic' && !this.llmSettings?.anthropicConfigured) {
+      this.notifications.error('Claude is not configured on this server (missing API key).');
+      return;
+    }
+    if (this.llmProvider !== 'auto' && !this.llmModel?.trim()) {
+      this.notifications.error('Select a model before applying.');
+      return;
+    }
+    this.llmSaving = true;
+    this.llmError = '';
+    const provider = this.llmProvider === 'auto' ? '' : this.llmProvider;
+    const payload =
+      this.llmProvider === 'gemini'
+        ? { provider, geminiModel: this.llmModel || null, anthropicModel: null }
+        : this.llmProvider === 'anthropic'
+          ? { provider, anthropicModel: this.llmModel || null, geminiModel: null }
+          : { provider: null, geminiModel: null, anthropicModel: null };
+
+    this.botLlmApi
+      .updateRuntime(payload)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (settings) => {
+          this.llmSettings = settings;
+          this.applyLlmSettingsToForm(settings);
+          this.captureAppliedLlmState();
+          this.llmSaving = false;
+          this.notifications.success(`AI model updated to ${this.llmActiveLabel()}`);
+          this.cdr.markForCheck();
+        },
+        error: (err: Error) => {
+          this.llmError = err.message;
+          this.llmSaving = false;
+          this.notifications.error(err.message);
+          this.cdr.markForCheck();
+        },
+      });
+  }
+
+  get llmModelOptions(): Array<{ modelId: string; label: string }> {
+    const catalog = this.llmSettings?.modelCatalog ?? [];
+    const provider =
+      this.llmProvider === 'auto' ? (this.llmSettings?.activeProvider ?? 'anthropic') : this.llmProvider;
+    return catalog
+      .filter((row) => row.providerId === provider)
+      .map((row) => ({ modelId: row.modelId, label: row.label }));
+  }
+
+  llmActiveLabel(): string {
+    if (!this.llmSettings) {
+      return '—';
+    }
+    const provider = this.formatLlmProviderLabel(this.llmSettings.activeProvider);
+    const model = this.llmSettings.activeModel ?? '—';
+    return `${provider} · ${model}`;
+  }
+
+  private formatLlmProviderLabel(provider: string | null | undefined): string {
+    if (!provider) {
+      return '—';
+    }
+    const match = this.llmProviderOptions.find((row) => row.id === provider);
+    return match?.label ?? provider;
+  }
+
+  llmProvidersAvailable(): boolean {
+    return !!(this.llmSettings?.geminiConfigured || this.llmSettings?.anthropicConfigured);
+  }
+
+  private applyLlmSettingsToForm(settings: BotLlmSettings): void {
+    const provider = settings.runtimeProvider ?? settings.activeProvider ?? 'auto';
+    if (provider === 'gemini') {
+      this.llmProvider = 'gemini';
+      this.llmModel = settings.runtimeGeminiModel ?? settings.activeModel ?? '';
+    } else if (provider === 'anthropic') {
+      this.llmProvider = 'anthropic';
+      this.llmModel = settings.runtimeAnthropicModel ?? settings.activeModel ?? '';
+    } else {
+      this.llmProvider = 'auto';
+      this.llmModel = '';
+    }
+  }
+
+  private captureAppliedLlmState(): void {
+    this.appliedLlmProvider = this.llmProvider;
+    this.appliedLlmModel = this.llmModel;
+  }
+
+  setBotAssistantMode(mode: BotAssistantMode): void {
+    if (this.botModeSwitching() || this.botAssistantMode() === mode) {
+      return;
+    }
+    const session = this.selectedBotSession();
+    if (!session) {
+      this.botAssistantMode.set(mode);
+      this.notifications.success(
+        mode === 'AGENT' ? 'Lexi Agent selected for new chats.' : 'Lexi Assistant selected for new chats.',
+      );
+      this.cdr.markForCheck();
+      return;
+    }
+    const previousMode = this.botAssistantMode();
+    this.botAssistantMode.set(mode);
+    this.botModeSwitching.set(true);
+    this.cdr.markForCheck();
     this.botApi
-      .sendMessage(session.sessionId, body)
+      .setAssistantMode(session.sessionId, mode)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (updated) => {
           this.selectedBotSession.set(updated);
-          this.botReplyDraft = '';
-          this.botSending.set(false);
-          this.actionError.set('');
-          this.scrollPending = true;
+          this.botAssistantMode.set(updated.assistantMode ?? mode);
+          this.botModeSwitching.set(false);
+          this.notifications.success(
+            mode === 'AGENT' ? 'Lexi Agent mode — tools are active.' : 'Lexi Assistant mode — workflow help.',
+          );
           this.cdr.markForCheck();
         },
         error: (err: Error) => {
+          this.botAssistantMode.set(previousMode);
           this.setActionError(err.message);
-          this.botSending.set(false);
+          this.botModeSwitching.set(false);
           this.cdr.markForCheck();
         },
       });
@@ -815,7 +1234,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
     return session.messages.map((message) => ({
       id: message.id,
       role: message.role === 'user' ? 'REQUESTER' : message.role === 'bot' ? 'HANDLER' : 'SYSTEM',
-      author: message.role === 'user' ? 'You' : message.role === 'bot' ? 'LDMS Assistant' : 'System',
+      author: message.role === 'user' ? 'You' : message.role === 'bot' ? this.lexiDisplayName() : 'System',
       at: message.sentAt,
       body: message.body,
       isMine: message.role === 'user',

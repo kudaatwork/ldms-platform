@@ -19,6 +19,7 @@ import projectlx.billing.payments.business.logic.support.OrganizationFuelConsump
 import projectlx.billing.payments.business.logic.support.PlatformWalletMapper;
 import projectlx.billing.payments.business.logic.support.PlatformWalletUsageNotifier;
 import projectlx.billing.payments.business.logic.support.SubscriptionMessagingQuotaSupport;
+import projectlx.billing.payments.business.logic.support.SubscriptionQuotaSupport;
 import projectlx.billing.payments.business.logic.support.WalletBillingEventPublisher;
 import projectlx.billing.payments.business.logic.support.WalletDepositReceiptNotifier;
 import projectlx.billing.payments.business.logic.support.WalletReceiptSupport;
@@ -39,6 +40,7 @@ import projectlx.billing.payments.repository.UsageChargeRecordRepository;
 import projectlx.billing.payments.repository.WalletDepositRepository;
 import projectlx.billing.payments.repository.WalletTransactionRepository;
 import projectlx.billing.payments.utils.dtos.RecordPlatformUsageChargeResultDto;
+import projectlx.billing.payments.utils.dtos.WalletDepositDto;
 import projectlx.billing.payments.utils.dtos.WalletReceiptPdfDto;
 import projectlx.billing.payments.utils.dtos.UsageChargeBreakdownDto;
 import projectlx.billing.payments.utils.dtos.UsageChargeReportDto;
@@ -46,7 +48,9 @@ import projectlx.billing.payments.utils.enums.I18Code;
 import projectlx.billing.payments.utils.enums.OrganizationBillingMode;
 import projectlx.billing.payments.utils.enums.PlatformActionCategory;
 import projectlx.billing.payments.utils.enums.PlatformBillingTier;
+import projectlx.billing.payments.utils.enums.WalletDepositPurpose;
 import projectlx.billing.payments.utils.enums.WalletDepositStatus;
+import projectlx.billing.payments.utils.enums.WalletReceiptEmailStatus;
 import projectlx.billing.payments.utils.enums.WalletTransactionType;
 import projectlx.billing.payments.utils.requests.CreateWalletDepositRequest;
 import projectlx.billing.payments.utils.requests.CreditOrganizationWalletRequest;
@@ -253,18 +257,45 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         }
 
         OrganizationBillingSetting setting = ensureBillingSetting(organizationId, username);
-        if (setting.getBillingMode() != OrganizationBillingMode.PREPAID_WALLET) {
-            return error(400,
-                    messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_PREMIUM_ONLY.getCode(), new String[]{}, locale),
-                    List.of("billingMode"));
-        }
+        WalletDepositPurpose purpose = parseDepositPurpose(request.getPurpose());
 
         WalletDeposit deposit = new WalletDeposit();
         deposit.setOrganizationId(organizationId);
-        deposit.setAmountCents(request.getAmountCents());
-        deposit.setCurrencyCode(StringUtils.hasText(request.getCurrencyCode())
-                ? request.getCurrencyCode().trim().toUpperCase()
-                : resolveCurrency(organizationId));
+        deposit.setPurpose(purpose);
+
+        if (purpose == WalletDepositPurpose.SUBSCRIPTION) {
+            // Activating a paid package: amount and currency are taken from the package itself,
+            // never trusted from the client.
+            if (request.getSubscriptionPackageId() == null || request.getSubscriptionPackageId() < 1) {
+                return error(400,
+                        messageService.getMessage(I18Code.MESSAGE_BILLING_SETTING_INVALID.getCode(), new String[]{}, locale),
+                        List.of("subscriptionPackageId"));
+            }
+            SubscriptionPackage pkg = subscriptionPackageRepository
+                    .findByIdAndEntityStatusNot(request.getSubscriptionPackageId(), EntityStatus.DELETED)
+                    .orElse(null);
+            if (pkg == null || !Boolean.TRUE.equals(pkg.getActive())) {
+                return error(404,
+                        messageService.getMessage(I18Code.MESSAGE_SUBSCRIPTION_PACKAGE_NOT_FOUND.getCode(), new String[]{}, locale),
+                        List.of("subscriptionPackageId"));
+            }
+            deposit.setSubscriptionPackageId(pkg.getId());
+            deposit.setAmountCents(pkg.getMonthlyPriceCents() != null ? pkg.getMonthlyPriceCents() : 0L);
+            deposit.setCurrencyCode(StringUtils.hasText(pkg.getCurrencyCode())
+                    ? pkg.getCurrencyCode().trim().toUpperCase()
+                    : resolveCurrency(organizationId));
+        } else {
+            if (setting.getBillingMode() != OrganizationBillingMode.PREPAID_WALLET) {
+                return error(400,
+                        messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_PREMIUM_ONLY.getCode(), new String[]{}, locale),
+                        List.of("billingMode"));
+            }
+            deposit.setAmountCents(request.getAmountCents());
+            deposit.setCurrencyCode(StringUtils.hasText(request.getCurrencyCode())
+                    ? request.getCurrencyCode().trim().toUpperCase()
+                    : resolveCurrency(organizationId));
+        }
+
         deposit.setReferenceNumber(trimToNull(request.getReferenceNumber()));
         deposit.setNotes(trimToNull(request.getNotes()));
         deposit.setProofDocumentId(request.getProofDocumentId());
@@ -287,13 +318,15 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
     public PlatformWalletResponse listWalletDeposits(Locale locale, String username) {
         Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
         if (organizationId == null) {
+            log.warn("listWalletDeposits: could not resolve organisation id for user {}", username);
             return orgError(locale);
         }
         List<WalletDeposit> deposits = walletDepositRepository
                 .findByOrganizationIdAndEntityStatusNotOrderByCreatedAtDesc(organizationId, EntityStatus.DELETED);
+        log.debug("listWalletDeposits: orgId={} returned {} deposits", organizationId, deposits.size());
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_LIST_SUCCESS.getCode(), new String[]{}, locale));
-        response.setWalletDepositDtoList(deposits.stream().map(PlatformWalletMapper::toDto).toList());
+        response.setWalletDepositDtoList(toDepositDtos(deposits));
         return response;
     }
 
@@ -302,10 +335,12 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
     public PlatformWalletResponse listRecentWalletTransactions(Locale locale, String username) {
         Long organizationId = callerOrganizationResolver.requireCallerOrganizationId(username);
         if (organizationId == null) {
+            log.warn("listRecentWalletTransactions: could not resolve organisation id for user {}", username);
             return orgError(locale);
         }
         List<WalletTransaction> transactions = walletTransactionRepository
                 .findTop50ByOrganizationIdAndEntityStatusNotOrderByCreatedAtDesc(organizationId, EntityStatus.DELETED);
+        log.debug("listRecentWalletTransactions: orgId={} returned {} transactions", organizationId, transactions.size());
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_WALLET_TX_LIST_SUCCESS.getCode(), new String[]{}, locale));
         response.setWalletTransactionDtoList(transactions.stream().map(PlatformWalletMapper::toDto).toList());
@@ -329,6 +364,11 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
             return error(400,
                     messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_INVALID.getCode(), new String[]{}, locale),
                     List.of("status"));
+        }
+
+        // Subscription payments activate the package instead of crediting the wallet.
+        if (deposit.getPurpose() == WalletDepositPurpose.SUBSCRIPTION) {
+            return confirmSubscriptionPayment(deposit, locale, username);
         }
 
         OrganizationBillingSetting setting = ensureBillingSetting(deposit.getOrganizationId(), username);
@@ -365,11 +405,6 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         savedTx.setModifiedBy(username);
         walletTransactionServiceAuditable.update(savedTx, locale, username);
 
-        deposit.setStatus(WalletDepositStatus.CONFIRMED);
-        deposit.setModifiedAt(LocalDateTime.now());
-        deposit.setModifiedBy(username);
-        WalletDeposit saved = walletDepositServiceAuditable.update(deposit, locale, username);
-
         walletBillingEventPublisher.publishWalletDepositConfirmed(
                 deposit.getOrganizationId(),
                 locked.getOrganizationName(),
@@ -378,8 +413,17 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                 savedTx.getReceiptNumber(),
                 deposit.getAmountCents(),
                 deposit.getCurrencyCode());
-        walletDepositReceiptNotifier.sendWalletCreditReceipt(
-                deposit.getOrganizationId(), savedTx, locked, setting);
+        WalletDepositReceiptNotifier.ReceiptEmailResult emailResult =
+                walletDepositReceiptNotifier.sendWalletCreditReceipt(
+                        deposit.getOrganizationId(), savedTx, locked, setting);
+
+        deposit.setStatus(WalletDepositStatus.CONFIRMED);
+        deposit.setReceiptEmailStatus(emailResult.status());
+        deposit.setReceiptEmailAddress(emailResult.email());
+        deposit.setReceiptEmailAt(LocalDateTime.now());
+        deposit.setModifiedAt(LocalDateTime.now());
+        deposit.setModifiedBy(username);
+        WalletDeposit saved = walletDepositServiceAuditable.update(deposit, locale, username);
 
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_CONFIRM_SUCCESS.getCode(), new String[]{}, locale));
@@ -475,6 +519,105 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         OrganizationBillingSetting setting = ensureBillingSetting(organizationId, username);
         PlatformWallet wallet = platformWalletRepository
                 .findByOrganizationIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
+                .orElse(null);
+        return WalletReceiptContext.ok(tx, wallet, setting);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PlatformWalletResponse getDepositReceipt(Long depositId, Locale locale) {
+        WalletReceiptContext context = resolveDepositReceiptContext(depositId, locale);
+        if (context.errorResponse() != null) {
+            return context.errorResponse();
+        }
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_WALLET_RECEIPT_SUCCESS.getCode(), new String[]{}, locale));
+        response.setWalletTransactionDto(PlatformWalletMapper.toDto(context.transaction()));
+        response.setReceiptHtml(WalletReceiptSupport.buildReceiptHtml(
+                context.transaction(), context.wallet(), context.setting()));
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WalletReceiptPdfDto getDepositReceiptPdf(Long depositId, Locale locale) {
+        WalletReceiptContext context = resolveDepositReceiptContext(depositId, locale);
+        if (context.errorResponse() != null) {
+            return null;
+        }
+        try {
+            byte[] pdfBytes = WalletReceiptSupport.buildReceiptPdf(
+                    context.transaction(), context.wallet(), context.setting());
+            String receiptNumber = context.transaction().getReceiptNumber() != null
+                    ? context.transaction().getReceiptNumber()
+                    : WalletReceiptSupport.generateReceiptNumber(context.transaction().getId());
+            return new WalletReceiptPdfDto(pdfBytes, receiptNumber);
+        } catch (com.lowagie.text.DocumentException ex) {
+            throw new IllegalStateException("Could not render wallet receipt PDF", ex);
+        }
+    }
+
+    @Override
+    @Transactional
+    public PlatformWalletResponse resendDepositReceipt(Long depositId, Locale locale, String username) {
+        WalletReceiptContext context = resolveDepositReceiptContext(depositId, locale);
+        if (context.errorResponse() != null) {
+            return context.errorResponse();
+        }
+        WalletDeposit deposit = walletDepositRepository.findById(depositId).orElse(null);
+        if (deposit == null || deposit.getEntityStatus() == EntityStatus.DELETED) {
+            return error(404,
+                    messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_NOT_FOUND.getCode(), new String[]{}, locale),
+                    List.of("depositId"));
+        }
+
+        WalletDepositReceiptNotifier.ReceiptEmailResult emailResult =
+                walletDepositReceiptNotifier.sendWalletCreditReceipt(
+                        deposit.getOrganizationId(), context.transaction(), context.wallet(), context.setting());
+
+        deposit.setReceiptEmailStatus(emailResult.status());
+        deposit.setReceiptEmailAddress(emailResult.email());
+        deposit.setReceiptEmailAt(LocalDateTime.now());
+        deposit.setModifiedAt(LocalDateTime.now());
+        deposit.setModifiedBy(username);
+        WalletDeposit saved = walletDepositServiceAuditable.update(deposit, locale, username);
+
+        if (emailResult.status() == WalletReceiptEmailStatus.NO_EMAIL) {
+            return error(422,
+                    messageService.getMessage(I18Code.MESSAGE_WALLET_RECEIPT_EMAIL_UNAVAILABLE.getCode(), new String[]{}, locale),
+                    List.of("email"));
+        }
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_WALLET_RECEIPT_EMAIL_RESENT.getCode(), new String[]{}, locale));
+        response.setWalletDepositDto(PlatformWalletMapper.toDto(saved));
+        return response;
+    }
+
+    /** Resolves the receipt context for an approved deposit (backoffice — not org-scoped). */
+    private WalletReceiptContext resolveDepositReceiptContext(Long depositId, Locale locale) {
+        if (depositId == null || depositId < 1) {
+            return WalletReceiptContext.error(error(400,
+                    messageService.getMessage(I18Code.MESSAGE_FIELD_REQUIRED.getCode(), new String[]{"depositId"}, locale),
+                    List.of("depositId")));
+        }
+        WalletDeposit deposit = walletDepositRepository.findById(depositId).orElse(null);
+        if (deposit == null || deposit.getEntityStatus() == EntityStatus.DELETED) {
+            return WalletReceiptContext.error(error(404,
+                    messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_NOT_FOUND.getCode(), new String[]{}, locale),
+                    List.of("depositId")));
+        }
+        WalletTransaction tx = walletTransactionRepository
+                .findFirstByReferenceTypeAndReferenceIdAndEntityStatusNotOrderByCreatedAtDesc(
+                        "WALLET_DEPOSIT", depositId, EntityStatus.DELETED)
+                .orElse(null);
+        if (tx == null) {
+            return WalletReceiptContext.error(error(404,
+                    messageService.getMessage(I18Code.MESSAGE_WALLET_TX_NOT_FOUND.getCode(), new String[]{}, locale),
+                    List.of("depositId")));
+        }
+        OrganizationBillingSetting setting = ensureBillingSetting(deposit.getOrganizationId(), "SYSTEM");
+        PlatformWallet wallet = platformWalletRepository
+                .findByOrganizationIdAndEntityStatusNot(deposit.getOrganizationId(), EntityStatus.DELETED)
                 .orElse(null);
         return WalletReceiptContext.ok(tx, wallet, setting);
     }
@@ -581,7 +724,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                 .findByStatusAndEntityStatusNotOrderByCreatedAtDesc(WalletDepositStatus.PENDING, EntityStatus.DELETED);
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_LIST_SUCCESS.getCode(), new String[]{}, locale));
-        response.setWalletDepositDtoList(deposits.stream().map(PlatformWalletMapper::toDto).toList());
+        response.setWalletDepositDtoList(toDepositDtos(deposits));
         return response;
     }
 
@@ -592,8 +735,24 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                 .findByStatusAndEntityStatusNotOrderByModifiedAtDesc(WalletDepositStatus.CONFIRMED, EntityStatus.DELETED);
         PlatformWalletResponse response = success(200,
                 messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_LIST_SUCCESS.getCode(), new String[]{}, locale));
-        response.setWalletDepositDtoList(deposits.stream().map(PlatformWalletMapper::toDto).toList());
+        response.setWalletDepositDtoList(toDepositDtos(deposits));
         return response;
+    }
+
+    /** Maps deposits to DTOs, filling the package name and organisation name (cached per org). */
+    private List<WalletDepositDto> toDepositDtos(List<WalletDeposit> deposits) {
+        Map<Long, String> orgNameCache = new HashMap<>();
+        return deposits.stream().map(deposit -> {
+            WalletDepositDto dto = PlatformWalletMapper.toDto(deposit);
+            if (deposit.getSubscriptionPackageId() != null) {
+                dto.setSubscriptionPackageName(resolvePackageName(deposit.getSubscriptionPackageId()));
+            }
+            if (deposit.getOrganizationId() != null) {
+                dto.setOrganizationName(orgNameCache.computeIfAbsent(
+                        deposit.getOrganizationId(), organizationNameResolver::resolve));
+            }
+            return dto;
+        }).toList();
     }
 
     @Override
@@ -894,21 +1053,26 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         Long chargeCents = catalog.getChargeCents() != null ? catalog.getChargeCents() : 0L;
         OrganizationBillingSetting setting = ensureBillingSetting(request.getOrganizationId(), actor);
         boolean subscription = setting.getBillingMode() == OrganizationBillingMode.PREMIUM_SUBSCRIPTION;
-        boolean messagingAction = SubscriptionMessagingQuotaSupport.isMessagingAction(actionCode);
+
+        // Resolve which subscription quota bucket this action consumes (messaging / milestone /
+        // tracking-day credits) so every package attribute is enforced — not just SMS. While the
+        // bucket's monthly quota remains, the action is included; once exhausted it falls through
+        // to pay-as-you-go prepaid wallet billing.
+        PlatformBillingTier effectiveTier = SubscriptionQuotaSupport.effectiveTier(catalog);
         SubscriptionPackage subscriptionPackage = subscription
                 ? resolveSubscriptionPackage(setting.getSubscriptionPackageId())
                 : null;
-        int smsQuota = subscription ? SubscriptionMessagingQuotaSupport.resolveSmsQuota(subscriptionPackage) : 0;
-        long smsUsed = subscription && messagingAction
-                ? SubscriptionMessagingQuotaSupport.countMessagingUsed(
-                        request.getOrganizationId(), setting, usageChargeRecordRepository)
-                : 0L;
-        boolean smsIncludedInSubscription = subscription
-                && messagingAction
-                && smsQuota > 0
-                && smsUsed < smsQuota;
+        SubscriptionQuotaSupport.Dimension quotaDimension = subscription
+                ? SubscriptionQuotaSupport.dimensionForTier(effectiveTier)
+                : SubscriptionQuotaSupport.Dimension.NONE;
+        boolean quotaBacked = quotaDimension != SubscriptionQuotaSupport.Dimension.NONE;
+        int quota = SubscriptionQuotaSupport.quotaFor(quotaDimension, subscriptionPackage);
+        long quotaUsed = countSubscriptionQuotaUsed(quotaDimension, quota, request.getOrganizationId(), setting);
+        boolean includedInSubscription = subscription && quotaBacked && quota > 0 && quotaUsed < quota;
+        boolean quotaExhausted = subscription && quotaBacked
+                && SubscriptionQuotaSupport.isQuotaExhausted(quota, quotaUsed);
         boolean prepaid = setting.getBillingMode() == OrganizationBillingMode.PREPAID_WALLET
-                || (subscription && messagingAction && !smsIncludedInSubscription && chargeCents > 0);
+                || (subscription && quotaBacked && !includedInSubscription && chargeCents > 0);
 
         if (isTrackingAction(actionCode)
                 && request.getTripId() != null
@@ -935,6 +1099,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         record.setBillingMode(setting.getBillingMode());
         record.setActionCode(actionCode);
         record.setActionDisplayName(catalog.getDisplayName());
+        record.setBillingTier(effectiveTier);
         record.setChargeCents(chargeCents);
         record.setTripId(request.getTripId());
         record.setSeasonId(request.getSeasonId());
@@ -964,14 +1129,19 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
                 result.setAllowed(false);
                 result.setDeducted(false);
                 result.setBalanceAfterCents(locked.getBalanceCents());
-                String insufficientMessage = subscription && messagingAction && SubscriptionMessagingQuotaSupport.isQuotaExhausted(smsQuota, smsUsed)
-                        ? messageService.getMessage(I18Code.MESSAGE_SMS_QUOTA_EXHAUSTED.getCode(), new String[]{}, locale)
-                        : messageService.getMessage(I18Code.MESSAGE_WALLET_INSUFFICIENT_BALANCE.getCode(), new String[]{}, locale);
+                String insufficientMessage;
+                if (quotaExhausted) {
+                    insufficientMessage = quotaDimension == SubscriptionQuotaSupport.Dimension.MESSAGING
+                            ? messageService.getMessage(I18Code.MESSAGE_SMS_QUOTA_EXHAUSTED.getCode(), new String[]{}, locale)
+                            : messageService.getMessage(I18Code.MESSAGE_SUBSCRIPTION_QUOTA_EXHAUSTED.getCode(), new String[]{}, locale);
+                } else {
+                    insufficientMessage = messageService.getMessage(I18Code.MESSAGE_WALLET_INSUFFICIENT_BALANCE.getCode(), new String[]{}, locale);
+                }
 
                 result.setMessage(insufficientMessage);
 
                 PlatformWalletResponse response = error(402, insufficientMessage,
-                        List.of(subscription && messagingAction ? "smsQuota" : "balanceCents"));
+                        List.of(quotaExhausted ? "subscriptionQuota" : "balanceCents"));
                 response.setRecordPlatformUsageChargeResultDto(result);
                 return response;
             }
@@ -1119,6 +1289,7 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
         return organizationBillingSettingRepository
                 .findByOrganizationIdAndEntityStatusNot(organizationId, EntityStatus.DELETED)
                 .map(existing -> refreshOrganizationNameIfNeeded(existing, organizationId, resolvedName, actor))
+                .map(existing -> revertExpiredSubscriptionIfNeeded(existing, actor))
                 .orElseGet(() -> {
                     OrganizationBillingSetting setting = new OrganizationBillingSetting();
                     setting.setOrganizationId(organizationId);
@@ -1212,6 +1383,88 @@ public class PlatformWalletBillingServiceImpl implements PlatformWalletBillingSe
             return null;
         }
         return subscriptionPackageRepository.findByIdAndEntityStatusNot(packageId, EntityStatus.DELETED).orElse(null);
+    }
+
+    private WalletDepositPurpose parseDepositPurpose(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return WalletDepositPurpose.WALLET_TOPUP;
+        }
+        try {
+            return WalletDepositPurpose.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            return WalletDepositPurpose.WALLET_TOPUP;
+        }
+    }
+
+    /** Activates a subscription package for the paying organisation for one month from approval. */
+    private PlatformWalletResponse confirmSubscriptionPayment(WalletDeposit deposit, Locale locale, String username) {
+        SubscriptionPackage pkg = resolveSubscriptionPackage(deposit.getSubscriptionPackageId());
+        if (pkg == null) {
+            return error(404,
+                    messageService.getMessage(I18Code.MESSAGE_SUBSCRIPTION_PACKAGE_NOT_FOUND.getCode(), new String[]{}, locale),
+                    List.of("subscriptionPackageId"));
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        OrganizationBillingSetting setting = ensureBillingSetting(deposit.getOrganizationId(), username);
+        setting.setBillingMode(OrganizationBillingMode.PREMIUM_SUBSCRIPTION);
+        setting.setSubscriptionPackageId(pkg.getId());
+        setting.setSubscriptionStartedAt(now);
+        setting.setSubscriptionRenewsAt(now.plusMonths(1));
+        setting.setModifiedAt(now);
+        setting.setModifiedBy(username);
+        organizationBillingSettingServiceAuditable.update(setting, locale, username);
+        if (!Boolean.TRUE.equals(pkg.getFuelConsumptionAvailable())) {
+            disableOrganizationFuelConsumption(deposit.getOrganizationId(), locale);
+        }
+
+        deposit.setStatus(WalletDepositStatus.CONFIRMED);
+        deposit.setModifiedAt(now);
+        deposit.setModifiedBy(username);
+        WalletDeposit saved = walletDepositServiceAuditable.update(deposit, locale, username);
+
+        PlatformWalletResponse response = success(200,
+                messageService.getMessage(I18Code.MESSAGE_WALLET_DEPOSIT_CONFIRM_SUCCESS.getCode(), new String[]{}, locale));
+        response.setWalletDepositDto(PlatformWalletMapper.toDto(saved));
+        return response;
+    }
+
+    /** Lazily reverts an organisation to pay-as-you-go once its paid subscription month has lapsed. */
+    private OrganizationBillingSetting revertExpiredSubscriptionIfNeeded(OrganizationBillingSetting setting, String actor) {
+        if (setting.getBillingMode() != OrganizationBillingMode.PREMIUM_SUBSCRIPTION) {
+            return setting;
+        }
+        LocalDateTime renewsAt = setting.getSubscriptionRenewsAt();
+        if (renewsAt == null || renewsAt.isAfter(LocalDateTime.now())) {
+            return setting;
+        }
+        setting.setBillingMode(OrganizationBillingMode.PREPAID_WALLET);
+        setting.setSubscriptionPackageId(null);
+        setting.setSubscriptionStartedAt(null);
+        setting.setSubscriptionRenewsAt(null);
+        setting.setModifiedAt(LocalDateTime.now());
+        setting.setModifiedBy(actor != null ? actor : "SYSTEM");
+        return organizationBillingSettingServiceAuditable.update(setting, null, actor);
+    }
+
+    /** Counts how many of the dimension's monthly quota credits the organisation has already used. */
+    private long countSubscriptionQuotaUsed(SubscriptionQuotaSupport.Dimension dimension,
+                                            int quota,
+                                            Long organizationId,
+                                            OrganizationBillingSetting setting) {
+        if (dimension == SubscriptionQuotaSupport.Dimension.NONE || quota <= 0) {
+            return 0L;
+        }
+        if (dimension == SubscriptionQuotaSupport.Dimension.MESSAGING) {
+            return SubscriptionMessagingQuotaSupport.countMessagingUsed(
+                    organizationId, setting, usageChargeRecordRepository);
+        }
+        return usageChargeRecordRepository.countTierUsageInPeriod(
+                organizationId,
+                SubscriptionQuotaSupport.tiersFor(dimension),
+                SubscriptionMessagingQuotaSupport.periodStart(setting),
+                SubscriptionMessagingQuotaSupport.periodEnd(setting),
+                EntityStatus.DELETED);
     }
 
     private boolean isTrackingAction(String actionCode) {

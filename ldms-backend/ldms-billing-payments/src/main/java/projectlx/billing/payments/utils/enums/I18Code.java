@@ -63,6 +63,7 @@ public enum I18Code {
     MESSAGE_WALLET_TX_LIST_SUCCESS("billing.wallet.tx.list.success"),
     MESSAGE_WALLET_INSUFFICIENT_BALANCE("billing.wallet.insufficient.balance"),
     MESSAGE_SMS_QUOTA_EXHAUSTED("billing.sms.quota.exhausted"),
+    MESSAGE_SUBSCRIPTION_QUOTA_EXHAUSTED("billing.subscription.quota.exhausted"),
     MESSAGE_ACTION_CHARGE_LIST_SUCCESS("billing.action.charge.list.success"),
     MESSAGE_ACTION_CHARGE_SAVE_SUCCESS("billing.action.charge.save.success"),
     MESSAGE_ACTION_CHARGE_INVALID("billing.action.charge.invalid"),
@@ -74,7 +75,9 @@ public enum I18Code {
     MESSAGE_WALLET_CREDIT_SUCCESS("billing.wallet.credit.success"),
     MESSAGE_WALLET_RECEIPT_SUCCESS("billing.wallet.receipt.success"),
     MESSAGE_WALLET_TX_NOT_FOUND("billing.wallet.tx.not.found"),
-    MESSAGE_WALLET_DEPOSIT_REJECT_SUCCESS("billing.wallet.deposit.reject.success");
+    MESSAGE_WALLET_DEPOSIT_REJECT_SUCCESS("billing.wallet.deposit.reject.success"),
+    MESSAGE_WALLET_RECEIPT_EMAIL_RESENT("billing.wallet.receipt.email.resent"),
+    MESSAGE_WALLET_RECEIPT_EMAIL_UNAVAILABLE("billing.wallet.receipt.email.unavailable");
 
     private final String code;
 }

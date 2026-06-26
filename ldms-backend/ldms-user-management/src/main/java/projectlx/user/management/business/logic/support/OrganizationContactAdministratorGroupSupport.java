@@ -33,13 +33,20 @@ public class OrganizationContactAdministratorGroupSupport {
                     user.getId());
             return;
         }
+        if (organizationClassification == null || organizationClassification.isBlank()) {
+            // No classification to resolve the shared default with — leave the user's current group.
+            log.warn(
+                    "Contact user {} (organisation {}) has no classification; leaving group assignment unchanged",
+                    user.getId(), organizationId);
+            return;
+        }
         organizationWorkspaceProvisioner.ensureBaselineUserTypes();
-        UserGroup adminGroup = organizationWorkspaceProvisioner.ensureAdministratorGroup(
-                organizationId, organizationClassification);
+        UserGroup adminGroup = organizationWorkspaceProvisioner.ensureClassificationDefaultAdminGroup(
+                organizationClassification);
         if (adminGroup == null) {
             log.warn(
-                    "Organisation {} Administrator group could not be resolved; contact user {} was not assigned",
-                    organizationId,
+                    "Classification {} default admin group could not be resolved; contact user {} was not assigned",
+                    organizationClassification,
                     user.getId());
             return;
         }

@@ -11,4 +11,7 @@ public class StartBotSessionRequest {
 
     @Size(max = 200)
     private String topic;
+
+    @Size(max = 50)
+    private String assistantMode;
 }

@@ -26,6 +26,11 @@ import {
   type PlatformBillingTierCode,
 } from '../../../../shared/utils/platform-billing-tiers.util';
 import {
+  buildPrepaidDemoEvents,
+  milestoneExamplesFromCharges,
+  type PrepaidDemoEvent,
+} from '../../../../shared/utils/platform-action-pricing.util';
+import {
   DEFAULT_SUBSCRIPTION_PACKAGE_FEATURES,
   packageFeaturePoints,
 } from '../../../../shared/utils/subscription-package-description.util';
@@ -50,14 +55,8 @@ export class PricingPageComponent implements OnInit, AfterViewInit {
   readonly moduleLabel = moduleLabel;
   readonly defaultPackageFeatures = DEFAULT_SUBSCRIPTION_PACKAGE_FEATURES;
   readonly billingTiers = PLATFORM_BILLING_TIERS;
-
-  readonly prepaidDemoEvents = [
-    { icon: 'account_balance_wallet', label: 'Wallet top-up', cents: 50000, credit: true },
-    { icon: 'local_shipping', label: 'Trip booking (milestone)', cents: 1000, credit: false },
-    { icon: 'share_location', label: 'Premium GPS day', cents: 150, credit: false },
-    { icon: 'sms', label: 'SMS alert sent', cents: 10, credit: false },
-    { icon: 'upload_file', label: 'Document upload (included)', cents: 0, credit: false },
-  ] as const;
+  readonly prepaidDemoEvents = signal<PrepaidDemoEvent[]>(buildPrepaidDemoEvents([]));
+  readonly milestoneExamples = signal<string>(PLATFORM_BILLING_TIERS.find((t) => t.tier === 'MILESTONE')?.examples ?? '');
 
   readonly pricingChargesByModule = computed(() => {
     const grouped = new Map<string, PlatformActionChargeRow[]>();
@@ -76,6 +75,16 @@ export class PricingPageComponent implements OnInit, AfterViewInit {
 
   tierCharges(tier: PlatformBillingTierCode): PlatformActionChargeRow[] {
     return chargesForTier(this.pricingCharges(), tier);
+  }
+
+  tierExamples(tier: PlatformBillingTierCode): string {
+    if (tier === 'MILESTONE') {
+      const live = this.milestoneExamples().trim();
+      if (live) {
+        return live;
+      }
+    }
+    return PLATFORM_BILLING_TIERS.find((entry) => entry.tier === tier)?.examples ?? '';
   }
 
   packageCreditSummary(pkg: SubscriptionPackageRow): string | null {
@@ -122,6 +131,8 @@ export class PricingPageComponent implements OnInit, AfterViewInit {
           [...packages].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)),
         );
         this.pricingCharges.set(actionCharges);
+        this.prepaidDemoEvents.set(buildPrepaidDemoEvents(actionCharges));
+        this.milestoneExamples.set(milestoneExamplesFromCharges(actionCharges));
         this.pricingLoading.set(false);
         this.pricingLoadFailed.set(false);
         if (packages.length && !actionCharges.length) {

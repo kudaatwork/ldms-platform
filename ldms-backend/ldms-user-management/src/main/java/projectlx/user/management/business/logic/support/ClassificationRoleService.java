@@ -17,7 +17,6 @@ import projectlx.user.management.repository.UserGroupRepository;
 import projectlx.user.management.repository.UserRoleRepository;
 import projectlx.user.management.utils.support.OrganizationPortalRolePolicy;
 import projectlx.user.management.utils.support.RoleClassificationPolicy;
-
 /**
  * Editable source of truth for the organisation-classification &rarr; role mapping that powers the
  * admin-portal Group Roles Mapping drill-down.
@@ -48,6 +47,28 @@ public class ClassificationRoleService {
         return mutate(classification, roleIds, false);
     }
 
+    /**
+     * Locks/unlocks a classification's shared default admin group. While locked, organisation admins
+     * cannot assign this classification's default roles to their own org-scoped groups.
+     */
+    @Transactional
+    public Result setLocked(String classificationRaw, boolean locked) {
+        String classification = classificationRaw == null ? "" : classificationRaw.trim().toUpperCase(Locale.ROOT);
+        if (!RoleClassificationPolicy.ALL_CLASSIFICATIONS.contains(classification)) {
+            return new Result(false, "Unknown organisation classification: " + classificationRaw, 0);
+        }
+        UserGroup defaultGroup = userGroupRepository
+                .findByOrganizationIdIsNullAndOrganizationClassificationIgnoreCaseAndNameIgnoreCaseAndEntityStatusNot(
+                        classification, OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED)
+                .orElse(null);
+        if (defaultGroup == null) {
+            return new Result(false, "No default admin group exists for " + classification + ".", 0);
+        }
+        defaultGroup.setLocked(locked);
+        userGroupRepository.save(defaultGroup);
+        return new Result(true, classification + (locked ? " default admin roles locked." : " default admin roles unlocked."), 1);
+    }
+
     private Result mutate(String classificationRaw, List<Long> roleIds, boolean assign) {
         String classification = classificationRaw == null ? "" : classificationRaw.trim().toUpperCase(Locale.ROOT);
         if (!RoleClassificationPolicy.ALL_CLASSIFICATIONS.contains(classification)) {
@@ -62,10 +83,14 @@ public class ClassificationRoleService {
             return new Result(false, "No matching active roles were found.", 0);
         }
 
-        List<UserGroup> orgAdminGroups = userGroupRepository
-                .findByOrganizationClassificationIgnoreCaseAndEntityStatusNot(classification, EntityStatus.DELETED);
+        // The single shared classification default Administrator group (organisation_id IS NULL).
+        UserGroup defaultGroup = userGroupRepository
+                .findByOrganizationIdIsNullAndOrganizationClassificationIgnoreCaseAndNameIgnoreCaseAndEntityStatusNot(
+                        classification, OrganizationWorkspaceProvisioner.ADMINISTRATOR_GROUP_NAME, EntityStatus.DELETED)
+                .orElse(null);
 
         int affected = 0;
+        boolean defaultGroupChanged = false;
         List<String> skipped = new ArrayList<>();
         for (UserRole role : roles) {
             // Only organisation-portal roles may belong to a classification; platform-operator roles stay admin-only.
@@ -79,8 +104,13 @@ public class ClassificationRoleService {
             if (changed) {
                 userRoleRepository.save(role);
             }
-            resyncOrganizationAdminGroups(orgAdminGroups, role, assign);
+            if (defaultGroup != null) {
+                defaultGroupChanged |= applyRoleToDefaultGroup(defaultGroup, role, assign);
+            }
             affected++;
+        }
+        if (defaultGroup != null && defaultGroupChanged) {
+            userGroupRepository.save(defaultGroup);
         }
 
         if (affected == 0) {
@@ -95,30 +125,23 @@ public class ClassificationRoleService {
         return new Result(true, affected + " role(s) " + verb + " " + classification + ".", affected);
     }
 
-    private static final String ADMINISTRATOR_GROUP_NAME = "Administrator";
-
-    private void resyncOrganizationAdminGroups(List<UserGroup> orgAdminGroups, UserRole role, boolean assign) {
-        for (UserGroup group : orgAdminGroups) {
-            // Only the system-provisioned organisation Administrator groups inherit classification roles;
-            // custom workspace groups keep whatever their owners assigned.
-            if (!group.isSystemGroup() || !ADMINISTRATOR_GROUP_NAME.equalsIgnoreCase(group.getName())) {
-                continue;
+    /**
+     * Adds/removes the role on the shared classification default Administrator group, keeping its
+     * locked default-role set (inherited by every org admin of the classification) in sync.
+     */
+    private boolean applyRoleToDefaultGroup(UserGroup defaultGroup, UserRole role, boolean assign) {
+        boolean changed;
+        if (assign) {
+            changed = defaultGroup.getUserRoles().add(role);
+            if (defaultGroup.getDefaultRoleIds().add(role.getId())) {
+                changed = true;
             }
-            boolean changed;
-            if (assign) {
-                changed = group.getUserRoles().add(role);
-                if (group.getDefaultRoleIds().add(role.getId())) {
-                    changed = true;
-                }
-            } else {
-                changed = group.getUserRoles().removeIf(r -> r.getId().equals(role.getId()));
-                if (group.getDefaultRoleIds().remove(role.getId())) {
-                    changed = true;
-                }
-            }
-            if (changed) {
-                userGroupRepository.save(group);
+        } else {
+            changed = defaultGroup.getUserRoles().removeIf(r -> r.getId().equals(role.getId()));
+            if (defaultGroup.getDefaultRoleIds().remove(role.getId())) {
+                changed = true;
             }
         }
+        return changed;
     }
 }

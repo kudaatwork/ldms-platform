@@ -51,6 +51,10 @@ interface ClassificationView {
   roleRows: ClassificationRoleRow[];
   moduleGroups: LdmsRoleModuleGroup<ClassificationRoleRow>[];
   memberCount: number;
+  /** Whether org admins are blocked from changing these inherited roles (platform-admin toggled). */
+  locked: boolean;
+  /** Lock toggle request in flight. */
+  lockBusy: boolean;
 }
 
 type RightPanelMode = 'none' | 'regular-group' | 'admin-classifications';
@@ -104,6 +108,9 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
 
   private readonly destroy$ = new Subject<void>();
 
+  /** Lock state per classification, sourced from each classification default admin group. */
+  private readonly classificationLocked = new Map<string, boolean>();
+
   constructor(
     private readonly usersService: UsersAdminService,
     private readonly snackBar: MatSnackBar,
@@ -145,6 +152,49 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
   toggleClassification(key: string): void {
     this.expandedClassification = this.expandedClassification === key ? null : key;
     this.cdr.markForCheck();
+  }
+
+  /** Platform-admin only: lock/unlock a classification's default admin roles for org workspaces. */
+  toggleClassificationLock(view: ClassificationView): void {
+    if (view.lockBusy) {
+      return;
+    }
+    const nextLocked = !view.locked;
+    view.lockBusy = true;
+    this.cdr.markForCheck();
+    this.usersService
+      .setClassificationLock(view.key, nextLocked)
+      .pipe(
+        finalize(() => {
+          view.lockBusy = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: (resp) => {
+          if (this.usersService.isUserMutationFailure(resp)) {
+            this.snackBar.open(
+              this.usersService.formatUserMutationMessage(resp, 'Could not update the lock.'),
+              'Close',
+              { duration: 6000 },
+            );
+            return;
+          }
+          view.locked = nextLocked;
+          this.snackBar.open(
+            nextLocked ? `${view.label} default roles locked.` : `${view.label} default roles unlocked.`,
+            'Close',
+            { duration: 3500, panelClass: ['app-snackbar-success'] },
+          );
+        },
+        error: (err: { error?: unknown }) => {
+          this.snackBar.open(
+            this.usersService.formatUserMutationMessage(err.error, 'Could not update the lock.'),
+            'Close',
+            { duration: 6000 },
+          );
+        },
+      });
   }
 
   onGroupSearchChange(): void {
@@ -243,27 +293,55 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: ({ rows }) => {
+          // Capture lock state from each classification default admin group (org-null + classification).
+          this.classificationLocked.clear();
+          for (const dto of rows) {
+            const src = this.resolveUserGroupPayload(dto);
+            const orgId = src['organizationId'] ?? src['organization_id'];
+            const classification = String(
+              src['organizationClassification'] ?? src['organization_classification'] ?? '',
+            ).trim().toUpperCase();
+            const name = String(src['name'] ?? '').trim().toLowerCase();
+            if (orgId == null && name === 'administrator' && classification && classification !== 'ADMIN_PORTAL') {
+              const raw = src['locked'] ?? src['is_locked'];
+              this.classificationLocked.set(classification, raw === true || raw === 'true');
+            }
+          }
+
           const allGroups = rows.map((dto) => this.mapGroup(dto));
 
+          // Classification default admin groups (org-null + a real classification) are managed via the
+          // classification drill-down, not as separate left-list cards.
           const adminGroups = allGroups.filter(
             (g) => g.name.toLowerCase() === 'administrator',
           );
+          const classificationDefaults = adminGroups.filter(
+            (g) =>
+              g.organizationId == null &&
+              g.organizationClassification != null &&
+              g.organizationClassification.toUpperCase() !== 'ADMIN_PORTAL',
+          );
+          const classificationDefaultIds = new Set(classificationDefaults.map((g) => g.id));
           const regularGroups = allGroups.filter(
-            (g) => g.name.toLowerCase() !== 'administrator',
+            (g) => g.name.toLowerCase() !== 'administrator' && !classificationDefaultIds.has(g.id),
           );
 
           const merged: GroupCard[] = [...regularGroups];
 
           if (adminGroups.length > 0) {
-            const platformAdmin = adminGroups.find((g) => g.organizationId == null || g.organizationId === 0);
-            const totalUsers = adminGroups.reduce((sum, g) => sum + g.users, 0);
-            const totalRoles = adminGroups.reduce((sum, g) => sum + g.roles, 0);
+            const platformAdmin = adminGroups.find(
+              (g) =>
+                g.organizationId == null &&
+                (g.organizationClassification == null ||
+                  g.organizationClassification.toUpperCase() === 'ADMIN_PORTAL'),
+            );
+            const platform = platformAdmin ?? adminGroups[0];
             merged.unshift({
-              id: platformAdmin?.id ?? adminGroups[0].id,
+              id: platform.id,
               name: 'Administrator',
-              description: 'Default system group — platform and all organisation workspaces',
-              users: totalUsers,
-              roles: totalRoles,
+              description: 'Default system group — platform operators; organisation defaults are managed per classification below',
+              users: platform.users,
+              roles: platform.roles,
               systemGroup: true,
               organizationId: null,
               organizationClassification: null,
@@ -381,6 +459,8 @@ export class SettingsGroupRolesComponent implements OnInit, OnDestroy {
         roleRows: rows,
         moduleGroups,
         memberCount: rows.filter((row) => row.member).length,
+        locked: this.classificationLocked.get(classification) ?? true,
+        lockBusy: false,
       });
     }
     this.classificationViews = views;

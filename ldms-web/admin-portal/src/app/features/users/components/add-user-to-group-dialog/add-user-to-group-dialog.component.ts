@@ -12,6 +12,8 @@ import { UsersAdminService, UserListRow } from '../../services/users-admin.servi
 export interface AddUserToGroupDialogData {
   userGroupId: number;
   groupLabel?: string;
+  /** When set, the group is org-scoped — only users of this organisation may be added. */
+  organizationId?: number | null;
 }
 
 @Component({
@@ -47,32 +49,37 @@ export class AddUserToGroupDialogComponent implements OnInit {
   loadUsers(): void {
     this.loading = true;
     this.error = '';
-    this.usersService
-      .queryUsers({
-        page: 0,
-        size: 500,
-        searchQuery: '',
-        columnFilters: {
-          email: '',
-          firstName: '',
-          lastName: '',
-          username: '',
-          phoneNumber: '',
-          nationalIdNumber: '',
-          passportNumber: '',
-          statusLabel: '',
-        },
-      })
-      .subscribe({
-        next: ({ rows }) => {
-          this.users = rows.filter((u) => Number.isFinite(u.id) && u.id > 0);
-          this.loading = false;
-        },
-        error: () => {
-          this.loading = false;
-          this.error = 'Failed to load users from the server.';
-        },
-      });
+    const orgId = this.data.organizationId;
+    // Org-scoped groups only accept users from the same organisation — filter the picker accordingly.
+    const source$ =
+      orgId != null && Number.isFinite(orgId) && orgId > 0
+        ? this.usersService.queryUsersForOrganization(orgId)
+        : this.usersService.queryUsers({
+            page: 0,
+            size: 500,
+            searchQuery: '',
+            columnFilters: {
+              email: '',
+              firstName: '',
+              lastName: '',
+              username: '',
+              phoneNumber: '',
+              nationalIdNumber: '',
+              passportNumber: '',
+              statusLabel: '',
+            },
+          });
+
+    source$.subscribe({
+      next: ({ rows }) => {
+        this.users = rows.filter((u) => Number.isFinite(u.id) && u.id > 0);
+        this.loading = false;
+      },
+      error: () => {
+        this.loading = false;
+        this.error = 'Failed to load users from the server.';
+      },
+    });
   }
 
   userOptionLabel(u: UserListRow): string {
