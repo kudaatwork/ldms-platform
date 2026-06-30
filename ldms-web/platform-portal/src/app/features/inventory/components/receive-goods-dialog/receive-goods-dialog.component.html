@@ -25,6 +25,7 @@
           formControlName="warehouseLocationId"
           [warehouses]="data.warehouses"
           label="Receiving warehouse"
+          searchPlaceholder="Search receiving warehouse by name or address…"
           [required]="true"
           [disabled]="submitting"
         />
@@ -57,7 +58,7 @@
         <div class="lx-field">
           <label class="lx-field-label">Receive qty <span class="req">*</span></label>
           <div class="lx-input-shell">
-            <input type="number" formControlName="quantityReceived" min="0.01" step="0.01" />
+            <input type="number" formControlName="quantityReceived" min="0.01" step="0.01" placeholder="Qty received" />
           </div>
         </div>
         <div class="lx-field span-2">

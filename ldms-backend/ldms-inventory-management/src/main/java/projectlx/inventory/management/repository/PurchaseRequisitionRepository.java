@@ -11,8 +11,10 @@ import projectlx.inventory.management.model.PurchaseRequisitionStatus;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Repository interface for Purchase Requisition entity.
@@ -40,6 +42,11 @@ public interface PurchaseRequisitionRepository extends
      * Check if requisition number exists
      */
     boolean existsByRequisitionNumber(String requisitionNumber);
+
+    /**
+     * True when any non-deleted purchase requisition references the department.
+     */
+    boolean existsByDepartmentIdAndEntityStatusNot(Long departmentId, EntityStatus entityStatus);
 
     /**
      * Find all PRs by requester
@@ -152,4 +159,10 @@ public interface PurchaseRequisitionRepository extends
             @Param("organizationId") Long organizationId,
             @Param("entityStatus") EntityStatus entityStatus
     );
+
+    @Query("SELECT DISTINCT pr.departmentId FROM PurchaseRequisition pr "
+            + "WHERE pr.departmentId IN :departmentIds AND pr.entityStatus != :entityStatus")
+    Set<Long> findDepartmentIdsReferencedByRequisitions(
+            @Param("departmentIds") Collection<Long> departmentIds,
+            @Param("entityStatus") EntityStatus entityStatus);
 }

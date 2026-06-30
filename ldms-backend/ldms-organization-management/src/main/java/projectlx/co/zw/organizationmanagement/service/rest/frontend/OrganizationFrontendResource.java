@@ -323,6 +323,17 @@ public class OrganizationFrontendResource {
         return organizationServiceProcessor.listCustomers(locale, username);
     }
 
+    @Auditable(action = "ORG_LIST_SUPPLIERS")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/suppliers")
+    @Operation(summary = "List linked supplier organisations for the signed-in customer")
+    public OrganizationResponse listSuppliers(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.listSuppliers(locale, username);
+    }
+
     @Auditable(action = "ORG_LIST_TRANSPORTERS")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/transporters")
@@ -468,12 +479,60 @@ public class OrganizationFrontendResource {
     @Auditable(action = "ORG_LINK_TRANSPORTER")
     @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).LINK_TRANSPORTER.toString())")
     @PostMapping("/transporters/link")
+    @Operation(summary = "Send a contract offer to an existing transporter (awaits the transporter's acceptance)")
     public OrganizationResponse linkTransporter(
             @RequestBody LinkTransporterRequest request,
             @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         return organizationServiceProcessor.linkTransporter(request, locale, username);
+    }
+
+    @Auditable(action = "ORG_LIST_TRANSPORTER_OFFERS")
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/transporters/offers/incoming")
+    @Operation(summary = "List pending contract offers awaiting this transporter's response")
+    public OrganizationResponse listIncomingTransporterOffers(
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.listIncomingTransporterOffers(locale, username);
+    }
+
+    @Auditable(action = "ORG_ACCEPT_TRANSPORTER_OFFER")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/transporters/offers/{supplierOrganizationId:\\d+}/accept")
+    @Operation(summary = "Accept a supplier's transporter contract offer")
+    public OrganizationResponse acceptTransporterOffer(
+            @PathVariable Long supplierOrganizationId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.respondToTransporterOffer(supplierOrganizationId, true, locale, username);
+    }
+
+    @Auditable(action = "ORG_DECLINE_TRANSPORTER_OFFER")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/transporters/offers/{supplierOrganizationId:\\d+}/decline")
+    @Operation(summary = "Decline a supplier's transporter contract offer")
+    public OrganizationResponse declineTransporterOffer(
+            @PathVariable Long supplierOrganizationId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.respondToTransporterOffer(supplierOrganizationId, false, locale, username);
+    }
+
+    @Auditable(action = "ORG_CANCEL_TRANSPORTER_OFFER")
+    @PreAuthorize("hasRole(T(projectlx.co.zw.organizationmanagement.utils.security.OrganizationRoles).LINK_TRANSPORTER.toString())")
+    @PostMapping("/transporters/offers/{transporterOrganizationId:\\d+}/cancel")
+    @Operation(summary = "Cancel a pending transporter contract offer the supplier sent")
+    public OrganizationResponse cancelTransporterOffer(
+            @PathVariable Long transporterOrganizationId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        return organizationServiceProcessor.cancelTransporterOffer(transporterOrganizationId, locale, username);
     }
 
     @Auditable(action = "ORG_GET_BY_ID")

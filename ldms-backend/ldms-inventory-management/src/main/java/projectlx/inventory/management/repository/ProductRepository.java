@@ -39,6 +39,10 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
 
     List<Product> findByEntityStatusNot(EntityStatus entityStatus);
 
+    List<Product> findBySupplierIdAndEntityStatusNot(Long supplierId, EntityStatus entityStatus);
+
+    List<Product> findByIdInAndEntityStatusNot(java.util.Collection<Long> ids, EntityStatus entityStatus);
+
     @Query("SELECT p FROM Product p WHERE TRIM(p.barcode) = :barcode AND p.entityStatus <> :entityStatus")
     Optional<Product> lookupByBarcodeTrimmedAndEntityStatusNot(
             @Param("barcode") String barcode,

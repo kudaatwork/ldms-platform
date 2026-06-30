@@ -18,6 +18,7 @@
           [required]="true"
           [invalid]="hasError('productId', 'required')"
           [disabled]="submitting"
+          searchPlaceholder="Search product by name, code, or barcode…"
           (selectionChange)="onProductChange()"
         />
       </div>
@@ -83,7 +84,7 @@
             [warehouses]="fromWarehouses"
             label="From warehouse"
             ariaLabel="From warehouse"
-            searchPlaceholder="Type to search source warehouse…"
+            searchPlaceholder="Search source warehouse by name or address…"
             [emptyHint]="fromWarehouseHint"
             [required]="true"
             [invalid]="hasError('fromLocationId', 'required')"
@@ -98,7 +99,7 @@
             [warehouses]="toWarehouses"
             label="To warehouse"
             ariaLabel="To warehouse"
-            searchPlaceholder="Type to search destination warehouse…"
+            searchPlaceholder="Search destination warehouse by name or address…"
             [emptyHint]="toWarehouseHint"
             [required]="true"
             [invalid]="hasError('toLocationId', 'required')"
@@ -194,7 +195,7 @@
           <label class="lx-field-label">Unit cost</label>
           <div class="lx-input-shell">
             <mat-icon class="lx-input-shell__icon">payments</mat-icon>
-            <input type="number" formControlName="unitCost" min="0" step="0.01" />
+            <input type="number" formControlName="unitCost" min="0" step="0.01" placeholder="e.g. 0.00 — optional" />
           </div>
           <p class="lx-field-hint transfer-form-row__hint" *ngIf="selectedFromStock as fromStock">
             <ng-container *ngIf="fromStock.unitCost > 0">

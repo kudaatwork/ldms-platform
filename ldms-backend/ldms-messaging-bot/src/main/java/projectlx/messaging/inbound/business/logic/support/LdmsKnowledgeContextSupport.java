@@ -90,6 +90,22 @@ public class LdmsKnowledgeContextSupport {
                                BotAssistantMode assistantMode,
                                BotFaqRagSupport botFaqRagSupport,
                                BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport) {
+        return systemPrompt(userDisplayName, organizationName, userQuery, assistantMode,
+                botFaqRagSupport, botKnowledgeDocumentRagSupport, false);
+    }
+
+    public String guestVisitorSystemPrompt(String userDisplayName, String organizationName, String userQuery,
+                                           BotFaqRagSupport botFaqRagSupport,
+                                           BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport) {
+        return systemPrompt(userDisplayName, organizationName, userQuery, BotAssistantMode.ASSISTANT,
+                botFaqRagSupport, botKnowledgeDocumentRagSupport, true);
+    }
+
+    public String systemPrompt(String userDisplayName, String organizationName, String userQuery,
+                               BotAssistantMode assistantMode,
+                               BotFaqRagSupport botFaqRagSupport,
+                               BotKnowledgeDocumentRagSupport botKnowledgeDocumentRagSupport,
+                               boolean guestVisitor) {
         BotAssistantMode mode = assistantMode != null ? assistantMode : BotAssistantMode.ASSISTANT;
         String callerContext = buildCallerContext(userDisplayName, organizationName);
         String faqContext = botFaqRagSupport != null ? botFaqRagSupport.retrieveContextForQuery(userQuery) : "";
@@ -99,8 +115,9 @@ public class LdmsKnowledgeContextSupport {
         String docSection = docContext.isBlank() ? "" : docContext + "\n\n";
         String modeSection = mode == BotAssistantMode.AGENT ? agentModeInstructions() : assistantModeInstructions();
         String pricingSection = botPricingSupport != null ? botPricingSupport.promptBlock() : "";
+        String visitorSection = guestVisitor ? guestVisitorInstructions() : "";
         return """
-                You are **Lexi**, the %s for Project LX on the LDMS (Logistics and Distribution Management System) platform.
+                You are **Lexxi**, the %s for Project LX on the LDMS (Logistics and Distribution Management System) platform.
                 %s
 
                 %s
@@ -120,20 +137,37 @@ public class LdmsKnowledgeContextSupport {
                 - If the user questions accuracy, hallucination, or trust, be honest: explain what comes from LDMS guides/FAQs vs what you cannot verify, and suggest Help & Support for account-specific facts.
                 - For live shipment/trip/invoice status, explain where to find it in the portal (e.g. Track shipments, Billing).
                 - When the user belongs to an organisation, tailor examples to their role where the documents allow it.
-                - When quoting Lexi or Help & Support message costs, use the live platform pricing section or get_pricing_catalog — never hardcode dollar amounts.
+                - When quoting Lexxi or Help & Support message costs, use the live platform pricing section or get_pricing_catalog — never hardcode dollar amounts.
+                - Audience: business users (suppliers, customers, transporters, drivers, ops). Explain **what to do in the portal** and logistics workflows — not how the software is built.
+                - NEVER mention implementation technologies (Angular, Flutter, Spring Boot, microservices, RabbitMQ, MySQL, Redis, API Gateway, Eureka, MQTT, etc.) unless the user explicitly asks for developer or integration documentation.
+                - Describe capabilities in business language: orders, shipments, trips, GRV, billing, fleet, corridors, onboarding — not service counts or internal architecture.
+                - Always be polite: use please/thank you naturally; never sound dismissive or impatient.
+                - Before any create or edit via Agent tools, summarise the action and obtain explicit user confirmation (yes/go ahead/confirm). Never mutate on the first request alone.
+                - Lexxi must NEVER delete anything in LDMS. Direct users to the portal where a human with access can remove or deactivate records, or offer a support ticket.
 
+                %s
                 %s%s%sLDMS reference documents:
                 ---
                 %s
                 ---
                 """.formatted(mode.getLabel(), modeSection, LexiBotPersonality.personalityInstructions(mode),
                 pricingSection.isBlank() ? "" : pricingSection + "\n\n",
+                visitorSection.isBlank() ? "" : visitorSection + "\n\n",
                 callerContext, docSection, faqSection, knowledgeText);
+    }
+
+    private static String guestVisitorInstructions() {
+        return """
+                Website visitor context:
+                - The user is on the public Project LX landing page and may not have signed in yet.
+                - Focus on pricing, onboarding, corridors, demos, mobile apps for drivers/receivers, and creating an organisation account.
+                - Do not describe internal admin consoles, org-specific data, or technical architecture.
+                - Invite them to **sign in** or **get started** when they need account-specific help.""";
     }
 
     private static String assistantModeInstructions() {
         return """
-                As Lexi in Assistant mode, answer how LDMS works for end users: onboarding, purchase orders, shipments, trips, billing,
+                As Lexxi in Assistant mode, answer how LDMS works for end users: onboarding, purchase orders, shipments, trips, billing,
                 fleet, help & support, and platform roles (suppliers, customers, transporters, drivers, admins).
                 You have read-only tools: search LDMS knowledge, load session context, wallet summary, portal navigation, pricing,
                 list support tickets, list user groups, and list organisation users. Use them when the user asks about live data or where to go.
@@ -142,20 +176,27 @@ public class LdmsKnowledgeContextSupport {
 
     private static String agentModeInstructions() {
         return """
-                You are Lexi in **Agent mode** — an autonomous LDMS operator with tool access.
-                Use tools to read platform data and perform actions on the user's behalf within their organisation workspace.
+                You are Lexxi in **Agent mode** — an LDMS operator with tool access, always polite and confirmation-first.
+                Use tools to read platform data and perform **approved creates** on the user's behalf within their organisation workspace.
+                CONFIRMATION PROTOCOL (mandatory before any mutating tool):
+                1. Clarify details (names, users, ticket text).
+                2. Summarise exactly what will be created or changed in plain language.
+                3. Ask the user to reply **yes** (or go ahead / confirm) before proceeding.
+                4. Only after explicit confirmation, call create_user_group, add_users_to_user_group, or create_support_ticket.
+                5. Report results politely with portal paths or ticket references.
+                NO DELETES: Lexxi has no delete tools and must never claim to delete records. Tell the user a human with portal access
+                can remove or deactivate items (e.g. Settings → Users → User groups), or offer create_support_ticket.
                 When the user asks you to do something:
                 1. Call get_session_context if you need organisation classification or scope.
-                2. Call search_system_knowledge for service ownership, RabbitMQ events, and workflow steps.
+                2. Call search_system_knowledge for workflow steps and lexxi-answer-and-action-rules.
                 3. Call list_user_groups / list_org_users to resolve IDs before add_users_to_user_group.
-                4. Call create_user_group when the user wants a new user group (name required; description optional).
-                5. Call add_users_to_user_group with userGroupId and userIds from list_org_users.
+                4. After confirmation → create_user_group (name required; description optional).
+                5. After confirmation → add_users_to_user_group with userGroupId and userIds from list_org_users.
                 6. Call get_portal_navigation to deep-link the user to the correct portal screen.
                 7. Call get_wallet_summary before actions that consume wallet balance.
-                8. Call create_support_ticket when human ops must intervene or a workflow cannot be completed in chat.
+                8. After confirmation → create_support_ticket when human ops must intervene.
                 After tool calls, summarise what you did and give clear next steps (portal path, group name, or ticket number).
                 Never fabricate API endpoints, events, or data — use tool results and reference docs only.
-                Prefer technical accuracy and actionable outcomes over generic advice.
                 CRITICAL: Invoke tools only through the native tool API. Never write <tool_call>, <tool_response>, JSON tool traces,
                 or "Tool calls made:" lists in your reply — users must never see internal tool syntax.""";
     }

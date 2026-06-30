@@ -1,0 +1,207 @@
+<div class="lx-page dept">
+  <lx-workspace-hero
+    variant="slate"
+    eyebrow="Organisation structure"
+    eyebrowIcon="corporate_fare"
+    title="Departments"
+    [lead]="'Cost centres and units used when ' + orgName + ' raises purchase requisitions.'"
+    hubIcon="corporate_fare"
+    [orbitIcons]="['request_quote', 'account_balance', 'groups']"
+    note="Departments appear on requisition forms and approval workflows."
+  >
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="showInitialLoading || refreshing || actionInProgress">
+      <mat-icon>refresh</mat-icon>
+      Refresh
+    </button>
+    <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddDepartment()" [disabled]="showInitialLoading || actionInProgress">
+      <mat-icon>add</mat-icon>
+      Add department
+    </button>
+
+    <lx-workspace-hero-stat [value]="departments.length" label="Departments" icon="corporate_fare" theme="teal"></lx-workspace-hero-stat>
+  </lx-workspace-hero>
+
+  <p class="dept-alert lx-card" *ngIf="loadError" role="alert">
+    <mat-icon>error_outline</mat-icon>
+    {{ loadError }}
+    <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()">Retry</button>
+  </p>
+
+  <div class="lx-card lx-card--subsection dept-controls">
+    <div class="lx-controls-head">
+      <div class="lx-controls-head__text">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">Search, filter, import, export, and manage departments.</p>
+      </div>
+      <button
+        type="button"
+        mat-icon-button
+        class="lx-controls-head__info-btn"
+        [class.is-on]="showSampleCsvInfo"
+        (click)="showSampleCsvInfo = !showSampleCsvInfo"
+        [attr.aria-pressed]="showSampleCsvInfo"
+        aria-label="Toggle sample CSV information"
+      >
+        <mat-icon>info_outline</mat-icon>
+      </button>
+    </div>
+
+    <p class="lx-controls-hint" *ngIf="showSampleCsvInfo">
+      <mat-icon class="lx-controls-hint__icon">info_outline</mat-icon>
+      <span><strong>Sample CSV:</strong> {{ sampleCsvDescription }}</span>
+    </p>
+    <p class="lx-controls-hint lx-import-disclaimer">
+      <mat-icon class="lx-controls-hint__icon">upload_file</mat-icon>
+      <span>{{ importCsvDisclaimer }}</span>
+    </p>
+
+    <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="showInitialLoading || refreshing || actionInProgress">
+          {{ refreshing ? 'Refreshing…' : 'Refresh' }}
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="importCsv(csvInput)" [disabled]="actionInProgress">
+          {{ importing ? 'Importing…' : 'Import' }}
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadSampleCsv()" [disabled]="actionInProgress">
+          Sample CSV
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+          [matMenuTriggerFor]="exportMenu"
+          [disabled]="actionInProgress || exporting || !departments.length"
+        >
+          {{ exporting ? 'Exporting…' : 'Export' }}
+        </button>
+        <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openAddDepartment()" [disabled]="showInitialLoading || actionInProgress">
+          <mat-icon>add</mat-icon>
+          Add department
+        </button>
+      </div>
+      <div class="lx-data-toolbar__search">
+        <div class="lx-input-shell lx-search-field">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input [(ngModel)]="searchQuery" placeholder="Search departments…" autocomplete="off" />
+        </div>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+          (click)="filterFieldsOpen = !filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen || hasActiveFilters()"
+        >
+          <mat-icon>tune</mat-icon>
+          Filters
+        </button>
+      </div>
+    </div>
+
+    <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')" [disabled]="exporting">
+        <mat-icon>picture_as_pdf</mat-icon>
+        <span>Export PDF</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')" [disabled]="exporting">
+        <mat-icon>table_view</mat-icon>
+        <span>Export CSV</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')" [disabled]="exporting">
+        <mat-icon>grid_on</mat-icon>
+        <span>Export XLSX</span>
+      </button>
+    </mat-menu>
+    <input #csvInput type="file" accept=".csv,text/csv" hidden (change)="onImportFileSelected($event)" />
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Name</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
+            <input [(ngModel)]="columnFilters.name" placeholder="Name contains…" autocomplete="off" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Code</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+            <input [(ngModel)]="columnFilters.code" placeholder="Code contains…" autocomplete="off" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Description</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+            <input [(ngModel)]="columnFilters.description" placeholder="Description contains…" autocomplete="off" />
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <span class="dept-toolbar__count" *ngIf="departments.length">
+      {{ filteredDepartments.length }} of {{ departments.length }}
+    </span>
+  </div>
+
+  <div class="dept-loading" *ngIf="showInitialLoading" role="status">
+    <lx-table-loading [busy]="true" message="Loading departments…"></lx-table-loading>
+  </div>
+
+  <div class="dept-table-card lx-card lx-table-card dept-table-card--busy" *ngIf="showTable">
+    <lx-table-loading [busy]="refreshing" message="Refreshing departments…"></lx-table-loading>
+    <div class="lx-table-wrap">
+      <table class="lx-data-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Code</th>
+            <th>Description</th>
+            <th class="dept-table__actions-head">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of filteredDepartments; trackBy: trackByDepartmentId">
+            <td><strong>{{ row.name }}</strong></td>
+            <td><span class="dept-mono">{{ row.code || '—' }}</span></td>
+            <td>{{ row.description || '—' }}</td>
+            <td class="lx-actions-cell">
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm"
+                (click)="openEditDepartment(row)"
+                [disabled]="actionInProgress || isDeleting(row)"
+              >
+                <mat-icon>edit</mat-icon>
+                Edit
+              </button>
+              <button
+                type="button"
+                class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-danger"
+                (click)="onDeleteDepartment(row)"
+                [disabled]="actionInProgress || isDeleting(row) || row.inUse"
+                [matTooltip]="row.inUse ? 'Used on purchase requisitions — cannot delete' : 'Delete department'"
+                matTooltipPosition="above"
+              >
+                <mat-icon>{{ isDeleting(row) ? 'hourglass_top' : 'delete_outline' }}</mat-icon>
+                {{ isDeleting(row) ? 'Deleting…' : 'Delete' }}
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="!filteredDepartments.length && !loadError">
+            <td colspan="4" class="dept-table-empty">
+              <div class="dept-table-empty__inner">
+                <mat-icon>corporate_fare</mat-icon>
+                <span>{{ departments.length ? 'No departments match your search or filters.' : 'No departments yet — add one before creating requisitions.' }}</span>
+                <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" *ngIf="!departments.length" (click)="openAddDepartment()">
+                  <mat-icon>add</mat-icon>
+                  Add department
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

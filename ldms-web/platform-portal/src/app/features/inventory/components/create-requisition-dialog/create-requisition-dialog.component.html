@@ -10,12 +10,17 @@
   </div>
 
   <div class="req-loading lx-card" *ngIf="loadingOptions" role="status">
-    <lx-table-loading [busy]="true" message="Loading catalogue and departments…"></lx-table-loading>
+    <lx-table-loading [busy]="true" message="Loading departments, warehouses, and suppliers…"></lx-table-loading>
   </div>
 
   <p class="lx-list-error" *ngIf="optionsError && !loadingOptions">
     <mat-icon>warning_amber</mat-icon>
     {{ optionsError }}
+  </p>
+
+  <p class="lx-field-hint req-options-hint" *ngIf="optionsHint && !optionsError && !loadingOptions">
+    <mat-icon aria-hidden="true">info</mat-icon>
+    {{ optionsHint }}
   </p>
 
   <form [formGroup]="form" class="lx-step-content" (ngSubmit)="onSubmit()" novalidate *ngIf="!loadingOptions">
@@ -58,7 +63,9 @@
           <mat-icon class="lx-input-shell__icon">corporate_fare</mat-icon>
           <select formControlName="departmentId" aria-label="Department">
             <option [ngValue]="null">— Select department —</option>
-            <option *ngFor="let d of departments" [ngValue]="d.id">{{ d.name }}</option>
+            <option *ngFor="let d of departments" [ngValue]="d.id">
+              {{ d.code ? d.name + ' (' + d.code + ')' : d.name }}
+            </option>
           </select>
         </div>
         <div class="lx-field-error" *ngIf="hasError('departmentId', 'required')">Department is required</div>
@@ -95,15 +102,66 @@
         </div>
       </div>
 
-      <div class="lx-field">
-        <label class="lx-field-label">Target warehouse</label>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">warehouse</mat-icon>
-          <select formControlName="targetWarehouseId" aria-label="Target warehouse">
-            <option [ngValue]="null">— None —</option>
-            <option *ngFor="let w of warehouses" [ngValue]="w.id">{{ w.name }}</option>
-          </select>
+      <!-- Supplier (purchase from supplier) — shown early so you can search before adding lines -->
+      <ng-container *ngIf="isPurchaseFromSupplier">
+        <div class="lx-form-section span-2 req-supplier-section">
+          <div class="lx-form-section-title">Supplier</div>
+          <p class="lx-form-section-lead">
+            Search and select who should fulfil this requisition. Stock availability is shown on each line once you add products.
+          </p>
         </div>
+
+        <div class="lx-field span-2">
+          <app-searchable-supplier-picker
+            formControlName="preferredSupplierId"
+            label="Supplier"
+            [suppliers]="suppliersForPicker"
+            [stockHintBySupplierId]="supplierCatalogHints"
+            [stockHintToneBySupplierId]="supplierCatalogTones"
+            [required]="true"
+            [invalid]="hasError('preferredSupplierId', 'required')"
+            [disabled]="submitting || loadingSupplierAvailability"
+            inputId="req-preferred-supplier"
+            searchPlaceholder="Search suppliers by name, email, or stock status…"
+            (selectionChange)="onSupplierSelected()"
+            [emptyHint]="supplierPickerEmptyHint"
+          />
+          <div class="lx-field-error" *ngIf="hasError('preferredSupplierId', 'required')">Supplier is required</div>
+          <p
+            class="req-supplier-status"
+            *ngIf="form.get('preferredSupplierId')?.value"
+            [class.req-supplier-status--ok]="selectedSupplierStockSummaryTone === 'ok'"
+            [class.req-supplier-status--warn]="selectedSupplierStockSummaryTone === 'warn'"
+          >
+            <mat-icon aria-hidden="true">{{ selectedSupplierStockSummaryTone === 'ok' ? 'check_circle' : selectedSupplierStockSummaryTone === 'warn' ? 'warning_amber' : 'info' }}</mat-icon>
+            <span><strong>{{ selectedSupplierLabel }}</strong> — {{ selectedSupplierStockSummary }}</span>
+          </p>
+        </div>
+
+        <div class="req-catalog-loading span-2" *ngIf="loadingCatalog && form.get('preferredSupplierId')?.value" role="status">
+          <lx-table-loading [busy]="true" message="Loading supplier catalogue and stock…"></lx-table-loading>
+        </div>
+      </ng-container>
+
+      <div class="lx-field req-warehouse-field">
+        <app-searchable-warehouse-picker
+          formControlName="targetWarehouseId"
+          label="Target warehouse"
+          [warehouses]="warehouses"
+          [disabled]="submitting"
+          [inputId]="'req-target-warehouse'"
+          searchPlaceholder="Search delivery warehouse by name or address…"
+          emptyHint="Where received stock should be delivered."
+        />
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm req-add-warehouse-btn"
+          (click)="openAddWarehouse()"
+          [disabled]="submitting"
+        >
+          <mat-icon>add</mat-icon>
+          Add warehouse
+        </button>
       </div>
 
       <!-- Financial -->
@@ -116,14 +174,6 @@
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">payments</mat-icon>
           <input formControlName="currency" placeholder="USD" autocomplete="off" />
-        </div>
-      </div>
-
-      <div class="lx-field">
-        <label class="lx-field-label">Preferred supplier ID</label>
-        <div class="lx-input-shell">
-          <mat-icon class="lx-input-shell__icon">store</mat-icon>
-          <input type="number" min="1" formControlName="preferredSupplierId" placeholder="Optional org id" />
         </div>
       </div>
 
@@ -162,15 +212,47 @@
       <div class="lx-form-section span-2 req-lines-head">
         <div>
           <div class="lx-form-section-title">Line items</div>
-          <p class="lx-form-section-lead">Select products, quantities, and optional specifications for each item.</p>
+          <p class="lx-form-section-lead" *ngIf="isPurchaseFromSupplier">
+            Add products from the selected supplier's catalogue. Each line shows whether they have enough stock.
+          </p>
+          <p class="lx-form-section-lead" *ngIf="!isPurchaseFromSupplier">
+            Select products, quantities, and optional specifications for each item.
+          </p>
         </div>
-        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="addLine()" [disabled]="submitting">
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm"
+          (click)="addLine()"
+          [disabled]="submitting || loadingCatalog || loadingLinkedCatalog || !canSubmitLines"
+        >
           <mat-icon>add</mat-icon>
           Add line
         </button>
       </div>
 
-      <div class="req-line-card span-2 lx-card" *ngFor="let line of lines.controls; let i = index" [formGroup]="$any(line)">
+      <div class="req-catalog-loading span-2" *ngIf="loadingLinkedCatalog && isPurchaseFromSupplier" role="status">
+        <lx-table-loading [busy]="true" message="Loading linked supplier catalogues…"></lx-table-loading>
+      </div>
+
+      <p class="lx-field-hint span-2" *ngIf="isPurchaseFromSupplier && !form.get('preferredSupplierId')?.value && suppliers.length">
+        Select a supplier above before adding line items.
+      </p>
+
+      <p class="lx-list-error span-2" *ngIf="catalogError && !loadingCatalog">
+        <mat-icon>warning_amber</mat-icon>
+        {{ catalogError }}
+      </p>
+
+      <p class="lx-field-hint span-2" *ngIf="isPurchaseFromSupplier && !loadingLinkedCatalog && !allLinkedSupplierProducts.length && suppliers.length">
+        Linked suppliers have no published products yet. Ask them to publish their catalogue.
+      </p>
+
+      <div
+        class="req-line-card span-2 lx-card"
+        *ngFor="let line of lines.controls; let i = index"
+        [formGroup]="$any(line)"
+        [hidden]="loadingCatalog && !!form.get('preferredSupplierId')?.value"
+      >
         <header class="req-line-card__head">
           <strong>Line {{ i + 1 }}</strong>
           <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="removeLine(i)" [disabled]="lines.length <= 1 || submitting">
@@ -183,21 +265,30 @@
           <div class="lx-field span-2">
             <app-searchable-product-picker
               formControlName="productId"
-              [products]="products"
+              [products]="activeProducts"
+              [stockByProductId]="isPurchaseFromSupplier ? stockByProductId : null"
+              [stockUnitByProductId]="isPurchaseFromSupplier ? stockUnitByProductId : null"
               [required]="true"
               [invalid]="lineHasError(i, 'productId', 'required')"
-              [disabled]="submitting"
+              [disabled]="submitting || !canSubmitLines"
               [inputId]="'req-line-product-' + i"
-              placeholder="— Select product —"
+              searchPlaceholder="Search product by name, code, or stock…"
               (selectionChange)="onProductSelected(i)"
             />
+            <p
+              class="req-line-stock-hint"
+              [class.req-line-stock-hint--warn]="lineStockHintTone(i) === 'warn'"
+              *ngIf="lineStockHint(i)"
+            >
+              {{ lineStockHint(i) }}
+            </p>
           </div>
 
           <div class="lx-field">
             <label class="lx-field-label">Quantity <span class="req">*</span></label>
             <div class="lx-input-shell" [class.lx-input-shell--invalid]="lineHasError(i, 'requestedQuantity', 'required') || lineHasError(i, 'requestedQuantity', 'min')">
               <mat-icon class="lx-input-shell__icon">pin</mat-icon>
-              <input type="number" min="0.01" step="0.01" formControlName="requestedQuantity" />
+              <input type="number" min="0.01" step="0.01" formControlName="requestedQuantity" placeholder="e.g. 10" />
             </div>
           </div>
 
@@ -215,7 +306,7 @@
             <label class="lx-field-label">Est. unit price</label>
             <div class="lx-input-shell">
               <mat-icon class="lx-input-shell__icon">attach_money</mat-icon>
-              <input type="number" min="0" step="0.01" formControlName="estimatedUnitPrice" />
+              <input type="number" min="0" step="0.01" formControlName="estimatedUnitPrice" placeholder="Optional unit price" />
             </div>
           </div>
 
@@ -287,7 +378,7 @@
       <button
         type="submit"
         class="lx-btn lx-btn-primary"
-        [disabled]="submitting || form.invalid || !!optionsError || !products.length"
+        [disabled]="submitting || form.invalid || !!optionsError || loadingOptions || loadingCatalog || loadingLinkedCatalog || loadingSupplierAvailability"
       >
         {{ submitting ? 'Creating…' : 'Create draft requisition' }}
       </button>

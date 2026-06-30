@@ -26,9 +26,13 @@ import { PhoneVerificationPromptService } from '../../core/services/phone-verifi
 import { ShellNotification, ShellNotificationService } from '../../core/services/shell-notification.service';
 import { FuelAlertMonitorService } from '../../core/services/fuel-alert-monitor.service';
 import { PlatformWalletAlertMonitorService } from '../../core/services/platform-wallet-alert-monitor.service';
+import { PlatformInboxMonitorService } from '../../core/services/platform-inbox-monitor.service';
+import { PlatformInboxService } from '../../core/services/platform-inbox.service';
 import { CurrencyContextService } from '../../core/services/currency-context.service';
 import { PlatformWalletService, type OrganizationBillingMode, type PlatformWalletSummary } from '../../core/services/platform-wallet.service';
 import { DuplexTradingModeService } from '../../core/services/duplex-trading-mode.service';
+import { LexxiChatLauncherService, LexxiChatBrand } from '../../shared/services/lexxi-chat-launcher.service';
+import { LEXXI_BOT_NAME } from '../../shared/constants/lexxi-bot.constants';
 import { portalHomeRoute } from '../../core/utils/portal-navigation.util';
 import { isDuplexTradingOrg, type TradingWorkspaceMode } from '../../core/utils/org-classification.util';
 import {
@@ -37,6 +41,7 @@ import {
   NavItem,
   withAnalyticsNav,
   withAuditLogNav,
+  withDepartmentsNav,
   withFleetNav,
   withInventoryNav,
   withMyOrdersNav,
@@ -74,6 +79,10 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
   pageTitle = 'Dashboard';
   breadcrumbs: Breadcrumb[] = [];
+  showLexiWidget = true;
+  readonly lexxiName = LEXXI_BOT_NAME;
+  chatOpen = false;
+  chatBrand: LexxiChatBrand = 'live-chat';
 
   notificationsOpen = false;
   profileOpen = false;
@@ -99,12 +108,27 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     private readonly shellNotifications: ShellNotificationService,
     private readonly fuelAlertMonitor: FuelAlertMonitorService,
     private readonly walletAlertMonitor: PlatformWalletAlertMonitorService,
+    private readonly platformInboxMonitor: PlatformInboxMonitorService,
+    private readonly platformInbox: PlatformInboxService,
     private readonly currencyContext: CurrencyContextService,
     private readonly platformWallet: PlatformWalletService,
     private readonly duplexTradingMode: DuplexTradingModeService,
+    private readonly chatLauncher: LexxiChatLauncherService,
   ) {}
 
   ngOnInit(): void {
+    this.chatLauncher.isOpen$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((open) => {
+        this.chatOpen = open;
+        this.cdr.markForCheck();
+      });
+    this.chatLauncher.brand$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((brand) => {
+        this.chatBrand = brand;
+        this.cdr.markForCheck();
+      });
     this.shellUserService.syncFromStorage();
     this.currentUser = this.authState.currentUser;
     if (this.currentUser) {
@@ -157,6 +181,9 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
         this.shellNotifications.refresh();
         this.fuelAlertMonitor.resumeWatching();
         this.walletAlertMonitor.start();
+        this.platformInboxMonitor.start();
+      } else {
+        this.platformInboxMonitor.stop();
       }
       this.refreshWorkspaceNav();
       this.syncChromeFromUrl();
@@ -422,6 +449,21 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
+  selectChatBrand(brand: LexxiChatBrand): void {
+    this.closeMobileSidebar();
+    this.chatLauncher.setBrand(brand);
+    if (!this.chatOpen) {
+      this.chatLauncher.openChat();
+    }
+    this.cdr.markForCheck();
+  }
+
+  toggleLiveChat(): void {
+    this.closeMobileSidebar();
+    this.chatLauncher.toggleChat();
+    this.cdr.markForCheck();
+  }
+
   toggleNotifications(): void {
     this.notificationsOpen = !this.notificationsOpen;
     if (this.notificationsOpen) {
@@ -442,11 +484,18 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
   dismissNotification(id: string, event?: Event): void {
     event?.stopPropagation();
     event?.preventDefault();
+    if (id.startsWith('platform-')) {
+      const platformId = Number(id.replace('platform-', ''));
+      if (Number.isFinite(platformId) && platformId > 0) {
+        this.platformInbox.dismiss(platformId).pipe(takeUntil(this.destroy$)).subscribe();
+      }
+    }
     this.shellNotifications.dismiss(id);
     this.cdr.markForCheck();
   }
 
   clearAllNotifications(): void {
+    this.platformInbox.dismissAll().pipe(takeUntil(this.destroy$)).subscribe();
     this.shellNotifications.clearAll();
     this.cdr.markForCheck();
   }
@@ -480,6 +529,21 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     }
     if (notification.action === 'verify-phone' || notification.action === 'verify-email') {
       this.navigateToVerificationAction(notification.action);
+      this.cdr.markForCheck();
+      return;
+    }
+    if (
+      notification.route
+      && (
+        notification.action === 'requisition'
+        || notification.action === 'purchase-order'
+        || notification.action === 'transfer'
+        || notification.action === 'inventory'
+      )
+    ) {
+      void this.router.navigateByUrl(notification.route);
+      this.cdr.markForCheck();
+      return;
     }
     this.cdr.markForCheck();
   }
@@ -667,19 +731,22 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
     const base = withOperationalModeNav(
       withAnalyticsNav(
         withAuditLogNav(
-          withMyOrdersNav(
-            withShipmentsNav(
-              withFleetNav(
-                withInventoryNav(
-                  withUsersNavAfterDocuments(
-                    withOrganizationManagementNav(
-                      classification ? (NAV_CONFIG[classification] ?? fallback) : fallback,
-                      classification ?? undefined,
+          withDepartmentsNav(
+            withMyOrdersNav(
+              withShipmentsNav(
+                withFleetNav(
+                  withInventoryNav(
+                    withUsersNavAfterDocuments(
+                      withOrganizationManagementNav(
+                        classification ? (NAV_CONFIG[classification] ?? fallback) : fallback,
+                        classification ?? undefined,
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
+            classification ?? undefined,
           ),
         ),
       ),
@@ -713,6 +780,16 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
           nextExpanded[groupKey] = true;
         }
       }
+      // Auto-expand any third-level sub-group whose leaf route is active.
+      for (const child of item.children) {
+        if (!child.children?.length) {
+          continue;
+        }
+        const childActive = child.children.some((leaf) => this.isRouteInNavGroup(url, leaf.route));
+        if (childActive && !this.userCollapsedNavGroups.has(child.route)) {
+          nextExpanded[child.route] = true;
+        }
+      }
     }
 
     // When viewing a section, close other top-level groups; on neutral pages keep manual toggles.
@@ -730,6 +807,7 @@ export class ShellLayoutComponent implements OnInit, OnDestroy {
 
     this.expandedGroups = nextExpanded;
     this.pageTitle = this.resolvePageTitle(this.currentUrl);
+    this.showLexiWidget = !this.currentUrl.startsWith('/help');
     this.rebuildBreadcrumbs();
     this.cdr.markForCheck();
   }

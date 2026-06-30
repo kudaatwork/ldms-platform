@@ -50,10 +50,10 @@ public class BotPricingSupport {
                 Live platform pricing (from action charge catalog — quote these amounts only):
                 - Assistant message (%s): %s
                 - Agent message (%s): %s
-                - New Lexi chat session (%s): %s
+                - New Lexxi chat session (%s): %s
                 - Open support ticket (%s): %s
                 - Live support ticket message (%s): %s
-                When users ask what Lexi or Help & Support costs, use get_pricing_catalog or these figures. Never invent prices."""
+                When users ask what Lexxi or Help & Support costs, use get_pricing_catalog or these figures. Never invent prices."""
                 .formatted(
                         PlatformWalletActionCodes.HELP_BOT_MESSAGE,
                         formatMoney(pricing.getAssistantMessageCents(), pricing.getCurrencyCode()),

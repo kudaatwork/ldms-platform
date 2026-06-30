@@ -73,6 +73,12 @@ public class FleetDriverServiceProcessorImpl implements FleetDriverServiceProces
     }
 
     @Override
+    public FleetDriverResponse updateMyProfile(EditFleetDriverRequest request, Locale locale, String username) {
+        log.info("Processing updateMyProfile for user {}", username);
+        return fleetDriverService.updateMyProfile(request, locale, username);
+    }
+
+    @Override
     public FleetDriverResponse searchMarketplace(String term, String licenseClass, Locale locale, String username) {
         log.info("Processing marketplace search term='{}' licenseClass='{}' by {}", term, licenseClass, username);
         return fleetDriverService.searchMarketplace(term, licenseClass, locale, username);

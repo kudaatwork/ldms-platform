@@ -54,5 +54,6 @@ import { EnRouteWarehouseStopsComponent } from './components/en-route-warehouse-
     SearchableProductPickerComponent,
     SearchableWarehousePickerComponent,
   ],
+  exports: [InventoryWorkspaceComponent],
 })
 export class InventoryModule {}

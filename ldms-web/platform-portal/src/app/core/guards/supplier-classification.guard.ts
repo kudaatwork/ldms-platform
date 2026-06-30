@@ -6,7 +6,7 @@ import { AuthStateService } from '../services/auth-state.service';
 import { DuplexTradingModeService } from '../services/duplex-trading-mode.service';
 import { isSupplierOrganization } from '../utils/org-classification.util';
 
-/** Inventory catalogue management is supplier-only; customers order via My Orders. */
+/** Inventory catalogue at /products-inventory is supplier-only; customers use /my-orders. */
 @Injectable({ providedIn: 'root' })
 export class SupplierClassificationGuard implements CanActivate {
   constructor(
@@ -21,7 +21,7 @@ export class SupplierClassificationGuard implements CanActivate {
     if (immediate !== null) {
       return of(immediate);
     }
-    return this.authService.initializeSession().pipe(map(() => this.evaluate() ?? this.router.createUrlTree(['/my-orders'])));
+    return this.authService.initializeSession().pipe(map(() => this.evaluate() ?? this.router.createUrlTree(['/my-orders/warehouses'])));
   }
 
   private evaluate(): boolean | UrlTree | null {
@@ -32,6 +32,6 @@ export class SupplierClassificationGuard implements CanActivate {
     this.duplexMode.syncFromUser(user);
     return isSupplierOrganization(user.orgClassification, user.duplexMode, this.duplexMode.activeMode)
       ? true
-      : this.router.createUrlTree(['/my-orders']);
+      : this.router.createUrlTree(['/my-orders/warehouses']);
   }
 }

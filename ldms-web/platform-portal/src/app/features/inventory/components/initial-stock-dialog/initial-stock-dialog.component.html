@@ -17,6 +17,7 @@
           [products]="availableProducts"
           [required]="true"
           [disabled]="submitting"
+          searchPlaceholder="Search product by name, code, or barcode…"
           (selectionChange)="onProductChange()"
         />
       </div>
@@ -25,8 +26,10 @@
         <app-searchable-warehouse-picker
           formControlName="warehouseLocationId"
           [warehouses]="data.warehouses"
+          label="Warehouse"
           [required]="true"
           [disabled]="submitting || !productSelected"
+          searchPlaceholder="Search warehouse by name, branch, or address…"
           [emptyHint]="warehousePickerHint"
           [optionDisabled]="isWarehouseIneligible"
         />
@@ -36,7 +39,7 @@
         <label class="lx-field-label">Quantity <span class="req">*</span></label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">pin</mat-icon>
-          <input type="number" formControlName="quantity" min="0.01" step="0.01" />
+          <input type="number" formControlName="quantity" min="0.01" step="0.01" placeholder="e.g. 100" />
         </div>
       </div>
 
@@ -44,7 +47,7 @@
         <label class="lx-field-label">Unit cost <span class="req">*</span></label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">payments</mat-icon>
-          <input type="number" formControlName="unitCost" min="0" step="0.01" />
+          <input type="number" formControlName="unitCost" min="0" step="0.01" placeholder="e.g. 12.50" />
         </div>
       </div>
 
@@ -52,7 +55,7 @@
         <label class="lx-field-label">Min stock level</label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">warning_amber</mat-icon>
-          <input type="number" formControlName="minStockLevel" min="0" step="0.01" />
+          <input type="number" formControlName="minStockLevel" min="0" step="0.01" placeholder="Low-stock alert level" />
         </div>
       </div>
 
@@ -60,7 +63,7 @@
         <label class="lx-field-label">Reorder quantity</label>
         <div class="lx-input-shell">
           <mat-icon class="lx-input-shell__icon">autorenew</mat-icon>
-          <input type="number" formControlName="reorderQuantity" min="0" step="0.01" />
+          <input type="number" formControlName="reorderQuantity" min="0" step="0.01" placeholder="Qty to reorder" />
         </div>
       </div>
 
@@ -68,7 +71,7 @@
         <label class="lx-field-label">Notes</label>
         <div class="lx-input-shell lx-input-shell--textarea">
           <mat-icon class="lx-input-shell__icon">notes</mat-icon>
-          <textarea formControlName="notes" rows="2"></textarea>
+          <textarea formControlName="notes" rows="2" placeholder="Opening balance context (optional)"></textarea>
         </div>
       </div>
     </div>

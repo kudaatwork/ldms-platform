@@ -172,8 +172,23 @@
     {{ loadError }}
   </div>
 
+  <!-- Mobile / tablet section pager — hidden on desktop where the full grid shows -->
+  <nav class="lt-secnav" aria-label="Live page sections" *ngIf="tripSnapshot || !loadError">
+    <button
+      type="button"
+      class="lt-secnav__tab"
+      *ngFor="let s of liveSections"
+      [class.is-active]="activeSection === s.id"
+      (click)="setSection(s.id)"
+      [attr.aria-pressed]="activeSection === s.id"
+    >
+      <mat-icon>{{ s.icon }}</mat-icon>
+      <span>{{ s.label }}</span>
+    </button>
+  </nav>
+
   <div class="lt-grid" *ngIf="tripSnapshot || !loadError">
-    <section class="lt-map-panel lx-card">
+    <section class="lt-map-panel lx-card lt-sec lt-sec--map" [class.lt-sec--active]="activeSection === 'map'">
       <div class="lt-map-panel__overlay">
         <div class="lt-stat-pill" [class.lt-stat-pill--alert]="tripSnapshot?.speedLimitExceeded">
           <mat-icon>speed</mat-icon>
@@ -255,7 +270,7 @@
     </section>
 
     <aside class="lt-side">
-      <div class="lt-cargo lx-card" *ngIf="tripSnapshot">
+      <div class="lt-cargo lx-card lt-sec lt-sec--vehicle" [class.lt-sec--active]="activeSection === 'vehicle'" *ngIf="tripSnapshot">
         <div class="lt-cargo__head">
           <div>
             <p class="lt-cargo__eyebrow">Goods on truck</p>
@@ -271,7 +286,7 @@
         </div>
       </div>
 
-      <div class="lt-journey lx-card" *ngIf="tripSnapshot" [class]="'lt-journey--' + journeyView.phase.toLowerCase()">
+      <div class="lt-journey lx-card lt-sec lt-sec--journey" [class.lt-sec--active]="activeSection === 'journey'" *ngIf="tripSnapshot" [ngClass]="'lt-journey--' + journeyView.phase.toLowerCase()">
         <div class="lt-journey__glow" aria-hidden="true"></div>
         <div class="lt-journey__head">
           <div>
@@ -333,7 +348,7 @@
         </ul>
       </div>
 
-      <div class="lt-telematics lx-card">
+      <div class="lt-telematics lx-card lt-sec lt-sec--vehicle" [class.lt-sec--active]="activeSection === 'vehicle'">
         <div class="lt-telematics__head">
           <div>
             <p class="lt-telematics__eyebrow">Live telematics</p>
@@ -369,7 +384,7 @@
           </div>
         </div>
       </div>
-      <div class="lt-fuel lx-card" *ngIf="fuelConsumptionEnabled" [class]="'lt-fuel--' + fuelTone">
+      <div class="lt-fuel lx-card lt-sec lt-sec--vehicle" [class.lt-sec--active]="activeSection === 'vehicle'" *ngIf="fuelConsumptionEnabled" [ngClass]="'lt-fuel--' + fuelTone">
         <div class="lt-fuel__banner" *ngIf="fuelAlertMessage" role="status">
           <mat-icon>{{ fuelTone === 'critical' ? 'warning' : 'info' }}</mat-icon>
           <span>{{ fuelAlertMessage }}</span>
@@ -422,7 +437,7 @@
         </p>
       </div>
 
-      <div class="lt-progress lx-card">
+      <div class="lt-progress lx-card lt-sec lt-sec--journey" [class.lt-sec--active]="activeSection === 'journey'">
         <div class="lt-progress__head">
           <div>
             <h3>Journey progress</h3>
@@ -460,7 +475,7 @@
         </ul>
       </div>
 
-      <div class="lt-iot lx-card">
+      <div class="lt-iot lx-card lt-sec lt-sec--history" [class.lt-sec--active]="activeSection === 'history'">
         <h3>
           <mat-icon>hub</mat-icon>
           Integration status
@@ -483,7 +498,7 @@
         </a>
       </div>
 
-      <div class="lt-roadside lx-card">
+      <div class="lt-roadside lx-card lt-sec lt-sec--support" [class.lt-sec--active]="activeSection === 'support'">
         <div class="lt-roadside__head">
           <div>
             <p class="lt-roadside__eyebrow">Roadside support</p>
@@ -519,7 +534,7 @@
         </p>
       </div>
 
-      <div class="lt-requests lx-card">
+      <div class="lt-requests lx-card lt-sec lt-sec--support" [class.lt-sec--active]="activeSection === 'support'">
         <div class="lt-requests__head">
           <div>
             <p class="lt-requests__eyebrow">Operational costs</p>
@@ -620,7 +635,7 @@
         </ng-template>
       </div>
 
-      <div class="lt-stops lx-card" *ngIf="meaningfulStops.length">
+      <div class="lt-stops lx-card lt-sec lt-sec--history" [class.lt-sec--active]="activeSection === 'history'" *ngIf="meaningfulStops.length">
         <h3><mat-icon>pin_drop</mat-icon> Stops &amp; breaks</h3>
         <ul>
           <li *ngFor="let stop of meaningfulStops">
@@ -634,7 +649,7 @@
         </ul>
       </div>
 
-      <div class="lt-history lx-card">
+      <div class="lt-history lx-card lt-sec lt-sec--history" [class.lt-sec--active]="activeSection === 'history'">
         <div class="lt-history__head">
           <h3><mat-icon>history</mat-icon> Journey history</h3>
           <span>{{ trailPointCount }} GPS points</span>
@@ -659,7 +674,7 @@
         </div>
       </div>
 
-      <div class="lt-telemetry lx-card" *ngIf="telemetryLogs.length">
+      <div class="lt-telemetry lx-card lt-sec lt-sec--history" [class.lt-sec--active]="activeSection === 'history'" *ngIf="telemetryLogs.length">
         <h3><mat-icon>insights</mat-icon> Fuel data log</h3>
         <ul>
           <li *ngFor="let log of telemetryLogs">
@@ -672,5 +687,28 @@
         </ul>
       </div>
     </aside>
+  </div>
+
+  <!-- Mobile / tablet pager footer — step Back / Next through sections -->
+  <div class="lt-pager" *ngIf="tripSnapshot || !loadError">
+    <button
+      type="button"
+      class="lx-btn lx-btn-ghost"
+      (click)="prevSection()"
+      [disabled]="activeSectionIndex === 0"
+    >
+      <mat-icon>chevron_left</mat-icon>
+      Back
+    </button>
+    <span class="lt-pager__count">{{ activeSectionIndex + 1 }} / {{ liveSections.length }}</span>
+    <button
+      type="button"
+      class="lx-btn lx-btn-primary"
+      (click)="nextSection()"
+      [disabled]="activeSectionIndex === liveSections.length - 1"
+    >
+      Next
+      <mat-icon>chevron_right</mat-icon>
+    </button>
   </div>
 </div>

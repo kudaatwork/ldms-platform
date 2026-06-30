@@ -12,6 +12,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -20,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 import projectlx.inventory.management.business.auditable.api.ProductServiceAuditable;
 import projectlx.inventory.management.business.logic.api.ProductService;
 import projectlx.inventory.management.business.logic.support.InventoryExportSupport;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
 import projectlx.inventory.management.business.validator.api.ProductServiceValidator;
 import projectlx.inventory.management.clients.FileUploadServiceClient;
 import projectlx.inventory.management.model.Product;
@@ -51,14 +54,15 @@ import java.io.InputStream;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.springframework.data.domain.Page;
 import projectlx.inventory.management.model.UnitOfMeasure;
 import java.io.InputStreamReader;
 import java.io.Reader;
@@ -81,6 +85,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductServiceAuditable auditable;
     private final FileUploadServiceClient fileUploadServiceClient;
     private final ObjectMapper objectMapper;
+    private final InventoryOrganizationScopeSupport organizationScopeSupport;
 
     private static final String[] HEADERS = {"ID", "NAME", "PRODUCT_CODE", "BARCODE", "PRICE", "UNIT_OF_MEASURE",
             "CATEGORY_ID", "SUBCATEGORY_ID", "SUPPLIER_ID", "MANUFACTURER", "EXPIRES_AT"};
@@ -271,6 +276,13 @@ public class ProductServiceImpl implements ProductService {
         }
 
         Product product = productRetrieved.get();
+        if (!organizationScopeSupport.isSystemUser(username)) {
+            Long orgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (orgId == null || !orgId.equals(product.getSupplierId())) {
+                message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_NOT_FOUND.getCode(), new String[]{}, locale);
+                return buildResponse(404, false, message, null, null, null);
+            }
+        }
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         ProductDto dto = modelMapper.map(product, ProductDto.class);
 
@@ -284,15 +296,39 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public ProductResponse findAllAsList(Locale locale, String username) {
 
-        String message = "";
-
-        List<Product> list = productRepository.findByEntityStatusNot(EntityStatus.DELETED);
+        List<Product> list;
+        if (organizationScopeSupport.isSystemUser(username)) {
+            list = productRepository.findByEntityStatusNot(EntityStatus.DELETED);
+        } else {
+            Long orgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (orgId == null) {
+                String message = messageService.getMessage(
+                        I18Code.MESSAGE_PRODUCT_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+                ProductResponse empty = buildResponse(200, true, message, null, List.of(), null);
+                empty.setProductDtoList(List.of());
+                return empty;
+            }
+            if (organizationScopeSupport.isCustomerOrganization(orgId, locale)) {
+                // Own catalogue (supplierId = org) plus supplier-fed SKUs already stocked at visible warehouses.
+                Set<Long> productIds = new HashSet<>();
+                productRepository.findBySupplierIdAndEntityStatusNot(orgId, EntityStatus.DELETED)
+                        .forEach(product -> productIds.add(product.getId()));
+                Set<Long> warehouseIds = organizationScopeSupport.visibleWarehouseIds(orgId);
+                productIds.addAll(organizationScopeSupport.distinctProductIdsAtWarehouses(warehouseIds));
+                list = productIds.isEmpty()
+                        ? List.of()
+                        : productRepository.findByIdInAndEntityStatusNot(productIds, EntityStatus.DELETED);
+            } else {
+                list = productRepository.findBySupplierIdAndEntityStatusNot(orgId, EntityStatus.DELETED);
+            }
+        }
 
         if (list.isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_NOT_FOUND.getCode(), new String[]{}, locale);
-
-            return buildResponse(404, false, message, null, null, null);
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_PRODUCT_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+            ProductResponse empty = buildResponse(200, true, message, null, List.of(), null);
+            empty.setProductDtoList(List.of());
+            return empty;
         }
 
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -303,7 +339,7 @@ public class ProductServiceImpl implements ProductService {
             return d;
         }).toList();
 
-        message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
+        String message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{},
                 locale);
         return buildResponse(200, true, message, null, dtoList, null);
     }
@@ -333,6 +369,10 @@ public class ProductServiceImpl implements ProductService {
         }
 
         Product toEdit = existingOpt.get();
+        if (!organizationScopeSupport.isOwnedByCaller(toEdit.getSupplierId(), username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildResponse(404, false, message, null, null, null);
+        }
 
         // Uniqueness check for product code if provided
         if (request.getProductCode() != null && !request.getProductCode().isEmpty()) {
@@ -496,6 +536,10 @@ public class ProductServiceImpl implements ProductService {
         }
 
         Product toDelete = existingOpt.get();
+        if (!organizationScopeSupport.isOwnedByCaller(toDelete.getSupplierId(), username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildResponse(404, false, message, null, null, null);
+        }
         toDelete.setEntityStatus(EntityStatus.DELETED);
         Product deleted = auditable.delete(toDelete, locale);
 
@@ -531,6 +575,25 @@ public class ProductServiceImpl implements ProductService {
 
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
 
+        if (!organizationScopeSupport.isSystemUser(username)) {
+            Long callerOrgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (callerOrgId == null) {
+                message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_RETRIEVED_SUCCESSFULLY.getCode(),
+                        new String[]{}, locale);
+                ProductResponse empty = buildResponse(200, true, message, null, null, null);
+                empty.setProductDtoPage(new PageImpl<>(List.of(), pageable, 0));
+                return empty;
+            }
+            Long requestedSupplierId = request.getSupplierId();
+            if (requestedSupplierId == null || requestedSupplierId <= 0) {
+                request.setSupplierId(callerOrgId);
+            } else if (!requestedSupplierId.equals(callerOrgId)
+                    && !organizationScopeSupport.isCustomerOrganization(callerOrgId, locale)) {
+                message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_NOT_FOUND.getCode(), new String[]{}, locale);
+                return buildResponse(404, false, message, null, null, null);
+            }
+        }
+
         // Apply 'name' filter when valid
         ValidatorDto nameValidatorDto = validator.isStringValid(request.getName(), locale);
 
@@ -551,6 +614,12 @@ public class ProductServiceImpl implements ProductService {
                     : spec.and(ProductSpecification.entityStatusEquals(request.getEntityStatus()));
         }
 
+        if (request.getSupplierId() != null && request.getSupplierId() > 0) {
+            spec = (spec == null)
+                    ? ProductSpecification.supplierIdEquals(request.getSupplierId())
+                    : spec.and(ProductSpecification.supplierIdEquals(request.getSupplierId()));
+        }
+
         // Apply 'searchValue' (any) when valid
         ValidatorDto searchValueValidatorDto = validator.isStringValid(request.getSearchValue(), locale);
         if (searchValueValidatorDto.getSuccess()) {
@@ -567,8 +636,10 @@ public class ProductServiceImpl implements ProductService {
 
         Page<Product> result = productRepository.findAll(spec, pageable);
         if (result.getContent().isEmpty()) {
-            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_NOT_FOUND.getCode(), new String[]{}, locale);
-            return buildResponse(404, false, message, null, null, null);
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+            ProductResponse response = buildResponse(200, true, message, null, null, null);
+            response.setProductDtoPage(new PageImpl<>(List.of(), pageable, totalCount));
+            return response;
         }
 
         // Map to DTO page

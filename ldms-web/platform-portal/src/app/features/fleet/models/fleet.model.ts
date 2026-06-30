@@ -100,6 +100,8 @@ export interface CompleteFleetRegistrationPayload {
 
 export type TransporterContractStatus = 'active' | 'expired' | 'upcoming' | 'open_ended';
 
+export type TransporterLinkStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED';
+
 export interface TransporterPartnerRow {
   id: number;
   name: string;
@@ -116,6 +118,9 @@ export interface TransporterPartnerRow {
   contractRangeLabel: string;
   contractStatus: TransporterContractStatus;
   contractStatusLabel: string;
+  /** Offer lifecycle: ACCEPTED links are active; PENDING are offers awaiting the transporter's response. */
+  linkStatus: TransporterLinkStatus;
+  pending: boolean;
   partnerKind: 'contracted';
   /** Raw ISO date string stored for use in the edit dialog pre-fill. */
   contractStartDate?: string;

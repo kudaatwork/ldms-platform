@@ -11,6 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
+import { ActivatedRoute, ParamMap } from '@angular/router';
 import { Subject, catchError, forkJoin, of, takeUntil } from 'rxjs';
 import {
   HelpArticle,
@@ -42,6 +43,11 @@ import {
   chargeCentsForAction,
   formatActionPrice,
 } from '../../../../shared/utils/platform-action-pricing.util';
+import {
+  LEXXI_BOT_NAME,
+  LEXXI_DEFAULT_TOPIC,
+  lexxiDisplayName as lexxiDisplayNameForMode,
+} from '../../../../shared/constants/lexxi-bot.constants';
 
 type HelpTab = 'overview' | 'faq' | 'ticket' | 'tickets' | 'status' | 'assistant';
 
@@ -66,6 +72,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
   private readonly destroy$ = new Subject<void>();
   private readonly helpApi = inject(HelpSupportService);
   private readonly botApi = inject(BotChatService);
+  private readonly route = inject(ActivatedRoute);
   private readonly botLlmApi = inject(BotLlmSettingsService);
   private readonly profileApi = inject(UserProfileService);
   private readonly notifications = inject(NotificationService);
@@ -106,11 +113,12 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
   readonly botStarting = signal(false);
   readonly botAwaitingReply = signal(false);
   readonly assistantOnline = signal(true);
-  readonly lexiName = 'Lexi';
+  readonly lexxiName = LEXXI_BOT_NAME;
+  readonly lexxiDefaultTopic = LEXXI_DEFAULT_TOPIC;
   readonly botAssistantMode = signal<BotAssistantMode>('ASSISTANT');
 
-  lexiDisplayName(): string {
-    return this.isAgentMode() ? `${this.lexiName} (Agent)` : this.lexiName;
+  lexxiDisplayName(): string {
+    return lexxiDisplayNameForMode(this.isAgentMode());
   }
   readonly botModeSwitching = signal(false);
   readonly botPricing = signal<BotPricing | null>(null);
@@ -172,6 +180,21 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
       this.cdr.markForCheck();
     });
     this.organizationName = this.orgContext.organizationName;
+    this.route.queryParamMap.pipe(takeUntil(this.destroy$)).subscribe((params: ParamMap) => {
+      const tab = params.get('tab');
+      if (tab === 'assistant' || tab === 'lexxi') {
+        this.setTab('assistant');
+      } else if (tab === 'faq') {
+        this.setTab('faq');
+      } else if (tab === 'ticket') {
+        this.setTab('ticket');
+      } else if (tab === 'tickets') {
+        this.setTab('tickets');
+      } else if (tab === 'status') {
+        this.setTab('status');
+      }
+      this.cdr.markForCheck();
+    });
     this.reload();
   }
 
@@ -981,7 +1004,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
     this.scrollPending = true;
     this.cdr.markForCheck();
 
-    // Paint the user's bubble first, then show Lexi typing and call the API.
+    // Paint the user's bubble first, then show Lexxi typing and call the API.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         this.botSending.set(true);
@@ -1174,7 +1197,9 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
     if (!session) {
       this.botAssistantMode.set(mode);
       this.notifications.success(
-        mode === 'AGENT' ? 'Lexi Agent selected for new chats.' : 'Lexi Assistant selected for new chats.',
+        mode === 'AGENT'
+          ? `${this.lexxiName} Agent selected for new chats.`
+          : `${this.lexxiName} Assistant selected for new chats.`,
       );
       this.cdr.markForCheck();
       return;
@@ -1192,7 +1217,9 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
           this.botAssistantMode.set(updated.assistantMode ?? mode);
           this.botModeSwitching.set(false);
           this.notifications.success(
-            mode === 'AGENT' ? 'Lexi Agent mode — tools are active.' : 'Lexi Assistant mode — workflow help.',
+            mode === 'AGENT'
+              ? `${this.lexxiName} Agent mode — tools are active.`
+              : `${this.lexxiName} Assistant mode — workflow help.`,
           );
           this.cdr.markForCheck();
         },
@@ -1234,7 +1261,7 @@ export class HelpSupportPageComponent implements OnInit, OnDestroy, AfterViewChe
     return session.messages.map((message) => ({
       id: message.id,
       role: message.role === 'user' ? 'REQUESTER' : message.role === 'bot' ? 'HANDLER' : 'SYSTEM',
-      author: message.role === 'user' ? 'You' : message.role === 'bot' ? this.lexiDisplayName() : 'System',
+      author: message.role === 'user' ? 'You' : message.role === 'bot' ? this.lexxiDisplayName() : 'System',
       at: message.sentAt,
       body: message.body,
       isMine: message.role === 'user',

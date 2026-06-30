@@ -4,7 +4,7 @@
 :host {
   display: block;
   min-height: 100dvh;
-  background: var(--page-bg, #e8eef8);
+  background: transparent;
   font-family: var(--font, 'Plus Jakarta Sans'), sans-serif;
 }
 
@@ -180,19 +180,48 @@
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ CARDS
+// On tablets the shell widens, so trip cards flow into two columns instead of
+// one over-wide column.
+@media (min-width: 768px) {
+  .dw-card-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+
+    .dw-card {
+      margin-bottom: 0; // grid gap handles spacing between cards
+    }
+  }
+}
+
 .dw-card {
+  position: relative;
   background: var(--surface, #fff);
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
   border-radius: 18px;
   padding: 16px;
   margin-bottom: 12px;
   box-shadow: var(--card-shadow, 0 2px 12px rgba(0, 0, 0, .06));
   cursor: pointer;
-  transition: transform .15s var(--ease-fast, ease), box-shadow .15s var(--ease-fast, ease);
-  border: 1px solid var(--gray-100, #f1f5f9);
+  transition: transform .18s var(--ease-fast, ease), box-shadow .18s var(--ease-fast, ease), border-color .18s ease;
+  border: var(--card-border, 1px solid rgba(148, 173, 214, 0.18));
+  overflow: hidden;
+
+  // Subtle top sheen for the glass effect.
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.22), transparent);
+  }
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 24px rgba(0, 0, 0, .1);
+    transform: translateY(-3px);
+    box-shadow: var(--card-shadow-hover, 0 6px 24px rgba(0, 0, 0, .1));
+    border-color: rgba(96, 165, 250, 0.32);
   }
 
   &:active { transform: scale(.98); }
@@ -200,12 +229,12 @@
   &--skeleton {
     pointer-events: none;
     cursor: default;
-    &:hover { transform: none; box-shadow: var(--card-shadow); }
+    &:hover { transform: none; box-shadow: var(--card-shadow); border-color: var(--gray-200); }
   }
 
   &--done {
-    opacity: .8;
-    background: var(--gray-50, #f8fafc);
+    opacity: .72;
+    background: var(--surface-2, #f8fafc);
   }
 
   &__header {
@@ -416,13 +445,13 @@
   100% { background-position:  200% 0; }
 }
 
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ DARK MODE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ DARK + GLASS MODE
 .theme-dark :host, :host-context(.theme-dark) {
-  .dw-card       { background: #1e293b; border-color: #334155; }
-  .dw-tag        { background: #0f172a; border-color: #334155; color: #94a3b8; }
-  .dw-section__title { color: #f1f5f9; }
-  .dw-card__trip-num { color: #f1f5f9; }
-  .dw-card__route    { color: #94a3b8; }
-  .dw-status--muted  { background: #0f172a; }
-  .dw-empty__title   { color: #94a3b8; }
+  // Keep the frosted glass surface from .dw-card; only refine text + chips.
+  .dw-tag        { background: rgba(148, 173, 214, 0.10); border-color: rgba(148, 173, 214, 0.18); color: var(--gray-600); }
+  .dw-section__title { color: var(--gray-900); }
+  .dw-card__trip-num { color: var(--gray-900); }
+  .dw-card__route    { color: var(--gray-500); }
+  .dw-status--muted  { background: rgba(148, 173, 214, 0.12); color: var(--gray-500); }
+  .dw-empty__title   { color: var(--gray-600); }
 }

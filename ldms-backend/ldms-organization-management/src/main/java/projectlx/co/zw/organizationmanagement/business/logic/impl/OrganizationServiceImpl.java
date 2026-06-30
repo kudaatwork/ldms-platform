@@ -82,6 +82,7 @@ import projectlx.co.zw.organizationmanagement.utils.dtos.OrganizationMapping;
 import projectlx.co.zw.organizationmanagement.utils.enums.BranchLevel;
 import projectlx.co.zw.organizationmanagement.utils.enums.FleetVehicleOwnershipType;
 import projectlx.co.zw.organizationmanagement.utils.enums.I18Code;
+import projectlx.co.zw.organizationmanagement.utils.enums.TransporterLinkStatus;
 import projectlx.co.zw.organizationmanagement.utils.exceptions.BusinessRuleException;
 import projectlx.co.zw.organizationmanagement.utils.dtos.ImportSummary;
 import projectlx.co.zw.organizationmanagement.utils.dtos.IndustryDto;
@@ -779,6 +780,25 @@ public class OrganizationServiceImpl implements OrganizationService {
 
     @Override
     @Transactional(readOnly = true)
+    public OrganizationResponse listSuppliers(Locale locale, String username) {
+        Organization org = loadForUser(username);
+        if (!OrganizationTradingCapabilitySupport.canActAsCustomer(org)) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_FORBIDDEN_SUPPLIERS.getCode(), new String[]{}, locale)));
+        }
+        List<OrganizationDto> dtos = new ArrayList<>();
+        for (Organization supplier : org.getSuppliers()) {
+            if (supplier.getEntityStatus() != EntityStatus.DELETED) {
+                dtos.add(OrganizationMapping.toDto(supplier));
+            }
+        }
+        OrganizationResponse res = buildOrganizationResponse(null);
+        res.setOrganizationDtoList(dtos);
+        return res;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public OrganizationResponse listTransporters(Locale locale, String username) {
         Organization org = loadForUser(username);
         List<OrganizationDto> dtos = new ArrayList<>();
@@ -1360,12 +1380,104 @@ public class OrganizationServiceImpl implements OrganizationService {
                     transporter,
                     request.getContractStartDate(),
                     request.getContractEndDate(),
-                    username);
+                    username,
+                    TransporterLinkStatus.PENDING);
             organizationServiceAuditable.save(org);
             organizationServiceAuditable.save(transporter);
-            organizationDirectoryNotifier.sendTransporterLinked(org, transporter, username);
+            organizationDirectoryNotifier.sendTransporterLinkOffer(org, transporter, username);
         }
-        return buildOrganizationResponse(OrganizationMapping.toDto(org));
+        OrganizationResponse res = buildOrganizationResponse(OrganizationMapping.toDto(org));
+        res.setMessage(messageService.getMessage(I18Code.ORG_TRANSPORTER_OFFER_SENT.getCode(), new String[]{}, locale));
+        return res;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrganizationResponse listIncomingTransporterOffers(Locale locale, String username) {
+        Organization transporter = loadForUser(username);
+        List<OrganizationDto> dtos = new ArrayList<>();
+        if (transporter.getOrganizationClassification() == OrganizationClassification.TRANSPORT_COMPANY) {
+            List<ContractedTransporterLink> offers = contractedTransporterLinkRepository
+                    .findByTransporterIdAndLinkStatusAndEntityStatusNotOrderByLinkedAtDesc(
+                            transporter.getId(), TransporterLinkStatus.PENDING, EntityStatus.DELETED);
+            for (ContractedTransporterLink link : offers) {
+                Organization supplier = link.getOrganization();
+                if (supplier != null && supplier.getEntityStatus() != EntityStatus.DELETED) {
+                    OrganizationDto dto = OrganizationMapping.toDto(supplier);
+                    applyTransporterContractMetadata(dto, link);
+                    dtos.add(dto);
+                }
+            }
+        }
+        OrganizationResponse res = buildOrganizationResponse(null);
+        res.setOrganizationDtoList(dtos);
+        return res;
+    }
+
+    @Override
+    public OrganizationResponse respondToTransporterOffer(
+            Long supplierOrganizationId, boolean accept, Locale locale, String username) {
+        if (supplierOrganizationId == null) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(), new String[]{"supplierOrganizationId"}, locale)));
+        }
+        Organization transporter = loadForUser(username);
+        ContractedTransporterLink link = contractedTransporterLinkRepository
+                .findByOrganizationIdAndTransporterId(supplierOrganizationId, transporter.getId())
+                .orElse(null);
+        if (link == null
+                || link.getEntityStatus() == EntityStatus.DELETED
+                || link.getLinkStatus() != TransporterLinkStatus.PENDING) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_TRANSPORTER_OFFER_NOT_FOUND.getCode(), new String[]{}, locale)));
+        }
+        Organization supplier = link.getOrganization();
+        LocalDateTime now = LocalDateTime.now();
+        link.setRespondedAt(now);
+        link.setRespondedBy(username);
+        link.setModifiedAt(now);
+        link.setModifiedBy(username);
+        if (accept) {
+            link.setLinkStatus(TransporterLinkStatus.ACCEPTED);
+            contractedTransporterLinkRepository.save(link);
+            organizationDirectoryNotifier.sendTransporterLinked(supplier, transporter, username);
+            organizationDirectoryNotifier.sendTransporterOfferAccepted(supplier, transporter);
+            OrganizationResponse res = buildOrganizationResponse(OrganizationMapping.toDto(supplier));
+            res.setMessage(messageService.getMessage(I18Code.ORG_TRANSPORTER_OFFER_ACCEPTED.getCode(), new String[]{}, locale));
+            return res;
+        }
+        link.setLinkStatus(TransporterLinkStatus.DECLINED);
+        link.setEntityStatus(EntityStatus.DELETED);
+        contractedTransporterLinkRepository.save(link);
+        OrganizationResponse res = buildOrganizationResponse(null);
+        res.setMessage(messageService.getMessage(I18Code.ORG_TRANSPORTER_OFFER_DECLINED.getCode(), new String[]{}, locale));
+        return res;
+    }
+
+    @Override
+    public OrganizationResponse cancelTransporterOffer(Long transporterOrganizationId, Locale locale, String username) {
+        if (transporterOrganizationId == null) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_VALIDATION_FAILED.getCode(), new String[]{"transporterOrganizationId"}, locale)));
+        }
+        Organization supplier = loadForUser(username);
+        ContractedTransporterLink link = contractedTransporterLinkRepository
+                .findByOrganizationIdAndTransporterId(supplier.getId(), transporterOrganizationId)
+                .orElse(null);
+        if (link == null
+                || link.getEntityStatus() == EntityStatus.DELETED
+                || link.getLinkStatus() != TransporterLinkStatus.PENDING) {
+            return buildOrganizationResponseWithErrors(
+                    List.of(messageService.getMessage(I18Code.ORG_TRANSPORTER_OFFER_NOT_FOUND.getCode(), new String[]{}, locale)));
+        }
+        LocalDateTime now = LocalDateTime.now();
+        link.setEntityStatus(EntityStatus.DELETED);
+        link.setModifiedAt(now);
+        link.setModifiedBy(username);
+        contractedTransporterLinkRepository.save(link);
+        OrganizationResponse res = buildOrganizationResponse(null);
+        res.setMessage(messageService.getMessage(I18Code.ORG_TRANSPORTER_OFFER_CANCELLED.getCode(), new String[]{}, locale));
+        return res;
     }
 
     @Override
@@ -3097,12 +3209,30 @@ public class OrganizationServiceImpl implements OrganizationService {
      * Platform self-service may edit only while KYC is draft/resubmitted.
      * Admin/system/backoffice updates and admin-registered organisations are exempt.
      */
+    /**
+     * Create/refresh a contract link, preserving the existing {@link TransporterLinkStatus} for an existing
+     * link and defaulting a brand-new link to {@link TransporterLinkStatus#ACCEPTED} (immediate link).
+     */
     private ContractedTransporterLink createTransporterContractLink(
             Organization supplier,
             Organization transporter,
             String contractStartDateRaw,
             String contractEndDateRaw,
             String username) {
+        return createTransporterContractLink(supplier, transporter, contractStartDateRaw, contractEndDateRaw, username, null);
+    }
+
+    /**
+     * Create/refresh a contract link. When {@code forcedStatus} is supplied it is applied (e.g. PENDING for an
+     * offer); otherwise an existing link keeps its current status and a new link defaults to ACCEPTED.
+     */
+    private ContractedTransporterLink createTransporterContractLink(
+            Organization supplier,
+            Organization transporter,
+            String contractStartDateRaw,
+            String contractEndDateRaw,
+            String username,
+            TransporterLinkStatus forcedStatus) {
         LocalDate start = LocalDate.parse(contractStartDateRaw.trim());
         LocalDate end = StringUtils.hasText(contractEndDateRaw) ? LocalDate.parse(contractEndDateRaw.trim()) : null;
         LocalDateTime now = LocalDateTime.now();
@@ -3110,6 +3240,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         ContractedTransporterLink link = contractedTransporterLinkRepository
                 .findByOrganizationIdAndTransporterId(supplier.getId(), transporter.getId())
                 .orElseGet(ContractedTransporterLink::new);
+        boolean newLink = link.getCreatedAt() == null;
         link.setOrganizationId(supplier.getId());
         link.setTransporterId(transporter.getId());
         link.setOrganization(supplier);
@@ -3119,9 +3250,18 @@ public class OrganizationServiceImpl implements OrganizationService {
         if (link.getLinkedAt() == null) {
             link.setLinkedAt(now);
         }
-        if (link.getCreatedAt() == null) {
+        if (newLink) {
             link.setCreatedAt(now);
             link.setCreatedBy(username);
+        }
+        TransporterLinkStatus status = forcedStatus != null
+                ? forcedStatus
+                : (newLink ? TransporterLinkStatus.ACCEPTED : link.getLinkStatus());
+        link.setLinkStatus(status != null ? status : TransporterLinkStatus.ACCEPTED);
+        if (link.getLinkStatus() == TransporterLinkStatus.PENDING) {
+            link.setRequestedBy(username);
+            link.setRespondedAt(null);
+            link.setRespondedBy(null);
         }
         link.setModifiedAt(now);
         link.setModifiedBy(username);
@@ -3137,6 +3277,7 @@ public class OrganizationServiceImpl implements OrganizationService {
         dto.setContractStartDate(link.getContractStartDate());
         dto.setContractEndDate(link.getContractEndDate());
         dto.setContractLinkedAt(link.getLinkedAt());
+        dto.setTransporterLinkStatus(link.getLinkStatus() != null ? link.getLinkStatus().name() : null);
     }
 
     private void resolveTransporterContractMetadata(Organization caller, Organization partner, OrganizationDto dto) {
@@ -3839,7 +3980,8 @@ public class OrganizationServiceImpl implements OrganizationService {
                     I18Code.FLEET_VEHICLE_CONTRACTED_TRANSPORTER_INVALID.getCode(), new String[]{}, locale)));
         }
 
-        List<Organization> contracted = organizationRepository.findContractedTransportersForSupplier(
+        // Only ACCEPTED contract links count — a transporter with a still-pending offer is not yet assignable.
+        List<Organization> contracted = organizationRepository.findAcceptedContractedTransportersForSupplier(
                 shipper.getId(), EntityStatus.DELETED);
         if (!contracted.contains(transportCompany)) {
             return buildOrganizationResponseWithErrors(List.of(messageService.getMessage(

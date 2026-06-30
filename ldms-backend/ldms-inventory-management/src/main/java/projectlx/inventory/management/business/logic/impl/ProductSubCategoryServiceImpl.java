@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import projectlx.inventory.management.business.auditable.api.ProductSubCategoryServiceAuditable;
 import projectlx.inventory.management.business.logic.api.ProductSubCategoryService;
 import projectlx.inventory.management.business.logic.support.InventoryExportSupport;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
 import projectlx.inventory.management.business.validator.api.ProductSubCategoryServiceValidator;
 import projectlx.inventory.management.model.ProductCategory;
 import projectlx.inventory.management.model.ProductSubCategory;
@@ -46,6 +47,7 @@ public class ProductSubCategoryServiceImpl implements ProductSubCategoryService 
     private final ProductSubCategoryRepository repository;
     private final ProductSubCategoryServiceAuditable auditable;
     private final ProductCategoryRepository productCategoryRepository;
+    private final InventoryOrganizationScopeSupport organizationScopeSupport;
 
     private static final String[] HEADERS = {"ID", "CATEGORY_ID", "NAME", "DESCRIPTION"};
     private static final String[] CSV_HEADERS = {"CATEGORY_ID", "NAME", "DESCRIPTION"};
@@ -74,6 +76,12 @@ public class ProductSubCategoryServiceImpl implements ProductSubCategoryService 
             message = messageService.getMessage(I18Code.MESSAGE_CREATE_PRODUCT_SUB_CATEGORY_CATEGORY_NOT_FOUND.getCode(),
                     new String[]{}, locale);
 
+            return buildResponse(400, false, message, null, null, null);
+        }
+
+        if (!isCategoryVisibleToUser(categoryOpt.get(), username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_PRODUCT_SUB_CATEGORY_CATEGORY_NOT_FOUND.getCode(),
+                    new String[]{}, locale);
             return buildResponse(400, false, message, null, null, null);
         }
 
@@ -131,9 +139,16 @@ public class ProductSubCategoryServiceImpl implements ProductSubCategoryService 
             return buildResponse(404, false, message, null, null, null);
         }
 
+        ProductSubCategory subCategory = opt.get();
+        if (!isSubCategoryVisibleToUser(subCategory, username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_SUB_CATEGORY_NOT_FOUND.getCode(), new String[]{},
+                    locale);
+            return buildResponse(404, false, message, null, null, null);
+        }
+
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        ProductSubCategoryDto dto = modelMapper.map(opt.get(), ProductSubCategoryDto.class);
-        dto.setCategoryId(opt.get().getCategory() != null ? opt.get().getCategory().getId() : null);
+        ProductSubCategoryDto dto = modelMapper.map(subCategory, ProductSubCategoryDto.class);
+        dto.setCategoryId(subCategory.getCategory() != null ? subCategory.getCategory().getId() : null);
 
         message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_SUB_CATEGORY_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -146,14 +161,14 @@ public class ProductSubCategoryServiceImpl implements ProductSubCategoryService 
 
         String message = "";
 
-        List<ProductSubCategory> list = repository.findByEntityStatusNot(EntityStatus.DELETED);
+        List<ProductSubCategory> list = repository.findByEntityStatusNot(EntityStatus.DELETED).stream()
+                .filter(item -> isSubCategoryVisibleToUser(item, username, locale))
+                .toList();
 
         if (list.isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_SUB_CATEGORY_NOT_FOUND.getCode(), new String[]{},
-                    locale);
-
-            return buildResponse(404, false, message, null, null, null);
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_SUB_CATEGORY_RETRIEVED_SUCCESSFULLY.getCode(),
+                    new String[]{}, locale);
+            return buildResponse(200, true, message, null, List.of(), null);
         }
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         List<ProductSubCategoryDto> dtoList = list.stream().map(psc -> {
@@ -189,6 +204,12 @@ public class ProductSubCategoryServiceImpl implements ProductSubCategoryService 
             return buildResponse(400, false, message, null, null, null);
         }
 
+        ProductSubCategory toEdit = existingOpt.get();
+        if (!isSubCategoryVisibleToUser(toEdit, username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_SUB_CATEGORY_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildResponse(404, false, message, null, null, null);
+        }
+
         // Validate parent category exists
         Optional<ProductCategory> categoryOpt = productCategoryRepository.findByIdAndEntityStatusNot(request.getCategoryId(),
                 EntityStatus.DELETED);
@@ -198,6 +219,12 @@ public class ProductSubCategoryServiceImpl implements ProductSubCategoryService 
             message = messageService.getMessage(I18Code.MESSAGE_CREATE_PRODUCT_SUB_CATEGORY_CATEGORY_NOT_FOUND.getCode(),
                     new String[]{}, locale);
 
+            return buildResponse(400, false, message, null, null, null);
+        }
+
+        if (!isCategoryVisibleToUser(categoryOpt.get(), username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_CREATE_PRODUCT_SUB_CATEGORY_CATEGORY_NOT_FOUND.getCode(),
+                    new String[]{}, locale);
             return buildResponse(400, false, message, null, null, null);
         }
 
@@ -213,7 +240,6 @@ public class ProductSubCategoryServiceImpl implements ProductSubCategoryService 
             return buildResponse(400, false, message, null, null, null);
         }
 
-        ProductSubCategory toEdit = existingOpt.get();
         toEdit.setCategory(categoryOpt.get());
         toEdit.setName(request.getName() != null ? request.getName().toUpperCase() : null);
         toEdit.setDescription(request.getDescription());
@@ -254,6 +280,11 @@ public class ProductSubCategoryServiceImpl implements ProductSubCategoryService 
         }
 
         ProductSubCategory toDelete = existingOpt.get();
+        if (!isSubCategoryVisibleToUser(toDelete, username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_SUB_CATEGORY_NOT_FOUND.getCode(), new String[]{},
+                    locale);
+            return buildResponse(404, false, message, null, null, null);
+        }
         toDelete.setEntityStatus(EntityStatus.DELETED);
         ProductSubCategory deleted = auditable.delete(toDelete, locale);
 
@@ -457,6 +488,24 @@ public class ProductSubCategoryServiceImpl implements ProductSubCategoryService 
                 : "Import failed. No product sub-categories were imported.";
 
         return new ImportSummary(statusCode, isSuccess, message, total, success, failed, errors);
+    }
+
+    private boolean isCategoryVisibleToUser(ProductCategory category, String username, Locale locale) {
+        if (category == null) {
+            return false;
+        }
+        if (organizationScopeSupport.isSystemUser(username)) {
+            return true;
+        }
+        Long orgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+        return orgId != null && orgId.equals(category.getSupplierId());
+    }
+
+    private boolean isSubCategoryVisibleToUser(ProductSubCategory subCategory, String username, Locale locale) {
+        if (subCategory == null || subCategory.getCategory() == null) {
+            return false;
+        }
+        return isCategoryVisibleToUser(subCategory.getCategory(), username, locale);
     }
 
     private ProductSubCategoryResponse buildResponse(int statusCode, boolean isSuccess, String message,

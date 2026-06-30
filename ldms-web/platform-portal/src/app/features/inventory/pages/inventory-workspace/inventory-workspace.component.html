@@ -4,10 +4,14 @@
     eyebrow="Inventory control"
     eyebrowIcon="inventory_2"
     title="Inventory management"
-    [lead]="'Stock catalogue, warehouse locations, and transfer tracking for ' + orgName + '.'"
+    [lead]="isCustomer
+      ? ('Warehouses, on-hand stock, and internal transfers for ' + orgName + '.')
+      : ('Stock catalogue, warehouse locations, and transfer tracking for ' + orgName + '.')"
     hubIcon="inventory_2"
     [orbitIcons]="['storefront', 'warehouse', 'sync_alt']"
-    note="Manage your full product catalogue and track stock across all warehouse locations."
+    [note]="isCustomer
+      ? 'Manage delivery warehouses, monitor received stock, and move inventory between your locations.'
+      : 'Manage your full product catalogue and track stock across all warehouse locations.'"
   >
     <button type="button" lxWorkspaceHeroActions class="lx-btn lx-btn-ghost lx-btn-sm" (click)="refresh()" [disabled]="fetching">
       <mat-icon>refresh</mat-icon>
@@ -329,7 +333,13 @@
                 <td colspan="9" class="inv-table-empty">
                   <div class="inv-table-empty__inner">
                     <mat-icon>category</mat-icon>
-                    <span>{{ products.length ? 'No products match your search.' : 'No products yet — add your first product to start building your catalogue.' }}</span>
+                    <span>{{
+                      products.length
+                        ? 'No products match your search.'
+                        : isCustomerInventoryWorkspace
+                          ? 'No products in your catalogue yet — your organisation only sees products it has registered.'
+                          : 'No products yet — add your first product to start building your catalogue.'
+                    }}</span>
                     <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" *ngIf="canManageProductCatalogue && !products.length" (click)="openAddProduct()">
                       <mat-icon>add</mat-icon>
                       Add product
@@ -1070,7 +1080,12 @@
           >
             {{ stockExporting ? 'Exporting…' : 'Export' }}
           </button>
-          <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openInitialStock()" *ngIf="canManageProductCatalogue && hasInitialStockTargets">
+          <button
+            type="button"
+            class="lx-btn lx-btn-primary lx-btn-sm"
+            (click)="openInitialStock()"
+            *ngIf="canManageProductCatalogue && products.length && warehouses.length"
+          >
             <mat-icon>add</mat-icon>
             Record initial stock
           </button>
@@ -1549,6 +1564,15 @@
                 <div class="inv-table-empty__inner">
                   <mat-icon>inventory</mat-icon>
                   <span>{{ stock.length ? 'No stock matches your search.' : 'No stock recorded yet — record initial stock for opening balance, or receive goods against a purchase order.' }}</span>
+                  <button
+                    type="button"
+                    class="lx-btn lx-btn-primary lx-btn-sm"
+                    *ngIf="!stock.length && canManageProductCatalogue && products.length && warehouses.length"
+                    (click)="openInitialStock()"
+                  >
+                    <mat-icon>add</mat-icon>
+                    Record initial stock
+                  </button>
                 </div>
               </td>
             </tr>

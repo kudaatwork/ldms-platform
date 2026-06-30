@@ -48,6 +48,14 @@ public class PurchaseOrderSpecification {
         return (root, query, cb) -> cb.equal(root.get(PurchaseOrder_.entityStatus), entityStatus);
     }
 
+    public static Specification<PurchaseOrder> organizationIdEquals(final Long organizationId) {
+        return (root, query, cb) -> cb.equal(root.get(PurchaseOrder_.organizationId), organizationId);
+    }
+
+    public static Specification<PurchaseOrder> supplierIdEquals(final Long supplierId) {
+        return (root, query, cb) -> cb.equal(root.get(PurchaseOrder_.supplierId), supplierId);
+    }
+
     public static Specification<PurchaseOrder> any(final String search) {
         return (root, query, cb) -> {
             String upper = search == null ? "" : search.toUpperCase();

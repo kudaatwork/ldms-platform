@@ -1,4 +1,4 @@
-<app-landing-shell activePage="welcome" [showSectionNav]="true">
+<app-landing-shell activePage="welcome">
     <!-- Hero -->
     <section class="ldms-hero" id="ldms-overview" aria-labelledby="ldms-hero-title">
       <div class="ldms-hero__bg" aria-hidden="true">
@@ -29,6 +29,14 @@
             </button>
             <button type="button" class="lx-btn lx-btn-secondary ldms-hero__cta-secondary" (click)="goDemo()">
               Book a demo
+            </button>
+            <button type="button" class="lx-btn lx-btn-secondary ldms-hero__cta-chat" (click)="openLiveChat()">
+              <span class="material-icons" aria-hidden="true">forum</span>
+              Live chat
+            </button>
+            <button type="button" class="lx-btn lx-btn-secondary ldms-hero__cta-chat" (click)="openLexxiChat()">
+              <span class="material-icons" aria-hidden="true">smart_toy</span>
+              Chat with {{ lexxiName }}
             </button>
           </div>
           <div class="ldms-hero__apps">
@@ -135,6 +143,43 @@
             </button>
           </article>
         </div>
+      </div>
+    </section>
+
+    <!-- Support & guidance -->
+    <section class="ldms-section ldms-section--muted ldms-reveal" id="ldms-support" aria-labelledby="ldms-support-title">
+      <div class="ldms-section__inner">
+        <div class="ldms-section__head ldms-section__head--center">
+          <p class="ldms-kicker">Support &amp; guidance</p>
+          <h2 id="ldms-support-title" class="ldms-section__title">Help when you need it — human or AI</h2>
+          <p class="ldms-section__lead">
+            Visitors get free Live chat and {{ lexxiName }} on every page. Organisation users unlock Help &amp; Support
+            tickets, documentation, and agent tools after sign-in.
+          </p>
+        </div>
+        <div class="ldms-support-channels ldms-reveal ldms-reveal--stagger">
+          <article
+            *ngFor="let channel of supportChannels"
+            class="ldms-support-channel"
+            [class.ldms-support-channel--blue]="channel.accent === 'blue'"
+            [class.ldms-support-channel--teal]="channel.accent === 'teal'"
+            [class.ldms-support-channel--orange]="channel.accent === 'orange'"
+          >
+            <div class="ldms-support-channel__icon" aria-hidden="true">
+              <span class="material-icons">{{ channel.icon }}</span>
+            </div>
+            <h3 class="ldms-support-channel__title">{{ channel.title }}</h3>
+            <p class="ldms-support-channel__body">{{ channel.description }}</p>
+            <button type="button" class="ldms-module__link" (click)="onSupportAction(channel.action)">
+              {{ channel.cta }}
+              <span class="material-icons" aria-hidden="true">arrow_forward</span>
+            </button>
+          </article>
+        </div>
+        <p class="ldms-support-channels__more">
+          <a routerLink="/support">Visit the support page</a>
+          for a full comparison of Live chat, {{ lexxiName }}, and workspace Help &amp; Support.
+        </p>
       </div>
     </section>
 
@@ -334,7 +379,7 @@
           </p>
           <ul class="ldms-showcase__bullets">
             <li>Event-driven workflows — notifications, SLAs, and escalations without duplicate logic</li>
-            <li>23 microservices behind a unified API gateway</li>
+            <li>Free visitor Live chat and {{ lexxiName }} AI guide on every page</li>
             <li>Scales from a single lane to multi-country programmes</li>
           </ul>
         </div>
@@ -556,6 +601,31 @@
               <a class="lx-btn lx-btn-primary" [href]="adminUrl + '/auth/login'" rel="noopener">Open admin console</a>
             </div>
           </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Lexxi live chat -->
+    <section class="ldms-lexxi-band ldms-reveal" id="ldms-lexxi" aria-labelledby="ldms-lexxi-title">
+      <div class="ldms-lexxi-band__inner">
+        <div class="ldms-lexxi-band__icon" aria-hidden="true">
+          <span class="material-icons">smart_toy</span>
+        </div>
+        <div class="ldms-lexxi-band__copy">
+          <p class="ldms-kicker">Meet {{ lexxiName }}</p>
+          <h2 id="ldms-lexxi-title" class="ldms-lexxi-band__title">
+            Your bubbly LDMS guide — live on the homepage and in your workspace
+          </h2>
+          <p class="ldms-lexxi-band__lead">
+            Ask about pricing, onboarding, corridors, and how Project LX works. Live chat is free for visitors — sign in
+            when you need account-specific help, wallet lookups, and agent tools.
+          </p>
+          <div class="ldms-lexxi-band__actions">
+            <button type="button" class="lx-btn lx-btn-primary" (click)="openLiveChat()">
+              <span class="material-icons" aria-hidden="true">smart_toy</span>
+              Live chat with {{ lexxiName }}
+            </button>
+          </div>
         </div>
       </div>
     </section>

@@ -83,6 +83,8 @@ notifications:
     exchange: ${NOTIFICATIONS_RABBITMQ_EXCHANGE:notifications.direct}
     queue: ${NOTIFICATIONS_RABBITMQ_QUEUE:notifications.queue}
     routing-key: ${NOTIFICATIONS_RABBITMQ_ROUTING_KEY:notifications.send}
+    platform-bell-queue: ${NOTIFICATIONS_RABBITMQ_PLATFORM_BELL_QUEUE:platform.notifications.bell.queue}
+    platform-bell-routing-key: ${NOTIFICATIONS_RABBITMQ_PLATFORM_BELL_ROUTING_KEY:platform.notifications.bell}
   log:
     retention-days: ${NOTIFICATIONS_LOG_RETENTION_DAYS:90}
     churn:

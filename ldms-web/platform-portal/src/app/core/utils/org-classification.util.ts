@@ -26,7 +26,7 @@ export function isSupplierOrganization(
   return effectiveTradingMode(classification, duplexMode, activeMode) === 'SUPPLIER';
 }
 
-/** Customer orgs order stock via My Orders — they do not maintain supplier catalogues. */
+/** Customer orgs manage warehouses, stock, and procurement via Inventory management (/my-orders). */
 export function isCustomerOrganization(
   classification: OrganizationClassification | null | undefined,
   duplexMode?: boolean | null,

@@ -1,0 +1,139 @@
+<div class="dp">
+  <!-- Loading -->
+  <div class="dp-card dp-state" *ngIf="loading">
+    <span class="material-icons dp-spin">sync</span>
+    <p>Loading your profile…</p>
+  </div>
+
+  <ng-container *ngIf="!loading && profile">
+    <!-- Identity header -->
+    <div class="dp-card dp-hero">
+      <div class="dp-hero__avatar">{{ initials }}</div>
+      <div class="dp-hero__id">
+        <h1>{{ profile.fullName }}</h1>
+        <p>{{ profile.organizationName || 'Driver' }}</p>
+        <span class="dp-chip" *ngIf="profile.employmentType">{{ profile.employmentType }}</span>
+      </div>
+      <button type="button" class="dp-btn dp-btn--ghost" *ngIf="!editing" (click)="startEdit()">
+        <span class="material-icons">edit</span> Edit
+      </button>
+    </div>
+
+    <div class="dp-banner dp-banner--ok" *ngIf="success">
+      <span class="material-icons">check_circle</span> {{ success }}
+    </div>
+    <div class="dp-banner dp-banner--err" *ngIf="error">
+      <span class="material-icons">error_outline</span> {{ error }}
+    </div>
+
+    <!-- ── VIEW MODE ── -->
+    <ng-container *ngIf="!editing">
+      <div class="dp-card">
+        <h2 class="dp-card__title">Contact</h2>
+        <div class="dp-row"><span>Phone</span><strong>{{ profile.phoneNumber || '—' }}</strong></div>
+        <div class="dp-row"><span>National ID</span><strong>{{ profile.nationalIdNumber || '—' }}</strong></div>
+      </div>
+
+      <div class="dp-card">
+        <h2 class="dp-card__title">License</h2>
+        <div class="dp-row"><span>Number</span><strong>{{ profile.licenseNumber || '—' }}</strong></div>
+        <div class="dp-row"><span>Class</span><strong>{{ profile.licenseClass || '—' }}</strong></div>
+      </div>
+
+      <div class="dp-card">
+        <h2 class="dp-card__title">Vehicle</h2>
+        <div class="dp-row"><span>Registration</span><strong>{{ profile.vehicleRegistration || '—' }}</strong></div>
+        <div class="dp-row"><span>Type</span><strong>{{ profile.vehicleType || '—' }}</strong></div>
+      </div>
+
+      <div class="dp-card">
+        <h2 class="dp-card__title">Address</h2>
+        <div class="dp-row"><span>Street</span><strong>{{ profile.addressLine1 || '—' }}</strong></div>
+        <div class="dp-row" *ngIf="profile.addressLine2"><span></span><strong>{{ profile.addressLine2 }}</strong></div>
+        <div class="dp-row"><span>City</span><strong>{{ profile.addressCity || '—' }}</strong></div>
+        <div class="dp-row"><span>Province</span><strong>{{ profile.addressProvince || '—' }}</strong></div>
+        <div class="dp-row"><span>Country</span><strong>{{ profile.addressCountry || '—' }}</strong></div>
+      </div>
+    </ng-container>
+
+    <!-- ── EDIT MODE ── -->
+    <form class="dp-card dp-form" *ngIf="editing" (ngSubmit)="save()">
+      <h2 class="dp-card__title">Edit my details</h2>
+
+      <div class="dp-grid">
+        <label class="dp-field">
+          <span>First name</span>
+          <input type="text" name="firstName" [(ngModel)]="form.firstName" required />
+        </label>
+        <label class="dp-field">
+          <span>Last name</span>
+          <input type="text" name="lastName" [(ngModel)]="form.lastName" required />
+        </label>
+      </div>
+
+      <label class="dp-field">
+        <span>Phone</span>
+        <input type="tel" name="phoneNumber" [(ngModel)]="form.phoneNumber" placeholder="+263…" />
+      </label>
+
+      <label class="dp-field">
+        <span>National ID</span>
+        <input type="text" name="nationalIdNumber" [(ngModel)]="form.nationalIdNumber" />
+      </label>
+
+      <div class="dp-grid">
+        <label class="dp-field">
+          <span>License number</span>
+          <input type="text" name="licenseNumber" [(ngModel)]="form.licenseNumber" required />
+        </label>
+        <label class="dp-field">
+          <span>License class</span>
+          <input type="text" name="licenseClass" [(ngModel)]="form.licenseClass" placeholder="e.g. Class 2" />
+        </label>
+      </div>
+
+      <h3 class="dp-form__sub">Address</h3>
+      <label class="dp-field">
+        <span>Street address</span>
+        <input type="text" name="addressLine1" [(ngModel)]="form.addressLine1" />
+      </label>
+      <label class="dp-field">
+        <span>Address line 2</span>
+        <input type="text" name="addressLine2" [(ngModel)]="form.addressLine2" />
+      </label>
+      <div class="dp-grid">
+        <label class="dp-field">
+          <span>City</span>
+          <input type="text" name="addressCity" [(ngModel)]="form.addressCity" />
+        </label>
+        <label class="dp-field">
+          <span>Province</span>
+          <input type="text" name="addressProvince" [(ngModel)]="form.addressProvince" />
+        </label>
+      </div>
+      <div class="dp-grid">
+        <label class="dp-field">
+          <span>Postal code</span>
+          <input type="text" name="addressPostalCode" [(ngModel)]="form.addressPostalCode" />
+        </label>
+        <label class="dp-field">
+          <span>Country</span>
+          <input type="text" name="addressCountry" [(ngModel)]="form.addressCountry" />
+        </label>
+      </div>
+
+      <div class="dp-actions">
+        <button type="button" class="dp-btn dp-btn--ghost" (click)="cancelEdit()" [disabled]="saving">Cancel</button>
+        <button type="submit" class="dp-btn dp-btn--primary" [disabled]="saving">
+          {{ saving ? 'Saving…' : 'Save changes' }}
+        </button>
+      </div>
+    </form>
+  </ng-container>
+
+  <div class="dp-card dp-state" *ngIf="!loading && !profile">
+    <span class="material-icons">person_off</span>
+    <p>{{ error || 'No driver profile linked to your account.' }}</p>
+    <button type="button" class="dp-btn dp-btn--ghost" (click)="load()">Retry</button>
+  </div>
+</div>

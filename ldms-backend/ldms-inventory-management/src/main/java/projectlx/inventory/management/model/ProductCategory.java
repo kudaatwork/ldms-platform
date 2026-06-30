@@ -25,6 +25,9 @@ public class ProductCategory {
     @Column(name = "description")
     private String description;
 
+    @Column(name = "supplier_id")
+    private Long supplierId;
+
     @OneToMany(mappedBy = "category")
     @ToString.Exclude
     private List<ProductSubCategory> subcategories;

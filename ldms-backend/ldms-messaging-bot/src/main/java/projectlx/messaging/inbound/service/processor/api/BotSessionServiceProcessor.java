@@ -27,4 +27,10 @@ public interface BotSessionServiceProcessor {
     BotSessionResponse updateAssistantMode(UpdateBotAssistantModeRequest request, Locale locale, String username);
 
     BotSessionResponse getPricing(Locale locale);
+
+    BotSessionResponse startGuestSession(StartBotSessionRequest request, Locale locale);
+
+    BotSessionResponse sendGuestMessage(SendBotMessageRequest request, Locale locale);
+
+    BotSessionResponse findGuestSessionById(String sessionId, Locale locale);
 }

@@ -30,7 +30,8 @@ public class CreateSupportTicketTool implements BotAgentTool {
 
     @Override
     public String description() {
-        return "Open a Help & Support ticket on behalf of the user when human follow-up is required or an automated action cannot be completed.";
+        return "Open a Help & Support ticket on behalf of the user when human follow-up is required or an automated action cannot be completed. "
+                + "Call only after the user explicitly confirmed (yes/go ahead) the draft subject and description.";
     }
 
     @Override

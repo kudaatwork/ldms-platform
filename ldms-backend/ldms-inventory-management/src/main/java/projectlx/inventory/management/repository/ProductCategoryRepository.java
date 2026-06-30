@@ -14,5 +14,7 @@ public interface ProductCategoryRepository extends JpaRepository<ProductCategory
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<ProductCategory> findByIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
     Optional<ProductCategory> findByNameAndEntityStatusNot(String name, EntityStatus entityStatus);
+    Optional<ProductCategory> findByNameAndSupplierIdAndEntityStatusNot(String name, Long supplierId, EntityStatus entityStatus);
     List<ProductCategory> findByEntityStatusNot(EntityStatus entityStatus);
+    List<ProductCategory> findBySupplierIdAndEntityStatusNot(Long supplierId, EntityStatus entityStatus);
 }

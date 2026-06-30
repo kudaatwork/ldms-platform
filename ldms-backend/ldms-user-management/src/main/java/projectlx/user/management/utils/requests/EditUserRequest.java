@@ -27,6 +27,9 @@ public class EditUserRequest {
     private String phoneNumber;
     private String dateOfBirth;
 
+    /** When set, moves the user to this branch. Omit to leave the branch unchanged. */
+    private Long branchId;
+
     /** When set, persists the national ID file-upload reference without re-uploading a file. */
     private Long nationalIdUploadId;
     /** When set, persists the passport file-upload reference without re-uploading a file. */

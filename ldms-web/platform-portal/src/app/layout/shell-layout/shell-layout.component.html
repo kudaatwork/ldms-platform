@@ -101,18 +101,54 @@
               *ngIf="isGroupExpanded(groupExpandKey(item))"
               [attr.data-nav-group]="groupExpandKey(item)"
             >
-              <button
-                type="button"
-                *ngFor="let child of item.children; trackBy: trackByChildRoute"
-                class="sb-subitem"
-                [class.active]="isNavChildActive(child)"
-                (click)="onNavChildClick(child, $event)"
-              >
-                <div class="sb-subicon">
-                  <span class="material-icons sb-mi" aria-hidden="true">{{ child.icon }}</span>
-                </div>
-                <span class="sb-sublabel">{{ child.label }}</span>
-              </button>
+              <ng-container *ngFor="let child of item.children; trackBy: trackByChildRoute">
+                <!-- Leaf child -->
+                <button
+                  type="button"
+                  *ngIf="!child.children?.length"
+                  class="sb-subitem"
+                  [class.active]="isNavChildActive(child)"
+                  (click)="onNavChildClick(child, $event)"
+                >
+                  <div class="sb-subicon">
+                    <span class="material-icons sb-mi" aria-hidden="true">{{ child.icon }}</span>
+                  </div>
+                  <span class="sb-sublabel">{{ child.label }}</span>
+                </button>
+
+                <!-- Nested sub-group (third level) -->
+                <ng-container *ngIf="child.children?.length">
+                  <button
+                    type="button"
+                    class="sb-subitem sb-subitem--parent"
+                    [class.active]="isSectionActive(child.route)"
+                    [attr.aria-expanded]="isGroupExpanded(child.route)"
+                    (click)="toggleGroup(child.route, $event)"
+                  >
+                    <div class="sb-subicon">
+                      <span class="material-icons sb-mi" aria-hidden="true">{{ child.icon }}</span>
+                    </div>
+                    <span class="sb-sublabel">{{ child.label }}</span>
+                    <span class="material-icons sb-mi sb-chevron" aria-hidden="true">{{
+                      isGroupExpanded(child.route) ? 'expand_less' : 'expand_more'
+                    }}</span>
+                  </button>
+                  <div class="sb-grandchildren" *ngIf="isGroupExpanded(child.route)">
+                    <button
+                      type="button"
+                      *ngFor="let leaf of child.children; trackBy: trackByChildRoute"
+                      class="sb-subitem sb-subitem--leaf"
+                      [class.active]="isNavChildActive(leaf)"
+                      (click)="onNavChildClick(leaf, $event)"
+                    >
+                      <div class="sb-subicon">
+                        <span class="material-icons sb-mi" aria-hidden="true">{{ leaf.icon }}</span>
+                      </div>
+                      <span class="sb-sublabel">{{ leaf.label }}</span>
+                    </button>
+                  </div>
+                </ng-container>
+              </ng-container>
             </div>
           </ng-container>
         </div>
@@ -196,6 +232,30 @@
             autocomplete="off"
           />
           <kbd class="tb-kbd">⌘K</kbd>
+        </div>
+        <div class="tb-chat-switch" role="group" [attr.aria-label]="'Live chat and ' + lexxiName">
+          <button
+            type="button"
+            class="tb-chat-switch__btn"
+            [class.tb-chat-switch__btn--on]="chatBrand === 'live-chat'"
+            [attr.aria-pressed]="chatBrand === 'live-chat'"
+            (click)="selectChatBrand('live-chat')"
+            title="Live chat"
+          >
+            <span class="material-icons tb-mi" aria-hidden="true">forum</span>
+            <span class="tb-chat-switch__label">Live chat</span>
+          </button>
+          <button
+            type="button"
+            class="tb-chat-switch__btn"
+            [class.tb-chat-switch__btn--on]="chatBrand === 'lexxi'"
+            [attr.aria-pressed]="chatBrand === 'lexxi'"
+            (click)="selectChatBrand('lexxi')"
+            [title]="lexxiName"
+          >
+            <span class="material-icons tb-mi" aria-hidden="true">smart_toy</span>
+            <span class="tb-chat-switch__label">{{ lexxiName }}</span>
+          </button>
         </div>
         <button
           type="button"
@@ -351,3 +411,5 @@
     </main>
   </div>
 </div>
+
+<app-lx-lexi-chat-widget *ngIf="showLexiWidget" mode="authenticated"></app-lx-lexi-chat-widget>

@@ -9,6 +9,7 @@ import projectlx.inventory.management.utils.enums.StockLevelStatus;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.Collection;
 
 public class InventoryItemSpecification {
 
@@ -40,6 +41,13 @@ public class InventoryItemSpecification {
     public static Specification<InventoryItem> warehouseLocationIdEquals(final Long warehouseLocationId) {
         return (root, query, cb) -> cb.equal(
                 root.get(InventoryItem_.warehouseLocation).get("id"), warehouseLocationId);
+    }
+
+    public static Specification<InventoryItem> warehouseLocationIdIn(final Collection<Long> warehouseLocationIds) {
+        if (warehouseLocationIds == null || warehouseLocationIds.isEmpty()) {
+            return (root, query, cb) -> cb.disjunction();
+        }
+        return (root, query, cb) -> root.get(InventoryItem_.warehouseLocation).get("id").in(warehouseLocationIds);
     }
     
     public static Specification<InventoryItem> supplierIdEquals(final Long supplierId) {

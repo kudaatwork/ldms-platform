@@ -27,6 +27,20 @@ function tripStatusOtpPending(status?: string): boolean {
   return (status ?? '').toUpperCase() === 'OTP_PENDING';
 }
 
+/**
+ * Trip statuses that mean stock counting is finished — either just completed or
+ * already progressed beyond (OTP sent, delivered, returning, returned). Used so
+ * the "Finished counting" step never falsely blocks a trip that is already past
+ * counting (e.g. when the driver steps back to review this screen).
+ */
+const COUNTING_DONE_OR_BEYOND = new Set<string>([
+  'COUNT_COMPLETE',
+  'OTP_PENDING',
+  'DELIVERED',
+  'RETURN_IN_TRANSIT',
+  'RETURNED',
+]);
+
 /** Ordered workflow phases — delivery notes are collected during OTP verify, not as a separate step. */
 const PHASES: DeliveryWorkflowPhase[] = [
   'ARRIVAL',
@@ -346,12 +360,20 @@ export class DeliveryWorkflowComponent implements OnInit, OnChanges, OnDestroy {
         next: (res) => {
           this.loading = false;
           const status = (res.tripDto?.status ?? '').toUpperCase();
+          const wf = res.workflowDto;
+          const bothFinished =
+            !!wf?.driverCountingFinishedAt && !!wf?.customerCountingFinishedAt;
+
           if (status === 'COUNT_COMPLETE') {
             this.advanceTo('SEND_OTP');
+          } else if (COUNTING_DONE_OR_BEYOND.has(status) || bothFinished) {
+            // The trip has already moved past counting (e.g. OTP was already
+            // sent and the user stepped back here). Jump to the correct step
+            // instead of falsely reporting that counting is incomplete.
+            this.advanceTo(resolveWorkflowPhase(res));
           } else {
             this.error = 'Stock counting is not yet complete. Please ensure both parties have finished counting.';
             // Re-sync local state from server
-            const wf = res.workflowDto;
             if (wf) {
               this.driverConfirmedFinished = !!wf.driverCountingFinishedAt;
               this.customerConfirmedFinished = !!wf.customerCountingFinishedAt;

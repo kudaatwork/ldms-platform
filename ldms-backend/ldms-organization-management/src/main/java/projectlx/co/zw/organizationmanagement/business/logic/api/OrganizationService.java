@@ -81,6 +81,8 @@ public interface OrganizationService {
 
     OrganizationResponse listCustomers(Locale locale, String username);
 
+    OrganizationResponse listSuppliers(Locale locale, String username);
+
     OrganizationResponse listTransporters(Locale locale, String username);
 
     OrganizationResponse searchTransportCompanyCandidates(String search, Locale locale, String username);
@@ -115,6 +117,13 @@ public interface OrganizationService {
     OrganizationResponse deleteTransporter(Long transporterId, Locale locale, String username);
 
     OrganizationResponse linkTransporter(LinkTransporterRequest request, Locale locale, String username);
+
+    OrganizationResponse listIncomingTransporterOffers(Locale locale, String username);
+
+    OrganizationResponse respondToTransporterOffer(
+            Long supplierOrganizationId, boolean accept, Locale locale, String username);
+
+    OrganizationResponse cancelTransporterOffer(Long transporterOrganizationId, Locale locale, String username);
 
     OrganizationResponse linkCustomerForOrganization(
             Long supplierId, LinkCustomerRequest request, Locale locale, String username);

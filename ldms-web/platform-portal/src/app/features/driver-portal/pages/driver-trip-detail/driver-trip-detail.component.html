@@ -84,6 +84,10 @@
 
       <!-- Action buttons -->
       <div class="dtd-quick-actions">
+        <button class="dtd-btn dtd-btn--ghost" (click)="openChat()">
+          <span class="material-icons" aria-hidden="true">chat</span>
+          Message receiver
+        </button>
         <button class="dtd-btn dtd-btn--ghost" *ngIf="trip.canLiveTrack" (click)="openLiveTrack()">
           <span class="material-icons" aria-hidden="true">location_on</span>
           Live map

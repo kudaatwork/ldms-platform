@@ -31,7 +31,8 @@ public class AddUsersToUserGroupTool implements BotAgentTool {
 
     @Override
     public String description() {
-        return "Add one or more users to a user group. Use list_user_groups and list_org_users first to resolve IDs.";
+        return "Add one or more users to a user group. Use list_user_groups and list_org_users first to resolve IDs. "
+                + "Call only after the user explicitly confirmed (yes/go ahead) in the chat.";
     }
 
     @Override

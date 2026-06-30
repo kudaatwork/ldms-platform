@@ -124,6 +124,8 @@ export interface BranchDetail {
   phoneNumber?: string;
   businessHours?: string;
   active: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface BranchFormPayload {
@@ -137,6 +139,8 @@ export interface BranchFormPayload {
   active?: boolean;
   parentBranchId?: number;
   depot?: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 /** @deprecated Use BranchFormPayload */
@@ -336,6 +340,8 @@ export class OrganizationService {
       active: payload.active ?? true,
       parentBranchId: payload.parentBranchId,
       depot: payload.depot ?? false,
+      latitude: payload.latitude ?? undefined,
+      longitude: payload.longitude ?? undefined,
     };
   }
 
@@ -457,6 +463,8 @@ export class OrganizationService {
         phoneNumber: String(b['phoneNumber'] ?? '').trim() || undefined,
         businessHours: String(b['businessHours'] ?? '').trim() || undefined,
         active: b['active'] !== false,
+        latitude: b['latitude'] != null ? Number(b['latitude']) : undefined,
+        longitude: b['longitude'] != null ? Number(b['longitude']) : undefined,
       } satisfies BranchDetail))
       .filter((b) => b.id > 0);
   }
@@ -487,6 +495,8 @@ export class OrganizationService {
       phoneNumber: this.readOptionalString(b, 'phoneNumber'),
       businessHours: this.readOptionalString(b, 'businessHours', 'business_hours'),
       active: b['active'] !== false,
+      latitude: b['latitude'] != null ? Number(b['latitude']) : undefined,
+      longitude: b['longitude'] != null ? Number(b['longitude']) : undefined,
     };
   }
 

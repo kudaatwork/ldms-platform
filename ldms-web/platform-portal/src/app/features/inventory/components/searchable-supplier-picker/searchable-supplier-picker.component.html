@@ -1,0 +1,58 @@
+<div class="searchable-supplier-picker">
+  <label class="lx-field-label" *ngIf="label" [attr.for]="inputElementId">
+    {{ label }} <span class="req" *ngIf="required">*</span>
+  </label>
+
+  <p class="lx-field-hint searchable-supplier-picker__hint" *ngIf="emptyHint">{{ emptyHint }}</p>
+
+  <div class="lx-input-shell searchable-supplier-picker__input" [class.lx-input-shell--invalid]="invalid">
+    <mat-icon class="lx-input-shell__icon" aria-hidden="true">store</mat-icon>
+    <input
+      [id]="inputElementId"
+      type="text"
+      [(ngModel)]="searchText"
+      [ngModelOptions]="{ standalone: true }"
+      [matAutocomplete]="supplierAuto"
+      [placeholder]="searchPlaceholder"
+      [disabled]="disabled"
+      autocomplete="off"
+      [attr.aria-label]="ariaLabel"
+      (ngModelChange)="onSearchInput()"
+      (focus)="onInputFocus()"
+      (blur)="onBlur()"
+    />
+  </div>
+
+  <mat-autocomplete
+    #supplierAuto="matAutocomplete"
+    class="searchable-supplier-picker__panel"
+    [autoActiveFirstOption]="true"
+    (optionSelected)="onSupplierPicked($event)"
+  >
+    <mat-option
+      *ngFor="let s of filteredSuppliers"
+      [value]="supplierOptionValue(s)"
+      [attr.aria-label]="supplierSearchBlob(s)"
+    >
+      <span class="searchable-supplier-picker__option">
+        <span class="searchable-supplier-picker__option-name">{{ supplierLabel(s) }}</span>
+        <span
+          class="searchable-supplier-picker__option-meta"
+          *ngIf="supplierMeta(s) as meta"
+          [class.searchable-supplier-picker__option-meta--ok]="supplierMetaTone(s) === 'ok'"
+          [class.searchable-supplier-picker__option-meta--warn]="supplierMetaTone(s) === 'warn'"
+        >{{ meta }}</span>
+      </span>
+    </mat-option>
+    <mat-option disabled *ngIf="searchQuery && !filteredSuppliers.length && suppliers.length">
+      No suppliers match your search.
+    </mat-option>
+    <mat-option disabled *ngIf="!suppliers.length && !emptyHint">
+      No linked suppliers available.
+    </mat-option>
+  </mat-autocomplete>
+
+  <p class="lx-field-hint searchable-supplier-picker__hint" *ngIf="!searchQuery && !value && suppliers.length">
+    Start typing to filter {{ suppliers.length }} linked suppliers.
+  </p>
+</div>

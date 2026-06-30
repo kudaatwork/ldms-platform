@@ -60,6 +60,16 @@
         </button>
         <button
           type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm"
+          *ngIf="canRegisterTransporter"
+          (click)="openLinkTransporter()"
+          [disabled]="loading"
+        >
+          <mat-icon>link</mat-icon>
+          Link existing transporter
+        </button>
+        <button
+          type="button"
           class="lx-btn lx-btn-primary lx-btn-sm"
           *ngIf="canRegisterTransporter"
           (click)="openRegisterTransporter()"
@@ -167,11 +177,24 @@
             <small>{{ row.phoneNumber || '' }}</small>
           </td>
           <td>{{ row.verifiedLabel }}</td>
-          <td>{{ row.contractStatusLabel }}</td>
+          <td>
+            <span class="lx-pill lx-pill--pending" *ngIf="row.pending">Pending acceptance</span>
+            <span *ngIf="!row.pending">{{ row.contractStatusLabel }}</span>
+          </td>
           <td>{{ row.linkedSinceLabel || '—' }}</td>
           <td class="lx-actions-cell">
-            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openRegisterTransporter(row.id)">Edit</button>
-            <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="confirmRemove(row)">Remove</button>
+            <button
+              type="button"
+              class="lx-btn lx-btn-ghost lx-btn-sm"
+              *ngIf="row.pending"
+              (click)="cancelOffer(row)"
+            >
+              Cancel offer
+            </button>
+            <ng-container *ngIf="!row.pending">
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openRegisterTransporter(row.id)">Edit</button>
+              <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="confirmRemove(row)">Remove</button>
+            </ng-container>
           </td>
         </tr>
       </tbody>
