@@ -141,6 +141,13 @@ export interface DriverProfileDto {
   vehicleRegistration?: string;
   vehicleType?: string;
   employmentType?: string;
+  nationalIdNumber?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  addressCity?: string;
+  addressProvince?: string;
+  addressPostalCode?: string;
+  addressCountry?: string;
 }
 
 /** Trip row projected for the driver workspace card list. */
@@ -227,4 +234,50 @@ export interface DriverSignupRequest {
   licenseNumber: string;
   licenseClass: string;
   companyCode: string;
+}
+
+/** A single chat message between the driver and the receiver for a trip. */
+export interface TripMessageDto {
+  id: number;
+  senderUserId: number;
+  senderRole: 'DRIVER' | 'RECEIVER' | string;
+  senderName: string;
+  body: string;
+  createdAtLabel: string;
+  mine: boolean;
+  read: boolean;
+}
+
+/** Receiver (consignee) contact details for a trip. */
+export interface ReceiverContactDto {
+  userId?: number;
+  name?: string;
+  phoneNumber?: string;
+  email?: string;
+  destinationName?: string;
+  reachable: boolean;
+}
+
+/** Combined chat state returned by the messages endpoints. */
+export interface TripChatState {
+  messages: TripMessageDto[];
+  receiverContact?: ReceiverContactDto;
+  myRole: string;
+  currentUserId?: number;
+}
+
+/** Self-service driver profile edit payload (PUT /drivers/me). */
+export interface DriverProfileEditRequest {
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  licenseNumber: string;
+  licenseClass: string;
+  nationalIdNumber?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  addressCity?: string;
+  addressProvince?: string;
+  addressPostalCode?: string;
+  addressCountry?: string;
 }

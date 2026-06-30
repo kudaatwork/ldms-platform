@@ -33,4 +33,9 @@
 .searchable-product-picker__option-meta {
   font-size: 0.78rem;
   opacity: 0.72;
+
+  &--out {
+    color: var(--danger-600, #dc2626);
+    opacity: 1;
+  }
 }

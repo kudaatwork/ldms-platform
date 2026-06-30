@@ -42,6 +42,8 @@ import type { ViewSupplierQuoteDialogData } from '../../components/view-supplier
 import { ProcurementStageTimelineDialogComponent } from '../../components/procurement-stage-timeline-dialog/procurement-stage-timeline-dialog.component';
 import type { ProcurementStageTimelineDialogData } from '../../components/procurement-stage-timeline-dialog/procurement-stage-timeline-dialog.component';
 import { buildSalesOrderJourney } from '../../utils/procurement-journey.util';
+import { defaultWarehouseTypeForClassification, filterByOrganizationScope } from '../../utils/inventory-org-scope.util';
+import { isCustomerCatalogTab } from '../../utils/customer-inventory-tabs.util';
 import type { AddProductDialogData } from '../../components/add-product-dialog/add-product-dialog.component';
 import { AddWarehouseDialogComponent } from '../../components/add-warehouse-dialog/add-warehouse-dialog.component';
 import type { AddWarehouseDialogData } from '../../components/add-warehouse-dialog/add-warehouse-dialog.component';
@@ -138,6 +140,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   activeTab: InventoryWorkspaceTab = 'warehouses';
 
   products: ProductRow[] = [];
+  private rawProducts: ProductRow[] = [];
   productSearch = '';
   productsLoading = false;
   productsError = '';
@@ -419,7 +422,15 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   get canManageProductCatalogue(): boolean {
-    return this.isSupplier;
+    return this.isSupplier || this.isCustomerInventoryWorkspace;
+  }
+
+  /** Supplier catalogue lives under /products-inventory; customers use /my-orders. */
+  get inventoryBasePath(): '/products-inventory' | '/my-orders' {
+    if (this.route.snapshot.data['customerRoute'] === true) {
+      return '/my-orders';
+    }
+    return this.isCustomer ? '/my-orders' : '/products-inventory';
   }
 
   get categories(): ProductCategoryOption[] {
@@ -841,7 +852,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
     if (tab === 'stock' && options?.keepStockFilters) {
       this.preserveStockDrillOnRoute = true;
     }
-    void this.router.navigate(['/products-inventory', tab]);
+    void this.router.navigate([this.inventoryBasePath, tab]);
   }
 
   setCatalogView(view: CatalogWorkspaceView): void {
@@ -1080,7 +1091,13 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
         maxWidth: '95vw',
         disableClose: true,
         panelClass: 'lx-location-dialog-panel',
-        data: { supplierId, preselectedBranchId: branchId } satisfies AddWarehouseDialogData,
+        data: {
+          supplierId,
+          preselectedBranchId: branchId,
+          defaultWarehouseType: defaultWarehouseTypeForClassification(
+            this.orgContext.organizationClassification,
+          ),
+        } satisfies AddWarehouseDialogData,
       })
       .afterClosed()
       .pipe(takeUntil(this.destroy$))
@@ -1698,33 +1715,31 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       code && code !== code.trim()
         ? `"${code}" (${code.length} characters — includes leading/trailing spaces)`
         : code || '—';
-    const priceRaw = Number.isFinite(product.unitPrice) ? product.unitPrice.toFixed(4) : '—';
 
     return [
-      { label: 'Product ID', value: String(product.id) },
-      { label: 'Supplier ID', value: product.supplierId > 0 ? String(product.supplierId) : '—' },
       { label: 'Name', value: product.name || '—' },
+      { label: 'Organisation', value: this.productOrganisationLabel(product) },
       { label: 'Product code', value: codeDisplay },
       { label: 'Barcode', value: product.barcode || '—' },
       { label: 'Description', value: product.description || '—' },
-      { label: 'Category ID', value: product.categoryId > 0 ? String(product.categoryId) : '—' },
-      { label: 'Category name', value: product.categoryName || '—' },
-      { label: 'Subcategory ID', value: product.subcategoryId > 0 ? String(product.subcategoryId) : '—' },
-      { label: 'Subcategory name', value: product.subcategoryName || '—' },
-      { label: 'Price (display)', value: product.unitPriceLabel },
-      { label: 'Price (database)', value: priceRaw },
-      { label: 'Unit of measure', value: product.unitOfMeasure || '—' },
-      { label: 'Unit of measure label', value: product.unitOfMeasureLabel || '—' },
+      { label: 'Category', value: product.categoryName || '—' },
+      { label: 'Subcategory', value: product.subcategoryName || '—' },
+      { label: 'Price', value: product.unitPriceLabel },
+      { label: 'Unit of measure', value: product.unitOfMeasureLabel || product.unitOfMeasure || '—' },
       { label: 'Manufacturer', value: product.manufacturer || '—' },
-      { label: 'Image ID', value: product.imageId != null ? String(product.imageId) : '—' },
-      { label: 'Expires at (display)', value: product.expiresAtLabel },
-      { label: 'Expires at (database)', value: product.expiresAtIso || '—' },
-      { label: 'Entity status', value: this.entityStatusText(product.entityStatus) },
-      { label: 'Created at (display)', value: product.createdAtLabel },
-      { label: 'Created at (database)', value: product.createdAtIso || '—' },
-      { label: 'Updated at (display)', value: product.updatedAtLabel },
-      { label: 'Updated at (database)', value: product.updatedAtIso || '—' },
+      { label: 'Expires', value: product.expiresAtLabel || '—' },
+      { label: 'Status', value: this.entityStatusText(product.entityStatus) },
+      { label: 'Created', value: product.createdAtLabel },
+      { label: 'Updated', value: product.updatedAtLabel || '—' },
     ];
+  }
+
+  private productOrganisationLabel(product: ProductRow): string {
+    const sessionOrgId = this.orgContext.organizationId;
+    if (sessionOrgId != null && product.supplierId > 0 && product.supplierId === sessionOrgId) {
+      return this.orgContext.organizationName || this.orgName || '—';
+    }
+    return this.orgName || '—';
   }
 
   openEditProduct(product: ProductRow): void {
@@ -1971,24 +1986,16 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       ? `${transfer.quantity} ${transfer.unitOfMeasure}`
       : String(transfer.quantity);
     return [
-      { label: 'Transfer ID', value: String(transfer.id) },
       { label: 'Reference', value: transfer.transferNumber || '—' },
       { label: 'Product', value: transfer.productName || '—' },
       { label: 'Product code', value: transfer.productCode || '—' },
-      { label: 'Product ID', value: transfer.productId > 0 ? String(transfer.productId) : '—' },
       { label: 'Quantity', value: qtyLabel },
       { label: 'Unit cost', value: transfer.unitCostLabel },
       { label: 'From warehouse', value: transfer.fromWarehouse || '—' },
-      { label: 'From warehouse ID', value: transfer.fromLocationId > 0 ? String(transfer.fromLocationId) : '—' },
       { label: 'To warehouse', value: transfer.toWarehouse || '—' },
-      { label: 'To warehouse ID', value: transfer.toLocationId > 0 ? String(transfer.toLocationId) : '—' },
       { label: 'Status', value: transfer.statusLabel },
       { label: 'Notes / reference', value: transfer.reference || '—' },
       { label: 'Requested by', value: transfer.requestedBy || '—' },
-      {
-        label: 'Requested by user ID',
-        value: transfer.createdByUserId > 0 ? String(transfer.createdByUserId) : '—',
-      },
       { label: 'Created', value: transfer.createdAtLabel },
       { label: 'Last updated', value: transfer.updatedAtLabel || '—' },
       { label: 'Rejection reason', value: transfer.rejectionReason || '—' },
@@ -2602,6 +2609,10 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
     const candidate = (tabParam ?? dataTab) as InventoryWorkspaceTab | null;
     if (candidate && this.isValidTab(candidate)) {
       this.applyRouteTab(candidate);
+      return;
+    }
+    if (this.inventoryBasePath === '/my-orders') {
+      void this.router.navigate(['/my-orders', 'warehouses'], { replaceUrl: true });
     }
   }
 
@@ -2633,6 +2644,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows) => {
           this.stock = this.inventoryService.enrichStockRows(rows, this.products, this.warehouses);
+          this.reconcileOrganizationProducts();
         },
         error: (err: Error) => {
           this.stockError = err.message ?? 'Could not load stock.';
@@ -2658,8 +2670,8 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       )
       .subscribe({
         next: (rows) => {
-          this.products = this.inventoryService.enrichProductRows(rows, this.categoryRows, this.subcategoryRows);
-          this.stock = this.inventoryService.enrichStockRows(this.stock, this.products, this.warehouses);
+          this.rawProducts = rows;
+          this.reconcileOrganizationProducts();
         },
         error: (err: Error) => {
           this.productsError = err.message ?? 'Could not load products.';
@@ -2668,6 +2680,31 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
           }
         },
       });
+  }
+
+  /** Only products owned by the signed-in organisation (product.supplierId). */
+  private applyOrganizationProductScope(rows: ProductRow[]): ProductRow[] {
+    return filterByOrganizationScope(
+      rows,
+      this.orgContext.organizationId,
+      this.orgContext.organizationClassification,
+    );
+  }
+
+  private isCustomerInventoryContext(): boolean {
+    return this.isCustomer || this.inventoryBasePath === '/my-orders';
+  }
+
+  /** Template helper — customer inventory workspace on /my-orders. */
+  get isCustomerInventoryWorkspace(): boolean {
+    return this.isCustomerInventoryContext();
+  }
+
+  private reconcileOrganizationProducts(): void {
+    const scoped = this.applyOrganizationProductScope(this.rawProducts);
+    this.products = this.inventoryService.enrichProductRows(scoped, this.categoryRows, this.subcategoryRows);
+    this.stock = this.inventoryService.enrichStockRows(this.stock, this.products, this.warehouses);
+    this.cdr.markForCheck();
   }
 
   private loadWarehouses(showLoading = true): void {
@@ -2836,6 +2873,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (rows) => {
           this.stock = this.inventoryService.enrichStockRows(rows, this.products, this.warehouses);
+          this.reconcileOrganizationProducts();
         },
         error: (err: Error) => (this.stockError = err.message ?? 'Could not load stock.'),
       });
@@ -3117,7 +3155,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
   }
 
   private isValidTab(tab: string): tab is InventoryWorkspaceTab {
-    return [
+    const allTabs = [
       'warehouses',
       'categories',
       'products',
@@ -3128,12 +3166,20 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       'purchase-orders',
       'sales-orders',
       'integration-setup',
-    ].includes(tab);
+    ];
+    if (!allTabs.includes(tab)) {
+      return false;
+    }
+    if (this.inventoryBasePath === '/my-orders') {
+      return isCustomerCatalogTab(tab);
+    }
+    return true;
   }
 
   private resolveWarehouseAddresses(rows: WarehouseRow[]): void {
     if (!rows.length) {
       this.warehouses = rows;
+      this.reconcileOrganizationProducts();
       return;
     }
 
@@ -3157,6 +3203,7 @@ export class InventoryWorkspaceComponent implements OnInit, OnDestroy {
       .subscribe((enriched) => {
         this.warehouses = enriched;
         this.stock = this.inventoryService.enrichStockRows(this.stock, this.products, this.warehouses);
+        this.reconcileOrganizationProducts();
         this.transfers = this.inventoryService.enrichTransferRows(this.transfers, this.products, this.warehouses);
         this.transfers = this.transfers.map((row) => ({
           ...row,

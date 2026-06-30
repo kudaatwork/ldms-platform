@@ -17,6 +17,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { WarehouseRow } from '../../models/inventory.model';
 import {
   filterWarehousesForSearch,
+  warehouseOptionMeta,
   warehousePickerLabel,
   warehouseSearchText,
 } from '../../utils/warehouse-search.util';
@@ -46,7 +47,7 @@ export class SearchableWarehousePickerComponent implements ControlValueAccessor 
   @Input() required = false;
   @Input() invalid = false;
   @Input() disabled = false;
-  @Input() searchPlaceholder = 'Type to search by name, address, or type…';
+  @Input() searchPlaceholder = 'Search warehouse by name, branch, or address…';
   @Input() inputId = '';
   @Input() ariaLabel = 'Warehouse';
   /** When set, matching options are shown but cannot be selected (e.g. already stocked). */
@@ -66,8 +67,13 @@ export class SearchableWarehousePickerComponent implements ControlValueAccessor 
     return this.inputId || `warehouse-picker-input-${this.instanceId}`;
   }
 
+  /** Normalised query — Material may briefly write a numeric option value into the input. */
+  get searchQuery(): string {
+    return this.asSearchString(this.searchText);
+  }
+
   get filteredWarehouses(): WarehouseRow[] {
-    const matched = filterWarehousesForSearch(this.warehouses, this.searchText);
+    const matched = filterWarehousesForSearch(this.warehouses, this.searchQuery);
     if (!this.optionDisabled) {
       return matched;
     }
@@ -82,13 +88,17 @@ export class SearchableWarehousePickerComponent implements ControlValueAccessor 
     return warehousePickerLabel(w);
   }
 
-  warehouseMeta(w: WarehouseRow): string {
-    const parts = [w.addressLabel?.trim(), w.warehouseType?.trim(), w.description?.trim()].filter(Boolean);
-    return parts.join(' · ');
+  /** Option value written by mat-autocomplete — use the display label, not the numeric id. */
+  warehouseOptionValue(w: WarehouseRow): string {
+    return this.warehouseLabel(w);
   }
 
   warehouseSearchBlob(w: WarehouseRow): string {
     return warehouseSearchText(w);
+  }
+
+  warehouseMeta(w: WarehouseRow): string {
+    return warehouseOptionMeta(w);
   }
 
   isOptionDisabled(w: WarehouseRow): boolean {
@@ -96,12 +106,24 @@ export class SearchableWarehousePickerComponent implements ControlValueAccessor 
   }
 
   onInputFocus(): void {
+    if (this.value != null) {
+      this.searchText = this.labelForId(this.value);
+    }
     setTimeout(() => this.autocompleteTrigger?.openPanel());
   }
 
   onSearchInput(): void {
+    this.normaliseSearchText();
+
+    if (this.restoreLabelWhenInputMatchesSelectedId()) {
+      return;
+    }
+    if (this.coerceNumericInputToWarehouseLabel()) {
+      return;
+    }
+
     const selectedLabel = this.labelForId(this.value);
-    if (this.value != null && this.searchText.trim() !== selectedLabel) {
+    if (this.value != null && this.searchQuery !== selectedLabel) {
       this.value = null;
       this.onChange(null);
       this.selectionChange.emit(null);
@@ -110,27 +132,23 @@ export class SearchableWarehousePickerComponent implements ControlValueAccessor 
   }
 
   onWarehousePicked(event: MatAutocompleteSelectedEvent): void {
-    const warehouse = event.option.value as WarehouseRow;
+    const warehouse = this.warehouseFromOptionValue(event.option.value);
     if (!warehouse || this.isOptionDisabled(warehouse)) {
       return;
     }
-    this.onSelectChange(warehouse.id);
-    this.searchText = this.warehouseLabel(warehouse);
+    this.applyWarehouseSelection(warehouse);
+    this.autocompleteTrigger?.closePanel();
   }
 
   onBlur(): void {
     this.onTouched();
+    this.normaliseSearchText();
+    this.restoreLabelWhenInputMatchesSelectedId();
+    this.coerceNumericInputToWarehouseLabel();
     const selectedLabel = this.labelForId(this.value);
-    if (this.value != null && this.searchText.trim() !== selectedLabel) {
+    if (this.value != null && this.searchQuery !== selectedLabel) {
       this.searchText = selectedLabel;
     }
-  }
-
-  onSelectChange(id: number | null): void {
-    this.value = id;
-    this.onChange(id);
-    this.onTouched();
-    this.selectionChange.emit(id);
   }
 
   writeValue(value: number | null): void {
@@ -150,11 +168,76 @@ export class SearchableWarehousePickerComponent implements ControlValueAccessor 
     this.disabled = isDisabled;
   }
 
+  private asSearchString(raw: unknown): string {
+    if (raw == null) {
+      return '';
+    }
+    if (typeof raw === 'object') {
+      return '';
+    }
+    return String(raw).trim();
+  }
+
+  private normaliseSearchText(): void {
+    this.searchText = this.asSearchString(this.searchText);
+  }
+
   private labelForId(id: number | null): string {
     if (id == null) {
       return '';
     }
     const warehouse = this.warehouses.find((w) => w.id === id);
     return warehouse ? this.warehouseLabel(warehouse) : '';
+  }
+
+  private warehouseFromOptionValue(optionValue: unknown): WarehouseRow | null {
+    const raw = this.asSearchString(optionValue);
+    if (!raw) {
+      return null;
+    }
+    if (/^\d+$/.test(raw)) {
+      const id = Number(raw);
+      return this.warehouses.find((w) => w.id === id) ?? null;
+    }
+    const byLabel = this.warehouses.filter((w) => this.warehouseLabel(w) === raw);
+    if (byLabel.length === 1) {
+      return byLabel[0];
+    }
+    if (byLabel.length > 1 && this.value != null) {
+      return byLabel.find((w) => w.id === this.value) ?? byLabel[0];
+    }
+    return byLabel[0] ?? null;
+  }
+
+  /** Material autocomplete may write the selected warehouse id into the text input. */
+  private restoreLabelWhenInputMatchesSelectedId(): boolean {
+    if (this.value == null) {
+      return false;
+    }
+    if (this.searchQuery === String(this.value)) {
+      this.searchText = this.labelForId(this.value);
+      return true;
+    }
+    return false;
+  }
+
+  private coerceNumericInputToWarehouseLabel(): boolean {
+    if (!/^\d+$/.test(this.searchQuery)) {
+      return false;
+    }
+    const id = Number(this.searchQuery);
+    const warehouse = this.warehouses.find((w) => w.id === id);
+    if (!warehouse) {
+      return false;
+    }
+    this.applyWarehouseSelection(warehouse);
+    return true;
+  }
+
+  private applyWarehouseSelection(warehouse: WarehouseRow): void {
+    this.value = warehouse.id;
+    this.searchText = this.warehouseLabel(warehouse);
+    this.onChange(warehouse.id);
+    this.selectionChange.emit(warehouse.id);
   }
 }

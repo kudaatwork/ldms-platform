@@ -17,5 +17,6 @@ public class Product_ {
     public static volatile SingularAttribute<Product, String> barcode;
     public static volatile SingularAttribute<Product, String> manufacturer;
     public static volatile SingularAttribute<Product, Long> imageId;
+    public static volatile SingularAttribute<Product, Long> supplierId;
     public static volatile SingularAttribute<Product, String> entityStatus;
 }

@@ -6,6 +6,8 @@ import { DriverTripDetailComponent } from './pages/driver-trip-detail/driver-tri
 import { DriverSignupComponent } from './pages/driver-signup/driver-signup.component';
 import { LiveTripTrackingComponent } from '../trip-tracking/pages/live-trip-tracking/live-trip-tracking.component';
 import { DriverLiveHubComponent } from './pages/driver-live-hub/driver-live-hub.component';
+import { DriverProfileComponent } from './pages/driver-profile/driver-profile.component';
+import { DriverChatComponent } from './pages/driver-chat/driver-chat.component';
 import { DriverAuthGuard } from '../../core/guards/driver-auth.guard';
 
 const routes: Routes = [
@@ -41,6 +43,16 @@ const routes: Routes = [
         path: 'trip/:tripId',
         component: DriverTripDetailComponent,
         data: { title: 'Trip detail' },
+      },
+      {
+        path: 'chat/:tripId',
+        component: DriverChatComponent,
+        data: { title: 'Messages' },
+      },
+      {
+        path: 'profile',
+        component: DriverProfileComponent,
+        data: { title: 'My profile' },
       },
     ],
   },

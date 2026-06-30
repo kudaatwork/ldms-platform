@@ -1,6 +1,6 @@
 import type { PlatformActionChargeRow } from '../../core/services/platform-wallet.service';
 
-/** Well-known platform action codes used in Help & Support and Lexi. */
+/** Well-known platform action codes used in Help & Support and Lexxi. */
 export const HELP_SUPPORT_ACTION_CODES = {
   ASSISTANT_MESSAGE: 'HELP_BOT_MESSAGE',
   AGENT_MESSAGE: 'HELP_BOT_AGENT_MESSAGE',

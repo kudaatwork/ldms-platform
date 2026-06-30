@@ -34,7 +34,7 @@
       <span class="help-tab__badge" *ngIf="tickets.length">{{ tickets.length }}</span>
     </button>
     <button type="button" class="help-tab" [class.help-tab--on]="activeTab() === 'assistant'" (click)="setTab('assistant')">
-      <span class="material-icons" aria-hidden="true">smart_toy</span> Lexi
+      <span class="material-icons" aria-hidden="true">smart_toy</span> {{ lexxiName }}
     </button>
     <button type="button" class="help-tab" [class.help-tab--on]="activeTab() === 'status'" (click)="setTab('status')">
       <span class="material-icons" aria-hidden="true">monitor_heart</span> Status
@@ -79,9 +79,9 @@
       </article>
       <article class="help-card help-card--accent" (click)="setTab('assistant')" tabindex="0" role="button">
         <span class="material-icons help-card__icon" aria-hidden="true">smart_toy</span>
-        <h2 class="help-card__title">Lexi</h2>
-        <p class="help-card__text">Your LDMS guide — ask about onboarding, orders, shipments, trips, and billing.</p>
-        <span class="help-card__cta">Chat with Lexi →</span>
+        <h2 class="help-card__title">{{ lexxiName }}</h2>
+        <p class="help-card__text">Your upbeat LDMS guide — ask about onboarding, orders, shipments, trips, and billing.</p>
+        <span class="help-card__cta">Chat with {{ lexxiName }} →</span>
       </article>
       <article class="help-card" (click)="setTab('ticket')" tabindex="0" role="button">
         <span class="material-icons help-card__icon" aria-hidden="true">edit_note</span>
@@ -408,9 +408,9 @@
       </div>
     </div>
 
-    <!-- Lexi -->
+    <!-- Lexxi -->
     <div class="help-assistant" *ngIf="activeTab() === 'assistant'">
-      <section class="help-llm-toolbar lx-card" aria-label="Lexi model and mode">
+      <section class="help-llm-toolbar lx-card" [attr.aria-label]="lexxiName + ' model and mode'">
         <div class="help-llm-toolbar__row">
           <div class="help-llm-toolbar__meta">
             <span class="material-icons" aria-hidden="true">psychology</span>
@@ -436,7 +436,7 @@
               (click)="setBotAssistantMode('ASSISTANT')"
             >
               <span class="material-icons" aria-hidden="true">smart_toy</span>
-              Lexi
+              {{ lexxiName }}
               <span class="hc-mode-toggle__price">{{ botAssistantPriceLabel() }}</span>
             </button>
             <button
@@ -452,7 +452,7 @@
               <span class="hc-mode-toggle__price">{{ botAgentPriceLabel() }}</span>
             </button>
           </div>
-          <p class="help-llm-toolbar__lexi-tagline">Lexi is your LDMS guide — warm, practical, and built for logistics workflows.</p>
+          <p class="help-llm-toolbar__lexi-tagline">{{ lexxiName }} is your bubbly LDMS guide — eager to help with logistics workflows, onboarding, and day-to-day portal tasks.</p>
         </div>
         <div class="help-llm-toolbar__controls">
           <label class="help-llm-toolbar__field">
@@ -503,7 +503,7 @@
         <div class="hc-messenger__shell lx-card">
         <aside class="hc-inbox">
           <div class="hc-inbox__head">
-            <h2>Chats with Lexi</h2>
+            <h2>Chats with {{ lexxiName }}</h2>
             <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="startBotChat()" [disabled]="botStarting()">
               {{ botStarting() ? 'Starting…' : 'New chat' }}
             </button>
@@ -521,7 +521,7 @@
               </div>
               <div class="hc-convo__body">
                 <div class="hc-convo__row">
-                  <span class="hc-convo__subject">{{ s.topic || 'Chat with Lexi' }}</span>
+                  <span class="hc-convo__subject">{{ s.topic || lexxiDefaultTopic }}</span>
                   <span class="hc-convo__time">{{ relativeTime(s.lastMessageAt) }}</span>
                 </div>
                 <div class="hc-convo__meta">
@@ -530,7 +530,7 @@
               </div>
             </button>
             <p class="hc-inbox__empty" *ngIf="!botSessions().length && !botChatLoading()">
-              No chats yet — say hi to Lexi and ask anything about LDMS.
+              No chats yet — say hi to {{ lexxiName }} and ask anything about LDMS.
             </p>
           </div>
         </aside>
@@ -538,7 +538,7 @@
         <main class="hc-chat" *ngIf="selectedBotSession() as bs; else pickBotChat">
           <header class="hc-chat__head">
             <div>
-              <h2>{{ lexiDisplayName() }}</h2>
+              <h2>{{ lexxiDisplayName() }}</h2>
               <p class="hc-chat__sub">{{ bs.topic || (isAgentMode() ? 'Autonomous platform tasks & workflows' : 'Your LDMS guide — workflows, screens, and how-tos') }}</p>
             </div>
             <div class="hc-chat__status" [class.hc-chat__status--offline]="!assistantOnline()" aria-live="polite">
@@ -573,7 +573,7 @@
                     </header>
                     <div
                       class="hc-bubble__body hc-bubble__body--md"
-                      *ngIf="!item.isMine && item.role !== 'SYSTEM'; else plainBotBubbleBody"
+                      *ngIf="!item.isMine; else plainBotBubbleBody"
                       [innerHTML]="item.body | botMessageMarkdown"
                     ></div>
                     <ng-template #plainBotBubbleBody>
@@ -592,7 +592,7 @@
                   <span class="material-icons">smart_toy</span>
                 </span>
                 <span class="hc-typing-indicator__dots" aria-hidden="true"><i></i><i></i><i></i></span>
-                <span class="hc-typing-indicator__text">{{ isAgentMode() ? 'Lexi is working on it…' : 'Lexi is typing…' }}</span>
+                <span class="hc-typing-indicator__text">{{ isAgentMode() ? lexxiName + ' is working on it…' : lexxiName + ' is typing…' }}</span>
               </div>
             </ng-container>
           </div>
@@ -611,9 +611,9 @@
                 [value]="botReplyDraft"
                 (input)="onBotReplyInput($any($event.target).value)"
                 (keydown)="onBotReplyKeydown($event)"
-                placeholder="Message Lexi — e.g. How do I create a user group?"
+                [placeholder]="'Message ' + lexxiName + ' — e.g. How do I create a user group?'"
                 [disabled]="botSending() || botChatLoading() || botModeSwitching()"
-                aria-label="Message to Lexi"
+                [attr.aria-label]="'Message to ' + lexxiName"
               ></textarea>
               <button
                 type="button"
@@ -631,7 +631,7 @@
                 {{ botAgentPriceHint() }}
               </ng-container>
               <ng-template #assistantHint>
-                Lexi can explain workflows, search LDMS guides, and look up your user groups, users, and wallet. Switch to Agent to create groups or open tickets on your behalf.
+                {{ lexxiName }} can explain workflows, search LDMS guides, and look up your user groups, users, and wallet. Switch to Agent to create groups or open tickets on your behalf.
               </ng-template>
             </p>
           </footer>
@@ -641,8 +641,8 @@
           <div class="hc-chat hc-chat--placeholder">
             <div class="hc-chat__placeholder">
               <span class="material-icons" aria-hidden="true">smart_toy</span>
-              <h2>Lexi</h2>
-              <p>Start a new chat — Lexi knows onboarding, orders, shipments, trips, and billing on LDMS.</p>
+              <h2>{{ lexxiName }}</h2>
+              <p>Start a new chat — {{ lexxiName }} is eager to help with onboarding, orders, shipments, trips, and billing on LDMS.</p>
               <button type="button" class="lx-btn lx-btn-primary" (click)="startBotChat()" [disabled]="botStarting()">
                 {{ botStarting() ? 'Starting…' : 'Start chatting' }}
               </button>

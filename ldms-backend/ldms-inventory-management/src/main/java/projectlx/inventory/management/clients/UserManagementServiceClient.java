@@ -41,4 +41,14 @@ public interface UserManagementServiceClient {
                                  @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
                                  @RequestHeader(value = Constants.LOCALE_LANGUAGE,
                                          defaultValue = Constants.DEFAULT_LOCALE) final Locale locale);
+
+    @GetMapping(value = "/procurement-approvers-by-organization/{organizationId}")
+    UserResponse findProcurementApproversByOrganization(@PathVariable("organizationId") Long organizationId,
+                                                        @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                                                                defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
+
+    @GetMapping(value = "/find-by-organization-id/{organizationId}")
+    UserResponse findByOrganizationId(@PathVariable("organizationId") Long organizationId,
+                                      @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                                              defaultValue = Constants.DEFAULT_LOCALE) Locale locale);
 }

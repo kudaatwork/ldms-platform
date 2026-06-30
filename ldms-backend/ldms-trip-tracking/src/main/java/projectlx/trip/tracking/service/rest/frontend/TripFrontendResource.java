@@ -19,13 +19,21 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import projectlx.trip.tracking.business.logic.support.ClerkPortalService;
+import projectlx.trip.tracking.business.logic.support.TripChatService;
 import projectlx.trip.tracking.service.processor.api.TripServiceProcessor;
 import projectlx.trip.tracking.utils.requests.RecordLocationRequest;
 import projectlx.trip.tracking.utils.requests.RecordTripEventRequest;
+import projectlx.trip.tracking.utils.requests.SendTripMessageRequest;
 import projectlx.trip.tracking.utils.requests.StartTripRequest;
 import projectlx.trip.tracking.utils.requests.TriggerArrivalRequest;
 import projectlx.trip.tracking.utils.requests.TripFilterRequest;
 import projectlx.trip.tracking.utils.requests.VerifyDeliveryOtpRequest;
+import projectlx.trip.tracking.utils.responses.ClerkProfileResponse;
+import projectlx.trip.tracking.utils.responses.IncomingDeliveriesResponse;
+import projectlx.trip.tracking.utils.responses.IncomingDeliveryResponse;
+import projectlx.trip.tracking.utils.responses.ReceiverContactResponse;
+import projectlx.trip.tracking.utils.responses.TripChatResponse;
 import projectlx.trip.tracking.utils.responses.TripResponse;
 import projectlx.co.zw.shared_library.utils.audit.Auditable;
 import projectlx.co.zw.shared_library.utils.constants.Constants;
@@ -42,6 +50,8 @@ public class TripFrontendResource {
     private static final Logger logger = LoggerFactory.getLogger(TripFrontendResource.class);
 
     private final TripServiceProcessor tripServiceProcessor;
+    private final TripChatService tripChatService;
+    private final ClerkPortalService clerkPortalService;
 
     @Auditable(action = "START_TRIP")
     @PreAuthorize("isAuthenticated()")
@@ -216,6 +226,80 @@ public class TripFrontendResource {
             @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         TripResponse response = tripServiceProcessor.findMyTripById(tripId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    // ============================================================
+    // Driver ⇄ receiver chat
+    // ============================================================
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/my-trips/{tripId}/messages")
+    @Operation(summary = "List chat messages for a trip (driver or receiver)")
+    public ResponseEntity<TripChatResponse> listTripMessages(
+            @PathVariable final Long tripId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        TripChatResponse response = tripChatService.listMessages(tripId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @Auditable(action = "SEND_TRIP_MESSAGE")
+    @PreAuthorize("isAuthenticated()")
+    @PostMapping("/my-trips/{tripId}/messages")
+    @Operation(summary = "Send a chat message on a trip (driver or receiver)")
+    public ResponseEntity<TripChatResponse> sendTripMessage(
+            @PathVariable final Long tripId,
+            @RequestBody final SendTripMessageRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        TripChatResponse response = tripChatService.sendMessage(tripId, request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/my-trips/{tripId}/receiver-contact")
+    @Operation(summary = "Get the receiver's contact details for a trip")
+    public ResponseEntity<ReceiverContactResponse> getReceiverContact(
+            @PathVariable final Long tripId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        ReceiverContactResponse response = tripChatService.getReceiverContact(tripId, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    // ============================================================
+    // Clerk portal (stock-receiving)
+    // ============================================================
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/clerks/me")
+    @Operation(summary = "Get the logged-in clerk's profile")
+    public ResponseEntity<ClerkProfileResponse> getMyClerkProfile(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        ClerkProfileResponse response = clerkPortalService.getMyProfile(username, locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/clerks/incoming-deliveries")
+    @Operation(summary = "List inbound deliveries for the clerk's organisation")
+    public ResponseEntity<IncomingDeliveriesResponse> getIncomingDeliveries(
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        IncomingDeliveriesResponse response = clerkPortalService.getIncomingDeliveries(username, locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping("/clerks/incoming-deliveries/{tripId}")
+    @Operation(summary = "Get a single inbound delivery for the clerk's organisation")
+    public ResponseEntity<IncomingDeliveryResponse> getIncomingDelivery(
+            @PathVariable final Long tripId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        IncomingDeliveryResponse response = clerkPortalService.getIncomingDelivery(username, tripId, locale);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 }

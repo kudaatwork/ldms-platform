@@ -4,7 +4,11 @@
   display: flex;
   flex-direction: column;
   background: var(--surface, #fff);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+  border: var(--card-border, 1px solid rgba(148, 173, 214, 0.18));
   border-radius: 20px;
+  box-shadow: var(--card-shadow, 0 18px 48px rgba(2, 6, 20, 0.4));
   overflow: hidden;
   font-family: var(--font, 'Plus Jakarta Sans'), sans-serif;
 }
@@ -651,25 +655,28 @@
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ DARK MODE
 :host-context(.theme-dark) {
   .dwf-field__input {
-    background: #1e293b;
-    border-color: #334155;
-    color: #f1f5f9;
+    background: rgba(11, 18, 34, 0.55);
+    border-color: rgba(148, 173, 214, 0.22);
+    color: var(--gray-900);
   }
 
   .dwf-toggle {
-    background: #1e293b;
-    border-color: #334155;
-    &--on { background: rgba(59, 130, 246, .15); }
-    &__who { color: #f1f5f9; }
+    background: rgba(148, 173, 214, 0.08);
+    border-color: rgba(148, 173, 214, 0.18);
+    &--on {
+      background: rgba(96, 165, 250, 0.16);
+      border-color: rgba(96, 165, 250, 0.5);
+    }
+    &__who { color: var(--gray-900); }
   }
 
   .dwf-otp-input {
-    background: #1e293b;
-    border-color: #475569;
-    color: #f1f5f9;
+    background: rgba(11, 18, 34, 0.55);
+    border-color: rgba(148, 173, 214, 0.3);
+    color: var(--gray-900);
   }
 
-  .dwf-add-return { background: #0f172a; border-color: #334155; }
-  .dwf-return-item { background: #1e293b; border-color: #334155; }
-  .dwf-step__title { color: #f1f5f9; }
+  .dwf-add-return { background: rgba(11, 18, 34, 0.5); border-color: rgba(148, 173, 214, 0.18); }
+  .dwf-return-item { background: rgba(148, 173, 214, 0.08); border-color: rgba(148, 173, 214, 0.18); }
+  .dwf-step__title { color: var(--gray-900); }
 }

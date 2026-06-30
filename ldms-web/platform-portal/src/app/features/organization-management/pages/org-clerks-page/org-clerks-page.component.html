@@ -1,0 +1,172 @@
+<div class="om-page">
+  <lx-workspace-hero
+    variant="slate"
+    eyebrow="Organization management"
+    eyebrowIcon="corporate_fare"
+    title="Clerks"
+    lead="Branch and depot clerks who handle stock receipts, deliveries, and day-to-day operations."
+    hubIcon="badge"
+    [orbitIcons]="['inventory_2', 'local_shipping']"
+  ></lx-workspace-hero>
+
+  <div class="lx-card lx-card--subsection" *ngIf="!loading || clerks.length">
+    <div class="lx-controls-head">
+      <div class="lx-controls-head__text">
+        <h3 class="lx-controls-title">Table controls</h3>
+        <p class="lx-controls-subtitle">Search, filter, export, and manage clerks.</p>
+      </div>
+    </div>
+
+    <div class="lx-data-toolbar">
+      <div class="lx-data-toolbar__actions">
+        <button type="button" class="lx-btn lx-btn-primary lx-btn-sm" (click)="openCreate()" [disabled]="actionInProgress">
+          <mat-icon>person_add</mat-icon>
+          Add clerk
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="openImport()" [disabled]="actionInProgress">
+          <mat-icon>upload_file</mat-icon>
+          Import
+        </button>
+        <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="reload()" [disabled]="actionInProgress || loading">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-success lx-btn-sm lx-export-trigger"
+          [matMenuTriggerFor]="exportMenu"
+          [disabled]="actionInProgress || exporting || !filteredClerks.length"
+        >
+          Export{{ exporting ? '…' : '' }}
+        </button>
+      </div>
+      <div class="lx-data-toolbar__search">
+        <div class="lx-input-shell lx-search-field">
+          <mat-icon class="lx-input-shell__icon">search</mat-icon>
+          <input [(ngModel)]="searchQuery" placeholder="Search clerks…" autocomplete="off" />
+        </div>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm lx-btn-filter"
+          (click)="filterFieldsOpen = !filterFieldsOpen"
+          [class.lx-btn-filter--on]="filterFieldsOpen || hasActiveFilters()"
+        >
+          <mat-icon>tune</mat-icon>
+          Filters
+        </button>
+      </div>
+    </div>
+
+    <mat-menu #exportMenu="matMenu" panelClass="lx-export-menu">
+      <button mat-menu-item class="lx-export-option--pdf" (click)="exportAs('pdf')">
+        <mat-icon>picture_as_pdf</mat-icon>
+        <span>Export PDF</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--csv" (click)="exportAs('csv')">
+        <mat-icon>table_view</mat-icon>
+        <span>Export CSV</span>
+      </button>
+      <button mat-menu-item class="lx-export-option--xlsx" (click)="exportAs('xlsx')">
+        <mat-icon>grid_on</mat-icon>
+        <span>Export XLSX</span>
+      </button>
+    </mat-menu>
+
+    <div class="lx-filter-panel" *ngIf="filterFieldsOpen">
+      <span class="lx-filter-panel__label">Column filters</span>
+      <div class="lx-filter-fields">
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Name</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">filter_alt</mat-icon>
+            <input [(ngModel)]="columnFilters.name" placeholder="Name contains…" />
+          </div>
+        </div>
+        <div class="lx-filter-field-wrap">
+          <div class="lx-field-label">Status</div>
+          <div class="lx-input-shell lx-filter-field">
+            <mat-icon class="lx-input-shell__icon">toggle_on</mat-icon>
+            <select [(ngModel)]="columnFilters.status">
+              <option [ngValue]="''">Any</option>
+              <option [ngValue]="true">Active</option>
+              <option [ngValue]="false">Inactive</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <lx-table-loading [busy]="loading" message="Loading clerks…"></lx-table-loading>
+
+  <div class="lx-empty" *ngIf="!loading && error">
+    <mat-icon class="lx-empty-icon">error_outline</mat-icon>
+    <div class="lx-empty-title">{{ error }}</div>
+  </div>
+
+  <section class="lx-card om-panel" *ngIf="!loading && !error">
+    <header class="om-panel__head" *ngIf="clerks.length">
+      <h2>Registered clerks</h2>
+      <p>
+        {{ filteredClerks.length }} record{{ filteredClerks.length === 1 ? '' : 's' }}
+        <span *ngIf="filteredClerks.length !== clerks.length"> · filtered from {{ clerks.length }}</span>
+      </p>
+    </header>
+
+    <table class="lx-data-table" *ngIf="filteredClerks.length">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Username</th>
+          <th>Contact</th>
+          <th>Branch</th>
+          <th>Role</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let clerk of filteredClerks">
+          <td>
+            <strong>{{ clerk.name }}</strong>
+          </td>
+          <td>{{ clerk.username }}</td>
+          <td>
+            <div>{{ clerk.email || '—' }}</div>
+            <small *ngIf="clerk.phoneNumber">{{ clerk.phoneNumber }}</small>
+          </td>
+          <td>{{ clerkBranchName(clerk) }}</td>
+          <td>{{ clerk.role || clerk.accountType || '—' }}</td>
+          <td>
+            <span [class]="clerk.status === 'ACTIVE' ? 'lx-status lx-status-active' : 'lx-status lx-status-inactive'">
+              {{ clerk.statusLabel || clerk.status }}
+            </span>
+          </td>
+          <td class="lx-actions-cell">
+            <button type="button" mat-icon-button [matMenuTriggerFor]="rowMenu" aria-label="Row actions">
+              <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #rowMenu="matMenu" panelClass="lx-row-actions-menu">
+              <button mat-menu-item type="button" (click)="openEdit(clerk)">
+                <mat-icon>edit</mat-icon>
+                <span>Edit</span>
+              </button>
+              <button mat-menu-item type="button" (click)="deleteClerk(clerk)">
+                <mat-icon>delete</mat-icon>
+                <span>Remove</span>
+              </button>
+            </mat-menu>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="lx-empty" *ngIf="!filteredClerks.length">
+      <mat-icon class="lx-empty-icon">groups</mat-icon>
+      <div class="lx-empty-title">No clerks found</div>
+      <p class="lx-empty-body">
+        Click <strong>Add clerk</strong> to create one, or <strong>Import</strong> a CSV to add several at once.
+      </p>
+    </div>
+  </section>
+</div>

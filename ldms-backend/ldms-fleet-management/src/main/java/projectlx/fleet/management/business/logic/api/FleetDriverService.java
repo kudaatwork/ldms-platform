@@ -40,6 +40,13 @@ public interface FleetDriverService {
     FleetDriverResponse findMyProfile(Locale locale, String username);
 
     /**
+     * Updates the currently authenticated driver's own profile. Only self-editable
+     * fields (names, contact, license, identity documents, address) are applied;
+     * the user link and employment type are preserved.
+     */
+    FleetDriverResponse updateMyProfile(EditFleetDriverRequest request, Locale locale, String username);
+
+    /**
      * Searches the marketplace for freelance drivers that are visible and not already
      * employed by the caller's organisation.
      *

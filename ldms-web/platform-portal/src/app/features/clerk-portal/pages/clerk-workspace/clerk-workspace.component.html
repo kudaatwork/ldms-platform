@@ -1,0 +1,130 @@
+<div class="cw-shell">
+
+  <!-- ═══════════════════════════════════════════════════ HERO HEADER -->
+  <div class="cw-hero">
+    <div class="cw-hero__gradient"></div>
+    <div class="cw-hero__content">
+      <div class="cw-hero__top">
+        <div class="cw-hero__avatar" aria-hidden="true">
+          {{ currentUserName.charAt(0).toUpperCase() }}
+        </div>
+        <div class="cw-hero__identity">
+          <div class="cw-hero__name">{{ currentUserName }}</div>
+          <div class="cw-hero__company">
+            <span class="material-icons" aria-hidden="true">business</span>
+            {{ organizationName }}
+          </div>
+          <div class="cw-hero__branch">
+            <span class="material-icons" aria-hidden="true">warehouse</span>
+            {{ branchName }}
+          </div>
+        </div>
+        <button class="cw-hero__refresh" (click)="refresh()" [class.cw-hero__refresh--spinning]="refreshing"
+          aria-label="Refresh deliveries">
+          <span class="material-icons" aria-hidden="true">refresh</span>
+        </button>
+      </div>
+
+      <!-- Metrics row -->
+      <div class="cw-hero__metrics">
+        <div class="cw-metric">
+          <div class="cw-metric__value">{{ metrics.incomingToday }}</div>
+          <div class="cw-metric__label">Incoming today</div>
+        </div>
+        <div class="cw-metric__divider"></div>
+        <div class="cw-metric">
+          <div class="cw-metric__value">{{ metrics.receivedToday }}</div>
+          <div class="cw-metric__label">Received today</div>
+        </div>
+        <div class="cw-metric__divider"></div>
+        <div class="cw-metric">
+          <div class="cw-metric__value">{{ metrics.pendingDeliveries }}</div>
+          <div class="cw-metric__label">Pending</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- ════════════════════════════════════════════════ / HERO HEADER -->
+
+  <!-- ═══════════════════════════════════════════════ PROFILE ERROR -->
+  <div class="cw-notice cw-notice--warn" *ngIf="profileError">
+    <span class="material-icons" aria-hidden="true">warning_amber</span>
+    Profile unavailable: {{ profileError }}
+  </div>
+
+  <!-- ═══════════════════════════════════════════ INCOMING DELIVERIES SECTION -->
+  <div class="cw-section">
+    <div class="cw-section__header">
+      <h2 class="cw-section__title">Incoming deliveries</h2>
+      <span class="cw-section__sub" *ngIf="lastRefreshed">
+        Updated {{ lastRefreshed | date:'HH:mm:ss' }}
+      </span>
+    </div>
+
+    <!-- Loading skeletons -->
+    <div class="cw-card-list" *ngIf="loadingDeliveries">
+      <div class="cw-card cw-card--skeleton" *ngFor="let _ of [1,2,3]">
+        <div class="cw-skeleton cw-skeleton--title"></div>
+        <div class="cw-skeleton cw-skeleton--line"></div>
+        <div class="cw-skeleton cw-skeleton--line cw-skeleton--short"></div>
+      </div>
+    </div>
+
+    <!-- Deliveries error -->
+    <div class="cw-notice cw-notice--danger" *ngIf="deliveriesError && !loadingDeliveries">
+      <span class="material-icons" aria-hidden="true">error_outline</span>
+      {{ deliveriesError }}
+      <button class="cw-notice__btn" (click)="refresh()">Retry</button>
+    </div>
+
+    <!-- Empty state -->
+    <div class="cw-empty" *ngIf="!loadingDeliveries && !deliveriesError && deliveries.length === 0">
+      <span class="material-icons cw-empty__icon">inventory_2</span>
+      <p class="cw-empty__title">No incoming deliveries</p>
+      <p class="cw-empty__sub">Deliveries assigned to your branch will appear here.</p>
+    </div>
+
+    <!-- Delivery cards -->
+    <div class="cw-card-list" *ngIf="!loadingDeliveries && !deliveriesError && deliveries.length > 0">
+      <button class="cw-card" *ngFor="let d of deliveries" (click)="openDelivery(d.tripId)">
+        <div class="cw-card__header">
+          <span class="cw-card__trip">{{ d.tripNumber }}</span>
+          <span class="cw-card__status" [ngClass]="statusClass(d.status)">
+            {{ statusLabel(d.status) }}
+          </span>
+        </div>
+
+        <div class="cw-card__route">
+          <span class="material-icons" aria-hidden="true">route</span>
+          {{ d.originBranch }}
+        </div>
+
+        <div class="cw-card__product">
+          <span class="material-icons" aria-hidden="true">inventory_2</span>
+          {{ d.productName }}
+          <span class="cw-card__qty">× {{ d.quantity }}</span>
+        </div>
+
+        <div class="cw-card__driver" *ngIf="d.driverName">
+          <span class="material-icons" aria-hidden="true">person</span>
+          {{ d.driverName }}
+          <span class="cw-card__vehicle" *ngIf="d.vehicleReg">· {{ d.vehicleReg }}</span>
+        </div>
+
+        <div class="cw-card__footer">
+          <span class="cw-card__eta" *ngIf="d.eta && !d.arrivedAt">
+            <span class="material-icons" aria-hidden="true">schedule</span>
+            ETA {{ d.eta | date:'shortTime' }}
+          </span>
+          <span class="cw-card__arrived" *ngIf="d.arrivedAt">
+            <span class="material-icons" aria-hidden="true">check_circle</span>
+            Arrived {{ d.arrivedAt | date:'shortTime' }}
+          </span>
+          <span class="cw-card__action">
+            Receive <span class="material-icons" aria-hidden="true">arrow_forward</span>
+          </span>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>

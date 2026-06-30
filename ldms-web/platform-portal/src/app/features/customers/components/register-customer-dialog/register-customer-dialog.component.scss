@@ -1,10 +1,173 @@
 @use '../../../../shared/styles/lx-dialog-form-shell';
 
+:host {
+  display: block;
+
+  .lx-input-shell input:not([type='checkbox']):not([type='radio']):not([type='file'])::placeholder,
+  .lx-input-shell textarea::placeholder {
+    color: var(--gray-400, #94a3b8);
+    opacity: 1;
+  }
+}
+
+.lx-dialog-header {
+  align-items: flex-start;
+}
+
+.cust-reg-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+
+  mat-icon {
+    font-size: 22px;
+    width: 22px;
+    height: 22px;
+  }
+}
+
+.cust-reg-progress {
+  padding: 0 24px 18px;
+  border-bottom: 1px solid var(--gray-100, #f1f5f9);
+}
+
+.cust-reg-progress-steps {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.cust-reg-step {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--gray-500, #64748b);
+}
+
+.cust-reg-step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto 6px;
+  border-radius: 999px;
+  background: var(--gray-100, #f1f5f9);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--gray-400, #94a3b8);
+}
+
+.cust-reg-step-label {
+  display: block;
+  line-height: 1.25;
+  padding: 0 2px;
+}
+
+.cust-reg-step--active {
+  color: var(--primary, #2563eb);
+
+  .cust-reg-step-num {
+    background: var(--primary, #2563eb);
+    color: #fff;
+  }
+
+  .cust-reg-step-label {
+    color: var(--primary, #2563eb);
+    font-weight: 600;
+  }
+}
+
+.cust-reg-step--done {
+  .cust-reg-step-num {
+    background: var(--success, #10b981);
+    color: #fff;
+  }
+
+  .cust-reg-step-label {
+    color: var(--gray-600, #475569);
+  }
+}
+
+.cust-reg-progress-bar {
+  height: 4px;
+  background: var(--gray-200, #e2e8f0);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cust-reg-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary, #2563eb), #7c3aed);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.cust-reg-review {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--gray-50, #f8fafc);
+  border: 1px solid var(--gray-100, #f1f5f9);
+
+  h3 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gray-800, #1e293b);
+  }
+
+  p {
+    margin: 0 0 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--gray-600, #475569);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--gray-600, #475569);
+  }
+}
+
 .lx-dialog-actions {
   display: flex;
   justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   margin-top: 20px;
   padding-top: 16px;
   border-top: 1px solid var(--gray-100, #f1f5f9);
+}
+
+.cust-dialog-loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--gray-500, #64748b);
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .cust-reg-progress-steps {
+    gap: 4px;
+  }
+
+  .cust-reg-step-label {
+    font-size: 10px;
+  }
 }

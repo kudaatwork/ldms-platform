@@ -36,6 +36,7 @@ import projectlx.user.management.business.logic.api.UserPreferencesService;
 import projectlx.user.management.business.logic.api.UserSecurityService;
 import projectlx.user.management.business.logic.api.UserService;
 import projectlx.user.management.business.logic.api.UserTypeService;
+import projectlx.user.management.business.logic.support.BranchStaffCredentialsSupport;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceProvisioner;
 import projectlx.user.management.business.logic.support.PhoneVerificationSupport;
@@ -177,6 +178,7 @@ public class UserServiceImpl implements UserService {
     private final PasswordResetLinkProperties passwordResetLinkProperties;
     private final OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport;
     private final PhoneVerificationSupport phoneVerificationSupport;
+    private final BranchStaffCredentialsSupport branchStaffCredentialsSupport;
 
     private static final Logger logger = LoggerFactory.getLogger(UserServiceImpl.class);
     private static final String[] HEADERS = {
@@ -201,6 +203,21 @@ public class UserServiceImpl implements UserService {
     public UserResponse create(CreateUserRequest createUserRequest, Locale locale, String username) {
 
         String message = "";
+
+        // Branch staff (clerks/managers, incl. bulk import) are provisioned with auto-generated
+        // temporary credentials, emailed a sign-in link, and forced to set permanent credentials
+        // on first login. Inject the generated username/password before validation so the standard
+        // create flow persists them as usual.
+        boolean issueTemporaryCredentials = Boolean.TRUE.equals(createUserRequest.getIssueTemporaryCredentials());
+        String temporaryUsername = null;
+        String temporaryPassword = null;
+        if (issueTemporaryCredentials) {
+            temporaryUsername = branchStaffCredentialsSupport.generateUniqueTemporaryUsername(
+                    createUserRequest.getOrganizationId());
+            temporaryPassword = branchStaffCredentialsSupport.generateTemporaryPassword();
+            createUserRequest.setUsername(temporaryUsername);
+            createUserRequest.setPassword(temporaryPassword);
+        }
 
         ValidatorDto validatorDto = userServiceValidator.isCreateUserRequestValid(createUserRequest, locale);
 
@@ -487,13 +504,26 @@ public class UserServiceImpl implements UserService {
             }
         }
 
-        String verificationToken = tokenService.generateEmailVerificationToken();
-        userSaved.setVerificationToken(verificationToken);
-        userSaved.setEmailVerified(false);
-        User userSavedForSecondTime = userServiceAuditable.update(userSaved, locale, username);
+        User userSavedForSecondTime;
+        if (issueTemporaryCredentials) {
+            // Account is already trusted (admin-created): skip email verification and instead
+            // email the temporary credentials, forcing a permanent credential setup on first login.
+            userSaved.setVerificationToken(null);
+            userSaved.setEmailVerified(true);
+            userSaved.setMustChangeCredentials(true);
+            userSavedForSecondTime = userServiceAuditable.update(userSaved, locale, username);
 
-        sendVerificationEmail(userSavedForSecondTime, verificationToken);
-        sendWelcomeSms(userSavedForSecondTime);
+            branchStaffCredentialsSupport.publishCredentialsEmail(
+                    userSavedForSecondTime, temporaryUsername, temporaryPassword);
+        } else {
+            String verificationToken = tokenService.generateEmailVerificationToken();
+            userSaved.setVerificationToken(verificationToken);
+            userSaved.setEmailVerified(false);
+            userSavedForSecondTime = userServiceAuditable.update(userSaved, locale, username);
+
+            sendVerificationEmail(userSavedForSecondTime, verificationToken);
+            sendWelcomeSms(userSavedForSecondTime);
+        }
 
         UserDto userDtoReturned = modelMapper.map(userSavedForSecondTime, UserDto.class);
         userDtoReturned.setUserAccountDto(userAccountResponse.getUserAccountDto());
@@ -811,6 +841,9 @@ public class UserServiceImpl implements UserService {
         }
         if (editUserRequest.getPassportUploadId() != null) {
             userToBeEdited.setPassportUploadId(editUserRequest.getPassportUploadId());
+        }
+        if (editUserRequest.getBranchId() != null) {
+            userToBeEdited.setBranchId(editUserRequest.getBranchId());
         }
         applyOrganizationKycApproverFlagOnUpdate(userToBeEdited, editUserRequest);
         applyOperationalIssueHandlerFlagOnUpdate(userToBeEdited, editUserRequest);
@@ -1754,6 +1787,25 @@ public class UserServiceImpl implements UserService {
         }
         String message = messageService.getMessage(
                 I18Code.MESSAGE_USER_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+        return buildUserResponse(200, true, message, null, dtos, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public UserResponse findProcurementApproversByOrganization(Long organizationId, Locale locale) {
+        if (organizationId == null || organizationId <= 0) {
+            String message = messageService.getMessage(
+                    I18Code.MESSAGE_USER_ID_SUPPLIED_INVALID.getCode(), new String[]{}, locale);
+            return buildUserResponse(400, false, message, null, null, null);
+        }
+        List<User> approvers = userRepository.findProcurementApproversByOrganizationWorkspace(
+                organizationId, EntityStatus.DELETED);
+        List<UserDto> dtos = new ArrayList<>();
+        for (User user : approvers) {
+            dtos.add(toUserDto(user));
+        }
+        String message = messageService.getMessage(
+                I18Code.MESSAGE_PROCUREMENT_APPROVERS_RETRIEVED.getCode(), new String[]{}, locale);
         return buildUserResponse(200, true, message, null, dtos, null);
     }
 

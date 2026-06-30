@@ -62,6 +62,9 @@ public interface UserService {
      */
     UserResponse findFleetManagersByOrganization(Long organizationId, Locale locale);
 
+    /** Organisation workspace users flagged as procurement approvers — system-caller endpoint. */
+    UserResponse findProcurementApproversByOrganization(Long organizationId, Locale locale);
+
     UserResponse setProcurementApprover(Long id, boolean enabled, Locale locale, String username);
 
     UserResponse setShipmentFleetAllocator(Long id, boolean enabled, Locale locale, String username);

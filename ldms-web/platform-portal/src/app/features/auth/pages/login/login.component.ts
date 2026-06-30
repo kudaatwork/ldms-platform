@@ -34,8 +34,8 @@ export class LoginComponent implements OnInit, AfterViewInit {
   twoFactorOtp = '';
   twoFactorMethod: 'SMS' | 'AUTHENTICATOR_APP' = 'SMS';
 
-  /** Active portal tab: organisation workspace or driver mobile portal. */
-  portalTab: 'org' | 'driver' = 'org';
+  /** Active portal tab: organisation workspace, driver mobile portal, or clerk stock-receiving webview. */
+  portalTab: 'org' | 'driver' | 'clerk' = 'org';
 
   readonly googleClientId = (environment.googleOAuthClientId ?? '').trim();
   @ViewChild('googleSignInHost', { static: false }) googleSignInHost?: ElementRef<HTMLElement>;
@@ -71,6 +71,8 @@ export class LoginComponent implements OnInit, AfterViewInit {
     }
     if (this.route.snapshot.queryParamMap.get('portal') === 'driver') {
       this.portalTab = 'driver';
+    } else if (this.route.snapshot.queryParamMap.get('portal') === 'clerk') {
+      this.portalTab = 'clerk';
     }
     const logoutReason = this.route.snapshot.queryParamMap.get('reason');
     if (logoutReason === 'inactivity') {
@@ -105,9 +107,15 @@ export class LoginComponent implements OnInit, AfterViewInit {
       commands = ['/auth/setup-credentials'];
       if (this.portalTab === 'driver') {
         extras = { ...extras, queryParams: { portal: 'driver' } };
+      } else if (this.portalTab === 'clerk') {
+        extras = { ...extras, queryParams: { portal: 'clerk' } };
       }
+    } else if (this.portalTab === 'driver') {
+      commands = ['/driver'];
+    } else if (this.portalTab === 'clerk') {
+      commands = ['/clerk/workspace'];
     } else {
-      commands = this.portalTab === 'driver' ? ['/driver'] : postLoginRoute;
+      commands = postLoginRoute;
     }
 
     try {
@@ -173,7 +181,7 @@ export class LoginComponent implements OnInit, AfterViewInit {
     });
   }
 
-  selectTab(tab: 'org' | 'driver'): void {
+  selectTab(tab: 'org' | 'driver' | 'clerk'): void {
     this.portalTab = tab;
     this.error = '';
     this.infoMessage = '';

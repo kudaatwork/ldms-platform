@@ -389,6 +389,80 @@ public class FleetDriverServiceImpl implements FleetDriverService {
         return response;
     }
 
+    @Override
+    @Transactional
+    public FleetDriverResponse updateMyProfile(EditFleetDriverRequest request, Locale locale, String username) {
+
+        // ============================================================
+        // STEP 1: Resolve the caller's own driver record
+        // ============================================================
+        Long userId = resolveUserIdFromUsername(username);
+        if (userId == null) {
+            return errorResponse(400, messageService.getMessage(
+                    I18Code.MESSAGE_ORGANIZATION_UNRESOLVED.getCode(), new String[]{}, locale));
+        }
+        FleetDriver driver = fleetDriverRepository
+                .findByUserIdAndEntityStatusNot(userId, EntityStatus.DELETED).orElse(null);
+        if (driver == null) {
+            return errorResponse(404, messageService.getMessage(
+                    I18Code.MESSAGE_DRIVER_NOT_FOUND.getCode(), new String[]{}, locale));
+        }
+
+        // ============================================================
+        // STEP 2: Validate (reuse edit validation against the caller's own id)
+        // ============================================================
+        if (request != null) {
+            request.setId(driver.getId());
+            request.setUserId(driver.getUserId()); // never let a driver re-link their account
+            // employmentType is org-managed: we simply never apply it below, preserving the stored value
+        }
+        ValidatorDto validation = fleetDriverServiceValidator.isEditFleetDriverRequestValid(request, locale);
+        if (!validation.getSuccess()) {
+            return errorResponse(400,
+                    messageService.getMessage(I18Code.MESSAGE_DRIVER_UPDATE_INVALID.getCode(), new String[]{}, locale),
+                    validation.getErrorMessages());
+        }
+
+        // ============================================================
+        // STEP 3: Validate uploaded document references
+        // ============================================================
+        List<String> uploadErrors = validateUploadReferences(
+                request.getNationalIdUploadId(),
+                request.getPassportUploadId(),
+                request.getLicenseUploadId(),
+                driver.getId(),
+                driver.getUserId(),
+                locale);
+        if (!uploadErrors.isEmpty()) {
+            return errorResponse(400,
+                    messageService.getMessage(I18Code.MESSAGE_DRIVER_UPDATE_INVALID.getCode(), new String[]{}, locale),
+                    uploadErrors);
+        }
+
+        // ============================================================
+        // STEP 4: Apply only self-editable fields and persist
+        // ============================================================
+        driver.setFirstName(request.getFirstName().trim());
+        driver.setLastName(request.getLastName().trim());
+        driver.setPhoneNumber(request.getPhoneNumber());
+        driver.setLicenseNumber(request.getLicenseNumber().trim());
+        driver.setLicenseClass(request.getLicenseClass());
+        driver.setLicenseUploadId(request.getLicenseUploadId());
+        applyIdentityFields(request.getNationalIdNumber(), request.getNationalIdExpiryDate(),
+                request.getNationalIdUploadId(), request.getPassportNumber(),
+                request.getPassportExpiryDate(), request.getPassportUploadId(), driver);
+        applyAddressFields(request.getAddressLine1(), request.getAddressLine2(), request.getAddressCity(),
+                request.getAddressProvince(), request.getAddressPostalCode(), request.getAddressCountry(), driver);
+        driver.setModifiedAt(LocalDateTime.now());
+        driver.setModifiedBy(username);
+
+        FleetDriver saved = fleetDriverServiceAuditable.update(driver, locale, username);
+        FleetDriverResponse response = successResponse(200,
+                messageService.getMessage(I18Code.MESSAGE_DRIVER_UPDATE_SUCCESS.getCode(), new String[]{}, locale));
+        response.setFleetDriverDto(FleetMapper.toDto(saved));
+        return response;
+    }
+
     private Long resolveUserIdFromUsername(String username) {
         if (username == null || username.isBlank()) {
             return null;

@@ -29,16 +29,33 @@
           <a class="ldms-landing__nav-link" routerLink="/about" [class.ldms-landing__nav-link--active]="isActive('about')">About</a>
           <a class="ldms-landing__nav-link" routerLink="/pricing" [class.ldms-landing__nav-link--active]="isActive('pricing')">Pricing</a>
           <a class="ldms-landing__nav-link" routerLink="/demo" [class.ldms-landing__nav-link--active]="isActive('demo')">Demo</a>
+          <a class="ldms-landing__nav-link" routerLink="/support" [class.ldms-landing__nav-link--active]="isActive('support')">Support</a>
           <a class="ldms-landing__nav-link" routerLink="/contact" [class.ldms-landing__nav-link--active]="isActive('contact')">Contact</a>
         </nav>
 
-        <nav *ngIf="showSectionNav" class="ldms-landing__nav-pages ldms-landing__nav-pages--sections" aria-label="Page sections">
-          <a class="ldms-landing__nav-link" href="#ldms-platform">Platform</a>
-          <a class="ldms-landing__nav-link" href="#ldms-features">Features</a>
-          <a class="ldms-landing__nav-link" href="#ldms-journey">How it works</a>
-        </nav>
-
         <nav class="ldms-landing__nav-actions ldms-landing__nav-actions--desktop" aria-label="Primary">
+          <div class="ldms-landing__chat-switch" role="group" [attr.aria-label]="'Live chat and ' + lexxiName">
+            <button
+              type="button"
+              class="ldms-landing__chat-switch-btn"
+              [class.ldms-landing__chat-switch-btn--on]="chatBrand() === 'live-chat'"
+              [attr.aria-pressed]="chatBrand() === 'live-chat'"
+              (click)="selectChatBrand('live-chat')"
+            >
+              <span class="material-icons" aria-hidden="true">forum</span>
+              Live chat
+            </button>
+            <button
+              type="button"
+              class="ldms-landing__chat-switch-btn"
+              [class.ldms-landing__chat-switch-btn--on]="chatBrand() === 'lexxi'"
+              [attr.aria-pressed]="chatBrand() === 'lexxi'"
+              (click)="selectChatBrand('lexxi')"
+            >
+              <span class="material-icons" aria-hidden="true">smart_toy</span>
+              {{ lexxiName }}
+            </button>
+          </div>
           <a class="ldms-landing__link" [href]="adminUrl + '/auth/login'" rel="noopener">Admin</a>
           <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__btn-ghost">Sign in</a>
           <button type="button" class="lx-btn lx-btn-primary ldms-landing__nav-cta" (click)="goSignup()">Get started</button>
@@ -68,7 +85,16 @@
         <a class="ldms-landing__mobile-link" routerLink="/about" (click)="closeMobileNav()">About</a>
         <a class="ldms-landing__mobile-link" routerLink="/pricing" (click)="closeMobileNav()">Pricing</a>
         <a class="ldms-landing__mobile-link" routerLink="/demo" (click)="closeMobileNav()">Demo</a>
+        <a class="ldms-landing__mobile-link" routerLink="/support" (click)="closeMobileNav()">Support</a>
         <a class="ldms-landing__mobile-link" routerLink="/contact" (click)="closeMobileNav()">Contact</a>
+        <button type="button" class="ldms-landing__mobile-link ldms-landing__mobile-link--chat" (click)="selectChatBrand('live-chat')">
+          <span class="material-icons" aria-hidden="true">forum</span>
+          Live chat
+        </button>
+        <button type="button" class="ldms-landing__mobile-link ldms-landing__mobile-link--chat" (click)="selectChatBrand('lexxi')">
+          <span class="material-icons" aria-hidden="true">smart_toy</span>
+          {{ lexxiName }}
+        </button>
         <a routerLink="/auth/login" class="lx-btn lx-btn-secondary ldms-landing__mobile-btn" (click)="closeMobileNav()">Sign in</a>
         <button type="button" class="lx-btn lx-btn-primary ldms-landing__mobile-btn" (click)="goSignup(); closeMobileNav()">Get started</button>
       </nav>
@@ -94,6 +120,7 @@
           <a routerLink="/about">About</a>
           <a routerLink="/pricing">Pricing</a>
           <a routerLink="/demo">Live demo</a>
+          <a routerLink="/support">Support</a>
           <a routerLink="/contact">Contact</a>
         </div>
         <div class="ldms-footer__col">
@@ -103,6 +130,12 @@
           <a [href]="adminUrl + '/auth/login'" rel="noopener">Admin console</a>
         </div>
         <div class="ldms-footer__col">
+          <h3>Support</h3>
+          <a routerLink="/support">Support overview</a>
+          <button type="button" class="ldms-footer__chat-link" (click)="selectChatBrand('live-chat')">Live chat</button>
+          <button type="button" class="ldms-footer__chat-link" (click)="selectChatBrand('lexxi')">Chat with {{ lexxiName }}</button>
+        </div>
+        <div class="ldms-footer__col">
           <h3>Mobile apps</h3>
           <a [href]="appleAppStoreUrl" target="_blank" rel="noopener noreferrer">App Store</a>
           <a [href]="googlePlayStoreUrl" target="_blank" rel="noopener noreferrer">Google Play</a>
@@ -110,4 +143,6 @@
       </div>
     </div>
   </footer>
+
+  <app-lx-lexi-chat-widget mode="guest"></app-lx-lexi-chat-widget>
 </div>

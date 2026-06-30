@@ -47,6 +47,7 @@ import projectlx.user.management.business.logic.api.PlatformHealthService;
 import projectlx.user.management.business.logic.impl.PlatformHealthServiceImpl;
 import projectlx.user.management.business.logic.api.HelpSupportService;
 import projectlx.user.management.business.logic.impl.HelpSupportServiceImpl;
+import projectlx.user.management.business.logic.support.BranchStaffCredentialsSupport;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceAccessSupport;
 import projectlx.user.management.business.logic.support.OrganizationWorkspaceProvisioner;
 import projectlx.user.management.business.logic.support.PhoneVerificationSupport;
@@ -245,14 +246,15 @@ public class BusinessConfig {
             EmailVerificationLinkProperties emailVerificationLinkProperties,
             PasswordResetLinkProperties passwordResetLinkProperties,
             OrganizationWorkspaceAccessSupport organizationWorkspaceAccessSupport,
-            PhoneVerificationSupport phoneVerificationSupport) {
+            PhoneVerificationSupport phoneVerificationSupport,
+            BranchStaffCredentialsSupport branchStaffCredentialsSupport) {
         return new UserServiceImpl(userServiceValidator, messageService, userRepository, userAccountRepository,
                 userAddressRepository, userPasswordRepository, userPreferencesRepository, userSecurityRepository,
                 userTypeRepository, modelMapper, userServiceAuditable, userAccountServiceAuditable, userPasswordServiceAuditable,
                 userPreferencesServiceAuditable, userSecurityServiceAuditable, userAccountService, userPasswordService,
                 userAddressService, userPreferencesService, userSecurityService, userTypeService, fileUploadServiceClient,
                 rabbitTemplate, tokenService, emailVerificationLinkProperties, passwordResetLinkProperties,
-                organizationWorkspaceAccessSupport, phoneVerificationSupport
+                organizationWorkspaceAccessSupport, phoneVerificationSupport, branchStaffCredentialsSupport
         );
     }
 

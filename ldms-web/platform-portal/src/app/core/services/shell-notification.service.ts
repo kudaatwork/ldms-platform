@@ -4,6 +4,7 @@ import {
   fuelAlertTone,
 } from '../constants/fuel-alert.constants';
 import { VerificationService, VerificationUserFlags } from './verification.service';
+import type { PlatformInboxNotification } from './platform-inbox.service';
 
 import type { PlatformWalletSummary, UsageChargeReport } from './platform-wallet.service';
 
@@ -14,7 +15,11 @@ export type ShellNotificationAction =
   | 'wallet-low'
   | 'wallet-frozen'
   | 'sms-exhausted'
-  | 'usage-report';
+  | 'usage-report'
+  | 'requisition'
+  | 'purchase-order'
+  | 'transfer'
+  | 'inventory';
 
 export interface ShellNotification {
   id: string;
@@ -25,6 +30,8 @@ export interface ShellNotification {
   urgent?: boolean;
   tripId?: number;
   tone?: 'warn' | 'critical';
+  route?: string;
+  platformNotificationId?: number;
 }
 
 export interface FuelAlertSyncPayload {
@@ -44,6 +51,7 @@ export class ShellNotificationService {
   readonly notifications$ = this.notificationsSubject.asObservable();
   private lastVerificationItems: ShellNotification[] = [];
   private lastWalletItems: ShellNotification[] = [];
+  private lastPlatformItems: ShellNotification[] = [];
 
   constructor(private readonly verification: VerificationService) {}
 
@@ -115,6 +123,7 @@ export class ShellNotificationService {
     }
     this.writeDismissed(dismissed);
     this.writeOperational([]);
+    this.lastPlatformItems = [];
     this.publishMerged();
   }
 
@@ -190,6 +199,81 @@ export class ShellNotificationService {
     this.publishMerged();
   }
 
+  /** Merge server-side platform inbox notifications onto the bell. */
+  syncPlatformInbox(notifications: PlatformInboxNotification[]): void {
+    const dismissed = this.readDismissed();
+    const items: ShellNotification[] = [];
+    for (const row of notifications ?? []) {
+      const id = this.platformId(row.id);
+      if (dismissed.has(id)) {
+        continue;
+      }
+      items.push({
+        id,
+        title: row.title,
+        body: row.body,
+        time: this.formatPlatformTime(row.createdAt),
+        action: this.mapPlatformAction(row.entityType, row.eventKey),
+        route: row.actionRoute,
+        platformNotificationId: row.id,
+        urgent: row.unread === true,
+      });
+    }
+    this.lastPlatformItems = items;
+    this.publishMerged();
+  }
+
+  platformShellId(notificationId: number): string {
+    return this.platformId(notificationId);
+  }
+
+  private platformId(notificationId: number): string {
+    return `platform-${notificationId}`;
+  }
+
+  private mapPlatformAction(
+    entityType?: string,
+    eventKey?: string,
+  ): ShellNotificationAction | undefined {
+    const normalized = String(entityType ?? eventKey ?? '').toLowerCase();
+    if (normalized.includes('requisition')) {
+      return 'requisition';
+    }
+    if (normalized.includes('purchase-order') || normalized.includes('purchase_order')) {
+      return 'purchase-order';
+    }
+    if (normalized.includes('transfer')) {
+      return 'transfer';
+    }
+    if (normalized) {
+      return 'inventory';
+    }
+    return 'inventory';
+  }
+
+  private formatPlatformTime(iso?: string): string {
+    if (!iso) {
+      return 'Just now';
+    }
+    const created = new Date(iso);
+    if (Number.isNaN(created.getTime())) {
+      return 'Just now';
+    }
+    const diffMs = Date.now() - created.getTime();
+    const minutes = Math.round(diffMs / 60_000);
+    if (minutes < 1) {
+      return 'Just now';
+    }
+    if (minutes < 60) {
+      return `${minutes}m ago`;
+    }
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) {
+      return `${hours}h ago`;
+    }
+    return created.toLocaleDateString();
+  }
+
   private formatUsd(cents: number): string {
     return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format((cents ?? 0) / 100);
   }
@@ -202,6 +286,7 @@ export class ShellNotificationService {
     const operational = this.readOperationalFiltered();
     return this.sortNotifications([
       ...operational,
+      ...this.lastPlatformItems,
       ...this.lastWalletItems,
       ...this.lastVerificationItems,
     ]);

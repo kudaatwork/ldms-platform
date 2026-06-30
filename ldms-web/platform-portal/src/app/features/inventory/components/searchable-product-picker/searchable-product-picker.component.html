@@ -28,13 +28,17 @@
     [autoActiveFirstOption]="true"
     (optionSelected)="onProductPicked($event)"
   >
-    <mat-option *ngFor="let p of filteredProducts" [value]="p">
+    <mat-option *ngFor="let p of filteredProducts" [value]="productOptionValue(p)">
       <span class="searchable-product-picker__option">
         <span class="searchable-product-picker__option-name">{{ productLabel(p) }}</span>
-        <span class="searchable-product-picker__option-meta" *ngIf="p.categoryName">{{ p.categoryName }}</span>
+        <span
+          class="searchable-product-picker__option-meta"
+          [class.searchable-product-picker__option-meta--out]="isOutOfStock(p)"
+          *ngIf="productMeta(p)"
+        >{{ productMeta(p) }}</span>
       </span>
     </mat-option>
-    <mat-option disabled *ngIf="searchText.trim() && totalFilteredCount === 0">
+    <mat-option disabled *ngIf="searchQuery && totalFilteredCount === 0">
       No products match your search.
     </mat-option>
     <mat-option disabled *ngIf="hasMoreResults">
@@ -42,7 +46,7 @@
     </mat-option>
   </mat-autocomplete>
 
-  <p class="lx-field-hint searchable-product-picker__hint" *ngIf="!searchText.trim() && !value && products.length">
+  <p class="lx-field-hint searchable-product-picker__hint" *ngIf="!searchQuery && !value && products.length">
     Start typing to filter {{ products.length }} products.
   </p>
 </div>

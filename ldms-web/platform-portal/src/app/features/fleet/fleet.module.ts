@@ -3,6 +3,7 @@ import { SharedModule } from '../../shared/shared.module';
 import { FleetRoutingModule } from './fleet-routing.module';
 import { FleetWorkspaceComponent } from './pages/fleet-workspace/fleet-workspace.component';
 import { RegisterTransporterDialogComponent } from './components/register-transporter-dialog/register-transporter-dialog.component';
+import { LinkTransporterDialogComponent } from './components/link-transporter-dialog/link-transporter-dialog.component';
 import { OwnFleetDialogComponent } from './components/own-fleet-dialog/own-fleet-dialog.component';
 import { FleetDriverDialogComponent } from './components/fleet-driver-dialog/fleet-driver-dialog.component';
 import { FleetAssignDriverDialogComponent } from './components/fleet-assign-driver-dialog/fleet-assign-driver-dialog.component';
@@ -20,11 +21,12 @@ import { DriverSignupRequestsComponent } from './components/driver-signup-reques
   declarations: [
     FleetWorkspaceComponent,
     RegisterTransporterDialogComponent,
+    LinkTransporterDialogComponent,
     FleetTrackingSubnavComponent,
     FleetTrackingApiPageComponent,
     FleetTrackingIntegrationSetupPageComponent,
   ],
-  exports: [RegisterTransporterDialogComponent],
+  exports: [RegisterTransporterDialogComponent, LinkTransporterDialogComponent],
   imports: [
     SharedModule,
     FleetRoutingModule,

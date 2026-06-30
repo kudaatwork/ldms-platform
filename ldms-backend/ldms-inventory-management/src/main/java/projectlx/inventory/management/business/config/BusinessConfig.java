@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 import projectlx.inventory.management.business.auditable.api.GoodsReceivedVoucherServiceAuditable;
 import projectlx.inventory.management.business.auditable.api.InventoryItemServiceAuditable;
 import projectlx.inventory.management.business.auditable.api.InventoryTransferServiceAuditable;
+import projectlx.inventory.management.business.auditable.api.DepartmentServiceAuditable;
 import projectlx.inventory.management.business.auditable.api.ProductCategoryServiceAuditable;
 import projectlx.inventory.management.business.auditable.api.ProductDocumentServiceAuditable;
 import projectlx.inventory.management.business.auditable.api.ProductServiceAuditable;
@@ -30,6 +31,7 @@ import projectlx.inventory.management.business.auditable.impl.GoodsReceivedVouch
 import projectlx.inventory.management.business.auditable.impl.InventoryItemServiceAuditableImpl;
 import projectlx.inventory.management.business.auditable.impl.PurchaseRequisitionServiceAuditableImpl;
 import projectlx.inventory.management.business.auditable.impl.InventoryTransferServiceAuditableImpl;
+import projectlx.inventory.management.business.auditable.impl.DepartmentServiceAuditableImpl;
 import projectlx.inventory.management.business.auditable.impl.ProductCategoryServiceAuditableImpl;
 import projectlx.inventory.management.business.auditable.impl.ProductDocumentServiceAuditableImpl;
 import projectlx.inventory.management.business.auditable.impl.ProductServiceAuditableImpl;
@@ -49,6 +51,7 @@ import projectlx.inventory.management.business.logic.api.GoodsReceiptProcessor;
 import projectlx.inventory.management.business.logic.api.InventoryAllocationService;
 import projectlx.inventory.management.business.logic.api.InventoryItemService;
 import projectlx.inventory.management.business.logic.api.InventoryTransferService;
+import projectlx.inventory.management.business.logic.api.DepartmentService;
 import projectlx.inventory.management.business.logic.api.ProductCategoryService;
 import projectlx.inventory.management.business.logic.api.ProductDocumentService;
 import projectlx.inventory.management.business.logic.api.ProductSubCategoryService;
@@ -67,11 +70,13 @@ import projectlx.inventory.management.business.logic.impl.ConcurrentInventoryHan
 import projectlx.inventory.management.business.logic.impl.InventoryAllocationServiceImpl;
 import projectlx.inventory.management.business.logic.impl.InventoryItemServiceImpl;
 import projectlx.inventory.management.business.logic.impl.InventoryTransferServiceImpl;
+import projectlx.inventory.management.business.logic.impl.DepartmentServiceImpl;
 import projectlx.inventory.management.business.logic.impl.ProductCategoryServiceImpl;
 import projectlx.inventory.management.business.logic.impl.ProductDocumentServiceImpl;
-import projectlx.inventory.management.business.logic.impl.ProductServiceImpl;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
 import projectlx.inventory.management.business.logic.impl.ProductSubCategoryServiceImpl;
 import projectlx.inventory.management.business.logic.impl.PurchaseOrderLineServiceImpl;
+import projectlx.inventory.management.business.logic.impl.ProductServiceImpl;
 import projectlx.inventory.management.business.logic.impl.PurchaseOrderServiceImpl;
 import projectlx.inventory.management.business.logic.impl.PurchaseRequisitionServiceImpl;
 import projectlx.inventory.management.business.logic.impl.PurchaseReturnServiceImpl;
@@ -87,6 +92,7 @@ import projectlx.inventory.management.business.logic.impl.WarehouseLocationServi
 import projectlx.inventory.management.business.validator.api.GoodsReceivedVoucherServiceValidator;
 import projectlx.inventory.management.business.validator.api.InventoryItemServiceValidator;
 import projectlx.inventory.management.business.validator.api.InventoryTransferServiceValidator;
+import projectlx.inventory.management.business.validator.api.DepartmentServiceValidator;
 import projectlx.inventory.management.business.validator.api.ProductCategoryServiceValidator;
 import projectlx.inventory.management.business.validator.api.ProductDocumentServiceValidator;
 import projectlx.inventory.management.business.validator.api.ProductSubCategoryServiceValidator;
@@ -103,6 +109,7 @@ import projectlx.inventory.management.business.validator.api.WarehouseLocationSe
 import projectlx.inventory.management.business.validator.impl.GoodsReceivedVoucherServiceValidatorImpl;
 import projectlx.inventory.management.business.validator.impl.InventoryItemServiceValidatorImpl;
 import projectlx.inventory.management.business.validator.impl.InventoryTransferServiceValidatorImpl;
+import projectlx.inventory.management.business.validator.impl.DepartmentServiceValidatorImpl;
 import projectlx.inventory.management.business.validator.impl.ProductCategoryServiceValidatorImpl;
 import projectlx.inventory.management.business.validator.impl.ProductDocumentServiceValidatorImpl;
 import projectlx.inventory.management.business.validator.impl.ProductServiceValidatorImpl;
@@ -121,6 +128,7 @@ import projectlx.inventory.management.clients.LocationsServiceClient;
 import projectlx.inventory.management.repository.GoodsReceivedVoucherRepository;
 import projectlx.inventory.management.repository.InventoryItemRepository;
 import projectlx.inventory.management.repository.InventoryTransferRepository;
+import projectlx.inventory.management.repository.DepartmentRepository;
 import projectlx.inventory.management.repository.ProductCategoryRepository;
 import projectlx.inventory.management.repository.ProductDocumentRepository;
 import projectlx.inventory.management.repository.ProductRepository;
@@ -151,6 +159,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Primary;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.web.client.RestTemplate;
+import projectlx.co.zw.shared_library.utils.notifications.PlatformBellNotificationPublisher;
 import projectlx.inventory.management.business.validator.api.ProductServiceValidator;
 import projectlx.inventory.management.business.logic.api.OutboxService;
 import projectlx.inventory.management.business.logic.impl.OutboxServiceImpl;
@@ -162,6 +171,11 @@ import projectlx.inventory.management.repository.OutboxEventRepository;
 @EnableScheduling
 public class BusinessConfig {
 
+    @Bean
+    public PlatformBellNotificationPublisher platformBellNotificationPublisher(RabbitTemplate rabbitTemplate) {
+        return new PlatformBellNotificationPublisher(rabbitTemplate);
+    }
+
     // ======= Services =======
     @Bean
     public ProductCategoryService productCategoryService(
@@ -169,14 +183,37 @@ public class BusinessConfig {
             MessageService messageService,
             ModelMapper modelMapper,
             ProductCategoryRepository productCategoryRepository,
-            ProductCategoryServiceAuditable productCategoryServiceAuditable
+            ProductCategoryServiceAuditable productCategoryServiceAuditable,
+            InventoryOrganizationScopeSupport organizationScopeSupport
     ) {
         return new ProductCategoryServiceImpl(
                 productCategoryServiceValidator,
                 messageService,
                 modelMapper,
                 productCategoryRepository,
-                productCategoryServiceAuditable
+                productCategoryServiceAuditable,
+                organizationScopeSupport
+        );
+    }
+
+    @Bean
+    public DepartmentService departmentService(
+            DepartmentServiceValidator departmentServiceValidator,
+            MessageService messageService,
+            ModelMapper modelMapper,
+            DepartmentRepository departmentRepository,
+            PurchaseRequisitionRepository purchaseRequisitionRepository,
+            DepartmentServiceAuditable departmentServiceAuditable,
+            InventoryOrganizationScopeSupport organizationScopeSupport
+    ) {
+        return new DepartmentServiceImpl(
+                departmentServiceValidator,
+                messageService,
+                modelMapper,
+                departmentRepository,
+                purchaseRequisitionRepository,
+                departmentServiceAuditable,
+                organizationScopeSupport
         );
     }
 
@@ -187,7 +224,8 @@ public class BusinessConfig {
             ModelMapper modelMapper,
             ProductSubCategoryRepository repository,
             ProductSubCategoryServiceAuditable auditable,
-            ProductCategoryRepository productCategoryRepository
+            ProductCategoryRepository productCategoryRepository,
+            InventoryOrganizationScopeSupport organizationScopeSupport
     ) {
         return new ProductSubCategoryServiceImpl(
                 validator,
@@ -195,7 +233,8 @@ public class BusinessConfig {
                 modelMapper,
                 repository,
                 auditable,
-                productCategoryRepository
+                productCategoryRepository,
+                organizationScopeSupport
         );
     }
 
@@ -211,7 +250,8 @@ public class BusinessConfig {
             projectlx.inventory.management.clients.UserManagementServiceClient userManagementServiceClient,
             WarehouseAccessSupport warehouseAccessSupport,
             WarehouseSharingSupport warehouseSharingSupport,
-            WarehouseOrganizationAccessRepository warehouseOrganizationAccessRepository
+            WarehouseOrganizationAccessRepository warehouseOrganizationAccessRepository,
+            InventoryOrganizationScopeSupport organizationScopeSupport
     ) {
         return new WarehouseLocationServiceImpl(
                 validator,
@@ -224,7 +264,8 @@ public class BusinessConfig {
                 userManagementServiceClient,
                 warehouseAccessSupport,
                 warehouseSharingSupport,
-                warehouseOrganizationAccessRepository
+                warehouseOrganizationAccessRepository,
+                organizationScopeSupport
         );
     }
 
@@ -238,7 +279,8 @@ public class BusinessConfig {
             ProductSubCategoryRepository productSubCategoryRepository,
             ProductServiceAuditable auditable,
             FileUploadServiceClient fileUploadServiceClient,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            InventoryOrganizationScopeSupport organizationScopeSupport
     ) {
         return new ProductServiceImpl(
                 validator,
@@ -249,7 +291,8 @@ public class BusinessConfig {
                 productSubCategoryRepository,
                 auditable,
                 fileUploadServiceClient,
-                objectMapper
+                objectMapper,
+                organizationScopeSupport
         );
     }
 
@@ -310,7 +353,9 @@ public class BusinessConfig {
             ApplicationEventPublisher applicationEventPublisher,
             GoodsReceiptProcessor goodsReceiptProcessor,
             projectlx.inventory.management.business.logic.support.OrganizationFunctionalCurrencySupport organizationFunctionalCurrencySupport,
-            projectlx.inventory.management.business.logic.support.TransactionCurrencyConversionSupport transactionCurrencyConversionSupport
+            projectlx.inventory.management.business.logic.support.TransactionCurrencyConversionSupport transactionCurrencyConversionSupport,
+            InventoryOrganizationScopeSupport organizationScopeSupport,
+            projectlx.inventory.management.business.logic.support.PlatformBellNotificationSupport platformBellNotificationSupport
     ) {
         return new PurchaseOrderServiceImpl(
                 purchaseOrderRepository,
@@ -331,7 +376,9 @@ public class BusinessConfig {
                 applicationEventPublisher,
                 goodsReceiptProcessor,
                 organizationFunctionalCurrencySupport,
-                transactionCurrencyConversionSupport
+                transactionCurrencyConversionSupport,
+                organizationScopeSupport,
+                platformBellNotificationSupport
         );
     }
 
@@ -349,7 +396,9 @@ public class BusinessConfig {
             ModelMapper modelMapper,
             MessageService messageService,
             projectlx.inventory.management.business.logic.support.OrganizationFunctionalCurrencySupport organizationFunctionalCurrencySupport,
-            projectlx.inventory.management.business.logic.support.ProcurementApprovalStageResolver procurementApprovalStageResolver
+            projectlx.inventory.management.business.logic.support.ProcurementApprovalStageResolver procurementApprovalStageResolver,
+            InventoryOrganizationScopeSupport organizationScopeSupport,
+            projectlx.inventory.management.business.logic.support.PlatformBellNotificationSupport platformBellNotificationSupport
     ) {
         return new PurchaseRequisitionServiceImpl(
                 purchaseRequisitionRepository,
@@ -364,7 +413,9 @@ public class BusinessConfig {
                 modelMapper,
                 messageService,
                 organizationFunctionalCurrencySupport,
-                procurementApprovalStageResolver
+                procurementApprovalStageResolver,
+                organizationScopeSupport,
+                platformBellNotificationSupport
         );
     }
 
@@ -384,7 +435,8 @@ public class BusinessConfig {
             projectlx.inventory.management.clients.UserManagementServiceClient userManagementServiceClient,
             ObjectMapper objectMapper,
             EntityManager entityManager,
-            @Lazy InventoryItemService inventoryItemServiceSelf
+            @Lazy InventoryItemService inventoryItemServiceSelf,
+            InventoryOrganizationScopeSupport organizationScopeSupport
     ) {
         return new InventoryItemServiceImpl(
                 inventoryItemRepository,
@@ -401,7 +453,8 @@ public class BusinessConfig {
                 userManagementServiceClient,
                 objectMapper,
                 entityManager,
-                inventoryItemServiceSelf
+                inventoryItemServiceSelf,
+                organizationScopeSupport
         );
     }
 
@@ -499,7 +552,9 @@ public class BusinessConfig {
             projectlx.inventory.management.business.logic.support.StockTransferSupport stockTransferSupport,
             GoodsReceivedVoucherServiceAuditable goodsReceivedVoucherServiceAuditable,
             GoodsReceivedVoucherRepository goodsReceivedVoucherRepository,
-            @Lazy projectlx.inventory.management.business.logic.api.LogisticsRouteStopService logisticsRouteStopService
+            @Lazy projectlx.inventory.management.business.logic.api.LogisticsRouteStopService logisticsRouteStopService,
+            InventoryOrganizationScopeSupport organizationScopeSupport,
+            projectlx.inventory.management.business.logic.support.PlatformBellNotificationSupport platformBellNotificationSupport
     ) {
         return new InventoryTransferServiceImpl(
                 repository,
@@ -521,7 +576,9 @@ public class BusinessConfig {
                 stockTransferSupport,
                 goodsReceivedVoucherServiceAuditable,
                 goodsReceivedVoucherRepository,
-                logisticsRouteStopService
+                logisticsRouteStopService,
+                organizationScopeSupport,
+                platformBellNotificationSupport
         );
     }
 
@@ -624,6 +681,12 @@ public class BusinessConfig {
 
     @Bean
     @Primary
+    public DepartmentServiceAuditable departmentServiceAuditable(DepartmentRepository departmentRepository) {
+        return new DepartmentServiceAuditableImpl(departmentRepository);
+    }
+
+    @Bean
+    @Primary
     public ProductSubCategoryServiceAuditable productSubCategoryServiceAuditable(ProductSubCategoryRepository productSubCategoryRepository) {
         return new ProductSubCategoryServiceAuditableImpl(productSubCategoryRepository);
     }
@@ -667,6 +730,12 @@ public class BusinessConfig {
 
     @Bean
     @Primary
+    public DepartmentServiceValidator departmentServiceValidator(MessageService messageService) {
+        return new DepartmentServiceValidatorImpl(messageService);
+    }
+
+    @Bean
+    @Primary
     public ProductDocumentServiceValidator productDocumentServiceValidator(MessageService messageService) {
         return new ProductDocumentServiceValidatorImpl(messageService);
     }
@@ -687,8 +756,14 @@ public class BusinessConfig {
     @Primary
     public PurchaseOrderServiceValidator purchaseOrderServiceValidator(MessageService messageService,
                                                                        ProductRepository productRepository,
-                                                                       WarehouseLocationRepository warehouseLocationRepository) {
-        return new PurchaseOrderServiceValidatorImpl(productRepository, warehouseLocationRepository, messageService);
+                                                                       WarehouseLocationRepository warehouseLocationRepository,
+                                                                       InventoryOrganizationScopeSupport organizationScopeSupport) {
+        return new PurchaseOrderServiceValidatorImpl(
+                productRepository,
+                warehouseLocationRepository,
+                messageService,
+                organizationScopeSupport
+        );
     }
 
     @Bean
@@ -744,12 +819,16 @@ public class BusinessConfig {
     public PurchaseRequisitionServiceValidator purchaseRequisitionServiceValidator(
             MessageService messageService,
             ProductRepository productRepository,
-            WarehouseLocationRepository warehouseLocationRepository
+            WarehouseLocationRepository warehouseLocationRepository,
+            DepartmentRepository departmentRepository,
+            InventoryOrganizationScopeSupport organizationScopeSupport
     ) {
         return new PurchaseRequisitionServiceValidatorImpl(
                 messageService,
                 productRepository,
-                warehouseLocationRepository
+                warehouseLocationRepository,
+                departmentRepository,
+                organizationScopeSupport
         );
     }
 

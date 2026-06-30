@@ -11,6 +11,7 @@ import {
 } from '../../../../shared/utils/lx-export.util';
 import { DeleteConfirmDialogComponent } from '../../../../shared/components/delete-confirm-dialog/delete-confirm-dialog.component';
 import { RegisterTransporterDialogComponent } from '../../../fleet/components/register-transporter-dialog/register-transporter-dialog.component';
+import { LinkTransporterDialogComponent } from '../../../fleet/components/link-transporter-dialog/link-transporter-dialog.component';
 import { TransporterContractStatus, TransporterPartnerRow } from '../../../fleet/models/fleet.model';
 import { FleetPortalService } from '../../../fleet/services/fleet-portal.service';
 import {
@@ -164,6 +165,53 @@ export class OrgTransportersPageComponent implements OnInit, OnDestroy {
           this.notifications.success(partnerId ? 'Transporter updated.' : 'Transporter registered.');
           this.reload$.next();
         }
+      });
+  }
+
+  openLinkTransporter(): void {
+    this.dialog
+      .open(LinkTransporterDialogComponent, {
+        width: '640px',
+        maxWidth: '95vw',
+        disableClose: true,
+        panelClass: 'lx-location-dialog-panel',
+      })
+      .afterClosed()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((message?: string) => {
+        if (message) {
+          this.notifications.success(message);
+          this.reload$.next();
+        }
+      });
+  }
+
+  cancelOffer(partner: TransporterPartnerRow): void {
+    this.dialog
+      .open(DeleteConfirmDialogComponent, {
+        width: '420px',
+        maxWidth: '92vw',
+        data: {
+          entityLabel: `the pending offer to "${partner.name}"`,
+          confirmLabel: 'Cancel offer',
+          title: 'Cancel transporter offer',
+        },
+      })
+      .afterClosed()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((confirmed) => {
+        if (!confirmed) {
+          return;
+        }
+        this.fleet.cancelTransporterOffer(partner.id).subscribe({
+          next: (message) => {
+            this.notifications.success(message);
+            this.reload$.next();
+          },
+          error: (err: Error) => {
+            this.notifications.error(err.message ?? 'Could not cancel the offer.');
+          },
+        });
       });
   }
 

@@ -63,13 +63,13 @@
     </div>
 
     <!-- Loading skeletons -->
-    <ng-container *ngIf="loadingTrips">
+    <div class="dw-card-list" *ngIf="loadingTrips">
       <div class="dw-card dw-card--skeleton" *ngFor="let _ of [1,2,3]">
         <div class="dw-skeleton dw-skeleton--title"></div>
         <div class="dw-skeleton dw-skeleton--line"></div>
         <div class="dw-skeleton dw-skeleton--line dw-skeleton--short"></div>
       </div>
-    </ng-container>
+    </div>
 
     <!-- Trips error -->
     <div class="dw-notice dw-notice--danger" *ngIf="tripsError && !loadingTrips">
@@ -86,6 +86,7 @@
     </div>
 
     <!-- Trip cards -->
+    <div class="dw-card-list">
     <div class="dw-card" *ngFor="let trip of activeTrips" (click)="openTripDetail(trip)"
       role="button" [attr.aria-label]="'Open trip ' + trip.tripNumber" tabindex="0"
       (keydown.enter)="openTripDetail(trip)">
@@ -139,6 +140,7 @@
         </button>
       </div>
     </div>
+    </div>
   </div>
   <!-- ══════════════════════════════════════════ / ACTIVE TRIPS SECTION -->
 
@@ -147,6 +149,7 @@
     <div class="dw-section__header">
       <h2 class="dw-section__title">Completed today</h2>
     </div>
+    <div class="dw-card-list">
     <div class="dw-card dw-card--done" *ngFor="let trip of completedTrips" (click)="openTripDetail(trip)"
       role="button" tabindex="0" (keydown.enter)="openTripDetail(trip)">
       <div class="dw-card__header">
@@ -160,6 +163,7 @@
         <span class="material-icons" aria-hidden="true">route</span>
         {{ trip.route }}
       </div>
+    </div>
     </div>
   </div>
 

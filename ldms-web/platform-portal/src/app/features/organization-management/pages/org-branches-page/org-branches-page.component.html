@@ -57,6 +57,56 @@
     </section>
 
     <div class="om-drill-grid">
+      <section class="lx-card om-panel om-drill-panel om-drill-panel--team">
+        <header class="om-panel__head om-panel__head--split">
+          <div>
+            <h2>Branch team</h2>
+            <p>Managers and clerks assigned to this location</p>
+          </div>
+          <div class="om-drill-actions om-branch-team-actions">
+            <button type="button" class="om-staff-chip om-staff-chip--manager" (click)="openAddBranchStaff('manager')" [disabled]="warehouseActionInProgress">
+              <mat-icon>supervisor_account</mat-icon>
+              Add manager
+            </button>
+            <button type="button" class="om-staff-chip om-staff-chip--clerk" (click)="openAddBranchStaff('clerk')" [disabled]="warehouseActionInProgress">
+              <mat-icon>badge</mat-icon>
+              Add clerk
+            </button>
+          </div>
+        </header>
+
+        <lx-table-loading [busy]="drillStaffLoading" message="Loading branch team…"></lx-table-loading>
+
+        <div class="om-staff-grid" *ngIf="!drillStaffLoading && drillStaff.length">
+          <article class="om-staff-card" *ngFor="let member of drillStaff" [attr.data-tone]="branchStaffTone(member)">
+            <div class="om-staff-card__avatar" aria-hidden="true">
+              <mat-icon>{{ branchStaffTone(member) === 'manager' ? 'supervisor_account' : branchStaffTone(member) === 'clerk' ? 'badge' : 'person' }}</mat-icon>
+            </div>
+            <div class="om-staff-card__body">
+              <strong>{{ member.name || member.username }}</strong>
+              <span>{{ branchStaffRoleLabel(member) }} · {{ member.email }}</span>
+            </div>
+            <span class="lx-status lx-status-active">{{ member.statusLabel || 'Active' }}</span>
+          </article>
+        </div>
+
+        <div class="om-staff-empty" *ngIf="!drillStaffLoading && !drillStaff.length">
+          <div class="om-staff-empty__icon"><mat-icon>groups</mat-icon></div>
+          <h3>No branch staff yet</h3>
+          <p>Add a manager to oversee operations or a clerk to handle receipts and deliveries.</p>
+          <div class="om-staff-empty__actions">
+            <button type="button" class="om-staff-chip om-staff-chip--manager" (click)="openAddBranchStaff('manager')">
+              <mat-icon>supervisor_account</mat-icon>
+              Add manager
+            </button>
+            <button type="button" class="om-staff-chip om-staff-chip--clerk" (click)="openAddBranchStaff('clerk')">
+              <mat-icon>badge</mat-icon>
+              Add clerk
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section class="lx-card om-panel om-drill-panel" *ngIf="showDrillSubBranches">
         <header class="om-panel__head om-panel__head--split">
           <div>
@@ -202,6 +252,15 @@
           <mat-icon>refresh</mat-icon>
           Refresh
         </button>
+        <button
+          type="button"
+          class="lx-btn lx-btn-ghost lx-btn-sm"
+          (click)="toggleMapView()"
+          [class.lx-btn-filter--on]="showMap"
+        >
+          <mat-icon>{{ showMap ? 'list' : 'map' }}</mat-icon>
+          {{ showMap ? 'List view' : 'Map view' }}
+        </button>
         <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="importCsv(csvInput)" [disabled]="actionInProgress">
           Import
         </button>
@@ -319,7 +378,19 @@
     <div class="lx-empty-title">{{ error }}</div>
   </div>
 
-  <section class="lx-card om-panel" *ngIf="!loading && !error">
+  <!-- Map view of branch locations -->
+  <section class="lx-card om-panel om-map-panel" *ngIf="!loading && !error && showMap">
+    <header class="om-panel__head">
+      <h2>Branch locations on the map</h2>
+      <p>{{ mappableBranches.length }} located · {{ branches.length - mappableBranches.length }} without coordinates</p>
+    </header>
+    <div #branchMapHost class="om-branch-map" role="img" aria-label="Map of branch locations"></div>
+    <p class="om-map-panel__hint" *ngIf="!mappableBranches.length">
+      No branches have coordinates yet. Edit a branch and drop a pin to place it on the map.
+    </p>
+  </section>
+
+  <section class="lx-card om-panel" *ngIf="!loading && !error && !showMap">
     <header class="om-panel__head">
       <h2>{{ isSubLevel ? 'Sub-branches & depots' : 'Branch locations' }}</h2>
       <p>{{ totalRecords }} record{{ totalRecords === 1 ? '' : 's' }}</p>
@@ -415,6 +486,18 @@
     </p>
 
     <mat-menu #branchRowActionsMenu="matMenu" panelClass="lx-row-actions-menu" (closed)="clearRowActions()">
+      <button mat-menu-item type="button" [disabled]="!actionsBranch" (click)="actionsBranch && drillIntoBranch(actionsBranch)">
+        <mat-icon>open_in_new</mat-icon>
+        <span>Open branch</span>
+      </button>
+      <button mat-menu-item type="button" [disabled]="!actionsBranch" (click)="actionsBranch && openAddBranchStaff('manager', actionsBranch)">
+        <mat-icon>supervisor_account</mat-icon>
+        <span>Add manager</span>
+      </button>
+      <button mat-menu-item type="button" [disabled]="!actionsBranch" (click)="actionsBranch && openAddBranchStaff('clerk', actionsBranch)">
+        <mat-icon>badge</mat-icon>
+        <span>Add clerk</span>
+      </button>
       <button mat-menu-item type="button" [disabled]="!actionsBranch" (click)="actionsBranch && viewBranch(actionsBranch)">
         <mat-icon>visibility</mat-icon>
         <span>View</span>

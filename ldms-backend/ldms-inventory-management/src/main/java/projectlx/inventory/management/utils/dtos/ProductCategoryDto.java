@@ -18,6 +18,7 @@ public class ProductCategoryDto {
 
     private String name;
     private String description;
+    private Long supplierId;
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

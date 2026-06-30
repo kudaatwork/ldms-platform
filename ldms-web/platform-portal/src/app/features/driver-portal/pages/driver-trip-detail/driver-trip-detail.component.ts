@@ -161,6 +161,13 @@ export class DriverTripDetailComponent implements OnInit, OnDestroy {
     }
   }
 
+  openChat(): void {
+    const tripId = this.trip?.id ?? this.tripIdFromRoute;
+    if (tripId) {
+      void this.router.navigate(['/driver', 'chat', tripId]);
+    }
+  }
+
   statusIcon(tone: DriverTripRow['statusTone']): string {
     const map: Record<string, string> = {
       success: 'check_circle',

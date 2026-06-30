@@ -1,10 +1,11 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, map, switchMap, throwError } from 'rxjs';
+import { Observable, catchError, map, of, switchMap, throwError } from 'rxjs';
 import {
   isApiFailureEnvelope,
   readApiFailureMessage,
   readInBodyStatusCode,
+  extractPagedResult,
 } from '../../../core/utils/api-paged-response.util';
 import { ldmsApiUrl, ldmsServiceUrl } from '../../../core/utils/api-url.util';
 
@@ -18,6 +19,7 @@ export type RequisitionQuoteLineDetail = {
 };
 import { CurrencyContextService } from '../../../core/services/currency-context.service';
 import { OrgContextService } from '../../../core/services/org-context.service';
+import { filterByOrganizationScope } from '../utils/inventory-org-scope.util';
 import {
   LxExportFormat,
   exportFormatToApiParam,
@@ -33,6 +35,7 @@ import {
   CreateInitialStockPayload,
   ReplenishStockPayload,
   CreateProductCategoryPayload,
+  CreateDepartmentPayload,
   CreateProductPayload,
   CreateProductSubCategoryPayload,
   CreateRequisitionPayload,
@@ -45,12 +48,15 @@ import {
   LogisticsRouteStopRow,
   RouteStopPayload,
   EditProductCategoryPayload,
+  EditDepartmentPayload,
   EditProductPayload,
   EditProductSubCategoryPayload,
   EditWarehouseLocationPayload,
   InventoryWorkspaceMetrics,
   ProductCategoryOption,
   ProductCategoryRow,
+  DepartmentOption,
+  DepartmentRow,
   ProductRow,
   ProductSubCategoryRow,
   productUnitOfMeasureLabel,
@@ -72,6 +78,7 @@ import {
   SupplierQuoteStatus,
   TransferRow,
   TransferStatus,
+  LinkedSupplierOption,
   WarehouseImportSummary,
   WarehouseRow,
   WarehouseAccessGrant,
@@ -95,6 +102,7 @@ export class InventoryPortalService {
 
   private readonly productBase = ldmsServiceUrl('inventory-management', 'product', undefined, 'frontend');
   private readonly categoryBase = ldmsServiceUrl('inventory-management', 'product-category', undefined, 'frontend');
+  private readonly departmentBase = ldmsServiceUrl('inventory-management', 'department', undefined, 'frontend');
   private readonly subCategoryBase = ldmsServiceUrl('inventory-management', 'product-sub-category', undefined, 'frontend');
   private readonly warehouseBase = ldmsServiceUrl('inventory-management', 'warehouse-locations', undefined, 'frontend');
   private readonly stockBase = ldmsServiceUrl('inventory-management', 'inventory-item', undefined, 'frontend');
@@ -108,6 +116,7 @@ export class InventoryPortalService {
   private readonly soBase = ldmsServiceUrl('inventory-management', 'sales-order', undefined, 'frontend');
   private readonly integrationCredentialBase = ldmsServiceUrl('inventory-management', 'integration-credential', undefined, 'frontend');
   private readonly fileUploadBase = ldmsApiUrl('/ldms-file-upload-service/v1/frontend/file-upload');
+  private readonly organizationBase = ldmsServiceUrl('organization-management', 'organization', undefined, 'frontend');
 
   constructor(
     private readonly http: HttpClient,
@@ -117,14 +126,48 @@ export class InventoryPortalService {
 
   // ── Products ──────────────────────────────────────────────────────────────
 
-  /** GET /product/find-by-list — all products for the signed-in org. */
+  /** GET /product/find-by-list — products owned by the signed-in organisation. */
   listProducts(): Observable<ProductRow[]> {
     return this.http.get<unknown>(`${this.productBase}/find-by-list`).pipe(
       map((resp) =>
-        this.extractListOrEmpty(resp, 'productDtoList').map((dto) => this.mapProductRow(dto)),
+        filterByOrganizationScope(
+          this.extractListOrEmpty(resp, 'productDtoList').map((dto) => this.mapProductRow(dto)),
+          this.orgContext.organizationId,
+          this.orgContext.organizationClassification,
+        ),
       ),
-      catchError((err) => throwError(() => this.toError(err))),
+      catchError(() => of([])),
     );
+  }
+
+  /** POST /product/find-by-multiple-filters — products for a linked supplier catalogue. */
+  listProductsBySupplier(supplierId: number): Observable<ProductRow[]> {
+    if (!Number.isFinite(supplierId) || supplierId <= 0) {
+      return of([]);
+    }
+    return this.http
+      .post<unknown>(`${this.productBase}/find-by-multiple-filters`, {
+        page: 0,
+        size: InventoryPortalService.EXPORT_PAGE_SIZE,
+        searchValue: '',
+        supplierId,
+      })
+      .pipe(
+        map((resp) =>
+          this.mapProductRowsFromFilterResponse(resp).filter((row) => row.supplierId === supplierId),
+        ),
+        catchError(() => of([])),
+      );
+  }
+
+  private mapProductRowsFromFilterResponse(resp: unknown): ProductRow[] {
+    const paged = extractPagedResult(resp, 'productDtoPage');
+    const rows = paged.rows.length
+      ? paged.rows
+      : this.extractListOrEmpty(resp, 'productDtoList');
+    return rows
+      .map((dto) => this.mapProductRow(this.toObj(dto) ?? {}))
+      .filter((row) => row.id > 0);
   }
 
   /** POST /product/create — create a new product. */
@@ -197,16 +240,24 @@ export class InventoryPortalService {
   /** GET /product-category/find-by-list — full category rows for management UI. */
   listCategoryRows(): Observable<ProductCategoryRow[]> {
     return this.http.get<unknown>(`${this.categoryBase}/find-by-list`).pipe(
-      map((resp) =>
-        this.extractListOrEmpty(resp, 'productCategoryDtoList').map((dto) => this.mapCategoryRow(dto)),
-      ),
+      map((resp) => {
+        const rows = this.extractListOrEmpty(resp, 'productCategoryDtoList').map((dto) =>
+          this.mapCategoryRow(dto),
+        );
+        return filterByOrganizationScope(
+          rows,
+          this.orgContext.organizationId,
+          this.orgContext.organizationClassification,
+        );
+      }),
       catchError((err) => throwError(() => this.toError(err))),
     );
   }
 
   /** POST /product-category/create */
   createCategory(payload: CreateProductCategoryPayload): Observable<ProductCategoryRow> {
-    return this.http.post<unknown>(`${this.categoryBase}/create`, payload).pipe(
+    const body = this.orgContext.withSupplierScope(payload);
+    return this.http.post<unknown>(`${this.categoryBase}/create`, body).pipe(
       map((resp) => {
         this.assertSuccess(resp);
         return this.mapCategoryRow(this.extractSingle(resp, 'productCategoryDto'));
@@ -234,6 +285,78 @@ export class InventoryPortalService {
       }),
       catchError((err) => throwError(() => this.toError(err))),
     );
+  }
+
+  // ── Departments ───────────────────────────────────────────────────────────
+
+  /** GET /department/find-by-list — departments owned by the signed-in organisation. */
+  listDepartments(): Observable<DepartmentRow[]> {
+    return this.http.get<unknown>(`${this.departmentBase}/find-by-list`).pipe(
+      map((resp) =>
+        filterByOrganizationScope(
+          this.extractListOrEmpty(resp, 'departmentDtoList').map((dto) => this.mapDepartmentRow(dto)),
+          this.orgContext.organizationId,
+          this.orgContext.organizationClassification,
+        ),
+      ),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** Convenience picker options for requisition forms. */
+  listDepartmentOptions(): Observable<DepartmentOption[]> {
+    return this.listDepartments().pipe(
+      map((rows) =>
+        rows.map((row) => ({
+          id: row.id,
+          name: row.name,
+          code: row.code || undefined,
+        })),
+      ),
+    );
+  }
+
+  /** POST /department/create */
+  createDepartment(payload: CreateDepartmentPayload): Observable<DepartmentRow> {
+    const body = this.orgContext.withSupplierScope(payload);
+    return this.http.post<unknown>(`${this.departmentBase}/create`, body).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapDepartmentRow(this.extractSingle(resp, 'departmentDto'));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** PUT /department/update */
+  updateDepartment(payload: EditDepartmentPayload): Observable<DepartmentRow> {
+    return this.http.put<unknown>(`${this.departmentBase}/update`, payload).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.mapDepartmentRow(this.extractSingle(resp, 'departmentDto'));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** DELETE /department/delete-by-id/{id} */
+  deleteDepartment(id: number): Observable<void> {
+    return this.http.delete<unknown>(`${this.departmentBase}/delete-by-id/${id}`).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** POST /department/export?format= — export departments matching filters. */
+  exportDepartments(format: LxExportFormat, filters: Record<string, unknown>): Observable<Blob> {
+    return this.postCatalogExport(this.departmentBase, filters, format);
+  }
+
+  /** POST /department/import-csv — bulk create departments from CSV. */
+  importDepartmentsFromCsv(file: File): Observable<WarehouseImportSummary> {
+    return this.importCatalogFromCsv(this.departmentBase, file);
   }
 
   /** POST /product-category/export?format= — export categories matching filters. */
@@ -327,13 +450,20 @@ export class InventoryPortalService {
 
   // ── Warehouse locations ───────────────────────────────────────────────────
 
-  /** GET /warehouse-locations/list — all warehouses for the org. */
+  /** GET /warehouse-locations/list — warehouses visible to the signed-in org. */
   listWarehouses(): Observable<WarehouseRow[]> {
     return this.http.get<unknown>(`${this.warehouseBase}/list`).pipe(
-      map((resp) =>
-        this.extractListOrEmpty(resp, 'warehouseLocationDtoList').map((dto) => this.mapWarehouseRow(dto)),
-      ),
-      catchError((err) => throwError(() => this.toError(err))),
+      map((resp) => {
+        const rows = this.extractListOrEmpty(resp, 'warehouseLocationDtoList').map((dto) =>
+          this.mapWarehouseRow(dto),
+        );
+        return filterByOrganizationScope(
+          rows,
+          this.orgContext.organizationId,
+          this.orgContext.organizationClassification,
+        );
+      }),
+      catchError(() => of([])),
     );
   }
 
@@ -455,6 +585,48 @@ export class InventoryPortalService {
         this.extractListOrEmpty(resp, 'inventoryItemDtoList').map((dto) => this.mapStockRow(dto)),
       ),
       catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** POST /inventory-item/find-by-multiple-filters — stock rows for a supplier catalogue. */
+  queryStockBySupplier(supplierId: number): Observable<StockRow[]> {
+    if (!Number.isFinite(supplierId) || supplierId <= 0) {
+      return of([]);
+    }
+    return this.http
+      .post<unknown>(`${this.stockBase}/find-by-multiple-filters`, {
+        page: 0,
+        size: InventoryPortalService.EXPORT_PAGE_SIZE,
+        searchValue: '',
+        supplierId,
+      })
+      .pipe(
+        map((resp) => {
+          const paged = extractPagedResult(resp, 'inventoryItemDtoPage');
+          const rows = paged.rows.length
+            ? paged.rows
+            : this.extractListOrEmpty(resp, 'inventoryItemDtoList');
+          return rows
+            .map((dto) => this.mapStockRow(this.toObj(dto) ?? {}))
+            .filter((row) => row.productId > 0);
+        }),
+        catchError(() => of([])),
+      );
+  }
+
+  /** GET /organization/suppliers — linked supplier organisations for the signed-in customer. */
+  listLinkedSuppliers(): Observable<LinkedSupplierOption[]> {
+    return this.http.get<unknown>(`${this.organizationBase}/suppliers`).pipe(
+      map((resp) =>
+        this.extractListOrEmpty(resp, 'organizationDtoList')
+          .map((dto) => ({
+            id: Number(dto['id'] ?? 0),
+            name: String(dto['name'] ?? '').trim(),
+            email: String(dto['email'] ?? '').trim() || undefined,
+          }))
+          .filter((row) => row.id > 0 && row.name),
+      ),
+      catchError(() => of([])),
     );
   }
 
@@ -1165,8 +1337,20 @@ export class InventoryPortalService {
       id: Number(dto['id'] ?? 0),
       name: String(dto['name'] ?? '').trim(),
       description: String(dto['description'] ?? '').trim(),
+      supplierId: Number(dto['supplierId'] ?? 0) || undefined,
       entityStatus: String(dto['entityStatus'] ?? 'ACTIVE').toUpperCase(),
       createdAtLabel: this.formatDate(dto['createdAt']),
+    };
+  }
+
+  private mapDepartmentRow(dto: Record<string, unknown>): DepartmentRow {
+    return {
+      id: Number(dto['id'] ?? 0),
+      name: String(dto['name'] ?? '').trim(),
+      code: String(dto['departmentCode'] ?? '').trim(),
+      description: String(dto['description'] ?? '').trim(),
+      supplierId: Number(dto['supplierId'] ?? 0),
+      inUse: dto['inUse'] === true,
     };
   }
 
@@ -1241,6 +1425,20 @@ export class InventoryPortalService {
       page: 0,
       size: InventoryPortalService.EXPORT_PAGE_SIZE,
       searchValue: searchValue.trim(),
+    };
+  }
+
+  buildDepartmentExportFilters(
+    searchValue: string,
+    columnFilters: { name: string; code: string; description: string },
+  ): Record<string, unknown> {
+    return {
+      page: 0,
+      size: InventoryPortalService.EXPORT_PAGE_SIZE,
+      searchValue: searchValue.trim(),
+      name: columnFilters.name.trim(),
+      departmentCode: columnFilters.code.trim(),
+      description: columnFilters.description.trim(),
     };
   }
 

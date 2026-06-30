@@ -9,6 +9,12 @@
   gap: 18px;
 }
 
+// The driver portal renders this page edge-to-edge inside its shell; add a
+// little breathing room there without affecting the operations layout.
+:host-context(.drv-shell) .lt {
+  padding: 10px 12px 0;
+}
+
 // ── Arrival prompt floating card ─────────────────────────────────────────────
 .lt-arrival-prompt {
   position: relative;
@@ -2019,5 +2025,164 @@
 
   &--support .lt-map-provider__glyph {
     background: rgba(139, 92, 246, 0.92);
+  }
+}
+
+// ── Mobile / tablet section pager ────────────────────────────────────────────
+// On desktop the pager UI is hidden and every section renders in the grid as
+// before. Below 1100px the page becomes a one-section-at-a-time experience so
+// the whole live page fits on a phone or tablet without endless scrolling.
+.lt-secnav,
+.lt-pager {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .lt {
+    gap: 14px;
+  }
+
+  // Compact the hero so the section content gets more of the screen.
+  .lt-hero {
+    h1 {
+      font-size: clamp(1.15rem, 5vw, 1.5rem);
+    }
+
+    &__actions .lt-chip--link {
+      display: none; // device-management link lives in the desktop ops view
+    }
+  }
+
+  // Segmented tab strip — sticks to the top of the scroll area.
+  .lt-secnav {
+    display: flex;
+    gap: 6px;
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    padding: 7px;
+    background: var(--surface, #ffffff);
+    border: 1px solid var(--gray-200, #e2e8f0);
+    border-radius: 14px;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    &__tab {
+      flex: 1 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      min-width: 60px;
+      padding: 7px 6px;
+      border: none;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--gray-500, #64748b);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      transition: background 0.18s, color 0.18s;
+      -webkit-tap-highlight-color: transparent;
+
+      mat-icon {
+        font-size: 21px;
+        width: 21px;
+        height: 21px;
+      }
+
+      &.is-active {
+        background: var(--primary, #3b82f6);
+        color: #fff;
+      }
+
+      &:not(.is-active):active {
+        background: var(--gray-100, #f1f5f9);
+      }
+    }
+  }
+
+  // Only the active section is rendered on small screens.
+  .lt-sec:not(.lt-sec--active) {
+    display: none !important;
+  }
+
+  // The map becomes a standalone section — drop the desktop sticky behaviour and
+  // size it to the available viewport.
+  .lt-map-panel {
+    position: static;
+    height: clamp(340px, calc(100dvh - 320px), 560px);
+    min-height: 340px;
+    max-height: none;
+  }
+
+  // Bottom Back / Next pager — sticks above the shell's bottom navigation.
+  .lt-pager {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    position: sticky;
+    bottom: 0;
+    z-index: 60;
+    padding: 10px 2px;
+    background: linear-gradient(to top, var(--bg, #f8fafc) 72%, rgba(248, 250, 252, 0));
+
+    .lx-btn {
+      flex: 0 0 auto;
+      min-width: 104px;
+      justify-content: center;
+    }
+
+    &__count {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--gray-500, #64748b);
+      letter-spacing: 0.04em;
+    }
+  }
+}
+
+// On tablets, let the active section's grouped cards sit two-up to use the width.
+@media (min-width: 640px) and (max-width: 1100px) {
+  .lt-side {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    align-items: start;
+  }
+
+  // Full-width cards that read better spanning both columns.
+  .lt-journey,
+  .lt-roadside,
+  .lt-requests,
+  .lt-history {
+    grid-column: 1 / -1;
+  }
+}
+
+// ── Dark mode for the pager ──────────────────────────────────────────────────
+:host-context(.theme-dark) {
+  @media (max-width: 1100px) {
+    .lt-secnav {
+      background: #0f172a;
+      border-color: #1e293b;
+    }
+
+    .lt-secnav__tab:not(.is-active) {
+      color: #94a3b8;
+    }
+
+    .lt-pager {
+      background: linear-gradient(to top, #0b1220 72%, rgba(11, 18, 32, 0));
+    }
   }
 }

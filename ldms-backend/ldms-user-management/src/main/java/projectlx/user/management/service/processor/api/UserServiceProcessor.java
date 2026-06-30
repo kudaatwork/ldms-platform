@@ -64,6 +64,8 @@ public interface UserServiceProcessor {
      */
     UserResponse findFleetManagersByOrganization(Long organizationId, Locale locale);
 
+    UserResponse findProcurementApproversByOrganization(Long organizationId, Locale locale);
+
     UserResponse resendVerificationLink(String email, Locale locale, String username);
 
     UserResponse provisionOrganizationContactPerson(ProvisionOrganizationContactPersonRequest request, Locale locale,

@@ -11,6 +11,7 @@ import { LandingComponent } from './features/landing/pages/landing/landing.compo
 import { PricingPageComponent } from './features/landing/pages/pricing/pricing-page.component';
 import { AboutPageComponent } from './features/landing/pages/about/about-page.component';
 import { DemoPageComponent } from './features/landing/pages/demo/demo-page.component';
+import { SupportPageComponent } from './features/landing/pages/support/support-page.component';
 import { ContactDemoComponent } from './features/contact/pages/contact-demo/contact-demo.component';
 
 const redirectBillingToSettings: CanActivateFn = () => {
@@ -23,6 +24,7 @@ const routes: Routes = [
   { path: 'pricing', component: PricingPageComponent },
   { path: 'about', component: AboutPageComponent },
   { path: 'demo', component: DemoPageComponent },
+  { path: 'support', component: SupportPageComponent },
   { path: 'contact', component: ContactDemoComponent },
   {
     path: 'signup',
@@ -40,6 +42,11 @@ const routes: Routes = [
     path: 'driver',
     loadChildren: () =>
       import('./features/driver-portal/driver-portal.module').then((m) => m.DriverPortalModule),
+  },
+  {
+    path: 'clerk',
+    loadChildren: () =>
+      import('./features/clerk-portal/clerk-portal.module').then((m) => m.ClerkPortalModule),
   },
   { path: '', pathMatch: 'full', redirectTo: 'welcome' },
   {
@@ -106,12 +113,20 @@ const routes: Routes = [
       { path: 'reports', redirectTo: 'analytics/platform-usage', pathMatch: 'full' },
       { path: 'reports/usage-charges', redirectTo: 'analytics/platform-usage', pathMatch: 'full' },
       { path: 'reports/trip-journeys', redirectTo: 'analytics/trips', pathMatch: 'full' },
+      { path: 'my-orders/departments', redirectTo: 'departments', pathMatch: 'full' },
+      {
+        path: 'departments',
+        canActivate: [WalletAccessGuard],
+        loadChildren: () =>
+          import('./features/departments/departments.module').then((m) => m.DepartmentsModule),
+        data: { breadcrumb: 'Departments' },
+      },
       {
         path: 'my-orders',
         canActivate: [WalletAccessGuard],
         loadChildren: () =>
           import('./features/inventory/orders.module').then((m) => m.OrdersModule),
-        data: { breadcrumb: 'My Orders' },
+        data: { breadcrumb: 'Inventory management' },
       },
       {
         path: 'track-shipments',
@@ -144,7 +159,8 @@ const routes: Routes = [
       { path: 'service-log', redirectTo: 'roadside/service-log', pathMatch: 'full' },
       {
         path: 'border-activity',
-        component: PlaceholderPageComponent,
+        loadChildren: () =>
+          import('./features/border-activity/border-activity.module').then((m) => m.BorderActivityModule),
         data: { title: 'Border Activity', breadcrumb: 'Border Activity' },
       },
       {

@@ -8,6 +8,8 @@ export interface NavChild {
   queryParams?: Record<string, string>;
   /** Shown only when inventory data source is EXTERNAL_API (ERP/WMS sync). */
   integrationOnly?: boolean;
+  /** Optional third-level items (e.g. Workforce management → Managers/Clerks). */
+  children?: NavChild[];
 }
 
 export interface NavItem {
@@ -27,15 +29,33 @@ export const ORGANIZATION_MANAGEMENT_NAV_ITEM: NavItem = {
   children: [
     { label: 'Branches', icon: 'account_tree', route: '/organization/branches' },
     { label: 'Sub-branches & depots', icon: 'fork_right', route: '/organization/sub-branches' },
+    {
+      label: 'Workforce management',
+      icon: 'groups',
+      route: '/organization/workforce',
+      children: [
+        { label: 'Managers', icon: 'supervisor_account', route: '/organization/managers' },
+        { label: 'Clerks', icon: 'badge', route: '/organization/clerks' },
+      ],
+    },
     { label: 'Agents', icon: 'support_agent', route: '/organization/agents' },
     { label: 'Transporters', icon: 'local_shipping', route: '/organization/transporters' },
   ],
 };
 
-const ORGANIZATION_MANAGEMENT_NAV_TRANSPORT_ONLY: NavItem = {
+/**
+ * Self-managing organisations (transporters, clearing agents) manage their own
+ * branches and workforce, but not partner agent/transporter rosters. They see
+ * Branches, Sub-branches & depots, and Workforce management only.
+ */
+const ORGANIZATION_MANAGEMENT_NAV_SELF_MANAGED: NavItem = {
   ...ORGANIZATION_MANAGEMENT_NAV_ITEM,
-  children: ORGANIZATION_MANAGEMENT_NAV_ITEM.children?.filter(
-    (child) => child.route !== '/organization/transporters',
+  children: ORGANIZATION_MANAGEMENT_NAV_ITEM.children?.filter((child) =>
+    [
+      '/organization/branches',
+      '/organization/sub-branches',
+      '/organization/workforce',
+    ].includes(child.route),
   ),
 };
 
@@ -254,12 +274,24 @@ export const CROSS_DOCKING_NAV_ITEM: NavItem = {
   ],
 };
 
-/** Customer order management with child routes for each workspace tab. */
-export const MY_ORDERS_NAV_ITEM: NavItem = {
-  label: 'My Orders',
+/** Organisation departments used on purchase requisitions. */
+export const DEPARTMENTS_NAV_ITEM: NavItem = {
+  label: 'Departments',
+  route: '/departments',
+  icon: 'corporate_fare',
+};
+
+/** Customer inventory & procurement workspace with child routes for each tab. */
+export const CUSTOMER_INVENTORY_NAV_ITEM: NavItem = {
+  label: 'Inventory management',
   route: '/my-orders',
-  icon: 'receipt_long',
+  icon: 'inventory_2',
   children: [
+    { label: 'Warehouses', icon: 'warehouse', route: '/my-orders/warehouses' },
+    { label: 'Product categories', icon: 'folder_open', route: '/my-orders/categories' },
+    { label: 'Products', icon: 'category', route: '/my-orders/products' },
+    { label: 'Stock levels', icon: 'inventory', route: '/my-orders/stock' },
+    { label: 'Transfers', icon: 'sync_alt', route: '/my-orders/transfers' },
     { label: 'Requisitions', icon: 'request_quote', route: '/my-orders/requisitions' },
     { label: 'Quotations', icon: 'description', route: '/my-orders/quotations' },
     { label: 'Purchase orders', icon: 'shopping_cart', route: '/my-orders/purchase-orders' },
@@ -267,6 +299,9 @@ export const MY_ORDERS_NAV_ITEM: NavItem = {
     { label: 'Deliveries', icon: 'local_shipping', route: '/my-orders/deliveries' },
   ],
 };
+
+/** @deprecated Use CUSTOMER_INVENTORY_NAV_ITEM */
+export const MY_ORDERS_NAV_ITEM = CUSTOMER_INVENTORY_NAV_ITEM;
 
 /** Replaces flat inventory nav item with expandable submenu when not already present. */
 export function withInventoryNav(items: NavItem[]): NavItem[] {
@@ -350,16 +385,35 @@ export function withOperationalModeNav(
   );
 }
 
-/** Replaces flat My Orders nav item with expandable submenu when not already present. */
+/** Replaces flat customer inventory nav item with expandable submenu when not already present. */
 export function withMyOrdersNav(items: NavItem[]): NavItem[] {
-  if (items.some((item) => item.route === MY_ORDERS_NAV_ITEM.route && item.children?.length)) {
+  if (items.some((item) => item.route === CUSTOMER_INVENTORY_NAV_ITEM.route && item.children?.length)) {
     return items;
   }
   const ordersIndex = items.findIndex((item) => item.route === '/my-orders');
   if (ordersIndex === -1) {
     return items;
   }
-  return [...items.slice(0, ordersIndex), MY_ORDERS_NAV_ITEM, ...items.slice(ordersIndex + 1)];
+  return [...items.slice(0, ordersIndex), CUSTOMER_INVENTORY_NAV_ITEM, ...items.slice(ordersIndex + 1)];
+}
+
+/** Inserts standalone Departments nav for customer organisations when not already present. */
+export function withDepartmentsNav(
+  items: NavItem[],
+  classification?: OrganizationClassification,
+): NavItem[] {
+  if (classification !== 'CUSTOMER') {
+    return items;
+  }
+  if (items.some((item) => item.route === DEPARTMENTS_NAV_ITEM.route)) {
+    return items;
+  }
+  const inventoryIndex = items.findIndex((item) => item.route === CUSTOMER_INVENTORY_NAV_ITEM.route);
+  if (inventoryIndex === -1) {
+    return [...items, DEPARTMENTS_NAV_ITEM];
+  }
+  const insertAt = inventoryIndex + 1;
+  return [...items.slice(0, insertAt), DEPARTMENTS_NAV_ITEM, ...items.slice(insertAt)];
 }
 
 /** Inserts organization management immediately after Dashboard when not already present. */
@@ -370,9 +424,15 @@ export function withOrganizationManagementNav(
   if (items.some((item) => item.route === ORGANIZATION_MANAGEMENT_NAV_ITEM.route)) {
     return items;
   }
+  const selfManagedClassifications: OrganizationClassification[] = [
+    'TRANSPORT_COMPANY',
+    'CLEARING_AGENT',
+    'SERVICE_STATION',
+    'ROADSIDE_SUPPORT_SERVICE',
+  ];
   const navItem =
-    classification === 'TRANSPORT_COMPANY' || classification === 'CLEARING_AGENT'
-      ? ORGANIZATION_MANAGEMENT_NAV_TRANSPORT_ONLY
+    classification && selfManagedClassifications.includes(classification)
+      ? ORGANIZATION_MANAGEMENT_NAV_SELF_MANAGED
       : ORGANIZATION_MANAGEMENT_NAV_ITEM;
   const dashboardIndex = items.findIndex((item) => item.route === '/dashboard');
   if (dashboardIndex === -1) {
@@ -418,9 +478,10 @@ export const NAV_CONFIG: Record<OrganizationClassification, NavItem[]> = {
   CUSTOMER: [
     { label: 'Dashboard', route: '/dashboard', icon: 'dashboard' },
     {
-      ...MY_ORDERS_NAV_ITEM,
-      children: [...(MY_ORDERS_NAV_ITEM.children ?? [])],
+      ...CUSTOMER_INVENTORY_NAV_ITEM,
+      children: [...(CUSTOMER_INVENTORY_NAV_ITEM.children ?? [])],
     },
+    { ...DEPARTMENTS_NAV_ITEM },
     {
       ...SHIPMENT_MANAGEMENT_NAV_CUSTOMER,
       children: [...(SHIPMENT_MANAGEMENT_NAV_CUSTOMER.children ?? [])],

@@ -12,6 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import projectlx.co.zw.organizationmanagement.utils.enums.TransporterLinkStatus;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 
 import java.time.LocalDate;
@@ -48,6 +49,19 @@ public class ContractedTransporterLink {
 
     @Column(name = "linked_at", nullable = false)
     private LocalDateTime linkedAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "link_status", nullable = false, length = 30)
+    private TransporterLinkStatus linkStatus = TransporterLinkStatus.ACCEPTED;
+
+    @Column(name = "requested_by", length = 150)
+    private String requestedBy;
+
+    @Column(name = "responded_at")
+    private LocalDateTime respondedAt;
+
+    @Column(name = "responded_by", length = 150)
+    private String respondedBy;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "entity_status", nullable = false, length = 50)

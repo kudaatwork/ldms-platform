@@ -8,9 +8,13 @@ import {
 } from '../../../core/utils/api-paged-response.util';
 import {
   DriverProfileDto,
+  DriverProfileEditRequest,
   DriverTripRow,
   DriverWorkspaceMetrics,
   DeliveryWorkflowPhase,
+  ReceiverContactDto,
+  TripChatState,
+  TripMessageDto,
 } from '../models/driver-portal.model';
 
 @Injectable({ providedIn: 'root' })
@@ -31,6 +35,51 @@ export class DriverPortalService {
         ),
       ),
     );
+  }
+
+  updateMyDriverProfile(payload: DriverProfileEditRequest): Observable<DriverProfileDto> {
+    return this.http.put<unknown>(`${this.fleetBase}/drivers/me`, payload).pipe(
+      map((res: unknown) => {
+        if (isApiFailureEnvelope(res)) {
+          throw new Error(readApiFailureMessage(res, 'Failed to update profile'));
+        }
+        return this.mapDriverProfile(res as Record<string, unknown>);
+      }),
+      catchError((err) => throwError(() => this.toApiError(err, 'Failed to update profile'))),
+    );
+  }
+
+  // ── Trip chat (driver ⇄ receiver) ──────────────────────────────────────────
+
+  getTripChat(tripId: number): Observable<TripChatState> {
+    return this.http.get<unknown>(`${this.tripBase}/my-trips/${tripId}/messages`).pipe(
+      map((res) => this.mapChatState(res)),
+      catchError((err) => throwError(() => this.toApiError(err, 'Failed to load messages'))),
+    );
+  }
+
+  sendTripMessage(tripId: number, body: string): Observable<TripChatState> {
+    return this.http
+      .post<unknown>(`${this.tripBase}/my-trips/${tripId}/messages`, { body })
+      .pipe(
+        map((res) => this.mapChatState(res)),
+        catchError((err) => throwError(() => this.toApiError(err, 'Failed to send message'))),
+      );
+  }
+
+  getReceiverContact(tripId: number): Observable<ReceiverContactDto> {
+    return this.http
+      .get<unknown>(`${this.tripBase}/my-trips/${tripId}/receiver-contact`)
+      .pipe(
+        map((res) => {
+          if (isApiFailureEnvelope(res)) {
+            throw new Error(readApiFailureMessage(res, 'Failed to load receiver'));
+          }
+          const raw = res as Record<string, unknown>;
+          return this.mapReceiverContact(raw['receiverContact'] as Record<string, unknown>);
+        }),
+        catchError((err) => throwError(() => this.toApiError(err, 'Failed to load receiver'))),
+      );
   }
 
   // ── Driver trips ──────────────────────────────────────────────────────────
@@ -112,6 +161,54 @@ export class DriverPortalService {
         : undefined,
       vehicleType: dto['vehicleType'] ? String(dto['vehicleType']) : undefined,
       employmentType: dto['employmentType'] ? String(dto['employmentType']) : undefined,
+      nationalIdNumber: dto['nationalIdNumber'] ? String(dto['nationalIdNumber']) : undefined,
+      addressLine1: dto['addressLine1'] ? String(dto['addressLine1']) : undefined,
+      addressLine2: dto['addressLine2'] ? String(dto['addressLine2']) : undefined,
+      addressCity: dto['addressCity'] ? String(dto['addressCity']) : undefined,
+      addressProvince: dto['addressProvince'] ? String(dto['addressProvince']) : undefined,
+      addressPostalCode: dto['addressPostalCode'] ? String(dto['addressPostalCode']) : undefined,
+      addressCountry: dto['addressCountry'] ? String(dto['addressCountry']) : undefined,
+    };
+  }
+
+  private mapChatState(res: unknown): TripChatState {
+    if (isApiFailureEnvelope(res)) {
+      throw new Error(readApiFailureMessage(res, 'Failed to load messages'));
+    }
+    const raw = (res ?? {}) as Record<string, unknown>;
+    const list = Array.isArray(raw['messages']) ? (raw['messages'] as unknown[]) : [];
+    return {
+      messages: list.map((m) => this.mapMessage(m as Record<string, unknown>)),
+      receiverContact: raw['receiverContact']
+        ? this.mapReceiverContact(raw['receiverContact'] as Record<string, unknown>)
+        : undefined,
+      myRole: String(raw['myRole'] ?? ''),
+      currentUserId: Number(raw['currentUserId'] ?? 0) || undefined,
+    };
+  }
+
+  private mapMessage(raw: Record<string, unknown>): TripMessageDto {
+    return {
+      id: Number(raw['id'] ?? 0),
+      senderUserId: Number(raw['senderUserId'] ?? 0),
+      senderRole: String(raw['senderRole'] ?? ''),
+      senderName: String(raw['senderName'] ?? '').trim() || 'Unknown',
+      body: String(raw['body'] ?? ''),
+      createdAtLabel: String(raw['createdAtLabel'] ?? ''),
+      mine: raw['mine'] === true,
+      read: raw['read'] === true,
+    };
+  }
+
+  private mapReceiverContact(raw: Record<string, unknown> | undefined): ReceiverContactDto {
+    const dto = (raw ?? {}) as Record<string, unknown>;
+    return {
+      userId: Number(dto['userId'] ?? 0) || undefined,
+      name: dto['name'] ? String(dto['name']) : undefined,
+      phoneNumber: dto['phoneNumber'] ? String(dto['phoneNumber']) : undefined,
+      email: dto['email'] ? String(dto['email']) : undefined,
+      destinationName: dto['destinationName'] ? String(dto['destinationName']) : undefined,
+      reachable: dto['reachable'] === true,
     };
   }
 

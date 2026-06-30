@@ -46,6 +46,8 @@ import java.util.Locale;
 @Transactional
 public class BotSessionServiceImpl implements BotSessionService {
 
+    private static final String GUEST_USERNAME_PREFIX = "guest:";
+
     private final BotSessionRepository botSessionRepository;
     private final BotMessageRepository botMessageRepository;
     private final BotSessionServiceAuditable botSessionServiceAuditable;
@@ -131,6 +133,7 @@ public class BotSessionServiceImpl implements BotSessionService {
         String greetingBody = assistantMode == BotAssistantMode.AGENT
                 ? LexiBotPersonality.agentGreeting(profile.displayName())
                 : LexiBotPersonality.assistantGreeting(profile.displayName());
+        greeting.setBody(greetingBody);
         greeting.setEntityStatus(EntityStatus.ACTIVE);
         greeting.setCreatedAt(now);
         greeting.setCreatedBy("ldms-bot");
@@ -185,6 +188,7 @@ public class BotSessionServiceImpl implements BotSessionService {
 
         if (session.getTopic() == null || session.getTopic().isBlank()
                 || LexiBotPersonality.LEGACY_TOPIC.equalsIgnoreCase(session.getTopic())
+                || LexiBotPersonality.LEGACY_TOPIC_CHAT.equalsIgnoreCase(session.getTopic())
                 || LexiBotPersonality.DEFAULT_TOPIC.equalsIgnoreCase(session.getTopic())) {
             session.setTopic(summarizeTopic(userBody));
         }
@@ -338,6 +342,213 @@ public class BotSessionServiceImpl implements BotSessionService {
     @Transactional(readOnly = true)
     public BotSessionResponse getPricing(Locale locale) {
         return pricingSuccess(I18Code.MESSAGE_BOT_PRICING_RETRIEVED, locale, botPricingSupport.currentPricing());
+    }
+
+    @Override
+    public BotSessionResponse startGuestSession(StartBotSessionRequest request, Locale locale) {
+        var validation = botSessionServiceValidator.isStartSessionRequestValid(request, locale);
+        if (!validation.getSuccess()) {
+            return failure(400, validation.getErrorMessages().get(0));
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        String sessionId = BotSessionMapper.newSessionPublicId();
+        String guestUsername = guestUsernameFor(sessionId);
+
+        BotSession session = new BotSession();
+        session.setSessionId(sessionId);
+        session.setRequesterUsername(guestUsername);
+        session.setUserDisplayName("Visitor");
+        session.setUserPhone("");
+        session.setOrganizationId(null);
+        session.setOrganizationName("Project LX");
+        session.setChannel(BotChannel.WEB);
+        session.setStatus(BotSessionStatus.ACTIVE);
+        session.setTopic(resolveGuestTopic(request));
+        session.setAssistantMode(BotAssistantMode.ASSISTANT);
+        session.setEntityStatus(EntityStatus.ACTIVE);
+        session.setCreatedAt(now);
+        session.setCreatedBy(guestUsername);
+        session.setModifiedAt(now);
+        session.setModifiedBy(guestUsername);
+
+        BotSession saved = botSessionServiceAuditable.createSession(session, locale, guestUsername);
+
+        BotMessage greeting = new BotMessage();
+        greeting.setBotSession(saved);
+        greeting.setRole(BotMessageRole.BOT);
+        greeting.setBody(isGuestLiveChatSession(saved)
+                ? LexiBotPersonality.landingLiveChatGreeting()
+                : LexiBotPersonality.landingGuestGreeting());
+        greeting.setEntityStatus(EntityStatus.ACTIVE);
+        greeting.setCreatedAt(now);
+        greeting.setCreatedBy("ldms-bot");
+        botSessionServiceAuditable.createMessage(greeting, locale, guestUsername);
+
+        return success(I18Code.MESSAGE_BOT_SESSION_CREATED, locale, botSessionMapper.toDto(saved, true));
+    }
+
+    @Override
+    public BotSessionResponse sendGuestMessage(SendBotMessageRequest request, Locale locale) {
+        var validation = botSessionServiceValidator.isSendMessageRequestValid(request, locale);
+        if (!validation.getSuccess()) {
+            return failure(400, validation.getErrorMessages().get(0));
+        }
+
+        BotSession session = botSessionRepository
+                .findBySessionIdAndEntityStatus(request.getSessionId().trim(), EntityStatus.ACTIVE)
+                .orElse(null);
+        if (session == null) {
+            return failure(404, messageService.getMessage(I18Code.MESSAGE_BOT_SESSION_NOT_FOUND.getCode(),
+                    new String[]{}, locale));
+        }
+        if (!isGuestSession(session)) {
+            return failure(403, messageService.getMessage(I18Code.MESSAGE_BOT_ACCESS_DENIED.getCode(),
+                    new String[]{}, locale));
+        }
+
+        String guestUsername = session.getRequesterUsername();
+        session.setAssistantMode(BotAssistantMode.ASSISTANT);
+
+        LocalDateTime now = LocalDateTime.now();
+        String userBody = request.getBody().trim();
+
+        BotMessage userMessage = new BotMessage();
+        userMessage.setBotSession(session);
+        userMessage.setRole(BotMessageRole.USER);
+        userMessage.setBody(userBody);
+        userMessage.setEntityStatus(EntityStatus.ACTIVE);
+        userMessage.setCreatedAt(now);
+        userMessage.setCreatedBy(guestUsername);
+        botSessionServiceAuditable.createMessage(userMessage, locale, guestUsername);
+
+        List<BotMessage> history = botMessageRepository.findByBotSessionIdAndEntityStatusOrderByCreatedAtAsc(
+                session.getId(), EntityStatus.ACTIVE);
+
+        if (isGuestLiveChatSession(session)) {
+            return sendGuestLiveChatReply(session, history, userMessage, locale, guestUsername);
+        }
+
+        if (session.getTopic() == null || session.getTopic().isBlank()
+                || LexiBotPersonality.LEGACY_TOPIC.equalsIgnoreCase(session.getTopic())
+                || LexiBotPersonality.LEGACY_TOPIC_CHAT.equalsIgnoreCase(session.getTopic())
+                || LexiBotPersonality.DEFAULT_TOPIC.equalsIgnoreCase(session.getTopic())) {
+            session.setTopic(summarizeTopic(userBody));
+        }
+
+        String systemPrompt = ldmsKnowledgeContextSupport.guestVisitorSystemPrompt(
+                session.getUserDisplayName(), session.getOrganizationName(), userBody,
+                botFaqRagSupport, botKnowledgeDocumentRagSupport);
+        String botReply;
+        if (BotLlmFallbackSupport.isAccuracyChallengeQuery(userBody)) {
+            botReply = BotLlmFallbackSupport.accuracyChallengeReplyFor();
+        } else {
+            BotAgentExecutionContext agentContext = BotAgentOrchestrator.contextFrom(
+                    guestUsername,
+                    new BotCallerProfileSupport.CallerProfile(
+                            session.getUserDisplayName(),
+                            "",
+                            null,
+                            session.getOrganizationName(),
+                            ""),
+                    locale,
+                    BotAssistantMode.ASSISTANT);
+            botReply = botAgentOrchestrator.run(systemPrompt, history, agentContext);
+        }
+        botReply = BotResponseSanitizer.forUserDisplay(botReply);
+
+        BotMessage botMessage = new BotMessage();
+        botMessage.setBotSession(session);
+        botMessage.setRole(BotMessageRole.BOT);
+        botMessage.setBody(botReply);
+        botMessage.setEntityStatus(EntityStatus.ACTIVE);
+        botMessage.setCreatedAt(LocalDateTime.now());
+        botMessage.setCreatedBy("ldms-bot");
+        botSessionServiceAuditable.createMessage(botMessage, locale, guestUsername);
+
+        session.setStatus(BotSessionStatus.ACTIVE);
+        session.setModifiedAt(LocalDateTime.now());
+        session.setModifiedBy(guestUsername);
+        botSessionServiceAuditable.updateSession(session, locale, guestUsername);
+
+        return success(I18Code.MESSAGE_BOT_MESSAGE_SENT, locale, botSessionMapper.toDto(session, true));
+    }
+
+    private BotSessionResponse sendGuestLiveChatReply(BotSession session, List<BotMessage> historyBeforeUserMsg,
+                                                       BotMessage savedUserMessage, Locale locale,
+                                                       String guestUsername) {
+        if (session.getTopic() == null || session.getTopic().isBlank()) {
+            session.setTopic(LexiBotPersonality.GUEST_LIVE_CHAT_TOPIC);
+        } else if (!LexiBotPersonality.GUEST_LIVE_CHAT_TOPIC.equalsIgnoreCase(session.getTopic())) {
+            session.setTopic(summarizeTopic(savedUserMessage.getBody()));
+        }
+
+        long userMessages = historyBeforeUserMsg.stream()
+                .filter(m -> m.getRole() == BotMessageRole.USER)
+                .count();
+        if (userMessages == 1) {
+            BotMessage ack = new BotMessage();
+            ack.setBotSession(session);
+            ack.setRole(BotMessageRole.SYSTEM);
+            ack.setBody(LexiBotPersonality.liveChatMessageAcknowledgement());
+            ack.setEntityStatus(EntityStatus.ACTIVE);
+            ack.setCreatedAt(LocalDateTime.now());
+            ack.setCreatedBy("ldms-support");
+            botSessionServiceAuditable.createMessage(ack, locale, guestUsername);
+        }
+
+        session.setStatus(BotSessionStatus.ACTIVE);
+        session.setModifiedAt(LocalDateTime.now());
+        session.setModifiedBy(guestUsername);
+        botSessionServiceAuditable.updateSession(session, locale, guestUsername);
+
+        return success(I18Code.MESSAGE_BOT_MESSAGE_SENT, locale, botSessionMapper.toDto(session, true));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BotSessionResponse findGuestSessionById(String sessionId, Locale locale) {
+        BotSession session = botSessionRepository
+                .findBySessionIdAndEntityStatus(sessionId, EntityStatus.ACTIVE)
+                .orElse(null);
+        if (session == null) {
+            return failure(404, messageService.getMessage(I18Code.MESSAGE_BOT_SESSION_NOT_FOUND.getCode(),
+                    new String[]{}, locale));
+        }
+        if (!isGuestSession(session)) {
+            return failure(403, messageService.getMessage(I18Code.MESSAGE_BOT_ACCESS_DENIED.getCode(),
+                    new String[]{}, locale));
+        }
+        return success(I18Code.MESSAGE_BOT_SESSION_RETRIEVED, locale, botSessionMapper.toDto(session, true));
+    }
+
+    private static String guestUsernameFor(String sessionId) {
+        return GUEST_USERNAME_PREFIX + sessionId;
+    }
+
+    private static boolean isGuestSession(BotSession session) {
+        return session.getRequesterUsername() != null
+                && session.getRequesterUsername().startsWith(GUEST_USERNAME_PREFIX);
+    }
+
+    private static boolean isGuestLiveChatSession(BotSession session) {
+        return session.getTopic() != null
+                && LexiBotPersonality.GUEST_LIVE_CHAT_TOPIC.equalsIgnoreCase(session.getTopic().trim());
+    }
+
+    private static String resolveGuestTopic(StartBotSessionRequest request) {
+        if (request == null || request.getTopic() == null || request.getTopic().isBlank()) {
+            return LexiBotPersonality.DEFAULT_TOPIC;
+        }
+        String topic = request.getTopic().trim();
+        if (LexiBotPersonality.GUEST_LIVE_CHAT_TOPIC.equalsIgnoreCase(topic)) {
+            return LexiBotPersonality.GUEST_LIVE_CHAT_TOPIC;
+        }
+        if (LexiBotPersonality.DEFAULT_TOPIC.equalsIgnoreCase(topic)
+                || LexiBotPersonality.LEGACY_TOPIC_CHAT.equalsIgnoreCase(topic)) {
+            return LexiBotPersonality.DEFAULT_TOPIC;
+        }
+        return topic;
     }
 
     private BotSessionResponse pricingSuccess(I18Code code, Locale locale, BotPricingDto pricing) {

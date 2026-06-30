@@ -24,6 +24,12 @@ public class RabbitMQConfig {
     @Value("${notifications.rabbitmq.routing-key}")
     private String routingKey;
 
+    @Value("${notifications.rabbitmq.platform-bell-queue}")
+    private String platformBellQueueName;
+
+    @Value("${notifications.rabbitmq.platform-bell-routing-key}")
+    private String platformBellRoutingKey;
+
     @Bean
     public RabbitAdmin rabbitAdmin(ConnectionFactory connectionFactory) {
         RabbitAdmin admin = new RabbitAdmin(connectionFactory);
@@ -54,5 +60,23 @@ public class RabbitMQConfig {
     @Bean
     public Binding binding(@Qualifier("queue") Queue queue, DirectExchange exchange) {
         return BindingBuilder.bind(queue).to(exchange).with(routingKey);
+    }
+
+    @Bean
+    public Queue platformBellQueue() {
+        return QueueBuilder.durable(platformBellQueueName)
+                .withArgument("x-dead-letter-exchange", "")
+                .withArgument("x-dead-letter-routing-key", platformBellQueueName + ".dlq")
+                .build();
+    }
+
+    @Bean
+    public Queue platformBellDeadLetterQueue() {
+        return QueueBuilder.durable(platformBellQueueName + ".dlq").build();
+    }
+
+    @Bean
+    public Binding platformBellBinding(@Qualifier("platformBellQueue") Queue platformBellQueue, DirectExchange exchange) {
+        return BindingBuilder.bind(platformBellQueue).to(exchange).with(platformBellRoutingKey);
     }
 }

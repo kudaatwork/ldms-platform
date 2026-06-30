@@ -403,6 +403,15 @@ public class UserServiceProcessorImpl implements UserServiceProcessor {
     }
 
     @Override
+    public UserResponse findProcurementApproversByOrganization(Long organizationId, Locale locale) {
+        logger.info("Incoming request to find procurement approvers for organizationId={}", organizationId);
+        UserResponse userResponse = userService.findProcurementApproversByOrganization(organizationId, locale);
+        logger.info("Outgoing response after finding procurement approvers. Status Code: {}. Message: {}",
+                userResponse.getStatusCode(), userResponse.getMessage());
+        return userResponse;
+    }
+
+    @Override
     public UserResponse findByPhoneNumberOrEmail(String phoneNumberOrEmail, Locale locale) {
 
         logger.info("Incoming request to find a user by phone number or email: {}", phoneNumberOrEmail);

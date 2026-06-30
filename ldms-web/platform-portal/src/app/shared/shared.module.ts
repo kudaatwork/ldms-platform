@@ -51,6 +51,8 @@ import { LxWorkspaceHeroStatComponent } from './components/lx-workspace-hero-sta
 import { PhoneVerificationDialogComponent } from './components/phone-verification-dialog/phone-verification-dialog.component';
 import { LxOrganizationMetadataPanelComponent } from './components/lx-organization-metadata-panel/lx-organization-metadata-panel.component';
 import { OperationalModePickerComponent } from './components/operational-mode-picker/operational-mode-picker.component';
+import { LxLexiChatWidgetComponent } from './components/lx-lexi-chat-widget/lx-lexi-chat-widget.component';
+import { BotMessageMarkdownPipe } from '../features/help-support/pipes/bot-message-markdown.pipe';
 
 const MATERIAL_MODULES = [
   MatAutocompleteModule,
@@ -98,6 +100,7 @@ const MATERIAL_MODULES = [
     ReactiveFormsModule,
     LxTablePaginatorDirective,
     OperationalModePickerComponent,
+    BotMessageMarkdownPipe,
     ...MATERIAL_MODULES,
   ],
   declarations: [
@@ -112,6 +115,7 @@ const MATERIAL_MODULES = [
     LxWorkspaceHeroComponent,
     LxWorkspaceHeroStatComponent,
     PhoneVerificationDialogComponent,
+    LxLexiChatWidgetComponent,
   ],
   exports: [
     CommonModule,
@@ -130,6 +134,8 @@ const MATERIAL_MODULES = [
     LxWorkspaceHeroComponent,
     LxWorkspaceHeroStatComponent,
     OperationalModePickerComponent,
+    BotMessageMarkdownPipe,
+    LxLexiChatWidgetComponent,
     ...MATERIAL_MODULES,
   ],
 })

@@ -49,6 +49,7 @@ import {
   TrackingInstallStatus,
   TrackingIntegrationProvider,
   TransporterEditDetail,
+  TransporterLinkStatus,
   TransporterPartnerRow,
 } from '../models/fleet.model';
 import { presentTransporterContract } from '../utils/transporter-contract.util';
@@ -385,14 +386,14 @@ export class FleetPortalService {
     );
   }
 
-  /** POST /transporters/link — link an existing transport company to this supplier
-   * with a contract window.
+  /** POST /transporters/link — send a contract offer to an existing transport company.
+   * The link stays PENDING until the transporter accepts from their Connection requests page.
    */
   linkTransporter(
     transporterOrganizationId: number,
     contractStartDate: string,
     contractEndDate?: string,
-  ): Observable<void> {
+  ): Observable<string> {
     return this.http
       .post<unknown>(`${this.orgBase}/transporters/link`, {
         transporterOrganizationId,
@@ -402,10 +403,54 @@ export class FleetPortalService {
       .pipe(
         map((resp) => {
           this.assertSuccess(resp);
-          return void 0;
+          return this.readMessage(resp, 'Contract offer sent.');
         }),
         catchError((err) => throwError(() => this.toError(err))),
       );
+  }
+
+  /** GET /transporters/offers/incoming — pending offers awaiting this transporter's response. */
+  listIncomingTransporterOffers(): Observable<TransporterPartnerRow[]> {
+    return this.http.get<unknown>(`${this.orgBase}/transporters/offers/incoming`).pipe(
+      map((resp) => {
+        this.assertSuccess(resp);
+        return this.extractOrganizationRows(resp).map((dto) => this.mapPartnerRow(dto));
+      }),
+      catchError((err) => throwError(() => this.toError(err))),
+    );
+  }
+
+  /** POST /transporters/offers/{supplierOrganizationId}/{accept|decline} — transporter responds to an offer. */
+  respondToTransporterOffer(supplierOrganizationId: number, accept: boolean): Observable<string> {
+    const action = accept ? 'accept' : 'decline';
+    return this.http
+      .post<unknown>(`${this.orgBase}/transporters/offers/${supplierOrganizationId}/${action}`, {})
+      .pipe(
+        map((resp) => {
+          this.assertSuccess(resp);
+          return this.readMessage(resp, accept ? 'Offer accepted.' : 'Offer declined.');
+        }),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
+  }
+
+  /** POST /transporters/offers/{transporterOrganizationId}/cancel — supplier cancels a pending offer. */
+  cancelTransporterOffer(transporterOrganizationId: number): Observable<string> {
+    return this.http
+      .post<unknown>(`${this.orgBase}/transporters/offers/${transporterOrganizationId}/cancel`, {})
+      .pipe(
+        map((resp) => {
+          this.assertSuccess(resp);
+          return this.readMessage(resp, 'Offer cancelled.');
+        }),
+        catchError((err) => throwError(() => this.toError(err))),
+      );
+  }
+
+  private readMessage(resp: unknown, fallback: string): string {
+    const parsed = this.toObj(resp);
+    const message = parsed?.['message'];
+    return typeof message === 'string' && message.trim() ? message.trim() : fallback;
   }
 
   // ── Drivers (fleet-management) ─────────────────────────────────────────────
@@ -1137,6 +1182,9 @@ export class FleetPortalService {
     const verified = Boolean(dto['isVerified'] ?? dto['verified']);
     const kyc = String(dto['kycStatus'] ?? 'APPROVED');
     const contract = presentTransporterContract(dto);
+    const rawStatus = String(dto['transporterLinkStatus'] ?? 'ACCEPTED').toUpperCase();
+    const linkStatus: TransporterLinkStatus =
+      rawStatus === 'PENDING' ? 'PENDING' : rawStatus === 'DECLINED' ? 'DECLINED' : 'ACCEPTED';
     return {
       id: Number(dto['id'] ?? 0),
       name,
@@ -1153,6 +1201,8 @@ export class FleetPortalService {
       contractRangeLabel: contract.rangeLabel,
       contractStatus: contract.status,
       contractStatusLabel: contract.statusLabel,
+      linkStatus,
+      pending: linkStatus === 'PENDING',
       partnerKind: 'contracted',
       contractStartDate: this.apiDateToInputString(dto['contractStartDate']) || undefined,
       contractEndDate: this.apiDateToInputString(dto['contractEndDate']) || undefined,

@@ -1,0 +1,153 @@
+<div class="csr-shell">
+
+  <!-- Back button -->
+  <button class="csr-back" (click)="goBack()">
+    <span class="material-icons" aria-hidden="true">arrow_back</span>
+    Back to deliveries
+  </button>
+
+  <!-- Loading -->
+  <div class="csr-loading" *ngIf="loading">
+    <div class="csr-skeleton csr-skeleton--title"></div>
+    <div class="csr-skeleton csr-skeleton--line"></div>
+    <div class="csr-skeleton csr-skeleton--line"></div>
+    <div class="csr-skeleton csr-skeleton--line csr-skeleton--short"></div>
+  </div>
+
+  <!-- Error -->
+  <div class="csr-notice csr-notice--danger" *ngIf="error && !loading">
+    <span class="material-icons" aria-hidden="true">error_outline</span>
+    {{ error }}
+    <button class="csr-notice__btn" (click)="loadDelivery()">Retry</button>
+  </div>
+
+  <!-- Delivery detail -->
+  <ng-container *ngIf="!loading && !error && delivery">
+
+    <!-- Header card -->
+    <div class="csr-header">
+      <div class="csr-header__top">
+        <span class="csr-header__trip">{{ delivery.tripNumber }}</span>
+        <span class="csr-header__status" [ngClass]="statusClass(delivery.status)">
+          {{ statusLabel(delivery.status) }}
+        </span>
+      </div>
+
+      <div class="csr-header__product">
+        <span class="material-icons" aria-hidden="true">inventory_2</span>
+        <div>
+          <div class="csr-header__product-name">{{ delivery.productName }}</div>
+          <div class="csr-header__product-qty">Quantity: {{ delivery.quantity }}</div>
+        </div>
+      </div>
+
+      <div class="csr-header__info">
+        <div class="csr-header__row">
+          <span class="material-icons" aria-hidden="true">route</span>
+          <span>From: <strong>{{ delivery.originBranch }}</strong></span>
+        </div>
+        <div class="csr-header__row" *ngIf="delivery.driverName">
+          <span class="material-icons" aria-hidden="true">person</span>
+          <span>Driver: <strong>{{ delivery.driverName }}</strong></span>
+        </div>
+        <div class="csr-header__row" *ngIf="delivery.vehicleReg">
+          <span class="material-icons" aria-hidden="true">local_shipping</span>
+          <span>Vehicle: <strong>{{ delivery.vehicleReg }}</strong></span>
+        </div>
+        <div class="csr-header__row" *ngIf="delivery.arrivedAt">
+          <span class="material-icons" aria-hidden="true">schedule</span>
+          <span>Arrived: <strong>{{ delivery.arrivedAt | date:'medium' }}</strong></span>
+        </div>
+      </div>
+
+      <button type="button" class="csr-chat" (click)="openChat()">
+        <span class="material-icons" aria-hidden="true">chat</span>
+        Message driver
+      </button>
+    </div>
+
+    <!-- Success message -->
+    <div class="csr-success" *ngIf="submitSuccess">
+      <span class="material-icons" aria-hidden="true">check_circle</span>
+      <div>
+        <strong>Stock received successfully!</strong>
+        <p>Redirecting to deliveries...</p>
+      </div>
+    </div>
+
+    <!-- Receive form -->
+    <div class="csr-form" *ngIf="!submitSuccess">
+      <h2 class="csr-form__title">Confirm receipt</h2>
+
+      <div class="csr-field">
+        <label class="csr-field__label" for="qty">Quantity received</label>
+        <input
+          id="qty"
+          type="number"
+          class="csr-field__input"
+          [(ngModel)]="quantityReceived"
+          [min]="0"
+          [max]="delivery.quantity"
+          placeholder="Enter quantity received"
+        />
+        <span class="csr-field__hint">Expected: {{ delivery.quantity }}</span>
+      </div>
+
+      <div class="csr-field">
+        <label class="csr-field__label">Condition</label>
+        <div class="csr-condition">
+          <button
+            type="button"
+            class="csr-condition__btn"
+            [class.csr-condition__btn--active]="condition === 'GOOD'"
+            (click)="condition = 'GOOD'">
+            <span class="material-icons" aria-hidden="true">check_circle</span>
+            Good
+          </button>
+          <button
+            type="button"
+            class="csr-condition__btn"
+            [class.csr-condition__btn--active]="condition === 'PARTIAL'"
+            (click)="condition = 'PARTIAL'">
+            <span class="material-icons" aria-hidden="true">remove_circle</span>
+            Partial
+          </button>
+          <button
+            type="button"
+            class="csr-condition__btn"
+            [class.csr-condition__btn--active]="condition === 'DAMAGED'"
+            (click)="condition = 'DAMAGED'">
+            <span class="material-icons" aria-hidden="true">error</span>
+            Damaged
+          </button>
+        </div>
+      </div>
+
+      <div class="csr-field">
+        <label class="csr-field__label" for="notes">Notes (optional)</label>
+        <textarea
+          id="notes"
+          class="csr-field__textarea"
+          [(ngModel)]="notes"
+          rows="3"
+          placeholder="Any issues or observations..."
+        ></textarea>
+      </div>
+
+      <!-- Submit error -->
+      <div class="csr-notice csr-notice--danger" *ngIf="submitError">
+        <span class="material-icons" aria-hidden="true">error_outline</span>
+        {{ submitError }}
+      </div>
+
+      <button
+        type="button"
+        class="csr-submit"
+        [disabled]="submitting || quantityReceived === null"
+        (click)="submitReceive()">
+        <span class="material-icons" aria-hidden="true">inventory</span>
+        {{ submitting ? 'Receiving...' : 'Confirm receipt' }}
+      </button>
+    </div>
+  </ng-container>
+</div>

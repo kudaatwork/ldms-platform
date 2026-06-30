@@ -1,7 +1,22 @@
-<div class="drv-shell">
-  <p class="drv-shell__desktop-hint">
-    Driver portal — optimized for phones and tablets. Works on desktop too.
-  </p>
+<div class="drv-shell" [class.theme-dark]="theme.dark()">
+  <div class="drv-shell__aurora" aria-hidden="true"></div>
+
+  <!-- Top bar -->
+  <header class="drv-topbar">
+    <button type="button" class="drv-topbar__btn" (click)="openMenu()" aria-label="Open menu">
+      <span class="material-icons">menu</span>
+    </button>
+    <div class="drv-topbar__brand">
+      <img class="drv-topbar__logo drv-topbar__logo--light" src="images/lx-logo.png" alt="LX logo" />
+      <img class="drv-topbar__logo drv-topbar__logo--dark" src="images/lx-logo-transparent.png" alt="LX logo" />
+      <span class="drv-topbar__title">{{ pageTitle }}</span>
+    </div>
+    <button type="button" class="drv-topbar__btn"
+            (click)="toggleTheme()"
+            [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'">
+      <span class="material-icons">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+    </button>
+  </header>
 
   <!-- Page content -->
   <main class="drv-shell__content">
@@ -28,11 +43,68 @@
       <span class="drv-bottom-nav__label">Live</span>
     </a>
 
-    <button class="drv-bottom-nav__item drv-bottom-nav__item--logout"
-            (click)="logout()"
-            aria-label="Sign out">
-      <span class="material-icons drv-bottom-nav__icon">logout</span>
-      <span class="drv-bottom-nav__label">Sign out</span>
+    <a class="drv-bottom-nav__item"
+       routerLink="/driver/profile"
+       routerLinkActive="drv-bottom-nav__item--active"
+       [routerLinkActiveOptions]="{ exact: false }"
+       aria-label="My profile">
+      <span class="material-icons drv-bottom-nav__icon">person</span>
+      <span class="drv-bottom-nav__label">Profile</span>
+    </a>
+
+    <button class="drv-bottom-nav__item"
+            (click)="openMenu()"
+            aria-label="More">
+      <span class="material-icons drv-bottom-nav__icon">menu</span>
+      <span class="drv-bottom-nav__label">Menu</span>
     </button>
   </nav>
+
+  <!-- Side drawer menu -->
+  <div class="drv-drawer" [class.is-open]="menuOpen">
+    <div class="drv-drawer__scrim" (click)="closeMenu()"></div>
+
+    <aside class="drv-drawer__panel" role="dialog" aria-label="Driver menu">
+      <header class="drv-drawer__head">
+        <div class="drv-drawer__brand">
+          <img class="drv-drawer__logo drv-drawer__logo--light" src="images/lx-logo.png" alt="LX logo" />
+          <img class="drv-drawer__logo drv-drawer__logo--dark" src="images/lx-logo-transparent.png" alt="LX logo" />
+          <div>
+            <strong>Driver portal</strong>
+            <small>Mobile logistics workspace</small>
+          </div>
+        </div>
+        <button type="button" class="drv-drawer__close" (click)="closeMenu()" aria-label="Close menu">
+          <span class="material-icons">close</span>
+        </button>
+      </header>
+
+      <nav class="drv-drawer__nav">
+        <a routerLink="/driver/workspace" routerLinkActive="is-active">
+          <span class="material-icons">local_shipping</span> My trips
+        </a>
+        <a routerLink="/driver/live" routerLinkActive="is-active">
+          <span class="material-icons">location_on</span> Live tracking
+        </a>
+        <a routerLink="/driver/profile" routerLinkActive="is-active">
+          <span class="material-icons">person</span> My profile
+        </a>
+      </nav>
+
+      <div class="drv-drawer__divider"></div>
+
+      <button type="button" class="drv-drawer__row" (click)="toggleTheme()">
+        <span class="material-icons">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+        <span>{{ theme.dark() ? 'Light mode' : 'Dark mode' }}</span>
+        <span class="drv-drawer__switch" [class.is-on]="!theme.dark()" aria-hidden="true">
+          <span class="drv-drawer__knob"></span>
+        </span>
+      </button>
+
+      <button type="button" class="drv-drawer__row drv-drawer__row--danger" (click)="logout()">
+        <span class="material-icons">logout</span>
+        <span>Sign out</span>
+      </button>
+    </aside>
+  </div>
 </div>

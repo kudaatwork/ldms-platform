@@ -28,6 +28,7 @@ import projectlx.inventory.management.business.logic.support.InventoryExportSupp
 import projectlx.inventory.management.business.auditable.api.StockTransactionHistoryServiceAuditable;
 import projectlx.inventory.management.business.logic.api.ConcurrentInventoryHandler;
 import projectlx.inventory.management.business.logic.api.InventoryItemService;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
 import projectlx.inventory.management.business.validator.api.InventoryItemServiceValidator;
 import projectlx.inventory.management.clients.OrganizationServiceClient;
 import projectlx.inventory.management.clients.UserManagementServiceClient;
@@ -71,8 +72,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Transactional
@@ -95,6 +98,7 @@ public class InventoryItemServiceImpl implements InventoryItemService {
     private final ObjectMapper objectMapper;
     private final EntityManager entityManager;
     private final InventoryItemService self;
+    private final InventoryOrganizationScopeSupport organizationScopeSupport;
 
     private static final String[] HEADERS = {
             "ID", "PRODUCT_ID", "PRODUCT_CODE", "BARCODE", "PRODUCT_NAME", "WAREHOUSE_LOCATION_ID", "WAREHOUSE_NAME",
@@ -222,15 +226,31 @@ public class InventoryItemServiceImpl implements InventoryItemService {
     public InventoryItemResponse findAllAsList(Locale locale, String username) {
 
         String message;
-
-        List<InventoryItem> list = inventoryItemRepository.findByEntityStatusNot(EntityStatus.DELETED);
+        List<InventoryItem> list;
+        if (organizationScopeSupport.isSystemUser(username)) {
+            list = inventoryItemRepository.findByEntityStatusNot(EntityStatus.DELETED);
+        } else {
+            Long orgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (orgId == null) {
+                message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_ITEM_RETRIEVED_SUCCESSFULLY.getCode(),
+                        new String[]{}, locale);
+                InventoryItemResponse empty = buildResponse(200, true, message, null, List.of(), null);
+                empty.setInventoryItemDtoList(List.of());
+                return empty;
+            }
+            Set<Long> warehouseIds = organizationScopeSupport.visibleWarehouseIds(orgId);
+            list = warehouseIds.isEmpty()
+                    ? List.of()
+                    : inventoryItemRepository.findByWarehouseLocationIdInAndEntityStatusNot(
+                            warehouseIds, EntityStatus.DELETED);
+        }
 
         if (list.isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_ITEM_NOT_FOUND.getCode(), new String[]{},
-                    locale);
-
-            return buildResponse(404, false, message, null, null, null);
+            message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_ITEM_RETRIEVED_SUCCESSFULLY.getCode(),
+                    new String[]{}, locale);
+            InventoryItemResponse empty = buildResponse(200, true, message, null, List.of(), null);
+            empty.setInventoryItemDtoList(List.of());
+            return empty;
         }
 
         List<InventoryItemDto> dtoList = list.stream().map(this::mapToDto).collect(Collectors.toList());
@@ -336,6 +356,43 @@ public class InventoryItemServiceImpl implements InventoryItemService {
         }
 
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
+
+        if (!organizationScopeSupport.isSystemUser(username)) {
+            Long callerOrgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (callerOrgId == null) {
+                message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_ITEM_RETRIEVED_SUCCESSFULLY.getCode(),
+                        new String[]{}, locale);
+                InventoryItemResponse empty = buildResponse(200, true, message, null, null, null);
+                empty.setInventoryItemDtoPage(new PageImpl<>(List.of(), pageable, 0));
+                return empty;
+            }
+            boolean customerSupplierStockLookup = request.getSupplierId() != null
+                    && request.getSupplierId() > 0
+                    && organizationScopeSupport.isCustomerOrganization(callerOrgId, locale);
+            if (customerSupplierStockLookup) {
+                spec = (spec == null)
+                        ? InventoryItemSpecification.supplierIdEquals(request.getSupplierId())
+                        : spec.and(InventoryItemSpecification.supplierIdEquals(request.getSupplierId()));
+            } else {
+                if (request.getSupplierId() != null && request.getSupplierId() > 0
+                        && !request.getSupplierId().equals(callerOrgId)) {
+                    message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_ITEM_NOT_FOUND.getCode(),
+                            new String[]{}, locale);
+                    return buildResponse(404, false, message, null, null, null);
+                }
+                Set<Long> visibleWarehouseIds = organizationScopeSupport.visibleWarehouseIds(callerOrgId);
+                if (visibleWarehouseIds.isEmpty()) {
+                    message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_ITEM_RETRIEVED_SUCCESSFULLY.getCode(),
+                            new String[]{}, locale);
+                    InventoryItemResponse empty = buildResponse(200, true, message, null, null, null);
+                    empty.setInventoryItemDtoPage(new PageImpl<>(List.of(), pageable, 0));
+                    return empty;
+                }
+                spec = (spec == null)
+                        ? InventoryItemSpecification.warehouseLocationIdIn(visibleWarehouseIds)
+                        : spec.and(InventoryItemSpecification.warehouseLocationIdIn(visibleWarehouseIds));
+            }
+        }
 
         if (request.getProductId() != null) {
 

@@ -9,6 +9,7 @@ import projectlx.inventory.management.model.WarehouseLocation;
 import projectlx.inventory.management.model.TransferStatus;
 import projectlx.co.zw.shared_library.utils.enums.EntityStatus;
 import java.time.LocalDateTime;
+import java.util.Collection;
 
 public class InventoryTransferSpecification {
 
@@ -50,6 +51,15 @@ public class InventoryTransferSpecification {
     public static Specification<InventoryTransfer> toLocationIdEquals(final Long toLocationId) {
         return (root, query, cb) -> cb.equal(
                 root.get("toLocation").get("id"), toLocationId);
+    }
+
+    public static Specification<InventoryTransfer> involvingWarehouseIdIn(final Collection<Long> warehouseIds) {
+        if (warehouseIds == null || warehouseIds.isEmpty()) {
+            return (root, query, cb) -> cb.disjunction();
+        }
+        return (root, query, cb) -> cb.or(
+                root.get("fromLocation").get("id").in(warehouseIds),
+                root.get("toLocation").get("id").in(warehouseIds));
     }
 
     public static Specification<InventoryTransfer> transferNumberLike(final String transferNumber) {

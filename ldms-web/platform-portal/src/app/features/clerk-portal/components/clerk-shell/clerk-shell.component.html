@@ -1,0 +1,85 @@
+<div class="clk-shell" [class.theme-dark]="theme.dark()">
+  <div class="clk-shell__aurora" aria-hidden="true"></div>
+
+  <!-- Top bar -->
+  <header class="clk-topbar">
+    <button type="button" class="clk-topbar__btn" (click)="openMenu()" aria-label="Open menu">
+      <span class="material-icons">menu</span>
+    </button>
+    <div class="clk-topbar__brand">
+      <img class="clk-topbar__logo clk-topbar__logo--light" src="images/lx-logo.png" alt="LX logo" />
+      <img class="clk-topbar__logo clk-topbar__logo--dark" src="images/lx-logo-transparent.png" alt="LX logo" />
+      <span class="clk-topbar__title">{{ pageTitle }}</span>
+    </div>
+    <button type="button" class="clk-topbar__btn"
+            (click)="toggleTheme()"
+            [attr.aria-label]="theme.dark() ? 'Switch to light mode' : 'Switch to dark mode'">
+      <span class="material-icons">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+    </button>
+  </header>
+
+  <!-- Page content -->
+  <main class="clk-shell__content">
+    <router-outlet></router-outlet>
+  </main>
+
+  <!-- Bottom navigation bar -->
+  <nav class="clk-shell__bottom-nav" aria-label="Clerk navigation">
+    <a class="clk-bottom-nav__item"
+       routerLink="/clerk/workspace"
+       routerLinkActive="clk-bottom-nav__item--active"
+       [routerLinkActiveOptions]="{ exact: false }"
+       aria-label="Incoming deliveries">
+      <span class="material-icons clk-bottom-nav__icon">inventory_2</span>
+      <span class="clk-bottom-nav__label">Deliveries</span>
+    </a>
+
+    <button class="clk-bottom-nav__item"
+            (click)="openMenu()"
+            aria-label="More">
+      <span class="material-icons clk-bottom-nav__icon">menu</span>
+      <span class="clk-bottom-nav__label">Menu</span>
+    </button>
+  </nav>
+
+  <!-- Side drawer menu -->
+  <div class="clk-drawer" [class.is-open]="menuOpen">
+    <div class="clk-drawer__scrim" (click)="closeMenu()"></div>
+
+    <aside class="clk-drawer__panel" role="dialog" aria-label="Clerk menu">
+      <header class="clk-drawer__head">
+        <div class="clk-drawer__brand">
+          <img class="clk-drawer__logo clk-drawer__logo--light" src="images/lx-logo.png" alt="LX logo" />
+          <img class="clk-drawer__logo clk-drawer__logo--dark" src="images/lx-logo-transparent.png" alt="LX logo" />
+          <div>
+            <strong>Clerk portal</strong>
+            <small>Stock receiving workspace</small>
+          </div>
+        </div>
+        <button type="button" class="clk-drawer__close" (click)="closeMenu()" aria-label="Close menu">
+          <span class="material-icons">close</span>
+        </button>
+      </header>
+
+      <nav class="clk-drawer__nav">
+        <a routerLink="/clerk/workspace" routerLinkActive="is-active">
+          <span class="material-icons">inventory_2</span> Incoming deliveries
+        </a>
+      </nav>
+
+      <div class="clk-drawer__divider"></div>
+
+      <button type="button" class="clk-drawer__row" (click)="toggleTheme()">
+        <span class="material-icons">{{ theme.dark() ? 'light_mode' : 'dark_mode' }}</span>
+        {{ theme.dark() ? 'Light mode' : 'Dark mode' }}
+        <span class="clk-drawer__switch" aria-hidden="true">
+          <span class="clk-drawer__knob" [class.is-on]="theme.dark()"></span>
+        </span>
+      </button>
+
+      <button type="button" class="clk-drawer__row clk-drawer__row--danger" (click)="logout()">
+        <span class="material-icons">logout</span> Sign out
+      </button>
+    </aside>
+  </div>
+</div>

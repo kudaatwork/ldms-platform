@@ -110,11 +110,11 @@ export class BotChatService {
     return this.http.get<BotSessionApiResponse>(`${this.base}/pricing`).pipe(
       map((resp) => {
         if (!apiOk(resp) || !resp.botPricingDto) {
-          throw new Error(resp.message ?? 'Could not load Lexi pricing.');
+          throw new Error(resp.message ?? 'Could not load Lexxi pricing.');
         }
         return normalizePricing(resp.botPricingDto);
       }),
-      catchError((err) => throwError(() => mapHttpError(err, 'Could not load Lexi pricing.'))),
+      catchError((err) => throwError(() => mapHttpError(err, 'Could not load Lexxi pricing.'))),
     );
   }
 

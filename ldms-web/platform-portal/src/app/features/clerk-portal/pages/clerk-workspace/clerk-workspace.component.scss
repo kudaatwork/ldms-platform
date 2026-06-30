@@ -1,0 +1,415 @@
+// ── Clerk Workspace — Mobile-first stock receiving UI ─────────────────────
+
+:host {
+  display: block;
+  min-height: 100dvh;
+  background: transparent;
+  font-family: var(--font, 'Plus Jakarta Sans'), sans-serif;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ HERO
+.cw-hero {
+  position: relative;
+  padding: 0;
+  overflow: hidden;
+  background: var(--gradient-sidebar, linear-gradient(145deg, #1e5a3f 0%, #0f3d2a 100%));
+  color: #fff;
+  border-radius: 0 0 28px 28px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, .3);
+  margin-bottom: 4px;
+
+  &__gradient {
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 110% -10%, rgba(34, 197, 94, .35) 0%, transparent 70%),
+      radial-gradient(ellipse 60% 50% at -10% 120%, rgba(251, 191, 36, .2) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  &__content {
+    position: relative;
+    padding: 20px 20px 24px;
+  }
+
+  &__top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 12px;
+  }
+
+  &__avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .15);
+    border: 2px solid rgba(255, 255, 255, .3);
+    display: grid;
+    place-items: center;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  &__identity {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__name {
+    font-size: 18px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__company {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    opacity: .75;
+    margin-top: 2px;
+
+    .material-icons { font-size: 15px; }
+  }
+
+  &__branch {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    opacity: .65;
+    margin-top: 1px;
+
+    .material-icons { font-size: 14px; }
+  }
+
+  &__refresh {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .12);
+    border: 1px solid rgba(255, 255, 255, .2);
+    color: #fff;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: background .2s, transform .2s;
+    flex-shrink: 0;
+
+    .material-icons { font-size: 20px; }
+
+    &:hover { background: rgba(255, 255, 255, .2); }
+    &:active { transform: scale(.92); }
+
+    &--spinning .material-icons {
+      animation: spin .7s linear infinite;
+    }
+  }
+}
+
+// ─ Metrics row ─
+.cw-hero__metrics {
+  display: flex;
+  gap: 0;
+  background: rgba(255, 255, 255, .1);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, .15);
+}
+
+.cw-metric {
+  flex: 1;
+  padding: 12px 8px;
+  text-align: center;
+
+  &__value {
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  &__label {
+    font-size: 11px;
+    opacity: .7;
+    margin-top: 3px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  &__divider {
+    width: 1px;
+    background: rgba(255, 255, 255, .15);
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ SECTIONS
+.cw-section {
+  padding: 0 16px 16px;
+
+  &__header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 20px 0 12px;
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gray-800, #1e293b);
+    margin: 0;
+  }
+
+  &__sub {
+    font-size: 11px;
+    color: var(--gray-500, #6b7280);
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ CARDS
+@media (min-width: 768px) {
+  .cw-card-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: start;
+
+    .cw-card {
+      margin-bottom: 0;
+    }
+  }
+}
+
+.cw-card {
+  position: relative;
+  background: var(--surface, #fff);
+  border: var(--card-border, 1px solid rgba(226, 232, 240, .8));
+  border-radius: 20px;
+  padding: 16px;
+  margin-bottom: 12px;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--card-shadow, 0 4px 20px rgba(15, 23, 42, .06));
+  transition: transform .18s, box-shadow .18s;
+  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--card-shadow-hover, 0 8px 28px rgba(15, 23, 42, .10));
+  }
+
+  &:active { transform: translateY(0); }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  &__trip {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gray-800, #1e293b);
+    letter-spacing: .02em;
+  }
+
+  &__status {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+
+    &.status--warning {
+      background: rgba(245, 158, 11, .12);
+      color: #b45309;
+    }
+    &.status--success {
+      background: rgba(34, 197, 94, .12);
+      color: #15803d;
+    }
+    &.status--info {
+      background: rgba(59, 130, 246, .12);
+      color: #1d4ed8;
+    }
+    &.status--muted {
+      background: rgba(148, 163, 184, .15);
+      color: #64748b;
+    }
+  }
+
+  &__route {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--gray-600, #475569);
+    margin-bottom: 8px;
+
+    .material-icons { font-size: 16px; color: var(--gray-400); }
+  }
+
+  &__product {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--gray-700, #334155);
+    margin-bottom: 8px;
+
+    .material-icons { font-size: 16px; color: var(--primary); }
+  }
+
+  &__qty {
+    margin-left: auto;
+    font-weight: 600;
+    color: var(--gray-800);
+  }
+
+  &__driver {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--gray-500, #6b7280);
+    margin-bottom: 12px;
+
+    .material-icons { font-size: 14px; }
+  }
+
+  &__vehicle {
+    color: var(--gray-400);
+  }
+
+  &__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid rgba(148, 163, 184, .12);
+  }
+
+  &__eta, &__arrived {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--gray-500);
+
+    .material-icons { font-size: 14px; }
+  }
+
+  &__arrived {
+    color: #15803d;
+  }
+
+  &__action {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary);
+
+    .material-icons { font-size: 16px; }
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ EMPTY STATE
+.cw-empty {
+  text-align: center;
+  padding: 48px 20px;
+
+  &__icon {
+    font-size: 56px;
+    color: var(--gray-300, #cbd5e1);
+    margin-bottom: 12px;
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--gray-700, #334155);
+    margin: 0 0 4px;
+  }
+
+  &__sub {
+    font-size: 13px;
+    color: var(--gray-500, #6b7280);
+    margin: 0;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ NOTICES
+.cw-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  margin: 12px 16px;
+
+  &--warn {
+    background: rgba(245, 158, 11, .10);
+    color: #92400e;
+  }
+
+  &--danger {
+    background: rgba(239, 68, 68, .10);
+    color: #991b1b;
+  }
+
+  &__btn {
+    margin-left: auto;
+    padding: 4px 12px;
+    border: none;
+    border-radius: 8px;
+    background: rgba(239, 68, 68, .15);
+    color: #991b1b;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ SKELETONS
+.cw-card--skeleton {
+  cursor: default;
+  pointer-events: none;
+}
+
+.cw-skeleton {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(148,163,184,.15) 25%, rgba(148,163,184,.25) 50%, rgba(148,163,184,.15) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.4s ease-in-out infinite;
+  margin-bottom: 10px;
+
+  &--title {
+    width: 40%;
+    height: 16px;
+    margin-bottom: 14px;
+  }
+
+  &--short { width: 60%; }
+}
+
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

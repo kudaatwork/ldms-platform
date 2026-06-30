@@ -64,6 +64,18 @@ public interface OrganizationRepository extends JpaRepository<Organization, Long
             @Param("deleted") EntityStatus deleted);
 
     @Query("""
+            SELECT link.transporter FROM ContractedTransporterLink link
+            WHERE link.organization.id = :supplierId
+            AND link.linkStatus = projectlx.co.zw.organizationmanagement.utils.enums.TransporterLinkStatus.ACCEPTED
+            AND link.entityStatus <> :deleted
+            AND link.transporter.entityStatus <> :deleted
+            ORDER BY link.transporter.name ASC
+            """)
+    List<Organization> findAcceptedContractedTransportersForSupplier(
+            @Param("supplierId") Long supplierId,
+            @Param("deleted") EntityStatus deleted);
+
+    @Query("""
             SELECT link.organization FROM ContractedTransporterLink link
             WHERE link.transporter.id = :transporterId
             AND link.entityStatus <> :deleted
