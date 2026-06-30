@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, map, catchError, of } from 'rxjs';
 import { ldmsServiceUrl } from '../../../core/utils/api-url.util';
 
 export type RoadsideProviderType = 'FUEL_STATION' | 'MECHANIC' | 'ROADSIDE_SUPPORT';
@@ -43,6 +43,14 @@ export class RoadsideProviderService {
         }
         return res.roadsideProviderDtoList ?? [];
       }),
+      catchError((err: HttpErrorResponse | Error) => {
+        const status = (err as HttpErrorResponse).status;
+        if (status === 503 || status === 502 || status === 504) {
+          // Service temporarily unavailable — return empty list so callers degrade gracefully
+          return of([] as RoadsideProviderRow[]);
+        }
+        throw err;
+      }),
     );
   }
 
@@ -57,6 +65,13 @@ export class RoadsideProviderService {
             throw new Error(res.message ?? 'Could not load nearby roadside providers.');
           }
           return res.roadsideProviderDtoList ?? [];
+        }),
+        catchError((err: HttpErrorResponse | Error) => {
+          const status = (err as HttpErrorResponse).status;
+          if (status === 503 || status === 502 || status === 504) {
+            return of([] as RoadsideProviderRow[]);
+          }
+          throw err;
         }),
       );
   }

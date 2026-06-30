@@ -38,6 +38,8 @@ export interface UserListRow {
   role: string;
   /** When set, row actions can deep-link to this group's role assignment screen. */
   userGroupId: number | null;
+  /** Branch the user is linked to (org workspace staff); null when not branch-scoped. */
+  branchId: number | null;
   accountType: string;
   status: string;
   statusLabel: string;
@@ -995,6 +997,8 @@ export class UsersPortalService {
     gender: string;
     phoneNumber: string;
     dateOfBirth: string;
+    /** When set, moves the user to this branch. Omit to leave the branch unchanged. */
+    branchId?: number;
     nationalIdNumber?: string;
     nationalIdExpiryDate?: string;
     nationalIdUpload?: File;
@@ -1019,6 +1023,7 @@ export class UsersPortalService {
     this.appendFormValue(form, 'gender', payload.gender);
     this.appendFormValue(form, 'phoneNumber', payload.phoneNumber);
     this.appendFormValue(form, 'dateOfBirth', payload.dateOfBirth);
+    this.appendFormValue(form, 'branchId', payload.branchId);
     this.appendFormValue(form, 'nationalIdNumber', payload.nationalIdNumber);
     this.appendFormValue(form, 'nationalIdExpiryDate', payload.nationalIdExpiryDate);
     this.appendFormFile(form, 'nationalIdUpload', payload.nationalIdUpload);
@@ -1372,14 +1377,18 @@ export class UsersPortalService {
   }
 
   createUser(payload: {
-    username: string;
+    /** Optional when issueTemporaryCredentials is set — the server auto-generates it. */
+    username?: string;
     email: string;
     firstName: string;
     lastName: string;
     gender: string;
     dateOfBirth: string;
     phoneNumber: string;
-    password: string;
+    /** Optional when issueTemporaryCredentials is set — the server auto-generates it. */
+    password?: string;
+    /** When true the server issues temporary credentials and emails a sign-in link. */
+    issueTemporaryCredentials?: boolean;
     organizationId?: number;
     branchId?: number;
     organizationKycApprover?: boolean;
@@ -1424,6 +1433,9 @@ export class UsersPortalService {
     this.appendFormValue(form, 'dateOfBirth', payload.dateOfBirth);
     this.appendFormValue(form, 'phoneNumber', payload.phoneNumber);
     this.appendFormValue(form, 'password', payload.password);
+    if (payload.issueTemporaryCredentials) {
+      this.appendFormValue(form, 'issueTemporaryCredentials', true);
+    }
     this.appendFormValue(form, 'organizationId', payload.organizationId);
     this.appendFormValue(form, 'branchId', payload.branchId);
     if (payload.organizationKycApprover) {
@@ -1563,6 +1575,7 @@ export class UsersPortalService {
         canResendVerificationEmail: false,
         role: '—',
         userGroupId: null,
+        branchId: null,
         accountType: '—',
         status: 'pending',
         statusLabel: 'Unknown',
@@ -1585,6 +1598,8 @@ export class UsersPortalService {
     const groupIdRaw = groupDto?.['id'];
     const groupIdParsed = Number(groupIdRaw);
     const userGroupId = Number.isFinite(groupIdParsed) && groupIdParsed > 0 ? groupIdParsed : null;
+    const branchIdParsed = Number(row['branchId']);
+    const branchId = Number.isFinite(branchIdParsed) && branchIdParsed > 0 ? branchIdParsed : null;
     const accountType = this.asRecord(row['userTypeDto'])?.['userTypeName'] ?? '—';
     const statusRaw = String(row['entityStatus'] ?? 'ACTIVE').toLowerCase();
     const emailVerified = row['emailVerified'];
@@ -1604,6 +1619,7 @@ export class UsersPortalService {
       canResendVerificationEmail,
       role: String(role ?? '—'),
       userGroupId,
+      branchId,
       accountType: String(accountType ?? '—'),
       status: statusRaw,
       statusLabel: this.readableStatus(statusRaw),
@@ -1978,6 +1994,13 @@ export class UsersPortalService {
     const cf = q.columnFilters;
     return rows.filter((row) => {
       if (q.userGroupId != null && q.userGroupId > 0 && row.userGroupId !== q.userGroupId) {
+        return false;
+      }
+      // Workforce pages (clerks, managers, agents, drivers) scope by user type. The org listing
+      // returns every user in the organisation, so honour the userTypeName filter here too —
+      // otherwise a clerk would also appear on the managers page and vice versa.
+      const typeF = (cf['userTypeName'] ?? '').trim().toLowerCase();
+      if (typeF && row.accountType.trim().toLowerCase() !== typeF) {
         return false;
       }
       const emailF = (cf['email'] ?? '').trim().toLowerCase();

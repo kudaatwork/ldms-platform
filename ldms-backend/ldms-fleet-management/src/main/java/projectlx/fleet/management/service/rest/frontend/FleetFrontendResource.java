@@ -219,6 +219,25 @@ public class FleetFrontendResource {
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
 
+    @Auditable(action = "UPDATE_MY_DRIVER_PROFILE")
+    @PreAuthorize("isAuthenticated()")
+    @PutMapping("/drivers/me")
+    @Operation(summary = "Update my driver profile",
+               description = "Lets the authenticated driver update their own details (names, contact, license, "
+                       + "identity documents, address). The user link and employment type are preserved.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Driver profile updated"),
+            @ApiResponse(responseCode = "400", description = "Invalid request"),
+            @ApiResponse(responseCode = "404", description = "No driver profile linked to this user")
+    })
+    public ResponseEntity<FleetDriverResponse> updateMyDriverProfile(
+            @RequestBody final EditFleetDriverRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        FleetDriverResponse response = fleetDriverServiceProcessor.updateMyProfile(request, locale, username);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
     @Auditable(action = "LIST_TRANSPORT_PARTNER_DRIVERS")
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/transporter-partners/{transporterOrganizationId}/drivers")

@@ -82,6 +82,10 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
   topicFilter = signal('');
   pageView = signal<PageView>('live');
 
+  // Conversation list pagination — show a page of 15, paginate the rest.
+  readonly pageSize = 15;
+  currentPage = signal(1);
+
   readonly statusFilters: Array<{ id: StatusFilter; label: string }> = [
     { id: 'ALL', label: 'All' },
     { id: 'ACTIVE', label: 'Active' },
@@ -327,6 +331,7 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
 
   setStatusFilter(id: StatusFilter): void {
     this.statusFilter.set(id);
+    this.currentPage.set(1);
     this.cdr.markForCheck();
   }
 
@@ -334,11 +339,13 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
     const current = this.topicFilter();
     this.topicFilter.set(current === topic ? '' : topic);
     this.pageView.set('live');
+    this.currentPage.set(1);
     this.cdr.markForCheck();
   }
 
   clearTopicFilter(): void {
     this.topicFilter.set('');
+    this.currentPage.set(1);
     this.cdr.markForCheck();
   }
 
@@ -363,6 +370,53 @@ export class BotServiceAdminPageComponent implements OnInit, OnDestroy {
         s.userPhone.includes(q)
       );
     });
+  }
+
+  /** Total pages for the current filtered set (min 1). */
+  get totalPages(): number {
+    return Math.max(1, Math.ceil(this.filteredSessions.length / this.pageSize));
+  }
+
+  /** The clamped current page (guards against filters shrinking the list). */
+  get safePage(): number {
+    return Math.min(this.currentPage(), this.totalPages);
+  }
+
+  /** The slice of conversations visible on the current page. */
+  get pagedSessions(): BotConversationSession[] {
+    const start = (this.safePage - 1) * this.pageSize;
+    return this.filteredSessions.slice(start, start + this.pageSize);
+  }
+
+  /** Range label, e.g. "1–15 of 42". */
+  get pageRangeLabel(): string {
+    const total = this.filteredSessions.length;
+    if (total === 0) {
+      return '0';
+    }
+    const start = (this.safePage - 1) * this.pageSize + 1;
+    const end = Math.min(this.safePage * this.pageSize, total);
+    return `${start}–${end} of ${total}`;
+  }
+
+  setSearch(value: string): void {
+    this.search.set(value);
+    this.currentPage.set(1);
+    this.cdr.markForCheck();
+  }
+
+  nextPage(): void {
+    if (this.safePage < this.totalPages) {
+      this.currentPage.set(this.safePage + 1);
+      this.cdr.markForCheck();
+    }
+  }
+
+  prevPage(): void {
+    if (this.safePage > 1) {
+      this.currentPage.set(this.safePage - 1);
+      this.cdr.markForCheck();
+    }
   }
 
   get displayAnalytics(): BotAnalyticsSummary {

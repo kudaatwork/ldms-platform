@@ -236,6 +236,8 @@ export class OrgManagementPortalService {
       phoneNumber: this.readOptionalString(dto, 'phoneNumber'),
       businessHours: this.readOptionalString(dto, 'businessHours', 'business_hours'),
       active: dto['active'] !== false,
+      latitude: dto['latitude'] != null ? Number(dto['latitude']) : undefined,
+      longitude: dto['longitude'] != null ? Number(dto['longitude']) : undefined,
     };
   }
 

@@ -12,6 +12,8 @@ import { Router } from '@angular/router';
 import { gsap } from 'gsap';
 import { environment } from '../../../../../environments/environment';
 import { LandingMotionService } from '../../services/landing-motion.service';
+import { LexxiChatLauncherService } from '../../../../shared/services/lexxi-chat-launcher.service';
+import { LEXXI_BOT_NAME } from '../../../../shared/constants/lexxi-bot.constants';
 
 /** Pexels CDN — logistics, distribution & supply chain (pexels.com licence). */
 const px = (id: number, w = 800, h = 1000) =>
@@ -63,6 +65,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   readonly platformOrigin = environment.platformPortalOrigin;
   readonly appleAppStoreUrl = environment.mobileApps.appleAppStoreUrl;
   readonly googlePlayStoreUrl = environment.mobileApps.googlePlayStoreUrl;
+  readonly lexxiName = LEXXI_BOT_NAME;
 
   readonly activeFeatureTab = signal(0);
   readonly activeFeature = computed(() => this.featureTabs[this.activeFeatureTab()]);
@@ -78,10 +81,10 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
   readonly accessAdminCardImage = px(PEX.distributionCenter, 800, 520);
 
   readonly heroStats = [
-    { value: '23', suffix: '', label: 'Integrated microservices' },
+    { value: '3', suffix: '', label: 'Mobile apps for corridor crews' },
     { value: '7', suffix: '+', label: 'Actor roles on the corridor' },
     { value: '12', suffix: '', label: 'On-platform lifecycle phases' },
-    { value: '24', suffix: '/7', label: 'Event-driven visibility' },
+    { value: '24', suffix: '/7', label: 'Live visibility across your network' },
   ] as const;
 
   readonly platformModules = [
@@ -119,6 +122,35 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     },
   ] as const;
 
+  readonly supportChannels = [
+    {
+      icon: 'forum',
+      title: 'Live chat',
+      description:
+        'Talk to a human agent about LDMS, pricing, and onboarding — free for visitors. Sign in for account-specific help from our support team.',
+      cta: 'Start live chat',
+      action: 'live-chat' as const,
+      accent: 'blue' as const,
+    },
+    {
+      icon: 'smart_toy',
+      title: `Chat with ${LEXXI_BOT_NAME}`,
+      description: `${LEXXI_BOT_NAME} is your upbeat LDMS guide — instant answers on workflows, corridors, pricing, and getting started, on the landing page and inside your workspace.`,
+      cta: `Ask ${LEXXI_BOT_NAME}`,
+      action: 'lexxi' as const,
+      accent: 'teal' as const,
+    },
+    {
+      icon: 'support_agent',
+      title: 'Help & Support',
+      description:
+        'Organisation users open tickets, browse guides, and use agent mode from the workspace — one place for programme sponsors and ops teams.',
+      cta: 'Explore support',
+      action: 'support' as const,
+      accent: 'orange' as const,
+    },
+  ] as const;
+
   readonly benefits = [
     {
       icon: 'hub',
@@ -133,7 +165,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     {
       icon: 'integration_instructions',
       title: 'Open integrations',
-      body: 'Event-driven architecture with API gateway access — connect ERP, BI, accounting, and partner systems without brittle chains.',
+      body: 'Connect ERP, BI, accounting, and partner systems through open APIs and domain events — without brittle point-to-point chains.',
     },
     {
       icon: 'support_agent',
@@ -191,6 +223,22 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       image: px(PEX.distributionCenter, 960, 640),
       imageAlt: 'Distribution control centre with live notifications',
     },
+    {
+      icon: 'forum',
+      label: 'Live chat',
+      title: 'Human support when you need a person',
+      body: 'Free live chat for visitors — ask about pricing, onboarding, and corridor programmes. A Project LX support agent replies in the same thread. Sign in for account-specific help and ticket history.',
+      image: px(PEX.logisticsDashboard, 960, 640),
+      imageAlt: 'Support team helping logistics operators',
+    },
+    {
+      icon: 'smart_toy',
+      label: `Chat with ${LEXXI_BOT_NAME}`,
+      title: `${LEXXI_BOT_NAME} — your upbeat LDMS guide`,
+      body: `${LEXXI_BOT_NAME} explains orders, trips, fleet, billing, and onboarding in plain language — on the landing page before you sign up and inside Help & Support after you join. Great for quick how-to questions without waiting for an agent.`,
+      image: px(PEX.warehouseInterior, 960, 640),
+      imageAlt: 'Friendly platform guidance for logistics teams',
+    },
   ] as const;
 
   readonly pillars = [
@@ -202,6 +250,9 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     { icon: 'dashboard', label: 'Dashboards & KPIs' },
     { icon: 'inventory_2', label: 'Inventory & GRV' },
     { icon: 'gavel', label: 'Clearing & borders' },
+    { icon: 'forum', label: 'Live chat' },
+    { icon: 'smart_toy', label: `${LEXXI_BOT_NAME} AI guide` },
+    { icon: 'support_agent', label: 'Help & Support' },
   ] as const;
 
   readonly pillarsMarquee = [...this.pillars, ...this.pillars, ...this.pillars];
@@ -398,7 +449,15 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     },
     {
       q: 'Can we integrate with existing systems?',
-      a: 'Yes. Services expose APIs through the gateway and publish domain events for ERP, BI, accounting, and partner integrations.',
+      a: 'Yes. LDMS exposes APIs and publishes domain events for ERP, BI, accounting, and partner integrations.',
+    },
+    {
+      q: 'What is the difference between Live chat and Lexxi?',
+      a: 'Live chat connects you with a human Project LX support agent — ideal for pricing, onboarding, and programme questions. Lexxi is an AI guide that answers LDMS workflow questions instantly. Both are free for visitors on this site; signed-in users also get Help & Support tickets and agent tools.',
+    },
+    {
+      q: 'How do I get help after I sign in?',
+      a: 'Open Help & Support from your organisation workspace for tickets, documentation, and Lexxi in agent mode. You can still use Live chat from the top bar for human support.',
     },
   ] as const;
 
@@ -411,6 +470,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     private readonly el: ElementRef<HTMLElement>,
     private readonly ngZone: NgZone,
     private readonly motion: LandingMotionService,
+    private readonly chatLauncher: LexxiChatLauncherService,
   ) {}
 
   ngAfterViewInit(): void {
@@ -439,7 +499,7 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  onModuleAction(action: 'signup' | 'admin' | 'features' | 'mobile'): void {
+  onModuleAction(action: 'signup' | 'admin' | 'features' | 'mobile' | 'live-chat' | 'lexxi' | 'support'): void {
     if (action === 'signup') {
       this.goSignup();
       return;
@@ -452,7 +512,23 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
       this.scrollTo('ldms-mobile');
       return;
     }
+    if (action === 'live-chat') {
+      this.chatLauncher.openChat('live-chat');
+      return;
+    }
+    if (action === 'lexxi') {
+      this.chatLauncher.openChat('lexxi');
+      return;
+    }
+    if (action === 'support') {
+      void this.router.navigate(['/support']);
+      return;
+    }
     this.scrollTo('ldms-features');
+  }
+
+  onSupportAction(action: 'live-chat' | 'lexxi' | 'support'): void {
+    this.onModuleAction(action);
   }
 
   private animateFeaturePanel(): void {
@@ -551,6 +627,18 @@ export class LandingComponent implements AfterViewInit, OnDestroy {
 
   goDemo(): void {
     void this.router.navigate(['/demo']);
+  }
+
+  openLiveChat(): void {
+    this.chatLauncher.openChat('live-chat');
+  }
+
+  openLexxiChat(): void {
+    this.chatLauncher.openChat('lexxi');
+  }
+
+  goSupport(): void {
+    void this.router.navigate(['/support']);
   }
 
   goBookDemo(): void {

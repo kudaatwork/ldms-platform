@@ -45,8 +45,13 @@ import projectlx.co.zw.notifications.business.validation.impl.WhatsAppNotificati
 import projectlx.co.zw.notifications.utils.config.OutboundMessagingReadiness;
 import projectlx.co.zw.notifications.business.logic.support.NotificationBillingSupport;
 import projectlx.co.zw.notifications.clients.BillingPaymentsServiceClient;
+import projectlx.co.zw.notifications.business.auditable.api.PlatformUserNotificationServiceAuditable;
+import projectlx.co.zw.notifications.business.auditable.impl.PlatformUserNotificationServiceAuditableImpl;
+import projectlx.co.zw.notifications.business.logic.api.PlatformUserNotificationService;
+import projectlx.co.zw.notifications.business.logic.impl.PlatformUserNotificationServiceImpl;
 import projectlx.co.zw.notifications.repository.NotificationLogRepository;
 import projectlx.co.zw.notifications.repository.NotificationTemplateRepository;
+import projectlx.co.zw.notifications.repository.PlatformUserNotificationRepository;
 import projectlx.co.zw.notifications.repository.UserNotificationPreferenceRepository;
 import projectlx.co.zw.shared_library.utils.i18.api.MessageService;
 import org.springframework.web.client.RestTemplate;
@@ -62,6 +67,21 @@ public class BusinessConfig {
     @Bean
     public NotificationLogServiceAuditable notificationLogServiceAuditable(NotificationLogRepository notificationLogRepository) {
         return new NotificationLogServiceAuditableImpl(notificationLogRepository);
+    }
+
+    @Bean
+    public PlatformUserNotificationServiceAuditable platformUserNotificationServiceAuditable(
+            PlatformUserNotificationRepository platformUserNotificationRepository) {
+        return new PlatformUserNotificationServiceAuditableImpl(platformUserNotificationRepository);
+    }
+
+    @Bean
+    public PlatformUserNotificationService platformUserNotificationService(
+            PlatformUserNotificationRepository platformUserNotificationRepository,
+            PlatformUserNotificationServiceAuditable platformUserNotificationServiceAuditable) {
+        return new PlatformUserNotificationServiceImpl(
+                platformUserNotificationRepository,
+                platformUserNotificationServiceAuditable);
     }
 
     @Bean

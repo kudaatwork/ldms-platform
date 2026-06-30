@@ -49,6 +49,9 @@ export class SearchableProductPickerComponent implements ControlValueAccessor {
   @Input() showCodeInLabel = true;
   @Input() inputId = '';
   @Input() ariaLabel = 'Product';
+  /** When set, shows supplier available stock in autocomplete options (product id → quantity). */
+  @Input() stockByProductId: Readonly<Record<number, number>> | null = null;
+  @Input() stockUnitByProductId: Readonly<Record<number, string>> | null = null;
 
   @Output() selectionChange = new EventEmitter<number | null>();
 
@@ -64,12 +67,16 @@ export class SearchableProductPickerComponent implements ControlValueAccessor {
     return this.inputId || `product-picker-input-${this.instanceId}`;
   }
 
+  get searchQuery(): string {
+    return this.asSearchString(this.searchText);
+  }
+
   get filteredProducts(): ProductRow[] {
-    return filterProductsForSearch(this.products, this.searchText).slice(0, MAX_VISIBLE_RESULTS);
+    return filterProductsForSearch(this.products, this.searchQuery).slice(0, MAX_VISIBLE_RESULTS);
   }
 
   get totalFilteredCount(): number {
-    return filterProductsForSearch(this.products, this.searchText).length;
+    return filterProductsForSearch(this.products, this.searchQuery).length;
   }
 
   get hasMoreResults(): boolean {
@@ -83,13 +90,58 @@ export class SearchableProductPickerComponent implements ControlValueAccessor {
     return productPickerLabel(p);
   }
 
+  productOptionValue(p: ProductRow): string {
+    return this.productLabel(p);
+  }
+
+  productStockLabel(p: ProductRow): string {
+    if (!this.stockByProductId) {
+      return '';
+    }
+    const qty = this.stockByProductId[p.id];
+    if (qty == null) {
+      return 'No stock data';
+    }
+    const uom = this.stockUnitByProductId?.[p.id]?.trim() || p.unitOfMeasure || 'units';
+    if (qty <= 0) {
+      return `Out of stock (0 ${uom})`;
+    }
+    return `${qty} ${uom} available at supplier`;
+  }
+
+  productMeta(p: ProductRow): string {
+    const stock = this.productStockLabel(p);
+    if (stock) {
+      return stock;
+    }
+    return p.categoryName?.trim() ?? '';
+  }
+
+  isOutOfStock(p: ProductRow): boolean {
+    if (!this.stockByProductId) {
+      return false;
+    }
+    const qty = this.stockByProductId[p.id];
+    return qty != null && qty <= 0;
+  }
+
   onInputFocus(): void {
+    if (this.value != null) {
+      this.searchText = this.labelForId(this.value);
+    }
     setTimeout(() => this.autocompleteTrigger?.openPanel());
   }
 
   onSearchInput(): void {
+    this.normaliseSearchText();
+    if (this.restoreLabelWhenInputMatchesSelectedId()) {
+      return;
+    }
+    if (this.coerceNumericInputToProductLabel()) {
+      return;
+    }
     const selectedLabel = this.labelForId(this.value);
-    if (this.value != null && this.searchText.trim() !== selectedLabel) {
+    if (this.value != null && this.searchQuery !== selectedLabel) {
       this.value = null;
       this.onChange(null);
       this.selectionChange.emit(null);
@@ -97,15 +149,21 @@ export class SearchableProductPickerComponent implements ControlValueAccessor {
   }
 
   onProductPicked(event: MatAutocompleteSelectedEvent): void {
-    const product = event.option.value as ProductRow;
-    this.onSelectChange(product.id);
-    this.searchText = this.productLabel(product);
+    const product = this.productFromOptionValue(event.option.value);
+    if (!product) {
+      return;
+    }
+    this.applyProductSelection(product);
+    this.autocompleteTrigger?.closePanel();
   }
 
   onBlur(): void {
     this.onTouched();
+    this.normaliseSearchText();
+    this.restoreLabelWhenInputMatchesSelectedId();
+    this.coerceNumericInputToProductLabel();
     const selectedLabel = this.labelForId(this.value);
-    if (this.value != null && this.searchText.trim() !== selectedLabel) {
+    if (this.value != null && this.searchQuery !== selectedLabel) {
       this.searchText = selectedLabel;
     }
   }
@@ -114,14 +172,12 @@ export class SearchableProductPickerComponent implements ControlValueAccessor {
     if (!(event instanceof KeyboardEvent) || event.key !== 'Enter') {
       return;
     }
-    const matches = filterProductsForSearch(this.products, this.searchText);
+    const matches = filterProductsForSearch(this.products, this.searchQuery);
     if (matches.length !== 1) {
       return;
     }
     event.preventDefault();
-    const product = matches[0];
-    this.onSelectChange(product.id);
-    this.searchText = this.productLabel(product);
+    this.applyProductSelection(matches[0]);
     this.autocompleteTrigger?.closePanel();
   }
 
@@ -155,5 +211,60 @@ export class SearchableProductPickerComponent implements ControlValueAccessor {
     }
     const product = this.products.find((p) => p.id === id);
     return product ? this.productLabel(product) : '';
+  }
+
+  private asSearchString(raw: unknown): string {
+    if (raw == null || typeof raw === 'object') {
+      return '';
+    }
+    return String(raw).trim();
+  }
+
+  private normaliseSearchText(): void {
+    this.searchText = this.asSearchString(this.searchText);
+  }
+
+  private productFromOptionValue(optionValue: unknown): ProductRow | null {
+    const raw = this.asSearchString(optionValue);
+    if (!raw) {
+      return null;
+    }
+    if (/^\d+$/.test(raw)) {
+      const id = Number(raw);
+      return this.products.find((p) => p.id === id) ?? null;
+    }
+    const byLabel = this.products.filter((p) => this.productLabel(p) === raw);
+    if (byLabel.length === 1) {
+      return byLabel[0];
+    }
+    if (byLabel.length > 1 && this.value != null) {
+      return byLabel.find((p) => p.id === this.value) ?? byLabel[0];
+    }
+    return byLabel[0] ?? null;
+  }
+
+  private restoreLabelWhenInputMatchesSelectedId(): boolean {
+    if (this.value == null || this.searchQuery !== String(this.value)) {
+      return false;
+    }
+    this.searchText = this.labelForId(this.value);
+    return true;
+  }
+
+  private coerceNumericInputToProductLabel(): boolean {
+    if (!/^\d+$/.test(this.searchQuery)) {
+      return false;
+    }
+    const product = this.products.find((p) => p.id === Number(this.searchQuery));
+    if (!product) {
+      return false;
+    }
+    this.applyProductSelection(product);
+    return true;
+  }
+
+  private applyProductSelection(product: ProductRow): void {
+    this.onSelectChange(product.id);
+    this.searchText = this.productLabel(product);
   }
 }

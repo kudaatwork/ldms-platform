@@ -11,11 +11,18 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import projectlx.co.zw.organizationmanagement.clients.UserManagementServiceClient;
 import projectlx.co.zw.organizationmanagement.model.Agent;
 import projectlx.co.zw.organizationmanagement.model.Branch;
 import projectlx.co.zw.organizationmanagement.model.Organization;
 import projectlx.co.zw.organizationmanagement.utils.config.OrganizationPortalLinkProperties;
 import projectlx.co.zw.organizationmanagement.utils.requests.NotificationRequest;
+import projectlx.co.zw.shared_library.utils.dtos.UserDto;
+import projectlx.co.zw.shared_library.utils.notifications.PlatformBellNotificationPublisher;
+import projectlx.co.zw.shared_library.utils.requests.PlatformBellNotificationRequest;
+import projectlx.co.zw.shared_library.utils.responses.UserResponse;
+
+import java.util.List;
 
 /**
  * Sends organisation directory notifications to organisation contacts.
@@ -34,9 +41,19 @@ public class OrganizationDirectoryNotifier {
     private static final String TEMPLATE_CUSTOMER_LINKED = "ORG_CUSTOMER_LINKED";
     private static final String TEMPLATE_CLEARING_AGENT_LINKED = "ORG_CLEARING_AGENT_LINKED";
     private static final String TEMPLATE_TRANSPORTER_LINKED = "ORG_TRANSPORTER_LINKED";
+    private static final String TEMPLATE_TRANSPORTER_OFFER = "ORG_TRANSPORTER_OFFER";
+
+    private static final String SOURCE_SERVICE = "ldms-organization-management";
+    private static final String CONNECTION_REQUESTS_ROUTE = "/organization/connection-requests";
+    private static final String TRANSPORTERS_ROUTE = "/organization/transporters";
+    private static final String EVENT_TRANSPORTER_OFFER = "ORG_TRANSPORTER_OFFER";
+    private static final String EVENT_TRANSPORTER_OFFER_ACCEPTED = "ORG_TRANSPORTER_OFFER_ACCEPTED";
+    private static final String ENTITY_TRANSPORTER_OFFER = "TRANSPORTER_OFFER";
 
     private final RabbitTemplate rabbitTemplate;
     private final OrganizationPortalLinkProperties portalLinks;
+    private final PlatformBellNotificationPublisher platformBellNotificationPublisher;
+    private final UserManagementServiceClient userManagementServiceClient;
 
     public void sendBranchCreated(Branch branch, String performedBy) {
         if (branch == null || branch.getOrganization() == null) {
@@ -142,6 +159,97 @@ public class OrganizationDirectoryNotifier {
         transporterData.put("linkedOrganizationEmail", OrganizationNotificationEmailSupport.normalizeEmail(supplier.getEmail()));
         transporterData.put("linkPerspective", "transporter");
         sendToOrganizationMandatoryEmails(transporter, TEMPLATE_TRANSPORTER_LINKED, transporterData);
+    }
+
+    /**
+     * Notify a transporter that a supplier has offered to contract them: email to the transporter org plus an
+     * in-app bell (action route to the connection-requests page) to each of the transporter's platform users.
+     */
+    public void sendTransporterLinkOffer(Organization supplier, Organization transporter, String performedBy) {
+        if (supplier == null || transporter == null) {
+            return;
+        }
+        Map<String, Object> data = linkDataForRecipient(transporter, performedBy);
+        data.put("supplierName", safe(supplier.getName()));
+        data.put("transporterName", safe(transporter.getName()));
+        data.put("linkedOrganizationName", safe(supplier.getName()));
+        data.put("linkedOrganizationEmail", OrganizationNotificationEmailSupport.normalizeEmail(supplier.getEmail()));
+        data.put("linkPerspective", "transporter");
+        data.put("signInLink", portalLinks.adminSignInUrl());
+        sendToOrganizationMandatoryEmails(transporter, TEMPLATE_TRANSPORTER_OFFER, data);
+
+        String title = "New transporter contract offer";
+        String body = safe(supplier.getName()) + " has invited you to provide transportation services.";
+        publishBellToOrganizationUsers(
+                transporter.getId(),
+                supplier.getId(),
+                EVENT_TRANSPORTER_OFFER,
+                title,
+                body,
+                CONNECTION_REQUESTS_ROUTE,
+                ENTITY_TRANSPORTER_OFFER,
+                supplier.getId());
+    }
+
+    /** Notify the supplier's users that the transporter accepted their offer (the email follows via sendTransporterLinked). */
+    public void sendTransporterOfferAccepted(Organization supplier, Organization transporter) {
+        if (supplier == null || transporter == null) {
+            return;
+        }
+        String title = "Transporter accepted your offer";
+        String body = safe(transporter.getName()) + " accepted your contract offer and is now a linked transporter.";
+        publishBellToOrganizationUsers(
+                supplier.getId(),
+                transporter.getId(),
+                EVENT_TRANSPORTER_OFFER_ACCEPTED,
+                title,
+                body,
+                TRANSPORTERS_ROUTE,
+                ENTITY_TRANSPORTER_OFFER,
+                transporter.getId());
+    }
+
+    private void publishBellToOrganizationUsers(
+            Long recipientOrganizationId,
+            Long counterpartyOrganizationId,
+            String eventKey,
+            String title,
+            String body,
+            String actionRoute,
+            String entityType,
+            Long entityId) {
+        if (recipientOrganizationId == null) {
+            return;
+        }
+        for (UserDto user : loadOrganizationUsers(recipientOrganizationId)) {
+            if (user == null || user.getId() == null) {
+                continue;
+            }
+            PlatformBellNotificationRequest request = new PlatformBellNotificationRequest(
+                    eventKey + ":" + entityType + ":" + entityId + ":" + user.getId(),
+                    user.getId(),
+                    recipientOrganizationId,
+                    eventKey,
+                    title,
+                    body,
+                    actionRoute,
+                    entityType,
+                    entityId,
+                    SOURCE_SERVICE);
+            platformBellNotificationPublisher.publish(request);
+        }
+    }
+
+    private List<UserDto> loadOrganizationUsers(Long organizationId) {
+        try {
+            UserResponse response = userManagementServiceClient.findByOrganizationId(organizationId);
+            if (response != null && response.isSuccess() && response.getUserDtoList() != null) {
+                return response.getUserDtoList();
+            }
+        } catch (Exception ex) {
+            log.warn("Failed loading users for organisation {} for bell notification: {}", organizationId, ex.getMessage());
+        }
+        return List.of();
     }
 
     private Map<String, Object> linkDataForRecipient(Organization recipient, String performedBy) {

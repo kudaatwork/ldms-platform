@@ -70,6 +70,10 @@ public class CreateUserRequest {
 
     private String password; // Initial account password
 
+    // When true the supplied username/password are ignored; the platform generates
+    // temporary credentials, flags the user must-change-on-first-login, and emails them.
+    private Boolean issueTemporaryCredentials;
+
     // ===========================
     //  User Metadata & Configurations
     // ===========================

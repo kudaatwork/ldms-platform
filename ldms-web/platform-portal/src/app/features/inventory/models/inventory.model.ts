@@ -337,6 +337,7 @@ export interface ProductCategoryRow {
   id: number;
   name: string;
   description: string;
+  supplierId?: number;
   entityStatus: string;
   createdAtLabel: string;
 }
@@ -426,6 +427,7 @@ export interface EditProductPayload {
 export interface CreateProductCategoryPayload {
   name: string;
   description: string;
+  supplierId?: number;
 }
 
 /** PUT /product-category/update */
@@ -539,6 +541,38 @@ export interface CreateRequisitionPayload {
 export interface DepartmentOption {
   id: number;
   name: string;
+  code?: string;
+}
+
+export interface DepartmentRow {
+  id: number;
+  name: string;
+  code: string;
+  description: string;
+  supplierId: number;
+  /** True when referenced by at least one purchase requisition — delete is blocked. */
+  inUse?: boolean;
+}
+
+export interface CreateDepartmentPayload {
+  name: string;
+  departmentCode?: string;
+  description?: string;
+  supplierId?: number;
+}
+
+export interface EditDepartmentPayload {
+  departmentId: number;
+  name: string;
+  departmentCode?: string;
+  description?: string;
+}
+
+/** Linked supplier organisation for customer requisitions. */
+export interface LinkedSupplierOption {
+  id: number;
+  name: string;
+  email?: string;
 }
 
 /** POST /inventory-transfer/create — matches CreateInventoryTransferRequest. */

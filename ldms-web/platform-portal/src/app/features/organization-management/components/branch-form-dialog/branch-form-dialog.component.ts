@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, Inject } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, Inject, OnDestroy, ViewChild } from '@angular/core';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -7,8 +7,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { finalize } from 'rxjs';
+import * as L from 'leaflet';
 import { BranchDetail } from '../../../../core/services/organization.service';
 import { OrgManagementPortalService } from '../../services/org-management-portal.service';
+
+/** Centre of Zimbabwe — default map view when a branch has no coordinates yet. */
+const DEFAULT_CENTER: L.LatLngExpression = [-19.0154, 29.1549];
 
 export type BranchFormDialogAction = 'create' | 'edit' | 'view';
 export type BranchFormDialogMode = 'top-level' | 'sub-level';
@@ -38,10 +42,15 @@ export interface BranchFormDialogResult {
     MatSlideToggleModule,
   ],
 })
-export class BranchFormDialogComponent {
+export class BranchFormDialogComponent implements AfterViewInit, OnDestroy {
+  @ViewChild('mapHost') mapHost?: ElementRef<HTMLDivElement>;
+
   form: FormGroup;
   submitting = false;
   saveError: string | null = null;
+
+  private map?: L.Map;
+  private marker?: L.CircleMarker;
 
   constructor(
     private readonly fb: FormBuilder,
@@ -62,6 +71,8 @@ export class BranchFormDialogComponent {
       active: [row?.active ?? true],
       parentBranchId: [row?.parentBranchId ?? null],
       depot: [row?.depot ?? false],
+      latitude: [row?.latitude ?? null],
+      longitude: [row?.longitude ?? null],
     });
 
     if (data.mode === 'sub-level' && data.action === 'create') {
@@ -69,6 +80,97 @@ export class BranchFormDialogComponent {
     }
     if (data.action === 'view') {
       this.form.disable();
+    }
+  }
+
+  ngAfterViewInit(): void {
+    // Defer so the dialog has finished its open animation and the container has size.
+    setTimeout(() => this.initMap(), 250);
+  }
+
+  ngOnDestroy(): void {
+    this.map?.remove();
+    this.map = undefined;
+  }
+
+  get hasCoordinates(): boolean {
+    return this.form.get('latitude')?.value != null && this.form.get('longitude')?.value != null;
+  }
+
+  /** Re-centre the marker from the manually typed lat/long inputs. */
+  applyTypedCoordinates(): void {
+    const lat = Number(this.form.get('latitude')?.value);
+    const lng = Number(this.form.get('longitude')?.value);
+    if (Number.isFinite(lat) && Number.isFinite(lng) && this.map) {
+      this.setPoint(lat, lng, true);
+    }
+  }
+
+  clearCoordinates(): void {
+    if (this.data.action === 'view') {
+      return;
+    }
+    this.form.patchValue({ latitude: null, longitude: null });
+    if (this.marker) {
+      this.marker.remove();
+      this.marker = undefined;
+    }
+  }
+
+  private initMap(): void {
+    if (!this.mapHost?.nativeElement || this.map) {
+      return;
+    }
+    const lat = Number(this.form.get('latitude')?.value);
+    const lng = Number(this.form.get('longitude')?.value);
+    const hasPoint = Number.isFinite(lat) && Number.isFinite(lng);
+
+    this.map = L.map(this.mapHost.nativeElement, {
+      center: hasPoint ? [lat, lng] : DEFAULT_CENTER,
+      zoom: hasPoint ? 13 : 6,
+      attributionControl: false,
+    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(this.map);
+
+    if (hasPoint) {
+      this.renderMarker(lat, lng);
+    }
+
+    if (this.data.action !== 'view') {
+      this.map.on('click', (e: L.LeafletMouseEvent) => {
+        this.setPoint(e.latlng.lat, e.latlng.lng, false);
+      });
+    }
+
+    // Maps inside dialogs often need a size recalculation once visible.
+    setTimeout(() => this.map?.invalidateSize(), 50);
+  }
+
+  private setPoint(lat: number, lng: number, recenter: boolean): void {
+    const rounded = (n: number) => Math.round(n * 1_000_000) / 1_000_000;
+    const rlat = rounded(lat);
+    const rlng = rounded(lng);
+    this.form.patchValue({ latitude: rlat, longitude: rlng });
+    this.renderMarker(rlat, rlng);
+    if (recenter) {
+      this.map?.setView([rlat, rlng], Math.max(this.map.getZoom(), 13));
+    }
+  }
+
+  private renderMarker(lat: number, lng: number): void {
+    if (!this.map) {
+      return;
+    }
+    if (this.marker) {
+      this.marker.setLatLng([lat, lng]);
+    } else {
+      this.marker = L.circleMarker([lat, lng], {
+        radius: 9,
+        color: '#2563eb',
+        fillColor: '#3b82f6',
+        fillOpacity: 0.9,
+        weight: 3,
+      }).addTo(this.map);
     }
   }
 
@@ -170,7 +272,17 @@ export class BranchFormDialogComponent {
       active: Boolean(v.active),
       parentBranchId: this.isSubLevel && v.parentBranchId ? Number(v.parentBranchId) : undefined,
       depot: this.isSubLevel ? Boolean(v.depot) : false,
+      latitude: this.optionalNumber(v.latitude),
+      longitude: this.optionalNumber(v.longitude),
     };
+  }
+
+  private optionalNumber(value: unknown): number | undefined {
+    if (value === null || value === undefined || value === '') {
+      return undefined;
+    }
+    const n = Number(value);
+    return Number.isFinite(n) ? n : undefined;
   }
 
   private optionalString(value: unknown): string | undefined {

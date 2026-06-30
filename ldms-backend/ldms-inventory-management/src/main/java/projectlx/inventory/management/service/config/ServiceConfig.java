@@ -44,6 +44,11 @@ public class ServiceConfig {
     }
 
     @Bean
+    public DepartmentServiceProcessor departmentServiceProcessor(DepartmentService departmentService) {
+        return new DepartmentServiceProcessorImpl(departmentService);
+    }
+
+    @Bean
     public ProductDocumentServiceProcessor productDocumentServiceProcessor(ProductDocumentService productDocumentService) {
         return new ProductDocumentServiceProcessorImpl(productDocumentService);
     }

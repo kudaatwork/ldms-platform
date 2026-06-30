@@ -9,5 +9,6 @@ import javax.annotation.processing.Generated;
 public class ProductCategory_ {
     public static volatile SingularAttribute<ProductCategory, String> name;
     public static volatile SingularAttribute<ProductCategory, String> description;
+    public static volatile SingularAttribute<ProductCategory, Long> supplierId;
     public static volatile SingularAttribute<ProductCategory, String> entityStatus;
 }

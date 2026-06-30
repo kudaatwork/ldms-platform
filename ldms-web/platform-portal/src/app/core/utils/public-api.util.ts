@@ -12,5 +12,14 @@ export function isPublicLdmsApiRequest(url: string): boolean {
   if (url.includes('/organization/onboarding-status')) {
     return true;
   }
+  if (url.includes('/v1/frontend/bot-session/guest/')) {
+    return true;
+  }
+  if (url.includes('/v1/frontend/help-support/demo-requisition/submit')) {
+    return true;
+  }
+  if (url.includes('/v1/frontend/platform-wallet/public/')) {
+    return true;
+  }
   return false;
 }

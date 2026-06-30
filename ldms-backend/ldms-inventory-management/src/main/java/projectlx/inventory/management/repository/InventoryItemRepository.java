@@ -23,6 +23,19 @@ public interface InventoryItemRepository extends JpaRepository<InventoryItem, Lo
 
     List<InventoryItem> findByEntityStatusNot(EntityStatus entityStatus);
 
+    @Query("SELECT DISTINCT i.product.id FROM InventoryItem i "
+            + "WHERE i.warehouseLocation.id IN :warehouseIds AND i.entityStatus <> :deletedStatus "
+            + "AND i.product IS NOT NULL")
+    List<Long> findDistinctProductIdsByWarehouseLocationIdIn(
+            @Param("warehouseIds") java.util.Collection<Long> warehouseIds,
+            @Param("deletedStatus") EntityStatus deletedStatus);
+
+    @Query("SELECT i FROM InventoryItem i "
+            + "WHERE i.warehouseLocation.id IN :warehouseIds AND i.entityStatus <> :deletedStatus")
+    List<InventoryItem> findByWarehouseLocationIdInAndEntityStatusNot(
+            @Param("warehouseIds") java.util.Collection<Long> warehouseIds,
+            @Param("deletedStatus") EntityStatus deletedStatus);
+
     Optional<InventoryItem> findByWarehouseLocationIdAndEntityStatusNot(Long id, EntityStatus entityStatus);
 
     // Explicit locked fetch by id

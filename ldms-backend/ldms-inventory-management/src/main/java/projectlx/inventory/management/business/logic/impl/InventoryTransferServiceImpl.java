@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -34,6 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.lowagie.text.DocumentException;
 import projectlx.inventory.management.business.logic.support.InventoryExportSupport;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
+import projectlx.inventory.management.business.logic.support.PlatformBellNotificationSupport;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -112,6 +115,8 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
     private final GoodsReceivedVoucherServiceAuditable goodsReceivedVoucherServiceAuditable;
     private final GoodsReceivedVoucherRepository goodsReceivedVoucherRepository;
     private final LogisticsRouteStopService logisticsRouteStopService;
+    private final InventoryOrganizationScopeSupport organizationScopeSupport;
+    private final PlatformBellNotificationSupport platformBellNotificationSupport;
 
     private static final String[] HEADERS = {"ID", "TRANSFER_NUMBER", "PRODUCT_ID", "FROM_LOCATION_ID", "TO_LOCATION_ID", "QUANTITY", "STATUS", "REFERENCE"};
     private static final String[] CSV_HEADERS = {
@@ -214,6 +219,7 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         persistTransferRouteStops(savedTransfer, request.getRouteStops(), locale, username);
 
         sendInventoryTransferCreatedInternal(savedTransfer);
+        notifyTransferCreated(savedTransfer);
 
         InventoryTransferDto dto = mapToDto(savedTransfer);
         message = messageService.getMessage(
@@ -568,6 +574,7 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         InventoryTransfer saved = auditable.update(transfer, locale, username);
 
         sendInventoryTransferCompletedInternal(saved);
+        notifyTransferCompleted(saved);
 
         InventoryTransferDto dto = mapToDto(saved);
         message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_TRANSFER_COMPLETED_SUCCESSFULLY.getCode(),
@@ -687,6 +694,18 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
         String message;
 
         List<InventoryTransfer> list = repository.findAllActiveWithDetails(EntityStatus.DELETED);
+        if (!organizationScopeSupport.isSystemUser(username)) {
+            Long callerOrgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (callerOrgId == null) {
+                message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_TRANSFER_RETRIEVED_SUCCESSFULLY.getCode(),
+                        new String[]{}, locale);
+                return buildResponse(200, true, message, null, List.of(), null);
+            }
+            Set<Long> visibleWarehouseIds = organizationScopeSupport.visibleWarehouseIds(callerOrgId);
+            list = list.stream()
+                    .filter(transfer -> involvesVisibleWarehouse(transfer, visibleWarehouseIds))
+                    .collect(Collectors.toList());
+        }
 
         if (list.isEmpty()) {
             message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_TRANSFER_RETRIEVED_SUCCESSFULLY.getCode(),
@@ -809,6 +828,19 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
 
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
 
+        if (!organizationScopeSupport.isSystemUser(username)) {
+            Long callerOrgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (callerOrgId == null) {
+                message = messageService.getMessage(I18Code.MESSAGE_INVENTORY_TRANSFER_RETRIEVED_SUCCESSFULLY.getCode(),
+                        new String[]{}, locale);
+                InventoryTransferResponse empty = buildResponse(200, true, message, null, List.of(), null);
+                empty.setInventoryTransferDtoPage(new org.springframework.data.domain.PageImpl<>(List.of(), pageable, 0));
+                return empty;
+            }
+            Set<Long> visibleWarehouseIds = organizationScopeSupport.visibleWarehouseIds(callerOrgId);
+            spec = spec.and(InventoryTransferSpecification.involvingWarehouseIdIn(visibleWarehouseIds));
+        }
+
         if (request.getProductId() != null) {
             spec = spec.and(InventoryTransferSpecification.productIdEquals(request.getProductId()));
         }
@@ -854,6 +886,16 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
                 null);
         response.setInventoryTransferDtoPage(dtoPage);
         return response;
+    }
+
+    private boolean involvesVisibleWarehouse(InventoryTransfer transfer, Set<Long> visibleWarehouseIds) {
+        if (visibleWarehouseIds == null || visibleWarehouseIds.isEmpty()) {
+            return false;
+        }
+        Long fromId = transfer.getFromLocation() != null ? transfer.getFromLocation().getId() : null;
+        Long toId = transfer.getToLocation() != null ? transfer.getToLocation().getId() : null;
+        return (fromId != null && visibleWarehouseIds.contains(fromId))
+                || (toId != null && visibleWarehouseIds.contains(toId));
     }
 
     private String generateTransferNumber() {
@@ -1511,5 +1553,52 @@ public class InventoryTransferServiceImpl implements InventoryTransferService {
             log.error("Failed to send inventory transfer completed internal notification for transfer {}. Error: {}",
                     transfer.getTransferNumber(), e.getMessage());
         }
+    }
+
+    private void notifyTransferCreated(InventoryTransfer transfer) {
+        Long destinationOrgId = resolveWarehouseOrganizationId(transfer.getToLocation());
+        if (destinationOrgId == null) {
+            return;
+        }
+        platformBellNotificationSupport.notifyProcurementApprovers(
+                destinationOrgId,
+                transfer.getCreatedByUserId(),
+                "INVENTORY_TRANSFER_REQUESTED",
+                "Incoming stock transfer",
+                "Transfer " + transfer.getTransferNumber() + " is heading to your warehouse and needs attention.",
+                "/products-inventory/transfers",
+                "transfer",
+                transfer.getId(),
+                Map.of(
+                        "transferNumber", transfer.getTransferNumber(),
+                        "quantity", transfer.getQuantity() != null ? transfer.getQuantity().toPlainString() : "",
+                        "lifecycleMessage", "An inventory transfer is heading to your warehouse and needs your attention."));
+    }
+
+    private void notifyTransferCompleted(InventoryTransfer transfer) {
+        Long destinationOrgId = resolveWarehouseOrganizationId(transfer.getToLocation());
+        if (destinationOrgId == null) {
+            return;
+        }
+        platformBellNotificationSupport.notifyOrganizationUsers(
+                destinationOrgId,
+                null,
+                "INVENTORY_TRANSFER_COMPLETED",
+                "Stock transfer completed",
+                "Transfer " + transfer.getTransferNumber() + " has been received at your warehouse.",
+                "/products-inventory/transfers",
+                "transfer",
+                transfer.getId(),
+                Map.of(
+                        "transferNumber", transfer.getTransferNumber(),
+                        "quantity", transfer.getQuantity() != null ? transfer.getQuantity().toPlainString() : "",
+                        "lifecycleMessage", "An inventory transfer has been completed at your warehouse."));
+    }
+
+    private Long resolveWarehouseOrganizationId(WarehouseLocation location) {
+        if (location == null || location.getSupplierId() == null || location.getSupplierId() <= 0) {
+            return null;
+        }
+        return location.getSupplierId();
     }
 }

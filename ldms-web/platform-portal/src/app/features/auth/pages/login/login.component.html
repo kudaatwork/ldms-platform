@@ -44,7 +44,7 @@
   </div>
 
   <div class="login-right">
-    <div class="login-card" [class.login-card--driver]="portalTab === 'driver'">
+<div class="login-card" [class.login-card--driver]="portalTab === 'driver'" [class.login-card--clerk]="portalTab === 'clerk'">
 
       <!-- Portal type tab switcher -->
       <div class="lc-portal-tabs" *ngIf="!twoFactorStep">
@@ -58,6 +58,11 @@
           <span class="material-icons" aria-hidden="true">local_shipping</span>
           Driver
         </button>
+        <button class="lc-portal-tab lc-portal-tab--clerk" [class.lc-portal-tab--active]="portalTab === 'clerk'"
+          (click)="selectTab('clerk')" type="button">
+          <span class="material-icons" aria-hidden="true">inventory</span>
+          Clerk
+        </button>
       </div>
 
       <div class="lc-header">
@@ -66,6 +71,10 @@
         <p class="lc-sub lc-sub--driver" *ngIf="!twoFactorStep && portalTab === 'driver'">
           <span class="material-icons" aria-hidden="true">local_shipping</span>
           Driver Portal · Mobile logistics workspace
+        </p>
+        <p class="lc-sub lc-sub--clerk" *ngIf="!twoFactorStep && portalTab === 'clerk'">
+          <span class="material-icons" aria-hidden="true">inventory</span>
+          Clerk Portal · Stock receiving &amp; dispatch
         </p>
       </div>
 
@@ -114,9 +123,12 @@
           <a routerLink="/auth/reset-password">Reset password</a>
         </div>
 
-        <button type="submit" class="lc-submit" [class.lc-submit--driver]="portalTab === 'driver'" [disabled]="loading">
+        <button type="submit" class="lc-submit"
+          [class.lc-submit--driver]="portalTab === 'driver'"
+          [class.lc-submit--clerk]="portalTab === 'clerk'"
+          [disabled]="loading">
           <span class="lc-spinner" *ngIf="loading"></span>
-          {{ loading ? 'Signing in...' : (portalTab === 'driver' ? 'Sign in to Driver Portal' : 'Sign in to Platform Portal') }}
+          {{ loading ? 'Signing in...' : (portalTab === 'driver' ? 'Sign in to Driver Portal' : portalTab === 'clerk' ? 'Sign in to Clerk Portal' : 'Sign in to Platform Portal') }}
           <span class="material-icons" *ngIf="!loading" aria-hidden="true">arrow_forward</span>
         </button>
       </form>
@@ -192,6 +204,9 @@
         </ng-container>
         <ng-container *ngIf="portalTab === 'driver'">
           <a routerLink="/driver/signup">Join as a driver</a>
+        </ng-container>
+        <ng-container *ngIf="portalTab === 'clerk'">
+          <span class="lc-footer-clerk-note">Clerks are created by organisation managers or administrators.</span>
         </ng-container>
       </p>
     </div>

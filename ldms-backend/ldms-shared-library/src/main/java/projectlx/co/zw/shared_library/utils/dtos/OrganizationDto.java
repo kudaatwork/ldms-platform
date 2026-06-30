@@ -222,6 +222,8 @@ public class OrganizationDto {
     private LocalDate contractStartDate;
     private LocalDate contractEndDate;
     private LocalDateTime contractLinkedAt;
+    /** Lifecycle of the transporter contract link: PENDING, ACCEPTED, or DECLINED. */
+    private String transporterLinkStatus;
 
     /** Contracted clearing agent organisations linked to this supplier. */
     private List<OrganizationDto> contractedClearingAgentDtoList;

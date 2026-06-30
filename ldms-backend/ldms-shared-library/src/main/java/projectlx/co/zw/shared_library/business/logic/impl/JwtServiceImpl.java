@@ -98,7 +98,15 @@ public class JwtServiceImpl implements JwtService {
 
     @Override
     public Long extractOrganizationId(String token) {
-        Object raw = extractAllClaims(token).get("organizationId");
+        return extractLongClaim(extractAllClaims(token).get("organizationId"));
+    }
+
+    @Override
+    public Long extractUserId(String token) {
+        return extractLongClaim(extractAllClaims(token).get("userId"));
+    }
+
+    private static Long extractLongClaim(Object raw) {
         if (raw == null) {
             return null;
         }

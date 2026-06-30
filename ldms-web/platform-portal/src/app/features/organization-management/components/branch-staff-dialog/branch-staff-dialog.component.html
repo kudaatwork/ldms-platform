@@ -1,0 +1,117 @@
+<div class="lx-dialog-shell branch-staff-dialog" [attr.data-accent]="meta.accent">
+  <div class="branch-staff-dialog__accent" aria-hidden="true"></div>
+
+  <div class="lx-dialog-header branch-staff-dialog__header">
+    <div class="branch-staff-dialog__hero-icon" aria-hidden="true">
+      <mat-icon>{{ meta.icon }}</mat-icon>
+    </div>
+    <div class="lx-header-text">
+      <p class="branch-staff-dialog__eyebrow">{{ branchLabel }}</p>
+      <h2 class="lx-dialog-title">{{ dialogTitle }}</h2>
+      <p class="lx-dialog-subtitle">{{ meta.subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()" [disabled]="submitting">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="branch-staff-dialog__body" (ngSubmit)="save()">
+    <div class="lx-form-grid">
+      <div class="lx-field span-2" *ngIf="showBranchPicker">
+        <label class="lx-field-label">Branch <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('branchId', 'required')">
+          <mat-icon class="lx-input-shell__icon">account_tree</mat-icon>
+          <select formControlName="branchId" aria-label="Branch">
+            <option value="" disabled>Select a branch…</option>
+            <option *ngFor="let b of branches" [value]="b.id">{{ b.branchName }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">First name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('firstName', 'required')">
+          <mat-icon class="lx-input-shell__icon">person</mat-icon>
+          <input formControlName="firstName" placeholder="Given name" autocomplete="given-name" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Last name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('lastName', 'required')">
+          <mat-icon class="lx-input-shell__icon">person_outline</mat-icon>
+          <input formControlName="lastName" placeholder="Family name" autocomplete="family-name" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Email <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('email', 'required') || hasError('email', 'email')">
+          <mat-icon class="lx-input-shell__icon">mail</mat-icon>
+          <input formControlName="email" type="email" placeholder="name@example.co.zw" autocomplete="email" />
+        </div>
+      </div>
+
+      <div class="lx-field" *ngIf="editMode">
+        <label class="lx-field-label">Username <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('username', 'required')">
+          <mat-icon class="lx-input-shell__icon">alternate_email</mat-icon>
+          <input formControlName="username" placeholder="portal username" autocomplete="username" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Phone <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('phoneNumber', 'required')">
+          <mat-icon class="lx-input-shell__icon">phone</mat-icon>
+          <input formControlName="phoneNumber" placeholder="+263771234567" autocomplete="tel" />
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Gender <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">wc</mat-icon>
+          <select formControlName="gender" aria-label="Gender">
+            <option value="MALE">Male</option>
+            <option value="FEMALE">Female</option>
+            <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Date of birth <span class="req">*</span></label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">cake</mat-icon>
+          <input formControlName="dateOfBirth" type="date" [max]="maxDob" />
+        </div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">National ID <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('nationalIdNumber', 'required')">
+          <mat-icon class="lx-input-shell__icon">badge</mat-icon>
+          <input formControlName="nationalIdNumber" placeholder="e.g. 63-123456-A-12" />
+        </div>
+      </div>
+
+    </div>
+
+    <p class="branch-staff-dialog__hint" *ngIf="!editMode">
+      <mat-icon class="branch-staff-dialog__hint-icon">mark_email_read</mat-icon>
+      Temporary sign-in credentials will be emailed to the user. They'll set their own
+      permanent username and password on first login.
+    </p>
+
+    <p class="branch-staff-dialog__error" *ngIf="saveError">{{ saveError }}</p>
+
+    <div class="lx-dialog-actions branch-staff-dialog__actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting">
+        <mat-icon *ngIf="!submitting">{{ editMode ? 'save' : 'person_add' }}</mat-icon>
+        {{ submitting ? (editMode ? 'Saving…' : 'Creating…') : (editMode ? 'Save changes' : ('Create ' + (meta.title | lowercase))) }}
+      </button>
+    </div>
+  </form>
+</div>

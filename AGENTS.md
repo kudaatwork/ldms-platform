@@ -127,16 +127,6 @@ These files provide deep-dive guidance for specific areas:
 | System architecture (23 services, phases, events) | [`.github/instructions/ldms-system-architecture.instructions.md`](.github/instructions/ldms-system-architecture.instructions.md) |
 | Platform pricing (wallet, subscriptions, billing) | [`.github/instructions/project-lx-platform-pricing.instructions.md`](.github/instructions/project-lx-platform-pricing.instructions.md) |
 | Org onboarding (supplier/customer/transporter) | [`.github/instructions/platform-portal-org-onboarding.instructions.md`](.github/instructions/platform-portal-org-onboarding.instructions.md) |
-| Data models & entities (JPA, DTOs, Angular interfaces, Flutter models) | [`.github/instructions/ldms-data-models.instructions.md`](.github/instructions/ldms-data-models.instructions.md) |
-
-## Available Skills
-
-| Skill | Purpose | Trigger |
-|-------|---------|---------|
-| `@ldms-create-microservice` | Scaffold a new backend microservice | `/create-microservice` or mention "new microservice" |
-| `@ldms-create-entity` | Scaffold a new JPA entity, DTO, request, response, repo, and Flyway migration | `/create-entity` or mention "new entity" |
-| `@ldms-flyway-migration` | Write Flyway SQL migrations | `/flyway` or mention "migration" |
-| `@ldms-angular-feature` | Scaffold Angular feature module | `/angular-feature` or mention "new Angular feature" |
 
 ## Local Dev Startup Order (for login)
 

@@ -684,4 +684,19 @@ export const MOCK_USERS: Array<{ email: string; password: string; user: CurrentU
       email: 'gov@projectlx.co.zw',
     },
   },
+  {
+    email: 'themba.gorimbo@projectlx.co.zw',
+    password: 'Password123!',
+    user: {
+      userId: 'u-1008',
+      organizationId: 'org-03',
+      orgName: 'Transport Co',
+      orgClassification: 'TRANSPORT_COMPANY',
+      roles: ['DRIVER'],
+      email: 'themba.gorimbo@projectlx.co.zw',
+      firstName: 'Themba',
+      lastName: 'Gorimbo',
+      displayName: 'Themba Gorimbo',
+    },
+  },
 ];

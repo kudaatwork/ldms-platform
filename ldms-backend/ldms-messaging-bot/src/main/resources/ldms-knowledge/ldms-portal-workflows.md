@@ -50,6 +50,18 @@
 
 See `platform-org-onboarding.md` for full detail.
 
+## Departments (Inventory master data)
+
+Organisation **departments** are used on **purchase requisitions** (My Orders → requisition form).
+
+| Action | Rule |
+|--------|------|
+| Create / edit | Settings → **Departments** workspace (`/departments`) |
+| Delete | Allowed only when **no purchase requisition** has ever referenced the department |
+| In use | If used on a requisition, delete is blocked — requisitions keep their historical department reference |
+
+Department create, update, delete, and blocked-delete attempts are recorded in **Login & activity** (audit trail).
+
 ## Help & Support
 
 - **Assistant mode:** FAQ + knowledge RAG (included).

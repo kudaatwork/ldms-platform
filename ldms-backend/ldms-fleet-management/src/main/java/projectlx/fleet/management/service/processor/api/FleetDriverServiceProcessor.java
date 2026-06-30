@@ -28,6 +28,9 @@ public interface FleetDriverServiceProcessor {
     /** Returns the FleetDriver profile for the currently authenticated user. */
     FleetDriverResponse findMyProfile(Locale locale, String username);
 
+    /** Updates the currently authenticated driver's own profile (self-editable fields only). */
+    FleetDriverResponse updateMyProfile(EditFleetDriverRequest request, Locale locale, String username);
+
     /** Marketplace: search drivers available for hire. */
     FleetDriverResponse searchMarketplace(String term, String licenseClass, Locale locale, String username);
 

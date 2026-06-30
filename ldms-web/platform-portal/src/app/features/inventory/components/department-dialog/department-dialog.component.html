@@ -1,0 +1,55 @@
+<div class="lx-dialog-shell">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">{{ title }}</h2>
+      <p class="lx-dialog-subtitle">{{ subtitle }}</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()" [disabled]="submitting">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <form [formGroup]="form" class="lx-step-content" (ngSubmit)="onSubmit()" id="departmentForm" novalidate>
+    <div class="lx-form-grid">
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Department name <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('name', 'required') || hasError('name', 'maxlength')">
+          <mat-icon class="lx-input-shell__icon">corporate_fare</mat-icon>
+          <input formControlName="name" placeholder="e.g. Operations" autocomplete="off" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'required')">Name is required</div>
+        <div class="lx-field-error" *ngIf="hasError('name', 'maxlength')">Maximum 200 characters</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Code</label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('code', 'maxlength')">
+          <mat-icon class="lx-input-shell__icon">tag</mat-icon>
+          <input formControlName="code" placeholder="e.g. OPS" autocomplete="off" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('code', 'maxlength')">Maximum 60 characters</div>
+      </div>
+
+      <div class="lx-field span-2">
+        <label class="lx-field-label">Description</label>
+        <div class="lx-input-shell lx-input-shell--textarea" [class.lx-input-shell--invalid]="hasError('description', 'maxlength')">
+          <mat-icon class="lx-input-shell__icon">notes</mat-icon>
+          <textarea formControlName="description" rows="3" placeholder="Optional notes about this department"></textarea>
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('description', 'maxlength')">Maximum 500 characters</div>
+      </div>
+    </div>
+
+    <p class="lx-list-error" *ngIf="submitError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ submitError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="submit" class="lx-btn lx-btn-primary" [disabled]="submitting || form.invalid">
+        {{ submitting ? 'Saving…' : (isEdit ? 'Save changes' : 'Add department') }}
+      </button>
+    </div>
+  </form>
+</div>

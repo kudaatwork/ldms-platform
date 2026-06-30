@@ -1,5 +1,6 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import * as L from 'leaflet';
 import { Title } from '@angular/platform-browser';
 import { PageEvent } from '@angular/material/paginator';
 import { MatDialog } from '@angular/material/dialog';
@@ -43,6 +44,13 @@ import { InventoryPortalService } from '../../../inventory/services/inventory-po
 import { WarehouseRow } from '../../../inventory/models/inventory.model';
 import { LocationsService } from '../../../locations/services/locations.service';
 import { formatInventoryAddressLabel } from '../../../inventory/utils/inventory-address.util';
+import {
+  BranchStaffDialogComponent,
+  BranchStaffDialogData,
+  BranchStaffDialogResult,
+  BranchStaffRole,
+} from '../../components/branch-staff-dialog/branch-staff-dialog.component';
+import { UsersPortalService, UserListRow } from '../../../users/services/users-portal.service';
 
 @Component({
   selector: 'app-org-branches-page',
@@ -51,7 +59,11 @@ import { formatInventoryAddressLabel } from '../../../inventory/utils/inventory-
   standalone: false,
 })
 export class OrgBranchesPageComponent implements OnInit, OnDestroy {
+  @ViewChild('branchMapHost') branchMapHost?: ElementRef<HTMLDivElement>;
+
   scope: BranchListScope = 'top-level';
+  showMap = false;
+  private branchMap?: L.Map;
   loading = true;
   actionInProgress = false;
   exporting = false;
@@ -79,6 +91,8 @@ export class OrgBranchesPageComponent implements OnInit, OnDestroy {
   drillLinkableCount = 0;
   drillLoading = false;
   drillWarehousesLoading = false;
+  drillStaff: UserListRow[] = [];
+  drillStaffLoading = false;
   warehouseActionInProgress = false;
 
   private allOrgWarehouses: WarehouseRow[] = [];
@@ -102,6 +116,7 @@ export class OrgBranchesPageComponent implements OnInit, OnDestroy {
     private readonly orgContext: OrgContextService,
     private readonly locationsService: LocationsService,
     private readonly inventoryPortal: InventoryPortalService,
+    private readonly usersPortal: UsersPortalService,
     private readonly dialog: MatDialog,
     private readonly snackBar: MatSnackBar,
     private readonly title: Title,
@@ -194,8 +209,69 @@ export class OrgBranchesPageComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.branchMap?.remove();
+    this.branchMap = undefined;
     this.destroy$.next();
     this.destroy$.complete();
+  }
+
+  // ── Map view ────────────────────────────────────────────────────────────────
+  get mappableBranches(): BranchDetail[] {
+    return this.branches.filter((b) => b.latitude != null && b.longitude != null);
+  }
+
+  toggleMapView(): void {
+    this.showMap = !this.showMap;
+    this.cdr.markForCheck();
+    if (this.showMap) {
+      setTimeout(() => this.renderBranchMap(), 120);
+    }
+  }
+
+  private renderBranchMap(): void {
+    if (!this.branchMapHost?.nativeElement) {
+      return;
+    }
+    if (!this.branchMap) {
+      this.branchMap = L.map(this.branchMapHost.nativeElement, {
+        center: [-19.0154, 29.1549],
+        zoom: 6,
+        attributionControl: false,
+      });
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(this.branchMap);
+    }
+
+    // Clear existing markers (keep the tile layer).
+    this.branchMap.eachLayer((layer) => {
+      if (layer instanceof L.CircleMarker) {
+        this.branchMap?.removeLayer(layer);
+      }
+    });
+
+    const points: L.LatLngExpression[] = [];
+    for (const b of this.mappableBranches) {
+      const lat = Number(b.latitude);
+      const lng = Number(b.longitude);
+      points.push([lat, lng]);
+      L.circleMarker([lat, lng], {
+        radius: 9,
+        color: b.depot ? '#ea580c' : '#2563eb',
+        fillColor: b.depot ? '#fb923c' : '#3b82f6',
+        fillOpacity: 0.9,
+        weight: 3,
+      })
+        .bindPopup(
+          `<strong>${b.branchName}</strong>` +
+            (b.region ? `<br>${b.region}` : '') +
+            `<br><small>${lat.toFixed(5)}, ${lng.toFixed(5)}</small>`,
+        )
+        .addTo(this.branchMap);
+    }
+
+    if (points.length) {
+      this.branchMap.fitBounds(L.latLngBounds(points).pad(0.2), { maxZoom: 14 });
+    }
+    setTimeout(() => this.branchMap?.invalidateSize(), 50);
   }
 
   applyFilters(): void {
@@ -379,6 +455,7 @@ export class OrgBranchesPageComponent implements OnInit, OnDestroy {
     this.drillBranch = null;
     this.drillSubBranches = [];
     this.drillWarehouses = [];
+    this.drillStaff = [];
     this.allOrgWarehouses = [];
     this.drillLinkableCount = 0;
     void this.router.navigate([], {
@@ -402,24 +479,80 @@ export class OrgBranchesPageComponent implements OnInit, OnDestroy {
   get drillStatCards(): Array<{ icon: string; label: string; value: number; tone?: string }> {
     return [
       {
+        icon: 'groups',
+        label: 'Team',
+        value: this.drillStaff.length,
+        tone: 'violet',
+      },
+      {
         icon: 'fork_right',
         label: this.showDrillSubBranches ? 'Sub-branches' : 'Level',
         value: this.showDrillSubBranches ? this.drillSubBranches.length : 1,
-        tone: 'violet',
+        tone: 'blue',
       },
       {
         icon: 'warehouse',
         label: 'Warehouses',
         value: this.drillWarehouses.length,
-        tone: 'blue',
-      },
-      {
-        icon: 'link',
-        label: 'Linkable',
-        value: this.drillLinkableCount,
         tone: 'amber',
       },
     ];
+  }
+
+  branchStaffRoleLabel(row: UserListRow): string {
+    const role = (row.role ?? row.accountType ?? '').toLowerCase();
+    if (role.includes('manager')) {
+      return 'Manager';
+    }
+    if (role.includes('clerk')) {
+      return 'Clerk';
+    }
+    return row.role || row.accountType || 'Staff';
+  }
+
+  branchStaffTone(row: UserListRow): 'manager' | 'clerk' | 'other' {
+    const role = (row.role ?? row.accountType ?? '').toLowerCase();
+    if (role.includes('manager')) {
+      return 'manager';
+    }
+    if (role.includes('clerk')) {
+      return 'clerk';
+    }
+    return 'other';
+  }
+
+  openAddBranchStaff(role: BranchStaffRole, branch: BranchDetail | null = this.drillBranch): void {
+    const target = branch ?? this.drillBranch;
+    const organizationId = this.orgContext.organizationId;
+    if (!target || !organizationId) {
+      this.snackBar.open('Select a branch in your organisation before adding staff.', 'Close', { duration: 5000 });
+      return;
+    }
+    const data: BranchStaffDialogData = {
+      branch: target,
+      organizationId,
+      role,
+    };
+    this.dialog
+      .open(BranchStaffDialogComponent, {
+        data,
+        width: '640px',
+        maxWidth: '96vw',
+        panelClass: 'lx-dialog-panel',
+        autoFocus: 'first-titled-element',
+      })
+      .afterClosed()
+      .subscribe((result: BranchStaffDialogResult | undefined) => {
+        if (result?.created) {
+          this.loadBranchStaff(target.id);
+        }
+      });
+  }
+
+  refreshBranchStaff(): void {
+    if (this.drillBranch) {
+      this.loadBranchStaff(this.drillBranch.id);
+    }
   }
 
   warehouseTypeLabel(type: string | undefined): string {
@@ -541,6 +674,7 @@ export class OrgBranchesPageComponent implements OnInit, OnDestroy {
     }
     this.drillLoading = true;
     this.drillWarehousesLoading = true;
+    this.loadBranchStaff(branch.id);
 
     const subBranches$ =
       branch.branchLevel === 'BRANCH'
@@ -625,6 +759,39 @@ export class OrgBranchesPageComponent implements OnInit, OnDestroy {
     }
     this.drillWarehousesLoading = true;
     this.loadDrillWarehouses(branch, this.drillSubBranches.map((row) => row.id));
+  }
+
+  private loadBranchStaff(branchId: number): void {
+    const organizationId = this.orgContext.organizationId;
+    if (!organizationId || branchId <= 0) {
+      this.drillStaff = [];
+      return;
+    }
+    this.drillStaffLoading = true;
+    this.usersPortal
+      .queryUsers({
+        page: 0,
+        size: 100,
+        searchQuery: '',
+        columnFilters: {},
+        organizationId,
+        branchId,
+      })
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(() => {
+          this.drillStaffLoading = false;
+          this.cdr.markForCheck();
+        }),
+      )
+      .subscribe({
+        next: ({ rows }) => {
+          this.drillStaff = rows;
+        },
+        error: () => {
+          this.drillStaff = [];
+        },
+      });
   }
 
   private openAddWarehouseDialog(): void {

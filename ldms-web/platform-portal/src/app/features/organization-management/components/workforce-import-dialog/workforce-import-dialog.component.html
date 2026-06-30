@@ -1,0 +1,78 @@
+<div class="lx-dialog-shell wf-import">
+  <div class="lx-dialog-header">
+    <div class="wf-import__hero" aria-hidden="true"><mat-icon>upload_file</mat-icon></div>
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Import {{ meta.label }}</h2>
+      <p class="lx-dialog-subtitle">Upload a CSV to create {{ meta.label }} in bulk.</p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close" (click)="close()" [disabled]="importing">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="wf-import__body">
+    <div class="wf-import__actions">
+      <label class="lx-btn lx-btn-ghost lx-btn-sm">
+        <mat-icon>attach_file</mat-icon>
+        Choose CSV
+        <input type="file" accept=".csv,text/csv" hidden (change)="onFileSelected($event)" [disabled]="importing" />
+      </label>
+      <button type="button" class="lx-btn lx-btn-ghost lx-btn-sm" (click)="downloadTemplate()">
+        <mat-icon>download</mat-icon>
+        Template
+      </button>
+      <span class="wf-import__file" *ngIf="fileName">{{ fileName }}</span>
+    </div>
+
+    <p class="wf-import__hint">
+      Columns: <code>firstName, lastName, email, username, phoneNumber, nationalIdNumber, gender, dateOfBirth, branch</code>.
+      Branch matches by name or code. A default password is set and users are flagged to change it.
+    </p>
+
+    <p class="wf-import__error" *ngIf="parseError">{{ parseError }}</p>
+
+    <div class="wf-import__summary" *ngIf="rows.length">
+      <span class="wf-chip wf-chip--ok">{{ validRows.length }} ready</span>
+      <span class="wf-chip wf-chip--bad" *ngIf="rows.length - validRows.length as bad">{{ bad }} with issues</span>
+    </div>
+
+    <div class="wf-import__preview" *ngIf="rows.length">
+      <table class="lx-data-table">
+        <thead>
+          <tr><th>Name</th><th>Email</th><th>Branch</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of rows">
+            <td>{{ r.firstName }} {{ r.lastName }}</td>
+            <td>{{ r.email }}</td>
+            <td>{{ r.branchRef || '—' }}</td>
+            <td>
+              <span class="wf-row-ok" *ngIf="!r.error"><mat-icon>check_circle</mat-icon> Ready</span>
+              <span class="wf-row-bad" *ngIf="r.error"><mat-icon>error</mat-icon> {{ r.error }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="wf-import__result" *ngIf="done">
+      <mat-icon class="wf-import__result-icon">task_alt</mat-icon>
+      Imported {{ successCount }} {{ meta.label }}<span *ngIf="failCount">, {{ failCount }} failed</span>.
+    </div>
+  </div>
+
+  <div class="lx-dialog-actions">
+    <button type="button" class="lx-btn lx-btn-ghost" (click)="close()" [disabled]="importing">
+      {{ done ? 'Done' : 'Cancel' }}
+    </button>
+    <button
+      type="button"
+      class="lx-btn lx-btn-primary"
+      (click)="startImport()"
+      [disabled]="importing || done || !validRows.length"
+    >
+      <mat-icon *ngIf="!importing">cloud_upload</mat-icon>
+      {{ importing ? 'Importing…' : ('Import ' + validRows.length + ' ' + meta.label) }}
+    </button>
+  </div>
+</div>

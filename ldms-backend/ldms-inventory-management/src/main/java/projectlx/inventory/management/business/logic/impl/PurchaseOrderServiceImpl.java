@@ -40,6 +40,8 @@ import projectlx.inventory.management.business.logic.api.InventoryItemService;
 import projectlx.inventory.management.business.logic.api.PurchaseOrderLineService;
 import projectlx.inventory.management.business.logic.api.IdempotencyService;
 import projectlx.inventory.management.business.logic.support.OrganizationFunctionalCurrencySupport;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
+import projectlx.inventory.management.business.logic.support.PlatformBellNotificationSupport;
 import projectlx.inventory.management.business.logic.support.TransactionCurrencyConversionSupport;
 import projectlx.inventory.management.clients.dto.BillingConversionResultDto;
 import projectlx.inventory.management.business.validator.api.PurchaseOrderServiceValidator;
@@ -114,6 +116,8 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
     private final GoodsReceiptProcessor goodsReceiptProcessor;
     private final OrganizationFunctionalCurrencySupport organizationFunctionalCurrencySupport;
     private final TransactionCurrencyConversionSupport transactionCurrencyConversionSupport;
+    private final InventoryOrganizationScopeSupport organizationScopeSupport;
+    private final PlatformBellNotificationSupport platformBellNotificationSupport;
 
     private static final String[] HEADERS = {"ID", "PURCHASE_ORDER_NUMBER", "SUPPLIER_ID", "STATUS", "ORDER_DATE",
             "EXPECTED_DATE", "RECEIVED_DATE", "EXTERNAL_ID", "NOTES"};
@@ -290,10 +294,29 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         String message = "";
 
-        List<PurchaseOrder> purchaseOrderList = purchaseOrderRepository.findAll();
-
-        purchaseOrderList = purchaseOrderList.stream().filter(purchaseOrder ->
-                purchaseOrder.getEntityStatus() != EntityStatus.DELETED).toList();
+        List<PurchaseOrder> purchaseOrderList;
+        if (organizationScopeSupport.isSystemUser(username)) {
+            purchaseOrderList = purchaseOrderRepository.findAll().stream()
+                    .filter(purchaseOrder -> purchaseOrder.getEntityStatus() != EntityStatus.DELETED)
+                    .toList();
+        } else {
+            Long callerOrgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (callerOrgId == null) {
+                message = messageService.getMessage(I18Code.MESSAGE_PURCHASE_ORDER_NOT_FOUND.getCode(), new String[]{}, locale);
+                return buildResponse(404, false, message, null, null, null);
+            }
+            if (organizationScopeSupport.isSupplierOrganization(callerOrgId, locale)) {
+                purchaseOrderList = purchaseOrderRepository.findAll().stream()
+                        .filter(po -> po.getEntityStatus() != EntityStatus.DELETED)
+                        .filter(po -> callerOrgId.equals(po.getSupplierId()))
+                        .toList();
+            } else {
+                purchaseOrderList = purchaseOrderRepository.findAll().stream()
+                        .filter(po -> po.getEntityStatus() != EntityStatus.DELETED)
+                        .filter(po -> callerOrgId.equals(po.getOrganizationId()))
+                        .toList();
+            }
+        }
 
         if (purchaseOrderList.isEmpty()) {
 
@@ -724,6 +747,19 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
         Pageable pageable = PageRequest.of(request.getPage(), request.getSize());
 
+        if (!organizationScopeSupport.isSystemUser(username)) {
+            Long callerOrgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (callerOrgId == null) {
+                message = messageService.getMessage(I18Code.MESSAGE_PURCHASE_ORDER_NOT_FOUND.getCode(), new String[]{}, locale);
+                return buildResponse(404, false, message, null, null, null);
+            }
+            if (organizationScopeSupport.isSupplierOrganization(callerOrgId, locale)) {
+                spec = spec.and(PurchaseOrderSpecification.supplierIdEquals(callerOrgId));
+            } else {
+                spec = spec.and(PurchaseOrderSpecification.organizationIdEquals(callerOrgId));
+            }
+        }
+
         if (request.getPurchaseOrderNumber() != null && !request.getPurchaseOrderNumber().isBlank()) {
             spec = spec.and(PurchaseOrderSpecification.purchaseOrderNumberLike(request.getPurchaseOrderNumber()));
         }
@@ -1080,6 +1116,21 @@ public class PurchaseOrderServiceImpl implements PurchaseOrderService {
 
             // Send it to a customer/internal team
             sendPurchaseOrderCreatedToCustomer(purchaseOrder);
+
+            platformBellNotificationSupport.notifyOrganizationUsers(
+                    purchaseOrder.getSupplierId(),
+                    purchaseOrder.getCreatedByUserId(),
+                    "PURCHASE_ORDER_RECEIVED",
+                    "New purchase order received",
+                    "Purchase order " + purchaseOrder.getPurchaseOrderNumber() + " was raised for your organisation.",
+                    "/products-inventory/purchase-orders",
+                    "purchase-order",
+                    purchaseOrder.getId(),
+                    Map.of(
+                            "purchaseOrderNumber", purchaseOrder.getPurchaseOrderNumber(),
+                            "orderDate", purchaseOrder.getOrderDate() != null ? purchaseOrder.getOrderDate().toString() : "",
+                            "expectedDate", purchaseOrder.getExpectedDate() != null ? purchaseOrder.getExpectedDate().toString() : "",
+                            "lifecycleMessage", "A new purchase order has been received for your organisation."));
 
             log.info("Successfully sent purchase order created notifications for PO: {}",
                     purchaseOrder.getPurchaseOrderNumber());

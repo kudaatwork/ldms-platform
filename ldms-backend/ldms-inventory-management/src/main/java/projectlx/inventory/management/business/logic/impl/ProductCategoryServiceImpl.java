@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import projectlx.inventory.management.business.auditable.api.ProductCategoryServiceAuditable;
 import projectlx.inventory.management.business.logic.api.ProductCategoryService;
 import projectlx.inventory.management.business.logic.support.InventoryExportSupport;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
 import projectlx.inventory.management.business.validator.api.ProductCategoryServiceValidator;
 import projectlx.inventory.management.model.ProductCategory;
 import projectlx.inventory.management.repository.ProductCategoryRepository;
@@ -43,6 +44,7 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
     private final ModelMapper modelMapper;
     private final ProductCategoryRepository productCategoryRepository;
     private final ProductCategoryServiceAuditable productCategoryServiceAuditable;
+    private final InventoryOrganizationScopeSupport organizationScopeSupport;
 
     private static final String[] HEADERS = {"ID", "NAME", "DESCRIPTION"};
     private static final String[] CSV_HEADERS = {"NAME", "DESCRIPTION"};
@@ -63,8 +65,8 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
                     null, validatorDto.getErrorMessages());
         }
 
-        Optional<ProductCategory> productCategoryRetrieved =
-                productCategoryRepository.findByNameAndEntityStatusNot(request.getName(), EntityStatus.DELETED);
+        Optional<ProductCategory> productCategoryRetrieved = resolveDuplicateName(
+                request.getName(), request.getSupplierId(), username, locale);
 
         if (productCategoryRetrieved.isPresent()) {
 
@@ -78,6 +80,7 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
         request.setName(request.getName().toUpperCase());
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         ProductCategory productCategoryToBeSaved = modelMapper.map(request, ProductCategory.class);
+        applyOwningOrganization(productCategoryToBeSaved, request.getSupplierId(), username, locale);
 
         ProductCategory productCategorySaved = productCategoryServiceAuditable.create(productCategoryToBeSaved, locale,
                 username);
@@ -117,7 +120,14 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
                     null, null);
         }
 
-        ProductCategoryDto dto = modelMapper.map(productCategoryRetrieved.get(), ProductCategoryDto.class);
+        ProductCategory category = productCategoryRetrieved.get();
+        if (!isVisibleToUser(category, username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_CATEGORY_NOT_FOUND.getCode(), new String[]{},
+                    locale);
+            return buildProductCategoryResponse(404, false, message, null, null, null);
+        }
+
+        ProductCategoryDto dto = modelMapper.map(category, ProductCategoryDto.class);
 
         message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_CATEGORY_RETRIEVED_SUCCESSFULLY.getCode(),
                 new String[]{}, locale);
@@ -131,15 +141,23 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
 
         String message = "";
 
-        List<ProductCategory> list = productCategoryRepository.findByEntityStatusNot(EntityStatus.DELETED);
+        List<ProductCategory> list;
+        if (organizationScopeSupport.isSystemUser(username)) {
+            list = productCategoryRepository.findByEntityStatusNot(EntityStatus.DELETED);
+        } else {
+            Long orgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (orgId == null) {
+                message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_CATEGORY_RETRIEVED_SUCCESSFULLY.getCode(),
+                        new String[]{}, locale);
+                return buildProductCategoryResponse(200, true, message, null, List.of(), null);
+            }
+            list = productCategoryRepository.findBySupplierIdAndEntityStatusNot(orgId, EntityStatus.DELETED);
+        }
 
         if (list.isEmpty()) {
-
-            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_CATEGORY_NOT_FOUND.getCode(), new String[]{},
-                    locale);
-
-            return buildProductCategoryResponse(404, false, message, null,
-                    null, null);
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_CATEGORY_RETRIEVED_SUCCESSFULLY.getCode(),
+                    new String[]{}, locale);
+            return buildProductCategoryResponse(200, true, message, null, List.of(), null);
         }
 
         modelMapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
@@ -180,11 +198,17 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
                     null, null);
         }
 
-        // Check for name uniqueness against other records
+        ProductCategory toEdit = existingOpt.get();
+        if (!isVisibleToUser(toEdit, username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_CATEGORY_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildProductCategoryResponse(404, false, message, null, null, null);
+        }
+
+        // Check for name uniqueness against other records in the same organisation
         if (request.getName() != null && !request.getName().isEmpty()) {
 
-            Optional<ProductCategory> byName = productCategoryRepository.findByNameAndEntityStatusNot(request.getName(),
-                    EntityStatus.DELETED);
+            Optional<ProductCategory> byName = resolveDuplicateName(
+                    request.getName(), toEdit.getSupplierId(), username, locale);
 
             if (byName.isPresent() && !byName.get().getId().equals(request.getProductCategoryId())) {
 
@@ -195,8 +219,6 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
                         null, null);
             }
         }
-
-        ProductCategory toEdit = existingOpt.get();
 
         if (request.getName() != null && !request.getName().isEmpty()) {
             toEdit.setName(request.getName().toUpperCase());
@@ -244,6 +266,11 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
         }
 
         ProductCategory toDelete = existingOpt.get();
+        if (!isVisibleToUser(toDelete, username, locale)) {
+            message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_CATEGORY_NOT_FOUND.getCode(), new String[]{},
+                    locale);
+            return buildProductCategoryResponse(404, false, message, null, null, null);
+        }
         toDelete.setEntityStatus(EntityStatus.DELETED);
         ProductCategory deleted = productCategoryServiceAuditable.delete(toDelete, locale);
         ProductCategoryDto dto = modelMapper.map(deleted, ProductCategoryDto.class);
@@ -292,6 +319,18 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
 
         if (searchValueValidatorDto.getSuccess()) {
             spec = addToSpec(request.getSearchValue(), spec, ProductCategorySpecification::any);
+        }
+
+        if (!organizationScopeSupport.isSystemUser(username)) {
+            Long orgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (orgId == null) {
+                message = messageService.getMessage(I18Code.MESSAGE_PRODUCT_CATEGORY_RETRIEVED_SUCCESSFULLY.getCode(),
+                        new String[]{}, locale);
+                ProductCategoryResponse empty = buildProductCategoryResponse(200, true, message, null, null, null);
+                empty.setProductCategoryDtoPage(Page.empty(pageable));
+                return empty;
+            }
+            spec = addToSpec(orgId, spec, ProductCategorySpecification::supplierIdEquals);
         }
 
         // Page bounds check similar to UserServiceImpl
@@ -448,6 +487,60 @@ public class ProductCategoryServiceImpl implements ProductCategoryService {
         if (aString == null || aString.trim().isEmpty()) return spec;
         String value = aString.toUpperCase();
         return spec == null ? predicateMethod.apply(value) : spec.and(predicateMethod.apply(value));
+    }
+
+    private org.springframework.data.jpa.domain.Specification<ProductCategory> addToSpec(
+            Long supplierId,
+            org.springframework.data.jpa.domain.Specification<ProductCategory> spec,
+            java.util.function.Function<Long, org.springframework.data.jpa.domain.Specification<ProductCategory>> predicateMethod) {
+        if (supplierId == null || supplierId <= 0) {
+            return spec;
+        }
+        return spec == null ? predicateMethod.apply(supplierId) : spec.and(predicateMethod.apply(supplierId));
+    }
+
+    private void applyOwningOrganization(ProductCategory category, Long requestedSupplierId, String username,
+                                         Locale locale) {
+        if (organizationScopeSupport.isSystemUser(username)) {
+            if (requestedSupplierId != null && requestedSupplierId > 0) {
+                category.setSupplierId(requestedSupplierId);
+            }
+            return;
+        }
+        Long orgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+        if (orgId != null && orgId > 0) {
+            category.setSupplierId(orgId);
+        }
+    }
+
+    private Optional<ProductCategory> resolveDuplicateName(String name, Long supplierId, String username,
+                                                           Locale locale) {
+        if (name == null || name.isBlank()) {
+            return Optional.empty();
+        }
+        if (organizationScopeSupport.isSystemUser(username)) {
+            if (supplierId != null && supplierId > 0) {
+                return productCategoryRepository.findByNameAndSupplierIdAndEntityStatusNot(
+                        name, supplierId, EntityStatus.DELETED);
+            }
+            return productCategoryRepository.findByNameAndEntityStatusNot(name, EntityStatus.DELETED);
+        }
+        Long orgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+        if (orgId == null) {
+            return Optional.empty();
+        }
+        return productCategoryRepository.findByNameAndSupplierIdAndEntityStatusNot(name, orgId, EntityStatus.DELETED);
+    }
+
+    private boolean isVisibleToUser(ProductCategory category, String username, Locale locale) {
+        if (category == null) {
+            return false;
+        }
+        if (organizationScopeSupport.isSystemUser(username)) {
+            return true;
+        }
+        Long orgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+        return orgId != null && orgId.equals(category.getSupplierId());
     }
 
     private ProductCategoryResponse buildProductCategoryResponse(int statusCode, boolean isSuccess, String message,

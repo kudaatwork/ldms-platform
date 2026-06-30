@@ -30,7 +30,8 @@ public class CreateUserGroupTool implements BotAgentTool {
 
     @Override
     public String description() {
-        return "Create a new user group in the caller's organisation workspace. Requires a group name.";
+        return "Create a new user group in the caller's organisation workspace. Requires a group name. "
+                + "Call only after the user explicitly confirmed (yes/go ahead) in the chat.";
     }
 
     @Override

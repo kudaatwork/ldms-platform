@@ -191,6 +191,14 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
     }
 
     @Override
+    public OrganizationResponse listSuppliers(Locale locale, String username) {
+        log.info("Incoming request: listSuppliers user={}", username);
+        OrganizationResponse response = organizationService.listSuppliers(locale, username);
+        log.info("Outgoing response: listSuppliers success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
     public OrganizationResponse listTransporters(Locale locale, String username) {
         log.info("Incoming request: listTransporters user={}", username);
         OrganizationResponse response = organizationService.listTransporters(locale, username);
@@ -320,6 +328,34 @@ public class OrganizationServiceProcessorImpl implements OrganizationServiceProc
         log.info("Incoming request: linkTransporter user={}", username);
         OrganizationResponse response = organizationService.linkTransporter(request, locale, username);
         log.info("Outgoing response: linkTransporter success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse listIncomingTransporterOffers(Locale locale, String username) {
+        log.info("Incoming request: listIncomingTransporterOffers user={}", username);
+        OrganizationResponse response = organizationService.listIncomingTransporterOffers(locale, username);
+        log.info("Outgoing response: listIncomingTransporterOffers success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse respondToTransporterOffer(
+            Long supplierOrganizationId, boolean accept, Locale locale, String username) {
+        log.info("Incoming request: respondToTransporterOffer supplierOrganizationId={} accept={} user={}",
+                supplierOrganizationId, accept, username);
+        OrganizationResponse response = organizationService.respondToTransporterOffer(
+                supplierOrganizationId, accept, locale, username);
+        log.info("Outgoing response: respondToTransporterOffer success={}", response.isSuccess());
+        return response;
+    }
+
+    @Override
+    public OrganizationResponse cancelTransporterOffer(Long transporterOrganizationId, Locale locale, String username) {
+        log.info("Incoming request: cancelTransporterOffer transporterOrganizationId={} user={}",
+                transporterOrganizationId, username);
+        OrganizationResponse response = organizationService.cancelTransporterOffer(transporterOrganizationId, locale, username);
+        log.info("Outgoing response: cancelTransporterOffer success={}", response.isSuccess());
         return response;
     }
 

@@ -63,6 +63,9 @@ public class SharedJwtSecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/ldms-*/v1/frontend/organization/onboarding-status/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/ldms-*/v1/system/organization/onboarding-status/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/ldms-*/v1/frontend/platform-wallet/public/pricing-catalog").permitAll()
+                .requestMatchers(HttpMethod.POST, "/ldms-messaging-inbound/v1/frontend/bot-session/guest/start").permitAll()
+                .requestMatchers(HttpMethod.POST, "/ldms-messaging-inbound/v1/frontend/bot-session/guest/send-message").permitAll()
+                .requestMatchers(HttpMethod.GET, "/ldms-messaging-inbound/v1/frontend/bot-session/guest/find-by-id/**").permitAll()
                 // Admin portal (backoffice): JWT checked at the gateway; services trust internal calls.
                 // Matches organization-management backoffice ("no JWT") and avoids 401 when a service's
                 // jwt.secret differs from ldms-authentication (common with Config Server per-service YAML).

@@ -16,6 +16,8 @@ export interface AddWarehouseDialogData {
   warehouse?: WarehouseRow;
   /** Pre-select branch / sub-branch when opened from organisation drill-down. */
   preselectedBranchId?: number;
+  /** Defaults to SUPPLIER when omitted; use CUSTOMER for buyer delivery locations. */
+  defaultWarehouseType?: WarehouseLocationType;
 }
 
 @Component({
@@ -185,7 +187,11 @@ export class AddWarehouseDialogComponent implements OnInit {
   }
 
   private buildForm(warehouse?: WarehouseRow): FormGroup {
-    const warehouseType = (warehouse?.warehouseType?.trim().toUpperCase() || 'SUPPLIER') as WarehouseLocationType;
+    const warehouseType = (
+      warehouse?.warehouseType?.trim().toUpperCase()
+      || this.data.defaultWarehouseType
+      || 'SUPPLIER'
+    ) as WarehouseLocationType;
     const safeType = warehouseType === 'TRANSIT' ? 'SUPPLIER' : warehouseType;
     return this.fb.group({
       name: [warehouse?.name ?? '', [Validators.required, Validators.maxLength(150)]],

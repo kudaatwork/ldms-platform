@@ -3,7 +3,7 @@
 :host {
   display: block;
   min-height: 100dvh;
-  background: var(--page-bg, #e8eef8);
+  background: transparent;
   font-family: var(--font, 'Plus Jakarta Sans'), sans-serif;
 }
 
@@ -38,10 +38,12 @@
 .dtd-header-card {
   margin: 0 16px 16px;
   background: var(--surface, #fff);
+  backdrop-filter: blur(18px) saturate(135%);
+  -webkit-backdrop-filter: blur(18px) saturate(135%);
   border-radius: 20px;
   padding: 20px;
   box-shadow: var(--card-shadow, 0 2px 12px rgba(0,0,0,.06));
-  border: 1px solid var(--gray-100, #f1f5f9);
+  border: var(--card-border, 1px solid rgba(148, 173, 214, 0.18));
 
   &__row {
     display: flex;
@@ -268,9 +270,9 @@
   50% { transform: scale(1.4); opacity: 0; }
 }
 
-// ─ Dark mode ─
+// ─ Dark + glass mode ─
 :host-context(.theme-dark) {
-  .dtd-header-card { background: #1e293b; border-color: #334155; }
-  .dtd-detail { background: #0f172a; border-color: #334155; }
-  .dtd-header-card__num { color: #f1f5f9; }
+  .dtd-detail { background: rgba(11, 18, 34, 0.5); border-color: rgba(148, 173, 214, 0.16); }
+  .dtd-header-card__num { color: var(--gray-900); }
+  .dtd-detail__val { color: var(--gray-800); }
 }

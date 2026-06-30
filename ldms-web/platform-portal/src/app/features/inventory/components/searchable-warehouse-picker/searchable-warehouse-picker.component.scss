@@ -23,7 +23,8 @@
   flex-direction: column;
   gap: 0.1rem;
   line-height: 1.3;
-  padding: 0.1rem 0;
+  padding: 0.15rem 0;
+  white-space: normal;
 }
 
 .searchable-warehouse-picker__option-name {
@@ -33,6 +34,7 @@
 .searchable-warehouse-picker__option-meta {
   font-size: 0.78rem;
   opacity: 0.72;
+  line-height: 1.35;
 }
 
 .searchable-warehouse-picker__badge {
@@ -40,14 +42,16 @@
   opacity: 0.72;
 }
 
-.searchable-warehouse-picker__search-blob {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
+::ng-deep .searchable-warehouse-picker__panel.mat-mdc-autocomplete-panel {
+  min-width: min(420px, 92vw) !important;
+  max-height: min(320px, 50vh);
+  margin-top: 6px;
+}
+
+::ng-deep .searchable-warehouse-picker__panel .mat-mdc-option {
+  height: auto;
+  min-height: 48px;
+  line-height: 1.3;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }

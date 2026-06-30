@@ -28,6 +28,15 @@ import {
 
 const GENDER_OPTIONS = ['MALE', 'FEMALE', 'NON_BINARY', 'PREFER_NOT_TO_SAY'] as const;
 
+const WIZARD_STEPS = [
+  'Organization Info',
+  'Address & Location',
+  'Contact Person',
+  'Business Details',
+  'Documents',
+  'Social & Submit',
+] as const;
+
 export type RegisterCustomerDialogData = {
   customerId?: number;
 };
@@ -41,6 +50,8 @@ export type RegisterCustomerDialogData = {
 export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
   readonly organizationTypes = ORG_TYPES;
   readonly genderOptions = GENDER_OPTIONS;
+  readonly wizardSteps = WIZARD_STEPS;
+  currentStep = 0;
   readonly isEdit: boolean;
   readonly title: string;
   readonly subtitle: string;
@@ -95,10 +106,10 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
   ) {
     this.customerId = data?.customerId;
     this.isEdit = this.customerId != null && this.customerId > 0;
-    this.title = this.isEdit ? 'Edit customer' : 'Add customer';
+    this.title = this.isEdit ? 'Edit customer' : 'Add Customer Organization';
     this.subtitle = this.isEdit
       ? 'Update the buyer profile linked to your supplier workspace. Existing verification documents are kept unless you upload replacements.'
-      : 'Onboard a buyer organisation with the same profile fields as admin Add organisation. The buyer is linked to your supplier workspace (no platform KYC review). The primary contact receives temporary sign-in credentials; the organisation email receives a verification link that must be opened before the buyer is marked verified.';
+      : 'Complete registration form with all required business information';
     this.dialogRef.disableClose = true;
     this.form = this.fb.group({
       organizationType: ['PRIVATE' as OrganizationType, Validators.required],
@@ -123,6 +134,85 @@ export class RegisterCustomerDialogComponent implements OnInit, OnDestroy {
 
   get maximumDateOfBirth(): string {
     return maximumDateOfBirthInput();
+  }
+
+  get wizardProgress(): number {
+    return ((this.currentStep + 1) / this.wizardSteps.length) * 100;
+  }
+
+  get showWizard(): boolean {
+    return !this.isEdit && !this.loadingCustomer;
+  }
+
+  showStep(stepIndex: number): boolean {
+    return this.isEdit || this.currentStep === stepIndex;
+  }
+
+  goBack(): void {
+    if (this.currentStep > 0) {
+      this.currentStep -= 1;
+      this.saveError = '';
+      this.addressError = '';
+      this.identificationError = '';
+    }
+  }
+
+  goNext(): void {
+    if (!this.validateStep(this.currentStep)) {
+      return;
+    }
+    this.saveError = '';
+    if (this.currentStep < this.wizardSteps.length - 1) {
+      this.currentStep += 1;
+    }
+  }
+
+  private validateStep(step: number): boolean {
+    switch (step) {
+      case 0:
+        return this.touchControlsValid(['organizationType', 'name', 'email', 'phoneNumber']);
+      case 1:
+        return this.validateAddressStep();
+      case 2:
+        return this.touchControlsValid([
+          'contactPersonFirstName',
+          'contactPersonLastName',
+          'contactPersonEmail',
+          'contactPersonPhoneNumber',
+          'contactPersonGender',
+          'contactPersonDateOfBirth',
+        ]);
+      case 3:
+        return true;
+      case 4:
+        return true;
+      default:
+        return true;
+    }
+  }
+
+  private touchControlsValid(controlNames: string[]): boolean {
+    controlNames.forEach((name) => this.form.get(name)?.markAsTouched());
+    return controlNames.every((name) => this.form.get(name)?.valid);
+  }
+
+  private validateAddressStep(): boolean {
+    this.addressError = '';
+    const suburbId = Number(this.suburbIdStr.trim());
+    const hasAnyAddressInput =
+      this.addressLine1.trim().length > 0 ||
+      this.addressLine2.trim().length > 0 ||
+      this.postalCode.trim().length > 0 ||
+      (Number.isFinite(suburbId) && suburbId > 0);
+    if (!hasAnyAddressInput) {
+      return true;
+    }
+    if (!this.addressLine1.trim() || !this.postalCode.trim() || !Number.isFinite(suburbId) || suburbId <= 0) {
+      this.addressError =
+        'Address requires line 1, postal code, and a selected suburb when any address field is set.';
+      return false;
+    }
+    return true;
   }
 
   ngOnInit(): void {

@@ -114,7 +114,7 @@ export class OrdersWorkspaceComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    this.title.setTitle('My Orders | LX Platform');
+    this.title.setTitle('Inventory management | LX Platform');
     this.userProfile
       .fetchCurrentUser()
       .pipe(takeUntil(this.destroy$))

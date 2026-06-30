@@ -303,6 +303,24 @@ public class UserSystemResource {
         return userServiceProcessor.findFleetManagersByOrganization(organizationId, locale);
     }
 
+    @Auditable(action = "FIND_PROCUREMENT_APPROVERS_BY_ORGANIZATION")
+    @GetMapping(value = "/procurement-approvers-by-organization/{organizationId}")
+    @Operation(summary = "Find procurement approvers by organisation ID",
+            description = "Returns users in the organisation workspace flagged as procurement approvers. " +
+                          "System-caller endpoint — no session-org check.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Procurement approvers retrieved successfully"),
+            @ApiResponse(responseCode = "400", description = "Invalid organisation ID")
+    })
+    public UserResponse findProcurementApproversByOrganization(
+            @PathVariable("organizationId") final Long organizationId,
+            @Parameter(description = Constants.LOCALE_LANGUAGE_NARRATIVE)
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE,
+                    defaultValue = Constants.DEFAULT_LOCALE) final Locale locale) {
+        logger.info("Incoming request to find procurement approvers for organizationId={}", organizationId);
+        return userServiceProcessor.findProcurementApproversByOrganization(organizationId, locale);
+    }
+
     @Auditable(action = "FIND_USERS_BY_ORGANIZATION")
     @GetMapping(value = "/find-by-organization-id/{organizationId}")
     @Operation(summary = "Find users by organization ID",

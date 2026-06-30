@@ -117,4 +117,32 @@ public class BotSessionFrontendResource {
         BotSessionResponse response = botSessionServiceProcessor.getPricing(locale);
         return ResponseEntity.status(response.getStatusCode()).body(response);
     }
+
+    @PostMapping("/guest/start")
+    @Operation(summary = "Start a public Lexi live chat for landing page visitors")
+    public ResponseEntity<BotSessionResponse> startGuestSession(
+            @Valid @RequestBody(required = false) StartBotSessionRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        StartBotSessionRequest body = request != null ? request : new StartBotSessionRequest();
+        BotSessionResponse response = botSessionServiceProcessor.startGuestSession(body, locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @PostMapping("/guest/send-message")
+    @Operation(summary = "Send a message in a public Lexi live chat session")
+    public ResponseEntity<BotSessionResponse> sendGuestMessage(
+            @Valid @RequestBody SendBotMessageRequest request,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        BotSessionResponse response = botSessionServiceProcessor.sendGuestMessage(request, locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
+
+    @GetMapping("/guest/find-by-id/{sessionId}")
+    @Operation(summary = "Resume a public Lexi live chat session")
+    public ResponseEntity<BotSessionResponse> findGuestSessionById(
+            @PathVariable("sessionId") String sessionId,
+            @RequestHeader(value = Constants.LOCALE_LANGUAGE, defaultValue = Constants.DEFAULT_LOCALE) Locale locale) {
+        BotSessionResponse response = botSessionServiceProcessor.findGuestSessionById(sessionId, locale);
+        return ResponseEntity.status(response.getStatusCode()).body(response);
+    }
 }

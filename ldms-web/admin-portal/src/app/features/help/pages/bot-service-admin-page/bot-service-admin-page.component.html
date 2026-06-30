@@ -78,7 +78,7 @@
       <div class="bot-inbox__hd">
         <div>
           <span class="bot-inbox__title">Conversations</span>
-          <span class="bot-inbox__count">{{ filteredSessions.length }} shown</span>
+          <span class="bot-inbox__count">{{ pageRangeLabel }}</span>
         </div>
         <span class="bot-live-pill"><span class="bot-live-pill__dot"></span>Live</span>
       </div>
@@ -94,7 +94,7 @@
         <input
           type="search"
           [value]="search()"
-          (input)="search.set($any($event.target).value)"
+          (input)="setSearch($any($event.target).value)"
           placeholder="Search user, org, topic…"
           autocomplete="off"
         />
@@ -116,7 +116,7 @@
         <button
           type="button"
           class="bot-thread"
-          *ngFor="let s of filteredSessions; trackBy: trackBySessionId"
+          *ngFor="let s of pagedSessions; trackBy: trackBySessionId"
           [class.bot-thread--active]="selected?.sessionId === s.sessionId"
           (click)="selectSession(s)"
         >
@@ -143,6 +143,29 @@
         </button>
         <p class="bot-inbox__empty" *ngIf="!filteredSessions.length">No conversations match your filters.</p>
       </div>
+
+      <div class="bot-pager" *ngIf="!loading && totalPages > 1">
+        <button
+          type="button"
+          class="bot-pager__btn"
+          (click)="prevPage()"
+          [disabled]="safePage <= 1"
+          aria-label="Previous page"
+        >
+          <mat-icon>chevron_left</mat-icon>
+        </button>
+        <span class="bot-pager__label">Page {{ safePage }} of {{ totalPages }}</span>
+        <button
+          type="button"
+          class="bot-pager__btn"
+          (click)="nextPage()"
+          [disabled]="safePage >= totalPages"
+          aria-label="Next page"
+        >
+          <mat-icon>chevron_right</mat-icon>
+        </button>
+      </div>
+
       <ng-template #inboxSkeleton>
         <div class="bot-skeleton" *ngFor="let i of [1,2,3,4]"></div>
       </ng-template>

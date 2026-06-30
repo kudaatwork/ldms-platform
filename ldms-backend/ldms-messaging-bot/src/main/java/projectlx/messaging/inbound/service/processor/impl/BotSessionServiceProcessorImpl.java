@@ -62,4 +62,19 @@ public class BotSessionServiceProcessorImpl implements BotSessionServiceProcesso
     public BotSessionResponse getPricing(Locale locale) {
         return botSessionService.getPricing(locale);
     }
+
+    @Override
+    public BotSessionResponse startGuestSession(StartBotSessionRequest request, Locale locale) {
+        return botSessionService.startGuestSession(request, locale);
+    }
+
+    @Override
+    public BotSessionResponse sendGuestMessage(SendBotMessageRequest request, Locale locale) {
+        return botSessionService.sendGuestMessage(request, locale);
+    }
+
+    @Override
+    public BotSessionResponse findGuestSessionById(String sessionId, Locale locale) {
+        return botSessionService.findGuestSessionById(sessionId, locale);
+    }
 }

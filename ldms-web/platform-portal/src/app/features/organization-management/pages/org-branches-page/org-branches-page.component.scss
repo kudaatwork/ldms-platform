@@ -484,6 +484,140 @@
   margin-top: 0.65rem;
 }
 
+.om-drill-panel--team {
+  grid-column: 1 / -1;
+}
+
+.om-branch-team-actions {
+  gap: 0.55rem;
+}
+
+.om-staff-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  mat-icon {
+    width: 1rem;
+    height: 1rem;
+    font-size: 1rem;
+  }
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.om-staff-chip--manager {
+  color: #5b21b6;
+  background: linear-gradient(135deg, rgba(124, 58, 237, 0.12), rgba(79, 70, 229, 0.08));
+  border-color: rgba(124, 58, 237, 0.18);
+}
+
+.om-staff-chip--clerk {
+  color: #1d4ed8;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(14, 165, 233, 0.08));
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+.om-staff-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+}
+
+.om-staff-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--gray-200, #e2e8f0);
+  background: linear-gradient(180deg, #fff, #f8fafc);
+}
+
+.om-staff-card[data-tone='manager'] {
+  border-color: rgba(124, 58, 237, 0.18);
+}
+
+.om-staff-card[data-tone='clerk'] {
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+.om-staff-card__avatar {
+  display: grid;
+  place-items: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.75rem;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--lx-brand-600, #2563eb);
+}
+
+.om-staff-card[data-tone='manager'] .om-staff-card__avatar {
+  background: rgba(124, 58, 237, 0.1);
+  color: #7c3aed;
+}
+
+.om-staff-card__body strong {
+  display: block;
+  color: var(--gray-900);
+}
+
+.om-staff-card__body span {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  color: var(--lx-text-muted, #64748b);
+}
+
+.om-staff-empty {
+  text-align: center;
+  padding: 1.5rem 1rem 0.5rem;
+}
+
+.om-staff-empty__icon {
+  display: inline-grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 0.65rem;
+  border-radius: 1rem;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--lx-brand-600, #2563eb);
+}
+
+.om-staff-empty h3 {
+  margin: 0 0 0.35rem;
+}
+
+.om-staff-empty p {
+  margin: 0 auto 1rem;
+  max-width: 28rem;
+  color: var(--lx-text-muted, #64748b);
+}
+
+.om-staff-empty__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+}
+
 @media (max-width: 960px) {
   .om-drill-grid {
     grid-template-columns: 1fr;
@@ -531,4 +665,22 @@
   .om-wh-empty__icon {
     background: color-mix(in srgb, var(--primary) 16%, #1e293b);
   }
+}
+
+// ── Branch map view ───────────────────────────────────────────────────────────
+.om-map-panel {
+  &__hint {
+    margin: 10px 4px 0;
+    font-size: 13px;
+    color: var(--gray-500, #6b7280);
+  }
+}
+
+.om-branch-map {
+  height: clamp(360px, 60vh, 620px);
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--gray-200, #e2e8f0);
+  z-index: 0;
 }

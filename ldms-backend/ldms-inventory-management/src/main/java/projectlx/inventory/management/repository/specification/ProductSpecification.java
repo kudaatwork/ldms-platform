@@ -59,4 +59,8 @@ public class ProductSpecification {
             return p;
         };
     }
+
+    public static Specification<Product> supplierIdEquals(final Long supplierId) {
+        return (root, query, cb) -> cb.equal(root.get(Product_.supplierId), supplierId);
+    }
 }

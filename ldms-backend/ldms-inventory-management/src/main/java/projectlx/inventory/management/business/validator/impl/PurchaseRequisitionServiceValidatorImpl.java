@@ -6,8 +6,11 @@ import projectlx.inventory.management.model.PurchaseRequisition;
 import projectlx.inventory.management.model.PurchaseRequisitionStatus;
 import projectlx.inventory.management.model.WarehouseLocation;
 import projectlx.inventory.management.model.WarehouseLocationType;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
+import projectlx.inventory.management.repository.DepartmentRepository;
 import projectlx.inventory.management.repository.ProductRepository;
 import projectlx.inventory.management.repository.WarehouseLocationRepository;
+import projectlx.inventory.management.model.Department;
 import projectlx.inventory.management.utils.enums.I18Code;
 import projectlx.inventory.management.utils.requests.ApprovePurchaseRequisitionRequest;
 import projectlx.inventory.management.utils.requests.CancelPurchaseRequisitionRequest;
@@ -25,6 +28,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 public class PurchaseRequisitionServiceValidatorImpl implements PurchaseRequisitionServiceValidator {
@@ -32,6 +36,8 @@ public class PurchaseRequisitionServiceValidatorImpl implements PurchaseRequisit
     private final MessageService messageService;
     private final ProductRepository productRepository;
     private final WarehouseLocationRepository warehouseLocationRepository;
+    private final DepartmentRepository departmentRepository;
+    private final InventoryOrganizationScopeSupport organizationScopeSupport;
 
     @Override
     public ValidatorDto isCreatePurchaseRequisitionRequestValid(CreatePurchaseRequisitionRequest request, Locale locale) {
@@ -48,6 +54,13 @@ public class PurchaseRequisitionServiceValidatorImpl implements PurchaseRequisit
 
         if (request.getDepartmentId() == null) {
             errors.add(messageService.getMessage(I18Code.MESSAGE_CREATE_PURCHASE_REQUISITION_DEPARTMENT_ID_REQUIRED.getCode(), new String[]{}, locale));
+        } else if (request.getOrganizationId() != null) {
+            Optional<Department> department = departmentRepository.findByIdAndEntityStatusNot(
+                    request.getDepartmentId(), EntityStatus.DELETED);
+            if (department.isEmpty() || !request.getOrganizationId().equals(department.get().getSupplierId())) {
+                errors.add(messageService.getMessage(
+                        I18Code.MESSAGE_CREATE_PURCHASE_REQUISITION_DEPARTMENT_NOT_FOUND.getCode(), new String[]{}, locale));
+            }
         }
 
         if (request.getRequestedByUserId() == null && request.getCreatedByUserId() == null) {
@@ -351,6 +364,14 @@ public class PurchaseRequisitionServiceValidatorImpl implements PurchaseRequisit
         }
 
         if (location.getWarehouseType() != expectedType) {
+            if (expectedType == WarehouseLocationType.CUSTOMER
+                    && organizationScopeSupport.isCustomerOrganization(location.getSupplierId(), locale)) {
+                return;
+            }
+            if (expectedType == WarehouseLocationType.SUPPLIER
+                    && organizationScopeSupport.isSupplierOrganization(location.getSupplierId(), locale)) {
+                return;
+            }
             errors.add(messageService.getMessage(invalidTypeMessage.getCode(), new String[]{}, locale));
         }
     }

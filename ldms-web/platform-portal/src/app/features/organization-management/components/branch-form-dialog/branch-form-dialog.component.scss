@@ -7,3 +7,58 @@
   gap: 6px;
   min-height: 100%;
 }
+
+// ── Location picker ───────────────────────────────────────────────────────────
+.bf-location {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--gray-200, #e2e8f0);
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  &__title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--gray-800, #1e293b);
+
+    mat-icon { font-size: 18px; width: 18px; height: 18px; color: var(--primary, #3b82f6); }
+  }
+
+  &__hint {
+    display: block;
+    font-size: 12px;
+    color: var(--gray-500, #6b7280);
+    margin-top: 2px;
+  }
+
+  &__clear {
+    border: none;
+    background: transparent;
+    color: var(--danger, #ef4444);
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 8px;
+    &:hover { background: rgba(239, 68, 68, 0.08); }
+  }
+
+  &__map {
+    margin-top: 10px;
+    height: 240px;
+    width: 100%;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--gray-200, #e2e8f0);
+    z-index: 0; // keep Leaflet panes under the dialog chrome
+  }
+}

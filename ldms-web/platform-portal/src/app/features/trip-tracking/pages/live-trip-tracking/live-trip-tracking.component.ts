@@ -37,6 +37,14 @@ import { TripTrackingPortalService } from '../../services/trip-tracking-portal.s
 
 export type LiveMapStyle = 'standard' | 'satellite' | 'live';
 
+export type LiveSection = 'map' | 'journey' | 'vehicle' | 'support' | 'history';
+
+interface LiveSectionDef {
+  id: LiveSection;
+  label: string;
+  icon: string;
+}
+
 @Component({
   selector: 'app-live-trip-tracking',
   templateUrl: './live-trip-tracking.component.html',
@@ -57,6 +65,19 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
   followTruck = false;
   showHistory = true;
   mapScrollEnabled = false;
+
+  // ── Mobile/tablet section pager ────────────────────────────────────────────
+  // On phones and tablets the live page is shown one section at a time so the
+  // whole experience fits on screen. On desktop every section renders at once
+  // (the pager is hidden via CSS) so the operations view is unchanged.
+  readonly liveSections: LiveSectionDef[] = [
+    { id: 'map', label: 'Map', icon: 'map' },
+    { id: 'journey', label: 'Journey', icon: 'timeline' },
+    { id: 'vehicle', label: 'Vehicle', icon: 'local_shipping' },
+    { id: 'support', label: 'Support', icon: 'support_agent' },
+    { id: 'history', label: 'History', icon: 'history' },
+  ];
+  activeSection: LiveSection = 'map';
 
   fundRequests: OperationalFundRequestRow[] = [];
   telemetryLogs: FuelTelemetryLogRow[] = [];
@@ -236,6 +257,41 @@ export class LiveTripTrackingComponent implements OnInit, AfterViewInit, OnDestr
 
   get journeyProgress(): JourneyProgressView {
     return buildJourneyProgressView(this.tripSnapshot);
+  }
+
+  // ── Section pager (phones / tablets) ───────────────────────────────────────
+  get activeSectionIndex(): number {
+    return Math.max(0, this.liveSections.findIndex((s) => s.id === this.activeSection));
+  }
+
+  setSection(id: LiveSection): void {
+    if (this.activeSection === id) {
+      return;
+    }
+    this.activeSection = id;
+    this.cdr.markForCheck();
+    // The map lives in a container that is display:none while another section is
+    // active, so Leaflet must recompute its size once it becomes visible again.
+    if (id === 'map') {
+      requestAnimationFrame(() => {
+        this.refreshMapSize();
+        this.recenterOnTruck(false);
+      });
+    }
+  }
+
+  prevSection(): void {
+    const i = this.activeSectionIndex;
+    if (i > 0) {
+      this.setSection(this.liveSections[i - 1].id);
+    }
+  }
+
+  nextSection(): void {
+    const i = this.activeSectionIndex;
+    if (i < this.liveSections.length - 1) {
+      this.setSection(this.liveSections[i + 1].id);
+    }
   }
 
   setMapStyle(style: LiveMapStyle): void {

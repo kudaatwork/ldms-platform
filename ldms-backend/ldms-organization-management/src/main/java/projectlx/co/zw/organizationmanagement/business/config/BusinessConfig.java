@@ -19,6 +19,7 @@ import projectlx.co.zw.organizationmanagement.business.kyc.KycApprovalStageResol
 import projectlx.co.zw.organizationmanagement.business.kyc.KycApproverAssignmentService;
 import projectlx.co.zw.organizationmanagement.business.kyc.KycStateMachine;
 import projectlx.co.zw.organizationmanagement.business.kyc.OrganizationEventPublisher;
+import projectlx.co.zw.shared_library.utils.notifications.PlatformBellNotificationPublisher;
 import projectlx.co.zw.organizationmanagement.repository.PlatformKycPolicyRepository;
 import projectlx.co.zw.organizationmanagement.clients.UserManagementServiceClient;
 import projectlx.co.zw.organizationmanagement.business.logic.api.OrganizationService;
@@ -91,6 +92,11 @@ public class BusinessConfig {
     @Bean
     public OrganizationEventPublisher organizationEventPublisher(RabbitTemplate rabbitTemplate) {
         return new OrganizationEventPublisher(rabbitTemplate);
+    }
+
+    @Bean
+    public PlatformBellNotificationPublisher platformBellNotificationPublisher(RabbitTemplate rabbitTemplate) {
+        return new PlatformBellNotificationPublisher(rabbitTemplate);
     }
 
     @Bean

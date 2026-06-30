@@ -52,8 +52,8 @@ public class BotGuideModeSupport {
         String effective = resolveEffectiveQuery(BotLlmFallbackSupport.lastUserMessage(history), history);
         if (effective.isBlank()) {
             return guideModePrefix(history)
-                    + "Lexi needs an AI provider for Agent tool loops. "
-                    + "Switch to **Lexi** (Assistant) for built-in workflow help, or ask your admin to configure Gemini/Anthropic.";
+                    + "Lexxi needs an AI provider for Agent tool loops. "
+                    + "Switch to **Lexxi** (Assistant) for built-in workflow help, or ask your admin to configure Gemini/Anthropic.";
         }
 
         if (matchesOrderIntent(effective)) {

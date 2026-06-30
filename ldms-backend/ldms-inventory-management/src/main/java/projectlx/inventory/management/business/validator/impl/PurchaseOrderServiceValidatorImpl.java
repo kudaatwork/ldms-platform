@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
 import projectlx.inventory.management.business.validator.api.PurchaseOrderServiceValidator;
 import projectlx.inventory.management.model.Product;
 import projectlx.inventory.management.model.PurchaseOrder;
@@ -31,6 +32,7 @@ public class PurchaseOrderServiceValidatorImpl implements PurchaseOrderServiceVa
     private final ProductRepository productRepository;
     private final WarehouseLocationRepository warehouseLocationRepository;
     private final MessageService messageService;
+    private final InventoryOrganizationScopeSupport organizationScopeSupport;
 
     @Override
     public ValidatorDto isCreatePurchaseOrderRequestValid(CreatePurchaseOrderRequest createPurchaseOrderRequest, Locale locale) {
@@ -237,6 +239,14 @@ public class PurchaseOrderServiceValidatorImpl implements PurchaseOrderServiceVa
         }
 
         if (location.getWarehouseType() != expectedType) {
+            if (expectedType == WarehouseLocationType.CUSTOMER
+                    && organizationScopeSupport.isCustomerOrganization(location.getSupplierId(), locale)) {
+                return;
+            }
+            if (expectedType == WarehouseLocationType.SUPPLIER
+                    && organizationScopeSupport.isSupplierOrganization(location.getSupplierId(), locale)) {
+                return;
+            }
             errors.add(messageService.getMessage(invalidTypeMessage.getCode(), new String[]{}, locale));
         }
     }

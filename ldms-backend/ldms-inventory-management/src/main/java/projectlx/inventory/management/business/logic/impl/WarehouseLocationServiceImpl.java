@@ -23,6 +23,7 @@ import projectlx.inventory.management.business.auditable.api.WarehouseLocationSe
 import projectlx.inventory.management.business.logic.api.WarehouseLocationService;
 import projectlx.inventory.management.business.validator.api.WarehouseLocationServiceValidator;
 import projectlx.inventory.management.business.logic.support.BranchAllocationSupport;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
 import projectlx.inventory.management.business.logic.support.WarehouseAccessSupport;
 import projectlx.inventory.management.business.logic.support.WarehouseSharingSupport;
 import projectlx.inventory.management.clients.LocationsServiceClient;
@@ -76,6 +77,7 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
     private final WarehouseAccessSupport warehouseAccessSupport;
     private final WarehouseSharingSupport warehouseSharingSupport;
     private final WarehouseOrganizationAccessRepository accessRepository;
+    private final InventoryOrganizationScopeSupport organizationScopeSupport;
 
     private static final String[] HEADERS = {
             "ID", "LOCATION_ID", "SUPPLIER_ID", "CREATED_AT", "UPDATED_AT", "STATUS"
@@ -140,7 +142,12 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
                 wareHouseLocationToSave.setBranchId(request.getBranchId());
                 wareHouseLocationToSave.setName(request.getName());
                 wareHouseLocationToSave.setDescription(request.getDescription());
-                wareHouseLocationToSave.setWarehouseType(request.getWarehouseType());
+                if (request.getSupplierId() != null && request.getSupplierId() > 0) {
+                    wareHouseLocationToSave.setWarehouseType(
+                            organizationScopeSupport.expectedWarehouseTypeForOwner(request.getSupplierId(), locale));
+                } else {
+                    wareHouseLocationToSave.setWarehouseType(request.getWarehouseType());
+                }
 
                 WarehouseLocation wareHouseLocationSaved = warehouseLocationServiceAuditable.create(wareHouseLocationToSave, locale,
                         username);
@@ -213,14 +220,14 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
         String message = "";
 
         List<WarehouseLocation> warehouseLocationList = repository.findAll();
-        List<WarehouseLocation> filtered = applyVisibilityFilter(warehouseLocationList, username, locale);
+        List<WarehouseLocation> filtered = applyVisibilityFilter(warehouseLocationList, username, locale).stream()
+                .map(warehouse -> alignWarehouseTypeWithOwner(warehouse, locale, username))
+                .toList();
 
         if (filtered.isEmpty()) {
-
             message = messageService.getMessage(I18Code.MESSAGE_WAREHOUSE_LOCATION_NOT_FOUND.getCode(), new String[]{},
                     locale);
-
-            return buildResponse(404, false, message, null, null, null);
+            return buildResponse(200, true, message, null, List.of(), null);
         }
 
         List<WarehouseLocationDto> list = filtered.stream()
@@ -517,6 +524,20 @@ public class WarehouseLocationServiceImpl implements WarehouseLocationService {
                     .ifPresent(grant -> dto.setCallerAccessLevel(grant.getAccessLevel()));
         }
         return dto;
+    }
+
+    private WarehouseLocation alignWarehouseTypeWithOwner(WarehouseLocation warehouse, Locale locale, String username) {
+        if (warehouse == null || warehouse.getSupplierId() == null || warehouse.getSupplierId() <= 0
+                || warehouse.isVirtualWarehouse()) {
+            return warehouse;
+        }
+        WarehouseLocationType expected = organizationScopeSupport.expectedWarehouseTypeForOwner(
+                warehouse.getSupplierId(), locale);
+        if (warehouse.getWarehouseType() == expected) {
+            return warehouse;
+        }
+        warehouse.setWarehouseType(expected);
+        return warehouseLocationServiceAuditable.update(warehouse, locale, username);
     }
 
     private List<WarehouseLocation> applyVisibilityFilter(List<WarehouseLocation> candidates,

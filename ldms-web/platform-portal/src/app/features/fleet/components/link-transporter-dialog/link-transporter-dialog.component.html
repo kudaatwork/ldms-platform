@@ -1,0 +1,97 @@
+<div class="lx-dialog-shell lx-dialog-shell--wide">
+  <div class="lx-dialog-header">
+    <div class="lx-header-text">
+      <h2 class="lx-dialog-title">Link an existing transporter</h2>
+      <p class="lx-dialog-subtitle">
+        Search transport companies already on the platform and send a contract offer. They must accept before the link
+        becomes active.
+      </p>
+    </div>
+    <button mat-icon-button class="lx-close-button" type="button" aria-label="Close dialog" (click)="cancel()">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="lx-step-content">
+    <div class="lx-field">
+      <label class="lx-field-label">Find a transporter</label>
+      <div class="lx-input-shell">
+        <mat-icon class="lx-input-shell__icon">search</mat-icon>
+        <input
+          type="text"
+          [ngModel]="searchQuery"
+          (ngModelChange)="onSearchChange($event)"
+          placeholder="Search by name, email, or phone"
+          aria-label="Search transporters"
+        />
+      </div>
+      <div class="lx-field-hint">Only transport companies not already linked to you appear here.</div>
+    </div>
+
+    <div class="lx-link-results">
+      <div class="lx-dialog-loading lx-dialog-loading--inline" *ngIf="searching">
+        <mat-progress-spinner diameter="28" mode="indeterminate"></mat-progress-spinner>
+        <p>Searching…</p>
+      </div>
+
+      <p class="lx-list-error" *ngIf="searchError && !searching">
+        <mat-icon>warning_amber</mat-icon>
+        {{ searchError }}
+      </p>
+
+      <p class="lx-empty-hint" *ngIf="!searching && !searchError && results.length === 0">
+        No matching transporters found.
+      </p>
+
+      <button
+        type="button"
+        class="lx-link-result"
+        *ngFor="let row of results"
+        [class.lx-link-result--selected]="selected?.id === row.id"
+        (click)="select(row)"
+      >
+        <span class="lx-link-result__avatar" [style.background]="'hsl(' + row.accentHue + ', 70%, 45%)'">
+          {{ row.initials }}
+        </span>
+        <span class="lx-link-result__body">
+          <span class="lx-link-result__name">{{ row.name }}</span>
+          <span class="lx-link-result__meta">{{ row.email || '—' }} · {{ row.phoneNumber || 'No phone' }}</span>
+        </span>
+        <span class="lx-link-result__badge" [class.is-verified]="row.verified">{{ row.verifiedLabel }}</span>
+        <mat-icon class="lx-link-result__check" *ngIf="selected?.id === row.id">check_circle</mat-icon>
+      </button>
+    </div>
+
+    <form [formGroup]="form" class="lx-form-grid" (ngSubmit)="send()">
+      <div class="lx-field">
+        <label class="lx-field-label">Contract start <span class="req">*</span></label>
+        <div class="lx-input-shell" [class.lx-input-shell--invalid]="hasError('contractStartDate', 'required')">
+          <mat-icon class="lx-input-shell__icon">event</mat-icon>
+          <input type="date" formControlName="contractStartDate" aria-label="Contract start date" />
+        </div>
+        <div class="lx-field-error" *ngIf="hasError('contractStartDate', 'required')">Contract start is required</div>
+      </div>
+
+      <div class="lx-field">
+        <label class="lx-field-label">Contract end</label>
+        <div class="lx-input-shell">
+          <mat-icon class="lx-input-shell__icon">event_busy</mat-icon>
+          <input type="date" formControlName="contractEndDate" aria-label="Contract end date" />
+        </div>
+        <div class="lx-field-hint">Leave blank for an open-ended contract.</div>
+      </div>
+    </form>
+
+    <p class="lx-list-error" *ngIf="saveError">
+      <mat-icon>warning_amber</mat-icon>
+      {{ saveError }}
+    </p>
+
+    <div class="lx-dialog-actions">
+      <button type="button" class="lx-btn lx-btn-ghost" (click)="cancel()" [disabled]="submitting">Cancel</button>
+      <button type="button" class="lx-btn lx-btn-primary" (click)="send()" [disabled]="submitting || !selected">
+        {{ submitting ? 'Sending offer…' : 'Send offer' }}
+      </button>
+    </div>
+  </div>
+</div>

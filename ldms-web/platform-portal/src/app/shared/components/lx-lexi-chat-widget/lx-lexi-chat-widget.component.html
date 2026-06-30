@@ -1,0 +1,144 @@
+<div class="lexi-chat" [class.lexi-chat--open]="open" [class.lexi-chat--guest]="isGuest">
+  <section
+    class="lexi-chat__panel"
+    *ngIf="open"
+    role="dialog"
+    aria-labelledby="lexi-chat-title"
+    aria-live="polite"
+  >
+    <header class="lexi-chat__head">
+      <div class="lexi-chat__brand">
+        <span class="lexi-chat__avatar" aria-hidden="true">
+          <span class="material-icons">{{ headerIcon }}</span>
+        </span>
+        <div>
+          <h2 id="lexi-chat-title" class="lexi-chat__title">{{ panelTitle }}</h2>
+          <p class="lexi-chat__sub">{{ panelSubtitle }}</p>
+        </div>
+      </div>
+      <div class="lexi-chat__head-actions">
+        <button type="button" class="lexi-chat__icon-btn" (click)="startNewChat()" title="New chat" aria-label="New chat">
+          <span class="material-icons" aria-hidden="true">add_comment</span>
+        </button>
+        <button type="button" class="lexi-chat__icon-btn" (click)="closePanel()" aria-label="Close chat">
+          <span class="material-icons" aria-hidden="true">close</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="lexi-chat__mode" role="group" [attr.aria-label]="'Switch between Live chat and ' + lexxiName">
+      <button
+        type="button"
+        class="lexi-chat__mode-btn"
+        [class.lexi-chat__mode-btn--on]="isLiveChatBrand"
+        [attr.aria-pressed]="isLiveChatBrand"
+        (click)="setChatBrand('live-chat')"
+      >
+        <span class="material-icons" aria-hidden="true">forum</span>
+        Live chat
+      </button>
+      <button
+        type="button"
+        class="lexi-chat__mode-btn"
+        [class.lexi-chat__mode-btn--on]="!isLiveChatBrand"
+        [attr.aria-pressed]="!isLiveChatBrand"
+        (click)="setChatBrand('lexxi')"
+      >
+        <span class="material-icons" aria-hidden="true">smart_toy</span>
+        {{ lexxiName }}
+      </button>
+    </div>
+
+    <div class="lexi-chat__status" *ngIf="!loading && !starting && !error">
+      <span class="lexi-chat__status-dot"></span>
+      <span>{{ statusText }}</span>
+    </div>
+
+    <div class="lexi-chat__loading" *ngIf="loading || starting">
+      <span class="lexi-chat__loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      {{ starting ? 'Starting chat…' : 'Loading conversation…' }}
+    </div>
+
+    <p class="lexi-chat__error" *ngIf="error" role="alert">{{ error }}</p>
+
+    <div class="lexi-chat__thread" #threadEl *ngIf="session && !loading && !starting">
+      <article
+        class="lexi-chat__bubble"
+        *ngFor="let item of bubbles()"
+        [class.lexi-chat__bubble--mine]="item.isMine"
+        [class.lexi-chat__bubble--theirs]="!item.isMine"
+      >
+        <div class="lexi-chat__bubble-meta">
+          <strong>{{ item.author }}</strong>
+          <time>{{ item.sentAt | date : 'shortTime' }}</time>
+        </div>
+        <div
+          class="lexi-chat__bubble-body lexi-chat__bubble-body--md"
+          *ngIf="!item.isMine; else plainBody"
+          [innerHTML]="item.body | botMessageMarkdown"
+        ></div>
+        <ng-template #plainBody>
+          <p class="lexi-chat__bubble-body">{{ item.body }}</p>
+        </ng-template>
+      </article>
+
+      <div class="lexi-chat__typing" *ngIf="awaitingReply && !isLiveChatBrand" aria-live="polite">
+        <span class="material-icons" aria-hidden="true">smart_toy</span>
+        <span class="lexi-chat__loading-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+        {{ lexxiName }} is typing…
+      </div>
+    </div>
+
+    <footer class="lexi-chat__compose" *ngIf="session && !loading && !starting">
+      <div class="lexi-chat__compose-row">
+        <textarea
+          class="lexi-chat__input"
+          rows="2"
+          [value]="draft"
+          (input)="onDraftInput($any($event.target).value)"
+          (keydown)="onDraftKeydown($event)"
+          [disabled]="sending"
+          [placeholder]="inputPlaceholder"
+          [attr.aria-label]="inputAriaLabel"
+        ></textarea>
+        <button
+          type="button"
+          class="lexi-chat__send"
+          (click)="sendMessage()"
+          [disabled]="sending || !draft.trim()"
+          aria-label="Send message"
+        >
+          <span class="material-icons" aria-hidden="true">{{ sending ? 'hourglass_top' : 'send' }}</span>
+        </button>
+      </div>
+      <p class="lexi-chat__hint" *ngIf="isGuest && isLiveChatBrand">
+        <span class="material-icons" aria-hidden="true">info</span>
+        Free live chat with a human agent for visitors.
+        <button type="button" class="lexi-chat__link" (click)="goSignIn()">Sign in</button>
+        for account-specific help and agent tools.
+      </p>
+      <p class="lexi-chat__hint" *ngIf="isGuest && !isLiveChatBrand">
+        <span class="material-icons" aria-hidden="true">info</span>
+        {{ lexxiName }} is an AI guide — great for quick LDMS questions.
+        <button type="button" class="lexi-chat__link" (click)="goSignIn()">Sign in</button>
+        for account-specific help and agent tools.
+      </p>
+      <p class="lexi-chat__hint" *ngIf="!isGuest">
+        <span class="material-icons" aria-hidden="true">auto_awesome</span>
+        {{ lexxiName }} explains LDMS workflows and can look up your org data when agent mode is enabled in Help &amp; Support.
+      </p>
+    </footer>
+  </section>
+
+  <button
+    type="button"
+    class="lexi-chat__fab"
+    (click)="toggleOpen()"
+    [attr.aria-expanded]="open"
+    [attr.aria-label]="fabLabel"
+    [title]="fabLabel"
+  >
+    <span class="material-icons lexi-chat__fab-icon" aria-hidden="true">{{ open ? 'close' : headerIcon }}</span>
+    <span class="lexi-chat__fab-label" *ngIf="!open">{{ fabLabel }}</span>
+  </button>
+</div>

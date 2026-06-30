@@ -13,6 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 import projectlx.inventory.management.business.auditable.api.PurchaseRequisitionServiceAuditable;
 import projectlx.inventory.management.business.logic.api.PurchaseRequisitionService;
 import projectlx.inventory.management.business.logic.support.OrganizationFunctionalCurrencySupport;
+import projectlx.inventory.management.business.logic.support.InventoryOrganizationScopeSupport;
+import projectlx.inventory.management.business.logic.support.PlatformBellNotificationSupport;
 import projectlx.inventory.management.business.logic.support.ProcurementApprovalStageResolver;
 import projectlx.inventory.management.business.validator.api.PurchaseRequisitionServiceValidator;
 import org.springframework.util.StringUtils;
@@ -41,6 +43,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -63,6 +66,8 @@ public class PurchaseRequisitionServiceImpl implements PurchaseRequisitionServic
     private final MessageService messageService;
     private final OrganizationFunctionalCurrencySupport organizationFunctionalCurrencySupport;
     private final ProcurementApprovalStageResolver procurementApprovalStageResolver;
+    private final InventoryOrganizationScopeSupport organizationScopeSupport;
+    private final PlatformBellNotificationSupport platformBellNotificationSupport;
 
     // === CRUD OPERATIONS ===
 
@@ -149,18 +154,38 @@ public class PurchaseRequisitionServiceImpl implements PurchaseRequisitionServic
             return buildResponse(404, false, message, null, null, null);
         }
 
+        PurchaseRequisition pr = prOpt.get();
+        if (!isVisibleToUser(pr, username, locale)) {
+            String message = messageService.getMessage(I18Code.MESSAGE_PURCHASE_REQUISITION_NOT_FOUND.getCode(), new String[]{}, locale);
+            return buildResponse(404, false, message, null, null, null);
+        }
+
         String message = messageService.getMessage(I18Code.MESSAGE_PURCHASE_REQUISITION_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
-        return buildResponse(200, true, message, mapToDto(prOpt.get()), null, null);
+        return buildResponse(200, true, message, mapToDto(pr), null, null);
     }
 
     @Override
     public PurchaseRequisitionResponse findAllAsList(Locale locale, String username) {
         log.info("Finding all purchase requisitions for user: {}", username);
 
-        List<PurchaseRequisition> prs = purchaseRequisitionRepository.findAll()
-                .stream()
-                .filter(pr -> pr.getEntityStatus() != EntityStatus.DELETED)
-                .collect(Collectors.toList());
+        List<PurchaseRequisition> prs;
+        if (organizationScopeSupport.isSystemUser(username)) {
+            prs = purchaseRequisitionRepository.findAll()
+                    .stream()
+                    .filter(pr -> pr.getEntityStatus() != EntityStatus.DELETED)
+                    .collect(Collectors.toList());
+        } else {
+            Long callerOrgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (callerOrgId == null) {
+                String message = messageService.getMessage(I18Code.MESSAGE_PURCHASE_REQUISITION_RETRIEVED_SUCCESSFULLY.getCode(), new String[]{}, locale);
+                return buildResponseList(200, true, message, List.of());
+            }
+            prs = purchaseRequisitionRepository.findAll()
+                    .stream()
+                    .filter(pr -> pr.getEntityStatus() != EntityStatus.DELETED)
+                    .filter(pr -> callerOrgId.equals(pr.getOrganizationId()))
+                    .collect(Collectors.toList());
+        }
 
         List<PurchaseRequisitionDto> dtos = prs.stream().map(this::mapToDto).collect(Collectors.toList());
 
@@ -258,9 +283,23 @@ public class PurchaseRequisitionServiceImpl implements PurchaseRequisitionServic
 
         Specification<PurchaseRequisition> spec = Specification.where(PurchaseRequisitionSpecification.deleted());
 
-        if (request.getOrganizationId() != null) {
+        if (!organizationScopeSupport.isSystemUser(username)) {
+            Long callerOrgId = organizationScopeSupport.resolveOrganizationId(username, locale);
+            if (callerOrgId == null) {
+                return buildResponsePage(200, true, "No requisitions found",
+                        new org.springframework.data.domain.PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+            }
+            Long requestedOrgId = request.getOrganizationId();
+            if (requestedOrgId != null && !requestedOrgId.equals(callerOrgId)) {
+                return buildResponsePage(404, false, "Requisition not found",
+                        new org.springframework.data.domain.PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+            }
+            request.setOrganizationId(callerOrgId);
+            spec = spec.and(PurchaseRequisitionSpecification.organizationIdEquals(callerOrgId));
+        } else if (request.getOrganizationId() != null) {
             spec = spec.and(PurchaseRequisitionSpecification.organizationIdEquals(request.getOrganizationId()));
         }
+
         if (request.getDepartmentId() != null) {
             spec = spec.and(PurchaseRequisitionSpecification.departmentIdEquals(request.getDepartmentId()));
         }
@@ -321,6 +360,20 @@ public class PurchaseRequisitionServiceImpl implements PurchaseRequisitionServic
         pr.setSubmittedByUserId(submittedByUserId);
 
         PurchaseRequisition savedPr = purchaseRequisitionServiceAuditable.update(pr, locale, username);
+
+        Map<String, Object> channelData = Map.of(
+                "requisitionNumber", savedPr.getRequisitionNumber(),
+                "lifecycleMessage", "A purchase requisition requires your approval.");
+        platformBellNotificationSupport.notifyProcurementApprovers(
+                pr.getOrganizationId(),
+                submittedByUserId,
+                "PURCHASE_REQUISITION_SUBMITTED",
+                "Purchase requisition submitted",
+                "Requisition " + pr.getRequisitionNumber() + " is awaiting your approval.",
+                "/products-inventory/requisitions",
+                "requisition",
+                savedPr.getId(),
+                channelData);
 
         String message = messageService.getMessage(I18Code.MESSAGE_PURCHASE_REQUISITION_SUBMITTED_SUCCESSFULLY.getCode(), new String[]{}, locale);
         return buildResponse(200, true, message, mapToDto(savedPr), null, null);
@@ -792,6 +845,10 @@ public class PurchaseRequisitionServiceImpl implements PurchaseRequisitionServic
         dto.setUpdatedAt(line.getUpdatedAt());
         dto.setEntityStatus(line.getEntityStatus());
         return dto;
+    }
+
+    private boolean isVisibleToUser(PurchaseRequisition pr, String username, Locale locale) {
+        return organizationScopeSupport.isOwnedByCaller(pr.getOrganizationId(), username, locale);
     }
 
     private PurchaseRequisitionResponse buildResponse(int status, boolean success, String message, PurchaseRequisitionDto dto, Page<PurchaseRequisitionDto> page, List<String> errors) {

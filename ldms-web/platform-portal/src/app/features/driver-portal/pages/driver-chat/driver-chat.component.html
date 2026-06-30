@@ -1,0 +1,63 @@
+<div class="dc">
+  <!-- Receiver contact header -->
+  <header class="dc-head">
+    <button type="button" class="dc-head__back" (click)="goBack()" aria-label="Back to trip">
+      <span class="material-icons">arrow_back</span>
+    </button>
+    <div class="dc-head__avatar">{{ receiverInitials }}</div>
+    <div class="dc-head__id">
+      <strong>{{ receiver?.name || 'Receiver' }}</strong>
+      <small *ngIf="receiver?.destinationName">{{ receiver?.destinationName }}</small>
+      <small *ngIf="!receiver?.destinationName && receiver?.phoneNumber">{{ receiver?.phoneNumber }}</small>
+    </div>
+    <a *ngIf="callHref" class="dc-head__call" [href]="callHref" aria-label="Call receiver">
+      <span class="material-icons">call</span>
+    </a>
+  </header>
+
+  <!-- Messages -->
+  <div #scrollBody class="dc-body">
+    <div class="dc-state" *ngIf="loading">
+      <span class="material-icons dc-spin">sync</span>
+      <p>Loading messages…</p>
+    </div>
+
+    <div class="dc-banner dc-banner--err" *ngIf="error && !loading">
+      <span class="material-icons">error_outline</span> {{ error }}
+    </div>
+
+    <div class="dc-empty" *ngIf="!loading && !error && messages.length === 0">
+      <span class="material-icons">forum</span>
+      <p>No messages yet</p>
+      <small>Say hello to {{ receiver?.name || 'the receiver' }} — messages are shared with this trip.</small>
+    </div>
+
+    <div class="dc-msg"
+         *ngFor="let m of messages; trackBy: trackById"
+         [class.dc-msg--mine]="m.mine">
+      <div class="dc-bubble">
+        <span class="dc-bubble__sender" *ngIf="!m.mine">{{ m.senderName }}</span>
+        <p class="dc-bubble__body">{{ m.body }}</p>
+        <span class="dc-bubble__meta">
+          {{ m.createdAtLabel }}
+          <span class="material-icons dc-bubble__tick" *ngIf="m.mine && m.read">done_all</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Composer -->
+  <form class="dc-composer" (ngSubmit)="send()">
+    <input
+      type="text"
+      class="dc-composer__input"
+      name="draft"
+      [(ngModel)]="draft"
+      placeholder="Type a message…"
+      autocomplete="off"
+    />
+    <button type="submit" class="dc-composer__send" [disabled]="sending || !draft.trim()" aria-label="Send">
+      <span class="material-icons">{{ sending ? 'hourglass_empty' : 'send' }}</span>
+    </button>
+  </form>
+</div>

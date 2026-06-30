@@ -17,4 +17,6 @@ public class ProductMultipleFiltersRequest extends MultipleFiltersRequest {
     private UnitOfMeasure unitOfMeasure;
     private String manufacturer;
     private EntityStatus entityStatus;
+    /** Owning supplier organisation id — used by customers browsing a linked supplier catalogue. */
+    private Long supplierId;
 }
